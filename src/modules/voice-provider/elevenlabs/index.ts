@@ -22,14 +22,28 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
     const outputPath = input.outputPath ?? `/tmp/voice_${Date.now()}.mp3`;
 
     try {
+      // Model selection:
+      //   eleven_multilingual_v2  — highest quality, all languages, no language_code param
+      //   eleven_turbo_v2_5       — faster, multilingual, accepts language_code for explicit routing
+      //
+      // Rule: if a non-English language is explicitly set, use turbo_v2_5 + language_code.
+      // Otherwise keep the high-quality multilingual_v2 default.
+      const hasExplicitLanguage = input.language && input.language !== "en";
+      const modelId = hasExplicitLanguage ? "eleven_turbo_v2_5" : "eleven_multilingual_v2";
+
       const body: Record<string, unknown> = {
         text: input.text,
-        model_id: "eleven_multilingual_v2",
+        model_id: modelId,
         voice_settings: {
           stability: input.stability ?? 0.5,
           similarity_boost: input.similarityBoost ?? 0.75,
         },
       };
+
+      // language_code only supported on turbo_v2_5
+      if (hasExplicitLanguage) {
+        body.language_code = input.language;
+      }
 
       // speed is a top-level API parameter (0.7-1.2); omit if default to avoid API errors on older models
       if (input.speed != null && input.speed !== 1.0) {

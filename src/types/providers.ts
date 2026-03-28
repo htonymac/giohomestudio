@@ -64,6 +64,7 @@ export interface VoiceGenerationInput {
   stability?: number;       // 0-1
   similarityBoost?: number; // 0-1
   speed?: number;           // speech rate 0.7-1.2 (ElevenLabs top-level param)
+  language?: string;        // ISO 639-1 code e.g. "en", "es", "fr" — influences model selection
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path for the generated audio file
 }

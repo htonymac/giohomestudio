@@ -301,6 +301,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
         text: enhanced.enhancedPrompt,
         voiceId: input.voiceId,
         speed: input.narrationSpeed,
+        language: input.voiceLanguage,
         outputPath: voicePath,
       };
 
