@@ -80,8 +80,10 @@ class KlingVideoProvider implements IVideoProvider {
 
       return { jobId, status, videoUrl };
     } catch (err: unknown) {
+      // Transient network errors — keep polling rather than aborting
       const message = err instanceof Error ? err.message : String(err);
-      return { jobId, status: "failed", error: message };
+      console.warn(`[Kling] checkStatus transient error (will retry): ${message}`);
+      return { jobId, status: "processing", error: message };
     }
   }
 

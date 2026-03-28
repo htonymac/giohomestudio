@@ -82,7 +82,7 @@ class RunwayVideoProvider implements IVideoProvider {
     try {
       const response = await axios.get(
         `${BASE_URL}/v1/tasks/${jobId}`,
-        { headers: runwayHeaders() }
+        { headers: runwayHeaders(), timeout: 15000 }
       );
 
       const task = response.data;
@@ -100,8 +100,11 @@ class RunwayVideoProvider implements IVideoProvider {
 
       return { jobId, status, videoUrl, error: task?.failure ?? undefined };
     } catch (err: unknown) {
+      // Transient network errors (timeout, connection reset, etc.) — treat as
+      // still-in-progress so the poll loop keeps trying rather than aborting.
       const message = err instanceof Error ? err.message : String(err);
-      return { jobId, status: "failed", error: message };
+      console.warn(`[Runway] checkStatus transient error (will retry): ${message}`);
+      return { jobId, status: "processing", error: message };
     }
   }
 

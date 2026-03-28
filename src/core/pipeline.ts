@@ -32,8 +32,8 @@ import type { PipelineInput, PipelineResult } from "@/types/pipeline";
 import type { Prisma } from "@prisma/client";
 import { JobType } from "@prisma/client";
 
-const POLL_INTERVAL_MS = 5000;
-const MAX_POLL_ATTEMPTS = 60; // 5-minute timeout
+const POLL_INTERVAL_MS = 8000;
+const MAX_POLL_ATTEMPTS = 90; // 12-minute timeout (Runway gen4.5 can take 3-8 min)
 
 // ── Provider resolution ─────────────────────────────────────
 // Reads VIDEO_PROVIDER env var. Falls back to mock_video if credentials
