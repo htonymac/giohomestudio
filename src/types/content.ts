@@ -35,6 +35,7 @@ export interface ContentItem {
   status: ContentStatus;
   originalInput: string;
   enhancedPrompt?: string | null;
+  requestedVideoProvider?: string | null;
   videoProvider?: string | null;
   voiceProvider?: string | null;
   musicProvider?: string | null;

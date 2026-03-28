@@ -9,6 +9,7 @@ export async function createContentItem(data: {
   mode?: "FREE";
   durationSeconds?: number;
   destinationPageId?: string;
+  requestedVideoProvider?: string;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -17,6 +18,7 @@ export async function createContentItem(data: {
       status: "PENDING",
       durationSeconds: data.durationSeconds,
       destinationPageId: data.destinationPageId,
+      requestedVideoProvider: data.requestedVideoProvider ?? null,
     },
     include: { destinationPage: true },
   });
@@ -28,6 +30,7 @@ export async function updateContentItem(
   updates: Partial<{
     status: ContentStatus;
     enhancedPrompt: string;
+    requestedVideoProvider: string;
     videoProvider: string;
     voiceProvider: string;
     musicProvider: string;

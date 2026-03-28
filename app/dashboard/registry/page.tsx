@@ -110,9 +110,15 @@ export default function RegistryPage() {
                     )}
                   </td>
                   <td className="py-3 pr-4 text-xs text-gray-500">
-                    {[item.videoProvider, item.voiceProvider, item.musicProvider]
-                      .filter(Boolean)
-                      .join(" / ") || "—"}
+                    {(() => {
+                      const videoDisplay =
+                        item.requestedVideoProvider && item.requestedVideoProvider !== item.videoProvider
+                          ? `${item.requestedVideoProvider}→${item.videoProvider ?? "?"}`
+                          : item.videoProvider;
+                      return [videoDisplay, item.voiceProvider, item.musicProvider]
+                        .filter(Boolean)
+                        .join(" / ") || "—";
+                    })()}
                   </td>
                   <td className="py-3 pr-4 text-xs text-gray-500">
                     {new Date(item.createdAt).toLocaleDateString()}

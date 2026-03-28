@@ -101,7 +101,15 @@ function ReviewCard({
 
         {/* Provider badges */}
         <div className="flex flex-wrap gap-1 mb-2">
-          <ProviderBadge name={item.videoProvider} />
+          {item.requestedVideoProvider && item.requestedVideoProvider !== item.videoProvider ? (
+            <span className="flex items-center gap-1">
+              <ProviderBadge name={item.requestedVideoProvider} />
+              <span className="text-gray-600 text-xs">→</span>
+              <ProviderBadge name={item.videoProvider} />
+            </span>
+          ) : (
+            <ProviderBadge name={item.videoProvider} />
+          )}
           <ProviderBadge name={item.voiceProvider} />
           <ProviderBadge name={item.musicProvider} />
         </div>

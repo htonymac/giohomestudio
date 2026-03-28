@@ -27,9 +27,10 @@ model ContentItem {
   status            ContentStatus    @default(PENDING)
   originalInput     String
   enhancedPrompt    String?
-  videoProvider     String?
-  voiceProvider     String?
-  musicProvider     String?
+  requestedVideoProvider String?
+  videoProvider          String?
+  voiceProvider          String?
+  musicProvider          String?
   videoPath         String?
   voicePath         String?
   musicPath         String?

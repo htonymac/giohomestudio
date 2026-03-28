@@ -287,7 +287,15 @@ export default function ContentDetailPage() {
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="text-xs text-gray-500 mb-1">Video</p>
-            <ProviderBadge name={item.videoProvider} />
+            {item.requestedVideoProvider && item.requestedVideoProvider !== item.videoProvider ? (
+              <span className="flex items-center gap-1 flex-wrap">
+                <ProviderBadge name={item.requestedVideoProvider} />
+                <span className="text-gray-600 text-xs">→ used:</span>
+                <ProviderBadge name={item.videoProvider} />
+              </span>
+            ) : (
+              <ProviderBadge name={item.videoProvider} />
+            )}
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1">Voice</p>

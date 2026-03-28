@@ -36,32 +36,34 @@ const POLL_INTERVAL_MS = 8000;
 const MAX_POLL_ATTEMPTS = 90; // 12-minute timeout (Runway gen4.5 can take 3-8 min)
 
 // ── Provider resolution ─────────────────────────────────────
-// Reads VIDEO_PROVIDER env var. Falls back to mock_video if credentials
-// for the chosen provider are missing.
+// Priority: per-request override → VIDEO_PROVIDER env var → mock_video fallback
+// Falls back to mock_video if credentials for the chosen provider are missing.
 
-function resolveVideoProvider(): IVideoProvider {
-  const chosen = env.video.provider;
+function resolveVideoProvider(requestOverride?: string): IVideoProvider {
+  const chosen = requestOverride ?? env.video.provider;
 
   if (chosen === "kling") {
     if (env.kling.accessKey && env.kling.secretKey) {
-      console.log("[Pipeline] Video provider: kling (selected via VIDEO_PROVIDER)");
+      const src = requestOverride ? "request" : "VIDEO_PROVIDER";
+      console.log(`[Pipeline] Video provider: kling (selected via ${src})`);
       return klingVideoProvider;
     }
-    console.warn("[Pipeline] VIDEO_PROVIDER=kling but credentials not set — falling back to mock_video");
+    console.warn("[Pipeline] kling selected but credentials not set — falling back to mock_video");
     return mockVideoProvider;
   }
 
   if (chosen === "runway") {
     if (env.runway.apiKey) {
-      console.log("[Pipeline] Video provider: runway (selected via VIDEO_PROVIDER)");
+      const src = requestOverride ? "request" : "VIDEO_PROVIDER";
+      console.log(`[Pipeline] Video provider: runway (selected via ${src})`);
       return runwayVideoProvider;
     }
-    console.warn("[Pipeline] VIDEO_PROVIDER=runway but RUNWAY_API_KEY not set — falling back to mock_video");
+    console.warn("[Pipeline] runway selected but RUNWAY_API_KEY not set — falling back to mock_video");
     return mockVideoProvider;
   }
 
   // mock_video or unrecognised value
-  console.log(`[Pipeline] Video provider: mock_video (VIDEO_PROVIDER=${chosen})`);
+  console.log(`[Pipeline] Video provider: mock_video (chosen=${chosen})`);
   return mockVideoProvider;
 }
 
@@ -113,7 +115,7 @@ async function pollVideoJob(
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
   const jobResults: PipelineResult["jobResults"] = {};
-  const videoProvider = resolveVideoProvider();
+  const videoProvider = resolveVideoProvider(input.videoProvider);
   const voiceProvider = resolveVoiceProvider();
 
   // ── 1. Create content item (status: PENDING) ──────────────
@@ -128,6 +130,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       mode: "FREE",
       durationSeconds: input.durationSeconds,
       destinationPageId: input.destinationPageId,
+      requestedVideoProvider: input.videoProvider,
     });
     contentItemId = contentItem.id;
   }

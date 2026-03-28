@@ -13,6 +13,7 @@ const schema = z.object({
   musicMood: z.string().optional(),
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]).optional(),
   destinationPageId: z.string().optional(),
+  videoProvider: z.enum(["runway", "kling", "mock_video"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -33,6 +34,7 @@ export async function POST(req: NextRequest) {
       mode: "FREE",
       durationSeconds: parsed.data.durationSeconds,
       destinationPageId: parsed.data.destinationPageId,
+      requestedVideoProvider: parsed.data.videoProvider,
     });
 
     // Fire pipeline in background — passes pre-created ID so pipeline skips re-creation

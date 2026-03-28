@@ -7,6 +7,7 @@ export default function StudioPage() {
   const [input, setInput] = useState("");
   const [duration, setDuration] = useState(5);
   const [musicMood, setMusicMood] = useState("epic");
+  const [videoProvider, setVideoProvider] = useState<"runway" | "kling" | "">("");
   const [destinationPageId, setDestinationPageId] = useState("");
   const [pages, setPages] = useState<DestinationPage[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -34,6 +35,7 @@ export default function StudioPage() {
           musicMood,
           aspectRatio: "9:16",
           destinationPageId: destinationPageId || undefined,
+          videoProvider: videoProvider || undefined,
         }),
       });
 
@@ -83,6 +85,19 @@ export default function StudioPage() {
               <option value={10}>10s</option>
               <option value={15}>15s</option>
               <option value={30}>30s</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Video provider</label>
+            <select
+              value={videoProvider}
+              onChange={(e) => setVideoProvider(e.target.value as "runway" | "kling" | "")}
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+            >
+              <option value="">Auto (env default)</option>
+              <option value="runway">Runway</option>
+              <option value="kling">Kling</option>
             </select>
           </div>
 

@@ -18,6 +18,7 @@ export interface PipelineInput {
   aspectRatio?: "9:16" | "16:9" | "1:1";
   contentItemId?: string; // pre-created item from API route — skip createContentItem if set
   destinationPageId?: string;
+  videoProvider?: "runway" | "kling" | "mock_video"; // per-request override; falls back to VIDEO_PROVIDER env var
 }
 
 export interface PipelineResult {
