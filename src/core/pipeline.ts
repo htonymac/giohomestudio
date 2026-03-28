@@ -110,6 +110,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       originalInput: input.rawInput,
       mode: "FREE",
       durationSeconds: input.durationSeconds,
+      destinationPageId: input.destinationPageId,
     });
     contentItemId = contentItem.id;
   }

@@ -77,6 +77,7 @@ export default function RegistryPage() {
               <th className="pb-3 pr-4 font-medium">ID</th>
               <th className="pb-3 pr-4 font-medium">Input</th>
               <th className="pb-3 pr-4 font-medium">Status</th>
+              <th className="pb-3 pr-4 font-medium">Destination</th>
               <th className="pb-3 pr-4 font-medium">Providers</th>
               <th className="pb-3 pr-4 font-medium">Created</th>
               <th className="pb-3 font-medium">Error</th>
@@ -96,6 +97,16 @@ export default function RegistryPage() {
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[item.status]}`}>
                       {item.status}
                     </span>
+                  </td>
+                  <td className="py-3 pr-4 text-xs text-gray-400">
+                    {item.destinationPage ? (
+                      <span title={item.destinationPage.handle ?? ""}>
+                        {item.destinationPage.name}
+                        <span className="text-gray-600 ml-1">({item.destinationPage.platform})</span>
+                      </span>
+                    ) : (
+                      <span className="text-gray-700">—</span>
+                    )}
                   </td>
                   <td className="py-3 pr-4 text-xs text-gray-500">
                     {[item.videoProvider, item.voiceProvider, item.musicProvider]
@@ -119,7 +130,7 @@ export default function RegistryPage() {
                 {/* Expanded detail row for FAILED items */}
                 {expanded === item.id && item.notes && (
                   <tr key={`${item.id}-detail`} className="bg-red-950/20">
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={7} className="px-4 py-3">
                       <div className="text-xs font-mono text-red-300 whitespace-pre-wrap break-all">
                         <span className="text-red-500 font-semibold block mb-1">
                           Full error — {item.id}

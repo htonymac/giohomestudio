@@ -63,6 +63,15 @@ function ReviewCard({
           <p className="text-gray-400 text-sm mb-3 line-clamp-3">{item.enhancedPrompt}</p>
         )}
 
+        {/* Destination page */}
+        {item.destinationPage && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-xs text-gray-500">Destination:</span>
+            <span className="text-xs text-gray-300 font-medium">{item.destinationPage.name}</span>
+            <span className="text-xs text-gray-600">({item.destinationPage.platform}{item.destinationPage.handle ? ` · ${item.destinationPage.handle}` : ""})</span>
+          </div>
+        )}
+
         {/* Providers + paths */}
         <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-4">
           {item.videoProvider && <span>Video: {item.videoProvider}</span>}

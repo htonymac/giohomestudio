@@ -8,6 +8,7 @@ export async function createContentItem(data: {
   originalInput: string;
   mode?: "FREE";
   durationSeconds?: number;
+  destinationPageId?: string;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -15,7 +16,9 @@ export async function createContentItem(data: {
       mode: data.mode ?? "FREE",
       status: "PENDING",
       durationSeconds: data.durationSeconds,
+      destinationPageId: data.destinationPageId,
     },
+    include: { destinationPage: true },
   });
   return item as ContentItem;
 }
@@ -46,7 +49,10 @@ export async function updateContentItem(
 }
 
 export async function getContentItem(id: string): Promise<ContentItem | null> {
-  const item = await prisma.contentItem.findUnique({ where: { id } });
+  const item = await prisma.contentItem.findUnique({
+    where: { id },
+    include: { destinationPage: true },
+  });
   return item as ContentItem | null;
 }
 
@@ -60,6 +66,7 @@ export async function listContentItems(filters?: {
     orderBy: { createdAt: "desc" },
     take: filters?.limit ?? 50,
     skip: filters?.offset ?? 0,
+    include: { destinationPage: true },
   });
   return items as ContentItem[];
 }

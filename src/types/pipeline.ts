@@ -17,6 +17,7 @@ export interface PipelineInput {
   musicMood?: string;
   aspectRatio?: "9:16" | "16:9" | "1:1";
   contentItemId?: string; // pre-created item from API route — skip createContentItem if set
+  destinationPageId?: string;
 }
 
 export interface PipelineResult {

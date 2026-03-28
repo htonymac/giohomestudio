@@ -7,28 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model DestinationPage {
+  id           String        @id @default(cuid())
+  name         String
+  platform     PagePlatform
+  handle       String?
+  notes        String?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  contentItems ContentItem[]
+
+  @@map("destination_pages")
+}
+
 model ContentItem {
-  id               String           @id @default(cuid())
-  mode             ContentMode      @default(FREE)
-  status           ContentStatus    @default(PENDING)
-  originalInput    String
-  enhancedPrompt   String?
-  videoProvider    String?
-  voiceProvider    String?
-  musicProvider    String?
-  videoPath        String?
-  voicePath        String?
-  musicPath        String?
-  mergedOutputPath String?
-  durationSeconds  Int?
-  notes            String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  approvedAt       DateTime?
-  rejectedAt       DateTime?
-  versions         ContentVersion[]
-  jobs             Job[]
-  reviewActions    ReviewAction[]
+  id                String           @id @default(cuid())
+  mode              ContentMode      @default(FREE)
+  status            ContentStatus    @default(PENDING)
+  originalInput     String
+  enhancedPrompt    String?
+  videoProvider     String?
+  voiceProvider     String?
+  musicProvider     String?
+  videoPath         String?
+  voicePath         String?
+  musicPath         String?
+  mergedOutputPath  String?
+  durationSeconds   Int?
+  notes             String?
+  destinationPageId String?
+  destinationPage   DestinationPage? @relation(fields: [destinationPageId], references: [id])
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  approvedAt        DateTime?
+  rejectedAt        DateTime?
+  versions          ContentVersion[]
+  jobs              Job[]
+  reviewActions     ReviewAction[]
 
   @@map("content_items")
 }
@@ -122,6 +138,14 @@ enum ContentStatus {
 
 enum ContentMode {
   FREE
+}
+
+enum PagePlatform {
+  YOUTUBE
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+  OTHER
 }
 
 enum JobType {

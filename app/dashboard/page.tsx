@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import type { DestinationPage } from "@/types/content";
 
 export default function StudioPage() {
   const [input, setInput] = useState("");
   const [duration, setDuration] = useState(5);
   const [musicMood, setMusicMood] = useState("epic");
+  const [destinationPageId, setDestinationPageId] = useState("");
+  const [pages, setPages] = useState<DestinationPage[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    fetch("/api/destination-pages")
+      .then((r) => r.json())
+      .then((d) => setPages(d.pages ?? []))
+      .catch(() => {});
+  }, []);
 
   async function handleGenerate() {
     if (!input.trim()) return;
@@ -23,6 +33,7 @@ export default function StudioPage() {
           durationSeconds: duration,
           musicMood,
           aspectRatio: "9:16",
+          destinationPageId: destinationPageId || undefined,
         }),
       });
 
@@ -88,6 +99,30 @@ export default function StudioPage() {
               <option value="upbeat">Upbeat</option>
               <option value="dramatic">Dramatic</option>
             </select>
+          </div>
+
+          <div className="col-span-2">
+            <label className="block text-sm text-gray-400 mb-1">Destination page</label>
+            <select
+              value={destinationPageId}
+              onChange={(e) => setDestinationPageId(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
+            >
+              <option value="">— No destination selected —</option>
+              {pages.filter((p) => p.isActive).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.platform}{p.handle ? ` · ${p.handle}` : ""})
+                </option>
+              ))}
+            </select>
+            {pages.length === 0 && (
+              <p className="text-xs text-gray-600 mt-1">
+                No pages configured.{" "}
+                <a href="/dashboard/destination-pages" className="text-brand-400 hover:text-brand-300">
+                  Add one in Destination Pages.
+                </a>
+              </p>
+            )}
           </div>
         </div>
 

@@ -1,5 +1,18 @@
 // GioHomeStudio — Content Types
 
+export type PagePlatform = "YOUTUBE" | "INSTAGRAM" | "TIKTOK" | "FACEBOOK" | "OTHER";
+
+export interface DestinationPage {
+  id: string;
+  name: string;
+  platform: PagePlatform;
+  handle?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export type ContentStatus =
   | "PENDING"
   | "ENHANCING"
@@ -31,6 +44,8 @@ export interface ContentItem {
   mergedOutputPath?: string | null;
   durationSeconds?: number | null;
   notes?: string | null;
+  destinationPageId?: string | null;
+  destinationPage?: DestinationPage | null;
   createdAt: Date;
   updatedAt: Date;
   approvedAt?: Date | null;

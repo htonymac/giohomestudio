@@ -12,6 +12,7 @@ const schema = z.object({
   voiceId: z.string().optional(),
   musicMood: z.string().optional(),
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]).optional(),
+  destinationPageId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       originalInput: parsed.data.rawInput,
       mode: "FREE",
       durationSeconds: parsed.data.durationSeconds,
+      destinationPageId: parsed.data.destinationPageId,
     });
 
     // Fire pipeline in background — passes pre-created ID so pipeline skips re-creation
