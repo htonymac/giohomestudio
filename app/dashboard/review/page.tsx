@@ -111,8 +111,92 @@ function ReviewCard({
             <ProviderBadge name={item.videoProvider} />
           )}
           <ProviderBadge name={item.voiceProvider} />
-          <ProviderBadge name={item.musicProvider} />
+          {item.requestedMusicProvider && item.requestedMusicProvider !== item.musicProvider ? (
+            <span className="flex items-center gap-1">
+              <ProviderBadge name={item.requestedMusicProvider} />
+              <span className="text-gray-600 text-xs">→</span>
+              <ProviderBadge name={item.musicProvider} />
+            </span>
+          ) : (
+            <ProviderBadge name={item.musicProvider} />
+          )}
         </div>
+
+        {/* Audio tags */}
+        {(item.audioMode || item.voiceId || item.voiceLanguage || item.narrationSpeed != null ||
+          item.narrationVolume != null || item.musicVolume != null || item.musicGenre || item.musicRegion) && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {item.audioMode && item.audioMode !== "voice_music" && (
+              <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                item.audioMode === "voice_only"
+                  ? "bg-blue-950/60 text-blue-400"
+                  : "bg-purple-950/60 text-purple-400"
+              }`}>
+                {item.audioMode.replace("_", "-")}
+              </span>
+            )}
+            {item.voiceId && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono" title={`Voice ID: ${item.voiceId}`}>
+                voice:{item.voiceId.slice(0, 8)}…
+              </span>
+            )}
+            {item.voiceLanguage && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                lang:{item.voiceLanguage}
+              </span>
+            )}
+            {item.narrationSpeed != null && item.narrationSpeed !== 1.0 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.narrationSpeed.toFixed(2)}×
+              </span>
+            )}
+            {item.narrationVolume != null && item.narrationVolume !== 1.0 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                narr:{Math.round(item.narrationVolume * 100)}%
+              </span>
+            )}
+            {item.musicGenre && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.musicGenre.replace("_", "-")}
+              </span>
+            )}
+            {item.musicRegion && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.musicRegion.replace("_", "-")}
+              </span>
+            )}
+            {item.musicVolume != null && item.musicVolume !== 0.85 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                mvol:{Math.round(item.musicVolume * 100)}%
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Control tags */}
+        {(item.videoType || item.visualStyle || item.videoQuality) && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {item.videoType && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.videoType.replace("_", " ")}
+              </span>
+            )}
+            {item.visualStyle && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.visualStyle.replace("_", " ")}
+              </span>
+            )}
+            {item.videoQuality && item.videoQuality !== "standard" && (
+              <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                item.videoQuality === "draft"
+                  ? "bg-yellow-950/60 text-yellow-500"
+                  : "bg-blue-950/60 text-blue-400"
+              }`}>
+                {item.videoQuality}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* View full details link */}
         <button

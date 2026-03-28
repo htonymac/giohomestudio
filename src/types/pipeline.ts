@@ -14,11 +14,26 @@ export interface PipelineInput {
   mode?: "FREE";
   durationSeconds?: number;
   voiceId?: string;
+  voiceLanguage?: string;
+  requestedVoiceProvider?: "elevenlabs" | "mock_voice";
+  narrationSpeed?: number;   // speech rate 0.7-1.2
+  narrationVolume?: number;  // voice level in FFmpeg mix 0.0-1.0
+  audioMode?: "voice_music" | "voice_only" | "music_only";
   musicMood?: string;
+  musicProvider?: string;    // per-request music provider override
+  musicVolume?: number;      // music ducking level 0.0-1.0
+  musicGenre?: string;
+  musicRegion?: string;
   aspectRatio?: "9:16" | "16:9" | "1:1";
   contentItemId?: string; // pre-created item from API route — skip createContentItem if set
   destinationPageId?: string;
   videoProvider?: "runway" | "kling" | "mock_video"; // per-request override; falls back to VIDEO_PROVIDER env var
+  videoQuality?: "draft" | "standard" | "high";
+  videoType?: "cinematic" | "ad_promo" | "realistic" | "animation" | "storytelling" | "social_short";
+  visualStyle?: "photorealistic" | "stylized" | "anime" | "3d" | "cinematic_dark" | "bright_commercial";
+  subjectType?: "human" | "animal" | "product" | "scene_only" | "custom_character";
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
 }
 
 export interface PipelineResult {

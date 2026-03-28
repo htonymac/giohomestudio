@@ -27,10 +27,26 @@ model ContentItem {
   status            ContentStatus    @default(PENDING)
   originalInput     String
   enhancedPrompt    String?
-  requestedVideoProvider String?
-  videoProvider          String?
-  voiceProvider          String?
-  musicProvider          String?
+  requestedVideoProvider   String?
+  videoProvider            String?
+  voiceProvider            String?
+  requestedVoiceProvider   String?   // user-selected voice provider: "elevenlabs" | "mock_voice"
+  voiceId                  String?   // requested ElevenLabs voice ID
+  voiceLanguage            String?   // language hint e.g. "en", "es", "fr"
+  narrationSpeed           Float?    // speech rate 0.7-1.2, default 1.0
+  narrationVolume          Float?    // voice level in FFmpeg mix 0.0-1.0, default 1.0
+  audioMode                String?   // "voice_music" | "voice_only" | "music_only"
+  musicProvider            String?
+  requestedMusicProvider   String?   // user-selected music provider
+  musicVolume              Float?    // music ducking level 0.0-1.0, default 0.85
+  musicGenre               String?   // cinematic | electronic | acoustic | orchestral | ambient | hip_hop
+  musicRegion              String?   // global | western | latin | asian | middle_eastern | african
+  videoQuality             String?   // draft | standard | high
+  videoType                String?   // cinematic | ad_promo | realistic | animation | storytelling | social_short
+  visualStyle              String?   // photorealistic | stylized | anime | 3d | cinematic_dark | bright_commercial
+  subjectType              String?   // human | animal | product | scene_only | custom_character
+  customSubjectDescription String?
+  aiAutoMode               Boolean   @default(true)
   videoPath         String?
   voicePath         String?
   musicPath         String?

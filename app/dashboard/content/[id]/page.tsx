@@ -204,7 +204,7 @@ export default function ContentDetailPage() {
   const isTerminal = ["APPROVED", "REJECTED", "FAILED", "ARCHIVED", "PUBLISHED"].includes(item.status);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -313,6 +313,7 @@ export default function ContentDetailPage() {
           )}
         </div>
 
+
         <div className="grid grid-cols-2 gap-3 text-sm pt-1 border-t border-gray-800">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">Created</p>
@@ -339,6 +340,264 @@ export default function ContentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Audio settings */}
+      {(item.audioMode != null || item.voiceId != null || item.voiceLanguage != null || item.requestedVoiceProvider != null ||
+        item.narrationSpeed != null || item.narrationVolume != null ||
+        item.musicVolume != null || item.requestedMusicProvider != null || item.musicGenre != null || item.musicRegion != null) && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">Audio settings</h2>
+          <div className="space-y-2 text-sm">
+
+            {/* Audio mode */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Audio mode</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">{item.audioMode ?? "voice_music"}</span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.audioMode === "voice_only" && "→ music generation skipped"}
+                  {item.audioMode === "music_only" && "→ voice generation skipped"}
+                  {(!item.audioMode || item.audioMode === "voice_music") && "→ voice + music both generated"}
+                </span>
+              </div>
+            </div>
+
+            {/* Voice provider */}
+            <div className="flex items-start gap-3 pt-2 border-t border-gray-800/60">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice provider</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedVoiceProvider ? (
+                  <>
+                    <span className="font-mono text-gray-400 text-xs">{item.requestedVoiceProvider}</span>
+                    <span className="text-gray-600 text-xs">→ used:</span>
+                  </>
+                ) : null}
+                <ProviderBadge name={item.voiceProvider} />
+              </div>
+            </div>
+
+            {/* Voice ID */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice</span>
+              <div>
+                {item.voiceId ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.voiceId}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ voice ID sent to ElevenLabs</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">default (Sarah · EXAVITQu4vr4xnSDxMaL)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Language */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Language</span>
+              <div>
+                {item.voiceLanguage ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.voiceLanguage}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ metadata; eleven_multilingual_v2 auto-detects</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto-detect</span>
+                )}
+              </div>
+            </div>
+
+            {/* Narration speed */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Speed</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.narrationSpeed != null ? `${item.narrationSpeed.toFixed(2)}×` : "1.0× (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ ElevenLabs speech rate (0.7–1.2)</span>
+              </div>
+            </div>
+
+            {/* Narration volume */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Narration vol.</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.narrationVolume != null ? `${Math.round(item.narrationVolume * 100)}%` : "100% (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ voice level in FFmpeg amix filter</span>
+              </div>
+            </div>
+
+            {/* Music provider */}
+            <div className="flex items-start gap-3 pt-2 border-t border-gray-800/60">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music provider</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedMusicProvider ? (
+                  <>
+                    <span className="font-mono text-gray-400 text-xs">{item.requestedMusicProvider}</span>
+                    {item.requestedMusicProvider !== item.musicProvider && (
+                      <>
+                        <span className="text-gray-600 text-xs">→ fell back to</span>
+                        <span className="font-mono text-orange-400 text-xs">{item.musicProvider}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto ({item.musicProvider ?? "—"})</span>
+                )}
+              </div>
+            </div>
+
+            {/* Music genre */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Genre</span>
+              <div>
+                {item.musicGenre ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.musicGenre.replace("_", "-")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ passed to music provider as genre hint</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set</span>
+                )}
+              </div>
+            </div>
+
+            {/* Music region */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Region</span>
+              <div>
+                {item.musicRegion ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.musicRegion.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ regional vibe hint for music selection</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">global</span>
+                )}
+              </div>
+            </div>
+
+            {/* Music volume */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music vol.</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.musicVolume != null ? `${Math.round(item.musicVolume * 100)}%` : "85% (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ music ducking level in FFmpeg amix filter</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Generation settings — only for items created with Studio Control Layer */}
+      {item.videoQuality != null && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">Generation settings</h2>
+          <div className="space-y-2 text-sm">
+
+            {/* Video provider */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Provider</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedVideoProvider ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.requestedVideoProvider}</span>
+                    {item.requestedVideoProvider !== item.videoProvider && (
+                      <>
+                        <span className="text-gray-600 text-xs">→ fell back to</span>
+                        <span className="font-mono text-orange-400 text-xs">{item.videoProvider}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto ({item.videoProvider ?? "—"})</span>
+                )}
+              </div>
+            </div>
+
+            {/* Quality */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Quality</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">{item.videoQuality ?? "standard"}</span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.videoQuality === "draft" && "→ mock_video used, no API credits consumed"}
+                  {item.videoQuality === "high" && "→ 10s video requested from provider"}
+                  {(item.videoQuality === "standard" || !item.videoQuality) && "→ normal call at selected duration"}
+                </span>
+              </div>
+            </div>
+
+            {/* Video type */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Type</span>
+              <div>
+                {item.videoType ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.videoType.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ sets prompt opening prefix</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → default cinematic prefix</span>
+                )}
+              </div>
+            </div>
+
+            {/* Visual style */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Visual style</span>
+              <div>
+                {item.visualStyle ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.visualStyle.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ injected as style descriptor in prompt</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → default cinematic grading</span>
+                )}
+              </div>
+            </div>
+
+            {/* Subject type */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Subject</span>
+              <div>
+                {item.subjectType ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.subjectType.replace("_", " ")}</span>
+                    {item.subjectType === "custom_character" && item.customSubjectDescription && (
+                      <span className="text-gray-400 text-xs ml-2 italic">"{item.customSubjectDescription}"</span>
+                    )}
+                    <span className="text-gray-600 text-xs ml-2">→ injected as subject phrase in prompt</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → no subject direction</span>
+                )}
+              </div>
+            </div>
+
+            {/* AI auto mode */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">AI auto</span>
+              <div>
+                <span className={`font-mono text-xs ${item.aiAutoMode === false ? "text-yellow-400" : "text-green-400"}`}>
+                  {item.aiAutoMode === false ? "off" : "on"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.aiAutoMode === false
+                    ? "→ minimal enhancement, prompt used close to raw input"
+                    : "→ full enhancement with prefix, style, and subject framing"}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Approve / Reject — only for IN_REVIEW */}
       {isInReview && !actionDone && (

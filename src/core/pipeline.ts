@@ -36,10 +36,15 @@ const POLL_INTERVAL_MS = 8000;
 const MAX_POLL_ATTEMPTS = 90; // 12-minute timeout (Runway gen4.5 can take 3-8 min)
 
 // ── Provider resolution ─────────────────────────────────────
-// Priority: per-request override → VIDEO_PROVIDER env var → mock_video fallback
+// Priority: draft quality (→ mock) → per-request override → VIDEO_PROVIDER env var
 // Falls back to mock_video if credentials for the chosen provider are missing.
 
-function resolveVideoProvider(requestOverride?: string): IVideoProvider {
+function resolveVideoProvider(requestOverride?: string, quality?: string): IVideoProvider {
+  // Draft quality always uses mock — saves API credits during iteration
+  if (quality === "draft") {
+    console.log("[Pipeline] Video provider: mock_video (quality=draft)");
+    return mockVideoProvider;
+  }
   const chosen = requestOverride ?? env.video.provider;
 
   if (chosen === "kling") {
@@ -67,9 +72,24 @@ function resolveVideoProvider(requestOverride?: string): IVideoProvider {
   return mockVideoProvider;
 }
 
-function resolveVoiceProvider(): IVoiceProvider {
+function resolveVoiceProvider(requestOverride?: string): IVoiceProvider {
+  // Explicit mock request — force mock even if key is set (useful for fast testing)
+  if (requestOverride === "mock_voice") {
+    console.log("[Pipeline] Voice provider: mock_voice (forced by request)");
+    return mockVoiceProvider;
+  }
+  // Explicit elevenlabs request — use it if key is set, else fail-fast to mock
+  if (requestOverride === "elevenlabs") {
+    if (env.elevenlabs.apiKey) {
+      console.log("[Pipeline] Voice provider: elevenlabs (forced by request)");
+      return elevenLabsVoiceProvider;
+    }
+    console.warn("[Pipeline] elevenlabs forced but ELEVENLABS_API_KEY not set — falling back to mock_voice");
+    return mockVoiceProvider;
+  }
+  // Auto (default): use ElevenLabs if key is present
   if (env.elevenlabs.apiKey) {
-    console.log("[Pipeline] Voice provider: elevenlabs");
+    console.log("[Pipeline] Voice provider: elevenlabs (auto)");
     return elevenLabsVoiceProvider;
   }
   console.log("[Pipeline] Voice provider: mock_voice (ElevenLabs key not set)");
@@ -115,8 +135,8 @@ async function pollVideoJob(
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
   const jobResults: PipelineResult["jobResults"] = {};
-  const videoProvider = resolveVideoProvider(input.videoProvider);
-  const voiceProvider = resolveVoiceProvider();
+  const videoProvider = resolveVideoProvider(input.videoProvider, input.videoQuality);
+  const voiceProvider = resolveVoiceProvider(input.requestedVoiceProvider);
 
   // ── 1. Create content item (status: PENDING) ──────────────
   // If the API route pre-created the item (to return the ID immediately),
@@ -131,6 +151,22 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       durationSeconds: input.durationSeconds,
       destinationPageId: input.destinationPageId,
       requestedVideoProvider: input.videoProvider,
+      videoQuality: input.videoQuality,
+      videoType: input.videoType,
+      visualStyle: input.visualStyle,
+      subjectType: input.subjectType,
+      customSubjectDescription: input.customSubjectDescription,
+      aiAutoMode: input.aiAutoMode,
+      voiceId: input.voiceId,
+      voiceLanguage: input.voiceLanguage,
+      requestedVoiceProvider: input.requestedVoiceProvider,
+      narrationSpeed: input.narrationSpeed,
+      narrationVolume: input.narrationVolume,
+      audioMode: input.audioMode,
+      requestedMusicProvider: input.musicProvider,
+      musicVolume: input.musicVolume,
+      musicGenre: input.musicGenre,
+      musicRegion: input.musicRegion,
     });
     contentItemId = contentItem.id;
   }
@@ -147,6 +183,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       rawInput: input.rawInput,
       mode: "FREE",
       targetDuration: input.durationSeconds,
+      videoType: input.videoType,
+      visualStyle: input.visualStyle,
+      subjectType: input.subjectType,
+      customSubjectDescription: input.customSubjectDescription,
+      aiAutoMode: input.aiAutoMode,
     });
 
     await updateContentItem(contentItemId, { enhancedPrompt: enhanced.enhancedPrompt });
@@ -167,9 +208,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       providerUsed: videoProvider.name,
     });
 
+    // high quality → request 10s; draft/standard use the user-chosen duration
+    const effectiveDuration =
+      input.videoQuality === "high"
+        ? Math.max(input.durationSeconds ?? 5, 10)
+        : (input.durationSeconds ?? 5);
+
     const videoGenInput = {
       prompt: enhanced.enhancedPrompt,
-      durationSeconds: input.durationSeconds ?? 5,
+      durationSeconds: effectiveDuration,
       aspectRatio: input.aspectRatio ?? "9:16",
     };
 
@@ -227,76 +274,97 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     console.log(`[Pipeline:${contentItemId}] Video ready ✓ → ${videoPath} (via ${activeVideoProvider.name})`);
 
     // ── 4. Voice Generation ───────────────────────────────────
+    // Skipped when audioMode is "music_only".
     // Non-blocking: failure is logged but does not abort the pipeline.
-    console.log(`[Pipeline:${contentItemId}] → GENERATING_VOICE (${voiceProvider.name})`);
-    await updateContentItem(contentItemId, {
-      status: "GENERATING_VOICE",
-      voiceProvider: voiceProvider.name,
-    });
-    const voiceJob = await createJob(contentItemId, "VOICE_GENERATE");
-    await updateJob(voiceJob.id, {
-      status: "RUNNING",
-      startedAt: new Date(),
-      providerUsed: voiceProvider.name,
-    });
+    const skipVoice = input.audioMode === "music_only";
 
-    const voiceFileName = `voice_${contentItemId}_${Date.now()}.mp3`;
-    const voicePath = path.join(env.storagePath, "voice", voiceFileName);
-
-    const voiceGenInput = {
-      text: enhanced.enhancedPrompt,
-      voiceId: input.voiceId,
-      outputPath: voicePath,
-    };
-
-    let voiceResult = await voiceProvider.generate(voiceGenInput);
-
-    // Auto-fallback to mock if real voice provider fails
-    if (voiceResult.status === "failed" && voiceProvider.name !== mockVoiceProvider.name) {
-      const elevenLabsError = voiceResult.error ?? "unknown error";
-      console.warn(
-        `[Pipeline:${contentItemId}] ${voiceProvider.name} failed (${elevenLabsError}) — falling back to mock_voice`
-      );
-      await updateContentItem(contentItemId, { voiceProvider: mockVoiceProvider.name });
-      await updateJob(voiceJob.id, {
-        providerUsed: mockVoiceProvider.name,
-        error: `${voiceProvider.name} failed: ${elevenLabsError}`,
-      });
-      voiceResult = await mockVoiceProvider.generate(voiceGenInput);
-    }
-
-    if (voiceResult.status === "failed") {
-      console.warn(
-        `[Pipeline:${contentItemId}] Voice generation failed (non-blocking): ${voiceResult.error}`
-      );
-      await updateJob(voiceJob.id, {
-        status: "FAILED",
-        error: voiceResult.error,
-        completedAt: new Date(),
-      });
-      jobResults.voiceGenerate = { success: false };
+    if (skipVoice) {
+      console.log(`[Pipeline:${contentItemId}] → Voice skipped (audioMode=music_only)`);
+      jobResults.voiceGenerate = { success: true, voicePath: undefined };
     } else {
-      await updateContentItem(contentItemId, { voicePath: voiceResult.localPath });
-      await updateJob(voiceJob.id, {
-        status: "COMPLETED",
-        outputPath: voiceResult.localPath,
-        completedAt: new Date(),
+      console.log(`[Pipeline:${contentItemId}] → GENERATING_VOICE (${voiceProvider.name})`);
+      await updateContentItem(contentItemId, {
+        status: "GENERATING_VOICE",
+        voiceProvider: voiceProvider.name,
       });
-      jobResults.voiceGenerate = { success: true, voicePath: voiceResult.localPath };
-      console.log(`[Pipeline:${contentItemId}] Voice ready ✓ → ${voiceResult.localPath}`);
+      const voiceJob = await createJob(contentItemId, "VOICE_GENERATE");
+      await updateJob(voiceJob.id, {
+        status: "RUNNING",
+        startedAt: new Date(),
+        providerUsed: voiceProvider.name,
+      });
+
+      const voiceFileName = `voice_${contentItemId}_${Date.now()}.mp3`;
+      const voicePath = path.join(env.storagePath, "voice", voiceFileName);
+
+      const voiceGenInput = {
+        text: enhanced.enhancedPrompt,
+        voiceId: input.voiceId,
+        speed: input.narrationSpeed,
+        outputPath: voicePath,
+      };
+
+      let voiceResult = await voiceProvider.generate(voiceGenInput);
+
+      // Auto-fallback to mock if real voice provider fails
+      if (voiceResult.status === "failed" && voiceProvider.name !== mockVoiceProvider.name) {
+        const voiceError = voiceResult.error ?? "unknown error";
+        console.warn(
+          `[Pipeline:${contentItemId}] ${voiceProvider.name} failed (${voiceError}) — falling back to mock_voice`
+        );
+        await updateContentItem(contentItemId, { voiceProvider: mockVoiceProvider.name });
+        await updateJob(voiceJob.id, {
+          providerUsed: mockVoiceProvider.name,
+          error: `${voiceProvider.name} failed: ${voiceError}`,
+        });
+        voiceResult = await mockVoiceProvider.generate(voiceGenInput);
+      }
+
+      if (voiceResult.status === "failed") {
+        console.warn(
+          `[Pipeline:${contentItemId}] Voice generation failed (non-blocking): ${voiceResult.error}`
+        );
+        await updateJob(voiceJob.id, {
+          status: "FAILED",
+          error: voiceResult.error,
+          completedAt: new Date(),
+        });
+        jobResults.voiceGenerate = { success: false };
+      } else {
+        await updateContentItem(contentItemId, { voicePath: voiceResult.localPath });
+        await updateJob(voiceJob.id, {
+          status: "COMPLETED",
+          outputPath: voiceResult.localPath,
+          completedAt: new Date(),
+        });
+        jobResults.voiceGenerate = { success: true, voicePath: voiceResult.localPath };
+        console.log(`[Pipeline:${contentItemId}] Voice ready ✓ → ${voiceResult.localPath}`);
+      }
     }
 
     // ── 5. Music Generation ───────────────────────────────────
+    // Skipped when audioMode is "voice_only".
     // Non-blocking: music is optional for merge.
-    console.log(`[Pipeline:${contentItemId}] → GENERATING_MUSIC`);
-    await updateContentItem(contentItemId, { status: "GENERATING_MUSIC" });
-    const musicJob = await createJob(contentItemId, "MUSIC_GENERATE");
-    await updateJob(musicJob.id, { status: "RUNNING", startedAt: new Date() });
+    const skipMusic = input.audioMode === "voice_only";
 
-    const musicResult = await resolveAndGenerateMusic({
-      mood: input.musicMood ?? "epic",
-      durationSeconds: input.durationSeconds ?? 30,
-    });
+    if (skipMusic) {
+      console.log(`[Pipeline:${contentItemId}] → Music skipped (audioMode=voice_only)`);
+      jobResults.musicGenerate = { success: true, musicPath: undefined };
+    } else {
+      console.log(`[Pipeline:${contentItemId}] → GENERATING_MUSIC`);
+      await updateContentItem(contentItemId, { status: "GENERATING_MUSIC" });
+      const musicJob = await createJob(contentItemId, "MUSIC_GENERATE");
+      await updateJob(musicJob.id, { status: "RUNNING", startedAt: new Date() });
+
+      const musicResult = await resolveAndGenerateMusic(
+        {
+          mood: input.musicMood ?? "epic",
+          genre: input.musicGenre,
+          region: input.musicRegion,
+          durationSeconds: input.durationSeconds ?? 30,
+        },
+        input.musicProvider  // per-request override (stock_library | mock_music)
+      );
 
     if (musicResult.status === "failed") {
       console.warn(
@@ -322,6 +390,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       jobResults.musicGenerate = { success: true, musicPath: musicResult.localPath };
       console.log(`[Pipeline:${contentItemId}] Music ready ✓ (${musicResult.providerName})`);
     }
+    } // end skipMusic block
 
     // ── 6. FFmpeg Merge ───────────────────────────────────────
     console.log(`[Pipeline:${contentItemId}] → MERGING`);
@@ -345,6 +414,8 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       voicePath: currentItem?.voicePath ?? null,
       musicPath: currentItem?.musicPath ?? null,
       outputFileName: mergedFileName,
+      musicVolume: input.musicVolume,     // user-controlled music ducking; undefined → default 0.85
+      voiceVolume: input.narrationVolume, // user-controlled narration level; undefined → default 1.0
     });
 
     if (!mergeResult.success) {
