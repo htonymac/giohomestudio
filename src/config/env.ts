@@ -15,13 +15,18 @@ export const env = {
   // Database
   databaseUrl: require("DATABASE_URL"),
 
+  // Video provider selection: "runway" | "kling" | "mock_video"
+  video: {
+    provider: optional("VIDEO_PROVIDER", "runway"),
+  },
+
   // Runway
   runway: {
     apiKey: optional("RUNWAY_API_KEY"),
     baseUrl: optional("RUNWAY_API_BASE_URL", "https://api.dev.runwayml.com"),
   },
 
-  // Kling AI (kept — balance-blocked, will auto-activate when credits added)
+  // Kling AI
   kling: {
     accessKey: optional("KLING_ACCESS_KEY"),
     secretKey: optional("KLING_SECRET_KEY"),

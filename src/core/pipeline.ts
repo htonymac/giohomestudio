@@ -36,19 +36,32 @@ const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 5-minute timeout
 
 // ── Provider resolution ─────────────────────────────────────
-// Priority: Runway → Kling → mock_video
-// Falls back automatically if credentials are missing or provider fails at runtime.
+// Reads VIDEO_PROVIDER env var. Falls back to mock_video if credentials
+// for the chosen provider are missing.
 
 function resolveVideoProvider(): IVideoProvider {
-  if (env.runway.apiKey) {
-    console.log("[Pipeline] Video provider: runway");
-    return runwayVideoProvider;
+  const chosen = env.video.provider;
+
+  if (chosen === "kling") {
+    if (env.kling.accessKey && env.kling.secretKey) {
+      console.log("[Pipeline] Video provider: kling (selected via VIDEO_PROVIDER)");
+      return klingVideoProvider;
+    }
+    console.warn("[Pipeline] VIDEO_PROVIDER=kling but credentials not set — falling back to mock_video");
+    return mockVideoProvider;
   }
-  if (env.kling.accessKey && env.kling.secretKey) {
-    console.log("[Pipeline] Video provider: kling");
-    return klingVideoProvider;
+
+  if (chosen === "runway") {
+    if (env.runway.apiKey) {
+      console.log("[Pipeline] Video provider: runway (selected via VIDEO_PROVIDER)");
+      return runwayVideoProvider;
+    }
+    console.warn("[Pipeline] VIDEO_PROVIDER=runway but RUNWAY_API_KEY not set — falling back to mock_video");
+    return mockVideoProvider;
   }
-  console.log("[Pipeline] Video provider: mock_video (no real credentials set)");
+
+  // mock_video or unrecognised value
+  console.log(`[Pipeline] Video provider: mock_video (VIDEO_PROVIDER=${chosen})`);
   return mockVideoProvider;
 }
 
