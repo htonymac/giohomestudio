@@ -14,7 +14,7 @@ export interface MergeInput {
   voicePath?: string | null;
   musicPath?: string | null;
   outputFileName: string;
-  musicVolume?: number; // 0.0 - 1.0, default 0.3
+  musicVolume?: number; // 0.0 - 1.0, default 0.85
 }
 
 export interface MergeOutput {
@@ -24,7 +24,7 @@ export interface MergeOutput {
 }
 
 export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
-  const { videoPath, voicePath, musicPath, outputFileName, musicVolume = 0.3 } = input;
+  const { videoPath, voicePath, musicPath, outputFileName, musicVolume = 0.85 } = input;
 
   if (!fs.existsSync(videoPath)) {
     return { success: false, error: `Video file not found: ${videoPath}` };
@@ -46,12 +46,12 @@ export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
 
     // Build filter complex for audio mixing
     if (hasVoice && hasMusic) {
-      // Mix voice at full volume + music at reduced volume
+      // normalize=0 prevents amix from halving the volume of each track
       cmd
         .complexFilter([
           `[1:a]volume=1.0[voice]`,
           `[2:a]volume=${musicVolume}[music]`,
-          `[voice][music]amix=inputs=2:duration=first:dropout_transition=2[aout]`,
+          `[voice][music]amix=inputs=2:duration=first:dropout_transition=2:normalize=0[aout]`,
         ])
         .outputOptions(["-map 0:v", "-map [aout]", "-c:v copy", "-c:a aac", "-shortest"]);
     } else if (hasVoice) {

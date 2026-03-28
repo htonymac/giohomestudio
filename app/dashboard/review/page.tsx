@@ -4,6 +4,32 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/types/content";
 
+type ProviderTier = "real" | "mock" | "stock" | "fallback";
+const PROVIDER_META: Record<string, { label: string; tier: ProviderTier }> = {
+  kling:         { label: "Kling",          tier: "real"     },
+  elevenlabs:    { label: "ElevenLabs",     tier: "real"     },
+  kie_ai:        { label: "Kie.ai",         tier: "real"     },
+  stock_library: { label: "stock",          tier: "stock"    },
+  mock_video:    { label: "mock_video",     tier: "fallback" },
+  mock_voice:    { label: "mock_voice",     tier: "fallback" },
+  mock_music:    { label: "mock_music",     tier: "mock"     },
+};
+const TIER_STYLE: Record<ProviderTier, string> = {
+  real:     "bg-green-900/60 text-green-300 border border-green-800",
+  stock:    "bg-blue-900/60 text-blue-300 border border-blue-800",
+  mock:     "bg-yellow-900/60 text-yellow-300 border border-yellow-800",
+  fallback: "bg-orange-900/60 text-orange-300 border border-orange-800",
+};
+function ProviderBadge({ name }: { name: string | null | undefined }) {
+  if (!name) return null;
+  const meta = PROVIDER_META[name] ?? { label: name, tier: "mock" as ProviderTier };
+  return (
+    <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${TIER_STYLE[meta.tier]}`}>
+      {meta.label}
+    </span>
+  );
+}
+
 function toMediaUrl(p: string | null | undefined): string | null {
   if (!p) return null;
   const clean = p.replace(/\\/g, "/").replace(/^(\.\/|\/)?storage\//, "");
@@ -71,6 +97,13 @@ function ReviewCard({
             <span className="text-gray-700 ml-1">({item.destinationPage.platform})</span>
           </p>
         )}
+
+        {/* Provider badges */}
+        <div className="flex flex-wrap gap-1 mb-2">
+          <ProviderBadge name={item.videoProvider} />
+          <ProviderBadge name={item.voiceProvider} />
+          <ProviderBadge name={item.musicProvider} />
+        </div>
 
         {/* View full details link */}
         <button

@@ -158,12 +158,16 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
     // Auto-fallback to mock if real provider fails (rate limit, 5xx, network, etc.)
     if (videoResult.status === "failed" && videoProvider.name !== mockVideoProvider.name) {
+      const klingError = videoResult.error ?? "unknown error";
       console.warn(
-        `[Pipeline:${contentItemId}] ${videoProvider.name} failed (${videoResult.error}) — falling back to mock_video`
+        `[Pipeline:${contentItemId}] ${videoProvider.name} failed (${klingError}) — falling back to mock_video`
       );
       activeVideoProvider = mockVideoProvider;
       await updateContentItem(contentItemId, { videoProvider: mockVideoProvider.name });
-      await updateJob(videoJob.id, { providerUsed: mockVideoProvider.name });
+      await updateJob(videoJob.id, {
+        providerUsed: mockVideoProvider.name,
+        error: `${videoProvider.name} failed: ${klingError}`,
+      });
       videoResult = await mockVideoProvider.generate(videoGenInput);
     }
 
@@ -229,11 +233,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
 
     // Auto-fallback to mock if real voice provider fails
     if (voiceResult.status === "failed" && voiceProvider.name !== mockVoiceProvider.name) {
+      const elevenLabsError = voiceResult.error ?? "unknown error";
       console.warn(
-        `[Pipeline:${contentItemId}] ${voiceProvider.name} failed (${voiceResult.error}) — falling back to mock_voice`
+        `[Pipeline:${contentItemId}] ${voiceProvider.name} failed (${elevenLabsError}) — falling back to mock_voice`
       );
       await updateContentItem(contentItemId, { voiceProvider: mockVoiceProvider.name });
-      await updateJob(voiceJob.id, { providerUsed: mockVoiceProvider.name });
+      await updateJob(voiceJob.id, {
+        providerUsed: mockVoiceProvider.name,
+        error: `${voiceProvider.name} failed: ${elevenLabsError}`,
+      });
       voiceResult = await mockVoiceProvider.generate(voiceGenInput);
     }
 

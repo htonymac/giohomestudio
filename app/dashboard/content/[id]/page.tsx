@@ -4,6 +4,35 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content";
 
+type ProviderTier = "real" | "mock" | "stock" | "fallback";
+
+const PROVIDER_META: Record<string, { label: string; tier: ProviderTier }> = {
+  kling:         { label: "Kling (real)",        tier: "real"     },
+  elevenlabs:    { label: "ElevenLabs (real)",    tier: "real"     },
+  kie_ai:        { label: "Kie.ai (real)",        tier: "real"     },
+  stock_library: { label: "Stock library",        tier: "stock"    },
+  mock_video:    { label: "mock_video (fallback)", tier: "fallback" },
+  mock_voice:    { label: "mock_voice (fallback)", tier: "fallback" },
+  mock_music:    { label: "mock_music (generated)", tier: "mock"   },
+};
+
+const TIER_STYLE: Record<ProviderTier, string> = {
+  real:     "bg-green-900/60 text-green-300 border border-green-800",
+  stock:    "bg-blue-900/60 text-blue-300 border border-blue-800",
+  mock:     "bg-yellow-900/60 text-yellow-300 border border-yellow-800",
+  fallback: "bg-orange-900/60 text-orange-300 border border-orange-800",
+};
+
+function ProviderBadge({ name }: { name: string | null | undefined }) {
+  if (!name) return <span className="text-gray-700 text-xs">—</span>;
+  const meta = PROVIDER_META[name] ?? { label: name, tier: "mock" as ProviderTier };
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded font-mono ${TIER_STYLE[meta.tier]}`}>
+      {meta.label}
+    </span>
+  );
+}
+
 function toMediaUrl(p: string | null | undefined): string | null {
   if (!p) return null;
   const clean = p.replace(/\\/g, "/").replace(/^(\.\/|\/)?storage\//, "");
@@ -255,24 +284,18 @@ export default function ContentDetailPage() {
         )}
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          {item.videoProvider && (
-            <div>
-              <p className="text-xs text-gray-500 mb-0.5">Video provider</p>
-              <p className="text-gray-300">{item.videoProvider}</p>
-            </div>
-          )}
-          {item.voiceProvider && (
-            <div>
-              <p className="text-xs text-gray-500 mb-0.5">Voice provider</p>
-              <p className="text-gray-300">{item.voiceProvider}</p>
-            </div>
-          )}
-          {item.musicProvider && (
-            <div>
-              <p className="text-xs text-gray-500 mb-0.5">Music provider</p>
-              <p className="text-gray-300">{item.musicProvider}</p>
-            </div>
-          )}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Video</p>
+            <ProviderBadge name={item.videoProvider} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Voice</p>
+            <ProviderBadge name={item.voiceProvider} />
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Music</p>
+            <ProviderBadge name={item.musicProvider} />
+          </div>
           {item.durationSeconds && (
             <div>
               <p className="text-xs text-gray-500 mb-0.5">Duration</p>
