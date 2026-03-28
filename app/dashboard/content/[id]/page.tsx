@@ -341,6 +341,85 @@ export default function ContentDetailPage() {
         )}
       </div>
 
+      {/* Audio settings */}
+      {(item.voiceId != null || item.voiceLanguage != null || item.musicVolume != null || item.requestedMusicProvider != null) && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">Audio settings</h2>
+          <div className="space-y-2 text-sm">
+
+            {/* Voice */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice</span>
+              <div>
+                {item.voiceId ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.voiceId}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ sent to ElevenLabs as voice ID</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">default (Sarah · EXAVITQu4vr4xnSDxMaL)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Voice language */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Language</span>
+              <div>
+                {item.voiceLanguage ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.voiceLanguage}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ stored as metadata; eleven_multilingual_v2 auto-detects</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto-detect (model reads input text language)</span>
+                )}
+              </div>
+            </div>
+
+            {/* Voice provider — actual used */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice provider</span>
+              <div>
+                <ProviderBadge name={item.voiceProvider} />
+              </div>
+            </div>
+
+            {/* Music provider */}
+            <div className="flex items-start gap-3 pt-2 border-t border-gray-800/60">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedMusicProvider ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.requestedMusicProvider}</span>
+                    {item.requestedMusicProvider !== item.musicProvider && (
+                      <>
+                        <span className="text-gray-600 text-xs">→ fell back to</span>
+                        <span className="font-mono text-orange-400 text-xs">{item.musicProvider}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto ({item.musicProvider ?? "—"})</span>
+                )}
+              </div>
+            </div>
+
+            {/* Music volume */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music volume</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.musicVolume != null ? `${Math.round(item.musicVolume * 100)}%` : "85% (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ music ducking level in FFmpeg mix</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* Generation settings — only for items created with Studio Control Layer */}
       {item.videoQuality != null && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">

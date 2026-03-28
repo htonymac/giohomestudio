@@ -3,6 +3,11 @@
 import { useEffect, useState } from "react";
 import type { DestinationPage } from "@/types/content";
 
+interface VoiceOption {
+  id: string;
+  name: string;
+}
+
 export default function StudioPage() {
   const [input, setInput] = useState("");
 
@@ -18,8 +23,18 @@ export default function StudioPage() {
   const [subjectType, setSubjectType] = useState("");
   const [customSubjectDescription, setCustomSubjectDescription] = useState("");
 
-  // Misc
+  // Audio — voice
+  const [voiceId, setVoiceId] = useState("");
+  const [voiceLanguage, setVoiceLanguage] = useState("");
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [voicesLoading, setVoicesLoading] = useState(true);
+
+  // Audio — music
   const [musicMood, setMusicMood] = useState("epic");
+  const [musicProvider, setMusicProvider] = useState<"" | "stock_library" | "mock_music">("");
+  const [musicVolume, setMusicVolume] = useState<number>(0.85);
+
+  // Destination
   const [destinationPageId, setDestinationPageId] = useState("");
   const [pages, setPages] = useState<DestinationPage[]>([]);
 
@@ -31,6 +46,16 @@ export default function StudioPage() {
       .then((r) => r.json())
       .then((d) => setPages(d.pages ?? []))
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/voices")
+      .then((r) => r.json())
+      .then((d) => {
+        setVoices(d.voices ?? []);
+        setVoicesLoading(false);
+      })
+      .catch(() => setVoicesLoading(false));
   }, []);
 
   async function handleGenerate() {
@@ -55,6 +80,10 @@ export default function StudioPage() {
           subjectType: subjectType || undefined,
           customSubjectDescription: subjectType === "custom_character" ? customSubjectDescription || undefined : undefined,
           aiAutoMode,
+          voiceId: voiceId || undefined,
+          voiceLanguage: voiceLanguage || undefined,
+          musicProvider: musicProvider || undefined,
+          musicVolume,
         }),
       });
 
@@ -197,10 +226,55 @@ export default function StudioPage() {
           </div>
         </div>
 
-        {/* ── Section: Misc controls ── */}
+        {/* ── Section: Audio controls ── */}
         <div className="border border-gray-800 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Audio & Destination</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Audio</p>
+
+          {/* Voice subsection */}
+          <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">Voice</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className={labelCls}>Voice</label>
+              {voicesLoading ? (
+                <div className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-gray-600 text-sm">
+                  Loading voices...
+                </div>
+              ) : (
+                <select
+                  value={voiceId}
+                  onChange={(e) => setVoiceId(e.target.value)}
+                  className={selectCls}
+                >
+                  <option value="">— Default (Sarah) —</option>
+                  {voices.map((v) => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div>
+              <label className={labelCls}>Voice language</label>
+              <select value={voiceLanguage} onChange={(e) => setVoiceLanguage(e.target.value)} className={selectCls}>
+                <option value="">— Auto-detect —</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="pt">Portuguese</option>
+                <option value="it">Italian</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="zh">Chinese</option>
+                <option value="ar">Arabic</option>
+                <option value="hi">Hindi</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Music subsection */}
+          <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">Music</p>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Music mood</label>
               <select value={musicMood} onChange={(e) => setMusicMood(e.target.value)} className={selectCls}>
@@ -213,21 +287,55 @@ export default function StudioPage() {
             </div>
 
             <div>
-              <label className={labelCls}>Destination page</label>
-              <select value={destinationPageId} onChange={(e) => setDestinationPageId(e.target.value)} className={selectCls}>
-                <option value="">— No destination —</option>
-                {pages.filter((p) => p.isActive).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.platform}{p.handle ? ` · ${p.handle}` : ""})
-                  </option>
-                ))}
+              <label className={labelCls}>Music provider</label>
+              <select value={musicProvider} onChange={(e) => setMusicProvider(e.target.value as "" | "stock_library" | "mock_music")} className={selectCls}>
+                <option value="">Auto</option>
+                <option value="stock_library">Stock Library</option>
+                <option value="mock_music">Mock (test tone)</option>
               </select>
-              {pages.length === 0 && (
-                <p className="text-xs text-gray-600 mt-1">
-                  <a href="/dashboard/destination-pages" className="text-blue-400 hover:text-blue-300">Add a destination page</a>
-                </p>
-              )}
             </div>
+
+            <div>
+              <label className={labelCls}>
+                Music volume / ducking
+                <span className="ml-1 text-gray-600">{Math.round(musicVolume * 100)}%</span>
+              </label>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={musicVolume}
+                onChange={(e) => setMusicVolume(Number(e.target.value))}
+                className="w-full accent-blue-500"
+              />
+              <div className="flex justify-between text-xs text-gray-700 mt-0.5">
+                <span>0% (off)</span>
+                <span>85% (default)</span>
+                <span>100%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Section: Destination ── */}
+        <div className="border border-gray-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Destination</p>
+          <div>
+            <label className={labelCls}>Destination page</label>
+            <select value={destinationPageId} onChange={(e) => setDestinationPageId(e.target.value)} className={selectCls}>
+              <option value="">— No destination —</option>
+              {pages.filter((p) => p.isActive).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name} ({p.platform}{p.handle ? ` · ${p.handle}` : ""})
+                </option>
+              ))}
+            </select>
+            {pages.length === 0 && (
+              <p className="text-xs text-gray-600 mt-1">
+                <a href="/dashboard/destination-pages" className="text-blue-400 hover:text-blue-300">Add a destination page</a>
+              </p>
+            )}
           </div>
         </div>
 

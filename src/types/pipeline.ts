@@ -14,7 +14,10 @@ export interface PipelineInput {
   mode?: "FREE";
   durationSeconds?: number;
   voiceId?: string;
+  voiceLanguage?: string;
   musicMood?: string;
+  musicProvider?: string;  // per-request music provider override
+  musicVolume?: number;    // ducking level 0.0-1.0
   aspectRatio?: "9:16" | "16:9" | "1:1";
   contentItemId?: string; // pre-created item from API route — skip createContentItem if set
   destinationPageId?: string;

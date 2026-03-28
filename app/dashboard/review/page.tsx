@@ -111,8 +111,37 @@ function ReviewCard({
             <ProviderBadge name={item.videoProvider} />
           )}
           <ProviderBadge name={item.voiceProvider} />
-          <ProviderBadge name={item.musicProvider} />
+          {item.requestedMusicProvider && item.requestedMusicProvider !== item.musicProvider ? (
+            <span className="flex items-center gap-1">
+              <ProviderBadge name={item.requestedMusicProvider} />
+              <span className="text-gray-600 text-xs">→</span>
+              <ProviderBadge name={item.musicProvider} />
+            </span>
+          ) : (
+            <ProviderBadge name={item.musicProvider} />
+          )}
         </div>
+
+        {/* Audio tags */}
+        {(item.voiceId || item.voiceLanguage || item.musicVolume != null) && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {item.voiceId && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono" title={`Voice ID: ${item.voiceId}`}>
+                voice:{item.voiceId.slice(0, 8)}…
+              </span>
+            )}
+            {item.voiceLanguage && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                lang:{item.voiceLanguage}
+              </span>
+            )}
+            {item.musicVolume != null && item.musicVolume !== 0.85 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                vol:{Math.round(item.musicVolume * 100)}%
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Control tags */}
         {(item.videoType || item.visualStyle || item.videoQuality) && (

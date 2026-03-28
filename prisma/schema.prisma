@@ -30,7 +30,11 @@ model ContentItem {
   requestedVideoProvider   String?
   videoProvider            String?
   voiceProvider            String?
+  voiceId                  String?   // requested ElevenLabs voice ID
+  voiceLanguage            String?   // language hint e.g. "en", "es", "fr"
   musicProvider            String?
+  requestedMusicProvider   String?   // user-selected music provider
+  musicVolume              Float?    // music ducking level 0.0-1.0, default 0.85
   videoQuality             String?   // draft | standard | high
   videoType                String?   // cinematic | ad_promo | realistic | animation | storytelling | social_short
   visualStyle              String?   // photorealistic | stylized | anime | 3d | cinematic_dark | bright_commercial

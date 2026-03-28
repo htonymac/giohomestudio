@@ -10,7 +10,10 @@ const schema = z.object({
   rawInput: z.string().min(3, "Input must be at least 3 characters"),
   durationSeconds: z.number().min(3).max(60).optional(),
   voiceId: z.string().optional(),
+  voiceLanguage: z.string().optional(),
   musicMood: z.string().optional(),
+  musicProvider: z.enum(["stock_library", "mock_music"]).optional(),
+  musicVolume: z.number().min(0).max(1).optional(),
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]).optional(),
   destinationPageId: z.string().optional(),
   videoProvider: z.enum(["runway", "kling", "mock_video"]).optional(),
@@ -47,6 +50,10 @@ export async function POST(req: NextRequest) {
       subjectType: parsed.data.subjectType,
       customSubjectDescription: parsed.data.customSubjectDescription,
       aiAutoMode: parsed.data.aiAutoMode,
+      voiceId: parsed.data.voiceId,
+      voiceLanguage: parsed.data.voiceLanguage,
+      requestedMusicProvider: parsed.data.musicProvider,
+      musicVolume: parsed.data.musicVolume,
     });
 
     // Fire pipeline in background — passes pre-created ID so pipeline skips re-creation

@@ -142,6 +142,10 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       subjectType: input.subjectType,
       customSubjectDescription: input.customSubjectDescription,
       aiAutoMode: input.aiAutoMode,
+      voiceId: input.voiceId,
+      voiceLanguage: input.voiceLanguage,
+      requestedMusicProvider: input.musicProvider,
+      musicVolume: input.musicVolume,
     });
     contentItemId = contentItem.id;
   }
@@ -315,10 +319,13 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
     const musicJob = await createJob(contentItemId, "MUSIC_GENERATE");
     await updateJob(musicJob.id, { status: "RUNNING", startedAt: new Date() });
 
-    const musicResult = await resolveAndGenerateMusic({
-      mood: input.musicMood ?? "epic",
-      durationSeconds: input.durationSeconds ?? 30,
-    });
+    const musicResult = await resolveAndGenerateMusic(
+      {
+        mood: input.musicMood ?? "epic",
+        durationSeconds: input.durationSeconds ?? 30,
+      },
+      input.musicProvider  // per-request override (stock_library | mock_music)
+    );
 
     if (musicResult.status === "failed") {
       console.warn(
@@ -367,6 +374,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       voicePath: currentItem?.voicePath ?? null,
       musicPath: currentItem?.musicPath ?? null,
       outputFileName: mergedFileName,
+      musicVolume: input.musicVolume,  // user-controlled ducking; undefined → default 0.85
     });
 
     if (!mergeResult.success) {
