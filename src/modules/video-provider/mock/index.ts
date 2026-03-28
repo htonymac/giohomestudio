@@ -35,9 +35,10 @@ class MockVideoProvider implements IVideoProvider {
     console.log(`[MockVideo] Generating ${duration}s test video → ${outputPath}`);
 
     try {
+      // Visible dark-blue frame so the user can confirm video is present
       await execFileAsync(FFMPEG_PATH, [
         "-f", "lavfi",
-        "-i", `color=c=black:s=1080x1920:d=${duration}`,
+        "-i", `color=c=0x0d1b4b:s=1080x1920:d=${duration}`,
         "-c:v", "libx264",
         "-t", duration,
         "-pix_fmt", "yuv420p",

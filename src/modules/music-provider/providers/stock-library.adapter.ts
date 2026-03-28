@@ -6,6 +6,7 @@ import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
 import type { IMusicProvider, MusicGenerationInput, MusicGenerationOutput } from "@/types/providers";
+import { mockMusicProvider } from "./mock-music.adapter";
 
 // Map moods to bundled stock track filenames.
 // Add .mp3 files to storage/music/stock/ to activate them.
@@ -29,13 +30,9 @@ class StockLibraryMusicProvider implements IMusicProvider {
     const trackPath = path.join(stockDir, trackFile);
 
     if (!fs.existsSync(trackPath)) {
-      // Fallback: return empty path without failing the pipeline
-      return {
-        status: "completed",
-        localPath: undefined,
-        providerName: this.name,
-        // Music is optional — pipeline can proceed without it
-      };
+      // No stock file present — fall back to mock music generator
+      console.log(`[StockLibrary] No stock file for mood "${mood}" (${trackPath}) — using mock_music`);
+      return mockMusicProvider.generate(input);
     }
 
     return {

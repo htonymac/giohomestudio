@@ -5,10 +5,12 @@
 import type { IMusicProvider } from "@/types/providers";
 import { stockLibraryMusicProvider } from "./providers/stock-library.adapter";
 import { kieAiMusicProvider } from "./providers/kie-ai.adapter";
+import { mockMusicProvider } from "./providers/mock-music.adapter";
 
 const musicProviders: Map<string, IMusicProvider> = new Map([
   [stockLibraryMusicProvider.name, stockLibraryMusicProvider],
   [kieAiMusicProvider.name, kieAiMusicProvider],
+  [mockMusicProvider.name, mockMusicProvider],
   // Add more providers here:
   // [mubertProvider.name, mubertProvider],
   // [stableAudioProvider.name, stableAudioProvider],
