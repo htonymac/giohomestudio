@@ -313,6 +313,46 @@ export default function ContentDetailPage() {
           )}
         </div>
 
+        {/* Studio controls */}
+        {(item.videoQuality || item.videoType || item.visualStyle || item.subjectType) && (
+          <div className="pt-2 border-t border-gray-800">
+            <p className="text-xs text-gray-500 mb-2">Studio controls</p>
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {item.videoQuality && (
+                <div>
+                  <span className="text-gray-600">Quality </span>
+                  <span className="text-gray-300 font-mono">{item.videoQuality}</span>
+                </div>
+              )}
+              {item.videoType && (
+                <div>
+                  <span className="text-gray-600">Type </span>
+                  <span className="text-gray-300 font-mono">{item.videoType.replace("_", " ")}</span>
+                </div>
+              )}
+              {item.visualStyle && (
+                <div>
+                  <span className="text-gray-600">Style </span>
+                  <span className="text-gray-300 font-mono">{item.visualStyle.replace("_", " ")}</span>
+                </div>
+              )}
+              {item.subjectType && (
+                <div>
+                  <span className="text-gray-600">Subject </span>
+                  <span className="text-gray-300 font-mono">{item.subjectType.replace("_", " ")}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-600">AI auto </span>
+                <span className="text-gray-300 font-mono">{item.aiAutoMode === false ? "off" : "on"}</span>
+              </div>
+            </div>
+            {item.customSubjectDescription && (
+              <p className="mt-1 text-gray-400 text-xs italic">"{item.customSubjectDescription}"</p>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-3 text-sm pt-1 border-t border-gray-800">
           <div>
             <p className="text-xs text-gray-500 mb-0.5">Created</p>

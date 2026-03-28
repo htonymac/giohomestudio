@@ -36,10 +36,15 @@ const POLL_INTERVAL_MS = 8000;
 const MAX_POLL_ATTEMPTS = 90; // 12-minute timeout (Runway gen4.5 can take 3-8 min)
 
 // ── Provider resolution ─────────────────────────────────────
-// Priority: per-request override → VIDEO_PROVIDER env var → mock_video fallback
+// Priority: draft quality (→ mock) → per-request override → VIDEO_PROVIDER env var
 // Falls back to mock_video if credentials for the chosen provider are missing.
 
-function resolveVideoProvider(requestOverride?: string): IVideoProvider {
+function resolveVideoProvider(requestOverride?: string, quality?: string): IVideoProvider {
+  // Draft quality always uses mock — saves API credits during iteration
+  if (quality === "draft") {
+    console.log("[Pipeline] Video provider: mock_video (quality=draft)");
+    return mockVideoProvider;
+  }
   const chosen = requestOverride ?? env.video.provider;
 
   if (chosen === "kling") {
@@ -115,7 +120,7 @@ async function pollVideoJob(
 
 export async function runPipeline(input: PipelineInput): Promise<PipelineResult> {
   const jobResults: PipelineResult["jobResults"] = {};
-  const videoProvider = resolveVideoProvider(input.videoProvider);
+  const videoProvider = resolveVideoProvider(input.videoProvider, input.videoQuality);
   const voiceProvider = resolveVoiceProvider();
 
   // ── 1. Create content item (status: PENDING) ──────────────
@@ -131,6 +136,12 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       durationSeconds: input.durationSeconds,
       destinationPageId: input.destinationPageId,
       requestedVideoProvider: input.videoProvider,
+      videoQuality: input.videoQuality,
+      videoType: input.videoType,
+      visualStyle: input.visualStyle,
+      subjectType: input.subjectType,
+      customSubjectDescription: input.customSubjectDescription,
+      aiAutoMode: input.aiAutoMode,
     });
     contentItemId = contentItem.id;
   }
@@ -147,6 +158,11 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       rawInput: input.rawInput,
       mode: "FREE",
       targetDuration: input.durationSeconds,
+      videoType: input.videoType,
+      visualStyle: input.visualStyle,
+      subjectType: input.subjectType,
+      customSubjectDescription: input.customSubjectDescription,
+      aiAutoMode: input.aiAutoMode,
     });
 
     await updateContentItem(contentItemId, { enhancedPrompt: enhanced.enhancedPrompt });
@@ -167,9 +183,15 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       providerUsed: videoProvider.name,
     });
 
+    // high quality → request 10s; draft/standard use the user-chosen duration
+    const effectiveDuration =
+      input.videoQuality === "high"
+        ? Math.max(input.durationSeconds ?? 5, 10)
+        : (input.durationSeconds ?? 5);
+
     const videoGenInput = {
       prompt: enhanced.enhancedPrompt,
-      durationSeconds: input.durationSeconds ?? 5,
+      durationSeconds: effectiveDuration,
       aspectRatio: input.aspectRatio ?? "9:16",
     };
 

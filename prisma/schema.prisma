@@ -27,10 +27,16 @@ model ContentItem {
   status            ContentStatus    @default(PENDING)
   originalInput     String
   enhancedPrompt    String?
-  requestedVideoProvider String?
-  videoProvider          String?
-  voiceProvider          String?
-  musicProvider          String?
+  requestedVideoProvider   String?
+  videoProvider            String?
+  voiceProvider            String?
+  musicProvider            String?
+  videoQuality             String?   // draft | standard | high
+  videoType                String?   // cinematic | ad_promo | realistic | animation | storytelling | social_short
+  visualStyle              String?   // photorealistic | stylized | anime | 3d | cinematic_dark | bright_commercial
+  subjectType              String?   // human | animal | product | scene_only | custom_character
+  customSubjectDescription String?
+  aiAutoMode               Boolean   @default(true)
   videoPath         String?
   voicePath         String?
   musicPath         String?

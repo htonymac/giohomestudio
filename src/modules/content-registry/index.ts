@@ -10,6 +10,12 @@ export async function createContentItem(data: {
   durationSeconds?: number;
   destinationPageId?: string;
   requestedVideoProvider?: string;
+  videoQuality?: string;
+  videoType?: string;
+  visualStyle?: string;
+  subjectType?: string;
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -19,6 +25,12 @@ export async function createContentItem(data: {
       durationSeconds: data.durationSeconds,
       destinationPageId: data.destinationPageId,
       requestedVideoProvider: data.requestedVideoProvider ?? null,
+      videoQuality: data.videoQuality ?? null,
+      videoType: data.videoType ?? null,
+      visualStyle: data.visualStyle ?? null,
+      subjectType: data.subjectType ?? null,
+      customSubjectDescription: data.customSubjectDescription ?? null,
+      aiAutoMode: data.aiAutoMode ?? true,
     },
     include: { destinationPage: true },
   });
@@ -34,6 +46,12 @@ export async function updateContentItem(
     videoProvider: string;
     voiceProvider: string;
     musicProvider: string;
+    videoQuality: string;
+    videoType: string;
+    visualStyle: string;
+    subjectType: string;
+    customSubjectDescription: string;
+    aiAutoMode: boolean;
     videoPath: string;
     voicePath: string;
     musicPath: string;

@@ -14,6 +14,12 @@ const schema = z.object({
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]).optional(),
   destinationPageId: z.string().optional(),
   videoProvider: z.enum(["runway", "kling", "mock_video"]).optional(),
+  videoQuality: z.enum(["draft", "standard", "high"]).optional(),
+  videoType: z.enum(["cinematic", "ad_promo", "realistic", "animation", "storytelling", "social_short"]).optional(),
+  visualStyle: z.enum(["photorealistic", "stylized", "anime", "3d", "cinematic_dark", "bright_commercial"]).optional(),
+  subjectType: z.enum(["human", "animal", "product", "scene_only", "custom_character"]).optional(),
+  customSubjectDescription: z.string().max(200).optional(),
+  aiAutoMode: z.boolean().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -35,6 +41,12 @@ export async function POST(req: NextRequest) {
       durationSeconds: parsed.data.durationSeconds,
       destinationPageId: parsed.data.destinationPageId,
       requestedVideoProvider: parsed.data.videoProvider,
+      videoQuality: parsed.data.videoQuality,
+      videoType: parsed.data.videoType,
+      visualStyle: parsed.data.visualStyle,
+      subjectType: parsed.data.subjectType,
+      customSubjectDescription: parsed.data.customSubjectDescription,
+      aiAutoMode: parsed.data.aiAutoMode,
     });
 
     // Fire pipeline in background — passes pre-created ID so pipeline skips re-creation

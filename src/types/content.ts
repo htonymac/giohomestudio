@@ -39,6 +39,12 @@ export interface ContentItem {
   videoProvider?: string | null;
   voiceProvider?: string | null;
   musicProvider?: string | null;
+  videoQuality?: string | null;
+  videoType?: string | null;
+  visualStyle?: string | null;
+  subjectType?: string | null;
+  customSubjectDescription?: string | null;
+  aiAutoMode?: boolean;
   videoPath?: string | null;
   voicePath?: string | null;
   musicPath?: string | null;

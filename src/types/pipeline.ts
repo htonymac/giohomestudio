@@ -19,6 +19,12 @@ export interface PipelineInput {
   contentItemId?: string; // pre-created item from API route — skip createContentItem if set
   destinationPageId?: string;
   videoProvider?: "runway" | "kling" | "mock_video"; // per-request override; falls back to VIDEO_PROVIDER env var
+  videoQuality?: "draft" | "standard" | "high";
+  videoType?: "cinematic" | "ad_promo" | "realistic" | "animation" | "storytelling" | "social_short";
+  visualStyle?: "photorealistic" | "stylized" | "anime" | "3d" | "cinematic_dark" | "bright_commercial";
+  subjectType?: "human" | "animal" | "product" | "scene_only" | "custom_character";
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
 }
 
 export interface PipelineResult {

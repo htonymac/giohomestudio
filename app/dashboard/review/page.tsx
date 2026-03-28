@@ -114,6 +114,31 @@ function ReviewCard({
           <ProviderBadge name={item.musicProvider} />
         </div>
 
+        {/* Control tags */}
+        {(item.videoType || item.visualStyle || item.videoQuality) && (
+          <div className="flex flex-wrap gap-1 mb-2">
+            {item.videoType && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.videoType.replace("_", " ")}
+              </span>
+            )}
+            {item.visualStyle && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.visualStyle.replace("_", " ")}
+              </span>
+            )}
+            {item.videoQuality && item.videoQuality !== "standard" && (
+              <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                item.videoQuality === "draft"
+                  ? "bg-yellow-950/60 text-yellow-500"
+                  : "bg-blue-950/60 text-blue-400"
+              }`}>
+                {item.videoQuality}
+              </span>
+            )}
+          </div>
+        )}
+
         {/* View full details link */}
         <button
           onClick={() => router.push(`/dashboard/content/${item.id}`)}

@@ -10,6 +10,12 @@ export interface PromptEnhancerInput {
   mode?: "FREE";
   targetDuration?: number; // seconds
   style?: string;
+  // Studio control layer — all optional, used when provided
+  videoType?: string;
+  visualStyle?: string;
+  subjectType?: string;
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
 }
 
 export interface PromptEnhancerOutput {
