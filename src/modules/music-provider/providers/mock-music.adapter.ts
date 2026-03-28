@@ -50,7 +50,12 @@ class MockMusicProvider implements IMusicProvider {
         outputPath,
       ]);
       console.log(`[MockMusic] Done → ${outputPath}`);
-      return { status: "completed", localPath: outputPath, providerName: this.name };
+      return {
+        status: "completed",
+        localPath: outputPath,
+        providerName: this.name,
+        track: { title: `mock ${mood} tone`, license: "generated" },
+      };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[MockMusic] FFmpeg failed: ${message}`);

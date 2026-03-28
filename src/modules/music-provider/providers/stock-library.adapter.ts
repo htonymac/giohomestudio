@@ -39,6 +39,10 @@ class StockLibraryMusicProvider implements IMusicProvider {
       status: "completed",
       localPath: trackPath,
       providerName: this.name,
+      track: {
+        title: trackFile.replace(".mp3", "").replace(/_/g, " "),
+        license: "stock",
+      },
     };
   }
 }
