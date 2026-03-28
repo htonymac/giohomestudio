@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ContentItem, ContentStatus } from "@/types/content";
 
 const STATUS_COLORS: Record<ContentStatus, string> = {
@@ -19,10 +20,10 @@ const STATUS_COLORS: Record<ContentStatus, string> = {
 };
 
 export default function RegistryPage() {
+  const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ContentStatus | "">("");
-  const [expanded, setExpanded] = useState<string | null>(null);
 
   async function fetchItems() {
     setLoading(true);
@@ -89,7 +90,7 @@ export default function RegistryPage() {
                 <tr
                   key={item.id}
                   className="text-gray-300 hover:text-white transition-colors cursor-pointer"
-                  onClick={() => setExpanded(expanded === item.id ? null : item.id)}
+                  onClick={() => router.push(`/dashboard/content/${item.id}`)}
                 >
                   <td className="py-3 pr-4 font-mono text-xs text-gray-500">{item.id.slice(0, 8)}...</td>
                   <td className="py-3 pr-4 max-w-xs truncate">{item.originalInput}</td>
@@ -127,19 +128,6 @@ export default function RegistryPage() {
                   </td>
                 </tr>
 
-                {/* Expanded detail row for FAILED items */}
-                {expanded === item.id && item.notes && (
-                  <tr key={`${item.id}-detail`} className="bg-red-950/20">
-                    <td colSpan={7} className="px-4 py-3">
-                      <div className="text-xs font-mono text-red-300 whitespace-pre-wrap break-all">
-                        <span className="text-red-500 font-semibold block mb-1">
-                          Full error — {item.id}
-                        </span>
-                        {item.notes}
-                      </div>
-                    </td>
-                  </tr>
-                )}
               </>
             ))}
           </tbody>

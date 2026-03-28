@@ -1,17 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/types/content";
 
-// Convert a local storage path to a browser-accessible /api/media URL.
-// e.g. "storage\merged\foo.mp4"  →  "/api/media/merged/foo.mp4"
-//      "storage/merged/foo.mp4"  →  "/api/media/merged/foo.mp4"
-function toMediaUrl(storagePath: string | null | undefined): string | null {
-  if (!storagePath) return null;
-  // Normalize backslashes → forward slashes, then strip leading "./" and "storage/"
-  const clean = storagePath
-    .replace(/\\/g, "/")
-    .replace(/^(\.\/|\/)?storage\//, "");
+function toMediaUrl(p: string | null | undefined): string | null {
+  if (!p) return null;
+  const clean = p.replace(/\\/g, "/").replace(/^(\.\/|\/)?storage\//, "");
   return `/api/media/${clean}`;
 }
 
@@ -24,73 +19,66 @@ function ReviewCard({
   onAction: (id: string, action: "approve" | "reject", note?: string) => void;
   actionLoading: string | null;
 }) {
+  const router = useRouter();
   const [note, setNote] = useState("");
   const [showRejectInput, setShowRejectInput] = useState(false);
   const videoUrl = toMediaUrl(item.mergedOutputPath);
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-      {/* Video preview */}
-      {videoUrl ? (
-        <div className="w-full bg-black flex items-center justify-center" style={{ maxHeight: 360 }}>
-          <video
-            src={videoUrl}
-            controls
-            className="max-h-[360px] max-w-full"
-            preload="metadata"
-          />
-        </div>
-      ) : (
-        <div className="w-full h-32 bg-gray-800 flex items-center justify-center text-gray-600 text-sm">
-          No merged output available
-        </div>
-      )}
+      {/* Video preview — click to open detail */}
+      <div
+        className="cursor-pointer"
+        onClick={() => router.push(`/dashboard/content/${item.id}`)}
+        title="Click to open full detail page"
+      >
+        {videoUrl ? (
+          <div className="w-full bg-black flex items-center justify-center" style={{ maxHeight: 280 }}>
+            <video
+              src={videoUrl}
+              className="max-h-[280px] max-w-full pointer-events-none"
+              preload="metadata"
+            />
+          </div>
+        ) : (
+          <div className="w-full h-24 bg-gray-800 flex items-center justify-center text-gray-500 text-xs">
+            {item.mergedOutputPath ? "File missing — click to inspect" : "No merged output yet"}
+          </div>
+        )}
+      </div>
 
-      <div className="p-5">
+      <div className="p-4">
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-500 font-mono mb-1">{item.id}</p>
-            <p className="text-white font-medium">{item.originalInput}</p>
+            <p className="text-xs text-gray-600 font-mono truncate mb-0.5">{item.id}</p>
+            <p
+              className="text-white font-medium text-sm cursor-pointer hover:text-blue-300 transition-colors"
+              onClick={() => router.push(`/dashboard/content/${item.id}`)}
+            >
+              {item.originalInput}
+            </p>
           </div>
           <span className="text-xs bg-orange-900 text-orange-300 px-2 py-0.5 rounded shrink-0">
             IN_REVIEW
           </span>
         </div>
 
-        {/* Enhanced prompt */}
-        {item.enhancedPrompt && (
-          <p className="text-gray-400 text-sm mb-3 line-clamp-3">{item.enhancedPrompt}</p>
-        )}
-
-        {/* Destination page */}
+        {/* Destination */}
         {item.destinationPage && (
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-xs text-gray-500">Destination:</span>
-            <span className="text-xs text-gray-300 font-medium">{item.destinationPage.name}</span>
-            <span className="text-xs text-gray-600">({item.destinationPage.platform}{item.destinationPage.handle ? ` · ${item.destinationPage.handle}` : ""})</span>
-          </div>
+          <p className="text-xs text-gray-500 mb-2">
+            → {item.destinationPage.name}
+            <span className="text-gray-700 ml-1">({item.destinationPage.platform})</span>
+          </p>
         )}
 
-        {/* Providers + paths */}
-        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mb-4">
-          {item.videoProvider && <span>Video: {item.videoProvider}</span>}
-          {item.voiceProvider && <span>Voice: {item.voiceProvider}</span>}
-          {item.musicProvider && <span>Music: {item.musicProvider}</span>}
-          {item.mergedOutputPath && (
-            <a
-              href={videoUrl ?? "#"}
-              download
-              className="text-blue-400 hover:text-blue-300"
-            >
-              Download merged
-            </a>
-          )}
-        </div>
-
-        <p className="text-xs text-gray-600 mb-4">
-          {new Date(item.createdAt).toLocaleString()}
-        </p>
+        {/* View full details link */}
+        <button
+          onClick={() => router.push(`/dashboard/content/${item.id}`)}
+          className="text-xs text-blue-400 hover:text-blue-300 transition-colors mb-3 block"
+        >
+          View full details, video player, audio tracks →
+        </button>
 
         {/* Actions */}
         {showRejectInput ? (
@@ -146,9 +134,11 @@ function ReviewCard({
 }
 
 export default function ReviewPage() {
+  const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [recentlyActioned, setRecentlyActioned] = useState<{ id: string; action: "approved" | "rejected" }[]>([]);
 
   async function fetchQueue() {
     setLoading(true);
@@ -167,6 +157,7 @@ export default function ReviewPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ note }),
     });
+    setRecentlyActioned((prev) => [...prev, { id, action: action === "approve" ? "approved" : "rejected" }]);
     await fetchQueue();
     setActionLoading(null);
   }
@@ -183,12 +174,44 @@ export default function ReviewPage() {
         </button>
       </div>
 
+      {/* Recently actioned — stays visible */}
+      {recentlyActioned.length > 0 && (
+        <div className="mb-6 space-y-2">
+          {recentlyActioned.map(({ id, action }) => (
+            <div
+              key={id}
+              className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm ${
+                action === "approved"
+                  ? "bg-green-900/30 border-green-800 text-green-300"
+                  : "bg-red-900/30 border-red-800 text-red-300"
+              }`}
+            >
+              <span>
+                {action === "approved" ? "✓ Approved" : "✗ Rejected"} — <span className="font-mono text-xs">{id.slice(0, 8)}...</span>
+              </span>
+              <button
+                onClick={() => router.push(`/dashboard/content/${id}`)}
+                className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+              >
+                View details →
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {loading && <p className="text-gray-500">Loading...</p>}
 
-      {!loading && items.length === 0 && (
+      {!loading && items.length === 0 && recentlyActioned.length === 0 && (
         <div className="text-center py-16 text-gray-600">
           <p className="text-lg">No items pending review.</p>
           <p className="text-sm mt-1">Generate content from the Studio to see it here.</p>
+        </div>
+      )}
+
+      {!loading && items.length === 0 && recentlyActioned.length > 0 && (
+        <div className="text-center py-8 text-gray-600">
+          <p className="text-sm">Queue is empty. Use the links above to view your actioned items.</p>
         </div>
       )}
 
