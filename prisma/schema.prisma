@@ -1,0 +1,155 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model ContentItem {
+  id               String           @id @default(cuid())
+  mode             ContentMode      @default(FREE)
+  status           ContentStatus    @default(PENDING)
+  originalInput    String
+  enhancedPrompt   String?
+  videoProvider    String?
+  voiceProvider    String?
+  musicProvider    String?
+  videoPath        String?
+  voicePath        String?
+  musicPath        String?
+  mergedOutputPath String?
+  durationSeconds  Int?
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  approvedAt       DateTime?
+  rejectedAt       DateTime?
+  versions         ContentVersion[]
+  jobs             Job[]
+  reviewActions    ReviewAction[]
+
+  @@map("content_items")
+}
+
+model ContentVersion {
+  id               String        @id @default(cuid())
+  contentItemId    String
+  versionNumber    Int
+  enhancedPrompt   String?
+  videoPath        String?
+  voicePath        String?
+  musicPath        String?
+  mergedOutputPath String?
+  status           ContentStatus
+  reason           String?
+  createdAt        DateTime      @default(now())
+  contentItem      ContentItem   @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@map("content_versions")
+}
+
+model Job {
+  id            String      @id @default(cuid())
+  contentItemId String
+  type          JobType
+  status        JobStatus   @default(QUEUED)
+  providerUsed  String?
+  providerJobId String?
+  outputPath    String?
+  error         String?
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@map("jobs")
+}
+
+model ReviewAction {
+  id            String           @id @default(cuid())
+  contentItemId String
+  action        ReviewActionType
+  reviewerNote  String?
+  createdAt     DateTime         @default(now())
+  contentItem   ContentItem      @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+
+  @@map("review_actions")
+}
+
+model AlertLog {
+  id            String      @id @default(cuid())
+  contentItemId String?
+  channel       String
+  message       String
+  status        AlertStatus @default(PENDING)
+  error         String?
+  sentAt        DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@map("alerts_log")
+}
+
+model ProviderConfig {
+  id           String   @id @default(cuid())
+  providerType String
+  providerName String
+  isActive     Boolean  @default(true)
+  config       Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([providerType, providerName])
+  @@map("provider_configs")
+}
+
+enum ContentStatus {
+  PENDING
+  ENHANCING
+  GENERATING_VIDEO
+  GENERATING_VOICE
+  GENERATING_MUSIC
+  MERGING
+  IN_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ContentMode {
+  FREE
+}
+
+enum JobType {
+  PROMPT_ENHANCE
+  VIDEO_GENERATE
+  VOICE_GENERATE
+  MUSIC_GENERATE
+  FFMPEG_MERGE
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  SKIPPED
+}
+
+enum ReviewActionType {
+  APPROVED
+  REJECTED
+  SENT_BACK
+  SAVED_DRAFT
+  MARKED_FOR_LATER
+}
+
+enum AlertStatus {
+  PENDING
+  SENT
+  FAILED
+}

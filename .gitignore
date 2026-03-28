@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+
+# Env files — NEVER commit
+.env
+.env.local
+.env.production
+
+# Prisma
+prisma/migrations/*/migration_lock.toml
+
+# Storage (media files)
+storage/video/*
+storage/voice/*
+storage/music/*
+storage/merged/*
+!storage/.gitkeep
+!storage/video/.gitkeep
+!storage/voice/.gitkeep
+!storage/music/.gitkeep
+!storage/merged/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
