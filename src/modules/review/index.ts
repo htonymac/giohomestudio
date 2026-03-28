@@ -10,6 +10,7 @@ export async function getPendingReviewItems() {
   return prisma.contentItem.findMany({
     where: { status: "IN_REVIEW" },
     orderBy: { createdAt: "asc" },
+    include: { destinationPage: true },
   });
 }
 
