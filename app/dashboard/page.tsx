@@ -77,7 +77,7 @@ export default function StudioPage() {
   const labelCls = "block text-xs text-gray-400 mb-1 font-medium";
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="w-full">
       <h1 className="text-2xl font-bold text-white mb-1">Free Mode Studio</h1>
       <p className="text-gray-500 mb-6 text-sm">
         Describe your idea. GioHomeStudio will enhance your prompt and generate a video, voice, and music track.
@@ -98,8 +98,8 @@ export default function StudioPage() {
         </div>
 
         {/* ── Section: Core controls ── */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Core</p>
+        <div className="border border-gray-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Core</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <label className={labelCls}>Duration</label>
@@ -140,8 +140,8 @@ export default function StudioPage() {
         </div>
 
         {/* ── Section: Style controls ── */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Style</p>
+        <div className="border border-gray-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Style</p>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Video type</label>
@@ -198,8 +198,8 @@ export default function StudioPage() {
         </div>
 
         {/* ── Section: Misc controls ── */}
-        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Audio & Destination</p>
+        <div className="border border-gray-800 rounded-xl p-4">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Audio & Destination</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Music mood</label>

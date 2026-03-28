@@ -204,7 +204,7 @@ export default function ContentDetailPage() {
   const isTerminal = ["APPROVED", "REJECTED", "FAILED", "ARCHIVED", "PUBLISHED"].includes(item.status);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-4xl">
       {/* Back */}
       <button
         onClick={() => router.back()}
@@ -313,45 +313,6 @@ export default function ContentDetailPage() {
           )}
         </div>
 
-        {/* Studio controls */}
-        {(item.videoQuality || item.videoType || item.visualStyle || item.subjectType) && (
-          <div className="pt-2 border-t border-gray-800">
-            <p className="text-xs text-gray-500 mb-2">Studio controls</p>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {item.videoQuality && (
-                <div>
-                  <span className="text-gray-600">Quality </span>
-                  <span className="text-gray-300 font-mono">{item.videoQuality}</span>
-                </div>
-              )}
-              {item.videoType && (
-                <div>
-                  <span className="text-gray-600">Type </span>
-                  <span className="text-gray-300 font-mono">{item.videoType.replace("_", " ")}</span>
-                </div>
-              )}
-              {item.visualStyle && (
-                <div>
-                  <span className="text-gray-600">Style </span>
-                  <span className="text-gray-300 font-mono">{item.visualStyle.replace("_", " ")}</span>
-                </div>
-              )}
-              {item.subjectType && (
-                <div>
-                  <span className="text-gray-600">Subject </span>
-                  <span className="text-gray-300 font-mono">{item.subjectType.replace("_", " ")}</span>
-                </div>
-              )}
-              <div>
-                <span className="text-gray-600">AI auto </span>
-                <span className="text-gray-300 font-mono">{item.aiAutoMode === false ? "off" : "on"}</span>
-              </div>
-            </div>
-            {item.customSubjectDescription && (
-              <p className="mt-1 text-gray-400 text-xs italic">"{item.customSubjectDescription}"</p>
-            )}
-          </div>
-        )}
 
         <div className="grid grid-cols-2 gap-3 text-sm pt-1 border-t border-gray-800">
           <div>
@@ -379,6 +340,112 @@ export default function ContentDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Generation settings — only for items created with Studio Control Layer */}
+      {item.videoQuality != null && (
+        <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-semibold text-gray-300 mb-4">Generation settings</h2>
+          <div className="space-y-2 text-sm">
+
+            {/* Video provider */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Provider</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedVideoProvider ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.requestedVideoProvider}</span>
+                    {item.requestedVideoProvider !== item.videoProvider && (
+                      <>
+                        <span className="text-gray-600 text-xs">→ fell back to</span>
+                        <span className="font-mono text-orange-400 text-xs">{item.videoProvider}</span>
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">auto ({item.videoProvider ?? "—"})</span>
+                )}
+              </div>
+            </div>
+
+            {/* Quality */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Quality</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">{item.videoQuality ?? "standard"}</span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.videoQuality === "draft" && "→ mock_video used, no API credits consumed"}
+                  {item.videoQuality === "high" && "→ 10s video requested from provider"}
+                  {(item.videoQuality === "standard" || !item.videoQuality) && "→ normal call at selected duration"}
+                </span>
+              </div>
+            </div>
+
+            {/* Video type */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Type</span>
+              <div>
+                {item.videoType ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.videoType.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ sets prompt opening prefix</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → default cinematic prefix</span>
+                )}
+              </div>
+            </div>
+
+            {/* Visual style */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Visual style</span>
+              <div>
+                {item.visualStyle ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.visualStyle.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ injected as style descriptor in prompt</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → default cinematic grading</span>
+                )}
+              </div>
+            </div>
+
+            {/* Subject type */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">Subject</span>
+              <div>
+                {item.subjectType ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.subjectType.replace("_", " ")}</span>
+                    {item.subjectType === "custom_character" && item.customSubjectDescription && (
+                      <span className="text-gray-400 text-xs ml-2 italic">"{item.customSubjectDescription}"</span>
+                    )}
+                    <span className="text-gray-600 text-xs ml-2">→ injected as subject phrase in prompt</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set → no subject direction</span>
+                )}
+              </div>
+            </div>
+
+            {/* AI auto mode */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-24 shrink-0 text-xs pt-0.5">AI auto</span>
+              <div>
+                <span className={`font-mono text-xs ${item.aiAutoMode === false ? "text-yellow-400" : "text-green-400"}`}>
+                  {item.aiAutoMode === false ? "off" : "on"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.aiAutoMode === false
+                    ? "→ minimal enhancement, prompt used close to raw input"
+                    : "→ full enhancement with prefix, style, and subject framing"}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Approve / Reject — only for IN_REVIEW */}
       {isInReview && !actionDone && (
