@@ -63,6 +63,7 @@ export interface VoiceGenerationInput {
   voiceId?: string;         // provider-specific voice ID
   stability?: number;       // 0-1
   similarityBoost?: number; // 0-1
+  speed?: number;           // speech rate 0.7-1.2 (ElevenLabs top-level param)
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path for the generated audio file
 }
@@ -114,7 +115,8 @@ export interface MusicTrackMetadata {
 // Generation providers (Mubert) use mood/prompt/durationSeconds.
 export interface MusicGenerationInput {
   mood?: string;            // "epic" | "calm" | "emotional" | "upbeat" | "dramatic"
-  genre?: string;           // "cinematic" | "ambient" | "electronic" | etc.
+  genre?: string;           // "cinematic" | "electronic" | "acoustic" | "orchestral" | "ambient" | "hip_hop"
+  region?: string;          // "global" | "western" | "latin" | "asian" | "middle_eastern" | "african"
   tags?: string[];          // additional search tags for Jamendo / Freesound
   searchQuery?: string;     // free-text search override (takes precedence over mood+tags)
   durationSeconds?: number; // target duration — search providers find closest match

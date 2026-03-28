@@ -342,19 +342,48 @@ export default function ContentDetailPage() {
       </div>
 
       {/* Audio settings */}
-      {(item.voiceId != null || item.voiceLanguage != null || item.musicVolume != null || item.requestedMusicProvider != null) && (
+      {(item.audioMode != null || item.voiceId != null || item.voiceLanguage != null || item.requestedVoiceProvider != null ||
+        item.narrationSpeed != null || item.narrationVolume != null ||
+        item.musicVolume != null || item.requestedMusicProvider != null || item.musicGenre != null || item.musicRegion != null) && (
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-4">
           <h2 className="text-sm font-semibold text-gray-300 mb-4">Audio settings</h2>
           <div className="space-y-2 text-sm">
 
-            {/* Voice */}
+            {/* Audio mode */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Audio mode</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">{item.audioMode ?? "voice_music"}</span>
+                <span className="text-gray-600 text-xs ml-2">
+                  {item.audioMode === "voice_only" && "→ music generation skipped"}
+                  {item.audioMode === "music_only" && "→ voice generation skipped"}
+                  {(!item.audioMode || item.audioMode === "voice_music") && "→ voice + music both generated"}
+                </span>
+              </div>
+            </div>
+
+            {/* Voice provider */}
+            <div className="flex items-start gap-3 pt-2 border-t border-gray-800/60">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice provider</span>
+              <div className="flex items-center gap-1 flex-wrap">
+                {item.requestedVoiceProvider ? (
+                  <>
+                    <span className="font-mono text-gray-400 text-xs">{item.requestedVoiceProvider}</span>
+                    <span className="text-gray-600 text-xs">→ used:</span>
+                  </>
+                ) : null}
+                <ProviderBadge name={item.voiceProvider} />
+              </div>
+            </div>
+
+            {/* Voice ID */}
             <div className="flex items-start gap-3">
               <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice</span>
               <div>
                 {item.voiceId ? (
                   <>
                     <span className="font-mono text-gray-300 text-xs">{item.voiceId}</span>
-                    <span className="text-gray-600 text-xs ml-2">→ sent to ElevenLabs as voice ID</span>
+                    <span className="text-gray-600 text-xs ml-2">→ voice ID sent to ElevenLabs</span>
                   </>
                 ) : (
                   <span className="text-gray-500 text-xs">default (Sarah · EXAVITQu4vr4xnSDxMaL)</span>
@@ -362,36 +391,50 @@ export default function ContentDetailPage() {
               </div>
             </div>
 
-            {/* Voice language */}
+            {/* Language */}
             <div className="flex items-start gap-3">
               <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Language</span>
               <div>
                 {item.voiceLanguage ? (
                   <>
                     <span className="font-mono text-gray-300 text-xs">{item.voiceLanguage}</span>
-                    <span className="text-gray-600 text-xs ml-2">→ stored as metadata; eleven_multilingual_v2 auto-detects</span>
+                    <span className="text-gray-600 text-xs ml-2">→ metadata; eleven_multilingual_v2 auto-detects</span>
                   </>
                 ) : (
-                  <span className="text-gray-500 text-xs">auto-detect (model reads input text language)</span>
+                  <span className="text-gray-500 text-xs">auto-detect</span>
                 )}
               </div>
             </div>
 
-            {/* Voice provider — actual used */}
+            {/* Narration speed */}
             <div className="flex items-start gap-3">
-              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Voice provider</span>
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Speed</span>
               <div>
-                <ProviderBadge name={item.voiceProvider} />
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.narrationSpeed != null ? `${item.narrationSpeed.toFixed(2)}×` : "1.0× (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ ElevenLabs speech rate (0.7–1.2)</span>
+              </div>
+            </div>
+
+            {/* Narration volume */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Narration vol.</span>
+              <div>
+                <span className="font-mono text-gray-300 text-xs">
+                  {item.narrationVolume != null ? `${Math.round(item.narrationVolume * 100)}%` : "100% (default)"}
+                </span>
+                <span className="text-gray-600 text-xs ml-2">→ voice level in FFmpeg amix filter</span>
               </div>
             </div>
 
             {/* Music provider */}
             <div className="flex items-start gap-3 pt-2 border-t border-gray-800/60">
-              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music</span>
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music provider</span>
               <div className="flex items-center gap-1 flex-wrap">
                 {item.requestedMusicProvider ? (
                   <>
-                    <span className="font-mono text-gray-300 text-xs">{item.requestedMusicProvider}</span>
+                    <span className="font-mono text-gray-400 text-xs">{item.requestedMusicProvider}</span>
                     {item.requestedMusicProvider !== item.musicProvider && (
                       <>
                         <span className="text-gray-600 text-xs">→ fell back to</span>
@@ -405,14 +448,44 @@ export default function ContentDetailPage() {
               </div>
             </div>
 
+            {/* Music genre */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Genre</span>
+              <div>
+                {item.musicGenre ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.musicGenre.replace("_", "-")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ passed to music provider as genre hint</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">not set</span>
+                )}
+              </div>
+            </div>
+
+            {/* Music region */}
+            <div className="flex items-start gap-3">
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Region</span>
+              <div>
+                {item.musicRegion ? (
+                  <>
+                    <span className="font-mono text-gray-300 text-xs">{item.musicRegion.replace("_", " ")}</span>
+                    <span className="text-gray-600 text-xs ml-2">→ regional vibe hint for music selection</span>
+                  </>
+                ) : (
+                  <span className="text-gray-500 text-xs">global</span>
+                )}
+              </div>
+            </div>
+
             {/* Music volume */}
             <div className="flex items-start gap-3">
-              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music volume</span>
+              <span className="text-gray-600 w-28 shrink-0 text-xs pt-0.5">Music vol.</span>
               <div>
                 <span className="font-mono text-gray-300 text-xs">
                   {item.musicVolume != null ? `${Math.round(item.musicVolume * 100)}%` : "85% (default)"}
                 </span>
-                <span className="text-gray-600 text-xs ml-2">→ music ducking level in FFmpeg mix</span>
+                <span className="text-gray-600 text-xs ml-2">→ music ducking level in FFmpeg amix filter</span>
               </div>
             </div>
 

@@ -22,16 +22,23 @@ class ElevenLabsVoiceProvider implements IVoiceProvider {
     const outputPath = input.outputPath ?? `/tmp/voice_${Date.now()}.mp3`;
 
     try {
+      const body: Record<string, unknown> = {
+        text: input.text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: input.stability ?? 0.5,
+          similarity_boost: input.similarityBoost ?? 0.75,
+        },
+      };
+
+      // speed is a top-level API parameter (0.7-1.2); omit if default to avoid API errors on older models
+      if (input.speed != null && input.speed !== 1.0) {
+        body.speed = Math.min(1.2, Math.max(0.7, input.speed));
+      }
+
       const response = await axios.post(
         `${env.elevenlabs.baseUrl}/text-to-speech/${voiceId}`,
-        {
-          text: input.text,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: {
-            stability: input.stability ?? 0.5,
-            similarity_boost: input.similarityBoost ?? 0.75,
-          },
-        },
+        body,
         {
           headers: {
             "xi-api-key": env.elevenlabs.apiKey,

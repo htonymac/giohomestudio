@@ -123,8 +123,18 @@ function ReviewCard({
         </div>
 
         {/* Audio tags */}
-        {(item.voiceId || item.voiceLanguage || item.musicVolume != null) && (
+        {(item.audioMode || item.voiceId || item.voiceLanguage || item.narrationSpeed != null ||
+          item.narrationVolume != null || item.musicVolume != null || item.musicGenre || item.musicRegion) && (
           <div className="flex flex-wrap gap-1 mb-2">
+            {item.audioMode && item.audioMode !== "voice_music" && (
+              <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
+                item.audioMode === "voice_only"
+                  ? "bg-blue-950/60 text-blue-400"
+                  : "bg-purple-950/60 text-purple-400"
+              }`}>
+                {item.audioMode.replace("_", "-")}
+              </span>
+            )}
             {item.voiceId && (
               <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono" title={`Voice ID: ${item.voiceId}`}>
                 voice:{item.voiceId.slice(0, 8)}…
@@ -135,9 +145,29 @@ function ReviewCard({
                 lang:{item.voiceLanguage}
               </span>
             )}
+            {item.narrationSpeed != null && item.narrationSpeed !== 1.0 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.narrationSpeed.toFixed(2)}×
+              </span>
+            )}
+            {item.narrationVolume != null && item.narrationVolume !== 1.0 && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                narr:{Math.round(item.narrationVolume * 100)}%
+              </span>
+            )}
+            {item.musicGenre && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.musicGenre.replace("_", "-")}
+              </span>
+            )}
+            {item.musicRegion && (
+              <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
+                {item.musicRegion.replace("_", "-")}
+              </span>
+            )}
             {item.musicVolume != null && item.musicVolume !== 0.85 && (
               <span className="text-xs bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded font-mono">
-                vol:{Math.round(item.musicVolume * 100)}%
+                mvol:{Math.round(item.musicVolume * 100)}%
               </span>
             )}
           </div>
