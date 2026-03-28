@@ -14,6 +14,7 @@ import * as path from "path";
 import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
 import { promptEnhancer } from "@/modules/prompt-enhancer";
+import { runwayVideoProvider } from "@/modules/video-provider/runway";
 import { klingVideoProvider } from "@/modules/video-provider/kling";
 import { mockVideoProvider } from "@/modules/video-provider/mock";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
@@ -35,16 +36,19 @@ const POLL_INTERVAL_MS = 5000;
 const MAX_POLL_ATTEMPTS = 60; // 5-minute timeout
 
 // ── Provider resolution ─────────────────────────────────────
-// Selects real provider when credentials exist, mock otherwise.
-// The pipeline also auto-falls-back to mock if the real provider
-// fails at runtime (e.g. 429 rate limit, 5xx, network error).
+// Priority: Runway → Kling → mock_video
+// Falls back automatically if credentials are missing or provider fails at runtime.
 
 function resolveVideoProvider(): IVideoProvider {
+  if (env.runway.apiKey) {
+    console.log("[Pipeline] Video provider: runway");
+    return runwayVideoProvider;
+  }
   if (env.kling.accessKey && env.kling.secretKey) {
     console.log("[Pipeline] Video provider: kling");
     return klingVideoProvider;
   }
-  console.log("[Pipeline] Video provider: mock_video (Kling credentials not set)");
+  console.log("[Pipeline] Video provider: mock_video (no real credentials set)");
   return mockVideoProvider;
 }
 

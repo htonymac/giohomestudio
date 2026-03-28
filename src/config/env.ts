@@ -15,7 +15,13 @@ export const env = {
   // Database
   databaseUrl: require("DATABASE_URL"),
 
-  // Kling AI
+  // Runway
+  runway: {
+    apiKey: optional("RUNWAY_API_KEY"),
+    baseUrl: optional("RUNWAY_API_BASE_URL", "https://api.dev.runwayml.com"),
+  },
+
+  // Kling AI (kept — balance-blocked, will auto-activate when credits added)
   kling: {
     accessKey: optional("KLING_ACCESS_KEY"),
     secretKey: optional("KLING_SECRET_KEY"),

@@ -7,7 +7,8 @@ import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content
 type ProviderTier = "real" | "mock" | "stock" | "fallback";
 
 const PROVIDER_META: Record<string, { label: string; tier: ProviderTier }> = {
-  kling:         { label: "Kling (real)",        tier: "real"     },
+  runway:        { label: "Runway (real)",        tier: "real"     },
+  kling:         { label: "Kling (real)",         tier: "real"     },
   elevenlabs:    { label: "ElevenLabs (real)",    tier: "real"     },
   kie_ai:        { label: "Kie.ai (real)",        tier: "real"     },
   stock_library: { label: "Stock library",        tier: "stock"    },

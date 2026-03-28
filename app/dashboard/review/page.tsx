@@ -6,6 +6,7 @@ import type { ContentItem } from "@/types/content";
 
 type ProviderTier = "real" | "mock" | "stock" | "fallback";
 const PROVIDER_META: Record<string, { label: string; tier: ProviderTier }> = {
+  runway:        { label: "Runway",         tier: "real"     },
   kling:         { label: "Kling",          tier: "real"     },
   elevenlabs:    { label: "ElevenLabs",     tier: "real"     },
   kie_ai:        { label: "Kie.ai",         tier: "real"     },
