@@ -5,16 +5,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { runPipeline } from "@/core/pipeline";
 import { createContentItem } from "@/modules/content-registry";
+import { SPEECH_STYLE_VALUES, ELEVENLABS_MODELS } from "@/types/providers";
 
 const schema = z.object({
   rawInput: z.string().min(3, "Input must be at least 3 characters"),
   durationSeconds: z.number().min(3).max(60).optional(),
   voiceId: z.string().optional(),
   voiceLanguage: z.string().optional(),
+  voiceModel: z.enum(ELEVENLABS_MODELS).optional(),
   requestedVoiceProvider: z.enum(["elevenlabs", "mock_voice"]).optional(),
   narrationSpeed: z.number().min(0.7).max(1.2).optional(),
   narrationVolume: z.number().min(0).max(1).optional(),
-  audioMode: z.enum(["voice_music", "voice_only", "music_only"]).optional(),
+  outputMode: z.enum(["text_to_video", "text_to_audio", "video_to_video", "images_audio", "hybrid", "image_to_video"]).optional(),
+  audioMode: z.enum(["voice_music", "voice_only", "music_only", "audio_only"]).optional(),
+  castingCharacters: z.array(z.string()).optional(),
+  speechStyle: z.enum(SPEECH_STYLE_VALUES).optional(),
   musicMood: z.string().optional(),
   musicProvider: z.enum(["stock_library", "mock_music"]).optional(),
   musicVolume: z.number().min(0).max(1).optional(),
@@ -29,6 +34,17 @@ const schema = z.object({
   subjectType: z.enum(["human", "animal", "product", "scene_only", "custom_character"]).optional(),
   customSubjectDescription: z.string().max(200).optional(),
   aiAutoMode: z.boolean().optional(),
+  castingEthnicity: z.enum(["african", "black", "white", "asian", "arab", "mixed"]).optional(),
+  castingGender: z.enum(["male", "female", "nonbinary", "mixed_gender"]).optional(),
+  castingAge: z.enum(["child", "teen", "young_adult", "adult", "senior"]).optional(),
+  castingCount: z.enum(["solo", "duo", "group", "crowd"]).optional(),
+  cultureContext: z.enum(["african", "arab", "asian", "latin", "western", "global"]).optional(),
+  referenceImageUrl: z.string().max(500).optional(),
+  imageActionPrompt: z.string().max(300).optional(),
+  sourceVideoPath: z.string().optional(),
+  storyContext: z.string().max(1000).optional(),
+  previousContentItemId: z.string().optional(),
+  storyThreadId: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -61,11 +77,23 @@ export async function POST(req: NextRequest) {
       requestedVoiceProvider: parsed.data.requestedVoiceProvider,
       narrationSpeed: parsed.data.narrationSpeed,
       narrationVolume: parsed.data.narrationVolume,
+      outputMode: parsed.data.outputMode,
       audioMode: parsed.data.audioMode,
+      castingCharacters: parsed.data.castingCharacters,
       requestedMusicProvider: parsed.data.musicProvider,
       musicVolume: parsed.data.musicVolume,
+      aspectRatio: parsed.data.aspectRatio ?? "9:16",
       musicGenre: parsed.data.musicGenre,
       musicRegion: parsed.data.musicRegion,
+      castingEthnicity: parsed.data.castingEthnicity,
+      castingGender: parsed.data.castingGender,
+      castingAge: parsed.data.castingAge,
+      castingCount: parsed.data.castingCount,
+      cultureContext: parsed.data.cultureContext,
+      referenceImageUrl: parsed.data.referenceImageUrl,
+      storyContext: parsed.data.storyContext,
+      previousContentItemId: parsed.data.previousContentItemId,
+      storyThreadId: parsed.data.storyThreadId,
     });
 
     // Fire pipeline in background — passes pre-created ID so pipeline skips re-creation

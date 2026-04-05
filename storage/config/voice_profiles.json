@@ -1,0 +1,12 @@
+{
+  "default": {
+    "locale": "en-NG-polished",
+    "speakerProfile": "adult_woman",
+    "deliveryStyle": "commercial",
+    "pacing": "normal",
+    "emotion": "energetic",
+    "customInstruction": "",
+    "voiceSource": "selected_id",
+    "voiceId": "CaroURy2Tqx0hGMqPyp8"
+  }
+}

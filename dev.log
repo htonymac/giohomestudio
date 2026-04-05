@@ -1,0 +1,408 @@
+
+> giohomestudio@0.1.0 dev
+> next dev -p 3200
+
+▲ Next.js 16.2.1 (Turbopack)
+- Local:         http://localhost:3200
+- Network:       http://192.168.56.1:3200
+- Environments: .env
+✓ Ready in 1378ms
+
+ GET /dashboard 200 in 1475ms (next.js: 727ms, application-code: 748ms)
+ GET /api/destination-pages 200 in 552ms (next.js: 295ms, application-code: 257ms)
+ GET /api/voices 200 in 9.1s (next.js: 487ms, application-code: 8.6s)
+[Pipeline] Video provider: mock_video (quality=draft)
+[Pipeline] Voice provider: elevenlabs (forced by request)
+[Pipeline] Started — contentItemId: cmnb68gjp0000sae2r0eftke2
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → ENHANCING
+ POST /api/pipeline 202 in 269ms (next.js: 219ms, application-code: 51ms)
+[Pipeline:cmnb68gjp0000sae2r0eftke2] Prompt enhanced ✓
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → GENERATING_VIDEO (mock_video)
+[MockVideo] Generating 5s test video → storage\video\mock\mock_video_1774753204251.mp4
+[MockVideo] Done — jobId: mock_video_1774753204251
+[MockVideo] Copied to: storage\video\video_cmnb68gjp0000sae2r0eftke2_1774753205874.mp4
+[Pipeline:cmnb68gjp0000sae2r0eftke2] Video ready ✓ → storage\video\video_cmnb68gjp0000sae2r0eftke2_1774753205874.mp4 (via mock_video)
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → GENERATING_VOICE (elevenlabs)
+[Pipeline:cmnb68gjp0000sae2r0eftke2] elevenlabs failed (Request failed with status code 401) — falling back to mock_voice
+[MockVoice] Generating silent audio → storage\voice\voice_cmnb68gjp0000sae2r0eftke2_1774753205897.mp3
+[MockVoice] Done → storage\voice\voice_cmnb68gjp0000sae2r0eftke2_1774753205897.mp3
+[Pipeline:cmnb68gjp0000sae2r0eftke2] Voice ready ✓ → storage\voice\voice_cmnb68gjp0000sae2r0eftke2_1774753205897.mp3
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → Music skipped (audioMode=voice_only)
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → MERGING
+[Pipeline:cmnb68gjp0000sae2r0eftke2] Merge complete ✓ → storage\merged\merged_cmnb68gjp0000sae2r0eftke2_1774753207370.mp4
+[Pipeline:cmnb68gjp0000sae2r0eftke2] → IN_REVIEW
+[Pipeline:cmnb68gjp0000sae2r0eftke2] ✓ Complete — IN_REVIEW
+ GET /api/registry/cmnb68gjp0000sae2r0eftke2 200 in 1458ms (next.js: 1429ms, application-code: 29ms)
+[Pipeline] Video provider: mock_video (quality=draft)
+[Pipeline] Voice provider: elevenlabs (forced by request)
+[Pipeline] Started — contentItemId: cmnb6gksv000bsae28dn8i75h
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → ENHANCING
+ POST /api/pipeline 202 in 132ms (next.js: 7ms, application-code: 125ms)
+[Pipeline:cmnb6gksv000bsae28dn8i75h] Prompt enhanced ✓
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → GENERATING_VIDEO (mock_video)
+[MockVideo] Generating 5s test video → storage\video\mock\mock_video_1774753582977.mp4
+[MockVideo] Done — jobId: mock_video_1774753582977
+[MockVideo] Copied to: storage\video\video_cmnb6gksv000bsae28dn8i75h_1774753584384.mp4
+[Pipeline:cmnb6gksv000bsae28dn8i75h] Video ready ✓ → storage\video\video_cmnb6gksv000bsae28dn8i75h_1774753584384.mp4 (via mock_video)
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → GENERATING_VOICE (elevenlabs)
+[Pipeline:cmnb6gksv000bsae28dn8i75h] Voice ready ✓ → storage\voice\voice_cmnb6gksv000bsae28dn8i75h_1774753584404.mp3
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → Music skipped (audioMode=voice_only)
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → MERGING
+[Pipeline:cmnb6gksv000bsae28dn8i75h] Merge complete ✓ → storage\merged\merged_cmnb6gksv000bsae28dn8i75h_1774753588515.mp4
+[Pipeline:cmnb6gksv000bsae28dn8i75h] → IN_REVIEW
+[Pipeline:cmnb6gksv000bsae28dn8i75h] ✓ Complete — IN_REVIEW
+ GET /api/registry/cmnb6gksv000bsae28dn8i75h 200 in 57ms (next.js: 34ms, application-code: 24ms)
+ GET /dashboard 200 in 140ms (next.js: 8ms, application-code: 132ms)
+ GET /api/destination-pages 200 in 117ms (next.js: 11ms, application-code: 106ms)
+ GET /api/voices 200 in 723ms (next.js: 20ms, application-code: 703ms)
+ GET /dashboard 200 in 137ms (next.js: 6ms, application-code: 131ms)
+ GET /api/destination-pages 200 in 33ms (next.js: 7ms, application-code: 26ms)
+ GET /api/voices 200 in 306ms (next.js: 17ms, application-code: 289ms)
+[Pipeline] Video provider: runway (selected via request)
+[Pipeline] Voice provider: elevenlabs (forced by request)
+[Pipeline] Started — contentItemId: cmnb6yzf9000msae2tiqxttpj
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → ENHANCING
+ POST /api/pipeline 202 in 38ms (next.js: 4ms, application-code: 34ms)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] Prompt enhanced ✓
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → GENERATING_VIDEO (runway)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] runway failed (Runway generate failed: Request failed with status code 400 — {"error":"You do not have enough credits to run this task.","docUrl":"https://docs.dev.runwayml.com/api"}) — falling back to mock_video
+[MockVideo] Generating 5s test video → storage\video\mock\mock_video_1774754442969.mp4
+[MockVideo] Done — jobId: mock_video_1774754442969
+[MockVideo] Copied to: storage\video\video_cmnb6yzf9000msae2tiqxttpj_1774754444744.mp4
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] Video ready ✓ → storage\video\video_cmnb6yzf9000msae2tiqxttpj_1774754444744.mp4 (via mock_video)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → GENERATING_VOICE (elevenlabs)
+ GET /dashboard/review 200 in 216ms (next.js: 80ms, application-code: 136ms)
+ GET /api/review 200 in 146ms (next.js: 108ms, application-code: 38ms)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] Voice ready ✓ → storage\voice\voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → GENERATING_MUSIC
+[StockLibrary] Selected (priority 5): upbeat_pop.mp3 (mood=upbeat genre=orchestral region=asian)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] Music ready ✓ (stock_library)
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → MERGING
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] Merge complete ✓ → storage\merged\merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] → IN_REVIEW
+[Pipeline:cmnb6yzf9000msae2tiqxttpj] ✓ Complete — IN_REVIEW
+ GET /dashboard/registry 200 in 301ms (next.js: 81ms, application-code: 220ms)
+ GET /api/registry 200 in 105ms (next.js: 64ms, application-code: 41ms)
+ GET /dashboard/destination-pages 200 in 1847ms (next.js: 1636ms, application-code: 211ms)
+ GET /api/destination-pages 200 in 33ms (next.js: 19ms, application-code: 14ms)
+[browser] Each child in a list should have a unique "key" prop.
+
+Check the render method of `RegistryPage`. See https://react.dev/link/warning-keys for more information. 
+ GET /dashboard/content/cmnb6yzf9000msae2tiqxttpj 200 in 1281ms (next.js: 1222ms, application-code: 59ms)
+ GET /dashboard/content/cmnb6yzf9000msae2tiqxttpj 200 in 127ms (next.js: 34ms, application-code: 93ms)
+ GET /api/registry/cmnb6yzf9000msae2tiqxttpj 200 in 74ms (next.js: 43ms, application-code: 32ms)
+ GET /api/registry/cmnb6yzf9000msae2tiqxttpj 200 in 46ms (next.js: 28ms, application-code: 18ms)
+ HEAD /api/media/music/stock/upbeat_pop.mp3 200 in 2.7s (next.js: 2.6s, application-code: 50ms)
+ HEAD /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 2.7s (next.js: 2.6s, application-code: 50ms)
+ HEAD /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 2.6s (next.js: 2.6s, application-code: 50ms)
+ HEAD /api/media/music/stock/upbeat_pop.mp3 200 in 2.7s (next.js: 2.6s, application-code: 50ms)
+ GET /api/media/merged/merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4 200 in 2.7s (next.js: 2.6s, application-code: 57ms)
+ GET /api/media/music/stock/upbeat_pop.mp3 200 in 69ms (next.js: 49ms, application-code: 21ms)
+ GET /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 38ms (next.js: 10ms, application-code: 28ms)
+ GET /api/media/merged/merged_cmn9wx1wm0011817gmxyjjdqc_1774677093237.mp4 200 in 92ms (next.js: 53ms, application-code: 39ms)
+ GET /api/media/merged/merged_cmn9yextv0027817gv2gtbcfb_1774679609505.mp4 200 in 101ms (next.js: 14ms, application-code: 88ms)
+ GET /api/media/merged/merged_cmn9x8pl40000110pve3meyhk_1774677637928.mp4 200 in 101ms (next.js: 23ms, application-code: 79ms)
+ GET /api/media/merged/merged_cmn9xe3zn0000c323plzi3ih4_1774677922516.mp4 200 in 102ms (next.js: 34ms, application-code: 68ms)
+ GET /api/media/merged/merged_cmn9xo0m0001e817g58up8kor_1774678353914.mp4 200 in 102ms (next.js: 58ms, application-code: 45ms)
+ GET /api/media/merged/merged_cmn9y94od0000mbknorihavg3_1774679339326.mp4 200 in 102ms (next.js: 71ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmn9yg8c7002k817gh49nf9d7_1774679669261.mp4 200 in 39ms (next.js: 7ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmn9zkwgn0000duzdysvsfsy1_1774681567905.mp4 200 in 127ms (next.js: 18ms, application-code: 109ms)
+ GET /api/media/merged/merged_cmna1567h000tduzdyyctt122_1774684193546.mp4 200 in 102ms (next.js: 15ms, application-code: 87ms)
+ GET /api/media/merged/merged_cmna1bk570016duzdy3dqmeld_1774684490961.mp4 200 in 108ms (next.js: 55ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmna2643j001jduzdl96a58dw_1774685916627.mp4 200 in 117ms (next.js: 63ms, application-code: 54ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 151ms (next.js: 30ms, application-code: 120ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 98ms (next.js: 38ms, application-code: 60ms)
+ GET /api/media/merged/merged_cmna8empg000avt8k1fcunumx_1774696391516.mp4 200 in 78ms (next.js: 24ms, application-code: 54ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 116ms (next.js: 40ms, application-code: 76ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 80ms (next.js: 22ms, application-code: 58ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 84ms (next.js: 16ms, application-code: 68ms)
+ GET /api/media/merged/merged_cmnal8g650000u8ww13fd824f_1774717934129.mp4 200 in 82ms (next.js: 29ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 76ms (next.js: 27ms, application-code: 49ms)
+ GET /api/media/merged/merged_cmnawefvt0000vcmxu8ykwa9o_1774736690268.mp4 200 in 47ms (next.js: 14ms, application-code: 32ms)
+ GET /api/media/merged/merged_cmnawejw9000bvcmxemifu744_1774736693956.mp4 200 in 58ms (next.js: 9ms, application-code: 50ms)
+ GET /api/media/merged/merged_cmnawert8000mvcmxsclxw22e_1774736704949.mp4 200 in 67ms (next.js: 26ms, application-code: 41ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 74ms (next.js: 18ms, application-code: 56ms)
+ GET /api/media/merged/merged_cmnb01g0x0000vk73aiygyu7b_1774742802818.mp4 200 in 59ms (next.js: 22ms, application-code: 38ms)
+ GET /api/media/merged/merged_cmnb0mvh8000bvk736ojybe0p_1774743801688.mp4 200 in 82ms (next.js: 15ms, application-code: 66ms)
+ GET /api/media/merged/merged_cmnb42fay0000jyvq10blwhi7_1774749567242.mp4 200 in 84ms (next.js: 20ms, application-code: 64ms)
+ GET /api/media/merged/merged_cmnb4yn2l000bjyvqd3cmc4ie_1774751068239.mp4 200 in 60ms (next.js: 22ms, application-code: 38ms)
+ GET /api/media/merged/merged_cmnb5dr00000mjyvq48nhqmkb_1774751775449.mp4 200 in 48ms (next.js: 14ms, application-code: 34ms)
+ GET /api/media/merged/merged_cmnb68gjp0000sae2r0eftke2_1774753207370.mp4 200 in 42ms (next.js: 10ms, application-code: 32ms)
+ GET /api/media/merged/merged_cmnb6gksv000bsae28dn8i75h_1774753588515.mp4 200 in 42ms (next.js: 11ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 349ms (next.js: 26ms, application-code: 323ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 253ms (next.js: 10ms, application-code: 243ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 440ms (next.js: 10ms, application-code: 429ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 218ms (next.js: 27ms, application-code: 191ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 247ms (next.js: 16ms, application-code: 231ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 284ms (next.js: 9ms, application-code: 275ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 181ms (next.js: 11ms, application-code: 171ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 47ms (next.js: 14ms, application-code: 33ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 280ms (next.js: 65ms, application-code: 215ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 288ms (next.js: 50ms, application-code: 238ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 259ms (next.js: 23ms, application-code: 236ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 71ms (next.js: 25ms, application-code: 46ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 289ms (next.js: 10ms, application-code: 279ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 451ms (next.js: 14ms, application-code: 438ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 91ms (next.js: 16ms, application-code: 76ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 183ms (next.js: 12ms, application-code: 171ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 313ms (next.js: 11ms, application-code: 303ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 284ms (next.js: 15ms, application-code: 269ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 127ms (next.js: 65ms, application-code: 62ms)
+ GET /dashboard/review 200 in 226ms (next.js: 10ms, application-code: 217ms)
+ GET /api/review 200 in 31ms (next.js: 6ms, application-code: 25ms)
+ GET /api/media/merged/merged_cmn9wx1wm0011817gmxyjjdqc_1774677093237.mp4 200 in 72ms (next.js: 48ms, application-code: 25ms)
+ GET /api/media/merged/merged_cmn9x8pl40000110pve3meyhk_1774677637928.mp4 200 in 65ms (next.js: 14ms, application-code: 51ms)
+ GET /api/media/merged/merged_cmn9xe3zn0000c323plzi3ih4_1774677922516.mp4 200 in 72ms (next.js: 20ms, application-code: 52ms)
+ GET /api/media/merged/merged_cmn9xo0m0001e817g58up8kor_1774678353914.mp4 200 in 70ms (next.js: 32ms, application-code: 37ms)
+ GET /api/media/merged/merged_cmn9y94od0000mbknorihavg3_1774679339326.mp4 200 in 71ms (next.js: 18ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmn9yextv0027817gv2gtbcfb_1774679609505.mp4 200 in 54ms (next.js: 20ms, application-code: 35ms)
+ GET /api/media/merged/merged_cmn9yg8c7002k817gh49nf9d7_1774679669261.mp4 200 in 59ms (next.js: 10ms, application-code: 49ms)
+ GET /api/media/merged/merged_cmn9zkwgn0000duzdysvsfsy1_1774681567905.mp4 200 in 68ms (next.js: 12ms, application-code: 56ms)
+ GET /api/media/merged/merged_cmna1567h000tduzdyyctt122_1774684193546.mp4 200 in 85ms (next.js: 24ms, application-code: 61ms)
+ GET /api/media/merged/merged_cmna1bk570016duzdy3dqmeld_1774684490961.mp4 200 in 68ms (next.js: 20ms, application-code: 48ms)
+ GET /api/media/merged/merged_cmna2643j001jduzdl96a58dw_1774685916627.mp4 200 in 87ms (next.js: 24ms, application-code: 62ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 99ms (next.js: 29ms, application-code: 71ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 156ms (next.js: 56ms, application-code: 100ms)
+ GET /api/media/merged/merged_cmna8empg000avt8k1fcunumx_1774696391516.mp4 200 in 80ms (next.js: 16ms, application-code: 63ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 166ms (next.js: 34ms, application-code: 131ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 169ms (next.js: 27ms, application-code: 142ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 137ms (next.js: 80ms, application-code: 57ms)
+ GET /api/media/merged/merged_cmnal8g650000u8ww13fd824f_1774717934129.mp4 200 in 144ms (next.js: 46ms, application-code: 98ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 94ms (next.js: 20ms, application-code: 74ms)
+ GET /api/media/merged/merged_cmnawefvt0000vcmxu8ykwa9o_1774736690268.mp4 200 in 79ms (next.js: 13ms, application-code: 65ms)
+ GET /api/media/merged/merged_cmnawejw9000bvcmxemifu744_1774736693956.mp4 200 in 85ms (next.js: 33ms, application-code: 52ms)
+ GET /api/media/merged/merged_cmnawert8000mvcmxsclxw22e_1774736704949.mp4 200 in 81ms (next.js: 27ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmnb01g0x0000vk73aiygyu7b_1774742802818.mp4 200 in 50ms (next.js: 16ms, application-code: 34ms)
+ GET /api/media/merged/merged_cmnb0mvh8000bvk736ojybe0p_1774743801688.mp4 200 in 61ms (next.js: 12ms, application-code: 50ms)
+ GET /api/media/merged/merged_cmnb42fay0000jyvq10blwhi7_1774749567242.mp4 200 in 49ms (next.js: 23ms, application-code: 25ms)
+ GET /api/media/merged/merged_cmnb4yn2l000bjyvqd3cmc4ie_1774751068239.mp4 200 in 36ms (next.js: 11ms, application-code: 25ms)
+ GET /api/media/merged/merged_cmnb68gjp0000sae2r0eftke2_1774753207370.mp4 200 in 45ms (next.js: 22ms, application-code: 23ms)
+ GET /api/media/merged/merged_cmnb5dr00000mjyvq48nhqmkb_1774751775449.mp4 200 in 51ms (next.js: 12ms, application-code: 38ms)
+ GET /api/media/merged/merged_cmnb6gksv000bsae28dn8i75h_1774753588515.mp4 200 in 51ms (next.js: 10ms, application-code: 41ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 303ms (next.js: 18ms, application-code: 285ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 312ms (next.js: 26ms, application-code: 287ms)
+ GET /api/media/merged/merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4 200 in 49ms (next.js: 26ms, application-code: 23ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 410ms (next.js: 9ms, application-code: 401ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 212ms (next.js: 18ms, application-code: 194ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 151ms (next.js: 9ms, application-code: 142ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 197ms (next.js: 20ms, application-code: 177ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 208ms (next.js: 13ms, application-code: 195ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 157ms (next.js: 6ms, application-code: 151ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 108ms (next.js: 51ms, application-code: 57ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 402ms (next.js: 65ms, application-code: 337ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 68ms (next.js: 21ms, application-code: 47ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 352ms (next.js: 18ms, application-code: 334ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 353ms (next.js: 39ms, application-code: 314ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 365ms (next.js: 28ms, application-code: 337ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 585ms (next.js: 12ms, application-code: 573ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 92ms (next.js: 24ms, application-code: 68ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 345ms (next.js: 13ms, application-code: 332ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 48ms (next.js: 7ms, application-code: 41ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 206ms (next.js: 11ms, application-code: 195ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 49ms (next.js: 8ms, application-code: 40ms)
+ GET /dashboard 200 in 149ms (next.js: 10ms, application-code: 139ms)
+ GET /api/destination-pages 200 in 41ms (next.js: 8ms, application-code: 33ms)
+ GET /api/voices 200 in 574ms (next.js: 18ms, application-code: 556ms)
+[Pipeline] Video provider: runway (selected via request)
+[Pipeline] Voice provider: elevenlabs (auto)
+[Pipeline] Started — contentItemId: cmnb72ox5000zsae2k7bcx2za
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → ENHANCING
+ POST /api/pipeline 202 in 120ms (next.js: 5ms, application-code: 115ms)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] Prompt enhanced ✓
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → GENERATING_VIDEO (runway)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] runway failed (Runway generate failed: Request failed with status code 400 — {"error":"You do not have enough credits to run this task.","docUrl":"https://docs.dev.runwayml.com/api"}) — falling back to mock_video
+[MockVideo] Generating 5s test video → storage\video\mock\mock_video_1774754615732.mp4
+[MockVideo] Done — jobId: mock_video_1774754615732
+[MockVideo] Copied to: storage\video\video_cmnb72ox5000zsae2k7bcx2za_1774754617079.mp4
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] Video ready ✓ → storage\video\video_cmnb72ox5000zsae2k7bcx2za_1774754617079.mp4 (via mock_video)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → GENERATING_VOICE (elevenlabs)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 91ms (next.js: 39ms, application-code: 52ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 32ms (next.js: 8ms, application-code: 24ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 21ms (next.js: 7ms, application-code: 14ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 32ms (next.js: 6ms, application-code: 26ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 66ms (next.js: 10ms, application-code: 55ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 19ms (next.js: 5ms, application-code: 13ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 21ms (next.js: 4ms, application-code: 16ms)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] Voice ready ✓ → storage\voice\voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → GENERATING_MUSIC
+[StockLibrary] Selected (priority 5): epic_cinematic.mp3 (mood=epic genre=orchestral region=asian)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] Music ready ✓ (stock_library)
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → MERGING
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] Merge complete ✓ → storage\merged\merged_cmnb72ox5000zsae2k7bcx2za_1774754622325.mp4
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] → IN_REVIEW
+[Pipeline:cmnb72ox5000zsae2k7bcx2za] ✓ Complete — IN_REVIEW
+ GET /dashboard/review 200 in 121ms (next.js: 7ms, application-code: 114ms)
+ GET /api/review 200 in 27ms (next.js: 5ms, application-code: 22ms)
+ GET /api/media/merged/merged_cmn9wx1wm0011817gmxyjjdqc_1774677093237.mp4 200 in 68ms (next.js: 45ms, application-code: 23ms)
+ GET /api/media/merged/merged_cmn9x8pl40000110pve3meyhk_1774677637928.mp4 200 in 69ms (next.js: 11ms, application-code: 57ms)
+ GET /api/media/merged/merged_cmn9xe3zn0000c323plzi3ih4_1774677922516.mp4 200 in 65ms (next.js: 8ms, application-code: 56ms)
+ GET /api/media/merged/merged_cmn9xo0m0001e817g58up8kor_1774678353914.mp4 200 in 65ms (next.js: 18ms, application-code: 47ms)
+ GET /api/media/merged/merged_cmn9y94od0000mbknorihavg3_1774679339326.mp4 200 in 78ms (next.js: 29ms, application-code: 49ms)
+ GET /api/media/merged/merged_cmn9yextv0027817gv2gtbcfb_1774679609505.mp4 200 in 86ms (next.js: 41ms, application-code: 44ms)
+ GET /api/media/merged/merged_cmn9yg8c7002k817gh49nf9d7_1774679669261.mp4 200 in 89ms (next.js: 38ms, application-code: 50ms)
+ GET /api/media/merged/merged_cmn9zkwgn0000duzdysvsfsy1_1774681567905.mp4 200 in 95ms (next.js: 32ms, application-code: 62ms)
+ GET /api/media/merged/merged_cmna1567h000tduzdyyctt122_1774684193546.mp4 200 in 98ms (next.js: 31ms, application-code: 67ms)
+ GET /api/media/merged/merged_cmna1bk570016duzdy3dqmeld_1774684490961.mp4 200 in 101ms (next.js: 34ms, application-code: 67ms)
+ GET /api/media/merged/merged_cmna2643j001jduzdl96a58dw_1774685916627.mp4 200 in 90ms (next.js: 43ms, application-code: 46ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 98ms (next.js: 31ms, application-code: 67ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 97ms (next.js: 28ms, application-code: 69ms)
+ GET /api/media/merged/merged_cmna8empg000avt8k1fcunumx_1774696391516.mp4 200 in 88ms (next.js: 35ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 77ms (next.js: 26ms, application-code: 51ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 75ms (next.js: 12ms, application-code: 63ms)
+ GET /api/media/merged/merged_cmnal8g650000u8ww13fd824f_1774717934129.mp4 200 in 73ms (next.js: 19ms, application-code: 54ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 79ms (next.js: 17ms, application-code: 62ms)
+ GET /api/media/merged/merged_cmnawefvt0000vcmxu8ykwa9o_1774736690268.mp4 200 in 67ms (next.js: 20ms, application-code: 47ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 86ms (next.js: 24ms, application-code: 62ms)
+ GET /api/media/merged/merged_cmnawejw9000bvcmxemifu744_1774736693956.mp4 200 in 71ms (next.js: 26ms, application-code: 45ms)
+ GET /api/media/merged/merged_cmnawert8000mvcmxsclxw22e_1774736704949.mp4 200 in 63ms (next.js: 13ms, application-code: 50ms)
+ GET /api/media/merged/merged_cmnb01g0x0000vk73aiygyu7b_1774742802818.mp4 200 in 40ms (next.js: 9ms, application-code: 32ms)
+ GET /api/media/merged/merged_cmnb0mvh8000bvk736ojybe0p_1774743801688.mp4 200 in 44ms (next.js: 16ms, application-code: 28ms)
+ GET /api/media/merged/merged_cmnb42fay0000jyvq10blwhi7_1774749567242.mp4 200 in 30ms (next.js: 9ms, application-code: 21ms)
+ GET /api/media/merged/merged_cmnb4yn2l000bjyvqd3cmc4ie_1774751068239.mp4 200 in 44ms (next.js: 12ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmnb5dr00000mjyvq48nhqmkb_1774751775449.mp4 200 in 60ms (next.js: 21ms, application-code: 39ms)
+ GET /api/media/merged/merged_cmnb68gjp0000sae2r0eftke2_1774753207370.mp4 200 in 40ms (next.js: 11ms, application-code: 28ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 284ms (next.js: 13ms, application-code: 270ms)
+ GET /api/media/merged/merged_cmnb6gksv000bsae28dn8i75h_1774753588515.mp4 200 in 47ms (next.js: 9ms, application-code: 37ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 270ms (next.js: 18ms, application-code: 252ms)
+ GET /api/media/merged/merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4 200 in 48ms (next.js: 9ms, application-code: 38ms)
+ GET /api/media/merged/merged_cmnb72ox5000zsae2k7bcx2za_1774754622325.mp4 200 in 37ms (next.js: 11ms, application-code: 26ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 389ms (next.js: 6ms, application-code: 383ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 182ms (next.js: 8ms, application-code: 174ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 186ms (next.js: 8ms, application-code: 178ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 222ms (next.js: 16ms, application-code: 206ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 233ms (next.js: 7ms, application-code: 226ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 195ms (next.js: 7ms, application-code: 188ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 244ms (next.js: 50ms, application-code: 194ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 161ms (next.js: 37ms, application-code: 124ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 174ms (next.js: 22ms, application-code: 153ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 182ms (next.js: 12ms, application-code: 171ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 214ms (next.js: 28ms, application-code: 186ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 256ms (next.js: 12ms, application-code: 244ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 207ms (next.js: 90ms, application-code: 117ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 241ms (next.js: 11ms, application-code: 230ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 126ms (next.js: 19ms, application-code: 107ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 454ms (next.js: 44ms, application-code: 410ms)
+ GET /dashboard/registry 200 in 231ms (next.js: 15ms, application-code: 216ms)
+ GET /api/registry 200 in 28ms (next.js: 5ms, application-code: 23ms)
+[browser] Each child in a list should have a unique "key" prop.
+
+Check the render method of `RegistryPage`. See https://react.dev/link/warning-keys for more information. 
+ GET /dashboard/content/cmnb72ox5000zsae2k7bcx2za 200 in 85ms (next.js: 35ms, application-code: 50ms)
+ GET /api/registry/cmnb72ox5000zsae2k7bcx2za 200 in 56ms (next.js: 38ms, application-code: 18ms)
+ GET /api/registry/cmnb72ox5000zsae2k7bcx2za 200 in 44ms (next.js: 14ms, application-code: 29ms)
+ HEAD /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 56ms (next.js: 44ms, application-code: 13ms)
+ HEAD /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 67ms (next.js: 57ms, application-code: 10ms)
+ HEAD /api/media/music/stock/epic_cinematic.mp3 200 in 78ms (next.js: 69ms, application-code: 9ms)
+ HEAD /api/media/music/stock/epic_cinematic.mp3 200 in 97ms (next.js: 87ms, application-code: 10ms)
+ GET /api/media/merged/merged_cmnb72ox5000zsae2k7bcx2za_1774754622325.mp4 200 in 35ms (next.js: 16ms, application-code: 20ms)
+ GET /api/media/music/stock/epic_cinematic.mp3 200 in 35ms (next.js: 23ms, application-code: 12ms)
+ GET /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 40ms (next.js: 11ms, application-code: 29ms)
+ GET /dashboard/content/cmnb72ox5000zsae2k7bcx2za 200 in 260ms (next.js: 116ms, application-code: 144ms)
+ GET /api/registry/cmnb72ox5000zsae2k7bcx2za 200 in 171ms (next.js: 39ms, application-code: 132ms)
+ HEAD /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 82ms (next.js: 73ms, application-code: 10ms)
+ HEAD /api/media/music/stock/epic_cinematic.mp3 200 in 96ms (next.js: 86ms, application-code: 10ms)
+ HEAD /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 39ms (next.js: 32ms, application-code: 7ms)
+ GET /api/media/merged/merged_cmnb72ox5000zsae2k7bcx2za_1774754622325.mp4 200 in 78ms (next.js: 36ms, application-code: 42ms)
+ HEAD /api/media/music/stock/epic_cinematic.mp3 200 in 41ms (next.js: 21ms, application-code: 19ms)
+ GET /api/media/voice/voice_cmnb72ox5000zsae2k7bcx2za_1774754617098.mp3 200 in 83ms (next.js: 8ms, application-code: 75ms)
+ GET /api/media/music/stock/epic_cinematic.mp3 200 in 79ms (next.js: 16ms, application-code: 63ms)
+ GET /dashboard 200 in 136ms (next.js: 6ms, application-code: 130ms)
+ GET /api/destination-pages 200 in 40ms (next.js: 7ms, application-code: 34ms)
+ GET /api/voices 200 in 749ms (next.js: 4ms, application-code: 746ms)
+[Pipeline] Video provider: runway (selected via request)
+[Pipeline] Voice provider: elevenlabs (auto)
+[Pipeline] Started — contentItemId: cmnb7kz30001csae2r5lpp57k
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → ENHANCING
+ POST /api/pipeline 202 in 26ms (next.js: 4ms, application-code: 22ms)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] Prompt enhanced ✓
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → GENERATING_VIDEO (runway)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] runway failed (Runway generate failed: Request failed with status code 400 — {"error":"You do not have enough credits to run this task.","docUrl":"https://docs.dev.runwayml.com/api"}) — falling back to mock_video
+[MockVideo] Generating 5s test video → storage\video\mock\mock_video_1774755468685.mp4
+[MockVideo] Done — jobId: mock_video_1774755468685
+[MockVideo] Copied to: storage\video\video_cmnb7kz30001csae2r5lpp57k_1774755469980.mp4
+[Pipeline:cmnb7kz30001csae2r5lpp57k] Video ready ✓ → storage\video\video_cmnb7kz30001csae2r5lpp57k_1774755469980.mp4 (via mock_video)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → GENERATING_VOICE (elevenlabs)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] Voice ready ✓ → storage\voice\voice_cmnb7kz30001csae2r5lpp57k_1774755470004.mp3
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → GENERATING_MUSIC
+[StockLibrary] Selected (priority 2): upbeat.mp3 (mood=upbeat genre=cinematic region=-)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] Music ready ✓ (stock_library)
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → MERGING
+[Pipeline:cmnb7kz30001csae2r5lpp57k] Merge complete ✓ → storage\merged\merged_cmnb7kz30001csae2r5lpp57k_1774755472810.mp4
+[Pipeline:cmnb7kz30001csae2r5lpp57k] → IN_REVIEW
+[Pipeline:cmnb7kz30001csae2r5lpp57k] ✓ Complete — IN_REVIEW
+ GET /dashboard/review 200 in 88ms (next.js: 6ms, application-code: 82ms)
+ GET /api/review 200 in 24ms (next.js: 5ms, application-code: 19ms)
+ GET /api/media/merged/merged_cmn9wx1wm0011817gmxyjjdqc_1774677093237.mp4 200 in 109ms (next.js: 56ms, application-code: 53ms)
+ GET /api/media/merged/merged_cmn9x8pl40000110pve3meyhk_1774677637928.mp4 200 in 130ms (next.js: 81ms, application-code: 49ms)
+ GET /api/media/merged/merged_cmn9xe3zn0000c323plzi3ih4_1774677922516.mp4 200 in 57ms (next.js: 13ms, application-code: 44ms)
+ GET /api/media/merged/merged_cmn9xo0m0001e817g58up8kor_1774678353914.mp4 200 in 57ms (next.js: 22ms, application-code: 35ms)
+ GET /api/media/merged/merged_cmn9y94od0000mbknorihavg3_1774679339326.mp4 200 in 59ms (next.js: 28ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmn9yextv0027817gv2gtbcfb_1774679609505.mp4 200 in 53ms (next.js: 28ms, application-code: 25ms)
+ GET /api/media/merged/merged_cmn9yg8c7002k817gh49nf9d7_1774679669261.mp4 200 in 63ms (next.js: 12ms, application-code: 51ms)
+ GET /api/media/merged/merged_cmn9zkwgn0000duzdysvsfsy1_1774681567905.mp4 200 in 78ms (next.js: 24ms, application-code: 55ms)
+ GET /api/media/merged/merged_cmna1567h000tduzdyyctt122_1774684193546.mp4 200 in 66ms (next.js: 19ms, application-code: 48ms)
+ GET /api/media/merged/merged_cmna1bk570016duzdy3dqmeld_1774684490961.mp4 200 in 79ms (next.js: 20ms, application-code: 59ms)
+ GET /api/media/merged/merged_cmna2643j001jduzdl96a58dw_1774685916627.mp4 200 in 65ms (next.js: 17ms, application-code: 48ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 84ms (next.js: 20ms, application-code: 64ms)
+ GET /api/media/merged/merged_cmna8empg000avt8k1fcunumx_1774696391516.mp4 200 in 124ms (next.js: 47ms, application-code: 78ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 154ms (next.js: 34ms, application-code: 120ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 161ms (next.js: 59ms, application-code: 102ms)
+ GET /api/media/merged/merged_cmnal8g650000u8ww13fd824f_1774717934129.mp4 200 in 120ms (next.js: 35ms, application-code: 84ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 129ms (next.js: 22ms, application-code: 108ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 77ms (next.js: 34ms, application-code: 44ms)
+ GET /api/media/merged/merged_cmnawefvt0000vcmxu8ykwa9o_1774736690268.mp4 200 in 47ms (next.js: 24ms, application-code: 24ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 81ms (next.js: 17ms, application-code: 64ms)
+ GET /api/media/merged/merged_cmnawejw9000bvcmxemifu744_1774736693956.mp4 200 in 73ms (next.js: 28ms, application-code: 45ms)
+ GET /api/media/merged/merged_cmnawert8000mvcmxsclxw22e_1774736704949.mp4 200 in 54ms (next.js: 13ms, application-code: 41ms)
+ GET /api/media/merged/merged_cmnb01g0x0000vk73aiygyu7b_1774742802818.mp4 200 in 44ms (next.js: 7ms, application-code: 37ms)
+ GET /api/media/merged/merged_cmnb0mvh8000bvk736ojybe0p_1774743801688.mp4 200 in 55ms (next.js: 16ms, application-code: 39ms)
+ GET /api/media/merged/merged_cmnb42fay0000jyvq10blwhi7_1774749567242.mp4 200 in 30ms (next.js: 8ms, application-code: 22ms)
+ GET /api/media/merged/merged_cmnb4yn2l000bjyvqd3cmc4ie_1774751068239.mp4 200 in 39ms (next.js: 8ms, application-code: 31ms)
+ GET /api/media/merged/merged_cmnb5dr00000mjyvq48nhqmkb_1774751775449.mp4 200 in 51ms (next.js: 16ms, application-code: 35ms)
+ GET /api/media/merged/merged_cmnb68gjp0000sae2r0eftke2_1774753207370.mp4 200 in 30ms (next.js: 11ms, application-code: 19ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 252ms (next.js: 25ms, application-code: 227ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 239ms (next.js: 14ms, application-code: 225ms)
+ GET /api/media/merged/merged_cmnb6gksv000bsae28dn8i75h_1774753588515.mp4 200 in 44ms (next.js: 10ms, application-code: 33ms)
+ GET /api/media/merged/merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4 200 in 44ms (next.js: 17ms, application-code: 27ms)
+ GET /api/media/merged/merged_cmnb72ox5000zsae2k7bcx2za_1774754622325.mp4 200 in 30ms (next.js: 9ms, application-code: 21ms)
+ GET /api/media/merged/merged_cmnb7kz30001csae2r5lpp57k_1774755472810.mp4 200 in 33ms (next.js: 10ms, application-code: 23ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 158ms (next.js: 11ms, application-code: 147ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 122ms (next.js: 11ms, application-code: 112ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 879ms (next.js: 18ms, application-code: 862ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 635ms (next.js: 21ms, application-code: 614ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 648ms (next.js: 15ms, application-code: 634ms)
+ GET /api/media/merged/merged_cmnali6dy000du8wwo2nx3jt0_1774718637450.mp4 200 in 593ms (next.js: 7ms, application-code: 586ms)
+ GET /api/media/merged/merged_cmnakvmfo0018vt8keqpjebnc_1774717518427.mp4 200 in 138ms (next.js: 13ms, application-code: 125ms)
+ GET /api/media/merged/merged_cmna8e42u0000vt8kjaezcyaf_1774696476350.mp4 200 in 146ms (next.js: 7ms, application-code: 139ms)
+ GET /api/media/merged/merged_cmnaqa4dh000qu8ww8qba525l_1774726534373.mp4 200 in 403ms (next.js: 41ms, application-code: 361ms)
+ GET /api/media/merged/merged_cmnawjrqb000zvcmxfc6orqr0_1774737182941.mp4 200 in 356ms (next.js: 11ms, application-code: 345ms)
+ GET /api/media/merged/merged_cmnaz1t9x001cvcmxysbm6si8_1774741266485.mp4 200 in 341ms (next.js: 10ms, application-code: 331ms)
+ GET /api/media/merged/merged_cmnb0vnob000tvk73voa4v236_1774744337225.mp4 200 in 353ms (next.js: 14ms, application-code: 339ms)
+ GET /api/media/merged/merged_cmnakuokl0013vt8kyikqswhn_1774717413401.mp4 200 in 85ms (next.js: 9ms, application-code: 77ms)
+ GET /api/media/merged/merged_cmna8e8h20005vt8k8kr4781h_1774696582435.mp4 200 in 31ms (next.js: 13ms, application-code: 18ms)
+ GET /dashboard/registry 200 in 213ms (next.js: 8ms, application-code: 205ms)
+ GET /api/registry 200 in 27ms (next.js: 6ms, application-code: 21ms)
+[browser] Each child in a list should have a unique "key" prop.
+
+Check the render method of `RegistryPage`. See https://react.dev/link/warning-keys for more information. 
+ GET /dashboard/content/cmnb7kz30001csae2r5lpp57k 200 in 76ms (next.js: 29ms, application-code: 46ms)
+ GET /api/registry/cmnb7kz30001csae2r5lpp57k 200 in 56ms (next.js: 34ms, application-code: 22ms)
+ GET /api/registry/cmnb7kz30001csae2r5lpp57k 200 in 21ms (next.js: 6ms, application-code: 15ms)
+ GET /api/media/merged/merged_cmnb7kz30001csae2r5lpp57k_1774755472810.mp4 200 in 70ms (next.js: 42ms, application-code: 28ms)
+ HEAD /api/media/voice/voice_cmnb7kz30001csae2r5lpp57k_1774755470004.mp3 200 in 20ms (next.js: 10ms, application-code: 10ms)
+ HEAD /api/media/music/stock/upbeat.mp3 200 in 35ms (next.js: 23ms, application-code: 12ms)
+ HEAD /api/media/voice/voice_cmnb7kz30001csae2r5lpp57k_1774755470004.mp3 200 in 54ms (next.js: 38ms, application-code: 16ms)
+ HEAD /api/media/music/stock/upbeat.mp3 200 in 73ms (next.js: 59ms, application-code: 13ms)
+ GET /api/media/voice/voice_cmnb7kz30001csae2r5lpp57k_1774755470004.mp3 200 in 36ms (next.js: 6ms, application-code: 30ms)
+ GET /api/media/music/stock/upbeat.mp3 200 in 38ms (next.js: 17ms, application-code: 21ms)
+ GET /dashboard/content/cmnb6yzf9000msae2tiqxttpj 200 in 203ms (next.js: 143ms, application-code: 60ms)
+ GET /api/registry/cmnb6yzf9000msae2tiqxttpj 200 in 196ms (next.js: 41ms, application-code: 155ms)
+ GET /api/registry/cmnb6yzf9000msae2tiqxttpj 200 in 23ms (next.js: 5ms, application-code: 18ms)
+ HEAD /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 58ms (next.js: 48ms, application-code: 10ms)
+ HEAD /api/media/music/stock/upbeat_pop.mp3 200 in 30ms (next.js: 20ms, application-code: 11ms)
+ HEAD /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 30ms (next.js: 20ms, application-code: 11ms)
+ GET /api/media/merged/merged_cmnb6yzf9000msae2tiqxttpj_1774754450152.mp4 200 in 77ms (next.js: 34ms, application-code: 43ms)
+ HEAD /api/media/music/stock/upbeat_pop.mp3 200 in 34ms (next.js: 26ms, application-code: 9ms)
+ GET /api/media/voice/voice_cmnb6yzf9000msae2tiqxttpj_1774754444770.mp3 200 in 115ms (next.js: 15ms, application-code: 100ms)
+ GET /api/media/music/stock/upbeat_pop.mp3 200 in 110ms (next.js: 35ms, application-code: 74ms)
+[?25h

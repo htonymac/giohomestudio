@@ -821,3 +821,14 @@ If that loop is weak, all the extra features will become decoration.
 
 **GioHomeStudio is an AI-powered video content studio and publishing control platform that helps users create, review, manage, schedule, post, track, and improve video content across multiple pages, channels, and content types from one system.**
 
+---
+
+## 36. Skills Rules
+
+- After every coding task run /simplify automatically
+- Run /security-check before every deployment
+- Use /frontend-design before building any new screen
+- Use /web-researcher when encountering unknown libraries
+- Use /self-healing when any pipeline stage fails
+- Use /prompt-engineer before sending prompts to ElevenLabs or Kling
+

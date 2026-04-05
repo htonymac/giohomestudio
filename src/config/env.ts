@@ -47,17 +47,39 @@ export const env = {
 
   // Music provider selection
   music: {
-    provider: optional("MUSIC_PROVIDER", "stock_library"),
-    kieAiApiKey: optional("KIE_AI_API_KEY"),
+    provider:     optional("MUSIC_PROVIDER", "stock_library"),
+    kieAiApiKey:  optional("KIE_AI_API_KEY"),
     kieAiBaseUrl: optional("KIE_AI_API_BASE_URL", "https://api.kie.ai"),
+    pixabayApiKey: optional("PIXABAY_API_KEY"),
   },
 
   // FFmpeg binaries
-  ffmpegPath: optional("FFMPEG_PATH", "C:\\ffmpeg\\bin\\ffmpeg.exe"),
+  ffmpegPath:  optional("FFMPEG_PATH",  "C:\\ffmpeg\\bin\\ffmpeg.exe"),
   ffprobePath: optional("FFPROBE_PATH", "C:\\ffmpeg\\bin\\ffprobe.exe"),
+  // Font directory for FFmpeg drawtext — Windows has no Fontconfig; fontfile= must be explicit
+  fontDir:     optional("FONT_DIR",     "C:\\Windows\\Fonts"),
+
+  // ComfyUI (local Flux.1 image generation)
+  comfyui: {
+    url:   optional("COMFYUI_URL",   "http://127.0.0.1:8188"),
+    model: optional("COMFYUI_MODEL", "flux1-dev.safetensors"),
+    steps: parseInt(optional("COMFYUI_STEPS", "20"), 10),
+  },
 
   // Storage
   storagePath: optional("STORAGE_BASE_PATH", "./storage"),
+
+  // LLM providers (multi-provider router — see src/lib/llm.ts)
+  // Priority: Claude → GPT → Grok → Ollama → rule-based fallback
+  llm: {
+    anthropicApiKey: optional("ANTHROPIC_API_KEY"),
+    openaiApiKey:    optional("OPENAI_API_KEY"),
+    xaiApiKey:       optional("XAI_API_KEY"),
+    provider:        optional("LLM_PROVIDER"),  // force one: "claude" | "openai" | "grok" | "ollama"
+    ollamaBaseUrl:   optional("OLLAMA_BASE_URL", "http://localhost:11434"),
+    ollamaFastModel:    optional("OLLAMA_FAST_MODEL",    "phi3:latest"),
+    ollamaPreciseModel: optional("OLLAMA_PRECISE_MODEL", "qwen2.5:14b"),
+  },
 
   // App
   appUrl: optional("NEXT_PUBLIC_APP_URL", "http://localhost:3200"),

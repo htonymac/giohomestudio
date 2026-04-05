@@ -27,6 +27,10 @@ model ContentItem {
   status            ContentStatus    @default(PENDING)
   originalInput     String
   enhancedPrompt    String?
+  narrationScript   String?   // natural spoken text used for voice generation (not cinematic description)
+  supervisorPlan    Json?     // stored OrchestrationPlan from local LLM supervisor
+  voiceSource       String?   // "generated" | "uploaded" | "fallback" | "stock" | "manual"
+  musicSource       String?   // "generated" | "uploaded" | "fallback" | "stock" | "pixabay" | "manual"
   requestedVideoProvider   String?
   videoProvider            String?
   voiceProvider            String?
@@ -35,7 +39,9 @@ model ContentItem {
   voiceLanguage            String?   // language hint e.g. "en", "es", "fr"
   narrationSpeed           Float?    // speech rate 0.7-1.2, default 1.0
   narrationVolume          Float?    // voice level in FFmpeg mix 0.0-1.0, default 1.0
-  audioMode                String?   // "voice_music" | "voice_only" | "music_only"
+  outputMode               String?   // "text_to_video" | "text_to_audio" | "images_audio" | "hybrid" | "video_to_video"
+  audioMode                String?   // "voice_music" | "voice_only" | "music_only" | "audio_only"
+  castingCharacters        String[]  // character names selected for this generation
   musicProvider            String?
   requestedMusicProvider   String?   // user-selected music provider
   musicVolume              Float?    // music ducking level 0.0-1.0, default 0.85
@@ -47,6 +53,22 @@ model ContentItem {
   subjectType              String?   // human | animal | product | scene_only | custom_character
   customSubjectDescription String?
   aiAutoMode               Boolean   @default(true)
+  aspectRatio              String?   // "9:16" | "16:9" | "1:1" — output format, drives preview framing
+  castingEthnicity         String?   // african | black | white | asian | arab | mixed | auto
+  castingGender            String?   // male | female | nonbinary | mixed_gender
+  castingAge               String?   // child | teen | young_adult | adult | senior
+  castingCount             String?   // solo | duo | group | crowd
+  cultureContext           String?   // african | arab | asian | latin | western | global
+  referenceImageUrl        String?   // URL of a visual reference image
+  storyContext             String?   // story context/continuation brief passed to the prompt enhancer
+  previousContentItemId    String?   // ID of the item this scene continues from
+  storyThreadId            String?   // shared thread ID linking scenes in the same story
+  voiceLocale              String?   // en-NG-polished, en-GH-standard, etc.
+  voiceAccentSubtype       String?   // yoruba, igbo, hausa, standard, polished
+  voiceDeliveryStyle       String?   // commercial, storytelling, news_anchor, etc.
+  voiceMatchType           String?   // exact, close, library, generic
+  voiceCustomInstruct      String?   // user's custom narration instruction
+  overlayLayers            Json?     // array of OverlayLayer objects applied to the video
   videoPath         String?
   voicePath         String?
   musicPath         String?
@@ -64,6 +86,33 @@ model ContentItem {
   reviewActions     ReviewAction[]
 
   @@map("content_items")
+}
+
+// Character voice registry — maps character names to specific ElevenLabs voices
+// Used for multi-voice dialogue to ensure consistent casting across episodes.
+// Extended in Pass D: full character profile with image, visual description, role, default speech style.
+model CharacterVoice {
+  id                 String   @id @default(cuid())
+  name               String   @unique  // character name e.g. "JOHN", "NARRATOR", "MAMA"
+  gender             String?  // "male" | "female" | "boy" | "girl"
+  toneClass          String?  // "bass" | "tenor" | "soft" | "commanding" | "elder" | "youthful"
+  accent             String?  // "american" | "british" | "african" | "nigerian" | "neutral"
+  language           String?  // "en" | "pidgin" | "yo" | "ig" | "ha"
+  voiceId            String?  // ElevenLabs voice ID
+  voiceName          String?  // human-readable voice name for display
+  isNarrator         Boolean  @default(false)
+  notes              String?
+  // Pass D — full character profile
+  imageUrl           String?  // URL to character portrait image
+  visualDescription  String?  // appearance/style for prompt injection e.g. "tall Nigerian man in agbada"
+  role               String?  // protagonist | antagonist | narrator | supporting | comic_relief | elder | child
+  defaultSpeechStyle String?  // normal | whisper | emotional | commanding | trembling
+  // Multi-angle reference images for video generation consistency
+  referenceImages    Json?    // [{url: string, angle: string, label: string}]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("character_voices")
 }
 
 model ContentVersion {
@@ -155,6 +204,7 @@ enum ContentStatus {
 
 enum ContentMode {
   FREE
+  COMMERCIAL
 }
 
 enum PagePlatform {
@@ -193,4 +243,62 @@ enum AlertStatus {
   PENDING
   SENT
   FAILED
+}
+
+// ── Commercial Maker ───────────────────────────────────────────────────────────
+
+model CommercialProject {
+  id                String            @id @default(cuid())
+  projectName       String
+  aspectRatio       String            @default("9:16")   // "9:16" | "16:9" | "1:1"
+  brandName         String?
+  brandLogoPath     String?
+  colorAccent       String?
+  tagline           String?
+  ctaMethod            String?           // "whatsapp" | "call" | "telegram"
+  ctaValue             String?           // primary phone or handle
+  ctaValueSecondary    String?           // secondary phone number
+  ctaLabel             String?
+  voiceId              String?           // ElevenLabs voice ID for narration
+  voiceLanguage        String?           // accent/language hint passed to TTS
+  targetDurationSec    Int?              // desired total commercial length in seconds
+  autoDistribute       Boolean           @default(false)  // divide targetDurationSec evenly across slides
+  captionMaxWords      Int               @default(8)      // AI caption generation limit (words)
+  captionMaxChars      Int?              // optional character limit for AI caption generation
+  musicPath            String?           // path to music file (uploaded or stock)
+  musicSource          String?           // "uploaded" | "stock" | "pixabay"
+  musicVolume          Float             @default(0.85)
+  narrationVolume      Float             @default(1.0)   // voice level in final FFmpeg mix 0.0-2.0
+  narrationScript      String?           // full narration text (assembled from slide narrationLines)
+  enhancementPreset    String?           // "cinematic" | "hdr" | "natural" | "clean_social" | "warm_promo"
+  enhancementLevel     Int?              // global enhancement level 1-100 (applied to all slides)
+  renderStatus      String            @default("draft")  // "draft" | "rendering" | "ready" | "failed"
+  contentItemId     String?           // linked ContentItem when rendered
+  destinationPageId String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  slides            CommercialSlide[]
+
+  @@map("commercial_projects")
+}
+
+model CommercialSlide {
+  id                  String             @id @default(cuid())
+  projectId           String
+  slideOrder          Int
+  imagePath           String?            // absolute path to uploaded image
+  imageFileName       String?            // original filename for display
+  captionOriginal     String?
+  captionPolished     String?
+  captionApproved     Boolean            @default(false)
+  narrationLine       String?            // spoken text for this slide
+  durationMs          Int                @default(3000)   // how long to show this slide
+  brandingEnabled     Boolean            @default(false)
+  enhancementSettings Json?              // per-slide overrides: {brightness, contrast, saturation}
+  status              String             @default("draft") // "draft" | "ready" | "missing_media"
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  project             CommercialProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("commercial_slides")
 }

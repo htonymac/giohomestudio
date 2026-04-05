@@ -16,10 +16,20 @@ export interface PromptEnhancerInput {
   subjectType?: string;
   customSubjectDescription?: string;
   aiAutoMode?: boolean;
+  // Identity / casting controls
+  castingEthnicity?: string;
+  castingGender?: string;
+  castingAge?: string;
+  castingCount?: string;
+  cultureContext?: string;
+  referenceImageUrl?: string;
+  // Story continuation context — when present, enhancer writes a continuation not a fresh start
+  storyContext?: string;
 }
 
 export interface PromptEnhancerOutput {
-  enhancedPrompt: string;
+  enhancedPrompt: string;   // cinematic video prompt → sent to video provider
+  narrationScript: string;  // natural spoken text → sent to voice provider
   suggestions?: string[];
   tokensUsed?: number;
 }
@@ -37,6 +47,8 @@ export interface VideoGenerationInput {
   durationSeconds?: number;
   aspectRatio?: "9:16" | "16:9" | "1:1";
   style?: string;
+  /** Image-to-video: source image URL or local path. Provider uses this as the start frame. */
+  referenceImageUrl?: string;
 }
 
 export interface VideoGenerationOutput {
@@ -58,6 +70,20 @@ export interface IVideoProvider {
 // VOICE PROVIDER
 // ─────────────────────────────────────────────
 
+// Single source of truth — derive the type from the const array so
+// dialogue-parser validation and TypeScript type-checking stay in sync.
+export const SPEECH_STYLE_VALUES = [
+  "normal", "whisper", "emotional", "commanding", "trembling",
+] as const;
+export type SpeechStyle = typeof SPEECH_STYLE_VALUES[number];
+
+export const ELEVENLABS_MODELS = [
+  "eleven_multilingual_v2",
+  "eleven_turbo_v2_5",
+  "eleven_flash_v2_5",
+] as const;
+export type ElevenLabsModel = typeof ELEVENLABS_MODELS[number];
+
 export interface VoiceGenerationInput {
   text: string;
   voiceId?: string;         // provider-specific voice ID
@@ -65,8 +91,12 @@ export interface VoiceGenerationInput {
   similarityBoost?: number; // 0-1
   speed?: number;           // speech rate 0.7-1.2 (ElevenLabs top-level param)
   language?: string;        // ISO 639-1 code e.g. "en", "es", "fr" — influences model selection
+  voiceModel?: ElevenLabsModel; // explicit model override; auto-selected from language if omitted
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path for the generated audio file
+  // Scene-directed audio (Pass B)
+  speechStyle?: SpeechStyle; // voice performance direction — maps to ElevenLabs voice_settings
+  styleIntensity?: number;   // 0-1 override for the style value; if omitted, preset default applies
 }
 
 export interface VoiceGenerationOutput {

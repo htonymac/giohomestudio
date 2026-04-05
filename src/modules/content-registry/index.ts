@@ -6,7 +6,7 @@ import type { ContentItem, ContentStatus, ContentVersion } from "@/types/content
 
 export async function createContentItem(data: {
   originalInput: string;
-  mode?: "FREE";
+  mode?: "FREE" | "COMMERCIAL";
   durationSeconds?: number;
   destinationPageId?: string;
   requestedVideoProvider?: string;
@@ -16,16 +16,29 @@ export async function createContentItem(data: {
   subjectType?: string;
   customSubjectDescription?: string;
   aiAutoMode?: boolean;
+  aspectRatio?: string;
+  castingEthnicity?: string;
+  castingGender?: string;
+  castingAge?: string;
+  castingCount?: string;
+  cultureContext?: string;
+  referenceImageUrl?: string;
+  storyContext?: string;
+  previousContentItemId?: string;
+  storyThreadId?: string;
   voiceId?: string;
   voiceLanguage?: string;
   requestedVoiceProvider?: string;
   narrationSpeed?: number;
   narrationVolume?: number;
+  outputMode?: string;
   audioMode?: string;
+  castingCharacters?: string[];
   requestedMusicProvider?: string;
   musicVolume?: number;
   musicGenre?: string;
   musicRegion?: string;
+  narrationScript?: string;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -41,16 +54,29 @@ export async function createContentItem(data: {
       subjectType: data.subjectType ?? null,
       customSubjectDescription: data.customSubjectDescription ?? null,
       aiAutoMode: data.aiAutoMode ?? true,
+      aspectRatio: data.aspectRatio ?? "9:16",
+      castingEthnicity: data.castingEthnicity ?? null,
+      castingGender: data.castingGender ?? null,
+      castingAge: data.castingAge ?? null,
+      castingCount: data.castingCount ?? null,
+      cultureContext: data.cultureContext ?? null,
+      referenceImageUrl: data.referenceImageUrl ?? null,
+      storyContext: data.storyContext ?? null,
+      previousContentItemId: data.previousContentItemId ?? null,
+      storyThreadId: data.storyThreadId ?? null,
       voiceId: data.voiceId ?? null,
       voiceLanguage: data.voiceLanguage ?? null,
       requestedVoiceProvider: data.requestedVoiceProvider ?? null,
       narrationSpeed: data.narrationSpeed ?? null,
       narrationVolume: data.narrationVolume ?? null,
+      outputMode: data.outputMode ?? null,
       audioMode: data.audioMode ?? null,
+      castingCharacters: data.castingCharacters ?? [],
       requestedMusicProvider: data.requestedMusicProvider ?? null,
       musicVolume: data.musicVolume ?? null,
       musicGenre: data.musicGenre ?? null,
       musicRegion: data.musicRegion ?? null,
+      narrationScript: data.narrationScript ?? null,
     },
     include: { destinationPage: true },
   });
@@ -62,6 +88,11 @@ export async function updateContentItem(
   updates: Partial<{
     status: ContentStatus;
     enhancedPrompt: string;
+    narrationScript: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supervisorPlan: any;
+    voiceSource: string;
+    musicSource: string;
     requestedVideoProvider: string;
     videoProvider: string;
     voiceProvider: string;
@@ -70,7 +101,9 @@ export async function updateContentItem(
     voiceLanguage: string;
     narrationSpeed: number;
     narrationVolume: number;
+    outputMode: string;
     audioMode: string;
+    castingCharacters: string[];
     musicProvider: string;
     requestedMusicProvider: string;
     musicVolume: number;
@@ -82,20 +115,43 @@ export async function updateContentItem(
     subjectType: string;
     customSubjectDescription: string;
     aiAutoMode: boolean;
+    aspectRatio: string;
+    castingEthnicity: string;
+    castingGender: string;
+    castingAge: string;
+    castingCount: string;
+    cultureContext: string;
+    referenceImageUrl: string;
     videoPath: string;
     voicePath: string;
     musicPath: string;
     mergedOutputPath: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    overlayLayers: any;
     durationSeconds: number;
     notes: string;
     approvedAt: Date;
     rejectedAt: Date;
   }>
 ): Promise<ContentItem> {
+  // overlayLayers is a Json field added after the initial migration.
+  // The Prisma client may not include it until the server is restarted after
+  // prisma generate. Strip it out and write it via raw SQL to avoid validation errors.
+  const { overlayLayers, ...prismaUpdates } = updates as Record<string, unknown>;
+
   const item = await prisma.contentItem.update({
     where: { id },
-    data: updates,
+    data: prismaUpdates,
   });
+
+  if (overlayLayers !== undefined) {
+    await prisma.$executeRaw`
+      UPDATE "content_items"
+      SET "overlayLayers" = ${JSON.stringify(overlayLayers)}::jsonb
+      WHERE id = ${id}
+    `;
+  }
+
   return item as ContentItem;
 }
 

@@ -10,9 +10,16 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "test": "playwright test",
+    "test:ui": "playwright test --headed",
+    "test:api": "playwright test --grep \"GET|POST|PATCH|DELETE|Commercial:|Mode 2:\"",
+    "test:commercial": "playwright test --grep \"Commercial|Mode 2|Render\"",
+    "test:pages": "playwright test --grep \"UI:\"",
+    "test:report": "playwright show-report"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.82.0",
     "@playwright/test": "^1.58.2",
     "@prisma/client": "^5.22.0",
     "axios": "^1.7.9",
@@ -20,6 +27,7 @@
     "jsonwebtoken": "^9.0.2",
     "next": "^16.2.1",
     "node-telegram-bot-api": "^0.66.0",
+    "openai": "^6.33.0",
     "playwright": "^1.58.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

@@ -13,15 +13,20 @@ import axios from "axios";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { loadLLMSettings } from "@/lib/llm-settings";
 import type { IVideoProvider, VideoGenerationInput, VideoGenerationOutput } from "@/types/providers";
 
 const BASE_URL = env.runway.baseUrl;
 const API_VERSION = "2024-11-06";
 const MODEL = "gen4.5";
 
+function getRunwayKey(): string {
+  return loadLLMSettings().RUNWAY_API_KEY || env.runway.apiKey;
+}
+
 function runwayHeaders() {
   return {
-    Authorization: `Bearer ${env.runway.apiKey}`,
+    Authorization: `Bearer ${getRunwayKey()}`,
     "X-Runway-Version": API_VERSION,
     "Content-Type": "application/json",
   };
@@ -43,7 +48,7 @@ class RunwayVideoProvider implements IVideoProvider {
   readonly name = "runway";
 
   async generate(input: VideoGenerationInput): Promise<VideoGenerationOutput> {
-    if (!env.runway.apiKey) {
+    if (!getRunwayKey()) {
       return { jobId: "", status: "failed", error: "RUNWAY_API_KEY is not set." };
     }
 

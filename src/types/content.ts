@@ -35,6 +35,10 @@ export interface ContentItem {
   status: ContentStatus;
   originalInput: string;
   enhancedPrompt?: string | null;
+  narrationScript?: string | null;
+  supervisorPlan?: Record<string, unknown> | null;
+  voiceSource?: string | null;
+  musicSource?: string | null;
   requestedVideoProvider?: string | null;
   videoProvider?: string | null;
   voiceProvider?: string | null;
@@ -43,7 +47,9 @@ export interface ContentItem {
   voiceLanguage?: string | null;
   narrationSpeed?: number | null;
   narrationVolume?: number | null;
+  outputMode?: string | null;
   audioMode?: string | null;
+  castingCharacters?: string[];
   musicProvider?: string | null;
   requestedMusicProvider?: string | null;
   musicVolume?: number | null;
@@ -55,6 +61,16 @@ export interface ContentItem {
   subjectType?: string | null;
   customSubjectDescription?: string | null;
   aiAutoMode?: boolean;
+  aspectRatio?: string | null;
+  castingEthnicity?: string | null;
+  castingGender?: string | null;
+  castingAge?: string | null;
+  castingCount?: string | null;
+  cultureContext?: string | null;
+  referenceImageUrl?: string | null;
+  storyContext?: string | null;
+  previousContentItemId?: string | null;
+  storyThreadId?: string | null;
   videoPath?: string | null;
   voicePath?: string | null;
   musicPath?: string | null;
