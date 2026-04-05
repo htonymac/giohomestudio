@@ -29,8 +29,9 @@ const updateSchema = z.object({
   autoDistribute:       z.boolean().optional(),
   captionMaxWords:      z.number().int().min(1).max(50).optional(),
   captionMaxChars:      z.number().int().min(5).max(300).nullable().optional(),
-  transitionType:       z.enum(["none", "fade", "slide-left", "slide-right", "zoom-in"]).nullable().optional(),
+  transitionType:        z.enum(["none", "fade", "slide-left", "slide-right", "zoom-in"]).nullable().optional(),
   transitionDurationSec: z.number().min(0.1).max(2).nullable().optional(),
+  globalCaptionPosition: z.enum(["top", "center", "bottom"]).nullable().optional(),
 }).strict();
 
 export async function GET(
@@ -64,25 +65,28 @@ export async function GET(
   let captionMaxChars: number | null = null;
   let transitionType: string | null = null;
   let transitionDurationSec: number | null = null;
+  let globalCaptionPosition: string | null = null;
   try {
     const caps = await prisma.$queryRaw<Array<{
       captionMaxWords: number | null;
       captionMaxChars: number | null;
       transitionType: string | null;
       transitionDurationSec: number | null;
+      globalCaptionPosition: string | null;
     }>>`
-      SELECT "captionMaxWords", "captionMaxChars", "transitionType", "transitionDurationSec"
+      SELECT "captionMaxWords", "captionMaxChars", "transitionType", "transitionDurationSec", "globalCaptionPosition"
       FROM commercial_projects WHERE id = ${id} LIMIT 1
     `;
     if (caps[0]) {
-      captionMaxWords = caps[0].captionMaxWords ?? 8;
-      captionMaxChars = caps[0].captionMaxChars ?? null;
-      transitionType = caps[0].transitionType ?? null;
+      captionMaxWords      = caps[0].captionMaxWords      ?? 8;
+      captionMaxChars      = caps[0].captionMaxChars      ?? null;
+      transitionType       = caps[0].transitionType       ?? null;
       transitionDurationSec = caps[0].transitionDurationSec ?? null;
+      globalCaptionPosition = caps[0].globalCaptionPosition ?? null;
     }
   } catch { /* columns may not exist yet */ }
 
-  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec });
+  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition });
 }
 
 export async function PATCH(
@@ -97,11 +101,12 @@ export async function PATCH(
   }
   // Split fields: known-to-runtime fields via Prisma ORM; new fields via raw SQL
   // until `prisma generate` can be run with the server stopped.
-  const { captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, ...ormData } = parsed.data as typeof parsed.data & {
+  const { captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, ...ormData } = parsed.data as typeof parsed.data & {
     captionMaxWords?: number;
     captionMaxChars?: number | null;
     transitionType?: string | null;
     transitionDurationSec?: number | null;
+    globalCaptionPosition?: string | null;
   };
 
   const project = await prisma.commercialProject.update({
@@ -112,10 +117,11 @@ export async function PATCH(
   // Save raw-SQL fields in one query when any are present
   const rawFields: string[] = [];
   const rawVals: unknown[] = [];
-  if (captionMaxWords !== undefined)     { rawFields.push(`"captionMaxWords" = $${rawFields.length + 1}`);     rawVals.push(captionMaxWords); }
-  if (captionMaxChars !== undefined)     { rawFields.push(`"captionMaxChars" = $${rawFields.length + 1}`);     rawVals.push(captionMaxChars); }
-  if (transitionType !== undefined)      { rawFields.push(`"transitionType" = $${rawFields.length + 1}`);      rawVals.push(transitionType); }
+  if (captionMaxWords !== undefined)       { rawFields.push(`"captionMaxWords" = $${rawFields.length + 1}`);       rawVals.push(captionMaxWords); }
+  if (captionMaxChars !== undefined)       { rawFields.push(`"captionMaxChars" = $${rawFields.length + 1}`);       rawVals.push(captionMaxChars); }
+  if (transitionType !== undefined)        { rawFields.push(`"transitionType" = $${rawFields.length + 1}`);        rawVals.push(transitionType); }
   if (transitionDurationSec !== undefined) { rawFields.push(`"transitionDurationSec" = $${rawFields.length + 1}`); rawVals.push(transitionDurationSec); }
+  if (globalCaptionPosition !== undefined) { rawFields.push(`"globalCaptionPosition" = $${rawFields.length + 1}`); rawVals.push(globalCaptionPosition); }
 
   if (rawFields.length > 0) {
     try {
@@ -131,10 +137,11 @@ export async function PATCH(
 
   return NextResponse.json({
     ...project,
-    captionMaxWords:      captionMaxWords      ?? project.captionMaxWords      ?? 8,
-    captionMaxChars:      captionMaxChars      ?? project.captionMaxChars      ?? null,
-    transitionType:       transitionType       ?? null,
+    captionMaxWords:       captionMaxWords       ?? project.captionMaxWords  ?? 8,
+    captionMaxChars:       captionMaxChars       ?? project.captionMaxChars  ?? null,
+    transitionType:        transitionType        ?? null,
     transitionDurationSec: transitionDurationSec ?? null,
+    globalCaptionPosition: globalCaptionPosition ?? null,
   });
 }
 

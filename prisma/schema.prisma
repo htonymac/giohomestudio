@@ -265,8 +265,9 @@ model CommercialProject {
   autoDistribute       Boolean           @default(false)  // divide targetDurationSec evenly across slides
   captionMaxWords      Int               @default(8)      // AI caption generation limit (words)
   captionMaxChars      Int?              // optional character limit for AI caption generation
-  transitionType       String?           // "fade" | "slide-left" | "slide-right" | "zoom-in" | null = none
-  transitionDurationSec Float?           // transition duration in seconds (default 0.5)
+  transitionType        String?           // "fade" | "slide-left" | "slide-right" | "zoom-in" | null = none
+  transitionDurationSec Float?            // transition duration in seconds (default 0.5)
+  globalCaptionPosition String?           // "top" | "center" | "bottom" — overrides all per-slide positions when set
   musicPath            String?           // path to music file (uploaded or stock)
   musicSource          String?           // "uploaded" | "stock" | "pixabay"
   musicVolume          Float             @default(0.85)

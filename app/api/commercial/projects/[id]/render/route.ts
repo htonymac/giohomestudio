@@ -76,7 +76,7 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
         imagePath: s.imagePath!,
         durationMs: s.durationMs,
         captionText,
-        captionPosition: (typeof enh?.captionPosition === "string" ? enh.captionPosition : null),
+        captionPosition: globalCaptionPosition ?? (typeof enh?.captionPosition === "string" ? enh.captionPosition : null),
         captionPreset:   (typeof enh?.captionPreset   === "string" ? enh.captionPreset   : null),
         fontOverride:    (typeof enh?.fontFamily      === "string" ? enh.fontFamily      : null),
         fontSizeScale:   (typeof enh?.fontSizeScale   === "number" ? enh.fontSizeScale   : 0.7),
@@ -133,16 +133,25 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   const slideshowPath  = path.join(slideshowDir, `commercial_${contentItemId}_motion_${ts}.mp4`);
   const captionedPath  = path.join(slideshowDir, `commercial_${contentItemId}_captioned_${ts}.mp4`);
 
-  // Fetch transition settings (stored via raw SQL)
+  // Fetch project-level settings stored via raw SQL
   let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
   let transitionDurationSec: number | undefined;
+  let globalCaptionPosition: "top" | "center" | "bottom" | null = null;
   try {
-    const tRows = await prisma.$queryRaw<Array<{ transitionType: string | null; transitionDurationSec: number | null }>>`
-      SELECT "transitionType", "transitionDurationSec" FROM commercial_projects WHERE id = ${project.id} LIMIT 1
+    const tRows = await prisma.$queryRaw<Array<{
+      transitionType: string | null;
+      transitionDurationSec: number | null;
+      globalCaptionPosition: string | null;
+    }>>`
+      SELECT "transitionType", "transitionDurationSec", "globalCaptionPosition"
+      FROM commercial_projects WHERE id = ${project.id} LIMIT 1
     `;
-    if (tRows[0]?.transitionType) {
-      transitionType = tRows[0].transitionType as typeof transitionType;
-      transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
+    if (tRows[0]) {
+      if (tRows[0].transitionType) {
+        transitionType = tRows[0].transitionType as typeof transitionType;
+        transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
+      }
+      globalCaptionPosition = (tRows[0].globalCaptionPosition ?? null) as typeof globalCaptionPosition;
     }
   } catch { /* columns may not exist yet */ }
 

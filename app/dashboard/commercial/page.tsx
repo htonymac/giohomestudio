@@ -69,6 +69,7 @@ interface CommercialProject {
   captionMaxChars: number | null;
   transitionType: string | null;
   transitionDurationSec: number | null;
+  globalCaptionPosition: string | null;
   musicVolume: number;
   narrationVolume: number;
   musicPath: string | null;
@@ -1928,6 +1929,29 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
               >
                 <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${project.autoDistribute ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
+            </div>
+
+            {/* Global Caption Position */}
+            <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
+              <p className="text-[11px] text-white font-semibold">📍 Caption Position — All Slides</p>
+              <p className="text-[10px] text-[#6060a0]">Sets caption position on every slide at once. Overrides per-slide setting.</p>
+              <div className="flex gap-1.5">
+                {[
+                  { id: null,       label: "🔀 Per-slide" },
+                  { id: "top",      label: "⬆️ Top" },
+                  { id: "center",   label: "⏺️ Center" },
+                  { id: "bottom",   label: "⬇️ Bottom" },
+                ].map(opt => (
+                  <button key={String(opt.id)} type="button"
+                    onClick={() => patchProject({ globalCaptionPosition: opt.id })}
+                    className={`flex-1 py-1.5 px-1 rounded text-[10px] border transition-colors text-center ${
+                      (project.globalCaptionPosition ?? null) === opt.id
+                        ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                        : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                    }`}
+                  >{opt.label}</button>
+                ))}
+              </div>
             </div>
 
             {/* Slide Transitions */}
