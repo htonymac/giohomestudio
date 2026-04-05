@@ -70,6 +70,7 @@ interface CommercialProject {
   transitionType: string | null;
   transitionDurationSec: number | null;
   globalCaptionPosition: string | null;
+  renderQuality: string;
   musicVolume: number;
   narrationVolume: number;
   musicPath: string | null;
@@ -1929,6 +1930,38 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
               >
                 <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${project.autoDistribute ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
+            </div>
+
+            {/* Render Quality */}
+            <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
+              <p className="text-[11px] text-white font-semibold">🎞️ Video Quality</p>
+              <p className="text-[10px] text-[#6060a0]">Higher quality = sharper image, longer render time, larger file.</p>
+              <div className="grid grid-cols-4 gap-1">
+                {[
+                  { id: "draft",    label: "⚡ Draft",    note: "Fast preview" },
+                  { id: "standard", label: "📺 Standard", note: "Good balance" },
+                  { id: "high",     label: "🎯 High",     note: "Sharp + crisp" },
+                  { id: "cinema",   label: "🎬 Cinema",   note: "Max quality" },
+                ].map(q => (
+                  <button key={q.id} type="button"
+                    onClick={() => patchProject({ renderQuality: q.id })}
+                    className={`py-2 px-1 rounded text-center border transition-colors ${
+                      (project.renderQuality ?? "standard") === q.id
+                        ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                        : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                    }`}
+                  >
+                    <div className="text-[11px] font-semibold">{q.label}</div>
+                    <div className="text-[9px] text-[#404060] mt-0.5">{q.note}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="text-[10px] text-[#404060] space-y-0.5">
+                <p>⚡ Draft — CRF 26, fast encode</p>
+                <p>📺 Standard — CRF 20, medium (default)</p>
+                <p>🎯 High — CRF 16, slow + sharpening</p>
+                <p>🎬 Cinema — CRF 12, slow + strong sharpening</p>
+              </div>
             </div>
 
             {/* Global Caption Position */}

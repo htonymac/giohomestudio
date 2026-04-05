@@ -431,11 +431,27 @@ const XFADE_MAP: Record<string, string> = {
   "zoom-in":     "zoomin",
 };
 
+export type RenderQuality = "draft" | "standard" | "high" | "cinema";
+
+/** CRF + preset + optional sharpening unsharp filter per quality level */
+const QUALITY_ENCODE: Record<RenderQuality, { crf: number; preset: string; unsharp: string }> = {
+  draft:    { crf: 26, preset: "fast",   unsharp: "" },
+  standard: { crf: 20, preset: "medium", unsharp: "" },
+  high:     { crf: 16, preset: "slow",   unsharp: ",unsharp=3:3:0.8:3:3:0" },
+  cinema:   { crf: 12, preset: "slow",   unsharp: ",unsharp=5:5:1.2:3:3:0" },
+};
+
 export async function createSlideshow(
   frames: SlideshowFrame[],
   outputPath: string,
   aspectRatio: "9:16" | "16:9" | "1:1" = "9:16",
-  opts: { skipKenBurns?: boolean; transitionType?: TransitionType; transitionDurationSec?: number } = {}
+  opts: {
+    skipKenBurns?: boolean;
+    transitionType?: TransitionType;
+    transitionDurationSec?: number;
+    /** Quality for this specific encode pass. "lossless" = CRF 0 for lossless intermediate */
+    quality?: RenderQuality | "lossless";
+  } = {}
 ): Promise<MergeOutput> {
   // isActualFile rejects empty strings, ".", and directories — fs.existsSync passes for dirs
   // which would let path.resolve(".") = project root reach FFmpeg → exit -13 (EACCES).
@@ -450,12 +466,19 @@ export async function createSlideshow(
   fs.mkdirSync(dir, { recursive: true });
   const absOut = toFFmpegPath(path.resolve(outputPath));
 
+  // Resolve encode settings
+  const qualityKey = (!opts.quality || opts.quality === "lossless") ? null : opts.quality;
+  const enc = qualityKey ? QUALITY_ENCODE[qualityKey] : QUALITY_ENCODE.standard;
+  const encodeOpts = opts.quality === "lossless"
+    ? ["-c:v libx264", "-crf 0", "-preset ultrafast"]
+    : [`-crf ${enc.crf}`, `-preset ${enc.preset}`, "-c:v libx264"];
+
   if (opts.skipKenBurns) {
     const DIMS2: Record<string, { w: number; h: number }> = {
       "9:16": { w: 832, h: 1472 }, "16:9": { w: 1216, h: 832 }, "1:1": { w: 1024, h: 1024 },
     };
     const { w: w2, h: h2 } = DIMS2[aspectRatio] ?? DIMS2["9:16"];
-    return createSlideshowStatic(valid, absOut, w2, h2);
+    return createSlideshowStatic(valid, absOut, w2, h2, encodeOpts);
   }
 
   const DIMS: Record<string, { w: number; h: number }> = {
@@ -530,8 +553,8 @@ export async function createSlideshow(
       kbFn = KB[i % KB.length];
     }
 
-    // Scale to pre-zoom size → Ken Burns (at ZP_FPS) → upsample → format → optional caption → label
-    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase,crop=${pw}:${ph},${kbFn(d)},format=yuv420p`;
+    // Scale to pre-zoom size (lanczos = sharper than default bilinear) → Ken Burns → upsample → format → optional sharpening → optional caption → label
+    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase:flags=lanczos,crop=${pw}:${ph},${kbFn(d)},format=yuv420p${enc.unsharp}`;
     if (f.captionText?.trim()) {
       seg += `,${buildAnimatedCaption(f.captionText.trim(), f.captionStyle)}`;
     }
@@ -576,12 +599,12 @@ export async function createSlideshow(
     cmd
       .on("start", (cmdStr: string) => console.log(`[createSlideshow] cmd: ${cmdStr}`))
       .complexFilter(segs.join(";"))
-      .outputOptions(["-map [outv]", "-c:v libx264", "-preset fast", "-movflags +faststart", "-an"])
+      .outputOptions(["-map [outv]", ...encodeOpts, "-movflags +faststart", "-an"])
       .output(absOut)
       .on("end",  () => resolve({ success: true, outputPath: absOut }))
       .on("error", (err: Error) => {
         console.warn(`[createSlideshow] Ken Burns failed (${err.message}) — falling back to static slideshow`);
-        createSlideshowStatic(valid, absOut, w, h).then(resolve);
+        createSlideshowStatic(valid, absOut, w, h, encodeOpts).then(resolve);
       })
       .run();
   });
@@ -593,10 +616,11 @@ function createSlideshowStatic(
   absOut: string,
   w: number,
   h: number,
+  encodeOpts: string[] = ["-c:v libx264", "-crf 20", "-preset medium"],
 ): Promise<MergeOutput> {
   const listFile = absOut + ".fallback.txt";
   const lines: string[] = [];
-  let vf = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,fps=24,format=yuv420p`;
+  let vf = `scale=${w}:${h}:force_original_aspect_ratio=decrease:flags=lanczos,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2:black,fps=24,format=yuv420p`;
 
   // Build concat list + per-slide caption overlays in one pass.
   // gte()/lte() instead of >= and <= — infix comparison operators are broken in the 2026-03 FFmpeg build.
@@ -630,7 +654,7 @@ function createSlideshowStatic(
       .input(toFFmpegPath(listFile))
       .inputOptions(["-f concat", "-safe 0"])
       .videoFilter(vf)
-      .outputOptions(["-c:v libx264", "-preset fast", "-movflags +faststart", "-an"])
+      .outputOptions([...encodeOpts, "-movflags +faststart", "-an"])
       .output(absOut)
       .on("end",  () => { cleanupTempFile(listFile); resolve({ success: true, outputPath: absOut }); })
       .on("error", (err: Error) => { cleanupTempFile(listFile); resolve({ success: false, error: err.message }); })

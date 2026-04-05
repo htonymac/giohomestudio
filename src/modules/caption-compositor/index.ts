@@ -287,7 +287,15 @@ export async function overlayCaptionsOnVideo(
   videoPath: string,
   overlays: VideoOverlayItem[],
   outputPath: string,
+  quality: import("@/modules/ffmpeg").RenderQuality = "standard",
 ): Promise<{ success: boolean; outputPath: string; error?: string }> {
+  const qualityMap: Record<string, { crf: number; preset: string }> = {
+    draft:    { crf: 26, preset: "fast" },
+    standard: { crf: 20, preset: "medium" },
+    high:     { crf: 16, preset: "slow" },
+    cinema:   { crf: 12, preset: "slow" },
+  };
+  const enc = qualityMap[quality] ?? qualityMap.standard;
   const valid = overlays.filter(o => isActualFile(o.pngPath));
   if (valid.length === 0) {
     fs.copyFileSync(videoPath, outputPath);
@@ -340,7 +348,7 @@ export async function overlayCaptionsOnVideo(
     cmd
       .on("start", (cmdStr: string) => console.log(`[overlayCaptionsOnVideo] cmd: ${cmdStr}`))
       .complexFilter(filterParts.join(";"))
-      .outputOptions(["-map [vfinal]", "-c:v libx264", "-preset fast", "-movflags +faststart", "-an"])
+      .outputOptions(["-map [vfinal]", "-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`, "-movflags +faststart", "-an"])
       .output(toFFmpegPath(outputPath))
       .on("end", () => resolve({ success: true, outputPath }))
       .on("error", (err: Error) => {

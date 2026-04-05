@@ -32,6 +32,7 @@ const updateSchema = z.object({
   transitionType:        z.enum(["none", "fade", "slide-left", "slide-right", "zoom-in"]).nullable().optional(),
   transitionDurationSec: z.number().min(0.1).max(2).nullable().optional(),
   globalCaptionPosition: z.enum(["top", "center", "bottom"]).nullable().optional(),
+  renderQuality:         z.enum(["draft", "standard", "high", "cinema"]).optional(),
 }).strict();
 
 export async function GET(
@@ -66,6 +67,7 @@ export async function GET(
   let transitionType: string | null = null;
   let transitionDurationSec: number | null = null;
   let globalCaptionPosition: string | null = null;
+  let renderQuality = "standard";
   try {
     const caps = await prisma.$queryRaw<Array<{
       captionMaxWords: number | null;
@@ -73,8 +75,9 @@ export async function GET(
       transitionType: string | null;
       transitionDurationSec: number | null;
       globalCaptionPosition: string | null;
+      renderQuality: string | null;
     }>>`
-      SELECT "captionMaxWords", "captionMaxChars", "transitionType", "transitionDurationSec", "globalCaptionPosition"
+      SELECT "captionMaxWords", "captionMaxChars", "transitionType", "transitionDurationSec", "globalCaptionPosition", "renderQuality"
       FROM commercial_projects WHERE id = ${id} LIMIT 1
     `;
     if (caps[0]) {
@@ -83,10 +86,11 @@ export async function GET(
       transitionType       = caps[0].transitionType       ?? null;
       transitionDurationSec = caps[0].transitionDurationSec ?? null;
       globalCaptionPosition = caps[0].globalCaptionPosition ?? null;
+      renderQuality = caps[0].renderQuality ?? "standard";
     }
   } catch { /* columns may not exist yet */ }
 
-  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition });
+  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, renderQuality });
 }
 
 export async function PATCH(
@@ -101,12 +105,13 @@ export async function PATCH(
   }
   // Split fields: known-to-runtime fields via Prisma ORM; new fields via raw SQL
   // until `prisma generate` can be run with the server stopped.
-  const { captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, ...ormData } = parsed.data as typeof parsed.data & {
+  const { captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, renderQuality, ...ormData } = parsed.data as typeof parsed.data & {
     captionMaxWords?: number;
     captionMaxChars?: number | null;
     transitionType?: string | null;
     transitionDurationSec?: number | null;
     globalCaptionPosition?: string | null;
+    renderQuality?: string;
   };
 
   const project = await prisma.commercialProject.update({
@@ -122,6 +127,7 @@ export async function PATCH(
   if (transitionType !== undefined)        { rawFields.push(`"transitionType" = $${rawFields.length + 1}`);        rawVals.push(transitionType); }
   if (transitionDurationSec !== undefined) { rawFields.push(`"transitionDurationSec" = $${rawFields.length + 1}`); rawVals.push(transitionDurationSec); }
   if (globalCaptionPosition !== undefined) { rawFields.push(`"globalCaptionPosition" = $${rawFields.length + 1}`); rawVals.push(globalCaptionPosition); }
+  if (renderQuality !== undefined)         { rawFields.push(`"renderQuality" = $${rawFields.length + 1}`);         rawVals.push(renderQuality); }
 
   if (rawFields.length > 0) {
     try {

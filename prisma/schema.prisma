@@ -268,6 +268,7 @@ model CommercialProject {
   transitionType        String?           // "fade" | "slide-left" | "slide-right" | "zoom-in" | null = none
   transitionDurationSec Float?            // transition duration in seconds (default 0.5)
   globalCaptionPosition String?           // "top" | "center" | "bottom" — overrides all per-slide positions when set
+  renderQuality         String?           // "draft" | "standard" | "high" | "cinema" — controls CRF + preset
   musicPath            String?           // path to music file (uploaded or stock)
   musicSource          String?           // "uploaded" | "stock" | "pixabay"
   musicVolume          Float             @default(0.85)

@@ -15,7 +15,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
-import { createSlideshow, mergeMedia, type SlideshowFrame } from "@/modules/ffmpeg";
+import { createSlideshow, mergeMedia, type SlideshowFrame, type RenderQuality } from "@/modules/ffmpeg";
 import { isActualFile } from "@/modules/ffmpeg/utils";
 import { createContentItem, updateContentItem } from "@/modules/content-registry";
 import { resolveAndGenerateMusic } from "@/modules/music-provider/resolver";
@@ -137,13 +137,15 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
   let transitionDurationSec: number | undefined;
   let globalCaptionPosition: "top" | "center" | "bottom" | null = null;
+  let renderQuality: RenderQuality = "standard";
   try {
     const tRows = await prisma.$queryRaw<Array<{
       transitionType: string | null;
       transitionDurationSec: number | null;
       globalCaptionPosition: string | null;
+      renderQuality: string | null;
     }>>`
-      SELECT "transitionType", "transitionDurationSec", "globalCaptionPosition"
+      SELECT "transitionType", "transitionDurationSec", "globalCaptionPosition", "renderQuality"
       FROM commercial_projects WHERE id = ${project.id} LIMIT 1
     `;
     if (tRows[0]) {
@@ -152,12 +154,16 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
         transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
       }
       globalCaptionPosition = (tRows[0].globalCaptionPosition ?? null) as typeof globalCaptionPosition;
+      renderQuality = (tRows[0].renderQuality as RenderQuality | null) ?? "standard";
     }
   } catch { /* columns may not exist yet */ }
 
+  // Pass 1: always use lossless intermediate so the caption overlay pass
+  // doesn't compound degradation from a second lossy encode cycle.
   const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, {
     transitionType,
     transitionDurationSec,
+    quality: "lossless",
   });
 
   if (!slideResult.success || !slideResult.outputPath) {
@@ -196,7 +202,8 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     }
   });
 
-  const overlayResult = await overlayCaptionsOnVideo(slideResult.outputPath, overlays, captionedPath);
+  // Pass 2 (final): encode at user's quality setting — only this pass uses the quality CRF
+  const overlayResult = await overlayCaptionsOnVideo(slideResult.outputPath, overlays, captionedPath, renderQuality);
   cleanupComposedDir(composedDir);
 
   // Use captioned video if overlay succeeded, else fall back to motion video
