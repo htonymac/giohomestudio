@@ -158,22 +158,26 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     }
   } catch { /* columns may not exist yet */ }
 
-  // Pass 1: always use lossless intermediate so the caption overlay pass
-  // doesn't compound degradation from a second lossy encode cycle.
+  // Pass 1: use "cinema" quality (CRF 12) for the intermediate so the caption
+  // overlay pass has excellent source material without creating enormous files.
+  // CRF 0 (lossless) creates 5-20GB intermediate files that break the pipeline.
+  console.log(`[Commercial render:${contentItemId}] Step 1 — Ken Burns slideshow (${frames.length} slides)...`);
   const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, {
     transitionType,
     transitionDurationSec,
-    quality: "lossless",
+    quality: "cinema",
   });
 
   if (!slideResult.success || !slideResult.outputPath) {
-    console.error(`[Commercial render:${contentItemId}] Slideshow FAILED — ${slideResult.error}`);
-    throw new Error(`Slideshow failed: ${slideResult.error}`);
+    const err = slideResult.error ?? "unknown";
+    console.error(`[Commercial render:${contentItemId}] Step 1 FAILED — ${err}`);
+    throw new Error(`Ken Burns slideshow failed: ${err}`);
   }
+  console.log(`[Commercial render:${contentItemId}] Step 1 done → ${slideResult.outputPath}`);
 
   // ── Step 2: Render transparent caption/narration PNGs via Playwright ─────────
   const composedDir = path.join(env.storagePath, "composed");
-  console.log(`[Commercial render:${contentItemId}] Rendering caption overlays for ${rawSlides.length} slides...`);
+  console.log(`[Commercial render:${contentItemId}] Step 2 — Rendering ${rawSlides.length} caption overlay(s)...`);
   const captionPngs = await renderCommercialCaptionPngs({
     slides: rawSlides,
     aspectRatio,
@@ -202,13 +206,17 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     }
   });
 
-  // Pass 2 (final): encode at user's quality setting — only this pass uses the quality CRF
+  // Pass 2 (final): encode at user's quality setting
+  console.log(`[Commercial render:${contentItemId}] Step 3 — Caption overlay (${overlays.length} layers, quality=${renderQuality})...`);
   const overlayResult = await overlayCaptionsOnVideo(slideResult.outputPath, overlays, captionedPath, renderQuality);
   cleanupComposedDir(composedDir);
 
+  if (!overlayResult.success) {
+    console.warn(`[Commercial render:${contentItemId}] Step 3 caption overlay failed (${overlayResult.error}) — using motion-only video`);
+  }
   // Use captioned video if overlay succeeded, else fall back to motion video
-  const finalVideoPath = overlayResult.success ? captionedPath : slideResult.outputPath;
-  console.log(`[Commercial render:${contentItemId}] Video ready → ${finalVideoPath}`);
+  const finalVideoPath = (overlayResult.success && isActualFile(captionedPath)) ? captionedPath : slideResult.outputPath;
+  console.log(`[Commercial render:${contentItemId}] Step 3 done → ${finalVideoPath}`);
   // Batch status + videoPath into one write
   await updateContentItem(contentItemId, { status: "GENERATING_VOICE", videoPath: finalVideoPath });
 

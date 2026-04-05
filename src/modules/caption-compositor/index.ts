@@ -283,13 +283,15 @@ export interface VideoOverlayItem {
   animation: CaptionAnimation;
 }
 
+type OverlayQuality = "draft" | "standard" | "high" | "cinema";
+
 export async function overlayCaptionsOnVideo(
   videoPath: string,
   overlays: VideoOverlayItem[],
   outputPath: string,
-  quality: import("@/modules/ffmpeg").RenderQuality = "standard",
+  quality: OverlayQuality = "standard",
 ): Promise<{ success: boolean; outputPath: string; error?: string }> {
-  const qualityMap: Record<string, { crf: number; preset: string }> = {
+  const qualityMap: Record<OverlayQuality, { crf: number; preset: string }> = {
     draft:    { crf: 26, preset: "fast" },
     standard: { crf: 20, preset: "medium" },
     high:     { crf: 16, preset: "slow" },

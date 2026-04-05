@@ -466,12 +466,10 @@ export async function createSlideshow(
   fs.mkdirSync(dir, { recursive: true });
   const absOut = toFFmpegPath(path.resolve(outputPath));
 
-  // Resolve encode settings
-  const qualityKey = (!opts.quality || opts.quality === "lossless") ? null : opts.quality;
-  const enc = qualityKey ? QUALITY_ENCODE[qualityKey] : QUALITY_ENCODE.standard;
-  const encodeOpts = opts.quality === "lossless"
-    ? ["-c:v libx264", "-crf 0", "-preset ultrafast"]
-    : [`-crf ${enc.crf}`, `-preset ${enc.preset}`, "-c:v libx264"];
+  // Resolve encode settings — "lossless" treated as "cinema" (CRF 12) to avoid enormous files
+  const qualityKey: RenderQuality = (opts.quality && opts.quality !== "lossless") ? opts.quality : (opts.quality === "lossless" ? "cinema" : "standard");
+  const enc = QUALITY_ENCODE[qualityKey];
+  const encodeOpts = ["-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`];
 
   if (opts.skipKenBurns) {
     const DIMS2: Record<string, { w: number; h: number }> = {
