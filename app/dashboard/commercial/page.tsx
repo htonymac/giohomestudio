@@ -29,6 +29,7 @@ interface SlideEnhancement {
   blur?: number;
   vignette?: number;
   tone?: string;          // "cinematic" | "warm" | "cool" | "vintage"
+  motionPreset?: "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto";
 }
 
 interface CommercialSlide {
@@ -63,6 +64,8 @@ interface CommercialProject {
   autoDistribute: boolean;
   captionMaxWords: number;
   captionMaxChars: number | null;
+  transitionType: string | null;
+  transitionDurationSec: number | null;
   musicVolume: number;
   narrationVolume: number;
   musicPath: string | null;
@@ -86,6 +89,25 @@ const ENHANCEMENT_PRESETS = [
   { id: "natural",      label: "🌿 Natural",      color: "#5cf5c8" },
   { id: "clean_social", label: "📱 Clean Social", color: "#fcb75c" },
   { id: "warm_promo",   label: "🔥 Warm Promo",  color: "#fc7d5c" },
+];
+
+const MOTION_PRESETS = [
+  { id: "auto",      label: "🔄 Auto" },
+  { id: "zoom-in",   label: "🔍 Zoom In" },
+  { id: "zoom-out",  label: "🔎 Zoom Out" },
+  { id: "pan-left",  label: "⬅️ Pan L" },
+  { id: "pan-right", label: "➡️ Pan R" },
+  { id: "pan-up",    label: "⬆️ Pan Up" },
+  { id: "pan-down",  label: "⬇️ Pan Dn" },
+  { id: "none",      label: "⏸️ Static" },
+];
+
+const TRANSITION_TYPES = [
+  { id: "none",        label: "⏸️ None" },
+  { id: "fade",        label: "🌫️ Fade" },
+  { id: "slide-left",  label: "⬅️ Slide" },
+  { id: "slide-right", label: "➡️ Slide" },
+  { id: "zoom-in",     label: "🔍 Zoom" },
 ];
 
 const FONT_FAMILIES = [
@@ -1638,6 +1660,24 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 )}
               </div>
 
+              {/* Motion Preset */}
+              <div className={sectionCls}>
+                <p className={sectionTitle}>🎬 Motion Effect</p>
+                <p className="text-[10px] text-[#404060]">Per-slide Ken Burns motion. Auto = cycles through all effects.</p>
+                <div className="grid grid-cols-4 gap-1">
+                  {MOTION_PRESETS.map(mp => (
+                    <button key={mp.id} type="button"
+                      onClick={() => patchSlideEnhancement(selectedSlide.id, { motionPreset: mp.id as SlideEnhancement["motionPreset"] })}
+                      className={`py-1.5 px-1 rounded text-[10px] font-medium border transition-colors text-center leading-tight ${
+                        (selectedSlide.enhancementSettings?.motionPreset ?? "auto") === mp.id
+                          ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                          : "border-[#2a2a40] bg-[#0d0d1a] text-[#6060a0] hover:border-[#4a4a70]"
+                      }`}
+                    >{mp.label}</button>
+                  ))}
+                </div>
+              </div>
+
               {/* Branding */}
               <div className={`${sectionCls}`}>
                 <div className="flex items-center justify-between">
@@ -1826,6 +1866,36 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
               >
                 <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${project.autoDistribute ? "translate-x-4" : "translate-x-0.5"}`} />
               </button>
+            </div>
+
+            {/* Slide Transitions */}
+            <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
+              <p className="text-[11px] text-white font-semibold">🎬 Slide Transitions</p>
+              <p className="text-[10px] text-[#6060a0]">Effect between slides when rendering. Motion effects are controlled per-slide above.</p>
+              <div className="grid grid-cols-5 gap-1">
+                {TRANSITION_TYPES.map(t => (
+                  <button key={t.id} type="button"
+                    onClick={() => patchProject({ transitionType: t.id === "none" ? null : t.id })}
+                    className={`py-1.5 px-1 rounded text-[10px] border transition-colors text-center leading-tight ${
+                      (project.transitionType ?? "none") === t.id
+                        ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                        : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                    }`}
+                  >{t.label}</button>
+                ))}
+              </div>
+              {project.transitionType && project.transitionType !== "none" && (
+                <div>
+                  <label className={labelCls}>⏱️ Transition duration: {(project.transitionDurationSec ?? 0.5).toFixed(1)}s</label>
+                  <input
+                    type="range" min={0.1} max={1.5} step={0.1}
+                    value={project.transitionDurationSec ?? 0.5}
+                    onChange={e => patchProject({ transitionDurationSec: Number(e.target.value) })}
+                    className="w-full accent-[#7c5cfc]"
+                  />
+                  <div className="flex justify-between text-[10px] text-[#404060]"><span>0.1s</span><span>1.5s</span></div>
+                </div>
+              )}
             </div>
 
             {/* Caption AI limits */}

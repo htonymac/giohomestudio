@@ -110,18 +110,40 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   });
 
   // Build SlideshowFrame[] from composed results — no captionText needed (already baked in)
-  let frames: SlideshowFrame[] = rawSlides.map((s, i) => ({
-    imagePath: composedResults[i]?.imagePath ?? s.imagePath,
-    durationMs: s.durationMs,
-    // captionText intentionally omitted — no drawtext in slideshow
-  }));
+  let frames: SlideshowFrame[] = rawSlides.map((s, i) => {
+    const enh = project.slides.find(sl => sl.slideOrder === i || sl.imagePath === s.imagePath)?.enhancementSettings as Record<string, unknown> | null;
+    const motionPreset = typeof enh?.motionPreset === "string" ? enh.motionPreset as SlideshowFrame["motionPreset"] : undefined;
+    return {
+      imagePath: composedResults[i]?.imagePath ?? s.imagePath,
+      durationMs: s.durationMs,
+      motionPreset,
+      // captionText intentionally omitted — no drawtext in slideshow
+    };
+  });
 
   const slideshowDir = path.join(env.storagePath, "video");
   fs.mkdirSync(slideshowDir, { recursive: true });
   const slideshowPath = path.join(slideshowDir, `commercial_${contentItemId}_${Date.now()}.mp4`);
 
-  // skipKenBurns: static concat is fast (~5s) and plays well with pre-composed PNGs.
-  const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, { skipKenBurns: true });
+  // Fetch transition settings from project (stored via raw SQL — Prisma client may not know these fields)
+  let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
+  let transitionDurationSec: number | undefined;
+  try {
+    const tRows = await prisma.$queryRaw<Array<{ transitionType: string | null; transitionDurationSec: number | null }>>`
+      SELECT "transitionType", "transitionDurationSec" FROM commercial_projects WHERE id = ${project.id} LIMIT 1
+    `;
+    if (tRows[0]?.transitionType) {
+      transitionType = tRows[0].transitionType as typeof transitionType;
+      transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
+    }
+  } catch { /* columns may not exist yet */ }
+
+  // Ken Burns + xfade transitions — creates the flowing image motion the commercial needs.
+  // Falls back to static slideshow automatically if zoompan fails on this FFmpeg build.
+  const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, {
+    transitionType,
+    transitionDurationSec,
+  });
 
   // Clean up composed temp PNGs after the video is written
   cleanupComposedDir(composedDir);

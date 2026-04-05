@@ -346,11 +346,15 @@ export interface SlideshowCaptionStyle {
   position?: "top" | "center" | "bottom";  // default "bottom"
 }
 
+export type MotionPreset = "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto";
+export type TransitionType = "fade" | "slide-left" | "slide-right" | "zoom-in" | "none";
+
 export interface SlideshowFrame {
   imagePath: string;          // absolute path to PNG/JPG
   durationMs: number;         // how long to show this frame
   captionText?: string;       // on-screen overlay text (independent from narration)
   captionStyle?: SlideshowCaptionStyle;
+  motionPreset?: MotionPreset; // per-slide Ken Burns preset; "auto" or undefined = cycle; "none" = static
 }
 
 // ── Video trim ───────────────────────────────────────────────────────────────
@@ -419,11 +423,19 @@ function buildAnimatedCaption(
   return `drawtext=${parts.join(":")}`;
 }
 
+// Maps our TransitionType to FFmpeg xfade filter transition names
+const XFADE_MAP: Record<string, string> = {
+  "fade":        "fade",
+  "slide-left":  "slideleft",
+  "slide-right": "slideright",
+  "zoom-in":     "zoomin",
+};
+
 export async function createSlideshow(
   frames: SlideshowFrame[],
   outputPath: string,
   aspectRatio: "9:16" | "16:9" | "1:1" = "9:16",
-  opts: { skipKenBurns?: boolean } = {}
+  opts: { skipKenBurns?: boolean; transitionType?: TransitionType; transitionDurationSec?: number } = {}
 ): Promise<MergeOutput> {
   // isActualFile rejects empty strings, ".", and directories — fs.existsSync passes for dirs
   // which would let path.resolve(".") = project root reach FFmpeg → exit -13 (EACCES).
@@ -477,6 +489,21 @@ export async function createSlideshow(
     d => `zoompan=z=1.2:x='iw/2-iw/1.2/2':y='(ih-ih/1.2)*(1-on/${d})':d=${d}:fps=${ZP_FPS}:s=${w}x${h},fps=fps=${OUT_FPS}`,
   ];
 
+  // Static Ken Burns preset: zoompan with z=1.0 and no movement
+  const kbStatic = (d: number) =>
+    `zoompan=z=1.0:x='iw/2-iw/2':y='ih/2-ih/2':d=${d}:fps=${ZP_FPS}:s=${w}x${h},fps=fps=${OUT_FPS}`;
+
+  // Map motionPreset string to the correct KB function
+  const KB_NAMED: Record<string, KBFn> = {
+    "zoom-in":  KB[0],
+    "zoom-out": KB[1],
+    "pan-left": KB[2],
+    "pan-right": KB[3],
+    "pan-up":   KB[4],
+    "pan-down": KB[5],
+    "none":     kbStatic,
+  };
+
   const cmd     = ffmpeg();
   const segs: string[] = [];
 
@@ -489,8 +516,12 @@ export async function createSlideshow(
     cmd.input(src);
     cmd.inputOptions(["-loop", "1", "-t", String(durSec)]);
 
+    // Pick KB function: named preset → specific function; "auto"/undefined → cycle through KB[]
+    const preset = f.motionPreset;
+    const kbFn = (preset && preset !== "auto" && KB_NAMED[preset]) ? KB_NAMED[preset] : KB[i % KB.length];
+
     // Scale to pre-zoom size → Ken Burns (at ZP_FPS) → upsample → format → optional caption → label
-    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase,crop=${pw}:${ph},${KB[i % KB.length](d)},format=yuv420p`;
+    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase,crop=${pw}:${ph},${kbFn(d)},format=yuv420p`;
     if (f.captionText?.trim()) {
       seg += `,${buildAnimatedCaption(f.captionText.trim(), f.captionStyle)}`;
     }
@@ -498,7 +529,35 @@ export async function createSlideshow(
     segs.push(seg);
   });
 
-  segs.push(`${valid.map((_, i) => `[v${i}]`).join("")}concat=n=${valid.length}:v=1:a=0[outv]`);
+  // Build concat or xfade transition chain
+  const tType = opts.transitionType;
+  if (tType && tType !== "none" && valid.length >= 2) {
+    // Clamp transition duration so it never exceeds 90% of the shortest slide
+    const minDurSec = Math.min(...valid.map(f => f.durationMs / 1000));
+    const tDur = Math.min(opts.transitionDurationSec ?? 0.5, minDurSec * 0.9);
+    const xfadeName = XFADE_MAP[tType] ?? "fade";
+
+    // Compute per-transition offsets (relative to cumulative start of chain)
+    // offset[i] = sum(d[0..i]) - (i+1)*tDur
+    let cumulSec = 0;
+    const xfadeOffsets: number[] = [];
+    valid.forEach((f, i) => {
+      cumulSec += f.durationMs / 1000;
+      if (i < valid.length - 1) {
+        xfadeOffsets.push(Math.max(0.05, cumulSec - (i + 1) * tDur));
+      }
+    });
+
+    // Chain: [v0][v1]xfade=...offset=o0[x1]; [x1][v2]xfade=...offset=o1[x2]; ...
+    let prevLabel = "[v0]";
+    for (let i = 1; i < valid.length; i++) {
+      const outLabel = i === valid.length - 1 ? "[outv]" : `[x${i}]`;
+      segs.push(`${prevLabel}[v${i}]xfade=transition=${xfadeName}:duration=${tDur.toFixed(3)}:offset=${xfadeOffsets[i - 1].toFixed(3)}${outLabel}`);
+      prevLabel = outLabel;
+    }
+  } else {
+    segs.push(`${valid.map((_, i) => `[v${i}]`).join("")}concat=n=${valid.length}:v=1:a=0[outv]`);
+  }
 
   const imgList = valid.map((f, i) => `[${i}]${toFFmpegPath(path.resolve(f.imagePath))}`).join(" ");
   console.log(`[createSlideshow] ${valid.length} frames → ${absOut} | inputs: ${imgList}`);

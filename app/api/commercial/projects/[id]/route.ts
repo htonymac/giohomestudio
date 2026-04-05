@@ -29,6 +29,8 @@ const updateSchema = z.object({
   autoDistribute:       z.boolean().optional(),
   captionMaxWords:      z.number().int().min(1).max(50).optional(),
   captionMaxChars:      z.number().int().min(5).max(300).nullable().optional(),
+  transitionType:       z.enum(["none", "fade", "slide-left", "slide-right", "zoom-in"]).nullable().optional(),
+  transitionDurationSec: z.number().min(0.1).max(2).nullable().optional(),
 }).strict();
 
 export async function GET(
@@ -60,17 +62,27 @@ export async function GET(
   // Fetch new fields via raw query (Prisma runtime may not know them yet)
   let captionMaxWords = 8;
   let captionMaxChars: number | null = null;
+  let transitionType: string | null = null;
+  let transitionDurationSec: number | null = null;
   try {
-    const caps = await prisma.$queryRaw<Array<{ captionMaxWords: number | null; captionMaxChars: number | null }>>`
-      SELECT "captionMaxWords", "captionMaxChars" FROM commercial_projects WHERE id = ${id} LIMIT 1
+    const caps = await prisma.$queryRaw<Array<{
+      captionMaxWords: number | null;
+      captionMaxChars: number | null;
+      transitionType: string | null;
+      transitionDurationSec: number | null;
+    }>>`
+      SELECT "captionMaxWords", "captionMaxChars", "transitionType", "transitionDurationSec"
+      FROM commercial_projects WHERE id = ${id} LIMIT 1
     `;
     if (caps[0]) {
       captionMaxWords = caps[0].captionMaxWords ?? 8;
       captionMaxChars = caps[0].captionMaxChars ?? null;
+      transitionType = caps[0].transitionType ?? null;
+      transitionDurationSec = caps[0].transitionDurationSec ?? null;
     }
   } catch { /* columns may not exist yet */ }
 
-  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars });
+  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec });
 }
 
 export async function PATCH(
@@ -83,11 +95,13 @@ export async function PATCH(
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
-  // Split fields: known-to-runtime fields via Prisma ORM; new fields (captionMaxWords/captionMaxChars)
-  // via raw SQL until `prisma generate` can be run with the server stopped.
-  const { captionMaxWords, captionMaxChars, ...ormData } = parsed.data as typeof parsed.data & {
+  // Split fields: known-to-runtime fields via Prisma ORM; new fields via raw SQL
+  // until `prisma generate` can be run with the server stopped.
+  const { captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, ...ormData } = parsed.data as typeof parsed.data & {
     captionMaxWords?: number;
     captionMaxChars?: number | null;
+    transitionType?: string | null;
+    transitionDurationSec?: number | null;
   };
 
   const project = await prisma.commercialProject.update({
@@ -95,21 +109,33 @@ export async function PATCH(
     data: ormData,
   });
 
-  if (captionMaxWords !== undefined || captionMaxChars !== undefined) {
+  // Save raw-SQL fields in one query when any are present
+  const rawFields: string[] = [];
+  const rawVals: unknown[] = [];
+  if (captionMaxWords !== undefined)     { rawFields.push(`"captionMaxWords" = $${rawFields.length + 1}`);     rawVals.push(captionMaxWords); }
+  if (captionMaxChars !== undefined)     { rawFields.push(`"captionMaxChars" = $${rawFields.length + 1}`);     rawVals.push(captionMaxChars); }
+  if (transitionType !== undefined)      { rawFields.push(`"transitionType" = $${rawFields.length + 1}`);      rawVals.push(transitionType); }
+  if (transitionDurationSec !== undefined) { rawFields.push(`"transitionDurationSec" = $${rawFields.length + 1}`); rawVals.push(transitionDurationSec); }
+
+  if (rawFields.length > 0) {
     try {
-      if (captionMaxWords !== undefined && captionMaxChars !== undefined) {
-        await prisma.$executeRaw`UPDATE commercial_projects SET "captionMaxWords" = ${captionMaxWords}, "captionMaxChars" = ${captionMaxChars} WHERE id = ${id}`;
-      } else if (captionMaxWords !== undefined) {
-        await prisma.$executeRaw`UPDATE commercial_projects SET "captionMaxWords" = ${captionMaxWords} WHERE id = ${id}`;
-      } else if (captionMaxChars !== undefined) {
-        await prisma.$executeRaw`UPDATE commercial_projects SET "captionMaxChars" = ${captionMaxChars} WHERE id = ${id}`;
-      }
+      await prisma.$executeRawUnsafe(
+        `UPDATE commercial_projects SET ${rawFields.join(", ")} WHERE id = $${rawFields.length + 1}`,
+        ...rawVals,
+        id
+      );
     } catch {
       // Non-fatal — columns may not exist yet on first deploy
     }
   }
 
-  return NextResponse.json({ ...project, captionMaxWords: captionMaxWords ?? project.captionMaxWords ?? 8, captionMaxChars: captionMaxChars ?? project.captionMaxChars ?? null });
+  return NextResponse.json({
+    ...project,
+    captionMaxWords:      captionMaxWords      ?? project.captionMaxWords      ?? 8,
+    captionMaxChars:      captionMaxChars      ?? project.captionMaxChars      ?? null,
+    transitionType:       transitionType       ?? null,
+    transitionDurationSec: transitionDurationSec ?? null,
+  });
 }
 
 export async function DELETE(
