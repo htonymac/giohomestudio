@@ -23,7 +23,12 @@ import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
 import { mockVoiceProvider } from "@/modules/voice-provider/mock";
 import { callLLM } from "@/lib/llm";
 import { loadLLMSettings } from "@/lib/llm-settings";
-import { composeCommercialSlides, cleanupComposedDir } from "@/modules/caption-compositor";
+import {
+  renderCommercialCaptionPngs,
+  overlayCaptionsOnVideo,
+  cleanupComposedDir,
+  type CaptionAnimation,
+} from "@/modules/caption-compositor";
 import type { CommercialProject, CommercialSlide } from "@prisma/client";
 
 type ProjectWithSlides = CommercialProject & { slides: CommercialSlide[] };
@@ -43,7 +48,7 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
 
   const aspectRatio = (project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1";
 
-  // Build raw slide list — captions will be composed via HTML→PNG, NOT via FFmpeg drawtext
+  // Build raw slide list with all styling/animation fields
   type RawSlide = {
     imagePath: string;
     durationMs: number;
@@ -51,6 +56,11 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     captionPosition: string | null;
     captionPreset: string | null;
     fontOverride: string | null;
+    fontSizeScale: number;
+    motionPreset: string | undefined;
+    animation: CaptionAnimation;
+    narrationText: string | null;
+    showNarration: boolean;
     frameId: string;
   };
 
@@ -69,6 +79,11 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
         captionPosition: (typeof enh?.captionPosition === "string" ? enh.captionPosition : null),
         captionPreset:   (typeof enh?.captionPreset   === "string" ? enh.captionPreset   : null),
         fontOverride:    (typeof enh?.fontFamily      === "string" ? enh.fontFamily      : null),
+        fontSizeScale:   (typeof enh?.fontSizeScale   === "number" ? enh.fontSizeScale   : 0.7),
+        motionPreset:    (typeof enh?.motionPreset    === "string" ? enh.motionPreset    : undefined),
+        animation:       (typeof enh?.captionAnimation === "string" ? enh.captionAnimation : "fade-up") as CaptionAnimation,
+        narrationText:   s.narrationLine ?? null,
+        showNarration:   typeof enh?.showNarration === "boolean" ? enh.showNarration : false,
         frameId: `${contentItemId}_s${s.slideOrder}`,
       };
     });
@@ -88,44 +103,37 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     const ctaLines = [ctaLabel, project.ctaValue];
     if (project.ctaValueSecondary) ctaLines.push(project.ctaValueSecondary);
     rawSlides.push({
-      imagePath:       rawSlides[rawSlides.length - 1].imagePath,
-      durationMs:      2500,
-      captionText:     ctaLines.join("\n"),
+      imagePath:     rawSlides[rawSlides.length - 1].imagePath,
+      durationMs:    2500,
+      captionText:   ctaLines.join("\n"),
       captionPosition: "bottom",
       captionPreset:   "promo",
       fontOverride:    null,
+      fontSizeScale:   0.7,
+      motionPreset:    undefined,
+      animation:       "fade-up",
+      narrationText:   null,
+      showNarration:   false,
       frameId:         `${contentItemId}_cta`,
     });
   }
 
-  // ── Caption Composition (HTML→PNG via Playwright, then FFmpeg overlay) ──────
-  // No drawtext. No FFmpeg text expressions. Text is rendered in Chromium, which
-  // handles word-wrap, safe zones, font rendering, and overflow containment correctly.
-  const composedDir = path.join(env.storagePath, "composed");
-  console.log(`[Commercial render:${contentItemId}] Compositing captions for ${rawSlides.length} slides...`);
-  const composedResults = await composeCommercialSlides({
-    slides: rawSlides,
-    aspectRatio,
-    workDir: composedDir,
-  });
-
-  // Build SlideshowFrame[] from composed results — no captionText needed (already baked in)
-  let frames: SlideshowFrame[] = rawSlides.map((s, i) => {
-    const enh = project.slides.find(sl => sl.slideOrder === i || sl.imagePath === s.imagePath)?.enhancementSettings as Record<string, unknown> | null;
-    const motionPreset = typeof enh?.motionPreset === "string" ? enh.motionPreset as SlideshowFrame["motionPreset"] : undefined;
-    return {
-      imagePath: composedResults[i]?.imagePath ?? s.imagePath,
-      durationMs: s.durationMs,
-      motionPreset,
-      // captionText intentionally omitted — no drawtext in slideshow
-    };
-  });
+  // ── Step 1: Ken Burns slideshow on ORIGINAL images (no caption baked in) ─────
+  // Captions are overlaid separately AFTER Ken Burns so they stay fixed on screen
+  // while the background image moves. This is the 2-pass approach.
+  const frames: SlideshowFrame[] = rawSlides.map(s => ({
+    imagePath: s.imagePath,
+    durationMs: s.durationMs,
+    motionPreset: s.motionPreset as SlideshowFrame["motionPreset"],
+  }));
 
   const slideshowDir = path.join(env.storagePath, "video");
   fs.mkdirSync(slideshowDir, { recursive: true });
-  const slideshowPath = path.join(slideshowDir, `commercial_${contentItemId}_${Date.now()}.mp4`);
+  const ts = Date.now();
+  const slideshowPath  = path.join(slideshowDir, `commercial_${contentItemId}_motion_${ts}.mp4`);
+  const captionedPath  = path.join(slideshowDir, `commercial_${contentItemId}_captioned_${ts}.mp4`);
 
-  // Fetch transition settings from project (stored via raw SQL — Prisma client may not know these fields)
+  // Fetch transition settings (stored via raw SQL)
   let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
   let transitionDurationSec: number | undefined;
   try {
@@ -138,22 +146,55 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     }
   } catch { /* columns may not exist yet */ }
 
-  // Ken Burns + xfade transitions — creates the flowing image motion the commercial needs.
-  // Falls back to static slideshow automatically if zoompan fails on this FFmpeg build.
   const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, {
     transitionType,
     transitionDurationSec,
   });
 
-  // Clean up composed temp PNGs after the video is written
-  cleanupComposedDir(composedDir);
   if (!slideResult.success || !slideResult.outputPath) {
     console.error(`[Commercial render:${contentItemId}] Slideshow FAILED — ${slideResult.error}`);
-    console.error(`[Commercial render:${contentItemId}] Frames: ${frames.map(f => f.imagePath).join(", ")}`);
     throw new Error(`Slideshow failed: ${slideResult.error}`);
   }
+
+  // ── Step 2: Render transparent caption/narration PNGs via Playwright ─────────
+  const composedDir = path.join(env.storagePath, "composed");
+  console.log(`[Commercial render:${contentItemId}] Rendering caption overlays for ${rawSlides.length} slides...`);
+  const captionPngs = await renderCommercialCaptionPngs({
+    slides: rawSlides,
+    aspectRatio,
+    workDir: composedDir,
+  });
+
+  // ── Step 3: Overlay caption PNGs on the motion video ─────────────────────────
+  // Each caption PNG fades/flies in at its slide start time, stays fixed on screen.
+  // Build start/end time offsets per slide (accounting for xfade transition overlap)
+  const tDur = (transitionType && transitionType !== "none") ? (transitionDurationSec ?? 0.5) : 0;
+  let cumulSec = 0;
+  type OverlayEntry = import("@/modules/caption-compositor").VideoOverlayItem;
+  const overlays: OverlayEntry[] = [];
+
+  rawSlides.forEach((s, i) => {
+    const startSec = cumulSec;
+    cumulSec += s.durationMs / 1000 - tDur;  // each slide starts earlier due to transition overlap
+    const endSec   = cumulSec + tDur;         // overlap window
+    const cpng = captionPngs[i];
+    if (!cpng) return;
+    if (cpng.captionPngPath) {
+      overlays.push({ pngPath: cpng.captionPngPath, startSec: Math.max(0, startSec), endSec, animation: cpng.animation });
+    }
+    if (cpng.narrationPngPath) {
+      overlays.push({ pngPath: cpng.narrationPngPath, startSec: Math.max(0, startSec + 0.3), endSec: Math.max(0, endSec - 0.2), animation: "fade" });
+    }
+  });
+
+  const overlayResult = await overlayCaptionsOnVideo(slideResult.outputPath, overlays, captionedPath);
+  cleanupComposedDir(composedDir);
+
+  // Use captioned video if overlay succeeded, else fall back to motion video
+  const finalVideoPath = overlayResult.success ? captionedPath : slideResult.outputPath;
+  console.log(`[Commercial render:${contentItemId}] Video ready → ${finalVideoPath}`);
   // Batch status + videoPath into one write
-  await updateContentItem(contentItemId, { status: "GENERATING_VOICE", videoPath: slideResult.outputPath });
+  await updateContentItem(contentItemId, { status: "GENERATING_VOICE", videoPath: finalVideoPath });
 
   // Try local LLM (phi3) to write a polished commercial narration from the slide content.
   // Falls back to raw assembled text if Ollama is unavailable — no ElevenLabs credits wasted on poor copy.
@@ -225,7 +266,7 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   fs.mkdirSync(mergedDir, { recursive: true });
 
   const mergeResult = await mergeMedia({
-    videoPath: slideResult.outputPath,
+    videoPath: finalVideoPath,
     voicePath,
     musicPath,
     outputFileName: `commercial_${contentItemId}_final.mp4`,

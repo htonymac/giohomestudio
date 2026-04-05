@@ -12,6 +12,8 @@ export const RENDER_DIMS: Record<AspectRatio, { w: number; h: number }> = {
   "1:1":   { w: 1024, h: 1024 },
 };
 
+export type CaptionAnimation = "fade" | "fade-up" | "fly-in-left" | "fly-in-right" | "none";
+
 /** Input to the HTML caption builder */
 export interface CaptionRenderInput {
   /** Raw text — newlines create separate text blocks; first line is the headline */
@@ -21,6 +23,8 @@ export interface CaptionRenderInput {
   /** Optional font override — must be a system font available on Windows */
   fontOverride?: string;
   aspectRatio: AspectRatio;
+  /** Scale factor applied to preset font sizes — 0.5 = half, 1.0 = full (default), 1.5 = 150% */
+  fontSizeScale?: number;
 }
 
 export interface CaptionComposeInput {
@@ -31,6 +35,10 @@ export interface CaptionComposeInput {
   captionPosition?: CaptionPosition;
   captionPreset?: PresetName;
   fontOverride?: string;
+  fontSizeScale?: number;
+  animation?: CaptionAnimation;
+  /** Narration line shown as subtitle below the caption (optional) */
+  narrationText?: string | null;
   /** Unique identifier used in output filename */
   frameId: string;
   aspectRatio: AspectRatio;

@@ -4,7 +4,7 @@
 // no text can overflow outside the frame boundary.
 
 import { PRESETS } from "./presets";
-import type { CaptionRenderInput, CaptionPosition } from "./types";
+import type { CaptionRenderInput, CaptionPosition, AspectRatio } from "./types";
 import { RENDER_DIMS } from "./types";
 
 function escapeHtml(s: string): string {
@@ -40,8 +40,9 @@ function buildGradient(gradient: string, pos: CaptionPosition): string {
 }
 
 export function buildCaptionHtml(input: CaptionRenderInput): string {
-  const { text, position, preset: presetName, fontOverride, aspectRatio } = input;
+  const { text, position, preset: presetName, fontOverride, aspectRatio, fontSizeScale = 1.0 } = input;
   const preset  = PRESETS[presetName] ?? PRESETS.realEstate;
+  const scale   = Math.max(0.3, Math.min(2.0, fontSizeScale));
   const { w, h } = RENDER_DIMS[aspectRatio] ?? RENDER_DIMS["9:16"];
   const { headline, sublines } = parseLines(text);
 
@@ -91,7 +92,7 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
   }
   .hl {
     font-family: ${fontStack};
-    font-size: ${preset.headlineSize}px;
+    font-size: ${Math.round(preset.headlineSize * scale)}px;
     font-weight: ${preset.headlineWeight};
     color: ${preset.headlineColor};
     text-transform: ${preset.headlineTransform};
@@ -106,7 +107,7 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
   }
   .sub {
     font-family: ${fontStack};
-    font-size: ${preset.sublineSize}px;
+    font-size: ${Math.round(preset.sublineSize * scale)}px;
     font-weight: ${preset.sublineWeight};
     color: ${preset.sublineColor};
     letter-spacing: ${preset.sublineLetterSpacing};
@@ -132,4 +133,53 @@ ${sublineHtml}
 
 function buildEmptyHtml(w: number, h: number): string {
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0}html,body{width:${w}px;height:${h}px;background:transparent;overflow:hidden}</style></head><body></body></html>`;
+}
+
+/**
+ * Builds a narration subtitle HTML — small text strip at the very bottom of the frame.
+ * Designed to show the voiceover/narration line as a subtitle on the video.
+ */
+export function buildNarrationHtml(text: string, aspectRatio: AspectRatio): string {
+  const { w, h } = RENDER_DIMS[aspectRatio] ?? RENDER_DIMS["9:16"];
+  const cleaned = text.replace(/\n/g, " ").trim();
+  if (!cleaned) return buildEmptyHtml(w, h);
+
+  // Font size scales with width so it's readable at any ratio
+  const fontSize = Math.round(w * 0.032);
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: ${w}px;
+    height: ${h}px;
+    background: transparent;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .sub-strip {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: ${Math.round(h * 0.012)}px ${Math.round(w * 0.05)}px ${Math.round(h * 0.018)}px;
+    background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+    font-family: "Arial", "Helvetica", sans-serif;
+    font-size: ${fontSize}px;
+    font-weight: 500;
+    color: #F0F0F0;
+    line-height: 1.4;
+    text-align: center;
+    word-break: break-word;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7);
+  }
+</style>
+</head>
+<body>
+  <div class="sub-strip">${escapeHtml(cleaned)}</div>
+</body>
+</html>`;
 }

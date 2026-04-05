@@ -30,6 +30,9 @@ interface SlideEnhancement {
   vignette?: number;
   tone?: string;          // "cinematic" | "warm" | "cool" | "vintage"
   motionPreset?: "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto";
+  captionAnimation?: "fade" | "fade-up" | "fly-in-left" | "fly-in-right" | "none";
+  fontSizeScale?: number;    // 0.3 – 1.5; default 0.7
+  showNarration?: boolean;   // show narration line as subtitle on screen
 }
 
 interface CommercialSlide {
@@ -108,6 +111,14 @@ const TRANSITION_TYPES = [
   { id: "slide-left",  label: "⬅️ Slide" },
   { id: "slide-right", label: "➡️ Slide" },
   { id: "zoom-in",     label: "🔍 Zoom" },
+];
+
+const CAPTION_ANIMATIONS = [
+  { id: "fade-up",      label: "⬆️ Fade Up" },
+  { id: "fade",         label: "🌫️ Fade" },
+  { id: "fly-in-left",  label: "⬅️ Fly In" },
+  { id: "fly-in-right", label: "➡️ Fly In" },
+  { id: "none",         label: "⏸️ Static" },
 ];
 
 const FONT_FAMILIES = [
@@ -1660,21 +1671,71 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 )}
               </div>
 
-              {/* Motion Preset */}
+              {/* Motion & Caption Animation */}
               <div className={sectionCls}>
-                <p className={sectionTitle}>🎬 Motion Effect</p>
-                <p className="text-[10px] text-[#404060]">Per-slide Ken Burns motion. Auto = cycles through all effects.</p>
-                <div className="grid grid-cols-4 gap-1">
-                  {MOTION_PRESETS.map(mp => (
-                    <button key={mp.id} type="button"
-                      onClick={() => patchSlideEnhancement(selectedSlide.id, { motionPreset: mp.id as SlideEnhancement["motionPreset"] })}
-                      className={`py-1.5 px-1 rounded text-[10px] font-medium border transition-colors text-center leading-tight ${
-                        (selectedSlide.enhancementSettings?.motionPreset ?? "auto") === mp.id
-                          ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
-                          : "border-[#2a2a40] bg-[#0d0d1a] text-[#6060a0] hover:border-[#4a4a70]"
-                      }`}
-                    >{mp.label}</button>
-                  ))}
+                <p className={sectionTitle}>🎬 Motion & Animation</p>
+
+                {/* Image motion */}
+                <div>
+                  <label className={labelCls}>🖼️ Image Motion (Ken Burns)</label>
+                  <div className="grid grid-cols-4 gap-1">
+                    {MOTION_PRESETS.map(mp => (
+                      <button key={mp.id} type="button"
+                        onClick={() => patchSlideEnhancement(selectedSlide.id, { motionPreset: mp.id as SlideEnhancement["motionPreset"] })}
+                        className={`py-1.5 px-1 rounded text-[10px] font-medium border transition-colors text-center leading-tight ${
+                          (selectedSlide.enhancementSettings?.motionPreset ?? "auto") === mp.id
+                            ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                            : "border-[#2a2a40] bg-[#0d0d1a] text-[#6060a0] hover:border-[#4a4a70]"
+                        }`}
+                      >{mp.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Caption animation */}
+                <div>
+                  <label className={labelCls}>✨ Caption Entry Animation</label>
+                  <div className="grid grid-cols-5 gap-1">
+                    {CAPTION_ANIMATIONS.map(ca => (
+                      <button key={ca.id} type="button"
+                        onClick={() => patchSlideEnhancement(selectedSlide.id, { captionAnimation: ca.id as SlideEnhancement["captionAnimation"] })}
+                        className={`py-1.5 px-0.5 rounded text-[9px] font-medium border transition-colors text-center leading-tight ${
+                          (selectedSlide.enhancementSettings?.captionAnimation ?? "fade-up") === ca.id
+                            ? "border-[#7c5cfc] bg-[#7c5cfc]/15 text-[#b090ff]"
+                            : "border-[#2a2a40] bg-[#0d0d1a] text-[#6060a0] hover:border-[#4a4a70]"
+                        }`}
+                      >{ca.label}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Font size scale */}
+                <div>
+                  <label className={labelCls}>
+                    🔡 Caption size: {Math.round((selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7) * 100)}%
+                  </label>
+                  <input
+                    type="range" min={0.3} max={1.5} step={0.05}
+                    value={selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7}
+                    onChange={e => patchSlideEnhancement(selectedSlide.id, { fontSizeScale: Number(e.target.value) })}
+                    className="w-full accent-[#7c5cfc]"
+                  />
+                  <div className="flex justify-between text-[10px] text-[#404060]"><span>30%</span><span>150%</span></div>
+                </div>
+
+                {/* Show narration as subtitle */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-white font-medium">📝 Show narration on screen</p>
+                    <p className="text-[10px] text-[#6060a0]">Displays narration line as subtitle text</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => patchSlideEnhancement(selectedSlide.id, { showNarration: !(selectedSlide.enhancementSettings?.showNarration) })}
+                    className={`w-9 h-5 rounded-full transition-colors relative flex-shrink-0 ${selectedSlide.enhancementSettings?.showNarration ? "bg-[#7c5cfc]" : "bg-[#2a2a40]"}`}
+                  >
+                    <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-transform ${selectedSlide.enhancementSettings?.showNarration ? "translate-x-4" : "translate-x-0.5"}`} />
+                  </button>
                 </div>
               </div>
 
