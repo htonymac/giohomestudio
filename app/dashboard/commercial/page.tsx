@@ -29,7 +29,7 @@ interface SlideEnhancement {
   blur?: number;
   vignette?: number;
   tone?: string;          // "cinematic" | "warm" | "cool" | "vintage"
-  motionPreset?: "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto";
+  motionPreset?: "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto" | "random";
   captionAnimation?: "fade" | "fade-up" | "fly-in-left" | "fly-in-right" | "none";
   fontSizeScale?: number;    // 0.3 – 1.5; default 0.7
   showNarration?: boolean;   // show narration line as subtitle on screen
@@ -95,7 +95,8 @@ const ENHANCEMENT_PRESETS = [
 ];
 
 const MOTION_PRESETS = [
-  { id: "auto",      label: "🔄 Auto" },
+  { id: "random",    label: "🎲 Random" },
+  { id: "auto",      label: "🔄 Cycle" },
   { id: "zoom-in",   label: "🔍 Zoom In" },
   { id: "zoom-out",  label: "🔎 Zoom Out" },
   { id: "pan-left",  label: "⬅️ Pan L" },

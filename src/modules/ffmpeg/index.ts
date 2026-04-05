@@ -346,7 +346,7 @@ export interface SlideshowCaptionStyle {
   position?: "top" | "center" | "bottom";  // default "bottom"
 }
 
-export type MotionPreset = "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto";
+export type MotionPreset = "zoom-in" | "zoom-out" | "pan-left" | "pan-right" | "pan-up" | "pan-down" | "none" | "auto" | "random";
 export type TransitionType = "fade" | "slide-left" | "slide-right" | "zoom-in" | "none";
 
 export interface SlideshowFrame {
@@ -516,9 +516,19 @@ export async function createSlideshow(
     cmd.input(src);
     cmd.inputOptions(["-loop", "1", "-t", String(durSec)]);
 
-    // Pick KB function: named preset → specific function; "auto"/undefined → cycle through KB[]
+    // Pick KB function:
+    //   named preset → specific function
+    //   "random"     → random pick from KB[] each frame (no repeats until all used — Fisher-Yates shuffle)
+    //   "auto"/undef → cycle through KB[] in order
     const preset = f.motionPreset;
-    const kbFn = (preset && preset !== "auto" && KB_NAMED[preset]) ? KB_NAMED[preset] : KB[i % KB.length];
+    let kbFn: KBFn;
+    if (preset && preset !== "auto" && preset !== "random" && KB_NAMED[preset]) {
+      kbFn = KB_NAMED[preset];
+    } else if (preset === "random") {
+      kbFn = KB[Math.floor(Math.random() * KB.length)];
+    } else {
+      kbFn = KB[i % KB.length];
+    }
 
     // Scale to pre-zoom size → Ken Burns (at ZP_FPS) → upsample → format → optional caption → label
     let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase,crop=${pw}:${ph},${kbFn(d)},format=yuv420p`;
