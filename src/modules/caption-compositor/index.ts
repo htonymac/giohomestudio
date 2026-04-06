@@ -307,10 +307,23 @@ export async function overlayCaptionsOnVideo(
     return { success: true, outputPath };
   }
 
+  // Probe video duration to cap PNG loop length. Without -t, -loop 1 creates
+  // an infinite stream that extends the output far beyond the video's length.
+  let videoDur = 0;
+  try {
+    videoDur = await new Promise<number>((res, rej) => {
+      ffmpeg.ffprobe(toFFmpegPath(videoPath), (err: Error | null, data: { format?: { duration?: number } }) => {
+        if (err) return rej(err);
+        res(data?.format?.duration ?? 0);
+      });
+    });
+  } catch { /* fall back to large-but-bounded value */ }
+  const capSec = Math.ceil(videoDur || 600); // never infinite
+
   const cmd = ffmpeg(toFFmpegPath(videoPath));
   valid.forEach(ov => {
     cmd.input(toFFmpegPath(ov.pngPath));
-    cmd.inputOptions(["-loop", "1"]);
+    cmd.inputOptions(["-loop", "1", "-t", String(capSec)]);
   });
 
   const fadeDur = 0.35;

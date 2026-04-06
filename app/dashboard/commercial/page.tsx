@@ -1911,7 +1911,11 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 type="number"
                 min={5} max={600} step={1}
                 value={project.targetDurationSec ?? ""}
-                onChange={e => patchProject({ targetDurationSec: e.target.value ? Number(e.target.value) : null })}
+                onChange={e => {
+                  const val = e.target.value ? Number(e.target.value) : null;
+                  // Setting a target duration automatically enables auto-distribute
+                  patchProject({ targetDurationSec: val, ...(val ? { autoDistribute: true } : {}) });
+                }}
                 placeholder="e.g. 30 ⏱️"
                 className={inputCls}
               />

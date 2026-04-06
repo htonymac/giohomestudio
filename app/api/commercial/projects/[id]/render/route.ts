@@ -115,17 +115,12 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
 
   if (rawSlides.length === 0) throw new Error("No slides with images found");
 
-  // Auto-distribute: divide targetDurationSec evenly across all frames
-  if (project.autoDistribute && project.targetDurationSec && project.targetDurationSec > 0) {
-    const perSlideMs = Math.round((project.targetDurationSec * 1000) / rawSlides.length);
-    rawSlides = rawSlides.map(s => ({ ...s, durationMs: Math.max(500, perSlideMs) }));
-  }
-
-  // Append a dedicated CTA frame using the last slide's image
-  if (project.ctaMethod && project.ctaValue) {
+  // Append CTA frame BEFORE duration distribution so it's included in the total.
+  const hasCta = !!(project.ctaMethod && project.ctaValue);
+  if (hasCta) {
     const ctaLabel = project.ctaMethod === "whatsapp" ? "WhatsApp"
       : project.ctaMethod === "telegram" ? "Telegram" : "Call";
-    const ctaLines = [ctaLabel, project.ctaValue];
+    const ctaLines = [ctaLabel, project.ctaValue!];
     if (project.ctaValueSecondary) ctaLines.push(project.ctaValueSecondary);
     rawSlides.push({
       imagePath:     rawSlides[rawSlides.length - 1].imagePath,
@@ -141,6 +136,29 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
       showNarration:   false,
       frameId:         `${contentItemId}_cta`,
     });
+  }
+
+  // ── Duration distribution ─────────────────────────────────────────────────
+  // When targetDurationSec is set, the total output MUST match it.
+  // autoDistribute divides evenly; when off we still scale proportionally so
+  // the sum of slide durations equals the target.
+  const target = project.targetDurationSec;
+  if (target && target > 0) {
+    const targetMs = target * 1000;
+    const currentTotalMs = rawSlides.reduce((a, s) => a + s.durationMs, 0);
+
+    if (project.autoDistribute) {
+      // Equal distribution across ALL slides (including CTA)
+      const perSlideMs = Math.round(targetMs / rawSlides.length);
+      rawSlides = rawSlides.map(s => ({ ...s, durationMs: Math.max(500, perSlideMs) }));
+    } else if (Math.abs(currentTotalMs - targetMs) > 500) {
+      // Proportional scaling: keep relative slide weights but hit target total
+      const scale = targetMs / currentTotalMs;
+      rawSlides = rawSlides.map(s => ({ ...s, durationMs: Math.max(500, Math.round(s.durationMs * scale)) }));
+    }
+
+    const finalTotalMs = rawSlides.reduce((a, s) => a + s.durationMs, 0);
+    console.log(`[Commercial render:${contentItemId}] Duration target=${target}s, slides=${rawSlides.length}, actual=${(finalTotalMs / 1000).toFixed(1)}s`);
   }
 
   // ── Step 1: Ken Burns slideshow on ORIGINAL images (no caption baked in) ─────
