@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useEffect, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import type { DestinationPage } from "@/types/content";
@@ -57,7 +58,7 @@ const OUTPUT_MODES: { id: OutputMode; label: string; icon: string; desc: string;
   { id: "video_to_video", label: "Video → Video",   icon: "🔄", desc: "Transform an existing video",              live: true  },
 ];
 
-export default function StudioPage() {
+function StudioPageInner() {
   const searchParams = useSearchParams();
 
   const [input, setInput] = useState("");
@@ -762,13 +763,12 @@ export default function StudioPage() {
                         type="button"
                         onClick={() => {
                           setSelectedI2vChar(active ? null : c);
-                          setI2vLocalFile(null);
-                          setI2vLocalPath("");
+                          setI2vLocalUpload(null);
                           // Also wire voice identity + speech style
                           if (!active) {
                             if (c.voiceId) {
                               setVoiceId(c.voiceId);
-                              if (outputMode !== "text_to_audio") setAudioMode("voice_music");
+                              setAudioMode("voice_music");
                             }
                             if (c.language) setVoiceLanguage(c.language);
                             if (c.defaultSpeechStyle) setSpeechStyle(c.defaultSpeechStyle as SpeechStyle);
@@ -1813,5 +1813,13 @@ export default function StudioPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function StudioPage() {
+  return (
+    <Suspense>
+      <StudioPageInner />
+    </Suspense>
   );
 }

@@ -976,8 +976,8 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
       // Always save voice settings to DB before render — server reads project.voiceId at render time.
       // Do not skip: an empty voiceId intentionally clears any previously saved voice so the default is used.
       await patchProject({
-        voiceId:       narrationSettings.voiceId       || null,
-        voiceLanguage: narrationSettings.voiceLanguage || null,
+        voiceId:       project.voiceId       || null,
+        voiceLanguage: project.voiceLanguage || null,
       });
       setProject(prev => ({ ...prev, renderStatus: "rendering" }));
       const res  = await fetch(`/api/commercial/projects/${project.id}/render`, { method: "POST" });
@@ -1004,7 +1004,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
       try {
         const res = await fetch(`/api/commercial/projects/${projectId}`);
         if (!res.ok) break;
-        const data = await res.json() as CommercialProject & { mergedOutputPath?: string | null };
+        const data = await res.json() as CommercialProject & { mergedOutputPath?: string | null; renderError?: string | null };
         if (data.renderStatus === "ready") {
           setProject(prev => ({ ...prev, renderStatus: "ready", contentItemId: data.contentItemId ?? prev.contentItemId }));
           setRenderMsg("Render complete! Check Review queue.");
@@ -1013,7 +1013,8 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
         }
         if (data.renderStatus === "failed") {
           setProject(prev => ({ ...prev, renderStatus: "failed" }));
-          setRenderMsg("Render failed. Check server logs or try again.");
+          const errDetail = data.renderError ? ` — ${data.renderError}` : "";
+          setRenderMsg(`Render failed${errDetail}`);
           return;
         }
       } catch { break; }

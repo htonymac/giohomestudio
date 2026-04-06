@@ -48,6 +48,31 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
 
   const aspectRatio = (project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1";
 
+  // ── Fetch project-level settings FIRST (needed when building rawSlides) ───────
+  let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
+  let transitionDurationSec: number | undefined;
+  let globalCaptionPosition: "top" | "center" | "bottom" | null = null;
+  let renderQuality: RenderQuality = "standard";
+  try {
+    const tRows = await prisma.$queryRaw<Array<{
+      transitionType: string | null;
+      transitionDurationSec: number | null;
+      globalCaptionPosition: string | null;
+      renderQuality: string | null;
+    }>>`
+      SELECT "transitionType", "transitionDurationSec", "globalCaptionPosition", "renderQuality"
+      FROM commercial_projects WHERE id = ${project.id} LIMIT 1
+    `;
+    if (tRows[0]) {
+      if (tRows[0].transitionType) {
+        transitionType = tRows[0].transitionType as typeof transitionType;
+        transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
+      }
+      globalCaptionPosition = (tRows[0].globalCaptionPosition ?? null) as typeof globalCaptionPosition;
+      renderQuality = (tRows[0].renderQuality as RenderQuality | null) ?? "standard";
+    }
+  } catch { /* columns may not exist yet — use defaults */ }
+
   // Build raw slide list with all styling/animation fields
   type RawSlide = {
     imagePath: string;
@@ -133,39 +158,14 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   const slideshowPath  = path.join(slideshowDir, `commercial_${contentItemId}_motion_${ts}.mp4`);
   const captionedPath  = path.join(slideshowDir, `commercial_${contentItemId}_captioned_${ts}.mp4`);
 
-  // Fetch project-level settings stored via raw SQL
-  let transitionType: "fade" | "slide-left" | "slide-right" | "zoom-in" | "none" | undefined;
-  let transitionDurationSec: number | undefined;
-  let globalCaptionPosition: "top" | "center" | "bottom" | null = null;
-  let renderQuality: RenderQuality = "standard";
-  try {
-    const tRows = await prisma.$queryRaw<Array<{
-      transitionType: string | null;
-      transitionDurationSec: number | null;
-      globalCaptionPosition: string | null;
-      renderQuality: string | null;
-    }>>`
-      SELECT "transitionType", "transitionDurationSec", "globalCaptionPosition", "renderQuality"
-      FROM commercial_projects WHERE id = ${project.id} LIMIT 1
-    `;
-    if (tRows[0]) {
-      if (tRows[0].transitionType) {
-        transitionType = tRows[0].transitionType as typeof transitionType;
-        transitionDurationSec = tRows[0].transitionDurationSec ?? 0.5;
-      }
-      globalCaptionPosition = (tRows[0].globalCaptionPosition ?? null) as typeof globalCaptionPosition;
-      renderQuality = (tRows[0].renderQuality as RenderQuality | null) ?? "standard";
-    }
-  } catch { /* columns may not exist yet */ }
-
-  // Pass 1: use "cinema" quality (CRF 12) for the intermediate so the caption
-  // overlay pass has excellent source material without creating enormous files.
-  // CRF 0 (lossless) creates 5-20GB intermediate files that break the pipeline.
+  // Pass 1: Ken Burns slideshow — use the same quality the user selected so
+  // the intermediate size matches expectations. CRF 0 (lossless) would create
+  // 5–20 GB intermediates that break the pipeline; renderQuality avoids that.
   console.log(`[Commercial render:${contentItemId}] Step 1 — Ken Burns slideshow (${frames.length} slides)...`);
   const slideResult = await createSlideshow(frames, slideshowPath, aspectRatio, {
     transitionType,
     transitionDurationSec,
-    quality: "cinema",
+    quality: renderQuality,
   });
 
   if (!slideResult.success || !slideResult.outputPath) {
@@ -302,6 +302,12 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     console.error(`[Commercial render:${contentItemId}] Merge FAILED — ${mergeResult.error}`);
     throw new Error(`Merge failed: ${mergeResult.error}`);
   }
+
+  // Delete intermediates now that the merged output is confirmed.
+  await Promise.all([
+    fs.promises.unlink(slideResult.outputPath).catch(() => {}),
+    fs.promises.unlink(captionedPath).catch(() => {}),
+  ]);
 
   try {
     await Promise.all([

@@ -48,12 +48,14 @@ export async function GET(
   // Include mergedOutputPath from the linked ContentItem so the frontend doesn't need a second fetch.
   let mergedOutputPath: string | null = null;
   let renderStatus = project.renderStatus;
+  let renderError: string | null = null;
   if (project.contentItemId) {
     const ci = await prisma.contentItem.findUnique({
       where: { id: project.contentItemId },
-      select: { mergedOutputPath: true, status: true },
+      select: { mergedOutputPath: true, status: true, notes: true },
     });
     mergedOutputPath = ci?.mergedOutputPath ?? null;
+    if (ci?.status === "FAILED" && ci.notes) renderError = ci.notes;
     // Auto-heal: if the project is stuck "rendering" but the content item is already
     // IN_REVIEW with a merged file, the final DB write in renderCommercial was lost.
     if (renderStatus === "rendering" && ci?.status === "IN_REVIEW" && mergedOutputPath) {
@@ -90,7 +92,7 @@ export async function GET(
     }
   } catch { /* columns may not exist yet */ }
 
-  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, renderQuality });
+  return NextResponse.json({ ...project, renderStatus, mergedOutputPath, captionMaxWords, captionMaxChars, transitionType, transitionDurationSec, globalCaptionPosition, renderQuality, renderError });
 }
 
 export async function PATCH(

@@ -6,7 +6,7 @@ import ffmpeg from "fluent-ffmpeg";
 import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
-import { toFFmpegPath, escapeDrawtext, escapeFontPath, resolveFontFile, cleanupTempFile, wrapCaptionText, isActualFile } from "./utils";
+import { toFFmpegPath, escapeDrawtext, escapeFontPath, resolveFontFile, cleanupTempFile, wrapCaptionText, isActualFile, MOBILE_H264_OPTS, MOBILE_AUDIO_OPTS } from "./utils";
 
 ffmpeg.setFfmpegPath(env.ffmpegPath);
 ffmpeg.setFfprobePath(env.ffprobePath);
@@ -121,7 +121,21 @@ export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
   const hasCues = validCues.length > 0;
   const hasFlatSFX = validSFX.length > 0;
 
-  console.log(`[mergeMedia] video=${absVideo} voice=${absVoice ?? "-"} music=${absMusic ?? "-"} output=${absOutput}`);
+  // Probe video duration so we can cap music loop length explicitly.
+  // -shortest is unreliable with -stream_loop -1 and -c:v copy in some FFmpeg builds,
+  // so we also pass -t <videoDuration> on the music input as a hard ceiling.
+  let videoDurationSec: number | null = null;
+  try {
+    const probeResult = await new Promise<number>((res, rej) => {
+      ffmpeg.ffprobe(absVideo, (err: Error | null, data: { format?: { duration?: number } }) => {
+        if (err) return rej(err);
+        res(data?.format?.duration ?? 0);
+      });
+    });
+    if (probeResult > 0) videoDurationSec = probeResult;
+  } catch { /* probe failed — fall back to -shortest only */ }
+
+  console.log(`[mergeMedia] video=${absVideo} (${videoDurationSec?.toFixed(1) ?? "?"}s) voice=${absVoice ?? "-"} music=${absMusic ?? "-"} output=${absOutput}`);
 
   return new Promise((resolve) => {
     const cmd = ffmpeg(absVideo);
@@ -135,10 +149,12 @@ export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
     if (hasVoice) cmd.input(absVoice!);
     if (hasMusic) {
       // -stream_loop -1 loops music at the demuxer level — zero memory overhead.
-      // Two explicit args to avoid fluent-ffmpeg space-splitting ambiguity.
-      // -shortest (in outputOptions) caps output to video length.
+      // -t caps the looped music to video duration so the output can't balloon to
+      // hundreds of seconds when -shortest fails (which it does with -c:v copy).
+      const musicOpts = ['-stream_loop', '-1'];
+      if (videoDurationSec) musicOpts.push('-t', String(Math.ceil(videoDurationSec)));
       cmd.input(absMusic!);
-      cmd.inputOptions(['-stream_loop', '-1']);
+      cmd.inputOptions(musicOpts);
     }
     if (hasCues) {
       for (const cue of validCues) cmd.input(toFFmpegPath(path.resolve(cue.path)));
@@ -172,13 +188,13 @@ export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
       filters.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2:normalize=0[aout]`);
       cmd
         .complexFilter(filters)
-        .outputOptions(["-map 0:v", "-map [aout]", "-c:v copy", "-c:a aac", "-shortest"]);
+        .outputOptions(["-map 0:v", "-map [aout]", "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", "-shortest"]);
     } else if (mixInputs.length === 1) {
       cmd
         .complexFilter(filters)
-        .outputOptions(["-map 0:v", `-map ${mixInputs[0]}`, "-c:v copy", "-c:a aac", "-shortest"]);
+        .outputOptions(["-map 0:v", `-map ${mixInputs[0]}`, "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", "-shortest"]);
     } else {
-      cmd.outputOptions(["-c copy"]);
+      cmd.outputOptions(["-c copy", "-movflags +faststart"]);
     }
 
     cmd
@@ -433,12 +449,15 @@ const XFADE_MAP: Record<string, string> = {
 
 export type RenderQuality = "draft" | "standard" | "high" | "cinema";
 
-/** CRF + preset + optional sharpening unsharp filter per quality level */
-const QUALITY_ENCODE: Record<RenderQuality, { crf: number; preset: string; unsharp: string }> = {
-  draft:    { crf: 26, preset: "fast",   unsharp: "" },
-  standard: { crf: 20, preset: "medium", unsharp: "" },
-  high:     { crf: 16, preset: "slow",   unsharp: ",unsharp=3:3:0.8:3:3:0" },
-  cinema:   { crf: 12, preset: "slow",   unsharp: ",unsharp=5:5:1.2:3:3:0" },
+/** CRF + preset per quality level.
+ *  NOTE: unsharp is intentionally NOT applied in the Ken Burns complex filter graph —
+ *  positional unsharp params can cause parse failures in some FFmpeg builds.
+ *  Sharpening is applied as a simple -vf in the caption overlay (final) pass instead. */
+const QUALITY_ENCODE: Record<RenderQuality, { crf: number; preset: string }> = {
+  draft:    { crf: 26, preset: "fast"   },
+  standard: { crf: 20, preset: "medium" },
+  high:     { crf: 16, preset: "medium" },
+  cinema:   { crf: 12, preset: "medium" },
 };
 
 export async function createSlideshow(
@@ -469,7 +488,7 @@ export async function createSlideshow(
   // Resolve encode settings — "lossless" treated as "cinema" (CRF 12) to avoid enormous files
   const qualityKey: RenderQuality = (opts.quality && opts.quality !== "lossless") ? opts.quality : (opts.quality === "lossless" ? "cinema" : "standard");
   const enc = QUALITY_ENCODE[qualityKey];
-  const encodeOpts = ["-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`];
+  const encodeOpts = ["-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`, ...MOBILE_H264_OPTS];
 
   if (opts.skipKenBurns) {
     const DIMS2: Record<string, { w: number; h: number }> = {
@@ -533,9 +552,11 @@ export async function createSlideshow(
     const durSec = f.durationMs / 1000;
     const d      = Math.max(2, Math.round(durSec * ZP_FPS));
 
-    // Each image is a looped still; -loop 1 + -t constrain its duration.
+    // Feed each image as a single-frame input. zoompan's d= parameter controls
+    // how many output frames it produces. Do NOT use -loop 1: it creates an
+    // infinite stream that zoompan consumes far beyond d= frames, producing
+    // videos of 200+ seconds per slide instead of the expected 3 seconds.
     cmd.input(src);
-    cmd.inputOptions(["-loop", "1", "-t", String(durSec)]);
 
     // Pick KB function:
     //   named preset → specific function
@@ -552,7 +573,7 @@ export async function createSlideshow(
     }
 
     // Scale to pre-zoom size (lanczos = sharper than default bilinear) → Ken Burns → upsample → format → optional sharpening → optional caption → label
-    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase:flags=lanczos,crop=${pw}:${ph},${kbFn(d)},format=yuv420p${enc.unsharp}`;
+    let seg = `[${i}:v]scale=${pw}:${ph}:force_original_aspect_ratio=increase:flags=lanczos,crop=${pw}:${ph},${kbFn(d)},format=yuv420p`;
     if (f.captionText?.trim()) {
       seg += `,${buildAnimatedCaption(f.captionText.trim(), f.captionStyle)}`;
     }
@@ -614,7 +635,7 @@ function createSlideshowStatic(
   absOut: string,
   w: number,
   h: number,
-  encodeOpts: string[] = ["-c:v libx264", "-crf 20", "-preset medium"],
+  encodeOpts: string[] = ["-c:v libx264", "-crf 20", "-preset medium", ...MOBILE_H264_OPTS],
 ): Promise<MergeOutput> {
   const listFile = absOut + ".fallback.txt";
   const lines: string[] = [];

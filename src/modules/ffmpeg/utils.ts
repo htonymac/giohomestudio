@@ -1,6 +1,103 @@
 import * as path from "path";
 import * as fs from "fs";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import { env } from "@/config/env";
+
+const execFileAsync = promisify(execFile);
+
+// ── Mobile-safe H.264 export settings ────────────────────────────────────────
+//
+// Every video exported by GioHomeStudio must pass through these encode flags so
+// it plays on Android, iPhone, Telegram mobile, and mobile browsers.
+//
+// Root cause of phone-incompatibility:
+//   When transparent PNG captions (RGBA) are overlaid via FFmpeg's `overlay` filter
+//   with format=auto, FFmpeg selects yuvj444p as the intermediate pixel format.
+//   libx264 then encodes this as H.264 "High 4:4:4 Predictive" (Hi444PP) profile —
+//   which mobile hardware decoders do NOT support. Result: black screen / cannot play.
+//
+// Fix: always force `-pix_fmt yuv420p` on the encoder. This overrides whatever
+//   pixel format the filter graph produces and guarantees a mobile-compatible stream.
+//   Combined with `-profile:v high -level 4.1` this is universally supported.
+export const MOBILE_H264_OPTS = [
+  "-pix_fmt yuv420p",
+  "-profile:v high",
+  "-level 4.1",
+  "-color_range tv",
+  "-colorspace bt709",
+  "-color_primaries bt709",
+  "-color_trc bt709",
+] as const;
+
+export const MOBILE_AUDIO_OPTS = [
+  "-c:a aac",
+  "-b:a 128k",
+  "-ar 48000",
+] as const;
+
+// ── Mobile compatibility validator ────────────────────────────────────────────
+
+export interface MobileCompatReport {
+  ok: boolean;
+  issues: string[];
+  vcodec?: string;
+  pix_fmt?: string;
+  profile?: string;
+  acodec?: string;
+  width?: number;
+  height?: number;
+  duration?: number;
+}
+
+/**
+ * Runs ffprobe on a finished video file and checks it meets the mobile-safe
+ * H.264/AAC/yuv420p standard required for Android, iPhone, and Telegram mobile.
+ * Returns { ok: true } when all checks pass; { ok: false, issues: [...] } otherwise.
+ */
+export async function validateMobileCompatible(filePath: string): Promise<MobileCompatReport> {
+  const issues: string[] = [];
+  let parsed: Record<string, unknown> = {};
+
+  try {
+    const { stdout } = await execFileAsync(env.ffprobePath, [
+      "-v", "error",
+      "-show_streams", "-show_format",
+      "-print_format", "json",
+      filePath,
+    ]);
+    parsed = JSON.parse(stdout) as Record<string, unknown>;
+  } catch (err) {
+    return { ok: false, issues: [`ffprobe failed: ${err}`] };
+  }
+
+  const streams = (parsed.streams as Record<string, unknown>[]) ?? [];
+  const video   = streams.find(s => s.codec_type === "video");
+  const audio   = streams.find(s => s.codec_type === "audio");
+  const fmt     = parsed.format as Record<string, unknown> | undefined;
+
+  const vcodec  = video?.codec_name as string | undefined;
+  const pix_fmt = video?.pix_fmt    as string | undefined;
+  const profile = video?.profile    as string | undefined;
+  const width   = video?.width      as number | undefined;
+  const height  = video?.height     as number | undefined;
+  const acodec  = audio?.codec_name as string | undefined;
+  const duration = parseFloat((fmt?.duration as string | undefined) ?? "0");
+
+  if (vcodec !== "h264")                          issues.push(`vcodec=${vcodec} (need h264)`);
+  if (pix_fmt && pix_fmt !== "yuv420p")           issues.push(`pix_fmt=${pix_fmt} (need yuv420p)`);
+  if (profile && profile.includes("4:4:4"))       issues.push(`profile=${profile} (mobile unsupported — need High or Main)`);
+  if (width  && width  % 2 !== 0)                 issues.push(`width=${width} is odd (must be even)`);
+  if (height && height % 2 !== 0)                 issues.push(`height=${height} is odd (must be even)`);
+  if (acodec && acodec !== "aac")                 issues.push(`acodec=${acodec} (need aac)`);
+  if (!duration || duration < 0.5)               issues.push(`duration=${duration}s (video too short or invalid)`);
+
+  return {
+    ok: issues.length === 0,
+    issues,
+    vcodec, pix_fmt, profile, acodec, width, height, duration,
+  };
+}
 
 // FFmpeg requires forward slashes even on Windows
 export function toFFmpegPath(p: string): string {

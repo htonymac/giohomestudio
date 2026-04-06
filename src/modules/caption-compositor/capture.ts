@@ -23,20 +23,26 @@ export async function renderCaptionsToPng(
   if (items.length === 0) return;
 
   // Import at runtime — avoids loading Playwright on every module import.
-  // The playwright package is in dependencies so this is always available.
   const { chromium } = await import("playwright");
 
-  const browser = await chromium.launch({ headless: true });
+  // 15-second timeout on browser launch — if Chromium can't start, fail fast
+  // rather than hanging the entire render pipeline.
+  const launchTimeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("Playwright chromium.launch() timed out after 15s")), 15000)
+  );
+
+  const browser = await Promise.race([
+    chromium.launch({ headless: true }),
+    launchTimeout,
+  ]);
+
   try {
     const page = await browser.newPage();
     await page.setViewportSize({ width, height });
 
     for (const item of items) {
-      // Ensure output directory exists
       fs.mkdirSync(path.dirname(item.outputPath), { recursive: true });
-
-      await page.setContent(item.html, { waitUntil: "domcontentloaded" });
-
+      await page.setContent(item.html, { waitUntil: "domcontentloaded", timeout: 10000 });
       await page.screenshot({
         path: item.outputPath,
         omitBackground: true,
@@ -44,6 +50,6 @@ export async function renderCaptionsToPng(
       });
     }
   } finally {
-    await browser.close();
+    await browser.close().catch(() => {});
   }
 }

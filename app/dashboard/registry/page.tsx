@@ -24,6 +24,8 @@ export default function RegistryPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ContentStatus | "">("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   async function fetchItems() {
     setLoading(true);
@@ -31,16 +33,62 @@ export default function RegistryPage() {
     const res = await fetch(url);
     const data = await res.json();
     setItems(data.items ?? []);
+    setSelected(new Set());
     setLoading(false);
   }
 
   useEffect(() => { fetchItems(); }, [filter]);
+
+  const allSelected = items.length > 0 && selected.size === items.length;
+  const someSelected = selected.size > 0;
+
+  function toggleAll() {
+    if (allSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(items.map(i => i.id)));
+    }
+  }
+
+  function toggleOne(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  async function deleteSelected() {
+    if (!someSelected) return;
+    const count = selected.size;
+    if (!confirm(`Delete ${count} item${count > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await fetch("/api/registry/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: Array.from(selected) }),
+      });
+      await fetchItems();
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-white">Content Registry</h1>
         <div className="flex gap-3 items-center">
+          {someSelected && (
+            <button
+              onClick={deleteSelected}
+              disabled={deleting}
+              className="text-sm bg-red-900 hover:bg-red-800 text-red-300 border border-red-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
+            >
+              {deleting ? "Deleting…" : `Delete ${selected.size} selected`}
+            </button>
+          )}
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as ContentStatus | "")}
@@ -71,29 +119,55 @@ export default function RegistryPage() {
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-gray-500 border-b border-gray-800">
-              <th className="pb-3 pr-4 font-medium">ID</th>
-              <th className="pb-3 pr-4 font-medium">Input</th>
-              <th className="pb-3 pr-4 font-medium">Status</th>
-              <th className="pb-3 pr-4 font-medium">Destination</th>
-              <th className="pb-3 pr-4 font-medium">Providers</th>
-              <th className="pb-3 pr-4 font-medium">Created</th>
-              <th className="pb-3 font-medium">Error</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-800/50">
-            {items.map((item) => (
-              <>
+      {!loading && items.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-gray-500 border-b border-gray-800">
+                <th className="pb-3 pr-3 font-medium w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={toggleAll}
+                    className="accent-red-500 cursor-pointer"
+                    title="Select all"
+                  />
+                </th>
+                <th className="pb-3 pr-4 font-medium">ID</th>
+                <th className="pb-3 pr-4 font-medium">Input</th>
+                <th className="pb-3 pr-4 font-medium">Status</th>
+                <th className="pb-3 pr-4 font-medium">Destination</th>
+                <th className="pb-3 pr-4 font-medium">Providers</th>
+                <th className="pb-3 pr-4 font-medium">Created</th>
+                <th className="pb-3 font-medium">Error</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-800/50">
+              {items.map((item) => (
                 <tr
                   key={item.id}
-                  className="text-gray-300 hover:text-white transition-colors cursor-pointer"
-                  onClick={() => router.push(`/dashboard/content/${item.id}`)}
+                  className={`transition-colors ${selected.has(item.id) ? "bg-gray-800/60" : "hover:bg-gray-900/40"}`}
                 >
-                  <td className="py-3 pr-4 font-mono text-xs text-gray-500">{item.id.slice(0, 8)}...</td>
-                  <td className="py-3 pr-4 max-w-xs truncate">{item.originalInput}</td>
+                  <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(item.id)}
+                      onChange={() => toggleOne(item.id)}
+                      className="accent-red-500 cursor-pointer"
+                    />
+                  </td>
+                  <td
+                    className="py-3 pr-4 font-mono text-xs text-gray-500 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/content/${item.id}`)}
+                  >
+                    {item.id.slice(0, 8)}…
+                  </td>
+                  <td
+                    className="py-3 pr-4 max-w-xs truncate text-gray-300 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/content/${item.id}`)}
+                  >
+                    {item.originalInput}
+                  </td>
                   <td className="py-3 pr-4">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[item.status]}`}>
                       {item.status}
@@ -121,7 +195,8 @@ export default function RegistryPage() {
                     })()}
                   </td>
                   <td className="py-3 pr-4 text-xs text-gray-500">
-                    {new Date(item.createdAt).toLocaleDateString()}
+                    {new Date(item.createdAt).toLocaleDateString()}{" "}
+                    <span className="text-gray-600">{new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   </td>
                   <td className="py-3 text-xs">
                     {item.status === "FAILED" && item.notes ? (
@@ -133,12 +208,11 @@ export default function RegistryPage() {
                     )}
                   </td>
                 </tr>
-
-              </>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

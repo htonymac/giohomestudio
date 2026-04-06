@@ -6,7 +6,7 @@ import ffmpeg from "fluent-ffmpeg";
 import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
-import { toFFmpegPath, escapeDrawtext, escapeFontPath, resolveFontFile, isActualFile } from "./utils";
+import { toFFmpegPath, escapeDrawtext, escapeFontPath, resolveFontFile, isActualFile, MOBILE_H264_OPTS } from "./utils";
 
 ffmpeg.setFfmpegPath(env.ffmpegPath);
 ffmpeg.setFfprobePath(env.ffprobePath);
@@ -266,7 +266,7 @@ export async function applyOverlays(input: ApplyOverlaysInput): Promise<{ succes
       cmd = cmd.seekInput(input.startSec);
     }
 
-    const outputOptions: string[] = ["-movflags +faststart"];
+    const outputOptions: string[] = [...MOBILE_H264_OPTS, "-movflags +faststart"];
     if (input.durationSec !== undefined) {
       outputOptions.push(`-t ${input.durationSec}`);
     }

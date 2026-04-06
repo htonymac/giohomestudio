@@ -1,6 +1,7 @@
 // GioHomeStudio — Content Registry Module
 // All reads/writes to content_items go through this module.
 
+import * as fs from "fs";
 import { prisma } from "@/lib/prisma";
 import type { ContentItem, ContentStatus, ContentVersion } from "@/types/content";
 
@@ -218,4 +219,25 @@ export async function getContentVersions(contentItemId: string): Promise<Content
     orderBy: { versionNumber: "desc" },
   });
   return versions as ContentVersion[];
+}
+
+export async function deleteContentItems(ids: string[]): Promise<{ deleted: number }> {
+  if (ids.length === 0) return { deleted: 0 };
+
+  // Collect file paths before deletion so we can remove them from disk.
+  const items = await prisma.contentItem.findMany({
+    where: { id: { in: ids } },
+    select: { videoPath: true, voicePath: true, musicPath: true, mergedOutputPath: true },
+  });
+
+  const result = await prisma.contentItem.deleteMany({ where: { id: { in: ids } } });
+
+  // Best-effort disk cleanup — orphaned files accumulate quickly otherwise.
+  for (const item of items) {
+    for (const p of [item.videoPath, item.voicePath, item.musicPath, item.mergedOutputPath]) {
+      if (p && fs.existsSync(p)) { try { fs.unlinkSync(p); } catch { /* ignore */ } }
+    }
+  }
+
+  return { deleted: result.count };
 }

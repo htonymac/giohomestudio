@@ -12,7 +12,7 @@ import ffmpeg from "fluent-ffmpeg";
 import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
-import { toFFmpegPath, isActualFile } from "@/modules/ffmpeg/utils";
+import { toFFmpegPath, isActualFile, MOBILE_H264_OPTS } from "@/modules/ffmpeg/utils";
 import { buildCaptionHtml, buildNarrationHtml } from "./html-builder";
 import { renderCaptionsToPng } from "./capture";
 import type { CaptionComposeInput, ComposeResult, AspectRatio, CaptionPosition, PresetName, CaptionAnimation } from "./types";
@@ -39,14 +39,17 @@ function overlayCaption(
   const absOut     = toFFmpegPath(path.resolve(outputPath));
 
   // Scale source to fill target, crop to exact dimensions, then overlay caption layer.
-  const filter = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[bg];[bg][1:v]overlay=0:0[out]`;
+  // format=yuv420p after overlay prevents yuvj444p (JPEG 4:4:4) from being selected
+  // when the PNG input has an alpha channel — yuv420p is the only mobile-safe format.
+  // overlay=format=yuv420 prevents yuvj444p selection when PNG has alpha — see MOBILE_H264_OPTS in utils.ts
+  const filter = `[0:v]scale=${width}:${height}:force_original_aspect_ratio=increase,crop=${width}:${height}[bg];[bg][1:v]overlay=format=yuv420:0:0[out]`;
 
   return new Promise((resolve) => {
     ffmpeg()
       .input(absImage)
       .input(absCaption)
       .complexFilter(filter)
-      .outputOptions(["-map [out]", "-frames:v 1"])
+      .outputOptions(["-map [out]", "-frames:v 1", ...MOBILE_H264_OPTS])
       .output(absOut)
       .on("end",   () => resolve({ success: true, outputPath: path.resolve(outputPath) }))
       .on("error", (err: Error) => resolve({ success: false, outputPath: "", error: err.message }))
@@ -292,10 +295,10 @@ export async function overlayCaptionsOnVideo(
   quality: OverlayQuality = "standard",
 ): Promise<{ success: boolean; outputPath: string; error?: string }> {
   const qualityMap: Record<OverlayQuality, { crf: number; preset: string }> = {
-    draft:    { crf: 26, preset: "fast" },
+    draft:    { crf: 26, preset: "fast"   },
     standard: { crf: 20, preset: "medium" },
-    high:     { crf: 16, preset: "slow" },
-    cinema:   { crf: 12, preset: "slow" },
+    high:     { crf: 16, preset: "medium" },
+    cinema:   { crf: 12, preset: "medium" },
   };
   const enc = qualityMap[quality] ?? qualityMap.standard;
   const valid = overlays.filter(o => isActualFile(o.pngPath));
@@ -315,33 +318,39 @@ export async function overlayCaptionsOnVideo(
   let prevLabel = "0:v";
 
   valid.forEach((ov, i) => {
-    const capIdx = i + 1;
-    const st     = ov.startSec;
-    const et     = ov.endSec;
+    const capIdx   = i + 1;
+    const st       = ov.startSec;
+    const et       = ov.endSec;
     const outLabel = i === valid.length - 1 ? "vfinal" : `vc${i}`;
     const capLabel = `cp${i}`;
 
-    // Fade in the alpha channel starting at the slide's start time
-    filterParts.push(`[${capIdx}:v]format=rgba,fade=in:st=${st.toFixed(3)}:d=${fadeDur}:alpha=1[${capLabel}]`);
+    filterParts.push(
+      `[${capIdx}:v]format=rgba,fade=t=in:start_time=${st.toFixed(3)}:duration=${fadeDur}:alpha=1[${capLabel}]`
+    );
 
-    // Build overlay x/y expressions for animation type
-    // t = current output time; st = slide start time; prog = 0→1 over fadeDur
-    const prog = `min((t-${st.toFixed(3)})/${fadeDur},1)`;
+    // x/y animation offsets — use plain arithmetic ONLY (no commas inside expressions).
+    // In FFmpeg complex filter graphs, commas inside unquoted option values are parsed
+    // as filter-chain separators, breaking any expression that uses function calls
+    // like gte(x,0) or lte(x,1). Simple linear decay has no commas and is safe.
+    // The enable='between(...)' window already limits visibility to the slide duration,
+    // so we don't need to clamp the offset — out-of-window values are never rendered.
     let xExpr = "0";
     let yExpr = "0";
+    const elapsed = `(t-${st.toFixed(3)})`;  // seconds since slide start
 
     if (ov.animation === "fade-up") {
-      // Slide up 60px from below while fading in
-      yExpr = `if(lte(t-${st.toFixed(3)},${fadeDur}),round(60*(1-${prog})),0)`;
+      // slide up 60 px over fadeDur — plain linear decay, no function calls
+      yExpr = `(60*(1-${elapsed}/${fadeDur}))`;
     } else if (ov.animation === "fly-in-left") {
-      xExpr = `if(lte(t-${st.toFixed(3)},${fadeDur}),round(-180*(1-${prog})),0)`;
+      xExpr = `(-200*(1-${elapsed}/${fadeDur}))`;
     } else if (ov.animation === "fly-in-right") {
-      xExpr = `if(lte(t-${st.toFixed(3)},${fadeDur}),round(180*(1-${prog})),0)`;
+      xExpr = `(200*(1-${elapsed}/${fadeDur}))`;
     }
-    // "fade" and "none": x=0, y=0 — just the alpha fade handles the animation
+    // "fade" and "none": x=0, y=0 — alpha fade only
 
+    // overlay=format=yuv420 prevents yuvj444p when RGBA PNG is present — see MOBILE_H264_OPTS
     filterParts.push(
-      `[${prevLabel}][${capLabel}]overlay=format=auto:x=${xExpr}:y=${yExpr}:enable='between(t,${st.toFixed(3)},${et.toFixed(3)})'[${outLabel}]`
+      `[${prevLabel}][${capLabel}]overlay=format=yuv420:x=${xExpr}:y=${yExpr}:enable='between(t,${st.toFixed(3)},${et.toFixed(3)})'[${outLabel}]`
     );
     prevLabel = outLabel;
   });
@@ -350,7 +359,7 @@ export async function overlayCaptionsOnVideo(
     cmd
       .on("start", (cmdStr: string) => console.log(`[overlayCaptionsOnVideo] cmd: ${cmdStr}`))
       .complexFilter(filterParts.join(";"))
-      .outputOptions(["-map [vfinal]", "-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`, "-movflags +faststart", "-an"])
+      .outputOptions(["-map [vfinal]", "-c:v libx264", `-crf ${enc.crf}`, `-preset ${enc.preset}`, ...MOBILE_H264_OPTS, "-movflags +faststart", "-an"])
       .output(toFFmpegPath(outputPath))
       .on("end", () => resolve({ success: true, outputPath }))
       .on("error", (err: Error) => {
@@ -369,7 +378,7 @@ export function cleanupComposedDir(workDir: string): void {
   try {
     const files = fs.readdirSync(workDir);
     for (const f of files) {
-      if (f.startsWith("cap_") || f.startsWith("composed_")) {
+      if (f.startsWith("cap_") || f.startsWith("composed_") || f.startsWith("nar_")) {
         fs.unlinkSync(path.join(workDir, f));
       }
     }
