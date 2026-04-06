@@ -21,6 +21,7 @@ import { runwayVideoProvider } from "@/modules/video-provider/runway";
 import { klingVideoProvider } from "@/modules/video-provider/kling";
 import { mockVideoProvider } from "@/modules/video-provider/mock";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
+import { piperVoiceProvider } from "@/modules/voice-provider/piper";
 import { mockVoiceProvider } from "@/modules/voice-provider/mock";
 import { resolveAndGenerateMusic } from "@/modules/music-provider/resolver";
 import { mergeMedia, mergeAudioOnly, createSlideshow, type SFXCue, type SlideshowFrame } from "@/modules/ffmpeg";
@@ -80,27 +81,32 @@ function resolveVideoProvider(requestOverride?: string, quality?: string): IVide
 }
 
 function resolveVoiceProvider(requestOverride?: string): IVoiceProvider {
-  // Explicit mock request — force mock even if key is set (useful for fast testing)
+  // Explicit mock request
   if (requestOverride === "mock_voice") {
     console.log("[Pipeline] Voice provider: mock_voice (forced by request)");
     return mockVoiceProvider;
   }
-  // Explicit elevenlabs request — use it if key is set, else fail-fast to mock
+  // Explicit piper request — local TTS, no API key needed
+  if (requestOverride === "piper") {
+    console.log("[Pipeline] Voice provider: piper (forced by request)");
+    return piperVoiceProvider;
+  }
+  // Explicit elevenlabs request — use it if key is set, else fall back to piper → mock
   if (requestOverride === "elevenlabs") {
     if (env.elevenlabs.apiKey) {
       console.log("[Pipeline] Voice provider: elevenlabs (forced by request)");
       return elevenLabsVoiceProvider;
     }
-    console.warn("[Pipeline] elevenlabs forced but ELEVENLABS_API_KEY not set — falling back to mock_voice");
-    return mockVoiceProvider;
+    console.warn("[Pipeline] elevenlabs forced but key not set — trying piper");
+    return piperVoiceProvider;
   }
-  // Auto (default): use ElevenLabs if key is present
+  // Auto (default): ElevenLabs if key is present, else piper, else mock
   if (env.elevenlabs.apiKey) {
     console.log("[Pipeline] Voice provider: elevenlabs (auto)");
     return elevenLabsVoiceProvider;
   }
-  console.log("[Pipeline] Voice provider: mock_voice (ElevenLabs key not set)");
-  return mockVoiceProvider;
+  console.log("[Pipeline] Voice provider: piper (auto — no ElevenLabs key)");
+  return piperVoiceProvider;
 }
 
 // ── Job helpers ─────────────────────────────────────────────

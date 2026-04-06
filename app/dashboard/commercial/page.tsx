@@ -118,6 +118,10 @@ const TRANSITION_TYPES = [
 
 const CAPTION_ANIMATIONS = [
   { id: "fade-up",      label: "⬆️ Fade Up" },
+  { id: "fade",         label: "🌫️ Fade" },
+  { id: "fly-in-left",  label: "⬅️ Fly In" },
+  { id: "fly-in-right", label: "➡️ Fly In" },
+  { id: "none",         label: "⏸️ Static" },
 ];
 
 const FONT_FAMILIES = [

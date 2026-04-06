@@ -20,6 +20,7 @@ import { isActualFile } from "@/modules/ffmpeg/utils";
 import { createContentItem, updateContentItem } from "@/modules/content-registry";
 import { resolveAndGenerateMusic } from "@/modules/music-provider/resolver";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
+import { piperVoiceProvider } from "@/modules/voice-provider/piper";
 import { mockVoiceProvider } from "@/modules/voice-provider/mock";
 import { callLLM } from "@/lib/llm";
 import { loadLLMSettings } from "@/lib/llm-settings";
@@ -260,24 +261,35 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   let voicePath: string | null = null;
   if (narrationText) {
     const elevenKey = loadLLMSettings().ELEVENLABS_API_KEY || env.elevenlabs.apiKey;
-    console.log(`[Commercial render:${contentItemId}] Voice: key=${elevenKey ? "present" : "MISSING"}, text=${narrationText.length} chars`);
-    const voiceProvider = elevenKey ? elevenLabsVoiceProvider : mockVoiceProvider;
-    try {
-      const voiceDir = path.resolve(env.storagePath, "voice");
-      fs.mkdirSync(voiceDir, { recursive: true });
-      const voiceOutPath = path.join(voiceDir, `commercial_${contentItemId}.mp3`);
-      const voiceResult = await voiceProvider.generate({
-        text: narrationText,
-        outputPath: voiceOutPath,
-        voiceId: project.voiceId ?? undefined,
-        language: project.voiceLanguage ?? undefined,
-      });
-      console.log(`[Commercial render:${contentItemId}] Voice result: status=${voiceResult.status}, path=${voiceResult.localPath ?? "null"}, error=${voiceResult.error ?? "none"}`);
-      if (voiceResult.status === "completed" && voiceResult.localPath) {
-        voicePath = voiceResult.localPath;
+    // Priority: ElevenLabs (best quality) → Piper (local, free) → skip
+    const providers = elevenKey
+      ? [elevenLabsVoiceProvider, piperVoiceProvider]
+      : [piperVoiceProvider];
+    console.log(`[Commercial render:${contentItemId}] Voice: providers=[${providers.map(p => p.name).join(",")}], text=${narrationText.length} chars`);
+
+    const voiceDir = path.resolve(env.storagePath, "voice");
+    fs.mkdirSync(voiceDir, { recursive: true });
+    const voiceOutPath = path.join(voiceDir, `commercial_${contentItemId}.mp3`);
+
+    for (const provider of providers) {
+      try {
+        const voiceResult = await provider.generate({
+          text: narrationText,
+          outputPath: voiceOutPath,
+          voiceId: provider.name === "elevenlabs" ? (project.voiceId ?? undefined) : undefined,
+          language: project.voiceLanguage ?? undefined,
+        });
+        console.log(`[Commercial render:${contentItemId}] Voice [${provider.name}]: status=${voiceResult.status}, error=${voiceResult.error ?? "none"}`);
+        if (voiceResult.status === "completed" && voiceResult.localPath) {
+          voicePath = voiceResult.localPath;
+          break; // success — stop trying providers
+        }
+      } catch (err) {
+        console.warn(`[Commercial render:${contentItemId}] Voice [${provider.name}] EXCEPTION: ${err}`);
       }
-    } catch (err) {
-      console.warn(`[Commercial render:${contentItemId}] Voice EXCEPTION: ${err} — proceeding without voice`);
+    }
+    if (!voicePath) {
+      console.warn(`[Commercial render:${contentItemId}] All voice providers failed — proceeding without voice`);
     }
   } else {
     console.log(`[Commercial render:${contentItemId}] Voice SKIPPED: no narration text (slides have no captions/narrationLines)`);
