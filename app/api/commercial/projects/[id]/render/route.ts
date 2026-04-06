@@ -260,6 +260,7 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
   let voicePath: string | null = null;
   if (narrationText) {
     const elevenKey = loadLLMSettings().ELEVENLABS_API_KEY || env.elevenlabs.apiKey;
+    console.log(`[Commercial render:${contentItemId}] Voice: key=${elevenKey ? "present" : "MISSING"}, text=${narrationText.length} chars`);
     const voiceProvider = elevenKey ? elevenLabsVoiceProvider : mockVoiceProvider;
     try {
       const voiceDir = path.resolve(env.storagePath, "voice");
@@ -271,18 +272,23 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
         voiceId: project.voiceId ?? undefined,
         language: project.voiceLanguage ?? undefined,
       });
+      console.log(`[Commercial render:${contentItemId}] Voice result: status=${voiceResult.status}, path=${voiceResult.localPath ?? "null"}, error=${voiceResult.error ?? "none"}`);
       if (voiceResult.status === "completed" && voiceResult.localPath) {
         voicePath = voiceResult.localPath;
       }
     } catch (err) {
-      console.warn(`[Commercial render:${contentItemId}] Voice failed: ${err} — proceeding without voice`);
+      console.warn(`[Commercial render:${contentItemId}] Voice EXCEPTION: ${err} — proceeding without voice`);
     }
+  } else {
+    console.log(`[Commercial render:${contentItemId}] Voice SKIPPED: no narration text (slides have no captions/narrationLines)`);
   }
 
-  // Batch status + voicePath + narration into one write
+  // Always save narrationScript (even if voice failed) so the user can see what was attempted.
+  // voicePath is only set when generation succeeded.
   await updateContentItem(contentItemId, {
     status: "GENERATING_MUSIC",
-    ...(voicePath ? { voicePath, narrationScript: narrationText } : {}),
+    ...(narrationText ? { narrationScript: narrationText } : {}),
+    ...(voicePath ? { voicePath } : {}),
   });
 
   let musicPath: string | null = project.musicPath ?? null;
