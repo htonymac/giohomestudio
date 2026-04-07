@@ -10,7 +10,8 @@ const NAV = [
     items: [
       { href: "/dashboard",              label: "Home + Studio",    icon: "✦" },
       { href: "/dashboard/templates",    label: "Templates",        icon: "🚀" },
-      { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "📣" },
+      { href: "/dashboard/commercial",    label: "Commercial Maker", icon: "📣" },
+      { href: "/dashboard/video-editor",  label: "Video Editor",     icon: "🎬" },
     ],
   },
   {

@@ -31,6 +31,7 @@ export default function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [preview, setPreview] = useState<Asset | null>(null);
 
   async function load() {
     setLoading(true);
@@ -86,9 +87,9 @@ export default function AssetsPage() {
       {!loading && assets.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {assets.map(a => (
-            <div key={a.id} className="bg-[#12121e] border border-[#2a2a40] rounded-xl overflow-hidden hover:border-[#7c5cfc]/40 transition-colors">
-              {/* Thumbnail / preview */}
-              <div className="h-32 bg-[#0a0a18] flex items-center justify-center text-3xl">
+            <div key={a.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
+              {/* Thumbnail — click to preview popup */}
+              <div className="h-32 flex items-center justify-center text-3xl cursor-pointer" style={{ background: "var(--surface3)" }} onClick={() => setPreview(a)}>
                 {(a.type === "image" || a.type === "actor") && a.filePath ? (
                   <img src={`/api/media/${a.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} alt={a.name} className="w-full h-full object-cover" />
                 ) : a.type === "video" && a.filePath ? (
@@ -118,10 +119,27 @@ export default function AssetsPage() {
                 <div className="flex gap-1 mt-2">
                   <a
                     href={`/dashboard?mode=image_to_video&ref=${encodeURIComponent(a.filePath)}`}
-                    className="flex-1 text-center text-[8px] py-1 rounded bg-[rgba(123,97,255,0.15)] text-[#a89bff] border border-[rgba(123,97,255,0.25)] hover:bg-[rgba(123,97,255,0.25)]"
-                    style={{ textDecoration: "none" }}
+                    className="flex-1 text-center text-[8px] py-1 rounded"
+                    style={{ background: "rgba(123,97,255,0.15)", color: "#a89bff", border: "1px solid rgba(123,97,255,0.25)", textDecoration: "none" }}
                   >
                     Use
+                  </a>
+                  <a
+                    href={`/api/media/${a.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                    download
+                    className="text-[8px] py-1 px-2 rounded"
+                    style={{ background: "rgba(0,221,181,0.1)", color: "var(--accent3)", border: "1px solid rgba(0,221,181,0.2)", textDecoration: "none" }}
+                  >
+                    ⬇
+                  </a>
+                  <a
+                    href={`/api/media/${a.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[8px] py-1 px-2 rounded"
+                    style={{ background: "var(--surface3)", color: "var(--text2)", textDecoration: "none" }}
+                  >
+                    ↗
                   </a>
                   <button
                     onClick={async (e) => {
@@ -130,7 +148,8 @@ export default function AssetsPage() {
                       await fetch(`/api/assets?id=${a.id}`, { method: "DELETE" });
                       load();
                     }}
-                    className="text-[8px] py-1 px-2 rounded text-[var(--danger)] hover:bg-[rgba(255,87,87,0.1)]"
+                    className="text-[8px] py-1 px-2 rounded"
+                    style={{ color: "var(--danger)" }}
                   >
                     Del
                   </button>
@@ -138,6 +157,38 @@ export default function AssetsPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {/* Preview popup modal */}
+      {preview && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }} onClick={() => setPreview(null)} />
+          <div style={{ position: "relative", maxWidth: 700, width: "90%", background: "var(--surface)", border: "1px solid var(--border2)", borderRadius: 16, overflow: "hidden", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "pageIn 0.2s ease-out" }}>
+            {/* Media */}
+            <div style={{ background: "black", maxHeight: 400, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {(preview.type === "video") ? (
+                <video src={`/api/media/${preview.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} controls autoPlay style={{ maxWidth: "100%", maxHeight: 400 }} />
+              ) : (preview.type === "image" || preview.type === "actor") ? (
+                <img src={`/api/media/${preview.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} alt={preview.name} style={{ maxWidth: "100%", maxHeight: 400, objectFit: "contain" }} />
+              ) : preview.type === "music" || preview.type === "sfx" ? (
+                <div style={{ padding: 40, textAlign: "center" }}>
+                  <div style={{ fontSize: 48, marginBottom: 12 }}>{preview.type === "music" ? "🎵" : "💥"}</div>
+                  <audio src={`/api/media/${preview.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} controls autoPlay style={{ width: "100%" }} />
+                </div>
+              ) : null}
+            </div>
+            {/* Info */}
+            <div style={{ padding: "16px 20px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--text)", marginBottom: 4 }}>{preview.name}</h3>
+              {preview.description && <p style={{ fontSize: 11, color: "var(--text2)", marginBottom: 8 }}>{preview.description}</p>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <a href={`/api/media/${preview.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} download className="btn btn-primary btn-sm" style={{ textDecoration: "none" }}>⬇️ Download</a>
+                <a href={`/api/media/${preview.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>↗ Open in Tab</a>
+                <a href={`/dashboard?mode=image_to_video&ref=${encodeURIComponent(preview.filePath)}`} className="btn btn-ghost btn-sm" style={{ textDecoration: "none" }}>🎬 Use in Studio</a>
+                <button onClick={() => setPreview(null)} className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }}>Close</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
