@@ -453,6 +453,64 @@ export default function CharacterImagesPage() {
         </div>
       </div>
 
+      {/* ── Use This Character ─────────────────────── */}
+      <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: 16, background: "#0a0a18", marginTop: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: "#b090ff", marginBottom: 12 }}>Use This Character</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <a
+            href={`/dashboard?mode=image_to_video&characterId=${character.id}`}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "#7c5cfc", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
+          >
+            🎭 Image → Video
+          </a>
+          <a
+            href={`/dashboard?mode=text_to_video&characterId=${character.id}`}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
+          >
+            🎬 Text → Video
+          </a>
+          <a
+            href={`/dashboard?mode=text_to_audio&characterId=${character.id}`}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
+          >
+            🎙 Text → Audio
+          </a>
+          <a
+            href={`/dashboard/commercial`}
+            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
+          >
+            📣 Use in Commercial
+          </a>
+        </div>
+        <p style={{ fontSize: 9, color: "#404060", marginTop: 8 }}>
+          Opens Studio with this character pre-selected. Voice, style, and image will be applied automatically.
+        </p>
+      </div>
+
+      {/* Save to Asset Library */}
+      {character.imageUrl && (
+        <button
+          onClick={async () => {
+            await fetch("/api/assets", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "actor",
+                name: character.name,
+                description: `${character.role ?? ""} — ${character.visualDescription ?? ""}`.trim(),
+                filePath: character.imageUrl,
+                tags: ["actor", character.gender ?? "", character.accent ?? ""].filter(Boolean),
+                source: "character_registry",
+              }),
+            });
+            alert("Saved to Asset Library!");
+          }}
+          style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, background: "#0a2a10", border: "1px solid #2a5a2a", color: "#4ade80", fontSize: 11, cursor: "pointer", width: "100%" }}
+        >
+          📦 Save to Asset Library
+        </button>
+      )}
+
     </div>
   );
 }

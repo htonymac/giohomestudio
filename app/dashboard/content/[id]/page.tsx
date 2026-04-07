@@ -963,8 +963,14 @@ export default function ContentDetailPage() {
                   disabled={uploadMusicLoading}
                   className="text-xs bg-gray-800 hover:bg-gray-700 text-gray-400 border border-gray-700 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                 >
-                  {uploadMusicLoading ? "Uploading…" : "↑ Upload music"}
+                  {uploadMusicLoading ? "Uploading…" : "↑ Upload"}
                 </button>
+                <a
+                  href="/dashboard/music-studio"
+                  className="text-xs bg-[#7c5cfc]/15 text-[#b090ff] border border-[#7c5cfc]/30 px-3 py-1.5 rounded-lg transition-colors hover:bg-[#7c5cfc]/25"
+                >
+                  🎵 Music Studio
+                </a>
                 <input
                   ref={musicFileRef}
                   type="file"

@@ -213,6 +213,26 @@ function StudioPageInner() {
       const seed = searchParams.get("promptSeed");
       if (seed) setInput(seed);
     }
+    // Auto-select character from query param (from character detail page)
+    const charId = searchParams.get("characterId");
+    const mode = searchParams.get("mode");
+    if (charId) {
+      fetch(`/api/character-voices/${charId}`)
+        .then(r => r.json())
+        .then(c => {
+          if (c?.id) {
+            setSelectedI2vChar(c);
+            if (c.voiceId) { setVoiceId(c.voiceId); setAudioMode("voice_music"); }
+            if (c.language) setVoiceLanguage(c.language);
+            if (c.defaultSpeechStyle) setSpeechStyle(c.defaultSpeechStyle as SpeechStyle);
+          }
+        })
+        .catch(() => {});
+    }
+    if (mode) {
+      const validModes = OUTPUT_MODES.map(m => m.id);
+      if (validModes.includes(mode as OutputMode)) setOutputMode(mode as OutputMode);
+    }
   }, [searchParams, loadReviseItem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clear i2v selections when leaving image_to_video mode
