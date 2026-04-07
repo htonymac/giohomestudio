@@ -31,7 +31,9 @@ export type AnimationEntrance =
   | "slide_right"
   | "slide_top"
   | "slide_bottom"
-  | "fade_in";
+  | "fade_in"
+  | "pop_in"
+  | "typewriter";
 
 export interface TextLayer {
   type: "text";
@@ -44,15 +46,25 @@ export interface TextLayer {
     fontFamily?: string;   // e.g. "Arial", "Georgia", "Impact"
     italic?: boolean;
     underline?: boolean;
+    uppercase?: boolean;
     color: string;         // hex e.g. "#FFFFFF"
+    outlineColor?: string; // e.g. "#000000" for stroke
+    outlineWidth?: number; // stroke width in pixels (1-5)
     bgColor?: string;      // e.g. "black@0.5"
+    bgPadding?: number;    // padding around text background
+    bgRadius?: number;     // corner radius for background card
     shadow: boolean;
+    shadowColor?: string;
     outline: boolean;
+    letterSpacing?: number;
+    lineHeight?: number;
   };
   animation: {
     entrance: AnimationEntrance;
+    exit?: "none" | "fade_out" | "slide_out_left" | "slide_out_right";
     startSec: number;
     durationSec: number;
+    delay?: number;        // delay after startSec before entrance plays
   };
 }
 
