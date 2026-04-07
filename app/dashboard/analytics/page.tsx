@@ -116,7 +116,10 @@ export default function AnalyticsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Analytics</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">📊 Analytics</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Content performance and generation statistics</p>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">

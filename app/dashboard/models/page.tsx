@@ -106,8 +106,10 @@ export default function ModelsPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-2">AI Models</h1>
-      <p className="text-sm text-[#6060a0] mb-6">Image and video generation models from Segmind and fal.ai</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">🤖 AI Models</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Select a model, see trending options, and generate directly</p>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-4">

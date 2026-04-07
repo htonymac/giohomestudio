@@ -26,7 +26,10 @@ export default function BudgetPage() {
 
   return (
     <div className="max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-6">Budget Tracker</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">💰 Budget</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Track generation costs and provider usage</p>
+      </div>
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 gap-3 mb-6">

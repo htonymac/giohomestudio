@@ -82,7 +82,10 @@ export default function CalendarPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-4">Content Calendar</h1>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-white">📅 Calendar</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Content schedule and publishing timeline</p>
+      </div>
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">

@@ -49,8 +49,8 @@ export default function AssetsPage() {
     <div className="max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Asset Library</h1>
-          <p className="text-sm text-[#6060a0] mt-0.5">Reuse generated images, actors, music, and video clips across all modes</p>
+          <h1 className="text-2xl font-bold text-white">📦 Asset Library</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Reuse generated images, actors, music, and video clips across all modes</p>
         </div>
         <span className="text-xs text-[#6060a0]">{assets.length} assets</span>
       </div>

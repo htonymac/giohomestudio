@@ -85,8 +85,10 @@ export default function MusicStudioPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-2">Music & Audio Studio</h1>
-      <p className="text-sm text-[#6060a0] mb-6">Generate, browse, trim, and mix audio for your content</p>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">🎵 Music & Audio Studio</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Generate, browse, trim, and mix audio for your content</p>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-2 mb-6">
