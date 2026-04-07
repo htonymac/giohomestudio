@@ -89,8 +89,10 @@ export default function AssetsPage() {
             <div key={a.id} className="bg-[#12121e] border border-[#2a2a40] rounded-xl overflow-hidden hover:border-[#7c5cfc]/40 transition-colors">
               {/* Thumbnail / preview */}
               <div className="h-32 bg-[#0a0a18] flex items-center justify-center text-3xl">
-                {a.type === "image" && a.filePath ? (
+                {(a.type === "image" || a.type === "actor") && a.filePath ? (
                   <img src={`/api/media/${a.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} alt={a.name} className="w-full h-full object-cover" />
+                ) : a.type === "video" && a.filePath ? (
+                  <img src={`/api/thumbnail?path=${encodeURIComponent(a.filePath)}`} alt={a.name} className="w-full h-full object-cover" />
                 ) : (
                   TYPE_ICONS[a.type] ?? "📁"
                 )}
