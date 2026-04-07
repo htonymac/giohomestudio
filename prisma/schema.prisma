@@ -330,3 +330,39 @@ model StoryIdea {
 
   @@map("story_ideas")
 }
+
+// ── A/B Testing ───────────────────────────────────────────────────────────────
+
+model ABTest {
+  id              String       @id @default(cuid())
+  name            String       // "Homepage reel — title test"
+  contentItemId   String       // source content item
+  status          String       @default("active") // active, paused, completed
+  winnerVariantId String?      // which variant won
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  variants        ABVariant[]
+
+  @@map("ab_tests")
+}
+
+model ABVariant {
+  id           String   @id @default(cuid())
+  testId       String
+  label        String   // "A", "B", "C"
+  title        String?  // different title
+  caption      String?  // different caption
+  thumbnailUrl String?  // different thumbnail
+  hashtags     String?  // different tags
+  views        Int      @default(0)
+  clicks       Int      @default(0)
+  engagement   Float    @default(0) // engagement rate %
+  isWinner     Boolean  @default(false)
+  publishedAt  DateTime?
+  platform     String?  // where this variant was published
+  postUrl      String?
+  createdAt    DateTime @default(now())
+  test         ABTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@map("ab_variants")
+}

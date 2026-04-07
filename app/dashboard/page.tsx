@@ -68,7 +68,7 @@ function StudioPageInner() {
   const [outputMode, setOutputMode] = useState<OutputMode>("text_to_video");
 
   const [duration, setDuration] = useState(5);
-  const [videoProvider, setVideoProvider] = useState<"runway" | "kling" | "">("");
+  const [videoProvider, setVideoProvider] = useState("");
   const [videoQuality, setVideoQuality] = useState<"draft" | "standard" | "high">("standard");
   const [aspectRatio, setAspectRatio] = useState<"9:16" | "16:9" | "1:1">("9:16");
   const [aiAutoMode, setAiAutoMode] = useState(true);
@@ -925,10 +925,12 @@ function StudioPageInner() {
               <>
                 <div>
                   <label className={labelCls} title="Runway and Kling are real AI video APIs. Auto selects based on VIDEO_PROVIDER env var.">Video provider</label>
-                  <select value={videoProvider} onChange={(e) => setVideoProvider(e.target.value as "runway" | "kling" | "")} className={selectCls}>
-                    <option value="">Auto</option>
+                  <select value={videoProvider} onChange={(e) => setVideoProvider(e.target.value as string)} className={selectCls}>
+                    <option value="">Auto (cheapest available)</option>
+                    <option value="segmind">Segmind Pruna ($0.005)</option>
+                    <option value="fal">fal.ai (Hailuo/Kling)</option>
                     <option value="runway">Runway</option>
-                    <option value="kling">Kling</option>
+                    <option value="kling">Kling (direct)</option>
                   </select>
                 </div>
                 <div>

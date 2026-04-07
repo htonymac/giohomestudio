@@ -21,7 +21,8 @@ const NAV = [
       { href: "/dashboard/review",     label: "Review Queue", icon: "◈", badge: true },
       { href: "/dashboard/registry",  label: "Registry",     icon: "▤" },
       { href: "/dashboard/analytics", label: "Analytics",    icon: "◔" },
-      { href: "/dashboard/budget",    label: "Budget",       icon: "◈" },
+      { href: "/dashboard/budget",     label: "Budget",       icon: "◈" },
+      { href: "/dashboard/ab-testing", label: "A/B Testing",  icon: "⚖" },
     ],
   },
   {
