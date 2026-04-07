@@ -6,9 +6,18 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { telegramPublisher } from "@/modules/publisher/telegram";
 import { youtubePublisher } from "@/modules/publisher/youtube";
+import { facebookPublisher } from "@/modules/publisher/facebook";
+import { instagramPublisher } from "@/modules/publisher/instagram";
+import { tiktokPublisher } from "@/modules/publisher/tiktok";
 import type { IPublisher, PublishInput } from "@/modules/publisher/types";
 
-const publishers: IPublisher[] = [telegramPublisher, youtubePublisher];
+const publishers: IPublisher[] = [
+  telegramPublisher,
+  youtubePublisher,
+  facebookPublisher,
+  instagramPublisher,
+  tiktokPublisher,
+];
 
 const publishSchema = z.object({
   contentItemId: z.string(),
