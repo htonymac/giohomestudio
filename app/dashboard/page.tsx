@@ -7,6 +7,7 @@ import type { DestinationPage } from "@/types/content";
 import type { SpeechStyle, ElevenLabsModel } from "@/types/providers";
 import type { OutputMode } from "@/modules/timeline/types";
 import NarrationPanel from "../components/NarrationPanel";
+import AssetPicker from "../components/AssetPicker";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 
 interface ContinuationSuggestion {
@@ -149,6 +150,7 @@ function StudioPageInner() {
   const [selectedI2vChar, setSelectedI2vChar] = useState<RegisteredCharacter | null>(null);
   const [i2vLocalUpload, setI2vLocalUpload] = useState<{ name: string; path: string } | null>(null);
   const [i2vLocalUploading, setI2vLocalUploading] = useState(false);
+  const [assetPickerType, setAssetPickerType] = useState<"image" | "video" | "music" | null>(null);
   const [imageActionPrompt, setImageActionPrompt] = useState("");
 
   // ── Character casting preview ─────────────────────────────
@@ -825,6 +827,14 @@ function StudioPageInner() {
               <span style={{ fontSize: 10, color: "#2a4a2a" }}>or upload for this session only</span>
               <div style={{ flex: 1, height: 1, background: "#1a3a1a" }} />
             </div>
+
+            {/* Pick from library */}
+            <button
+              onClick={() => setAssetPickerType("image")}
+              className="w-full mb-2 py-2 rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 text-xs transition-colors"
+            >
+              📦 Pick from Asset Library
+            </button>
 
             {/* One-time local upload */}
             {i2vLocalUpload ? (
@@ -1814,6 +1824,23 @@ function StudioPageInner() {
           </div>
         )}
       </div>
+
+      {/* Asset Picker Modal */}
+      <AssetPicker
+        type={assetPickerType ?? "image"}
+        open={!!assetPickerType}
+        onClose={() => setAssetPickerType(null)}
+        onSelect={(asset) => {
+          if (assetPickerType === "image") {
+            setI2vLocalUpload({ name: asset.name, path: asset.filePath });
+            setReferenceImageUrl(asset.filePath);
+          } else if (assetPickerType === "video") {
+            setV2vPath(asset.filePath);
+          }
+          setAssetPickerType(null);
+        }}
+        title={assetPickerType === "image" ? "Pick an image or actor" : assetPickerType === "video" ? "Pick a video" : "Pick music"}
+      />
     </div>
   );
 }

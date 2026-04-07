@@ -814,6 +814,40 @@ export default function ContentDetailPage() {
             </div>
           )}
 
+          {/* ── AI Generate Image ─────────────────────────── */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">AI Image Generator</p>
+            <p className="text-[10px] text-gray-600 mb-2">Generate an image from this content&apos;s prompt and save to your asset library.</p>
+            <button
+              onClick={async () => {
+                const prompt = item.enhancedPrompt ?? item.originalInput;
+                if (!prompt) return;
+                const btn = document.activeElement as HTMLButtonElement;
+                btn.disabled = true;
+                btn.textContent = "Generating...";
+                try {
+                  const res = await fetch("/api/generation/image", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ prompt: prompt.slice(0, 500) }),
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    btn.textContent = `Generated! Saved to: ${data.imagePath?.split(/[\\/]/).pop()}`;
+                    btn.className = btn.className.replace("bg-[#7c5cfc]", "bg-green-700");
+                  } else {
+                    btn.textContent = `Failed: ${data.error?.slice(0, 60)}`;
+                    btn.className = btn.className.replace("bg-[#7c5cfc]", "bg-red-900");
+                  }
+                } catch { btn.textContent = "Network error"; }
+                setTimeout(() => { btn.disabled = false; btn.textContent = "🧠 Generate Image from Prompt"; btn.className = btn.className.replace(/bg-(green-700|red-900)/, "bg-[#7c5cfc]"); }, 4000);
+              }}
+              className="w-full py-2 rounded-lg bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-xs font-medium transition-colors disabled:opacity-50"
+            >
+              🧠 Generate Image from Prompt
+            </button>
+          </div>
+
           {/* ── Finishing Desk ──────────────────────────────── */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">
