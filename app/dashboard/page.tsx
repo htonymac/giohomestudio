@@ -937,11 +937,20 @@ function StudioPageInner() {
                   <label className={labelCls} title="Runway and Kling are real AI video APIs. Auto selects based on VIDEO_PROVIDER env var.">Video provider</label>
                   <select value={videoProvider} onChange={(e) => setVideoProvider(e.target.value as string)} className={selectCls}>
                     <option value="">Auto (cheapest available)</option>
-                    <option value="segmind">Segmind Pruna ($0.005)</option>
-                    <option value="fal">fal.ai (Hailuo/Kling)</option>
-                    <option value="runway">Runway</option>
-                    <option value="kling">Kling (direct)</option>
+                    <option value="segmind">Segmind Pruna ($0.005/clip)</option>
+                    <option value="fal">fal.ai — Hailuo/Kling/Runway</option>
+                    <option value="runway">Runway (direct API)</option>
+                    <option value="kling">Kling (direct API)</option>
+                    <option value="mock_video">Mock (free, no real video)</option>
                   </select>
+                  <p className="text-[9px] text-[#404060] mt-0.5">
+                    {videoProvider === "segmind" ? "Using Segmind Pruna — $0.005 per clip, 720p, ~10s generation" :
+                     videoProvider === "fal" ? "Using fal.ai — requires FAL_KEY. Hailuo/Kling/Runway via fal" :
+                     videoProvider === "runway" ? "Using Runway — requires RUNWAY_API_KEY" :
+                     videoProvider === "kling" ? "Using Kling — requires KLING keys" :
+                     videoProvider === "mock_video" ? "Mock mode — generates placeholder, no API cost" :
+                     "Auto: picks cheapest provider with valid API key"}
+                  </p>
                 </div>
                 <div>
                   <label className={labelCls} title="Draft uses mock video — no API credits. High requests 10s from the provider.">Video quality</label>

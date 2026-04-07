@@ -106,6 +106,26 @@ export async function POST(req: NextRequest) {
   try {
     await execFileAsync(env.ffmpegPath, args, { timeout: 60000 });
     const stat = fs.statSync(outputPath);
+
+    // Auto-save to asset library
+    try {
+      const assetFile = path.join(env.storagePath, "config", "asset-library.json");
+      let assets: Array<Record<string, unknown>> = [];
+      try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new */ }
+      assets.unshift({
+        id: `asset_mix_${Date.now()}`,
+        type: "music",
+        name: `DJ Mix (${tracks.length} tracks)`,
+        description: `${tracks.length} layers mixed, ${format.toUpperCase()}, ${(stat.size / 1024).toFixed(0)}KB`,
+        filePath: outputPath,
+        tags: ["mixed", "dj", "music"],
+        source: "dj_mix",
+        createdAt: new Date().toISOString(),
+      });
+      fs.mkdirSync(path.dirname(assetFile), { recursive: true });
+      fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+    } catch { /* best effort */ }
+
     return NextResponse.json({ outputPath, format, size: stat.size });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Mix failed" }, { status: 500 });

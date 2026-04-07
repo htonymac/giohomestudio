@@ -978,6 +978,32 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
         console.warn(`[Pipeline:${contentItemId}] Telegram alert failed: ${err}`)
       );
 
+    // ── 9. Auto-save to Asset Library ──────────────────────────
+    try {
+      const assetFile = path.resolve(env.storagePath, "config", "asset-library.json");
+      let assets: Array<Record<string, unknown>> = [];
+      try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new file */ }
+
+      if (mergeResult.outputPath) {
+        assets.unshift({
+          id: `asset_${contentItemId}`,
+          type: isAudioOnly ? "music" : "video",
+          name: input.rawInput?.slice(0, 60) ?? "Generated content",
+          description: enhanced.enhancedPrompt?.slice(0, 200) ?? "",
+          filePath: mergeResult.outputPath,
+          tags: ["generated", input.outputMode ?? "text_to_video"],
+          source: "pipeline",
+          provider: videoProvider?.name ?? "unknown",
+          createdAt: new Date().toISOString(),
+        });
+        fs.mkdirSync(path.dirname(assetFile), { recursive: true });
+        fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+        console.log(`[Pipeline:${contentItemId}] Saved to asset library`);
+      }
+    } catch (assetErr) {
+      console.warn(`[Pipeline:${contentItemId}] Asset library save failed:`, assetErr);
+    }
+
     console.log(`[Pipeline:${contentItemId}] ✓ Complete — IN_REVIEW`);
 
     return {

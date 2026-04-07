@@ -71,6 +71,27 @@ export async function POST(req: NextRequest) {
 
   try {
     await execFileAsync(env.ffmpegPath, args, { timeout: 30000 });
+
+    // Auto-save to asset library
+    try {
+      const assetFile = path.join(env.storagePath, "config", "asset-library.json");
+      let assets: Array<Record<string, unknown>> = [];
+      try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new */ }
+      const inputName = inputPath.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") ?? "trimmed";
+      assets.unshift({
+        id: `asset_trim_${Date.now()}`,
+        type: "music",
+        name: `${inputName} (${startSec}s-${endSec}s)`,
+        description: `Trimmed from ${inputName}, ${duration}s with fade`,
+        filePath: outputPath,
+        tags: ["trimmed", "music", "dj"],
+        source: "dj_trim",
+        createdAt: new Date().toISOString(),
+      });
+      fs.mkdirSync(path.dirname(assetFile), { recursive: true });
+      fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+    } catch { /* best effort */ }
+
     return NextResponse.json({ outputPath, duration });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Trim failed" }, { status: 500 });

@@ -358,6 +358,25 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     console.error(`[Commercial render:${contentItemId}] Final DB write failed (will auto-heal on next GET):`, finalErr);
   }
 
+  // Auto-save to asset library
+  try {
+    const assetFile = path.resolve(env.storagePath, "config", "asset-library.json");
+    let assets: Array<Record<string, unknown>> = [];
+    try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new */ }
+    assets.unshift({
+      id: `asset_commercial_${contentItemId}`,
+      type: "video",
+      name: `Commercial: ${project.projectName}`,
+      description: `${rawSlides.length} slides, ${project.aspectRatio}`,
+      filePath: mergeResult.outputPath,
+      tags: ["commercial", "generated", project.aspectRatio],
+      source: "commercial_render",
+      createdAt: new Date().toISOString(),
+    });
+    fs.mkdirSync(path.dirname(assetFile), { recursive: true });
+    fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+  } catch { /* best effort */ }
+
   console.log(`[Commercial render:${contentItemId}] Done → ${mergeResult.outputPath}`);
 }
 
