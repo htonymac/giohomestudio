@@ -16,9 +16,12 @@ import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
 import { promptEnhancer } from "@/modules/prompt-enhancer";
 import { runSupervisor, inferMusicMoodFromPrompt } from "@/modules/supervisor";
-import { generateSceneImage } from "@/modules/comfyui";
+import { generateSceneImage, isComfyUIOnline } from "@/modules/comfyui";
+import { generateImage as generateImageViaProvider } from "@/lib/generation/selectors/image-provider";
 import { runwayVideoProvider } from "@/modules/video-provider/runway";
 import { klingVideoProvider } from "@/modules/video-provider/kling";
+import { segmindVideoAdapter } from "@/modules/video-provider/segmind-adapter";
+import { falVideoAdapter } from "@/modules/video-provider/fal-adapter";
 import { mockVideoProvider } from "@/modules/video-provider/mock";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
 import { cartesiaVoiceProvider } from "@/modules/voice-provider/cartesia";
@@ -57,28 +60,49 @@ function resolveVideoProvider(requestOverride?: string, quality?: string): IVide
   }
   const chosen = requestOverride ?? env.video.provider;
 
-  if (chosen === "kling") {
-    if (env.kling.accessKey && env.kling.secretKey) {
-      const src = requestOverride ? "request" : "VIDEO_PROVIDER";
-      console.log(`[Pipeline] Video provider: kling (selected via ${src})`);
-      return klingVideoProvider;
+  // Explicit provider requests
+  if (chosen === "kling" && env.kling.accessKey && env.kling.secretKey) {
+    console.log("[Pipeline] Video provider: kling");
+    return klingVideoProvider;
+  }
+  if (chosen === "runway" && env.runway.apiKey) {
+    console.log("[Pipeline] Video provider: runway");
+    return runwayVideoProvider;
+  }
+  if (chosen === "segmind" || chosen === "segmind_video") {
+    if (process.env.SEGMIND_API_KEY) {
+      console.log("[Pipeline] Video provider: segmind");
+      return segmindVideoAdapter;
     }
-    console.warn("[Pipeline] kling selected but credentials not set — falling back to mock_video");
-    return mockVideoProvider;
+    console.warn("[Pipeline] segmind selected but SEGMIND_API_KEY not set");
+  }
+  if (chosen === "fal" || chosen === "fal_video") {
+    if (process.env.FAL_KEY) {
+      console.log("[Pipeline] Video provider: fal");
+      return falVideoAdapter;
+    }
+    console.warn("[Pipeline] fal selected but FAL_KEY not set");
   }
 
-  if (chosen === "runway") {
-    if (env.runway.apiKey) {
-      const src = requestOverride ? "request" : "VIDEO_PROVIDER";
-      console.log(`[Pipeline] Video provider: runway (selected via ${src})`);
-      return runwayVideoProvider;
-    }
-    console.warn("[Pipeline] runway selected but RUNWAY_API_KEY not set — falling back to mock_video");
-    return mockVideoProvider;
+  // Auto resolution: try providers in cost order
+  if (process.env.SEGMIND_API_KEY) {
+    console.log("[Pipeline] Video provider: segmind (auto — cheapest available)");
+    return segmindVideoAdapter;
+  }
+  if (process.env.FAL_KEY) {
+    console.log("[Pipeline] Video provider: fal (auto)");
+    return falVideoAdapter;
+  }
+  if (env.runway.apiKey) {
+    console.log("[Pipeline] Video provider: runway (auto)");
+    return runwayVideoProvider;
+  }
+  if (env.kling.accessKey && env.kling.secretKey) {
+    console.log("[Pipeline] Video provider: kling (auto)");
+    return klingVideoProvider;
   }
 
-  // mock_video or unrecognised value
-  console.log(`[Pipeline] Video provider: mock_video (chosen=${chosen})`);
+  console.log("[Pipeline] Video provider: mock_video (no provider configured)");
   return mockVideoProvider;
 }
 
@@ -321,17 +345,38 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       const imageDir = path.join(env.storagePath, "images", contentItemId);
       fs.mkdirSync(imageDir, { recursive: true });
 
-      // Dispatch all image generations concurrently — ComfyUI queues them server-side,
-      // so parallel submission doesn't overload the GPU but avoids blocking the pipeline
-      // between submissions.
+      // Generate images: try Segmind/fal providers first (cheap, no GPU needed),
+      // then ComfyUI as fallback (needs local GPU).
+      const useComfyUI = await isComfyUIOnline();
+      const providerLabel = useComfyUI ? "comfyui" : (process.env.SEGMIND_API_KEY ? "segmind" : "fal");
+      await updateContentItem(contentItemId, { videoProvider: providerLabel });
+      await updateJob(imgJob.id, { providerUsed: providerLabel });
+
       const generatedImages = new Map<string, string>(
         (await Promise.all(imageBeats.map(async beat => {
           try {
-            const { imageBuffer } = await generateSceneImage({ prompt: beat.imagePrompt!, aspectRatio });
-            const imgPath = path.join(imageDir, `${beat.id}.png`);
-            fs.writeFileSync(imgPath, imageBuffer);
-            console.log(`[Pipeline:${contentItemId}] Scene image ✓ → ${beat.id}`);
-            return [beat.id, imgPath] as [string, string];
+            let imageBuffer: Buffer;
+            if (!useComfyUI) {
+              // Use Segmind/fal via provider selector
+              const imgResult = await generateImageViaProvider({
+                prompt: beat.imagePrompt!,
+                width: aspectRatio === "16:9" ? 1216 : aspectRatio === "1:1" ? 1024 : 832,
+                height: aspectRatio === "16:9" ? 832 : aspectRatio === "1:1" ? 1024 : 1472,
+                outputPath: path.join(imageDir, `${beat.id}.png`),
+              });
+              if (imgResult.success && imgResult.imagePath) {
+                console.log(`[Pipeline:${contentItemId}] Scene image ✓ (${imgResult.model.id}) → ${beat.id}`);
+                return [beat.id, imgResult.imagePath] as [string, string];
+              }
+              throw new Error(imgResult.error ?? "Image generation failed");
+            } else {
+              const result = await generateSceneImage({ prompt: beat.imagePrompt!, aspectRatio });
+              imageBuffer = result.imageBuffer;
+              const imgPath = path.join(imageDir, `${beat.id}.png`);
+              fs.writeFileSync(imgPath, imageBuffer);
+              console.log(`[Pipeline:${contentItemId}] Scene image ✓ (comfyui) → ${beat.id}`);
+              return [beat.id, imgPath] as [string, string];
+            }
           } catch (err) {
             console.warn(`[Pipeline:${contentItemId}] Scene image failed for beat ${beat.id}: ${err} — skipping`);
             return null;
