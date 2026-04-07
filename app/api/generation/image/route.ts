@@ -36,6 +36,25 @@ export async function POST(req: NextRequest) {
     }, { status: 502 });
   }
 
+  // Auto-save to asset library for reuse across modes
+  if (result.imagePath) {
+    try {
+      const assetRes = await fetch(new URL("/api/assets", req.url).toString(), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "image",
+          name: parsed.data.prompt.slice(0, 60),
+          description: parsed.data.prompt,
+          filePath: result.imagePath,
+          tags: ["generated", result.model.provider_name],
+          source: "generated",
+          provider: result.model.provider_name,
+        }),
+      });
+    } catch { /* asset save is best-effort */ }
+  }
+
   return NextResponse.json({
     imagePath: result.imagePath,
     imageUrl: result.imageUrl,

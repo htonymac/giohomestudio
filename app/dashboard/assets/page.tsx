@@ -1,0 +1,123 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+interface Asset {
+  id: string;
+  type: "image" | "video" | "music" | "sfx" | "actor";
+  name: string;
+  description: string;
+  filePath: string;
+  tags: string[];
+  source: string;
+  provider?: string;
+  createdAt: string;
+}
+
+const TYPE_ICONS: Record<string, string> = {
+  image: "🖼", video: "🎬", music: "🎵", sfx: "💥", actor: "🎭",
+};
+
+const TYPE_COLORS: Record<string, string> = {
+  image: "bg-purple-900/40 text-purple-400",
+  video: "bg-blue-900/40 text-blue-400",
+  music: "bg-pink-900/40 text-pink-400",
+  sfx:   "bg-orange-900/40 text-orange-400",
+  actor: "bg-green-900/40 text-green-400",
+};
+
+export default function AssetsPage() {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState("");
+  const [search, setSearch] = useState("");
+
+  async function load() {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (typeFilter) params.set("type", typeFilter);
+    if (search) params.set("search", search);
+    const res = await fetch(`/api/assets?${params}`);
+    const data = await res.json();
+    setAssets(data.assets ?? []);
+    setLoading(false);
+  }
+
+  useEffect(() => { load(); }, [typeFilter, search]);
+
+  return (
+    <div className="max-w-5xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Asset Library</h1>
+          <p className="text-sm text-[#6060a0] mt-0.5">Reuse generated images, actors, music, and video clips across all modes</p>
+        </div>
+        <span className="text-xs text-[#6060a0]">{assets.length} assets</span>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search assets..."
+          className="flex-1 min-w-[200px] bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-600"
+        />
+        {["", "image", "video", "music", "sfx", "actor"].map(t => (
+          <button key={t || "all"} onClick={() => setTypeFilter(t)} className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+            typeFilter === t ? "bg-[#7c5cfc]/20 text-[#b090ff] border border-[#7c5cfc]/40" : "bg-[#1a1a2e] text-[#6060a0] border border-[#2a2a40]"
+          }`}>
+            {t ? `${TYPE_ICONS[t]} ${t.charAt(0).toUpperCase() + t.slice(1)}` : "All"}
+          </button>
+        ))}
+      </div>
+
+      {loading && <p className="text-[#6060a0] text-center py-8">Loading...</p>}
+
+      {!loading && assets.length === 0 && (
+        <div className="text-center py-16 border border-dashed border-[#2a2a40] rounded-xl">
+          <p className="text-[#6060a0] text-lg mb-2">No assets saved yet</p>
+          <p className="text-[#404060] text-xs">Generated images, actors, and trimmed music will appear here for reuse across all modes.</p>
+          <p className="text-[#404060] text-xs mt-1">Generate content from Studio, Commercial Maker, or AI Models → it saves automatically.</p>
+        </div>
+      )}
+
+      {/* Asset grid */}
+      {!loading && assets.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {assets.map(a => (
+            <div key={a.id} className="bg-[#12121e] border border-[#2a2a40] rounded-xl overflow-hidden hover:border-[#7c5cfc]/40 transition-colors">
+              {/* Thumbnail / preview */}
+              <div className="h-32 bg-[#0a0a18] flex items-center justify-center text-3xl">
+                {a.type === "image" && a.filePath ? (
+                  <img src={`/api/media/${a.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`} alt={a.name} className="w-full h-full object-cover" />
+                ) : (
+                  TYPE_ICONS[a.type] ?? "📁"
+                )}
+              </div>
+              <div className="p-3">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className={`text-[8px] px-1 py-0.5 rounded font-medium ${TYPE_COLORS[a.type] ?? "bg-gray-800 text-gray-400"}`}>
+                    {a.type}
+                  </span>
+                  {a.source && (
+                    <span className="text-[8px] text-[#404060]">{a.source}</span>
+                  )}
+                </div>
+                <p className="text-xs text-white font-medium truncate">{a.name}</p>
+                {a.description && <p className="text-[9px] text-[#6060a0] truncate mt-0.5">{a.description}</p>}
+                {a.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-0.5 mt-1">
+                    {a.tags.slice(0, 3).map(t => (
+                      <span key={t} className="text-[7px] bg-[#1a1a2e] text-[#6060a0] px-1 py-0.5 rounded">{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

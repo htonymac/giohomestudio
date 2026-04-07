@@ -583,6 +583,9 @@ export default function SettingsPage() {
             { name: "Fish Audio", badge: "Voice", env: "FISH_AUDIO_API_KEY", color: "bg-blue-900/20 text-blue-400", link: "fish.audio", note: "80% cheaper than ElevenLabs" },
             { name: "Cartesia", badge: "Voice", env: "CARTESIA_API_KEY", color: "bg-indigo-900/20 text-indigo-400", link: "cartesia.ai", note: "Ultra-low latency TTS" },
             { name: "Piper TTS", badge: "Voice (Local)", env: null, color: "bg-green-900/20 text-green-400", link: null, note: "Free local TTS — always available" },
+            { name: "Suno AI", badge: "Music Gen", env: "SUNO_API_KEY", color: "bg-pink-900/20 text-pink-400", link: "suno.com", note: "AI music generation — user owns commercial rights" },
+            { name: "Mubert", badge: "Music Gen", env: "MUBERT_API_KEY", color: "bg-pink-900/20 text-pink-400", link: "mubert.com", note: "AI music library + generation" },
+            { name: "ElevenLabs SFX", badge: "Sound Effects", env: "ELEVENLABS_API_KEY", color: "bg-orange-900/20 text-orange-400", link: "elevenlabs.io", note: "AI sound effect generation (~100 credits/effect)" },
           ].map(p => (
             <div key={p.name} className={`${sectionCls} !p-3`}>
               <div className="flex items-center justify-between">

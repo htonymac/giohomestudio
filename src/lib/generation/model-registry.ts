@@ -63,8 +63,8 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_quality_rank: 3,
     sort_trending_score: 80,
     sort_usage_count: 0,
-    is_active: true,
-    notes: "",
+    is_active: false,
+    notes: "Segmind API returning 404 — verify key/endpoint at segmind.com",
   },
   {
     id: "segmind_pruna_edit",
