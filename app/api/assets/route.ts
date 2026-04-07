@@ -37,6 +37,53 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search");
 
   let assets = loadAssets();
+
+  // Auto-seed stock music into library on first request
+  const hasStockMusic = assets.some(a => a.source === "stock_music");
+  if (!hasStockMusic) {
+    const stockDir = path.resolve(env.storagePath, "music", "stock");
+    if (fs.existsSync(stockDir)) {
+      const files = fs.readdirSync(stockDir).filter(f => f.endsWith(".mp3") && f !== ".gitkeep");
+      for (const f of files) {
+        const name = f.replace(/\.mp3$/, "").replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        assets.push({
+          id: `stock_${f}`,
+          type: "music",
+          name,
+          description: `Stock music track — ${name}`,
+          filePath: path.join(stockDir, f),
+          tags: ["stock", "music", name.split(" ")[0].toLowerCase()],
+          source: "stock_music",
+          createdAt: new Date().toISOString(),
+        });
+      }
+      saveAssets(assets);
+    }
+  }
+
+  // Auto-seed SFX files
+  const hasSfx = assets.some(a => a.source === "stock_sfx");
+  if (!hasSfx) {
+    const sfxDir = path.resolve(env.storagePath, "sfx");
+    if (fs.existsSync(sfxDir)) {
+      const files = fs.readdirSync(sfxDir).filter(f => f.endsWith(".mp3") || f.endsWith(".wav"));
+      for (const f of files) {
+        const name = f.replace(/\.(mp3|wav)$/, "").replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        assets.push({
+          id: `sfx_${f}`,
+          type: "sfx",
+          name,
+          description: `Sound effect — ${name}`,
+          filePath: path.join(sfxDir, f),
+          tags: ["sfx", "stock"],
+          source: "stock_sfx",
+          createdAt: new Date().toISOString(),
+        });
+      }
+      saveAssets(assets);
+    }
+  }
+
   if (type) assets = assets.filter(a => a.type === type);
   if (search) assets = assets.filter(a =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||

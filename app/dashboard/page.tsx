@@ -552,9 +552,96 @@ function StudioPageInner() {
   const charsWithImages = registryVoices.filter(c => c.imageUrl);
   const charsWithoutImages = registryVoices.filter(c => !c.imageUrl);
 
+  // ── Home dashboard data ──
+  const [recentItems, setRecentItems] = useState<Array<{id:string;status:string;originalInput:string;mode:string;createdAt:string;mergedOutputPath?:string|null}>>([]);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [showHome, setShowHome] = useState(true);
+
+  useEffect(() => {
+    // Load recent items + review count for home section
+    fetch("/api/registry?limit=5").then(r=>r.json()).then(d=>{setRecentItems(d.items??[])}).catch(()=>{});
+    fetch("/api/review").then(r=>r.json()).then(d=>{setReviewCount(d.items?.length??0)}).catch(()=>{});
+  }, []);
+
   return (
     <div className="w-full">
-      <h1 className="text-2xl font-bold text-white mb-1">Studio</h1>
+
+      {/* ── HOME DASHBOARD ──────────────────────────────── */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-2xl font-bold text-white">GioHomeStudio</h1>
+          <button onClick={()=>setShowHome(h=>!h)} className="text-[10px] text-[#6060a0] hover:text-white">
+            {showHome ? "Hide dashboard" : "Show dashboard"}
+          </button>
+        </div>
+
+        {showHome && (
+          <div className="space-y-3 mb-6">
+            {/* Quick actions */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <button onClick={()=>{setOutputMode("text_to_video"); setShowHome(false);}} className="p-3 rounded-xl bg-[#7c5cfc]/10 border border-[#7c5cfc]/30 text-left hover:border-[#7c5cfc] transition-colors">
+                <p className="text-sm font-semibold text-white">🎬 New Video</p>
+                <p className="text-[9px] text-[#6060a0] mt-0.5">Text → AI Video</p>
+              </button>
+              <a href="/dashboard/commercial" className="p-3 rounded-xl bg-orange-900/10 border border-orange-800/30 text-left hover:border-orange-600 transition-colors block">
+                <p className="text-sm font-semibold text-white">📣 New Ad</p>
+                <p className="text-[9px] text-[#6060a0] mt-0.5">Commercial Maker</p>
+              </a>
+              <button onClick={()=>{setOutputMode("text_to_audio"); setShowHome(false);}} className="p-3 rounded-xl bg-pink-900/10 border border-pink-800/30 text-left hover:border-pink-600 transition-colors">
+                <p className="text-sm font-semibold text-white">🎙 Narration</p>
+                <p className="text-[9px] text-[#6060a0] mt-0.5">Text → Audio</p>
+              </button>
+              <button onClick={()=>{setOutputMode("image_to_video"); setShowHome(false);}} className="p-3 rounded-xl bg-green-900/10 border border-green-800/30 text-left hover:border-green-600 transition-colors">
+                <p className="text-sm font-semibold text-white">🎭 Animate Actor</p>
+                <p className="text-[9px] text-[#6060a0] mt-0.5">Image → Video</p>
+              </button>
+            </div>
+
+            {/* Status bar */}
+            <div className="flex gap-3">
+              {reviewCount > 0 && (
+                <a href="/dashboard/review" className="flex-1 p-3 rounded-xl bg-orange-900/15 border border-orange-800/30 hover:border-orange-600 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-orange-400 font-medium">{reviewCount} pending review</p>
+                    <span className="text-[10px] text-orange-500">View →</span>
+                  </div>
+                </a>
+              )}
+              <a href="/dashboard/assets" className="flex-1 p-3 rounded-xl bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/40 transition-colors">
+                <p className="text-xs text-[#6060a0]">📦 Asset Library</p>
+              </a>
+              <a href="/dashboard/models" className="flex-1 p-3 rounded-xl bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/40 transition-colors">
+                <p className="text-xs text-[#6060a0]">◆ AI Models</p>
+              </a>
+            </div>
+
+            {/* Recent work */}
+            {recentItems.length > 0 && (
+              <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-3">
+                <p className="text-[10px] text-[#6060a0] font-semibold uppercase tracking-wider mb-2">Recent Work</p>
+                <div className="space-y-1">
+                  {recentItems.slice(0, 4).map(item => (
+                    <a key={item.id} href={`/dashboard/content/${item.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[#1a1a2e] transition-colors">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        item.status === "IN_REVIEW" ? "bg-orange-400" :
+                        item.status === "APPROVED" ? "bg-green-400" :
+                        item.status === "FAILED" ? "bg-red-400" :
+                        "bg-[#7c5cfc]"
+                      }`} />
+                      <span className="text-xs text-gray-300 truncate flex-1">{item.originalInput?.slice(0, 50)}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${item.mode === "COMMERCIAL" ? "bg-amber-900/30 text-amber-400" : "bg-indigo-900/30 text-indigo-400"}`}>{item.mode}</span>
+                      <span className="text-[9px] text-[#404060]">{new Date(item.createdAt).toLocaleDateString()}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* ── STUDIO ──────────────────────────────────────── */}
+      <h2 className="text-lg font-bold text-white mb-1">Studio</h2>
 
       {/* ── Output mode selector ──────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
