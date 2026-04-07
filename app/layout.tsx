@@ -3,6 +3,7 @@ import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import SearchBar from "./components/SearchBar";
 import CommandPalette from "./components/CommandPalette";
+import { ToastProvider } from "./components/Toast";
 
 export const metadata: Metadata = {
   title: "GioHomeStudio",
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         className="min-h-screen"
         style={{ background: "var(--bg, #070710)", color: "var(--text, #eeeeff)", fontFamily: "'Outfit', system-ui, sans-serif", fontSize: 13 }}
       >
+        <ToastProvider>
         <div className="flex h-screen overflow-hidden">
           {/* Sidebar — fixed width */}
           <div className="shrink-0 h-full" style={{ width: 220 }}>
@@ -38,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </div>
         <CommandPalette />
+        </ToastProvider>
       </body>
     </html>
   );
