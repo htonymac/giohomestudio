@@ -1050,6 +1050,51 @@ export default function ContentDetailPage() {
               )}
             </div>
 
+            {/* Cost estimate */}
+            <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-gray-800">
+              <div className="bg-[#0d0d1a] rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-white">
+                  ${(() => {
+                    const costs: Record<string, number> = { runway: 0.10, kling: 0.08, segmind_video: 0.005, fal_video: 0.05, elevenlabs: 0.02, piper: 0, mock_video: 0, mock_voice: 0, stock: 0 };
+                    const v = costs[item.videoProvider ?? ""] ?? 0;
+                    const vo = costs[item.voiceProvider ?? ""] ?? 0;
+                    return (v + vo).toFixed(3);
+                  })()}
+                </p>
+                <p className="text-[9px] text-gray-600">Est. Cost</p>
+              </div>
+              <div className="bg-[#0d0d1a] rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-white">{item.durationSeconds ?? "—"}s</p>
+                <p className="text-[9px] text-gray-600">Duration</p>
+              </div>
+              <div className="bg-[#0d0d1a] rounded-lg p-2 text-center">
+                <p className="text-lg font-bold text-white">
+                  {(() => {
+                    const created = new Date(item.createdAt).getTime();
+                    const updated = new Date(item.updatedAt).getTime();
+                    const secs = Math.round((updated - created) / 1000);
+                    return secs < 60 ? `${secs}s` : `${Math.round(secs / 60)}m`;
+                  })()}
+                </p>
+                <p className="text-[9px] text-gray-600">Render Time</p>
+              </div>
+            </div>
+
+            {/* Output mode + casting */}
+            {(item.outputMode || item.castingCharacters?.length) && (
+              <div className="flex flex-wrap gap-1.5 pt-2 border-t border-gray-800">
+                {item.outputMode && (
+                  <span className="text-[9px] bg-indigo-900/30 text-indigo-400 px-1.5 py-0.5 rounded">{item.outputMode}</span>
+                )}
+                {item.audioMode && item.audioMode !== "voice_music" && (
+                  <span className="text-[9px] bg-pink-900/30 text-pink-400 px-1.5 py-0.5 rounded">{item.audioMode}</span>
+                )}
+                {item.aspectRatio && (
+                  <span className="text-[9px] bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded">{item.aspectRatio}</span>
+                )}
+              </div>
+            )}
+
             {item.notes && (
               <div className="pt-2 border-t border-gray-800">
                 <p className="text-xs text-gray-500 mb-1">Notes / error</p>
