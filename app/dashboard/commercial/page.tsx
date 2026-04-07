@@ -1906,6 +1906,10 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 onChange={e => { const f = e.target.files?.[0]; if (f) { handleMusicUpload(f); e.target.value = ""; } }}
               />
 
+              <p className="text-[8px] text-[#404060] mt-1 leading-relaxed">
+                By uploading audio you confirm you own the rights, have a valid commercial license, or it is royalty-free/public domain. Copyrighted songs from Spotify, Apple Music, YouTube, or commercial platforms without a sync license are not permitted. Users are solely responsible for ensuring rights to all uploaded audio.
+              </p>
+
               {/* Music library picker */}
               {showMusicLibrary && (
                 <div className="mt-2 border border-[#2a2a40] rounded-lg bg-[#0d0d1a] p-2.5 space-y-2">

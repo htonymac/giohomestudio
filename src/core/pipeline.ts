@@ -21,6 +21,8 @@ import { runwayVideoProvider } from "@/modules/video-provider/runway";
 import { klingVideoProvider } from "@/modules/video-provider/kling";
 import { mockVideoProvider } from "@/modules/video-provider/mock";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
+import { cartesiaVoiceProvider } from "@/modules/voice-provider/cartesia";
+import { fishAudioVoiceProvider } from "@/modules/voice-provider/fish-audio";
 import { piperVoiceProvider } from "@/modules/voice-provider/piper";
 import { mockVoiceProvider } from "@/modules/voice-provider/mock";
 import { resolveAndGenerateMusic } from "@/modules/music-provider/resolver";
@@ -80,32 +82,40 @@ function resolveVideoProvider(requestOverride?: string, quality?: string): IVide
   return mockVideoProvider;
 }
 
+// Map of all voice providers by name
+const VOICE_PROVIDERS: Record<string, { provider: IVoiceProvider; envKey?: string }> = {
+  elevenlabs:  { provider: elevenLabsVoiceProvider,  envKey: "ELEVENLABS_API_KEY" },
+  cartesia:    { provider: cartesiaVoiceProvider,    envKey: "CARTESIA_API_KEY" },
+  fish_audio:  { provider: fishAudioVoiceProvider,   envKey: "FISH_AUDIO_API_KEY" },
+  piper:       { provider: piperVoiceProvider },
+  mock_voice:  { provider: mockVoiceProvider },
+};
+
 function resolveVoiceProvider(requestOverride?: string): IVoiceProvider {
-  // Explicit mock request
-  if (requestOverride === "mock_voice") {
-    console.log("[Pipeline] Voice provider: mock_voice (forced by request)");
-    return mockVoiceProvider;
-  }
-  // Explicit piper request — local TTS, no API key needed
-  if (requestOverride === "piper") {
-    console.log("[Pipeline] Voice provider: piper (forced by request)");
-    return piperVoiceProvider;
-  }
-  // Explicit elevenlabs request — use it if key is set, else fall back to piper → mock
-  if (requestOverride === "elevenlabs") {
-    if (env.elevenlabs.apiKey) {
-      console.log("[Pipeline] Voice provider: elevenlabs (forced by request)");
-      return elevenLabsVoiceProvider;
+  // Explicit provider request
+  if (requestOverride && VOICE_PROVIDERS[requestOverride]) {
+    const entry = VOICE_PROVIDERS[requestOverride];
+    if (!entry.envKey || process.env[entry.envKey]) {
+      console.log(`[Pipeline] Voice provider: ${requestOverride} (forced by request)`);
+      return entry.provider;
     }
-    console.warn("[Pipeline] elevenlabs forced but key not set — trying piper");
-    return piperVoiceProvider;
+    console.warn(`[Pipeline] ${requestOverride} forced but key not set — falling back`);
   }
-  // Auto (default): ElevenLabs if key is present, else piper, else mock
+
+  // Auto: try providers in quality order
   if (env.elevenlabs.apiKey) {
     console.log("[Pipeline] Voice provider: elevenlabs (auto)");
     return elevenLabsVoiceProvider;
   }
-  console.log("[Pipeline] Voice provider: piper (auto — no ElevenLabs key)");
+  if (process.env.CARTESIA_API_KEY) {
+    console.log("[Pipeline] Voice provider: cartesia (auto)");
+    return cartesiaVoiceProvider;
+  }
+  if (process.env.FISH_AUDIO_API_KEY) {
+    console.log("[Pipeline] Voice provider: fish_audio (auto)");
+    return fishAudioVoiceProvider;
+  }
+  console.log("[Pipeline] Voice provider: piper (auto — no paid keys set)");
   return piperVoiceProvider;
 }
 

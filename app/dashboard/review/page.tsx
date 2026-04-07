@@ -153,11 +153,13 @@ const VOICE_CAT_LABELS: Record<VoiceCategory, string> = {
 function ReviewCard({
   item,
   onAction,
+  onDelete,
   actionLoading,
   onItemUpdated,
 }: {
   item: ContentItem;
   onAction: (id: string, action: "approve" | "reject", note?: string) => void;
+  onDelete: (id: string) => void;
   actionLoading: string | null;
   onItemUpdated?: () => void;
 }) {
@@ -1131,6 +1133,14 @@ function ReviewCard({
             >
               Reject
             </button>
+            <button
+              onClick={() => { if (confirm("Delete this item permanently?")) onDelete(item.id); }}
+              disabled={actionLoading === item.id}
+              className="px-3 bg-gray-800 hover:bg-red-900/60 disabled:opacity-50 text-gray-500 hover:text-red-400 py-2 rounded-lg text-sm transition-colors"
+              title="Delete permanently"
+            >
+              🗑
+            </button>
           </div>
         )}
       </div>
@@ -1164,6 +1174,17 @@ export default function ReviewPage() {
     });
     setRecentlyActioned((prev) => [...prev, { id, action: action === "approve" ? "approved" : "rejected" }]);
     await fetchQueue();
+    setActionLoading(null);
+  }
+
+  async function handleDelete(id: string) {
+    setActionLoading(id);
+    await fetch("/api/registry/bulk-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    });
+    setItems(prev => prev.filter(i => i.id !== id));
     setActionLoading(null);
   }
 
@@ -1232,6 +1253,7 @@ export default function ReviewPage() {
             key={item.id}
             item={item}
             onAction={handleAction}
+            onDelete={handleDelete}
             onItemUpdated={fetchQueue}
             actionLoading={actionLoading}
           />
