@@ -8,50 +8,49 @@ const NAV = [
   {
     group: "Create",
     items: [
-      { href: "/dashboard",              label: "Studio",           icon: "✦" },
-      { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "▲" },
-      { href: "/dashboard/video-tools",   label: "Video Tools",      icon: "✂" },
-      { href: "/dashboard/video-trimmer", label: "Video Trimmer (AI)", icon: "🎬" },
-      { href: "/dashboard/models",        label: "AI Models",        icon: "◆" },
-      { href: "/dashboard/assets",        label: "Asset Library",    icon: "📦" },
+      { href: "/dashboard",              label: "Home + Studio",    icon: "✦" },
+      { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "📣" },
     ],
   },
   {
-    group: "Review",
+    group: "Content",
     items: [
-      { href: "/dashboard/review",     label: "Review Queue", icon: "◈", badge: true },
-      { href: "/dashboard/registry",  label: "Registry",     icon: "▤" },
-      { href: "/dashboard/analytics", label: "Analytics",    icon: "◔" },
-      { href: "/dashboard/budget",     label: "Budget",       icon: "◈" },
-      { href: "/dashboard/ab-testing", label: "A/B Testing",  icon: "⚖" },
+      { href: "/dashboard/review",      label: "Review Queue",    icon: "◈", badge: true },
+      { href: "/dashboard/registry",    label: "All Content",     icon: "▤" },
+      { href: "/dashboard/assets",      label: "Asset Library",   icon: "📦" },
     ],
   },
   {
-    group: "Audio",
+    group: "Audio & Voice",
     items: [
-      { href: "/dashboard/music-studio",     label: "Music Studio",  icon: "🎵" },
-      { href: "/dashboard/character-voices", label: "Voice Registry", icon: "◉" },
-      { href: "/dashboard/sfx-library",      label: "SFX Library",   icon: "♪" },
+      { href: "/dashboard/music-studio",     label: "Music Studio",   icon: "🎵" },
+      { href: "/dashboard/character-voices", label: "Characters",      icon: "🎭" },
+      { href: "/dashboard/sfx-library",      label: "SFX Library",    icon: "💥" },
     ],
   },
   {
-    group: "Plan",
+    group: "AI & Models",
     items: [
-      { href: "/dashboard/calendar",    label: "Calendar",      icon: "◫" },
-      { href: "/dashboard/story-bank",  label: "Story Bank",    icon: "◇" },
+      { href: "/dashboard/models",       label: "AI Models",       icon: "◆" },
+      { href: "/dashboard/video-tools",   label: "Video Tools",     icon: "✂" },
+      { href: "/dashboard/video-trimmer", label: "Video Trimmer",   icon: "🎬" },
     ],
   },
   {
-    group: "Setup",
+    group: "Insights",
     items: [
-      { href: "/dashboard/destination-pages", label: "Pages", icon: "⊞" },
+      { href: "/dashboard/analytics",  label: "Analytics",       icon: "📊" },
+      { href: "/dashboard/budget",     label: "Budget",          icon: "💰" },
+      { href: "/dashboard/ab-testing", label: "A/B Testing",     icon: "⚖" },
+      { href: "/dashboard/calendar",   label: "Calendar",        icon: "📅" },
+      { href: "/dashboard/story-bank", label: "Story Bank",      icon: "💡" },
     ],
   },
   {
-    group: "System",
+    group: "Settings",
     items: [
-      { href: "/dashboard/studio-updates", label: "Studio Updates", icon: "◎" },
-      { href: "/dashboard/settings",       label: "LLM Settings",   icon: "⚙" },
+      { href: "/dashboard/destination-pages", label: "Publishing Pages",  icon: "⊞" },
+      { href: "/dashboard/settings",          label: "Settings",          icon: "⚙" },
     ],
   },
 ];
