@@ -570,6 +570,63 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* ── Section D: Generation & Publishing ── */}
+      <div>
+        <h2 className="text-base font-semibold text-white mb-3">Section D — Generation & Publishing</h2>
+        <p className="text-xs text-[#6060a0] mb-4">Image/video generation providers and social media publishing connections.</p>
+
+        {/* Provider connection cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          {[
+            { name: "Segmind", badge: "Image + Video", env: "SEGMIND_API_KEY", color: "bg-green-900/20 text-green-400", link: "segmind.com", note: "$0.005/image, $0.005/clip" },
+            { name: "fal.ai", badge: "Image + Video", env: "FAL_KEY", color: "bg-purple-900/20 text-purple-400", link: "fal.ai/dashboard", note: "Kling, Flux, Ideogram, Runway via fal" },
+            { name: "Fish Audio", badge: "Voice", env: "FISH_AUDIO_API_KEY", color: "bg-blue-900/20 text-blue-400", link: "fish.audio", note: "80% cheaper than ElevenLabs" },
+            { name: "Cartesia", badge: "Voice", env: "CARTESIA_API_KEY", color: "bg-indigo-900/20 text-indigo-400", link: "cartesia.ai", note: "Ultra-low latency TTS" },
+            { name: "Piper TTS", badge: "Voice (Local)", env: null, color: "bg-green-900/20 text-green-400", link: null, note: "Free local TTS — always available" },
+          ].map(p => (
+            <div key={p.name} className={`${sectionCls} !p-3`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <StatusDot ok={p.env ? !!process.env[p.env] : true} />
+                  <span className="text-sm font-semibold text-white">{p.name}</span>
+                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${p.color}`}>{p.badge}</span>
+                </div>
+              </div>
+              <p className="text-[10px] text-[#6060a0]">{p.note}</p>
+              {p.env && <p className="text-[9px] text-[#404060] font-mono">Set {p.env} in .env</p>}
+              {p.link && <a href={`https://${p.link}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#7c5cfc] hover:underline">{p.link} →</a>}
+            </div>
+          ))}
+        </div>
+
+        {/* Publishing connections */}
+        <p className="text-xs text-[#6060a0] font-medium mb-2">Publishing Connections</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+          {[
+            { name: "Telegram", icon: "📨", status: "Ready (bot configured)", action: null, color: "text-green-400" },
+            { name: "YouTube", icon: "▶️", status: "Needs OAuth", action: "/api/publish/youtube/auth", color: "text-orange-400" },
+            { name: "Facebook", icon: "📘", status: "Needs OAuth", action: "/api/publish/facebook/auth", color: "text-orange-400" },
+            { name: "Instagram", icon: "📸", status: "Via Facebook", action: null, color: "text-[#6060a0]" },
+            { name: "TikTok", icon: "🎵", status: "Needs OAuth", action: "/api/publish/tiktok/auth", color: "text-orange-400" },
+          ].map(p => (
+            <div key={p.name} className="bg-[#12121e] border border-[#2a2a40] rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">{p.icon}</span>
+                <div>
+                  <p className="text-xs text-white font-medium">{p.name}</p>
+                  <p className={`text-[10px] ${p.color}`}>{p.status}</p>
+                </div>
+              </div>
+              {p.action && (
+                <a href={p.action} className="text-[10px] px-3 py-1.5 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 transition-colors font-medium">
+                  Connect
+                </a>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Save */}
       {error && (
         <div className="px-4 py-2 bg-red-950/30 border border-red-800/40 rounded-lg text-xs text-red-400">{error}</div>
