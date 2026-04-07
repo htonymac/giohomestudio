@@ -633,6 +633,7 @@ function StudioPageInner() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <a href="/dashboard/commercial" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--accent, #6c63ff)", color: "white", textDecoration: "none", textAlign: "center" }}>🎬 Make a Commercial</a>
                   <button onClick={() => { setOutputMode("text_to_video"); setShowHome(false); }} style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--surface3)", color: "var(--text2)", border: "1px solid var(--border)" }}>✨ Free Mode — Describe Anything</button>
+                  <a href="/dashboard/templates" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(255,140,66,0.12)", color: "var(--accent-warm, #ff8c42)", border: "1px solid rgba(255,140,66,0.25)", textDecoration: "none", textAlign: "center" }}>🚀 Browse Templates</a>
                   <a href="/dashboard/music-studio" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(0,229,195,0.12)", color: "var(--accent3, #00e5c3)", border: "1px solid rgba(0,229,195,0.25)", textDecoration: "none", textAlign: "center" }}>🎵 Open Music Studio</a>
                 </div>
                 {reviewCount > 0 && (
