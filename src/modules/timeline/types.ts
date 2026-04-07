@@ -14,6 +14,7 @@ export type BeatType =
 
 export type OutputMode =
   | "text_to_video"    // Full video with AI-generated clips
+  | "text_to_image"    // AI image generation from text prompt
   | "text_to_audio"    // Audio-only: narration + dialogue + music + SFX
   | "video_to_video"   // Transform/enhance existing video
   | "images_audio"     // Still images synced to narration/music beats

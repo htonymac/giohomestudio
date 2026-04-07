@@ -52,9 +52,10 @@ function getCostEstimate(provider: string, quality: string): string {
 
 const OUTPUT_MODES: { id: OutputMode; label: string; icon: string; desc: string; live: boolean }[] = [
   { id: "text_to_video",  label: "Text → Video",   icon: "🎬", desc: "AI generates full video clips",            live: true  },
+  { id: "text_to_image",  label: "Text → Image",   icon: "🖼️", desc: "AI generates images from your description", live: true  },
   { id: "text_to_audio",  label: "Text → Audio",   icon: "🎙", desc: "Narration + dialogue + music only",        live: true  },
-  { id: "images_audio",   label: "Images + Audio",  icon: "🖼", desc: "Still images synced to narration",         live: true  },
-  { id: "image_to_video", label: "Image → Video",   icon: "🎭", desc: "Animate a saved character or uploaded image", live: true },
+  { id: "image_to_video", label: "Image → Video",   icon: "🎭", desc: "Upload image + describe motion → animated video", live: true },
+  { id: "images_audio",   label: "Images + Audio",  icon: "📸", desc: "Still images synced to narration",         live: true  },
   { id: "hybrid",         label: "Hybrid",          icon: "⚡", desc: "Video for key scenes, images for rest",    live: true  },
   { id: "video_to_video", label: "Video → Video",   icon: "🔄", desc: "Transform an existing video",              live: true  },
 ];
@@ -510,6 +511,30 @@ function StudioPageInner() {
           ? castChars.filter(c => selectedCharIds.has(c.id)).map(c => c.name)
           : undefined,
       };
+
+      // Text → Image: use image generation API directly (no pipeline)
+      if (outputMode === "text_to_image") {
+        const imgRes = await fetch("/api/generation/image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: effectiveInput,
+            modelId: videoProvider || undefined, // reuse provider selector for model
+            width: aspectRatio === "16:9" ? 1216 : aspectRatio === "1:1" ? 1024 : 832,
+            height: aspectRatio === "16:9" ? 832 : aspectRatio === "1:1" ? 1024 : 1472,
+          }),
+        });
+        const imgData = await imgRes.json();
+        if (imgRes.ok) {
+          setStatus("success");
+          setMessage(`Image generated! Saved to: ${imgData.imagePath?.split(/[\\/]/).pop()} (${imgData.displayName}). Check Asset Library.`);
+          setInput("");
+        } else {
+          setStatus("error");
+          setMessage(imgData.error ?? "Image generation failed.");
+        }
+        return;
+      }
 
       const res = await fetch("/api/pipeline", {
         method: "POST",
@@ -1026,7 +1051,7 @@ function StudioPageInner() {
             {/* Action prompt */}
             <div>
               <label style={{ fontSize: 11, color: "#3a6a44", display: "block", marginBottom: 4 }}>
-                Action prompt — what should this character do?
+                🎬 Motion / Action — describe how the image should move
               </label>
               <textarea
                 value={imageActionPrompt}
