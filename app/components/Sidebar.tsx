@@ -17,8 +17,9 @@ const NAV = [
   {
     group: "Review",
     items: [
-      { href: "/dashboard/review",   label: "Review Queue", icon: "◈", badge: true },
-      { href: "/dashboard/registry", label: "Registry",     icon: "▤" },
+      { href: "/dashboard/review",     label: "Review Queue", icon: "◈", badge: true },
+      { href: "/dashboard/registry",  label: "Registry",     icon: "▤" },
+      { href: "/dashboard/analytics", label: "Analytics",    icon: "◔" },
     ],
   },
   {

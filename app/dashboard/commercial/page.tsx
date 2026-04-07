@@ -140,6 +140,11 @@ const sectionTitle = "text-xs font-semibold text-[#6060a0] uppercase tracking-wi
 function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void; onNew: () => void }) {
   const [projects, setProjects] = useState<CommercialProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+
+  function reload() {
+    fetch("/api/commercial/projects").then(r => r.json()).then(setProjects);
+  }
 
   useEffect(() => {
     fetch("/api/commercial/projects")
@@ -178,7 +183,8 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
             const ready = p.slides?.filter(s => s.status === "ready").length ?? 0;
             const total = p.slides?.length ?? 0;
             return (
-              <button key={p.id} onClick={() => onOpen(p)} className="w-full text-left p-4 bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/50 rounded-xl transition-colors">
+              <div key={p.id} className="flex items-center gap-2">
+              <button onClick={() => onOpen(p)} className="flex-1 text-left p-4 bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/50 rounded-xl transition-colors">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-white font-semibold">{p.projectName}</p>
@@ -196,6 +202,22 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
                   </span>
                 </div>
               </button>
+              <button
+                title="Duplicate project"
+                disabled={duplicating === p.id}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  setDuplicating(p.id);
+                  try {
+                    const res = await fetch(`/api/commercial/projects/${p.id}/duplicate`, { method: "POST" });
+                    if (res.ok) reload();
+                  } finally { setDuplicating(null); }
+                }}
+                className="shrink-0 px-2.5 py-4 rounded-xl border border-[#2a2a40] hover:border-[#7c5cfc]/50 text-[#6060a0] hover:text-[#b090ff] transition-colors disabled:opacity-40"
+              >
+                {duplicating === p.id ? "..." : "📋"}
+              </button>
+              </div>
             );
           })}
         </div>
@@ -1011,21 +1033,48 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
     }
   }
 
+  const RENDER_STAGES: Record<string, { label: string; pct: number }> = {
+    PENDING:           { label: "Starting...",           pct: 5  },
+    GENERATING_VIDEO:  { label: "Building slideshow...", pct: 25 },
+    GENERATING_VOICE:  { label: "Generating voice...",   pct: 55 },
+    GENERATING_MUSIC:  { label: "Resolving music...",    pct: 70 },
+    MERGING:           { label: "Merging final video...",pct: 85 },
+    IN_REVIEW:         { label: "Complete!",             pct: 100 },
+  };
+  const [renderProgress, setRenderProgress] = useState<{ stage: string; pct: number } | null>(null);
+
   async function pollRenderStatus(projectId: string) {
-    const maxAttempts = 60; // 5 minutes max
+    const maxAttempts = 60;
     for (let i = 0; i < maxAttempts; i++) {
       await new Promise(r => setTimeout(r, 5000));
       try {
         const res = await fetch(`/api/commercial/projects/${projectId}`);
         if (!res.ok) break;
         const data = await res.json() as CommercialProject & { mergedOutputPath?: string | null; renderError?: string | null };
+
+        // Poll content item for pipeline stage
+        if (data.contentItemId) {
+          try {
+            const ciRes = await fetch(`/api/registry/${data.contentItemId}`);
+            if (ciRes.ok) {
+              const ciData = await ciRes.json();
+              const status = ciData.item?.status ?? ciData.status;
+              const stage = RENDER_STAGES[status];
+              if (stage) setRenderProgress({ stage: stage.label, pct: stage.pct });
+            }
+          } catch { /* ignore */ }
+        }
+
         if (data.renderStatus === "ready") {
+          setRenderProgress({ stage: "Complete!", pct: 100 });
           setProject(prev => ({ ...prev, renderStatus: "ready", contentItemId: data.contentItemId ?? prev.contentItemId }));
           setRenderMsg("Render complete! Check Review queue.");
           if (data.mergedOutputPath) setMergedVideoPath(data.mergedOutputPath);
+          setTimeout(() => setRenderProgress(null), 3000);
           return;
         }
         if (data.renderStatus === "failed") {
+          setRenderProgress(null);
           setProject(prev => ({ ...prev, renderStatus: "failed" }));
           const errDetail = data.renderError ? ` — ${data.renderError}` : "";
           setRenderMsg(`Render failed${errDetail}`);
@@ -1033,6 +1082,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
         }
       } catch { break; }
     }
+    setRenderProgress(null);
   }
 
   const readyCount = project.slides.filter(s => s.status === "ready").length;
@@ -1063,8 +1113,24 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
         </button>
       </div>
 
+      {/* Render progress bar */}
+      {renderProgress && (
+        <div className="mb-3 px-3 py-2.5 rounded-lg bg-indigo-950/40 border border-indigo-800/40 flex-shrink-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] text-indigo-300 font-medium">{renderProgress.stage}</span>
+            <span className="text-[10px] text-indigo-400/70 font-mono">{renderProgress.pct}%</span>
+          </div>
+          <div className="w-full h-1.5 bg-indigo-900/50 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700"
+              style={{ width: `${renderProgress.pct}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Render status banner */}
-      {renderMsg && (
+      {renderMsg && !renderProgress && (
         <div className={`mb-3 px-3 py-2 rounded-lg text-xs flex-shrink-0 ${
           renderStatus === "done"   ? "bg-green-950/40 border border-green-800/40 text-green-400" :
           renderStatus === "failed" ? "bg-red-950/40 border border-red-800/40 text-red-400" :

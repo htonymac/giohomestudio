@@ -166,17 +166,29 @@ export async function getContentItem(id: string): Promise<ContentItem | null> {
 
 export async function listContentItems(filters?: {
   status?: ContentStatus;
+  mode?: string;
+  search?: string;
   limit?: number;
   offset?: number;
-}): Promise<ContentItem[]> {
-  const items = await prisma.contentItem.findMany({
-    where: filters?.status ? { status: filters.status } : undefined,
-    orderBy: { createdAt: "desc" },
-    take: filters?.limit ?? 50,
-    skip: filters?.offset ?? 0,
-    include: { destinationPage: true },
-  });
-  return items as ContentItem[];
+}): Promise<{ items: ContentItem[]; total: number }> {
+  const where: Record<string, unknown> = {};
+  if (filters?.status) where.status = filters.status;
+  if (filters?.mode) where.mode = filters.mode;
+  if (filters?.search) {
+    where.originalInput = { contains: filters.search, mode: "insensitive" };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.contentItem.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: filters?.limit ?? 50,
+      skip: filters?.offset ?? 0,
+      include: { destinationPage: true },
+    }),
+    prisma.contentItem.count({ where }),
+  ]);
+  return { items: items as ContentItem[], total };
 }
 
 export async function createContentVersion(data: {

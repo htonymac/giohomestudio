@@ -27,7 +27,7 @@ export type ContentStatus =
   | "PUBLISHED"
   | "ARCHIVED";
 
-export type ContentMode = "FREE";
+export type ContentMode = "FREE" | "COMMERCIAL";
 
 export interface ContentItem {
   id: string;

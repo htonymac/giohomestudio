@@ -14,6 +14,8 @@ const VALID_STATUSES = new Set<ContentStatus>([
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const rawStatus = searchParams.get("status");
+  const mode = searchParams.get("mode") ?? undefined;
+  const search = searchParams.get("search") ?? undefined;
   const limit = parseInt(searchParams.get("limit") ?? "50", 10);
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
@@ -22,6 +24,6 @@ export async function GET(req: NextRequest) {
   }
 
   const status = rawStatus as ContentStatus | null;
-  const items = await listContentItems({ status: status ?? undefined, limit, offset });
-  return NextResponse.json({ items, total: items.length });
+  const result = await listContentItems({ status: status ?? undefined, mode, search, limit, offset });
+  return NextResponse.json({ items: result.items, total: result.total });
 }

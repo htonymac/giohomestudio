@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { ContentItem, ContentStatus } from "@/types/content";
 
@@ -19,37 +19,46 @@ const STATUS_COLORS: Record<ContentStatus, string> = {
   ARCHIVED: "bg-gray-800 text-gray-500",
 };
 
+const PAGE_SIZE = 25;
+
 export default function RegistryPage() {
   const router = useRouter();
   const [items, setItems] = useState<ContentItem[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<ContentStatus | "">("");
+  const [modeFilter, setModeFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
 
-  async function fetchItems() {
+  const fetchItems = useCallback(async () => {
     setLoading(true);
-    const url = filter ? `/api/registry?status=${filter}` : "/api/registry";
-    const res = await fetch(url);
+    const params = new URLSearchParams();
+    if (filter) params.set("status", filter);
+    if (modeFilter) params.set("mode", modeFilter);
+    if (search) params.set("search", search);
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(page * PAGE_SIZE));
+    const res = await fetch(`/api/registry?${params}`);
     const data = await res.json();
     setItems(data.items ?? []);
+    setTotal(data.total ?? 0);
     setSelected(new Set());
     setLoading(false);
-  }
+  }, [filter, modeFilter, search, page]);
 
-  useEffect(() => { fetchItems(); }, [filter]);
+  useEffect(() => { fetchItems(); }, [fetchItems]);
 
+  const totalPages = Math.ceil(total / PAGE_SIZE);
   const allSelected = items.length > 0 && selected.size === items.length;
   const someSelected = selected.size > 0;
 
   function toggleAll() {
-    if (allSelected) {
-      setSelected(new Set());
-    } else {
-      setSelected(new Set(items.map(i => i.id)));
-    }
+    setSelected(allSelected ? new Set() : new Set(items.map(i => i.id)));
   }
-
   function toggleOne(id: string) {
     setSelected(prev => {
       const next = new Set(prev);
@@ -75,40 +84,79 @@ export default function RegistryPage() {
     }
   }
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    setPage(0);
+    setSearch(searchInput);
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-white">Content Registry</h1>
-        <div className="flex gap-3 items-center">
-          {someSelected && (
-            <button
-              onClick={deleteSelected}
-              disabled={deleting}
-              className="text-sm bg-red-900 hover:bg-red-800 text-red-300 border border-red-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {deleting ? "Deleting…" : `Delete ${selected.size} selected`}
+        <span className="text-xs text-gray-500">{total} items total</span>
+      </div>
+
+      {/* Search + filters bar */}
+      <div className="flex flex-wrap gap-2 mb-4 items-center">
+        <form onSubmit={handleSearch} className="flex gap-1.5 flex-1 min-w-[200px]">
+          <input
+            type="text"
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search by input text..."
+            className="flex-1 bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-indigo-600"
+          />
+          <button type="submit" className="text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-3 py-2 rounded-lg transition-colors">
+            Search
+          </button>
+          {search && (
+            <button type="button" onClick={() => { setSearchInput(""); setSearch(""); setPage(0); }} className="text-sm text-gray-500 hover:text-white px-2">
+              Clear
             </button>
           )}
-          <select
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as ContentStatus | "")}
-            className="bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none"
-          >
-            <option value="">All statuses</option>
-            <option value="IN_REVIEW">In Review</option>
-            <option value="APPROVED">Approved</option>
-            <option value="REJECTED">Rejected</option>
-            <option value="FAILED">Failed</option>
-            <option value="PENDING">Pending</option>
-            <option value="PUBLISHED">Published</option>
-          </select>
+        </form>
+
+        <select
+          value={modeFilter}
+          onChange={e => { setModeFilter(e.target.value); setPage(0); }}
+          className="bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none"
+        >
+          <option value="">All modes</option>
+          <option value="FREE">Free Mode</option>
+          <option value="COMMERCIAL">Commercial</option>
+        </select>
+
+        <select
+          value={filter}
+          onChange={e => { setFilter(e.target.value as ContentStatus | ""); setPage(0); }}
+          className="bg-gray-900 border border-gray-700 text-gray-300 text-sm rounded-lg px-3 py-2 focus:outline-none"
+        >
+          <option value="">All statuses</option>
+          <option value="IN_REVIEW">In Review</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="FAILED">Failed</option>
+          <option value="PENDING">Pending</option>
+          <option value="PUBLISHED">Published</option>
+        </select>
+
+        {someSelected && (
           <button
-            onClick={fetchItems}
-            className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg transition-colors"
+            onClick={deleteSelected}
+            disabled={deleting}
+            className="text-sm bg-red-900 hover:bg-red-800 text-red-300 border border-red-700 px-3 py-2 rounded-lg transition-colors disabled:opacity-50"
           >
-            Refresh
+            {deleting ? "Deleting..." : `Delete ${selected.size}`}
           </button>
-        </div>
+        )}
+
+        <button
+          onClick={fetchItems}
+          className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-2 rounded-lg transition-colors"
+        >
+          Refresh
+        </button>
       </div>
 
       {loading && <p className="text-gray-500">Loading...</p>}
@@ -116,102 +164,118 @@ export default function RegistryPage() {
       {!loading && items.length === 0 && (
         <div className="text-center py-16 text-gray-600">
           <p className="text-lg">No content items found.</p>
+          {(search || filter || modeFilter) && (
+            <button onClick={() => { setSearch(""); setSearchInput(""); setFilter(""); setModeFilter(""); setPage(0); }} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">
+              Clear all filters
+            </button>
+          )}
         </div>
       )}
 
       {!loading && items.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-800">
-                <th className="pb-3 pr-3 font-medium w-8">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
-                    className="accent-red-500 cursor-pointer"
-                    title="Select all"
-                  />
-                </th>
-                <th className="pb-3 pr-4 font-medium">ID</th>
-                <th className="pb-3 pr-4 font-medium">Input</th>
-                <th className="pb-3 pr-4 font-medium">Status</th>
-                <th className="pb-3 pr-4 font-medium">Destination</th>
-                <th className="pb-3 pr-4 font-medium">Providers</th>
-                <th className="pb-3 pr-4 font-medium">Created</th>
-                <th className="pb-3 font-medium">Error</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800/50">
-              {items.map((item) => (
-                <tr
-                  key={item.id}
-                  className={`transition-colors ${selected.has(item.id) ? "bg-gray-800/60" : "hover:bg-gray-900/40"}`}
-                >
-                  <td className="py-3 pr-3" onClick={(e) => e.stopPropagation()}>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(item.id)}
-                      onChange={() => toggleOne(item.id)}
-                      className="accent-red-500 cursor-pointer"
-                    />
-                  </td>
-                  <td
-                    className="py-3 pr-4 font-mono text-xs text-gray-500 cursor-pointer"
-                    onClick={() => router.push(`/dashboard/content/${item.id}`)}
-                  >
-                    {item.id.slice(0, 8)}…
-                  </td>
-                  <td
-                    className="py-3 pr-4 max-w-xs truncate text-gray-300 cursor-pointer"
-                    onClick={() => router.push(`/dashboard/content/${item.id}`)}
-                  >
-                    {item.originalInput}
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[item.status]}`}>
-                      {item.status}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-gray-400">
-                    {item.destinationPage ? (
-                      <span title={item.destinationPage.handle ?? ""}>
-                        {item.destinationPage.name}
-                        <span className="text-gray-600 ml-1">({item.destinationPage.platform})</span>
-                      </span>
-                    ) : (
-                      <span className="text-gray-700">—</span>
-                    )}
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-gray-500">
-                    {(() => {
-                      const videoDisplay =
-                        item.requestedVideoProvider && item.requestedVideoProvider !== item.videoProvider
-                          ? `${item.requestedVideoProvider}→${item.videoProvider ?? "?"}`
-                          : item.videoProvider;
-                      return [videoDisplay, item.voiceProvider, item.musicProvider]
-                        .filter(Boolean)
-                        .join(" / ") || "—";
-                    })()}
-                  </td>
-                  <td className="py-3 pr-4 text-xs text-gray-500">
-                    {new Date(item.createdAt).toLocaleDateString()}{" "}
-                    <span className="text-gray-600">{new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                  </td>
-                  <td className="py-3 text-xs">
-                    {item.status === "FAILED" && item.notes ? (
-                      <span className="text-red-400 font-mono truncate max-w-[180px] block" title={item.notes}>
-                        {item.notes.length > 60 ? item.notes.slice(0, 60) + "…" : item.notes}
-                      </span>
-                    ) : (
-                      <span className="text-gray-700">—</span>
-                    )}
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-500 border-b border-gray-800">
+                  <th className="pb-3 pr-3 font-medium w-8">
+                    <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-red-500 cursor-pointer" title="Select all" />
+                  </th>
+                  <th className="pb-3 pr-4 font-medium">Input</th>
+                  <th className="pb-3 pr-4 font-medium">Mode</th>
+                  <th className="pb-3 pr-4 font-medium">Status</th>
+                  <th className="pb-3 pr-4 font-medium">Destination</th>
+                  <th className="pb-3 pr-4 font-medium">Providers</th>
+                  <th className="pb-3 pr-4 font-medium">Created</th>
+                  <th className="pb-3 font-medium">Error</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-800/50">
+                {items.map(item => (
+                  <tr key={item.id} className={`transition-colors ${selected.has(item.id) ? "bg-gray-800/60" : "hover:bg-gray-900/40"}`}>
+                    <td className="py-3 pr-3" onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.has(item.id)} onChange={() => toggleOne(item.id)} className="accent-red-500 cursor-pointer" />
+                    </td>
+                    <td className="py-3 pr-4 max-w-xs truncate text-gray-300 cursor-pointer" onClick={() => router.push(`/dashboard/content/${item.id}`)}>
+                      {item.originalInput}
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${item.mode === "COMMERCIAL" ? "bg-amber-900/40 text-amber-400" : "bg-indigo-900/40 text-indigo-400"}`}>
+                        {item.mode}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[item.status]}`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-gray-400">
+                      {item.destinationPage ? (
+                        <span title={item.destinationPage.handle ?? ""}>
+                          {item.destinationPage.name}
+                          <span className="text-gray-600 ml-1">({item.destinationPage.platform})</span>
+                        </span>
+                      ) : <span className="text-gray-700">-</span>}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-gray-500">
+                      {[item.videoProvider, item.voiceProvider, item.musicSource].filter(Boolean).join(" / ") || "-"}
+                    </td>
+                    <td className="py-3 pr-4 text-xs text-gray-500 whitespace-nowrap">
+                      {new Date(item.createdAt).toLocaleDateString()}{" "}
+                      <span className="text-gray-600">{new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    </td>
+                    <td className="py-3 text-xs">
+                      {item.status === "FAILED" && item.notes ? (
+                        <span className="text-red-400 font-mono truncate max-w-[180px] block" title={item.notes}>
+                          {item.notes.length > 50 ? item.notes.slice(0, 50) + "..." : item.notes}
+                        </span>
+                      ) : <span className="text-gray-700">-</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-800">
+              <span className="text-xs text-gray-500">
+                Page {page + 1} of {totalPages} ({total} items)
+              </span>
+              <div className="flex gap-1">
+                <button
+                  disabled={page === 0}
+                  onClick={() => setPage(p => p - 1)}
+                  className="px-3 py-1.5 text-xs rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  Prev
+                </button>
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  const p = totalPages <= 7 ? i : Math.max(0, Math.min(totalPages - 7, page - 3)) + i;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                        p === page ? "border-indigo-600 bg-indigo-900/40 text-indigo-300" : "border-gray-700 text-gray-400 hover:text-white"
+                      }`}
+                    >
+                      {p + 1}
+                    </button>
+                  );
+                })}
+                <button
+                  disabled={page >= totalPages - 1}
+                  onClick={() => setPage(p => p + 1)}
+                  className="px-3 py-1.5 text-xs rounded border border-gray-700 text-gray-400 hover:text-white disabled:opacity-30 transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
