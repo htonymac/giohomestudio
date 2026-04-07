@@ -25,6 +25,8 @@ const ANIMATION_OPTIONS: { value: AnimationEntrance; label: string }[] = [
   { value: "slide_top",    label: "Slide Top"     },
   { value: "slide_bottom", label: "Slide Bottom"  },
   { value: "fade_in",      label: "Fade In"       },
+  { value: "pop_in",       label: "Pop In"        },
+  { value: "typewriter",   label: "Typewriter"    },
 ];
 
 function makeTextLayer(): TextLayer {
@@ -166,10 +168,29 @@ export default function OverlayPanel({
       {expanded && (
         <div style={{ padding: "0 14px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
 
-          {/* Add layer buttons */}
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={addTextLayer} style={addBtnStyle}>+ Add Text Layer</button>
-            <button onClick={addImageLayer} style={addBtnStyle}>+ Add Image Layer</button>
+          {/* Add layer buttons + presets */}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button onClick={addTextLayer} style={addBtnStyle}>+ Add Text</button>
+            <button onClick={addImageLayer} style={addBtnStyle}>+ Add Image</button>
+            <button onClick={async () => {
+              try {
+                const res = await fetch("/api/overlays/presets");
+                const data = await res.json();
+                const presets = data.presets ?? [];
+                if (presets.length === 0) return;
+                const names = presets.map((p: { id: string; name: string }, i: number) => `${i + 1}. ${p.name}`).join("\n");
+                const choice = prompt(`Choose a preset:\n${names}\n\nEnter number:`);
+                if (!choice) return;
+                const idx = parseInt(choice) - 1;
+                const preset = presets[idx];
+                if (!preset?.layers) return;
+                const newLayers: OverlayLayer[] = preset.layers.map((l: Record<string, unknown>) => ({
+                  ...l,
+                  id: `${l.type}_${Date.now()}_${++layerCounter}`,
+                })) as OverlayLayer[];
+                onChange([...layers, ...newLayers]);
+              } catch { /* ignore */ }
+            }} style={{ ...addBtnStyle, background: "#7c5cfc", color: "#fff" }}>🎨 Load Preset</button>
           </div>
 
           {/* Layer editors */}
@@ -324,7 +345,7 @@ function TextLayerEditor({
           <input type="checkbox" checked={!!layer.style.italic} onChange={e => onStyleChange({ italic: e.target.checked })} /> Italic
         </label>
         <label style={checkboxLabel}>
-          <input type="checkbox" checked={!!layer.style.underline} onChange={e => onStyleChange({ underline: e.target.checked })} /> Underline
+          <input type="checkbox" checked={!!layer.style.uppercase} onChange={e => onStyleChange({ uppercase: e.target.checked })} /> UPPERCASE
         </label>
         <label style={checkboxLabel}>
           <input type="checkbox" checked={layer.style.shadow} onChange={e => onStyleChange({ shadow: e.target.checked })} /> Shadow
@@ -333,14 +354,37 @@ function TextLayerEditor({
           <input type="checkbox" checked={layer.style.outline} onChange={e => onStyleChange({ outline: e.target.checked })} /> Outline
         </label>
       </FieldRow>
+      {layer.style.outline && (
+        <FieldRow label="Outline">
+          <input type="color" value={layer.style.outlineColor ?? "#000000"}
+            onChange={e => onStyleChange({ outlineColor: e.target.value })} style={{ height: 28, width: 40, padding: 1, cursor: "pointer" }} />
+          <input type="number" min={1} max={5} value={layer.style.outlineWidth ?? 2}
+            onChange={e => onStyleChange({ outlineWidth: Number(e.target.value) })} style={{ ...inputStyle, width: 50 }} />
+          <span style={{ fontSize: 10, color: "#888" }}>px</span>
+        </FieldRow>
+      )}
       <FieldRow label="Background">
         <select value={layer.style.bgColor ?? ""} onChange={e => onStyleChange({ bgColor: e.target.value || undefined })} style={inputStyle}>
           <option value="">None</option>
           <option value="black@0.5">Dark box (50%)</option>
           <option value="black@0.8">Dark box (80%)</option>
+          <option value="white@0.9">White card</option>
           <option value="white@0.5">Light box (50%)</option>
+          <option value="#7c5cfc@0.9">Purple accent</option>
+          <option value="#22c55e@0.9">Green accent</option>
+          <option value="#ef4444@0.9">Red accent</option>
         </select>
       </FieldRow>
+      {layer.style.bgColor && (
+        <FieldRow label="Card style">
+          <input type="number" min={0} max={30} value={layer.style.bgPadding ?? 0}
+            onChange={e => onStyleChange({ bgPadding: Number(e.target.value) })} style={{ ...inputStyle, width: 50 }} placeholder="Pad" />
+          <span style={{ fontSize: 10, color: "#888", margin: "0 4px" }}>padding</span>
+          <input type="number" min={0} max={30} value={layer.style.bgRadius ?? 0}
+            onChange={e => onStyleChange({ bgRadius: Number(e.target.value) })} style={{ ...inputStyle, width: 50 }} placeholder="Radius" />
+          <span style={{ fontSize: 10, color: "#888" }}>radius</span>
+        </FieldRow>
+      )}
       <AnimationRow animation={layer.animation} onChange={onAnimationChange} />
     </div>
   );

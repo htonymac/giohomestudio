@@ -27,6 +27,7 @@ const NAV = [
   {
     group: "Audio",
     items: [
+      { href: "/dashboard/music-studio",     label: "Music Studio",  icon: "🎵" },
       { href: "/dashboard/character-voices", label: "Voice Registry", icon: "◉" },
       { href: "/dashboard/sfx-library",      label: "SFX Library",   icon: "♪" },
     ],
