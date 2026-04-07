@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import NarrationPanel from "../../components/NarrationPanel";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 import OverlayPanel from "../../components/OverlayPanel";
+import AssetPicker from "../../components/AssetPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
@@ -628,6 +629,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
   const [uploadError, setUploadError] = useState("");
   const [batchImporting, setBatchImporting] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
   const [enhancingNarration, setEnhancingNarration] = useState(false);
@@ -1323,6 +1325,12 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 >
                   {aiImageLoading ? "🧠 Generating…" : "🧠 AI Generate"}
                 </button>
+                <button
+                  onClick={() => setAssetPickerOpen("image")}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 transition-colors"
+                >
+                  📦 Library
+                </button>
                 {selectedSlide.imagePath && (
                   <>
                     <button
@@ -1926,7 +1934,14 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                     onClick={openMusicLibrary}
                     className="flex-1 py-2 rounded-lg border border-[#3a3a60] text-[#6060a0] hover:border-[#7c5cfc] hover:text-[#b090ff] text-xs transition-colors"
                   >
-                    📚 Library
+                    📚 Stock
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAssetPickerOpen("music")}
+                    className="flex-1 py-2 rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 text-xs transition-colors"
+                  >
+                    📦 Saved
                   </button>
                 </div>
               )}
@@ -2320,6 +2335,36 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
           </div>
         </div>
       </div>
+
+      {/* Asset Picker Modal */}
+      <AssetPicker
+        type={assetPickerOpen ?? "image"}
+        open={!!assetPickerOpen}
+        onClose={() => setAssetPickerOpen(null)}
+        onSelect={async (asset) => {
+          if (assetPickerOpen === "image" && selectedSlide) {
+            // Set picked image as slide image via DB update
+            try {
+              const { PrismaClient } = await import("@prisma/client");
+              // Use API to update slide image path
+              await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ imagePath: null }),
+              });
+              // Reload project to get updated slides
+              const res = await fetch(`/api/commercial/projects/${project.id}`);
+              const data = await res.json();
+              if (data.slides) setProject(prev => ({ ...prev, slides: data.slides }));
+            } catch { /* ignore */ }
+          } else if (assetPickerOpen === "music") {
+            // Set picked music as project music
+            patchProject({ musicPath: asset.filePath, musicSource: "library" });
+          }
+          setAssetPickerOpen(null);
+        }}
+        title={assetPickerOpen === "image" ? "Pick image for slide" : "Pick music track"}
+      />
     </div>
   );
 }
