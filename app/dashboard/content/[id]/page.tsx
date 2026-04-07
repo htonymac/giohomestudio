@@ -1465,6 +1465,11 @@ export default function ContentDetailPage() {
           {/* ── Continue This Story ─────────────────────────── */}
           <ContinueStoryPanel item={item} router={router} />
 
+          {/* ── Publish to Platforms ─────────────────────────── */}
+          {(item.status === "APPROVED" || item.status === "IN_REVIEW") && item.mergedOutputPath && (
+            <PublishPanel contentItemId={item.id} title={item.originalInput} />
+          )}
+
           {/* Repost Control */}
           {(item.status === "APPROVED" || item.status === "PUBLISHED") && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
@@ -1525,6 +1530,105 @@ export default function ContentDetailPage() {
 
         </div>{/* end RIGHT panel */}
       </div>{/* end two-column grid */}
+    </div>
+  );
+}
+
+// ── Publish Panel ──────────────────────────────────────────────────────────
+
+function PublishPanel({ contentItemId, title }: { contentItemId: string; title: string }) {
+  const [platforms, setPlatforms] = useState<{ platform: string; configured: boolean }[]>([]);
+  const [publishing, setPublishing] = useState<string | null>(null);
+  const [result, setResult] = useState<{ platform: string; status: string; postUrl?: string; error?: string } | null>(null);
+  const [caption, setCaption] = useState("");
+
+  useEffect(() => {
+    fetch("/api/publish")
+      .then(r => r.json())
+      .then(d => setPlatforms(d.platforms ?? []))
+      .catch(() => {});
+  }, []);
+
+  async function handlePublish(platform: string) {
+    setPublishing(platform);
+    setResult(null);
+    try {
+      const res = await fetch("/api/publish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentItemId, platform, title, caption }),
+      });
+      const data = await res.json();
+      setResult({ platform, status: data.status, postUrl: data.postUrl, error: data.error });
+    } catch (err) {
+      setResult({ platform, status: "failed", error: err instanceof Error ? err.message : "Network error" });
+    }
+    setPublishing(null);
+  }
+
+  const PLATFORM_ICONS: Record<string, string> = {
+    telegram: "📨",
+    youtube:  "▶️",
+    facebook: "📘",
+    instagram: "📸",
+    tiktok:   "🎵",
+  };
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Publish</p>
+
+      <textarea
+        value={caption}
+        onChange={e => setCaption(e.target.value)}
+        placeholder="Add a caption for publishing (optional)..."
+        rows={2}
+        className="w-full bg-gray-800 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 mb-3 focus:outline-none focus:border-indigo-600 resize-none"
+      />
+
+      <div className="grid grid-cols-2 gap-2">
+        {platforms.map(p => (
+          <button
+            key={p.platform}
+            disabled={!p.configured || publishing !== null}
+            onClick={() => handlePublish(p.platform)}
+            className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium transition-colors ${
+              p.configured
+                ? "bg-gray-800 border border-gray-700 text-gray-300 hover:border-indigo-600 hover:text-white"
+                : "bg-gray-900 border border-gray-800 text-gray-600 cursor-not-allowed"
+            } ${publishing === p.platform ? "opacity-50" : ""}`}
+          >
+            <span className="text-base">{PLATFORM_ICONS[p.platform] ?? "📤"}</span>
+            <span className="capitalize">{p.platform}</span>
+            {!p.configured && <span className="text-[9px] text-gray-700 ml-auto">Not connected</span>}
+            {publishing === p.platform && <span className="ml-auto text-[9px] text-indigo-400">Publishing...</span>}
+          </button>
+        ))}
+        {platforms.length === 0 && (
+          <p className="col-span-2 text-[10px] text-gray-600 text-center py-2">Loading platforms...</p>
+        )}
+      </div>
+
+      {result && (
+        <div className={`mt-3 p-2.5 rounded-lg text-xs ${
+          result.status === "published"
+            ? "bg-green-950/40 border border-green-800/40 text-green-400"
+            : "bg-red-950/40 border border-red-800/40 text-red-400"
+        }`}>
+          {result.status === "published" ? (
+            <>
+              Published to {result.platform}!
+              {result.postUrl && (
+                <a href={result.postUrl} target="_blank" rel="noopener noreferrer" className="ml-2 underline">
+                  View post →
+                </a>
+              )}
+            </>
+          ) : (
+            <>Failed: {result.error}</>
+          )}
+        </div>
+      )}
     </div>
   );
 }
