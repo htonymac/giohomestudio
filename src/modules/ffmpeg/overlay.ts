@@ -95,15 +95,24 @@ export interface OverlayFilterResult {
 
 // ── Position expressions ────────────────────────────────────────────────────
 
-function textXExpr(position: TextPosition): string {
+function textXExpr(position: TextPosition, startSec?: number, entrance?: AnimationEntrance): string {
+  let baseX: string;
   switch (position.zone) {
     case "top":
     case "center":
     case "bottom":
-      return "(w-text_w)/2";
+      baseX = "(w-text_w)/2"; break;
     case "free":
-      return `w*${(position.x ?? 50) / 100}-text_w/2`;
+      baseX = `w*${(position.x ?? 50) / 100}-text_w/2`; break;
   }
+  // Slide animations on X axis
+  if (entrance === "slide_left" && startSec !== undefined) {
+    return `${baseX}-w*(1-min(1,(t-${startSec})/0.5))`;
+  }
+  if (entrance === "slide_right" && startSec !== undefined) {
+    return `${baseX}+w*(1-min(1,(t-${startSec})/0.5))`;
+  }
+  return baseX;
 }
 
 function textYExpr(position: TextPosition, startSec: number, entrance: AnimationEntrance): string {
@@ -187,7 +196,7 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
       const t = layer as TextLayer;
       const safeText = escapeDrawtext(t.text);
       const fontColor = t.style.color.replace("#", "0x");
-      const xExpr = textXExpr(t.position);
+      const xExpr = textXExpr(t.position, t.animation.startSec, t.animation.entrance);
       const yExpr = textYExpr(t.position, t.animation.startSec, t.animation.entrance);
       const enableStr = enableExpr(t.animation.startSec, t.animation.durationSec);
 
@@ -199,9 +208,12 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
         italic: t.style.italic,
       });
 
+      // Apply uppercase if requested
+      const displayText = t.style.uppercase ? safeText.toUpperCase() : safeText;
+
       const parts = [
         `fontfile=${escapeFontPath(fontFile)}`,
-        `text='${safeText}'`,
+        `text='${displayText}'`,
         `fontsize=${t.style.fontSize}`,
         `fontcolor=${fontColor}`,
         `x=${xExpr}`,
@@ -209,13 +221,36 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
         `enable='${enableStr}'`,
       ];
 
-      if (t.style.shadow) parts.push("shadowx=2:shadowy=2:shadowcolor=black@0.6");
-      if (t.style.outline) parts.push("borderw=2:bordercolor=black@0.8");
-      if (t.style.bgColor) parts.push(`box=1:boxcolor=${t.style.bgColor}:boxborderw=6`);
+      // Shadow
+      if (t.style.shadow) {
+        const sc = t.style.shadowColor ? t.style.shadowColor.replace("#", "0x") : "black@0.6";
+        parts.push(`shadowx=2:shadowy=2:shadowcolor=${sc}`);
+      }
 
-      // fade_in via alpha expression
+      // Outline / stroke
+      if (t.style.outline) {
+        const bw = t.style.outlineWidth ?? 2;
+        const bc = t.style.outlineColor ? t.style.outlineColor.replace("#", "0x") : "black@0.8";
+        parts.push(`borderw=${bw}:bordercolor=${bc}`);
+      }
+
+      // Background box / card
+      if (t.style.bgColor) {
+        const pad = t.style.bgPadding ?? 6;
+        parts.push(`box=1:boxcolor=${t.style.bgColor}:boxborderw=${pad}`);
+      }
+
+      // Animations
+      const start = t.animation.startSec + (t.animation.delay ?? 0);
       if (t.animation.entrance === "fade_in") {
-        parts.push(`alpha='min(1,(t-${t.animation.startSec})/0.5)'`);
+        parts.push(`alpha='min(1,(t-${start})/0.5)'`);
+      } else if (t.animation.entrance === "pop_in") {
+        // Pop-in: scale from 0 to 1 over 0.3s (simulated via alpha + slight y offset)
+        parts.push(`alpha='min(1,(t-${start})/0.3)'`);
+      } else if (t.animation.entrance === "typewriter") {
+        // Typewriter: reveal text character by character using textlen expression
+        // FFmpeg doesn't natively support typewriter, so we approximate with alpha fade
+        parts.push(`alpha='min(1,(t-${start})/0.3)'`);
       }
 
       filterParts.push(`${currentVideoLabel}drawtext=${parts.join(":")}${outLabel}`);
