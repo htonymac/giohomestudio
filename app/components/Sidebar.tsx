@@ -145,6 +145,27 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
 
       {/* Footer */}
       <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)", marginTop: "auto" }}>
+        {/* Credit balance */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 8, background: "var(--surface3)", borderRadius: 8 }}>
+          <span style={{ fontSize: 14 }}>💳</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>$0.00</div>
+            <div style={{ fontSize: 9, color: "var(--text3)" }}>Credit Balance</div>
+          </div>
+          <a href="/dashboard/settings" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(0,229,195,0.12)", color: "var(--accent3, #00e5c3)", border: "1px solid rgba(0,229,195,0.25)", textDecoration: "none", fontWeight: 600 }}>
+            Settings
+          </a>
+        </div>
+
+        {/* User */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--accent), var(--accent2))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "white", flexShrink: 0 }}>H</div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Henry</div>
+            <div style={{ fontSize: 10, color: "var(--accent3, #00e5c3)" }}>Creator</div>
+          </div>
+        </div>
+
         <LLMStatus />
       </div>
     </aside>
