@@ -813,7 +813,10 @@ export default function CharacterVoicesPage() {
     <div style={{ maxWidth: 900 }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 className="text-white font-bold" style={{ fontSize: 22 }}>Character Voice Registry</h1>
+          <div>
+            <h1 className="text-white font-bold" style={{ fontSize: 22 }}>🎭 Characters</h1>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Manage actors, voices, and character profiles for your content</p>
+          </div>
           <p style={{ fontSize: 13, color: "#7070a0", marginTop: 4 }}>
             Full character profiles — voice, appearance, role, and speech style — for consistent multi-voice casting.
           </p>

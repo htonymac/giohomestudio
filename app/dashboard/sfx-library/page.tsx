@@ -560,7 +560,10 @@ export default function SFXLibraryPage() {
       {/* ── Header ── */}
       <div className="flex items-start justify-between mb-5">
         <div>
-          <h1 className="text-white font-bold" style={{ fontSize: 24 }}>SFX Library</h1>
+          <div>
+            <h1 className="text-white font-bold" style={{ fontSize: 24 }}>💥 SFX Library</h1>
+            <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Sound effects for video production — royalty-free</p>
+          </div>
           <p style={{ fontSize: 13, color: "#5a5a7a", marginTop: 4 }}>
             Drop MP3 files into{" "}
             <code style={{ background: "#1a1a2e", padding: "1px 6px", borderRadius: 3, fontSize: 12 }}>storage/sfx/</code>
