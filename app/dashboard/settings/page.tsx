@@ -604,9 +604,55 @@ export default function SettingsPage() {
 
         {/* Publishing connections */}
         <p className="text-xs text-[#6060a0] font-medium mb-2">Publishing Connections</p>
+
+        {/* Telegram — editable */}
+        <div className={`${sectionCls} mb-3`}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-base">📨</span>
+            <span className="text-sm font-semibold text-white">Telegram</span>
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-900/20 text-green-400 border border-green-800/40 font-medium">Ready</span>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <label className={labelCls}>Bot Token</label>
+              <input
+                type="password"
+                defaultValue=""
+                placeholder="Set TELEGRAM_BOT_TOKEN in .env"
+                className={inputCls}
+                disabled
+              />
+              <p className="text-[9px] text-[#404060] mt-0.5">Bot token is set in .env file — cannot be changed from UI for security</p>
+            </div>
+            <div>
+              <label className={labelCls}>Channel / Chat ID</label>
+              <input
+                type="text"
+                defaultValue=""
+                placeholder="@your_channel or numeric chat ID"
+                onBlur={async (e) => {
+                  const val = e.target.value.trim();
+                  if (!val) return;
+                  await fetch("/api/settings/llm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ TELEGRAM_CHAT_ID: val }),
+                  });
+                }}
+                className={inputCls}
+              />
+              <p className="text-[9px] text-[#404060] mt-0.5">
+                For a <strong>channel</strong>: use @channelname (e.g. @diolux_ads)<br/>
+                For <strong>personal chat</strong>: use your numeric ID (e.g. 5811210934)<br/>
+                Videos published via "Share → Telegram" go here
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Other platforms */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
           {[
-            { name: "Telegram", icon: "📨", status: "Ready (bot configured)", action: null, color: "text-green-400" },
             { name: "YouTube", icon: "▶️", status: "Needs OAuth", action: "/api/publish/youtube/auth", color: "text-orange-400" },
             { name: "Facebook", icon: "📘", status: "Needs OAuth", action: "/api/publish/facebook/auth", color: "text-orange-400" },
             { name: "Instagram", icon: "📸", status: "Via Facebook", action: null, color: "text-[#6060a0]" },

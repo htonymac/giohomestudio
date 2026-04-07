@@ -8,6 +8,7 @@ import * as path from "path";
 import axios from "axios";
 import FormData from "form-data";
 import { env } from "@/config/env";
+import { loadLLMSettings } from "@/lib/llm-settings";
 import type { IPublisher, PublishInput, PublishOutput } from "../types";
 
 class TelegramPublisher implements IPublisher {
@@ -18,10 +19,13 @@ class TelegramPublisher implements IPublisher {
   }
 
   async publish(input: PublishInput): Promise<PublishOutput> {
-    const { botToken, chatId } = env.telegram;
+    const { botToken } = env.telegram;
+    // Check LLM settings first (user-configured from Settings page), then env
+    const settings = loadLLMSettings();
+    const chatId = settings.TELEGRAM_CHAT_ID || env.telegram.chatId;
 
     if (!botToken || !chatId) {
-      return { status: "failed", platform: this.platform, error: "Telegram bot token or chat ID not configured" };
+      return { status: "failed", platform: this.platform, error: "Telegram bot token or chat ID not configured. Set in Settings → Publishing." };
     }
 
     const targetChat = input.destinationId || chatId;

@@ -26,6 +26,8 @@ export interface LLMSettingsData {
   KLING_ACCESS_KEY?:   string;
   KLING_SECRET_KEY?:   string;
   RUNWAY_API_KEY?:     string;
+  // Publishing
+  TELEGRAM_CHAT_ID?:   string;  // @channel_name or numeric chat ID
 }
 
 let cache: LLMSettingsData | null = null;
