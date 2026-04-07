@@ -580,12 +580,14 @@ function StudioPageInner() {
   // ── Home dashboard data ──
   const [recentItems, setRecentItems] = useState<Array<{id:string;status:string;originalInput:string;mode:string;createdAt:string;mergedOutputPath?:string|null}>>([]);
   const [reviewCount, setReviewCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [successCount, setSuccessCount] = useState(0);
   const [showHome, setShowHome] = useState(true);
 
   useEffect(() => {
-    // Load recent items + review count for home section
-    fetch("/api/registry?limit=5").then(r=>r.json()).then(d=>{setRecentItems(d.items??[])}).catch(()=>{});
+    fetch("/api/registry?limit=5").then(r=>r.json()).then(d=>{setRecentItems(d.items??[]); setTotalCount(d.total??0);}).catch(()=>{});
     fetch("/api/review").then(r=>r.json()).then(d=>{setReviewCount(d.items?.length??0)}).catch(()=>{});
+    fetch("/api/analytics").then(r=>r.json()).then(d=>{setSuccessCount(d.summary?.successCount??0)}).catch(()=>{});
   }, []);
 
   return (
@@ -606,7 +608,7 @@ function StudioPageInner() {
             <div className="grid grid-cols-4 gap-2">
               <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
                 <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Total Content</div>
-                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px" }}>{recentItems.length > 0 ? "—" : "0"}</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px" }}>{totalCount}</div>
               </div>
               <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
                 <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Pending Review</div>
@@ -614,8 +616,8 @@ function StudioPageInner() {
                 {reviewCount > 0 && <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 3 }}>Needs your approval</div>}
               </div>
               <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Published</div>
-                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px", color: "var(--success, #22d18a)" }}>—</div>
+                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Completed</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px", color: "var(--success, #22d18a)" }}>{successCount}</div>
               </div>
               <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
                 <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Credit Spent</div>
