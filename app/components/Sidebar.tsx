@@ -87,7 +87,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex flex-col h-full" style={{ background: "var(--surface2)", borderRight: "1px solid var(--border)" }}>
+    <aside className="flex flex-col h-full" style={{ background: "var(--surface2)", borderRight: "1px solid var(--border)", position: "relative", overflow: "hidden" }}>
       {/* Logo */}
       <div style={{ padding: "16px 14px 12px", borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2.5">

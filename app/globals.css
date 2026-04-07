@@ -39,28 +39,64 @@
   --glass-border: rgba(255,255,255,0.08);
 }
 
-/* ── Aurora background mesh ─── */
+/* ── Animated aurora background ─── */
 body::before {
   content: '';
   position: fixed;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
+  inset: 0;
   background:
-    radial-gradient(ellipse 40% 30% at 20% 20%, rgba(123,97,255,0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 35% 25% at 80% 30%, rgba(255,140,66,0.06) 0%, transparent 60%),
-    radial-gradient(ellipse 30% 35% at 50% 80%, rgba(0,221,181,0.05) 0%, transparent 60%);
-  animation: auroraDrift 25s ease-in-out infinite alternate;
+    radial-gradient(ellipse 60% 40% at 15% 15%, rgba(123,97,255,0.12) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 35% at 85% 25%, rgba(255,140,66,0.10) 0%, transparent 55%),
+    radial-gradient(ellipse 45% 50% at 50% 85%, rgba(0,221,181,0.08) 0%, transparent 55%),
+    radial-gradient(ellipse 35% 25% at 65% 55%, rgba(255,92,138,0.06) 0%, transparent 50%);
+  animation: auroraPulse 12s ease-in-out infinite alternate;
   pointer-events: none;
   z-index: -1;
 }
 
-@keyframes auroraDrift {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  33%  { transform: translate(-3%, 2%) rotate(1deg); }
-  66%  { transform: translate(2%, -2%) rotate(-0.5deg); }
-  100% { transform: translate(-1%, 1%) rotate(0.5deg); }
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 40% 30% at 70% 70%, rgba(123,97,255,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 40% at 20% 60%, rgba(255,179,71,0.06) 0%, transparent 50%);
+  animation: auroraPulse2 18s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes auroraPulse {
+  0%   { opacity: 0.7; transform: scale(1) translate(0, 0); }
+  25%  { opacity: 1;   transform: scale(1.02) translate(-1%, 1%); }
+  50%  { opacity: 0.8; transform: scale(0.98) translate(1%, -1%); }
+  75%  { opacity: 1;   transform: scale(1.01) translate(-0.5%, -0.5%); }
+  100% { opacity: 0.9; transform: scale(1) translate(0.5%, 0.5%); }
+}
+
+@keyframes auroraPulse2 {
+  0%   { opacity: 0.5; transform: rotate(0deg) scale(1); }
+  50%  { opacity: 0.8; transform: rotate(2deg) scale(1.05); }
+  100% { opacity: 0.5; transform: rotate(-1deg) scale(0.98); }
+}
+
+/* ── Floating particles (sidebar accent) ─── */
+aside::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background:
+    radial-gradient(circle 80px at 30% 20%, rgba(123,97,255,0.08) 0%, transparent 70%),
+    radial-gradient(circle 60px at 70% 70%, rgba(255,140,66,0.06) 0%, transparent 70%);
+  animation: sidebarGlow 8s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes sidebarGlow {
+  0%   { opacity: 0.4; }
+  50%  { opacity: 0.8; }
+  100% { opacity: 0.4; }
 }
 
 /* ── Scrollbar ─── */
@@ -305,3 +341,156 @@ audio::-webkit-media-controls-panel { background: var(--surface2); }
 .stagger-2 { animation-delay: 0.10s; opacity: 0; }
 .stagger-3 { animation-delay: 0.15s; opacity: 0; }
 .stagger-4 { animation-delay: 0.20s; opacity: 0; }
+
+/* ── Rainbow border glow on hover ─── */
+.rainbow-border {
+  position: relative;
+  overflow: hidden;
+}
+.rainbow-border::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: conic-gradient(
+    from 0deg,
+    var(--accent) 0%,
+    var(--accent-warm) 25%,
+    var(--accent3) 50%,
+    var(--accent2) 75%,
+    var(--accent) 100%
+  );
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s;
+  animation: borderSpin 4s linear infinite;
+}
+.rainbow-border:hover::before { opacity: 1; }
+.rainbow-border::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: var(--surface2);
+  border-radius: inherit;
+  z-index: -1;
+}
+@keyframes borderSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Breathing glow for active states ─── */
+.breathe {
+  animation: breatheGlow 3s ease-in-out infinite;
+}
+@keyframes breatheGlow {
+  0%, 100% { box-shadow: 0 0 5px rgba(123,97,255,0.1); }
+  50%      { box-shadow: 0 0 20px rgba(123,97,255,0.25), 0 0 40px rgba(123,97,255,0.1); }
+}
+
+/* ── Link hover underline animation ─── */
+a[href]:not(.btn):not([class*="rounded"]) {
+  position: relative;
+}
+a[href]:not(.btn):not([class*="rounded"])::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: var(--accent);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+a[href]:not(.btn):not([class*="rounded"]):hover::after {
+  width: 100%;
+}
+
+/* ── Floating action animation ─── */
+.float {
+  animation: float 6s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+
+/* ── Gradient text shimmer ─── */
+.text-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--text) 0%,
+    var(--accent) 25%,
+    var(--accent-warm) 50%,
+    var(--accent3) 75%,
+    var(--text) 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: textShimmer 6s linear infinite;
+}
+@keyframes textShimmer {
+  0% { background-position: 300% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ── Card grid entrance ─── */
+.grid > * {
+  animation: cardEnter 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+.grid > *:nth-child(1) { animation-delay: 0.02s; }
+.grid > *:nth-child(2) { animation-delay: 0.05s; }
+.grid > *:nth-child(3) { animation-delay: 0.08s; }
+.grid > *:nth-child(4) { animation-delay: 0.11s; }
+.grid > *:nth-child(5) { animation-delay: 0.14s; }
+.grid > *:nth-child(6) { animation-delay: 0.17s; }
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(12px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Input focus glow animation ─── */
+input:focus, textarea:focus, select:focus {
+  animation: focusPulse 0.3s ease-out;
+}
+@keyframes focusPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(123,97,255,0.3); }
+  100% { box-shadow: 0 0 0 3px rgba(123,97,255,0.12), 0 0 16px rgba(123,97,255,0.06); }
+}
+
+/* ── Notification badge bounce ─── */
+.badge-bounce {
+  animation: badgeBounce 2s ease-in-out infinite;
+}
+@keyframes badgeBounce {
+  0%, 100% { transform: scale(1); }
+  10%      { transform: scale(1.2); }
+  20%      { transform: scale(1); }
+}
+
+/* ── Tooltip on hover ─── */
+[title] {
+  position: relative;
+}
+[title]:hover::before {
+  content: attr(title);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface4);
+  color: var(--text);
+  font-size: 10px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 999;
+  animation: tooltipIn 0.15s ease-out;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+}
+@keyframes tooltipIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(4px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
