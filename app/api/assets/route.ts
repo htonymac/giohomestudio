@@ -84,6 +84,78 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Auto-seed trimmed/mixed music
+  const hasTrimmed = assets.some(a => a.source === "auto_trimmed");
+  if (!hasTrimmed) {
+    for (const subdir of ["trimmed", "mixed", "generated"]) {
+      const dir = path.resolve(env.storagePath, "music", subdir);
+      if (fs.existsSync(dir)) {
+        const files = fs.readdirSync(dir).filter(f => f.endsWith(".mp3") || f.endsWith(".wav"));
+        for (const f of files) {
+          const name = f.replace(/\.(mp3|wav)$/, "").replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+          assets.push({
+            id: `${subdir}_${f}`,
+            type: "music",
+            name: `${subdir === "trimmed" ? "Trimmed" : subdir === "mixed" ? "Mixed" : "AI"}: ${name}`,
+            description: `${subdir} music track`,
+            filePath: path.join(dir, f),
+            tags: ["music", subdir],
+            source: `auto_${subdir}`,
+            createdAt: new Date().toISOString(),
+          });
+        }
+      }
+    }
+    if (assets.some(a => a.source?.startsWith("auto_"))) saveAssets(assets);
+  }
+
+  // Auto-seed generated images
+  const hasGenImages = assets.some(a => a.source === "auto_gen_images");
+  if (!hasGenImages) {
+    const imgDir = path.resolve(env.storagePath, "images");
+    if (fs.existsSync(imgDir)) {
+      const files = fs.readdirSync(imgDir).filter(f => (f.endsWith(".png") || f.endsWith(".jpg")) && f.startsWith("gen_"));
+      for (const f of files) {
+        assets.push({
+          id: `genimg_${f}`,
+          type: "image",
+          name: f.replace(/\.(png|jpg)$/, "").replace(/gen_/, "Generated "),
+          description: "AI-generated image",
+          filePath: path.join(imgDir, f),
+          tags: ["image", "generated"],
+          source: "auto_gen_images",
+          createdAt: new Date().toISOString(),
+        });
+      }
+      if (files.length > 0) saveAssets(assets);
+    }
+  }
+
+  // Auto-seed merged videos
+  const hasMerged = assets.some(a => a.source === "auto_merged");
+  if (!hasMerged) {
+    const mergedDir = path.resolve(env.storagePath, "merged");
+    if (fs.existsSync(mergedDir)) {
+      const files = fs.readdirSync(mergedDir).filter(f => f.endsWith(".mp4")).slice(0, 20); // limit to 20 most recent
+      for (const f of files) {
+        assets.push({
+          id: `merged_${f}`,
+          type: "video",
+          name: f.replace(/\.mp4$/, "").replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+          description: "Rendered video",
+          filePath: path.join(mergedDir, f),
+          tags: ["video", "rendered"],
+          source: "auto_merged",
+          createdAt: new Date().toISOString(),
+        });
+      }
+      if (files.length > 0) saveAssets(assets);
+    }
+  }
+
+  // Sort by newest first
+  assets.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   if (type) assets = assets.filter(a => a.type === type);
   if (search) assets = assets.filter(a =>
     a.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -119,4 +191,18 @@ export async function POST(req: NextRequest) {
   saveAssets(assets);
 
   return NextResponse.json(asset, { status: 201 });
+}
+
+export async function DELETE(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const assets = loadAssets();
+  const filtered = assets.filter(a => a.id !== id);
+  if (filtered.length === assets.length) {
+    return NextResponse.json({ error: "Asset not found" }, { status: 404 });
+  }
+  saveAssets(filtered);
+  return NextResponse.json({ ok: true });
 }

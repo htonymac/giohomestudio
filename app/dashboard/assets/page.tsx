@@ -115,6 +115,26 @@ export default function AssetsPage() {
                     ))}
                   </div>
                 )}
+                <div className="flex gap-1 mt-2">
+                  <a
+                    href={`/dashboard?mode=image_to_video&ref=${encodeURIComponent(a.filePath)}`}
+                    className="flex-1 text-center text-[8px] py-1 rounded bg-[rgba(123,97,255,0.15)] text-[#a89bff] border border-[rgba(123,97,255,0.25)] hover:bg-[rgba(123,97,255,0.25)]"
+                    style={{ textDecoration: "none" }}
+                  >
+                    Use
+                  </a>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!confirm("Delete this asset?")) return;
+                      await fetch(`/api/assets?id=${a.id}`, { method: "DELETE" });
+                      load();
+                    }}
+                    className="text-[8px] py-1 px-2 rounded text-[var(--danger)] hover:bg-[rgba(255,87,87,0.1)]"
+                  >
+                    Del
+                  </button>
+                </div>
               </div>
             </div>
           ))}
