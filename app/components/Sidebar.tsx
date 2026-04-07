@@ -12,6 +12,7 @@ const NAV = [
       { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "▲" },
       { href: "/dashboard/video-tools",   label: "Video Tools",      icon: "✂" },
       { href: "/dashboard/video-trimmer", label: "Video Trimmer (AI)", icon: "🎬" },
+      { href: "/dashboard/models",        label: "AI Models",        icon: "◆" },
     ],
   },
   {
