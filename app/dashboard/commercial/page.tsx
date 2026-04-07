@@ -1423,7 +1423,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                   polishState.error ? (
                     <div className="border border-orange-800/40 rounded-lg p-2.5 bg-orange-950/20 flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[10px] text-orange-400 font-semibold">AI not configured</p>
+                        <p className="text-[10px] text-orange-400 font-semibold">Polish failed</p>
                         <p className="text-[10px] text-orange-300/70 mt-0.5">{polishState.error}</p>
                         <a href="/dashboard/settings" className="text-[10px] text-[#7c5cfc] underline mt-1 block">⚙️ Add API key in Settings →</a>
                       </div>
@@ -1541,7 +1541,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                   polishState.error ? (
                     <div className="border border-orange-800/40 rounded-lg p-2.5 bg-orange-950/20 flex items-start justify-between gap-2">
                       <div>
-                        <p className="text-[10px] text-orange-400 font-semibold">AI not configured</p>
+                        <p className="text-[10px] text-orange-400 font-semibold">Polish failed</p>
                         <p className="text-[10px] text-orange-300/70 mt-0.5">{polishState.error}</p>
                         <a href="/dashboard/settings" className="text-[10px] text-[#7c5cfc] underline mt-1 block">⚙️ Add API key in Settings →</a>
                       </div>
