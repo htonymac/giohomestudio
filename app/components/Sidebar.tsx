@@ -9,6 +9,7 @@ const NAV = [
     group: "Create",
     items: [
       { href: "/dashboard",              label: "Home + Studio",    icon: "✦" },
+      { href: "/dashboard/templates",    label: "Templates",        icon: "🚀" },
       { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "📣" },
     ],
   },
