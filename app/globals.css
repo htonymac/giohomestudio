@@ -2,84 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── GioHomeStudio base styles ──────────────────────────────── */
+/* ── GioHomeStudio Design System (from GHS_Mock_v2) ─────────── */
 
-/* Smooth scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #2a2a40;
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #3a3a60;
+:root {
+  --bg: #070710;
+  --surface: #0e0e1a;
+  --surface2: #141422;
+  --surface3: #1c1c2e;
+  --surface4: #232338;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --accent: #6c63ff;
+  --accent-glow: rgba(108,99,255,0.25);
+  --accent2: #ff6b9d;
+  --accent3: #00e5c3;
+  --accent4: #ffa843;
+  --text: #eeeeff;
+  --text2: #8888aa;
+  --text3: #44445a;
+  --success: #22d18a;
+  --warning: #f5c842;
+  --danger: #ff5757;
+  --info: #4db8ff;
 }
 
-/* Better select styling */
+/* ── Scrollbar ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface4); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+/* ── Inputs ─── */
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236060a0' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%238888aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
   padding-right: 28px;
 }
 
-/* Focus ring */
 input:focus, textarea:focus, select:focus {
   outline: none;
-  border-color: #7c5cfc !important;
-  box-shadow: 0 0 0 1px rgba(124, 92, 252, 0.2);
+  border-color: rgba(108,99,255,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
 }
 
-/* Button press effect */
-button:active:not(:disabled) {
-  transform: scale(0.98);
-}
+/* ── Interactions ─── */
+button:active:not(:disabled) { transform: scale(0.98); }
+tbody tr { transition: background-color 0.1s; }
 
-/* Card hover effect */
-.hover-card {
-  transition: border-color 0.15s, box-shadow 0.15s;
-}
-.hover-card:hover {
-  border-color: rgba(124, 92, 252, 0.4);
-  box-shadow: 0 0 20px rgba(124, 92, 252, 0.05);
-}
-
-/* Smooth page transitions */
-main {
-  animation: fadeIn 0.15s ease-out;
-}
-@keyframes fadeIn {
-  from { opacity: 0.8; transform: translateY(4px); }
+/* ── Page transition ─── */
+main { animation: pageIn 0.12s ease-out; }
+@keyframes pageIn {
+  from { opacity: 0.85; transform: translateY(2px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Badge pulse for review count */
-@keyframes pulse-soft {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* ── Audio ─── */
+audio { height: 32px; border-radius: 8px; }
+audio::-webkit-media-controls-panel { background: var(--surface2); }
+
+/* ── Utilities ─── */
+.text-gradient {
+  background: linear-gradient(135deg, #fff 0%, #c8c5ff 50%, var(--accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-/* Status dot animation */
-.animate-pulse-slow {
-  animation: pulse-soft 2s ease-in-out infinite;
-}
-
-/* Table row hover */
-tbody tr {
-  transition: background-color 0.1s;
-}
-
-/* Audio player styling */
-audio {
-  height: 32px;
-  border-radius: 8px;
-}
-audio::-webkit-media-controls-panel {
-  background: #12121e;
-}
+.glow-accent { box-shadow: 0 0 20px var(--accent-glow); }

@@ -87,28 +87,28 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const pathname = usePathname();
 
   return (
-    <aside className="flex flex-col h-full" style={{ background: "#12121a", borderRight: "1px solid #2a2a40" }}>
+    <aside className="flex flex-col h-full" style={{ background: "var(--surface2)", borderRight: "1px solid var(--border)" }}>
       {/* Logo */}
-      <div className="px-4 py-5 border-b" style={{ borderColor: "#2a2a40" }}>
+      <div style={{ padding: "16px 14px 12px", borderBottom: "1px solid var(--border)" }}>
         <div className="flex items-center gap-2.5">
           <div
-            className="flex items-center justify-center text-sm font-bold text-white rounded-lg shrink-0"
-            style={{ width: 28, height: 28, background: "linear-gradient(135deg, #7c5cfc, #fc5c7d)" }}
+            className="flex items-center justify-center font-bold text-white shrink-0"
+            style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, var(--accent), var(--accent2))", fontSize: 15 }}
           >
             G
           </div>
           <div>
-            <p className="font-bold text-white tracking-tight leading-none" style={{ fontSize: 13 }}>GioHomeStudio</p>
-            <p style={{ fontSize: 10, color: "#5a5a7a", marginTop: 2 }}>Content Studio</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.3px", lineHeight: 1.2 }}>GioHomeStudio</p>
+            <p style={{ fontSize: 10, color: "var(--text3)", fontWeight: 400 }}>Content Studio</p>
           </div>
         </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 py-4 px-3 overflow-y-auto">
+      <nav className="flex-1 overflow-y-auto" style={{ padding: "14px 8px 4px" }}>
         {NAV.map((group) => (
-          <div key={group.group} className="mb-5">
-            <p className="px-3 mb-1.5 font-semibold uppercase tracking-widest" style={{ fontSize: 10, color: "#5a5a7a" }}>
+          <div key={group.group} style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: "var(--text3)", padding: "0 6px", marginBottom: 4 }}>
               {group.group}
             </p>
             {group.items.map((item) => {
@@ -117,20 +117,22 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg mb-0.5 text-sm transition-all"
                   style={{
-                    color: active ? "#7c5cfc" : "#9090b0",
-                    background: active ? "rgba(124,92,252,0.12)" : "transparent",
-                    fontWeight: active ? 500 : 400,
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "7px 10px", borderRadius: 8, marginBottom: 1,
+                    fontSize: "12.5px", fontWeight: active ? 500 : 450,
+                    color: active ? "#c0bcff" : "var(--text2)",
+                    background: active ? "rgba(108,99,255,0.15)" : "transparent",
+                    position: "relative", transition: "all 0.15s",
                   }}
                 >
+                  {active && (
+                    <span style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 2, borderRadius: "0 2px 2px 0", background: "var(--accent)" }} />
+                  )}
                   <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{item.icon}</span>
-                  <span className="flex-1">{item.label}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && reviewCount ? (
-                    <span
-                      className="text-white font-semibold rounded-full"
-                      style={{ fontSize: 10, background: "#7c5cfc", minWidth: 18, textAlign: "center", padding: "1px 6px" }}
-                    >
+                    <span style={{ fontSize: 9, fontWeight: 700, background: "var(--accent2)", color: "white", padding: "1px 5px", borderRadius: 100 }}>
                       {reviewCount}
                     </span>
                   ) : null}
@@ -142,7 +144,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
       </nav>
 
       {/* Footer */}
-      <div className="px-4 py-3 border-t" style={{ borderColor: "#2a2a40" }}>
+      <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)", marginTop: "auto" }}>
         <LLMStatus />
       </div>
     </aside>
