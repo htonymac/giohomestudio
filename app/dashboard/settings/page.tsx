@@ -244,9 +244,9 @@ export default function SettingsPage() {
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">LLM Settings</h1>
-        <p className="text-sm text-[#6060a0] mt-1">
-          Configure which AI providers power GioHomeStudio. Keys are stored locally in <code className="text-[#9090c0] text-xs">storage/llm-settings.json</code> — never shared.
+        <h1 className="text-2xl font-bold text-white">⚙️ Settings</h1>
+        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>
+          Configure AI providers, publishing connections, and service keys
         </p>
       </div>
 
