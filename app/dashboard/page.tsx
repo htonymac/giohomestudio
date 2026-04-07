@@ -958,13 +958,43 @@ function StudioPageInner() {
               <div style={{ flex: 1, height: 1, background: "#1a3a1a" }} />
             </div>
 
-            {/* Pick from library */}
-            <button
-              onClick={() => setAssetPickerType("image")}
-              className="w-full mb-2 py-2 rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 text-xs transition-colors"
-            >
-              📦 Pick from Asset Library
-            </button>
+            {/* 4 source options in a grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+              <button
+                onClick={() => setAssetPickerType("image")}
+                style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", color: "var(--text2)", fontSize: 11, textAlign: "center", cursor: "pointer" }}
+              >
+                📦 Pick from Library
+              </button>
+              <button
+                onClick={async () => {
+                  const prompt = window.prompt("Describe the character or scene to generate:");
+                  if (!prompt) return;
+                  const btn = document.activeElement as HTMLButtonElement;
+                  btn.textContent = "🧠 Generating...";
+                  btn.disabled = true;
+                  try {
+                    const res = await fetch("/api/generation/image", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ prompt: prompt + ", cinematic character portrait, photorealistic, 8k" }),
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.imagePath) {
+                      setI2vLocalUpload({ name: "AI Generated", path: data.imagePath });
+                      setReferenceImageUrl(data.imagePath);
+                    } else {
+                      alert(data.error ?? "Generation failed");
+                    }
+                  } catch { alert("Network error"); }
+                  btn.textContent = "🧠 Generate from Text";
+                  btn.disabled = false;
+                }}
+                style={{ padding: "10px 12px", borderRadius: 8, background: "rgba(108,99,255,0.15)", border: "1px solid rgba(108,99,255,0.3)", color: "#a09bff", fontSize: 11, textAlign: "center", cursor: "pointer" }}
+              >
+                🧠 Generate from Text
+              </button>
+            </div>
 
             {/* One-time local upload */}
             {i2vLocalUpload ? (
@@ -1061,10 +1091,10 @@ function StudioPageInner() {
                 </select>
               </div>
             )}
-            {outputMode === "text_to_video" && (
+            {outputMode !== "text_to_audio" && (
               <>
                 <div>
-                  <label className={labelCls} title="Runway and Kling are real AI video APIs. Auto selects based on VIDEO_PROVIDER env var.">Video provider</label>
+                  <label className={labelCls} title="Which AI model generates your video. Auto selects cheapest available.">AI Model</label>
                   <select value={videoProvider} onChange={(e) => setVideoProvider(e.target.value as string)} className={selectCls}>
                     <option value="">Auto (cheapest available)</option>
                     <option value="segmind">Segmind Pruna ($0.005/clip)</option>

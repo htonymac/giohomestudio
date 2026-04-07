@@ -605,6 +605,14 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {v.imageUrl && (
+            <a
+              href={`/dashboard?mode=image_to_video&characterId=${v.id}`}
+              style={{ background: "var(--accent, #6c63ff)", color: "white", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+            >
+              🎬 Use in Studio
+            </a>
+          )}
           <a
             href={`/dashboard/character-voices/${v.id}`}
             style={{ background: "#1a1a2e", color: "#7c5cfc", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}

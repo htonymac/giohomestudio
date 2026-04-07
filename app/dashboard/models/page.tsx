@@ -175,13 +175,22 @@ export default function ModelsPage() {
               )}
 
               {m.is_active && (
-                <button
-                  disabled={generating === m.id}
-                  onClick={() => testGenerate(m.id, m.type)}
-                  className="w-full py-1.5 rounded-lg text-[10px] font-medium bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 transition-colors"
-                >
-                  {generating === m.id ? "Generating..." : `Test ${m.type === "video" ? "Video" : "Image"}`}
-                </button>
+                <div className="flex gap-1.5">
+                  <a
+                    href={`/dashboard?mode=${m.type === "video" ? "text_to_video" : "text_to_video"}&provider=${m.provider_name}`}
+                    className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold text-center transition-colors"
+                    style={{ background: "var(--accent, #6c63ff)", color: "white" }}
+                  >
+                    Use in Studio →
+                  </a>
+                  <button
+                    disabled={generating === m.id}
+                    onClick={() => testGenerate(m.id, m.type)}
+                    className="py-1.5 px-3 rounded-lg text-[10px] font-medium bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 transition-colors"
+                  >
+                    {generating === m.id ? "..." : "Test"}
+                  </button>
+                </div>
               )}
 
               {genResult?.model === m.id && (
