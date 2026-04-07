@@ -303,19 +303,58 @@ function TextLayerEditor({
           <option value="top">Top</option>
           <option value="center">Center</option>
           <option value="bottom">Bottom</option>
-          <option value="free">Free position</option>
+          <option value="free">Drag / Custom</option>
         </select>
       </FieldRow>
+      {/* Visual drag position preview */}
       {layer.position.zone === "free" && (
-        <FieldRow label="X / Y (%)">
-          <input type="number" min={0} max={100} value={layer.position.x ?? 50}
-            onChange={e => onPositionChange({ ...layer.position, x: Number(e.target.value) })}
-            style={{ ...inputStyle, width: 60 }} placeholder="X" />
-          <span style={{ color: "#888", margin: "0 4px" }}>/</span>
-          <input type="number" min={0} max={100} value={layer.position.y ?? 50}
-            onChange={e => onPositionChange({ ...layer.position, y: Number(e.target.value) })}
-            style={{ ...inputStyle, width: 60 }} placeholder="Y" />
-        </FieldRow>
+        <div>
+          <div
+            style={{
+              width: "100%", height: 120, background: "#080818", border: "1px solid #2a2a40",
+              borderRadius: 6, position: "relative", cursor: "crosshair", overflow: "hidden",
+            }}
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const x = Math.round(((e.clientX - rect.left) / rect.width) * 100);
+              const y = Math.round(((e.clientY - rect.top) / rect.height) * 100);
+              onPositionChange({ zone: "free", x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+            }}
+          >
+            {/* Safe zone guides */}
+            <div style={{ position: "absolute", inset: "10%", border: "1px dashed #1a1a2e", borderRadius: 2 }} />
+            {/* Current position marker */}
+            <div style={{
+              position: "absolute",
+              left: `${layer.position.x ?? 50}%`,
+              top: `${layer.position.y ?? 50}%`,
+              transform: "translate(-50%, -50%)",
+              background: "#7c5cfc",
+              color: "white",
+              fontSize: 8,
+              padding: "2px 6px",
+              borderRadius: 4,
+              whiteSpace: "nowrap",
+              pointerEvents: "none",
+              boxShadow: "0 0 8px rgba(124,92,252,0.4)",
+            }}>
+              {layer.text.slice(0, 15)}{layer.text.length > 15 ? "…" : ""}
+            </div>
+            {/* Grid lines */}
+            <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "#1a1a2e" }} />
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "#1a1a2e" }} />
+          </div>
+          <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+            <input type="number" min={0} max={100} value={layer.position.x ?? 50}
+              onChange={e => onPositionChange({ ...layer.position, x: Number(e.target.value) })}
+              style={{ ...inputStyle, width: 55, fontSize: 10 }} />
+            <span style={{ color: "#3a3a5a", fontSize: 10, lineHeight: "28px" }}>x</span>
+            <input type="number" min={0} max={100} value={layer.position.y ?? 50}
+              onChange={e => onPositionChange({ ...layer.position, y: Number(e.target.value) })}
+              style={{ ...inputStyle, width: 55, fontSize: 10 }} />
+            <span style={{ color: "#3a3a5a", fontSize: 10, lineHeight: "28px" }}>%</span>
+          </div>
+        </div>
       )}
       <FieldRow label="Font size">
         <input type="number" min={12} max={200} value={layer.style.fontSize}
