@@ -93,7 +93,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
         <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center font-bold text-white shrink-0"
-            style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, var(--accent), var(--accent2))", fontSize: 15 }}
+            style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg, var(--accent), var(--accent-warm))", fontSize: 15, boxShadow: "0 2px 12px rgba(123,97,255,0.3)" }}
           >
             G
           </div>
