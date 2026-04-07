@@ -594,7 +594,7 @@ function StudioPageInner() {
       {/* ── HOME DASHBOARD ──────────────────────────────── */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-white">GioHomeStudio</h1>
+          <h1 className="text-2xl font-bold text-shimmer">GioHomeStudio</h1>
           <button onClick={()=>setShowHome(h=>!h)} className="text-[10px] text-[#6060a0] hover:text-white">
             {showHome ? "Hide dashboard" : "Show dashboard"}
           </button>
@@ -689,14 +689,17 @@ function StudioPageInner() {
       </div>
 
       {/* ── STUDIO ──────────────────────────────────────── */}
-      <h2 className="text-lg font-bold text-white mb-1">Studio</h2>
+      <div className="flex items-center gap-3 mb-3">
+        <h2 className="text-lg font-bold text-white">Studio</h2>
+        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(123,97,255,0.15)", color: "#a89bff", border: "1px solid rgba(123,97,255,0.25)" }}>Command Center</span>
+      </div>
 
       {/* ── Output mode selector ──────────────────────────── */}
       <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 11, color: "#3a3a5a", textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, marginBottom: 8 }}>
-          Output Mode
+        <p style={{ fontSize: 10, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "1.2px", fontWeight: 600, marginBottom: 8 }}>
+          What do you want to create?
         </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
           {OUTPUT_MODES.map(m => {
             const active = outputMode === m.id;
             return (
@@ -1721,16 +1724,22 @@ function StudioPageInner() {
           <button
             onClick={handleGenerate}
             disabled={status === "loading" || !input.trim()}
-            className="flex-1 text-white py-3 rounded-lg font-medium transition-colors text-sm"
-            style={{ background: "linear-gradient(135deg, #7c5cfc, #5a3db8)" }}
+            className="flex-1 text-white py-3 rounded-xl font-semibold text-sm breathe"
+            style={{
+              background: "linear-gradient(135deg, var(--accent), var(--accent-warm))",
+              boxShadow: "0 4px 20px rgba(123,97,255,0.3)",
+              letterSpacing: "0.3px",
+            }}
           >
             {status === "loading"
-              ? "Generating…"
+              ? "✨ Generating…"
               : reviseFromId
-              ? "Generate Revised Version"
+              ? "🔄 Generate Revised Version"
+              : outputMode === "text_to_image"
+              ? "🖼️ Generate Image"
               : outputMode === "text_to_audio"
-              ? "Generate Audio"
-              : "Assemble in Auto Mode"}
+              ? "🎙 Generate Audio"
+              : "🚀 Generate"}
           </button>
         </div>
 
