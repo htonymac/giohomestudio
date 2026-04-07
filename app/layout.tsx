@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Sidebar from "./components/Sidebar";
 import SearchBar from "./components/SearchBar";
+import CommandPalette from "./components/CommandPalette";
 
 export const metadata: Metadata = {
   title: "GioHomeStudio",
@@ -36,6 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </main>
           </div>
         </div>
+        <CommandPalette />
       </body>
     </html>
   );
