@@ -577,65 +577,88 @@ function StudioPageInner() {
 
         {showHome && (
           <div className="space-y-3 mb-6">
-            {/* Quick actions */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <button onClick={()=>{setOutputMode("text_to_video"); setShowHome(false);}} className="p-3 rounded-xl bg-[#7c5cfc]/10 border border-[#7c5cfc]/30 text-left hover:border-[#7c5cfc] transition-colors">
-                <p className="text-sm font-semibold text-white">🎬 New Video</p>
-                <p className="text-[9px] text-[#6060a0] mt-0.5">Text → AI Video</p>
-              </button>
-              <a href="/dashboard/commercial" className="p-3 rounded-xl bg-orange-900/10 border border-orange-800/30 text-left hover:border-orange-600 transition-colors block">
-                <p className="text-sm font-semibold text-white">📣 New Ad</p>
-                <p className="text-[9px] text-[#6060a0] mt-0.5">Commercial Maker</p>
-              </a>
-              <button onClick={()=>{setOutputMode("text_to_audio"); setShowHome(false);}} className="p-3 rounded-xl bg-pink-900/10 border border-pink-800/30 text-left hover:border-pink-600 transition-colors">
-                <p className="text-sm font-semibold text-white">🎙 Narration</p>
-                <p className="text-[9px] text-[#6060a0] mt-0.5">Text → Audio</p>
-              </button>
-              <button onClick={()=>{setOutputMode("image_to_video"); setShowHome(false);}} className="p-3 rounded-xl bg-green-900/10 border border-green-800/30 text-left hover:border-green-600 transition-colors">
-                <p className="text-sm font-semibold text-white">🎭 Animate Actor</p>
-                <p className="text-[9px] text-[#6060a0] mt-0.5">Image → Video</p>
-              </button>
+            {/* Stats row */}
+            <div className="grid grid-cols-4 gap-2">
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Total Content</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px" }}>{recentItems.length > 0 ? "—" : "0"}</div>
+              </div>
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Pending Review</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px", color: reviewCount > 0 ? "var(--warning, #f5c842)" : "var(--text)" }}>{reviewCount}</div>
+                {reviewCount > 0 && <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 3 }}>Needs your approval</div>}
+              </div>
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Published</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px", color: "var(--success, #22d18a)" }}>—</div>
+              </div>
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 10, color: "var(--text2)", textTransform: "uppercase", letterSpacing: "0.8px", marginBottom: 6 }}>Credit Spent</div>
+                <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-1px" }}>$0.00</div>
+                <div style={{ fontSize: 11, color: "var(--text2)", marginTop: 3 }}>Today</div>
+              </div>
             </div>
 
-            {/* Status bar */}
-            <div className="flex gap-3">
-              {reviewCount > 0 && (
-                <a href="/dashboard/review" className="flex-1 p-3 rounded-xl bg-orange-900/15 border border-orange-800/30 hover:border-orange-600 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs text-orange-400 font-medium">{reviewCount} pending review</p>
-                    <span className="text-[10px] text-orange-500">View →</span>
-                  </div>
-                </a>
-              )}
-              <a href="/dashboard/assets" className="flex-1 p-3 rounded-xl bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/40 transition-colors">
-                <p className="text-xs text-[#6060a0]">📦 Asset Library</p>
-              </a>
-              <a href="/dashboard/models" className="flex-1 p-3 rounded-xl bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/40 transition-colors">
-                <p className="text-xs text-[#6060a0]">◆ AI Models</p>
-              </a>
-            </div>
+            {/* Quick Start + Recent — two columns */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Quick Start */}
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 7 }}>⚡ Quick Start</div>
+                <div style={{ fontSize: 11, color: "var(--text2)", marginBottom: 12 }}>Jump straight into creating</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <a href="/dashboard/commercial" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--accent, #6c63ff)", color: "white", textDecoration: "none", textAlign: "center" }}>🎬 Make a Commercial</a>
+                  <button onClick={() => { setOutputMode("text_to_video"); setShowHome(false); }} style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--surface3)", color: "var(--text2)", border: "1px solid var(--border)" }}>✨ Free Mode — Describe Anything</button>
+                  <a href="/dashboard/music-studio" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(0,229,195,0.12)", color: "var(--accent3, #00e5c3)", border: "1px solid rgba(0,229,195,0.25)", textDecoration: "none", textAlign: "center" }}>🎵 Open Music Studio</a>
+                </div>
+                {reviewCount > 0 && (
+                  <a href="/dashboard/review" style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 12, padding: "8px 12px", borderRadius: 8, background: "rgba(245,200,66,0.08)", border: "1px solid rgba(245,200,66,0.2)", fontSize: 12, color: "var(--warning, #f5c842)", textDecoration: "none" }}>
+                    💡 {reviewCount} items in Review Queue waiting for approval →
+                  </a>
+                )}
+              </div>
 
-            {/* Recent work */}
-            {recentItems.length > 0 && (
-              <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-3">
-                <p className="text-[10px] text-[#6060a0] font-semibold uppercase tracking-wider mb-2">Recent Work</p>
-                <div className="space-y-1">
+              {/* Recent Projects */}
+              <div style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRadius: 12, padding: 16 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4, display: "flex", alignItems: "center", gap: 7 }}>🕐 Recent Projects</div>
+                <div style={{ fontSize: 11, color: "var(--text2)", marginBottom: 12 }}>Pick up where you left off</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {recentItems.slice(0, 4).map(item => (
-                    <a key={item.id} href={`/dashboard/content/${item.id}`} className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[#1a1a2e] transition-colors">
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        item.status === "IN_REVIEW" ? "bg-orange-400" :
-                        item.status === "APPROVED" ? "bg-green-400" :
-                        item.status === "FAILED" ? "bg-red-400" :
-                        "bg-[#7c5cfc]"
-                      }`} />
-                      <span className="text-xs text-gray-300 truncate flex-1">{item.originalInput?.slice(0, 50)}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${item.mode === "COMMERCIAL" ? "bg-amber-900/30 text-amber-400" : "bg-indigo-900/30 text-indigo-400"}`}>{item.mode}</span>
-                      <span className="text-[9px] text-[#404060]">{new Date(item.createdAt).toLocaleDateString()}</span>
+                    <a key={item.id} href={`/dashboard/content/${item.id}`} style={{ display: "flex", alignItems: "center", gap: 8, padding: 8, borderRadius: 7, background: "var(--surface3)", textDecoration: "none", color: "var(--text)" }}>
+                      <span style={{ fontSize: 16 }}>{item.mode === "COMMERCIAL" ? "📣" : "🎬"}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.originalInput?.slice(0, 40)}</div>
+                        <div style={{ fontSize: 10, color: "var(--text3)" }}>{item.mode} · {new Date(item.createdAt).toLocaleDateString()}</div>
+                      </div>
+                      <span style={{
+                        fontSize: 10, fontWeight: 600, padding: "2px 8px", borderRadius: 100, whiteSpace: "nowrap",
+                        background: item.status === "IN_REVIEW" ? "rgba(255,168,67,0.15)" : item.status === "APPROVED" ? "rgba(34,209,138,0.12)" : item.status === "FAILED" ? "rgba(255,87,87,0.12)" : "rgba(108,99,255,0.15)",
+                        color: item.status === "IN_REVIEW" ? "#ffbb70" : item.status === "APPROVED" ? "var(--success)" : item.status === "FAILED" ? "var(--danger)" : "#a09bff",
+                        border: `1px solid ${item.status === "IN_REVIEW" ? "rgba(255,168,67,0.25)" : item.status === "APPROVED" ? "rgba(34,209,138,0.2)" : item.status === "FAILED" ? "rgba(255,87,87,0.2)" : "rgba(108,99,255,0.25)"}`,
+                      }}>{item.status === "IN_REVIEW" ? "Review" : item.status === "APPROVED" ? "Done" : item.status === "FAILED" ? "Failed" : item.status}</span>
                     </a>
                   ))}
+                  {recentItems.length === 0 && (
+                    <div style={{ textAlign: "center", padding: "20px 0", color: "var(--text3)", fontSize: 12 }}>No projects yet. Start creating!</div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
+
+            {/* Quick links */}
+            <div className="grid grid-cols-4 gap-2">
+              <button onClick={() => { setOutputMode("image_to_video"); setShowHome(false); }} style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500 }}>
+                🎭 Animate Actor
+              </button>
+              <a href="/dashboard/assets" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500, textDecoration: "none", display: "block" }}>
+                📦 Asset Library
+              </a>
+              <a href="/dashboard/models" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500, textDecoration: "none", display: "block" }}>
+                🤖 AI Models
+              </a>
+              <a href="/dashboard/character-voices" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500, textDecoration: "none", display: "block" }}>
+                🎭 Characters
+              </a>
+            </div>
           </div>
         )}
       </div>
