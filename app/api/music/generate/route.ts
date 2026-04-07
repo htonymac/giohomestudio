@@ -58,19 +58,103 @@ export async function POST(req: NextRequest) {
 
   const { description, mood, genre, durationSeconds } = parsed.data;
 
-  // TODO: When SUNO_API_KEY or MUBERT_API_KEY is set, generate original music
-  // For now, use stock library matching
+  // Try Suno API if configured
+  const sunoKey = process.env.SUNO_API_KEY;
+  if (sunoKey) {
+    try {
+      const axios = (await import("axios")).default;
+      const res = await axios.post("https://api.suno.com/v1/generate", {
+        prompt: description,
+        duration: durationSeconds ?? 30,
+        genre: genre ?? "cinematic",
+      }, {
+        headers: { Authorization: `Bearer ${sunoKey}`, "Content-Type": "application/json" },
+        timeout: 120000,
+      });
+
+      if (res.data?.audio_url) {
+        const audioRes = await axios.get(res.data.audio_url, { responseType: "arraybuffer", timeout: 60000 });
+        const outDir = path.join(env.storagePath, "music", "generated");
+        fs.mkdirSync(outDir, { recursive: true });
+        const outPath = path.join(outDir, `suno_${Date.now()}.mp3`);
+        fs.writeFileSync(outPath, Buffer.from(audioRes.data));
+
+        // Auto-save to asset library
+        try {
+          const assetFile = path.join(env.storagePath, "config", "asset-library.json");
+          let assets: Array<Record<string, unknown>> = [];
+          try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new */ }
+          assets.unshift({
+            id: `music_ai_${Date.now()}`,
+            type: "music",
+            name: description.slice(0, 50),
+            description: `AI-generated music: ${description}`,
+            filePath: outPath,
+            tags: ["music", "ai-generated", "suno"],
+            source: "suno_ai",
+            createdAt: new Date().toISOString(),
+          });
+          fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+        } catch { /* best effort */ }
+
+        return NextResponse.json({
+          musicPath: outPath,
+          source: "suno_ai",
+          description: `AI-generated: ${description}`,
+          provider: "suno",
+        });
+      }
+    } catch (err) {
+      console.warn(`[Music] Suno generation failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Try Mubert API if configured
+  const mubertKey = process.env.MUBERT_API_KEY;
+  if (mubertKey) {
+    try {
+      const axios = (await import("axios")).default;
+      const res = await axios.post("https://api.mubert.com/v2/RecordTrackTTM", {
+        params: {
+          pat: mubertKey,
+          duration: durationSeconds ?? 30,
+          tags: [mood ?? "cinematic", genre ?? "background"].filter(Boolean),
+          mode: "track",
+        },
+      }, { timeout: 120000 });
+
+      if (res.data?.data?.tasks?.[0]?.download_link) {
+        const url = res.data.data.tasks[0].download_link;
+        const audioRes = await axios.get(url, { responseType: "arraybuffer", timeout: 60000 });
+        const outDir = path.join(env.storagePath, "music", "generated");
+        fs.mkdirSync(outDir, { recursive: true });
+        const outPath = path.join(outDir, `mubert_${Date.now()}.mp3`);
+        fs.writeFileSync(outPath, Buffer.from(audioRes.data));
+
+        return NextResponse.json({
+          musicPath: outPath,
+          source: "mubert_ai",
+          description: `AI-generated: ${description}`,
+          provider: "mubert",
+        });
+      }
+    } catch (err) {
+      console.warn(`[Music] Mubert generation failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  // Fallback: stock library matching
   const trackPath = findBestTrack(description, mood, genre);
 
   if (!trackPath) {
-    return NextResponse.json({ error: "No matching music found. Add stock tracks to storage/music/stock/" }, { status: 404 });
+    return NextResponse.json({ error: "No matching music found. Configure SUNO_API_KEY or MUBERT_API_KEY for AI generation, or add stock tracks." }, { status: 404 });
   }
 
   return NextResponse.json({
     musicPath: trackPath,
     source: "stock_match",
-    description: `Matched from stock library based on: ${description}`,
+    description: `Matched from stock library: ${description}`,
     provider: "stock_library",
-    note: "AI music generation (Suno/Mubert) coming soon. Currently using best stock match.",
+    note: sunoKey || mubertKey ? "AI generation failed — using stock match" : "Set SUNO_API_KEY or MUBERT_API_KEY in Settings for AI music generation",
   });
 }

@@ -39,12 +39,53 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // TODO: ElevenLabs Sound Effects API (~100 credits per effect)
-  // const apiKey = process.env.ELEVENLABS_API_KEY;
-  // if (apiKey) { ... generate via API ... }
+  // ElevenLabs Sound Effects API (~100 credits per effect)
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (apiKey) {
+    try {
+      const axios = (await import("axios")).default;
+      const res = await axios.post("https://api.elevenlabs.io/v1/sound-generation", {
+        text: description,
+        duration_seconds: 3,
+      }, {
+        headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
+        responseType: "arraybuffer",
+        timeout: 30000,
+      });
+
+      const sfxDir = path.resolve(env.storagePath, "sfx");
+      fs.mkdirSync(sfxDir, { recursive: true });
+      const outPath = path.join(sfxDir, `ai_${Date.now()}.mp3`);
+      fs.writeFileSync(outPath, Buffer.from(res.data));
+
+      // Auto-save to asset library
+      try {
+        const assetFile = path.join(env.storagePath, "config", "asset-library.json");
+        let assets: Array<Record<string, unknown>> = [];
+        try { assets = JSON.parse(fs.readFileSync(assetFile, "utf-8")); } catch { /* new */ }
+        assets.unshift({
+          id: `sfx_ai_${Date.now()}`,
+          type: "sfx",
+          name: description.slice(0, 50),
+          description: `AI-generated SFX: ${description}`,
+          filePath: outPath,
+          tags: ["sfx", "ai-generated", "elevenlabs"],
+          source: "elevenlabs_sfx",
+          createdAt: new Date().toISOString(),
+        });
+        fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
+      } catch { /* best effort */ }
+
+      return NextResponse.json({ sfxPath: outPath, source: "elevenlabs_ai", matched: `AI: ${description}` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[SFX] ElevenLabs generation failed: ${msg}`);
+      // Fall through to not-found
+    }
+  }
 
   return NextResponse.json({
-    error: "No matching SFX found locally. Add .mp3/.wav files to storage/sfx/ or configure ElevenLabs for AI generation.",
+    error: "No matching SFX found. Add .mp3/.wav files to storage/sfx/ or configure ElevenLabs API key for AI generation.",
     suggestion: "Try descriptions like: applause, rain, thunder, car horn, door knock",
   }, { status: 404 });
 }
