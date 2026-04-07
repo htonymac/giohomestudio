@@ -33,6 +33,8 @@ const PIPER_VOICES: Array<{ id: string; name: string; lang: string }> = [
 
 const DEFAULT_VOICE = "en_US-lessac-medium";
 
+export function getPiperVoices() { return PIPER_VOICES; }
+
 // Check if piper is available
 async function findPiper(): Promise<string | null> {
   // Check common locations

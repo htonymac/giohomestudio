@@ -26,19 +26,31 @@ function visionPrompt(brandName?: string, captionMaxWords?: number, captionMaxCh
   const brand      = brandName ? ` for ${brandName}` : "";
   const wordLimit  = captionMaxWords ?? 8;
   const charNote   = captionMaxChars ? ` (max ${captionMaxChars} characters)` : "";
-  return `Look at this image carefully and describe what you ACTUALLY see${brand}. Identify the specific product, people, colors, setting, and any text or branding visible.
+  return `Look at this image carefully${brand}. Describe EXACTLY what you see — specific objects, materials, colors, room layout, furniture brands if visible, and any text or labels.
 
 Return exactly two lines:
-CAPTION: [max ${wordLimit} words${charNote} — name the actual product/subject/scene, START with 1-2 relevant emojis that match the subject (e.g. 🏠 for property, 🍽️ for food, 👗 for fashion, 💊 for health, 🚗 for auto, 💻 for tech)]
-NARRATION: [one spoken sentence describing what a viewer sees and why it matters — include 1-2 emojis naturally woven into the text — no word limit]
+CAPTION: [max ${wordLimit} words${charNote} — START with 1-2 emojis, then name the SPECIFIC thing shown]
+NARRATION: [one vivid spoken sentence a narrator would say about this exact scene — include 1-2 emojis naturally — no word limit]
 
-RULES — follow strictly:
-- Never use generic phrases like "Modern Elegance", "Experience Excellence", "Discover Quality", "Premium Choice"
-- CAPTION must name the actual item, person, or scene (e.g. "🏠 Ocean View Apartment", "🍛 Crispy Jollof Rice Platter")
-- CAPTION must be ${wordLimit} words or fewer${charNote}
-- Always begin CAPTION with 1-2 fitting emojis
-- If text is visible in the image, reference it
-- Output ONLY those two lines, nothing else`;
+BANNED WORDS — do NOT use any of these:
+"modern", "elegant", "premium", "luxury", "excellence", "quality", "experience", "discover", "stylish", "contemporary", "sophisticated", "exquisite"
+
+Instead use SPECIFIC details:
+- Name actual items: "king-size bed with white duvet" not "luxury bedroom"
+- Name actual colors: "marble-white floors, navy headboard" not "modern design"
+- Name actual features: "Hisense washer, granite countertop" not "modern kitchen"
+- If it's a bedroom, say WHAT KIND: "master suite with walk-in closet" or "twin bedroom with purple LED ceiling"
+- If it's a kitchen, name what's IN it: "gas cooktop, steel dish rack, roller blinds"
+
+CAPTION examples (GOOD):
+- "🛏️ King Bed Suite with Navy Headboard"
+- "🍳 Granite Kitchen with Hisense Washer"
+- "🛋️ Cream Sofa Lounge with Dark Rug"
+- "🚿 Walk-in Shower with Gold Fixtures"
+
+CAPTION must be ${wordLimit} words or fewer${charNote}.
+Always begin CAPTION with 1-2 fitting emojis.
+Output ONLY those two lines, nothing else.`;
 }
 
 function parseVisionOutput(text: string): { caption: string; narration: string } {

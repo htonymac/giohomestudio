@@ -607,6 +607,20 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
   const [batchImporting, setBatchImporting] = useState(false);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
+  const [enhancingNarration, setEnhancingNarration] = useState(false);
+
+  // Piper TTS voice selection
+  const piperVoices = [
+    { id: "en_US-lessac-medium",   name: "👩 Lessac (US Female)" },
+    { id: "en_US-amy-medium",      name: "👩 Amy (US Female, Warm)" },
+    { id: "en_US-ryan-medium",     name: "👨 Ryan (US Male, Clear)" },
+    { id: "en_US-arctic-medium",   name: "👨 Arctic (US Male, Deep)" },
+    { id: "en_GB-alan-medium",     name: "👨 Alan (British Male)" },
+    { id: "en_GB-alba-medium",     name: "👩 Alba (British Female)" },
+  ];
+  const [selectedPiperVoice, setSelectedPiperVoice] = useState("en_US-lessac-medium");
+  const [piperDemoLoading, setPiperDemoLoading] = useState(false);
+  const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
   const [narrationSettings, setNarrationSettings] = useState<NarrationSettings>(DEFAULT_NARRATION_SETTINGS);
   const [overlayLayers, setOverlayLayers] = useState<OverlayLayer[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -2075,18 +2089,101 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
             )}
           </div>
 
-          {/* Narration script preview */}
-          {narrationScriptLines.length > 0 && (
-            <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
-              <p className="text-xs font-semibold text-[#b090ff] mb-2">🎤 Narration script (assembled)</p>
-              <p className="text-[10px] text-[#6060a0] mb-2">🎤 This is exactly what the narrator will speak during render. ✏️ Edit each slide&apos;s narration line above.</p>
+          {/* Narration script preview + enhance button */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-[#b090ff]">🎤 Narration script</p>
+              <button
+                type="button"
+                disabled={enhancingNarration || project.slides.length === 0}
+                onClick={async () => {
+                  setEnhancingNarration(true);
+                  try {
+                    const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, { method: "POST" });
+                    const data = await res.json();
+                    if (res.ok && data.narration) {
+                      // Save as project-level narration script
+                      await patchProject({ narrationScript: data.narration });
+                      // Also distribute across slides for per-slide editing
+                      const sentences = data.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                      const slides = project.slides;
+                      for (let i = 0; i < slides.length; i++) {
+                        const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
+                        await patchSlide(slides[i].id, { narrationLine: line });
+                      }
+                    }
+                  } catch { /* ignore */ }
+                  setEnhancingNarration(false);
+                }}
+                className="text-[10px] font-medium px-3 py-1 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/30 disabled:opacity-40 transition-colors"
+              >
+                {enhancingNarration ? "Generating..." : "✨ Enhance Narration"}
+              </button>
+            </div>
+            <p className="text-[10px] text-[#6060a0] mb-2">AI reads all slides, captions, and your ad title to write a cohesive voiceover. Edit per-slide narration lines above.</p>
+            {narrationScriptLines.length > 0 ? (
               <div className="space-y-1">
                 {narrationScriptLines.map((line, i) => (
                   <p key={i} className="text-xs text-[#c0c0e0] leading-snug">{line}</p>
                 ))}
               </div>
+            ) : (
+              <p className="text-[10px] text-[#404060] italic">No narration lines yet. Click &quot;Enhance Narration&quot; or add narration to each slide.</p>
+            )}
+          </div>
+
+          {/* Piper TTS local voice picker */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+            <p className="text-xs font-semibold text-[#b090ff] mb-2">🔊 Local Voice (Piper TTS — free)</p>
+            <p className="text-[10px] text-[#6060a0] mb-3">Select a voice for narration. Works offline, no API key needed. Falls back here when ElevenLabs is unavailable.</p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {piperVoices.map(v => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => setSelectedPiperVoice(v.id)}
+                  className={`text-left p-2 rounded-lg border text-[11px] transition-colors ${
+                    selectedPiperVoice === v.id
+                      ? "border-[#7c5cfc] bg-[#7c5cfc]/10 text-[#b090ff]"
+                      : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                  }`}
+                >
+                  <span className="font-medium">{v.name}</span>
+                </button>
+              ))}
             </div>
-          )}
+            <div className="flex gap-2 items-center">
+              <button
+                type="button"
+                disabled={piperDemoLoading}
+                onClick={async () => {
+                  setPiperDemoLoading(true);
+                  setPiperDemoUrl(null);
+                  try {
+                    const demoText = narrationScriptLines.length > 0
+                      ? narrationScriptLines[0].replace(/^\[Slide \d+\]\s*/, "").slice(0, 150)
+                      : "Welcome to our premium property. This spacious apartment features elegant finishes.";
+                    const res = await fetch("/api/voices/piper-preview", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ text: demoText, voiceId: selectedPiperVoice }),
+                    });
+                    if (res.ok) {
+                      const blob = await res.blob();
+                      setPiperDemoUrl(URL.createObjectURL(blob));
+                    }
+                  } catch { /* ignore */ }
+                  setPiperDemoLoading(false);
+                }}
+                className="text-[10px] font-medium px-3 py-1.5 rounded-lg bg-green-900/30 border border-green-700/40 text-green-400 hover:bg-green-900/50 disabled:opacity-40 transition-colors"
+              >
+                {piperDemoLoading ? "Generating..." : "▶ Preview Voice"}
+              </button>
+              {piperDemoUrl && (
+                <audio controls src={piperDemoUrl} className="h-8 flex-1" style={{ maxWidth: 250 }} />
+              )}
+            </div>
+          </div>
 
           <NarrationPanel
             value={narrationSettings}
