@@ -1192,18 +1192,23 @@ export default function ReviewPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Review Queue</h1>
-          <p className="text-xs text-gray-600 mt-0.5">
-            Audio finishing desk — edit narration, voice, music, SFX before approving
+          <h1 className="text-2xl font-bold text-white">📋 Review Queue</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>
+            Approve before publishing to social platforms
           </p>
         </div>
-        <button
-          onClick={fetchQueue}
-          className="text-sm text-gray-400 hover:text-white border border-gray-700 px-3 py-1 rounded transition-colors"
-        >
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          <button onClick={fetchQueue} className="btn btn-ghost btn-sm">↻ Refresh</button>
+        </div>
       </div>
+
+      {/* Warning bar */}
+      {!loading && items.length > 0 && (
+        <div className="alert alert-warning mb-4">
+          <span>⚠️</span>
+          <span>{items.length} item{items.length !== 1 ? "s" : ""} waiting for your review. Nothing publishes without your approval.</span>
+        </div>
+      )}
 
       {/* Recently actioned */}
       {recentlyActioned.length > 0 && (

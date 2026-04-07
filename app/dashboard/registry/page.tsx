@@ -93,8 +93,11 @@ export default function RegistryPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-white">Content Registry</h1>
-        <span className="text-xs text-gray-500">{total} items total</span>
+        <div>
+          <h1 className="text-2xl font-bold text-white">📁 All Content</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Every generated image, video, and audio across all modes</p>
+        </div>
+        <span className="pill pill-purple">{total} items</span>
       </div>
 
       {/* Search + filters bar */}
