@@ -9,7 +9,18 @@ interface StockTrack {
 }
 
 export default function MusicStudioPage() {
-  const [tab, setTab] = useState<"generate" | "library" | "sfx" | "upload">("generate");
+  const [tab, setTab] = useState<"generate" | "library" | "sfx" | "dj" | "upload">("generate");
+  // DJ Tools state
+  const [djTrack, setDjTrack] = useState("");
+  const [djStart, setDjStart] = useState(0);
+  const [djEnd, setDjEnd] = useState(10);
+  const [djFadeIn, setDjFadeIn] = useState(0.5);
+  const [djFadeOut, setDjFadeOut] = useState(0.5);
+  const [djVolume, setDjVolume] = useState(1);
+  const [djLoop, setDjLoop] = useState(false);
+  const [djLoopCount, setDjLoopCount] = useState(2);
+  const [djProcessing, setDjProcessing] = useState(false);
+  const [djResult, setDjResult] = useState<{ outputPath?: string; error?: string } | null>(null);
   const [tracks, setTracks] = useState<StockTrack[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -83,6 +94,7 @@ export default function MusicStudioPage() {
           { id: "generate" as const, label: "AI Generate", icon: "🎵" },
           { id: "library" as const, label: "Stock Library", icon: "📚" },
           { id: "sfx" as const, label: "Sound Effects", icon: "💥" },
+          { id: "dj" as const, label: "DJ Tools", icon: "🎧" },
           { id: "upload" as const, label: "Upload", icon: "⬆️" },
         ].map(t => (
           <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? "bg-[#7c5cfc] text-white" : "bg-[#1a1a2e] text-[#6060a0] hover:text-white"}`}>
@@ -208,6 +220,148 @@ export default function MusicStudioPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* DJ Tools Tab */}
+      {tab === "dj" && (
+        <div className="space-y-4">
+          {/* Trimmer */}
+          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-1">Audio Trimmer & Editor</h2>
+              <p className="text-xs text-[#6060a0]">Set start/end points, add fades, adjust volume, loop sections.</p>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Select track</label>
+              <select value={djTrack} onChange={e => setDjTrack(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+                <option value="">Choose a stock track...</option>
+                {tracks.map(t => (
+                  <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label} ({t.mood})</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">Start (sec)</label>
+                <input type="number" min={0} step={0.1} value={djStart} onChange={e => setDjStart(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">End (sec)</label>
+                <input type="number" min={0.1} step={0.1} value={djEnd} onChange={e => setDjEnd(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">Fade In (sec)</label>
+                <input type="number" min={0} max={5} step={0.1} value={djFadeIn} onChange={e => setDjFadeIn(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">Fade Out (sec)</label>
+                <input type="number" min={0} max={5} step={0.1} value={djFadeOut} onChange={e => setDjFadeOut(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">Volume: {(djVolume * 100).toFixed(0)}%</label>
+                <input type="range" min={0} max={2} step={0.05} value={djVolume} onChange={e => setDjVolume(Number(e.target.value))} className="w-full accent-[#7c5cfc]" />
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-[#6060a0]">
+                  <input type="checkbox" checked={djLoop} onChange={e => setDjLoop(e.target.checked)} className="accent-[#7c5cfc]" />
+                  Loop
+                </label>
+                {djLoop && (
+                  <input type="number" min={2} max={10} value={djLoopCount} onChange={e => setDjLoopCount(Number(e.target.value))} className="w-16 bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-1" />
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                disabled={!djTrack || djProcessing}
+                onClick={async () => {
+                  setDjProcessing(true);
+                  setDjResult(null);
+                  try {
+                    const res = await fetch("/api/music/trim", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        inputPath: djTrack,
+                        startSec: djStart,
+                        endSec: djEnd,
+                        fadeInSec: djFadeIn,
+                        fadeOutSec: djFadeOut,
+                        volume: djVolume,
+                        loop: djLoop,
+                        loopCount: djLoopCount,
+                      }),
+                    });
+                    setDjResult(await res.json());
+                  } catch { setDjResult({ error: "Network error" }); }
+                  setDjProcessing(false);
+                }}
+                className="px-6 py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
+              >
+                {djProcessing ? "Processing..." : "Trim & Export"}
+              </button>
+              {djTrack && (
+                <button onClick={() => playTrack(djTrack)} className="px-4 py-2.5 bg-gray-800 text-gray-300 hover:text-white rounded-xl text-sm transition-colors">
+                  {playing === djTrack ? "⏸ Stop" : "▶ Preview"}
+                </button>
+              )}
+            </div>
+
+            {djResult && (
+              <div className={`p-3 rounded-lg text-xs ${djResult.error ? "bg-red-950/40 text-red-400" : "bg-green-950/40 text-green-400"}`}>
+                {djResult.error ?? `Exported: ${djResult.outputPath}`}
+                {djResult.outputPath && (
+                  <button onClick={() => playTrack(djResult.outputPath!)} className="ml-3 text-[#7c5cfc] underline">
+                    {playing === djResult.outputPath ? "⏸ Stop" : "▶ Preview result"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Mixer info */}
+          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5">
+            <h2 className="text-lg font-semibold text-white mb-1">Sound Layering (Mini DJ)</h2>
+            <p className="text-xs text-[#6060a0] mb-3">Mix up to 3 audio tracks with per-track volume, panning, and master EQ.</p>
+            <div className="grid grid-cols-3 gap-3">
+              {["Layer 1 — Music", "Layer 2 — SFX / Ambience", "Layer 3 — Voice / Riser"].map((label, i) => (
+                <div key={i} className="bg-[#0a0a18] border border-[#1a1a2e] rounded-lg p-3">
+                  <p className="text-[10px] text-[#7c5cfc] font-semibold mb-2">{label}</p>
+                  <select className="w-full bg-gray-900 border border-gray-700 text-gray-400 text-[10px] rounded px-2 py-1.5 mb-2">
+                    <option>Select track...</option>
+                    {tracks.map(t => <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[9px] text-[#404060]">Vol</span>
+                    <input type="range" min={0} max={2} step={0.05} defaultValue={1} className="flex-1 accent-[#7c5cfc] h-1" />
+                    <span className="text-[9px] text-[#404060]">Pan</span>
+                    <input type="range" min={-1} max={1} step={0.1} defaultValue={0} className="flex-1 accent-[#7c5cfc] h-1" />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 pt-3 border-t border-[#2a2a40]">
+              <p className="text-[10px] text-[#6060a0] font-semibold mb-2">Master EQ</p>
+              <div className="grid grid-cols-3 gap-3">
+                {["Bass (100Hz)", "Mid (1kHz)", "Treble (8kHz)"].map((label, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <span className="text-[9px] text-[#404060] w-16">{label}</span>
+                    <input type="range" min={-10} max={10} step={1} defaultValue={0} className="flex-1 accent-[#7c5cfc] h-1" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <button className="mt-3 px-6 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
+              Mix & Export
+            </button>
           </div>
         </div>
       )}

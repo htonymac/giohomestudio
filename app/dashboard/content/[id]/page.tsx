@@ -755,6 +755,65 @@ export default function ContentDetailPage() {
             </div>
           )}
 
+          {/* ── Share & Download ──────────────────────────── */}
+          {item.mergedOutputPath && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Share & Download</p>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <a
+                  href={`/api/media/${item.mergedOutputPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                  download={`giohomestudio_${item.id.slice(0, 8)}.${item.mergedOutputPath.endsWith(".mp3") ? "mp3" : "mp4"}`}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 text-xs font-medium transition-colors"
+                >
+                  ⬇️ Download
+                </a>
+                <button
+                  onClick={() => {
+                    const url = `${window.location.origin}/api/media/${item.mergedOutputPath!.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+                    const text = encodeURIComponent(item.originalInput?.slice(0, 100) ?? "Check out this video!");
+                    window.open(`https://wa.me/?text=${text}%0A${encodeURIComponent(url)}`, "_blank");
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-green-900/30 border border-green-700/40 text-green-400 hover:bg-green-900/50 text-xs font-medium transition-colors"
+                >
+                  📱 WhatsApp
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch("/api/publish", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ contentItemId: item.id, platform: "telegram", title: item.originalInput?.slice(0, 100) }),
+                      });
+                      const data = await res.json();
+                      alert(data.status === "published" ? `Sent to Telegram! ${data.postUrl ?? ""}` : `Failed: ${data.error}`);
+                    } catch { alert("Network error"); }
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-900/30 border border-blue-700/40 text-blue-400 hover:bg-blue-900/50 text-xs font-medium transition-colors"
+                >
+                  📨 Telegram
+                </button>
+                <button
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: item.originalInput?.slice(0, 100) ?? "GioHomeStudio",
+                        text: item.originalInput ?? "",
+                        url: window.location.href,
+                      }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(window.location.href);
+                      alert("Link copied!");
+                    }
+                  }}
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:text-white text-xs font-medium transition-colors"
+                >
+                  🔗 Share Link
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ── Finishing Desk ──────────────────────────────── */}
           <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
             <div className="px-4 py-3 border-b border-gray-800 flex items-center justify-between">

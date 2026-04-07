@@ -27,19 +27,26 @@ type NotesMap = Record<string, SFXSourceNote>;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS: Record<string, string> = {
-  weather: "#60a5fa",
-  crowd:   "#f472b6",
-  action:  "#fb923c",
-  nature:  "#4ade80",
-  urban:   "#facc15",
-  horror:  "#c084fc",
-  animal:  "#34d399",
+  weather:    "#60a5fa",
+  crowd:      "#f472b6",
+  action:     "#fb923c",
+  nature:     "#4ade80",
+  urban:      "#facc15",
+  horror:     "#c084fc",
+  animal:     "#34d399",
+  transition: "#818cf8",
+  music:      "#e879f9",
+  voice:      "#f97316",
+  nigerian:   "#22c55e",
+  household:  "#94a3b8",
+  tech:       "#06b6d4",
 };
 const CATEGORY_ICONS: Record<string, string> = {
   weather: "⛈", crowd: "👥", action: "⚡", nature: "🌿",
-  urban: "🏙", horror: "💀", animal: "🐾",
+  urban: "🏙", horror: "💀", animal: "🐾", transition: "🔄",
+  music: "🎵", voice: "🗣", nigerian: "🇳🇬", household: "🏠", tech: "💻",
 };
-const CATEGORY_ORDER = ["weather", "crowd", "action", "nature", "urban", "horror", "animal"];
+const CATEGORY_ORDER = ["transition", "crowd", "action", "nigerian", "nature", "weather", "urban", "household", "music", "voice", "tech", "horror", "animal"];
 const SOURCE_SITES = ["Freesound", "Pixabay", "Mixkit", "Sonniss", "Artlist", "Uploaded", "Other"];
 const QUALITY_OPTIONS: { value: SFXSourceNote["qualityRating"]; label: string; color: string }[] = [
   { value: "",          label: "Unrated", color: "#3a3a5a" },
