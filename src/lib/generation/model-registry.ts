@@ -114,7 +114,7 @@ const IMAGE_MODELS: ModelEntry[] = [
     max_duration_seconds: null,
     avg_generation_seconds: 3,
     is_free_tier_eligible: true,
-    is_recommended_default: false,
+    is_recommended_default: true,
     is_auto_selected_if_cheaper: true,
     tags: ["fast", "budget", "general"],
     strengths: "Very fast generation, decent quality, affordable",
