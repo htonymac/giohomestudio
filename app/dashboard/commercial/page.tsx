@@ -158,8 +158,8 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
     <div className="w-full max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">🎬 Commercial Maker</h1>
-          <p className="text-sm text-[#6060a0] mt-0.5">📣 Image-led promotional videos — upload your photos, build the ad</p>
+          <h1 className="text-2xl font-bold text-white">📽️ Commercial Maker</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Create professional ad videos from your images — upload, customize, render</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => onNew()} className="px-4 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
