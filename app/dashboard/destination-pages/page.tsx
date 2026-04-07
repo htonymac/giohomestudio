@@ -98,8 +98,8 @@ export default function DestinationPagesPage() {
     <div className="max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-white">Destination Pages</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage the channels and pages your content is intended for.</p>
+          <h1 className="text-2xl font-bold text-white">⊞ Publishing Pages</h1>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Manage social media channels and platforms for your content</p>
         </div>
       </div>
 
