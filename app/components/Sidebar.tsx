@@ -20,6 +20,7 @@ const NAV = [
       { href: "/dashboard/review",     label: "Review Queue", icon: "◈", badge: true },
       { href: "/dashboard/registry",  label: "Registry",     icon: "▤" },
       { href: "/dashboard/analytics", label: "Analytics",    icon: "◔" },
+      { href: "/dashboard/budget",    label: "Budget",       icon: "◈" },
     ],
   },
   {
@@ -27,6 +28,13 @@ const NAV = [
     items: [
       { href: "/dashboard/character-voices", label: "Voice Registry", icon: "◉" },
       { href: "/dashboard/sfx-library",      label: "SFX Library",   icon: "♪" },
+    ],
+  },
+  {
+    group: "Plan",
+    items: [
+      { href: "/dashboard/calendar",    label: "Calendar",      icon: "◫" },
+      { href: "/dashboard/story-bank",  label: "Story Bank",    icon: "◇" },
     ],
   },
   {

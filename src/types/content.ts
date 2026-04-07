@@ -83,6 +83,12 @@ export interface ContentItem {
   updatedAt: Date;
   approvedAt?: Date | null;
   rejectedAt?: Date | null;
+  scheduledAt?: Date | null;
+  publishedAt?: Date | null;
+  lastPostedAt?: Date | null;
+  repostCount?: number;
+  repostCooldownDays?: number | null;
+  repostEligible?: boolean;
 }
 
 export interface ContentVersion {

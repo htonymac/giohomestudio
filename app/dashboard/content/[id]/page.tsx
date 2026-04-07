@@ -1465,17 +1465,58 @@ export default function ContentDetailPage() {
           {/* ── Continue This Story ─────────────────────────── */}
           <ContinueStoryPanel item={item} router={router} />
 
+          {/* Repost Control */}
+          {(item.status === "APPROVED" || item.status === "PUBLISHED") && (
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Repost Control</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Last posted</span>
+                  <span className="text-xs text-gray-300">{item.lastPostedAt ? new Date(item.lastPostedAt).toLocaleDateString() : "Never"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Repost count</span>
+                  <span className="text-xs text-gray-300">{item.repostCount ?? 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Cooldown</span>
+                  <span className="text-xs text-gray-300">{item.repostCooldownDays ? `${item.repostCooldownDays} days` : "No cooldown set"}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500">Eligible for repost</span>
+                  <span className={`text-xs font-medium ${item.repostEligible ? "text-green-400" : "text-orange-400"}`}>
+                    {item.repostEligible ? "Yes" : item.lastPostedAt ? "Cooling down" : "Post first"}
+                  </span>
+                </div>
+                {item.repostEligible && (
+                  <button className="w-full mt-2 py-2 rounded-lg bg-teal-900/40 border border-teal-700/40 text-teal-400 text-xs font-medium hover:bg-teal-900/60 transition-colors">
+                    Schedule Repost
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Version history */}
           {versions.length > 0 && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">Version history</p>
               <div className="space-y-2">
                 {versions.map((v) => (
-                  <div key={v.id} className="flex items-center gap-3 text-xs text-gray-400">
-                    <span className="text-gray-600 font-mono w-6">v{v.versionNumber}</span>
-                    <span className={`px-2 py-0.5 rounded ${STATUS_COLORS[v.status]}`}>{v.status}</span>
-                    {v.reason && <span className="text-gray-600">{v.reason}</span>}
-                    <span className="text-gray-700 ml-auto shrink-0">{new Date(v.createdAt).toLocaleString()}</span>
+                  <div key={v.id} className="border border-gray-800/50 rounded-lg p-2.5">
+                    <div className="flex items-center gap-3 text-xs text-gray-400">
+                      <span className="text-gray-600 font-mono w-6 font-bold">v{v.versionNumber}</span>
+                      <span className={`px-2 py-0.5 rounded ${STATUS_COLORS[v.status]}`}>{v.status}</span>
+                      {v.reason && <span className="text-gray-500 truncate flex-1">{v.reason}</span>}
+                      <span className="text-gray-700 shrink-0">{new Date(v.createdAt).toLocaleString()}</span>
+                    </div>
+                    {(v.videoPath || v.voicePath || v.mergedOutputPath) && (
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {v.videoPath && <span className="text-[9px] bg-purple-900/30 text-purple-400 px-1.5 py-0.5 rounded">video</span>}
+                        {v.voicePath && <span className="text-[9px] bg-indigo-900/30 text-indigo-400 px-1.5 py-0.5 rounded">voice</span>}
+                        {v.mergedOutputPath && <span className="text-[9px] bg-green-900/30 text-green-400 px-1.5 py-0.5 rounded">merged</span>}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

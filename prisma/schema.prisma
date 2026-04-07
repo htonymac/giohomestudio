@@ -81,6 +81,12 @@ model ContentItem {
   updatedAt         DateTime         @updatedAt
   approvedAt        DateTime?
   rejectedAt        DateTime?
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  lastPostedAt      DateTime?
+  repostCount       Int              @default(0)
+  repostCooldownDays Int?            // minimum days between reposts
+  repostEligible    Boolean          @default(false)
   versions          ContentVersion[]
   jobs              Job[]
   reviewActions     ReviewAction[]
@@ -305,4 +311,22 @@ model CommercialSlide {
   project             CommercialProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@map("commercial_slides")
+}
+
+// ── Story Bank ────────────────────────────────────────────────────────────────
+
+model StoryIdea {
+  id              String   @id @default(cuid())
+  title           String
+  body            String?
+  tags            String   @default("") // comma-separated
+  rating          Int      @default(0)  // 0-5 stars
+  mode            String?  // FREE, COMMERCIAL, SERIES
+  platform        String?  // youtube, instagram, tiktok
+  status          String   @default("idea") // idea, scripted, in_production, used
+  usedInContentId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("story_ideas")
 }
