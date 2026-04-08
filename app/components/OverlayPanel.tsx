@@ -175,22 +175,41 @@ export default function OverlayPanel({
             <button onClick={async () => {
               try {
                 const res = await fetch("/api/overlays/presets");
+                if (!res.ok) { alert("Failed to load presets"); return; }
                 const data = await res.json();
                 const presets = data.presets ?? [];
-                if (presets.length === 0) return;
-                const names = presets.map((p: { id: string; name: string }, i: number) => `${i + 1}. ${p.name}`).join("\n");
-                const choice = prompt(`Choose a preset:\n${names}\n\nEnter number:`);
+                if (presets.length === 0) { alert("No presets available"); return; }
+                const names = presets.map((p: { id: string; name: string; description: string }, i: number) => `${i + 1}. ${p.name} — ${p.description}`).join("\n");
+                const choice = prompt(`Choose a preset:\n\n${names}\n\nEnter number:`);
                 if (!choice) return;
                 const idx = parseInt(choice) - 1;
+                if (idx < 0 || idx >= presets.length) { alert("Invalid choice"); return; }
                 const preset = presets[idx];
-                if (!preset?.layers) return;
-                const newLayers: OverlayLayer[] = preset.layers.map((l: Record<string, unknown>) => ({
-                  ...l,
-                  id: `${l.type}_${Date.now()}_${++layerCounter}`,
-                })) as OverlayLayer[];
+                if (!preset?.layers?.length) { alert("Preset has no layers"); return; }
+                const newLayers: OverlayLayer[] = preset.layers.map((l: Record<string, unknown>) => {
+                  const id = `${l.type ?? "text"}_${Date.now()}_${++layerCounter}`;
+                  if (l.type === "text") {
+                    return {
+                      type: "text" as const,
+                      id,
+                      text: (l.text as string) ?? "Text",
+                      position: (l.position as TextLayer["position"]) ?? { zone: "bottom" as const },
+                      style: { fontSize: 48, fontWeight: "bold" as const, color: "#FFFFFF", shadow: true, outline: false, ...(l.style as Record<string, unknown> ?? {}) },
+                      animation: { entrance: "fade_in" as const, startSec: 0, durationSec: 5, ...(l.animation as Record<string, unknown> ?? {}) },
+                    } satisfies TextLayer;
+                  }
+                  return {
+                    type: "image" as const,
+                    id,
+                    imagePath: (l.imagePath as string) ?? "",
+                    position: (l.position as ImageLayer["position"]) ?? { zone: "bottom-right" as const },
+                    size: { width: 200, height: 80 },
+                    animation: { entrance: "none" as const, startSec: 0, durationSec: 999 },
+                  } satisfies ImageLayer;
+                });
                 onChange([...layers, ...newLayers]);
-              } catch { /* ignore */ }
-            }} style={{ ...addBtnStyle, background: "#7c5cfc", color: "#fff" }}>🎨 Load Preset</button>
+              } catch (err) { alert("Error loading preset: " + (err instanceof Error ? err.message : String(err))); }
+            }} style={{ ...addBtnStyle, background: "var(--accent, #7c5cfc)", color: "#fff" }}>🎨 Load Preset</button>
           </div>
 
           {/* Layer editors */}

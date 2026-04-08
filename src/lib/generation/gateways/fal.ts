@@ -4,7 +4,10 @@
 
 import axios from "axios";
 
-const BASE_URL = process.env.FAL_BASE_URL || "https://queue.fal.run";
+// Sync endpoint returns results directly (faster for supported models)
+const SYNC_URL = "https://fal.run";
+// Queue endpoint for long-running models
+const QUEUE_URL = process.env.FAL_BASE_URL || "https://queue.fal.run";
 
 function getKey(): string {
   const key = process.env.FAL_KEY;
@@ -45,14 +48,30 @@ export interface FalResponse {
   requestId?: string;
 }
 
-// Submit a request to the queue and poll for result
+// Try sync first (fast models return directly), fall back to queue polling
 async function submitAndPoll(endpoint: string, input: Record<string, unknown>): Promise<FalResponse> {
   const timeout = parseInt(process.env.GENERATION_TIMEOUT_SECONDS ?? "180") * 1000;
   const deadline = Date.now() + timeout;
 
+  // Try sync endpoint first — works for fast models like flux/schnell
+  try {
+    const syncRes = await axios.post(`${SYNC_URL}/${endpoint}`, input, {
+      headers: authHeaders(),
+      timeout: Math.min(timeout, 120000),
+    });
+    const syncResult = parseResult(syncRes.data);
+    if (syncResult.success) {
+      console.log(`[fal] Sync result from ${endpoint}`);
+      return syncResult;
+    }
+  } catch {
+    // Sync failed — fall back to queue
+    console.log(`[fal] Sync failed for ${endpoint}, trying queue...`);
+  }
+
   try {
     // Submit to queue
-    const submitRes = await axios.post(`${BASE_URL}/${endpoint}`, { input }, {
+    const submitRes = await axios.post(`${QUEUE_URL}/${endpoint}`, { input }, {
       headers: authHeaders(),
       timeout: 30000,
     });
@@ -64,8 +83,8 @@ async function submitAndPoll(endpoint: string, input: Record<string, unknown>): 
     }
 
     // Poll for completion
-    const statusUrl = `${BASE_URL}/${endpoint}/requests/${requestId}/status`;
-    const resultUrl = `${BASE_URL}/${endpoint}/requests/${requestId}`;
+    const statusUrl = `${QUEUE_URL}/${endpoint}/requests/${requestId}/status`;
+    const resultUrl = `${QUEUE_URL}/${endpoint}/requests/${requestId}`;
 
     while (Date.now() < deadline) {
       await new Promise(r => setTimeout(r, 3000));

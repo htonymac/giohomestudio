@@ -313,18 +313,19 @@ export async function applyOverlays(input: ApplyOverlaysInput): Promise<{ succes
       cmd = cmd.seekInput(input.startSec);
     }
 
-    const outputOptions: string[] = [...MOBILE_H264_OPTS, "-movflags +faststart"];
+    const outputOptions: string[] = ["-pix_fmt yuv420p", "-movflags +faststart"];
     if (input.durationSec !== undefined) {
-      outputOptions.push(`-t ${input.durationSec}`);
+      outputOptions.push("-t", String(input.durationSec));
     }
 
     if (filterComplex) {
+      // Log the filter for debugging
+      console.log(`[applyOverlays] filter: ${filterComplex.slice(0, 200)}`);
       cmd = cmd
         .complexFilter(filterComplex)
-        .outputOptions([...outputOptions, `-map ${outputMap}`, "-map 0:a?", "-c:a copy"]);
+        .outputOptions([`-map ${outputMap}`, "-map 0:a?", "-c:v libx264", "-crf 22", "-preset fast", "-c:a copy", ...outputOptions]);
     } else {
-      // No layers — just copy
-      cmd = cmd.outputOptions([...outputOptions, "-c copy"]);
+      cmd = cmd.outputOptions(["-c copy", ...outputOptions]);
     }
 
     cmd
