@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import SFXPicker from "../../components/SFXPicker";
 
 interface StockTrack {
   filename: string;
@@ -212,16 +213,10 @@ export default function MusicStudioPage() {
             </div>
           )}
 
-          {/* Built-in SFX categories */}
+          {/* Full SFX Library — browse, preview, use */}
           <div className="pt-4 border-t border-[#2a2a40]">
-            <p className="text-xs font-semibold text-[#b090ff] mb-3">Built-in SFX Pack (Royalty Free)</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {["Crowd Applause", "Beat Drop", "Riser", "Swoosh", "Door Slam", "Car Horn", "Thunder", "Rain", "Market Noise", "Talking Drum", "Bell", "Wind"].map(sfx => (
-                <div key={sfx} className="text-[10px] text-[#6060a0] bg-[#0a0a18] border border-[#1a1a2e] rounded px-2.5 py-2 text-center">
-                  {sfx}
-                </div>
-              ))}
-            </div>
+            <p className="text-xs font-semibold text-[#b090ff] mb-3">Full SFX Library ({48} effects — click to preview)</p>
+            <SFXPicker onSelect={(event, path) => { playTrack(path); }} />
           </div>
         </div>
       )}
@@ -329,42 +324,17 @@ export default function MusicStudioPage() {
             )}
           </div>
 
-          {/* Mixer info */}
-          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5">
-            <h2 className="text-lg font-semibold text-white mb-1">Sound Layering (Mini DJ)</h2>
-            <p className="text-xs text-[#6060a0] mb-3">Mix up to 3 audio tracks with per-track volume, panning, and master EQ.</p>
-            <div className="grid grid-cols-3 gap-3">
-              {["Layer 1 — Music", "Layer 2 — SFX / Ambience", "Layer 3 — Voice / Riser"].map((label, i) => (
-                <div key={i} className="bg-[#0a0a18] border border-[#1a1a2e] rounded-lg p-3">
-                  <p className="text-[10px] text-[#7c5cfc] font-semibold mb-2">{label}</p>
-                  <select className="w-full bg-gray-900 border border-gray-700 text-gray-400 text-[10px] rounded px-2 py-1.5 mb-2">
-                    <option>Select track...</option>
-                    {tracks.map(t => <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label}</option>)}
-                  </select>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[9px] text-[#404060]">Vol</span>
-                    <input type="range" min={0} max={2} step={0.05} defaultValue={1} className="flex-1 accent-[#7c5cfc] h-1" />
-                    <span className="text-[9px] text-[#404060]">Pan</span>
-                    <input type="range" min={-1} max={1} step={0.1} defaultValue={0} className="flex-1 accent-[#7c5cfc] h-1" />
-                  </div>
-                </div>
-              ))}
+          {/* Waveform & Beat Visualizer */}
+          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white mb-1">Waveform & Beat Visualizer</h2>
+              <p className="text-xs text-[#6060a0]">Visual waveform with beat detection — select a track above to visualize.</p>
             </div>
-            <div className="mt-3 pt-3 border-t border-[#2a2a40]">
-              <p className="text-[10px] text-[#6060a0] font-semibold mb-2">Master EQ</p>
-              <div className="grid grid-cols-3 gap-3">
-                {["Bass (100Hz)", "Mid (1kHz)", "Treble (8kHz)"].map((label, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-[9px] text-[#404060] w-16">{label}</span>
-                    <input type="range" min={-10} max={10} step={1} defaultValue={0} className="flex-1 accent-[#7c5cfc] h-1" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <button className="mt-3 px-6 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
-              Mix & Export
-            </button>
+            <WaveformVisualizer trackPath={djTrack} playing={playing} />
           </div>
+
+          {/* Mixer — Live Preview */}
+          <LiveMixer tracks={tracks} />
         </div>
       )}
 
@@ -395,6 +365,321 @@ export default function MusicStudioPage() {
               </p>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Waveform & Beat Visualizer ───────────────────────────────────────────────
+
+function WaveformVisualizer({ trackPath, playing }: { trackPath: string; playing: string | null }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [waveform, setWaveform] = useState<Float32Array | null>(null);
+  const [beats, setBeats] = useState<number[]>([]);
+  const [duration, setDuration] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const animRef = useRef<number>(0);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const analyzeTrack = useCallback(async (path: string) => {
+    if (!path) return;
+    setLoading(true);
+    try {
+      const url = `/api/media/${path.replace(/\\/g, "/").replace(/^storage\//, "")}`;
+      const res = await fetch(url);
+      const buf = await res.arrayBuffer();
+      const ctx = new AudioContext();
+      audioCtxRef.current = ctx;
+      const audio = await ctx.decodeAudioData(buf);
+      const channel = audio.getChannelData(0);
+      setDuration(audio.duration);
+
+      // Downsample to ~800 points for waveform display
+      const samples = 800;
+      const blockSize = Math.floor(channel.length / samples);
+      const wave = new Float32Array(samples);
+      for (let i = 0; i < samples; i++) {
+        let sum = 0;
+        const start = i * blockSize;
+        for (let j = 0; j < blockSize; j++) {
+          sum += Math.abs(channel[start + j] ?? 0);
+        }
+        wave[i] = sum / blockSize;
+      }
+      setWaveform(wave);
+
+      // Simple beat detection: find energy peaks
+      const beatBlockSize = Math.floor(audio.sampleRate * 0.02); // 20ms blocks
+      const energyBlocks: number[] = [];
+      for (let i = 0; i < channel.length; i += beatBlockSize) {
+        let energy = 0;
+        for (let j = 0; j < beatBlockSize && i + j < channel.length; j++) {
+          energy += channel[i + j] * channel[i + j];
+        }
+        energyBlocks.push(energy / beatBlockSize);
+      }
+
+      // Find local maxima above average energy * 1.5
+      const avgEnergy = energyBlocks.reduce((a, b) => a + b, 0) / energyBlocks.length;
+      const threshold = avgEnergy * 1.5;
+      const detectedBeats: number[] = [];
+      let lastBeat = -10;
+      for (let i = 1; i < energyBlocks.length - 1; i++) {
+        if (energyBlocks[i] > threshold &&
+            energyBlocks[i] > energyBlocks[i - 1] &&
+            energyBlocks[i] > energyBlocks[i + 1] &&
+            i - lastBeat > 10) { // min 200ms between beats
+          detectedBeats.push((i * beatBlockSize) / audio.sampleRate);
+          lastBeat = i;
+        }
+      }
+      setBeats(detectedBeats);
+      ctx.close();
+    } catch { /* ignore decode errors */ }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { analyzeTrack(trackPath); }, [trackPath, analyzeTrack]);
+
+  // Draw waveform
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !waveform) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const w = canvas.width;
+    const h = canvas.height;
+    const mid = h / 2;
+
+    function draw() {
+      if (!ctx || !waveform) return;
+      ctx.clearRect(0, 0, w, h);
+
+      // Background grid
+      ctx.strokeStyle = "#1a1a2e";
+      ctx.lineWidth = 1;
+      for (let y = 0; y < h; y += h / 4) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Beat markers
+      ctx.strokeStyle = "#7c5cfc40";
+      ctx.lineWidth = 1;
+      for (const beat of beats) {
+        const x = (beat / duration) * w;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+        // Beat dot
+        ctx.fillStyle = "#7c5cfc";
+        ctx.beginPath();
+        ctx.arc(x, 6, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Waveform bars
+      const barWidth = w / waveform.length;
+      const maxVal = Math.max(...Array.from(waveform)) || 1;
+      for (let i = 0; i < waveform.length; i++) {
+        const val = waveform[i] / maxVal;
+        const barH = val * (h * 0.8);
+        const x = i * barWidth;
+
+        // Gradient color based on amplitude
+        const intensity = Math.floor(val * 255);
+        ctx.fillStyle = `rgb(${100 + intensity * 0.3}, ${80 + intensity * 0.2}, ${252})`;
+        ctx.fillRect(x, mid - barH / 2, Math.max(barWidth - 0.5, 0.5), barH);
+      }
+
+      // Playback position indicator (if this track is playing)
+      if (playing === trackPath) {
+        const elapsed = (performance.now() / 1000) % duration;
+        const px = (elapsed / duration) * w;
+        ctx.strokeStyle = "#00ddb5";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px, 0);
+        ctx.lineTo(px, h);
+        ctx.stroke();
+      }
+
+      animRef.current = requestAnimationFrame(draw);
+    }
+    draw();
+    return () => cancelAnimationFrame(animRef.current);
+  }, [waveform, beats, duration, playing, trackPath]);
+
+  if (!trackPath) {
+    return (
+      <div className="h-32 flex items-center justify-center border border-dashed border-[#2a2a40] rounded-lg">
+        <p className="text-xs text-[#404060]">Select a track above to see its waveform</p>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="h-32 flex items-center justify-center bg-[#0a0a18] rounded-lg">
+        <p className="text-xs text-[#6060a0]">Analyzing waveform...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <canvas
+        ref={canvasRef}
+        width={800}
+        height={120}
+        className="w-full rounded-lg"
+        style={{ background: "#0a0a18", border: "1px solid #1a1a2e" }}
+      />
+      {beats.length > 0 && (
+        <div className="flex items-center gap-3 mt-2">
+          <span className="text-[10px] text-[#6060a0]">{beats.length} beats detected</span>
+          <span className="text-[10px] text-[#404060]">|</span>
+          <span className="text-[10px] text-[#6060a0]">~{duration > 0 ? Math.round(beats.length / (duration / 60)) : 0} BPM</span>
+          <span className="text-[10px] text-[#404060]">|</span>
+          <span className="text-[10px] text-[#6060a0]">{duration.toFixed(1)}s duration</span>
+          {/* Beat pattern indicator */}
+          <div className="flex gap-0.5 ml-auto">
+            {beats.slice(0, 32).map((_, i) => (
+              <div
+                key={i}
+                className="w-1.5 h-3 rounded-sm"
+                style={{
+                  background: i % 4 === 0 ? "#7c5cfc" : i % 2 === 0 ? "#5c3cdc80" : "#3a2a8060",
+                }}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Live Mixer ───────────────────────────────────────────────────────────────
+
+interface MixerLayer { track: string; volume: number; pan: number; audio: HTMLAudioElement | null; }
+
+function LiveMixer({ tracks }: { tracks: { filename: string; label: string; mood: string }[] }) {
+  const [layers, setLayers] = useState<MixerLayer[]>([
+    { track: "", volume: 1, pan: 0, audio: null },
+    { track: "", volume: 1, pan: 0, audio: null },
+    { track: "", volume: 1, pan: 0, audio: null },
+  ]);
+  const [bass, setBass] = useState(0);
+  const [mid, setMid] = useState(0);
+  const [treble, setTreble] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [mixExporting, setMixExporting] = useState(false);
+  const [mixResult, setMixResult] = useState<{ outputPath?: string; error?: string } | null>(null);
+  const LABELS = ["Layer 1 — Music", "Layer 2 — SFX / Ambience", "Layer 3 — Voice / Riser"];
+
+  function updateMix(i: number, patch: Partial<MixerLayer>) {
+    setLayers(prev => { const n = [...prev]; n[i] = { ...n[i], ...patch }; return n; });
+  }
+  function pickTrack(i: number, tp: string) {
+    if (layers[i].audio) { layers[i].audio!.pause(); layers[i].audio!.src = ""; }
+    if (!tp) { updateMix(i, { track: "", audio: null }); return; }
+    const a = new Audio(`/api/media/${tp.replace(/\\/g, "/").replace(/^storage\//, "")}`);
+    a.loop = true; a.volume = layers[i].volume;
+    if (isPlaying) a.play();
+    updateMix(i, { track: tp, audio: a });
+  }
+  function togglePlay() {
+    if (isPlaying) { layers.forEach(l => l.audio?.pause()); setIsPlaying(false); }
+    else { layers.forEach(l => { if (l.audio && l.track) { l.audio.volume = Math.min(1, l.volume); l.audio.play(); } }); setIsPlaying(true); }
+  }
+  function stopAll() { layers.forEach(l => { if (l.audio) { l.audio.pause(); l.audio.currentTime = 0; } }); setIsPlaying(false); }
+  async function doExport() {
+    const active = layers.filter(l => l.track);
+    if (!active.length) return;
+    setMixExporting(true); setMixResult(null);
+    try {
+      const r = await fetch("/api/music/layer", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ layers: active.map(l => ({ path: l.track, volume: l.volume, pan: l.pan })), eq: { bass, mid, treble } }) });
+      setMixResult(await r.json());
+    } catch { setMixResult({ error: "Network error" }); }
+    setMixExporting(false);
+  }
+
+  return (
+    <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-0.5">Sound Layering (Mini DJ)</h2>
+          <p className="text-xs text-[#6060a0]">Mix up to 3 tracks — hear changes live as you adjust volume and layers.</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={togglePlay} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${isPlaying ? "bg-orange-600 hover:bg-orange-500 text-white" : "bg-[#7c5cfc] hover:bg-[#9070ff] text-white"}`}>
+            {isPlaying ? "⏸ Pause" : "▶ Preview Mix"}
+          </button>
+          {isPlaying && <button onClick={stopAll} className="px-3 py-2 rounded-lg text-sm bg-gray-800 text-gray-300 hover:text-white">⏹ Stop</button>}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {LABELS.map((label, i) => (
+          <div key={i} className="bg-[#0a0a18] border border-[#1a1a2e] rounded-lg p-3">
+            <p className="text-[10px] text-[#7c5cfc] font-semibold mb-2">{label}</p>
+            <select value={layers[i].track} onChange={e => pickTrack(i, e.target.value)}
+              className="w-full bg-gray-900 border border-gray-700 text-gray-400 text-[10px] rounded px-2 py-1.5 mb-2">
+              <option value="">Select track...</option>
+              {tracks.map(t => <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label} ({t.mood})</option>)}
+            </select>
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-[#404060] w-6">Vol</span>
+                <input type="range" min={0} max={2} step={0.05} value={layers[i].volume}
+                  onChange={e => { const v = Number(e.target.value); updateMix(i, { volume: v }); if (layers[i].audio) layers[i].audio!.volume = Math.min(1, v); }}
+                  className="flex-1 accent-[#7c5cfc] h-1" />
+                <span className="text-[8px] text-[#404060] w-8 text-right">{Math.round(layers[i].volume * 100)}%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] text-[#404060] w-6">Pan</span>
+                <input type="range" min={-1} max={1} step={0.1} value={layers[i].pan} onChange={e => updateMix(i, { pan: Number(e.target.value) })}
+                  className="flex-1 accent-[#7c5cfc] h-1" />
+                <span className="text-[8px] text-[#404060] w-8 text-right">{layers[i].pan === 0 ? "C" : layers[i].pan < 0 ? `L${Math.abs(Math.round(layers[i].pan * 100))}` : `R${Math.round(layers[i].pan * 100)}`}</span>
+              </div>
+            </div>
+            {layers[i].track && (
+              <div className="mt-2 flex gap-2">
+                <button onClick={() => { if (layers[i].audio) { if (layers[i].audio!.paused) layers[i].audio!.play(); else layers[i].audio!.pause(); } }} className="text-[9px] text-[#7c5cfc] hover:text-white">Solo</button>
+                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = 0; }} className="text-[9px] text-[#f87171] hover:text-white">Mute</button>
+                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = Math.min(1, layers[i].volume); }} className="text-[9px] text-[#4ade80] hover:text-white">Unmute</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 pt-3 border-t border-[#2a2a40]">
+        <p className="text-[10px] text-[#6060a0] font-semibold mb-2">Master EQ (applied on export)</p>
+        <div className="grid grid-cols-3 gap-3">
+          {[{ l: "Bass (100Hz)", v: bass, s: setBass }, { l: "Mid (1kHz)", v: mid, s: setMid }, { l: "Treble (8kHz)", v: treble, s: setTreble }].map(eq => (
+            <div key={eq.l} className="flex items-center gap-2">
+              <span className="text-[9px] text-[#404060] w-16">{eq.l}</span>
+              <input type="range" min={-10} max={10} step={1} value={eq.v} onChange={e => eq.s(Number(e.target.value))} className="flex-1 accent-[#7c5cfc] h-1" />
+              <span className="text-[8px] text-[#404060] w-6 text-right">{eq.v > 0 ? "+" : ""}{eq.v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-2 mt-3">
+        <button onClick={doExport} disabled={mixExporting || layers.every(l => !l.track)}
+          className="px-6 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40">
+          {mixExporting ? "Mixing..." : "Mix & Export"}
+        </button>
+      </div>
+      {mixResult && (
+        <div className={`mt-2 p-3 rounded-lg text-xs ${mixResult.error ? "bg-red-950/40 text-red-400" : "bg-green-950/40 text-green-400"}`}>
+          {mixResult.error ?? `Mixed: ${mixResult.outputPath}`}
         </div>
       )}
     </div>

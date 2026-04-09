@@ -463,11 +463,44 @@ function ImageLayerEditor({
   onSizeChange: (w: number, h: number) => void;
   onAnimationChange: (patch: Partial<ImageLayer["animation"]>) => void;
 }) {
+  const [uploading, setUploading] = useState(false);
+
+  async function handleImageUpload(file: File) {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        onPathChange(data.filePath);
+      }
+    } catch { /* ignore */ }
+    setUploading(false);
+  }
+
+  const previewUrl = layer.imagePath
+    ? `/api/media/${layer.imagePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`
+    : null;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-      <FieldRow label="Image path">
-        <input type="text" value={layer.imagePath} onChange={e => onPathChange(e.target.value)}
-          placeholder="storage/uploads/logo.png" style={inputStyle} />
+      <FieldRow label="Image">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+          {previewUrl && (
+            <img src={previewUrl} alt="logo" style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 4, border: "1px solid #333" }} />
+          )}
+          <label style={{ ...addBtnStyle, fontSize: 11, padding: "4px 10px", cursor: "pointer", opacity: uploading ? 0.5 : 1 }}>
+            {uploading ? "Uploading…" : layer.imagePath ? "Change Image" : "Upload Logo / Image"}
+            <input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="hidden" style={{ display: "none" }}
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
+          </label>
+          {layer.imagePath && (
+            <span style={{ fontSize: 10, color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 140 }}>
+              {layer.imagePath.split(/[\\/]/).pop()}
+            </span>
+          )}
+        </div>
       </FieldRow>
       <FieldRow label="Position">
         <select value={layer.position.zone} onChange={e => onPositionChange({ zone: e.target.value as ImageLayer["position"]["zone"] })} style={inputStyle}>

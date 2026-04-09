@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import OverlayPanel from "../../components/OverlayPanel";
+import SFXPicker from "../../components/SFXPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 
 export default function VideoEditorPage() {
@@ -155,6 +156,13 @@ export default function VideoEditorPage() {
             onChange={setOverlayLayers}
             onApplied={() => {}}
           />
+
+          {/* SFX Library */}
+          <div style={{ border: "1px solid #333", borderRadius: 8, background: "#0f0f0f", padding: "12px 14px", marginTop: 8 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: "#e5e5e5", marginBottom: 8 }}>Sound Effects Library</h3>
+            <p style={{ fontSize: 11, color: "#666", marginBottom: 10 }}>Browse and preview SFX. Click "Use" to add to your project.</p>
+            <SFXPicker onSelect={(event, path) => { console.log(`[SFX] Selected: ${event} → ${path}`); }} />
+          </div>
         </div>
       )}
     </div>

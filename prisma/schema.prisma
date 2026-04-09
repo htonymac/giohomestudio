@@ -366,3 +366,96 @@ model ABVariant {
 
   @@map("ab_variants")
 }
+
+// ── Ad Image Editor ──────────────────────────────────────────────────────────
+
+model AdProject {
+  id              String          @id @default(cuid())
+  name            String          @default("Untitled Ad")
+  type            AdProjectType   @default(AD)
+  canvasWidth     Int             @default(1080)
+  canvasHeight    Int             @default(1080)
+  background      String          @default("#FFFFFF")
+  backgroundFinish String         @default("none")  // "none" | "matte" | "gloss"
+  gradient        String?         // CSS gradient string if used
+  templateId      String?         // which ad template was used to start
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  layers          AdLayer[]
+  assets          AdAsset[]
+  aiJobs          AIEditJob[]
+
+  @@map("ad_projects")
+}
+
+model AdLayer {
+  id          String     @id @default(cuid())
+  projectId   String
+  type        String     // "image" | "text" | "whatsapp" | "cta" | "price" | "shape"
+  positionX   Float      @default(0)
+  positionY   Float      @default(0)
+  width       Float      @default(200)
+  height      Float      @default(60)
+  rotation    Float      @default(0)
+  zIndex      Int        @default(0)
+  locked      Boolean    @default(false)
+  visible     Boolean    @default(true)
+  content     String     @default("")   // text content or image URL
+  style       Json       @default("{}")  // LayerStyle as JSON
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  project     AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ad_layers")
+}
+
+model AdAsset {
+  id          String     @id @default(cuid())
+  projectId   String
+  sourceType  String     // "upload" | "ai_edit" | "ai_generate" | "library" | "bg_remove"
+  originalUrl String?    // original image before edits
+  currentUrl  String     // current version URL
+  fileName    String?
+  mimeType    String?
+  sizeBytes   Int?
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now())
+  project     AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ad_assets")
+}
+
+model AIEditJob {
+  id             String     @id @default(cuid())
+  projectId      String
+  mode           String     // "ad" | "movie" | "banner" | "text_to_image"
+  editType       String     // "bg_remove" | "bg_replace" | "style_transfer" | "generate" | "upscale" | "inpaint" | "outpaint"
+  originalPrompt String
+  enhancedPrompt String?
+  provider       String?    // "fal_ai" | "segmind" | "remove_bg"
+  inputAssetId   String?    // source AdAsset ID
+  outputAssetId  String?    // result AdAsset ID
+  outputUrl      String?
+  status         AIEditStatus @default(QUEUED)
+  error          String?
+  createdAt      DateTime   @default(now())
+  completedAt    DateTime?
+  project        AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ai_edit_jobs")
+}
+
+enum AdProjectType {
+  AD
+  BANNER
+  FLYER
+  MOVIE_POSTER
+  EVENT
+}
+
+enum AIEditStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}

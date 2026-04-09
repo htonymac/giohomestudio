@@ -5,6 +5,7 @@ import NarrationPanel from "../../components/NarrationPanel";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 import OverlayPanel from "../../components/OverlayPanel";
 import AssetPicker from "../../components/AssetPicker";
+import SFXPicker from "../../components/SFXPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
@@ -2325,6 +2326,12 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
               </p>
             </div>
           )}
+
+          {/* SFX Library */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, background: "#0f0f0f", padding: "12px 14px" }}>
+            <h3 style={{ fontSize: 13, fontWeight: 600, color: "#e5e5e5", marginBottom: 6 }}>Sound Effects</h3>
+            <SFXPicker compact onSelect={(event) => { console.log(`[Commercial SFX] ${event}`); }} />
+          </div>
 
           <div className="text-center text-[11px] text-[#404060] pb-2">
             {readyCount === project.slides.length && project.slides.length > 0

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Tool = "trim" | "narrate";
+type Tool = "trim" | "narrate" | "motion";
 
 interface VoiceOption {
   id: string;
@@ -340,14 +340,124 @@ function NarrateTool() {
   );
 }
 
+// ── Motion Transfer tool ─────────────────────────────────────────────────────
+
+function MotionTransferTool() {
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<JobResult | null>(null);
+
+  function reset() {
+    setImageFile(null); setVideoFile(null); setImagePreview(null); setError(null); setResult(null);
+  }
+
+  function handleImageSelect(f: File) {
+    setImageFile(f);
+    const reader = new FileReader();
+    reader.onload = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(f);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!imageFile) { setError("Upload a still image."); return; }
+    if (!videoFile) { setError("Upload a motion reference video."); return; }
+    setLoading(true); setError(null);
+    const fd = new FormData();
+    fd.append("image", imageFile);
+    fd.append("video", videoFile);
+    try {
+      const res = await fetch("/api/video-tools/motion-transfer", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Motion transfer failed."); return; }
+      setResult(data);
+    } catch {
+      setError("Network error. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (result) return <JobDone result={result} onReset={reset} />;
+
+  return (
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {/* Image upload */}
+      <div>
+        <Label>Still Image (the subject to animate)</Label>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <div style={{ flex: 1 }}>
+            <FileDropZone onChange={handleImageSelect} onClear={() => { setImageFile(null); setImagePreview(null); }} accept="image/*" file={imageFile} />
+          </div>
+          {imagePreview && (
+            <img src={imagePreview} alt="Preview" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "1px solid #2a2a40" }} />
+          )}
+        </div>
+        <p style={{ color: "#3a3a5a", fontSize: 11, marginTop: 4 }}>
+          Best results: clear subject, good lighting, face visible, PNG or JPG
+        </p>
+      </div>
+
+      {/* Motion reference video */}
+      <div>
+        <Label>Motion Reference Video (the movement to apply)</Label>
+        <FileDropZone onChange={setVideoFile} onClear={() => setVideoFile(null)} accept="video/*" file={videoFile} />
+        <p style={{ color: "#3a3a5a", fontSize: 11, marginTop: 4 }}>
+          Example: someone dancing, waving, walking — the image will perform this motion
+        </p>
+      </div>
+
+      {/* Examples */}
+      <div style={{ background: "#0a0a18", border: "1px solid #1a1a30", borderRadius: 8, padding: "12px 16px" }}>
+        <p style={{ color: "#5a5a7a", fontSize: 11, fontWeight: 600, marginBottom: 6 }}>Examples</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {[
+            "Photo of a person + video of someone dancing = person dances",
+            "Product image + video of rotating object = product rotates",
+            "Character portrait + video of someone talking = character talks",
+          ].map((ex, i) => (
+            <p key={i} style={{ color: "#3a3a5a", fontSize: 11 }}>
+              {i + 1}. {ex}
+            </p>
+          ))}
+        </div>
+      </div>
+
+      {error && <p style={{ color: "#f87171", fontSize: 13 }}>{error}</p>}
+
+      <button
+        type="submit"
+        disabled={loading || !imageFile || !videoFile}
+        style={{
+          background: loading || !imageFile || !videoFile ? "#2a2a40" : "linear-gradient(135deg, #7c5cfc, #a06ef8)",
+          color: loading || !imageFile || !videoFile ? "#5a5a7a" : "#fff",
+          border: "none",
+          borderRadius: 8,
+          padding: "11px 20px",
+          fontSize: 14,
+          fontWeight: 600,
+          cursor: loading || !imageFile || !videoFile ? "not-allowed" : "pointer",
+          alignSelf: "flex-start",
+        }}
+      >
+        {loading ? "Generating animation…" : "Animate Image"}
+      </button>
+    </form>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function VideoToolsPage() {
   const [activeTool, setActiveTool] = useState<Tool>("trim");
 
   const TOOLS: { id: Tool; label: string; icon: string; desc: string }[] = [
-    { id: "trim",    label: "Trim Video",    icon: "✂",  desc: "Cut a clip to specific start and end times" },
-    { id: "narrate", label: "Add Narration", icon: "🎙", desc: "Layer a voiceover onto an existing video" },
+    { id: "trim",    label: "Trim Video",      icon: "✂",  desc: "Cut a clip to specific start and end times" },
+    { id: "narrate", label: "Add Narration",   icon: "🎙", desc: "Layer a voiceover onto an existing video" },
+    { id: "motion",  label: "Motion Transfer", icon: "🏃", desc: "Animate a still image using motion from a video" },
   ];
 
   return (
@@ -407,6 +517,16 @@ export default function VideoToolsPage() {
             onto the video. Uses ElevenLabs when configured, or mock voice as fallback.
           </p>
           <NarrateTool />
+        </SectionCard>
+      )}
+
+      {activeTool === "motion" && (
+        <SectionCard title="Motion Transfer" icon="🏃">
+          <p style={{ color: "#5a5a7a", fontSize: 13, marginBottom: 20 }}>
+            Upload a still image and a motion reference video. The system animates the image
+            using the motion from the video — e.g. make a photo of a person dance.
+          </p>
+          <MotionTransferTool />
         </SectionCard>
       )}
 

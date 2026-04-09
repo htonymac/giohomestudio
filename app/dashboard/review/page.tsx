@@ -381,14 +381,16 @@ function ReviewCard({
         const arCss = ar === "16:9" ? "16/9" : ar === "1:1" ? "1/1" : "9/16";
         const isPortrait = ar === "9:16";
         return (
-          <div
-            className="cursor-pointer relative overflow-hidden bg-black"
+          <a
+            href={`/dashboard/content/${item.id}`}
+            className="cursor-pointer relative overflow-hidden bg-black block"
             style={{
               aspectRatio: arCss,
               maxHeight: isPortrait ? 360 : undefined,
+              textDecoration: "none",
+              color: "inherit",
             }}
-            onClick={() => router.push(`/dashboard/content/${item.id}`)}
-            title="Click to open full detail page"
+            title="Click to open full detail page — right-click to open in new tab"
           >
             <span className="absolute top-2 left-2 z-10 text-[10px] font-mono bg-black/60 text-white/70 px-1.5 py-0.5 rounded">
               {ar}
@@ -414,7 +416,7 @@ function ReviewCard({
                 {item.mergedOutputPath ? "File missing — click to inspect" : "No output yet"}
               </div>
             )}
-          </div>
+          </a>
         );
       })()}
 
@@ -423,12 +425,13 @@ function ReviewCard({
         <div className="flex items-start justify-between gap-3 mb-2">
           <div className="flex-1 min-w-0">
             <p className="text-xs text-gray-600 font-mono truncate mb-0.5">{item.id}</p>
-            <p
-              className="text-white font-medium text-sm cursor-pointer hover:text-blue-300 transition-colors"
-              onClick={() => router.push(`/dashboard/content/${item.id}`)}
+            <a
+              href={`/dashboard/content/${item.id}`}
+              className="text-white font-medium text-sm cursor-pointer hover:text-blue-300 transition-colors block"
+              style={{ textDecoration: "none" }}
             >
               {item.originalInput}
-            </p>
+            </a>
           </div>
           <span className="text-xs bg-orange-900 text-orange-300 px-2 py-0.5 rounded shrink-0">
             IN_REVIEW
@@ -1080,12 +1083,13 @@ function ReviewCard({
         )}
 
         {/* View full details link */}
-        <button
-          onClick={() => router.push(`/dashboard/content/${item.id}`)}
+        <a
+          href={`/dashboard/content/${item.id}`}
           className="text-xs text-blue-400 hover:text-blue-300 transition-colors mb-3 block"
+          style={{ textDecoration: "none" }}
         >
           View full details, version history, audio tracks →
-        </button>
+        </a>
 
         {/* Actions */}
         {showRejectInput ? (

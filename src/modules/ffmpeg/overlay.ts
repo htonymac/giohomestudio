@@ -298,7 +298,18 @@ export async function applyOverlays(input: ApplyOverlaysInput): Promise<{ succes
 
   fs.mkdirSync(path.dirname(absOutput), { recursive: true });
 
-  const { filterComplex, outputMap, imageInputs } = buildOverlayFilterComplex(input.layers);
+  // For preview clips, adjust layer times so enable expressions work with seeked t=0 base
+  const adjustedLayers = (input.startSec && input.startSec > 0)
+    ? input.layers.map(layer => ({
+        ...layer,
+        animation: {
+          ...layer.animation,
+          startSec: Math.max(0, layer.animation.startSec - input.startSec!),
+        },
+      }))
+    : input.layers;
+
+  const { filterComplex, outputMap, imageInputs } = buildOverlayFilterComplex(adjustedLayers as OverlayLayer[]);
 
   return new Promise((resolve) => {
     let cmd = ffmpeg().input(toFFmpegPath(absInput));
@@ -315,7 +326,7 @@ export async function applyOverlays(input: ApplyOverlaysInput): Promise<{ succes
 
     const outputOptions: string[] = ["-pix_fmt yuv420p", "-movflags +faststart"];
     if (input.durationSec !== undefined) {
-      outputOptions.push("-t", String(input.durationSec));
+      outputOptions.push(`-t ${input.durationSec}`);
     }
 
     if (filterComplex) {

@@ -8,6 +8,7 @@ import type { SpeechStyle, ElevenLabsModel } from "@/types/providers";
 import type { OutputMode } from "@/modules/timeline/types";
 import NarrationPanel from "../components/NarrationPanel";
 import AssetPicker from "../components/AssetPicker";
+import SFXPicker from "../components/SFXPicker";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 
 interface ContinuationSuggestion {
@@ -50,14 +51,35 @@ function getCostEstimate(provider: string, quality: string): string {
   return COST_ESTIMATES[p]?.[quality] ?? "—";
 }
 
-const OUTPUT_MODES: { id: OutputMode; label: string; icon: string; desc: string; live: boolean }[] = [
-  { id: "text_to_video",  label: "Text → Video",   icon: "🎬", desc: "AI generates full video clips",            live: true  },
-  { id: "text_to_image",  label: "Text → Image",   icon: "🖼️", desc: "AI generates images from your description", live: true  },
-  { id: "text_to_audio",  label: "Text → Audio",   icon: "🎙", desc: "Narration + dialogue + music only",        live: true  },
-  { id: "image_to_video", label: "Image → Video",   icon: "🎭", desc: "Upload image + describe motion → animated video", live: true },
-  { id: "images_audio",   label: "Images + Audio",  icon: "📸", desc: "Still images synced to narration",         live: true  },
-  { id: "hybrid",         label: "Hybrid",          icon: "⚡", desc: "Video for key scenes, images for rest",    live: true  },
-  { id: "video_to_video", label: "Video → Video",   icon: "🔄", desc: "Transform an existing video",              live: true  },
+const OUTPUT_MODES: { id: OutputMode; label: string; icon: string; desc: string; fullDesc: string; live: boolean }[] = [
+  { id: "text_to_video",  label: "Text → Video",   icon: "🎬",
+    desc: "AI generates full video clips",
+    fullDesc: "Write a description in plain text and AI generates a complete video clip. The system enhances your prompt, picks the best video model (Kling, Runway, fal.ai), generates the visuals, adds voice narration and music, then merges everything into a ready-to-post video.",
+    live: true  },
+  { id: "text_to_image",  label: "Text → Image",   icon: "🖼️",
+    desc: "AI generates images from your description",
+    fullDesc: "Describe what you want to see and AI creates high-quality images. Perfect for thumbnails, social posts, character art, product mockups, or any visual you need. Results save to your Asset Library for reuse across all modes.",
+    live: true  },
+  { id: "text_to_audio",  label: "Text → Audio",   icon: "🎙",
+    desc: "Narration + dialogue + music only",
+    fullDesc: "Audio-only mode — no video. Write your script and the system generates professional voiceover narration with background music and sound effects. Output is MP3/WAV. Perfect for podcasts, audiobooks, radio ads, or voiceovers you'll add to your own video later.",
+    live: true  },
+  { id: "image_to_video", label: "Image → Video",   icon: "🎭",
+    desc: "Upload image + animate with AI",
+    fullDesc: "Upload any image and AI brings it to life with motion. Upload a product photo and it becomes a rotating showcase. Upload a character and it walks, talks, or dances. The AI adds natural movement while keeping your original image quality intact.",
+    live: true },
+  { id: "images_audio",   label: "Images + Audio",  icon: "📸",
+    desc: "Still images synced to narration",
+    fullDesc: "Upload multiple images and the system creates a slideshow-style video with Ken Burns motion effects, timed to AI-generated narration and music. Ideal for property tours, product galleries, photo stories, or educational slideshows.",
+    live: true  },
+  { id: "hybrid",         label: "Hybrid",          icon: "⚡",
+    desc: "Video for key scenes, images for rest",
+    fullDesc: "The smartest mode. AI analyzes your story and decides which scenes need real video generation and which work better as animated images. Saves cost while keeping quality high. Best for series episodes, story content, and longer videos where not every second needs full video.",
+    live: true  },
+  { id: "video_to_video", label: "Video → Video",   icon: "🔄",
+    desc: "Transform an existing video with AI",
+    fullDesc: "Upload an existing video and transform it with AI. Change the style (make it cinematic, animated, or artistic), add effects, swap backgrounds, enhance quality, or completely restyle the visuals while keeping the original motion and timing.",
+    live: true  },
 ];
 
 function StudioPageInner() {
@@ -728,11 +750,19 @@ function StudioPageInner() {
             );
           })}
         </div>
-        {outputMode === "text_to_audio" && (
-          <p style={{ fontSize: 11, color: "#60a5fa", marginTop: 8, background: "#0d1a2e", border: "1px solid #1a3a5a", borderRadius: 6, padding: "6px 12px" }}>
-            Audio-only mode — video controls are hidden. Output will be MP3/WAV narration with music and SFX.
-          </p>
-        )}
+        {/* Mode description */}
+        {(() => {
+          const mode = OUTPUT_MODES.find(m => m.id === outputMode);
+          if (!mode) return null;
+          const borderColor = outputMode === "text_to_audio" ? "#1a3a5a" : "#2a2a40";
+          const bgColor = outputMode === "text_to_audio" ? "#0d1a2e" : "#0e0e1a";
+          const textColor = outputMode === "text_to_audio" ? "#60a5fa" : "#8080b0";
+          return (
+            <p style={{ fontSize: 11, color: textColor, marginTop: 8, background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 6, padding: "8px 12px", lineHeight: 1.6 }}>
+              <span style={{ fontWeight: 600, color: "#a080ff" }}>{mode.label}:</span> {mode.fullDesc}
+            </p>
+          );
+        })()}
       </div>
 
       {/* ── Story continuation banner ──────────────────────── */}
@@ -1683,6 +1713,16 @@ function StudioPageInner() {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* SFX subsection */}
+          <div style={{ marginTop: 12 }}>
+            <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">Sound Effects</p>
+            <p className="text-[10px] text-gray-700 mb-2">Browse and preview SFX — AI also auto-detects needed effects from your script.</p>
+            <SFXPicker compact onSelect={(event) => {
+              const ta = document.querySelector<HTMLTextAreaElement>("#studio-prompt");
+              if (ta) { ta.value += `\n[SFX: ${event}]`; ta.dispatchEvent(new Event("input", { bubbles: true })); }
+            }} />
           </div>
         </div>
 

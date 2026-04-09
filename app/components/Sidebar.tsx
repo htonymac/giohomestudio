@@ -5,54 +5,56 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const NAV = [
+  // ── Studio — the main creative workspace ──
   {
-    group: "Create",
+    group: "Studio",
     items: [
-      { href: "/dashboard",              label: "Home + Studio",    icon: "✦" },
+      { href: "/dashboard",              label: "Create",           icon: "✦" },
       { href: "/dashboard/templates",    label: "Templates",        icon: "🚀" },
-      { href: "/dashboard/commercial",    label: "Commercial Maker", icon: "📣" },
-      { href: "/dashboard/video-editor",  label: "Video Editor",     icon: "🎬" },
+      { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "📣" },
     ],
   },
+  // ── Editing Tools — video, image, audio tools ──
+  {
+    group: "Editing Tools",
+    items: [
+      { href: "/dashboard/video-editor",  label: "Video Editor",     icon: "🎬" },
+      { href: "/dashboard/ad-editor",     label: "Ad / Image Editor",icon: "🖼" },
+      { href: "/dashboard/video-tools",   label: "Video Tools",      icon: "✂" },
+      { href: "/dashboard/video-trimmer", label: "Video Trimmer",    icon: "✄" },
+      { href: "/dashboard/music-studio",  label: "Music & DJ",       icon: "🎵" },
+      { href: "/dashboard/sfx-library",   label: "SFX Library",      icon: "💥" },
+    ],
+  },
+  // ── Content — everything related to your content lifecycle ──
   {
     group: "Content",
     items: [
-      { href: "/dashboard/review",      label: "Review Queue",    icon: "◈", badge: true },
-      { href: "/dashboard/registry",    label: "All Content",     icon: "▤" },
-      { href: "/dashboard/assets",      label: "Asset Library",   icon: "📦" },
-    ],
-  },
-  {
-    group: "Audio & Voice",
-    items: [
-      { href: "/dashboard/music-studio",     label: "Music Studio",   icon: "🎵" },
+      { href: "/dashboard/review",           label: "Review Queue",    icon: "◈", badge: true },
+      { href: "/dashboard/registry",         label: "All Content",     icon: "▤" },
+      { href: "/dashboard/assets",           label: "Asset Library",   icon: "📦" },
       { href: "/dashboard/character-voices", label: "Characters",      icon: "🎭" },
-      { href: "/dashboard/sfx-library",      label: "SFX Library",    icon: "💥" },
+      { href: "/dashboard/story-bank",       label: "Story Bank",      icon: "💡" },
+      { href: "/dashboard/series-wizard",    label: "Series Wizard",   icon: "📺" },
     ],
   },
+  // ── Publish & Grow — where content goes after creation ──
   {
-    group: "AI & Models",
+    group: "Publish & Grow",
     items: [
-      { href: "/dashboard/models",       label: "AI Models",       icon: "◆" },
-      { href: "/dashboard/video-tools",   label: "Video Tools",     icon: "✂" },
-      { href: "/dashboard/video-trimmer", label: "Video Trimmer",   icon: "🎬" },
+      { href: "/dashboard/destination-pages", label: "Publishing Pages", icon: "⊞" },
+      { href: "/dashboard/calendar",          label: "Calendar",         icon: "📅" },
+      { href: "/dashboard/analytics",         label: "Analytics",        icon: "📊" },
+      { href: "/dashboard/ab-testing",        label: "A/B Testing",      icon: "⚖" },
     ],
   },
+  // ── Billing & Settings — obvious, accessible ──
   {
-    group: "Insights",
+    group: "Billing & Settings",
     items: [
-      { href: "/dashboard/analytics",  label: "Analytics",       icon: "📊" },
-      { href: "/dashboard/budget",     label: "Budget",          icon: "💰" },
-      { href: "/dashboard/ab-testing", label: "A/B Testing",     icon: "⚖" },
-      { href: "/dashboard/calendar",   label: "Calendar",        icon: "📅" },
-      { href: "/dashboard/story-bank", label: "Story Bank",      icon: "💡" },
-    ],
-  },
-  {
-    group: "Settings",
-    items: [
-      { href: "/dashboard/destination-pages", label: "Publishing Pages",  icon: "⊞" },
-      { href: "/dashboard/settings",          label: "Settings",          icon: "⚙" },
+      { href: "/dashboard/budget",    label: "Budget & Credits",  icon: "💳" },
+      { href: "/dashboard/models",    label: "AI Models",         icon: "◆" },
+      { href: "/dashboard/settings",  label: "Settings",          icon: "⚙" },
     ],
   },
 ];
@@ -90,8 +92,8 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
 
   return (
     <aside className="flex flex-col h-full" style={{ background: "var(--surface2)", borderRight: "1px solid var(--border)", position: "relative", overflow: "hidden" }}>
-      {/* Logo */}
-      <div style={{ padding: "16px 14px 12px", borderBottom: "1px solid var(--border)" }}>
+      {/* Logo — clicks to intro page */}
+      <Link href="/" style={{ display: "block", padding: "16px 14px 12px", borderBottom: "1px solid var(--border)", textDecoration: "none", cursor: "pointer" }}>
         <div className="flex items-center gap-2.5">
           <div
             className="flex items-center justify-center font-bold text-white shrink-0"
@@ -104,68 +106,108 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
             <p style={{ fontSize: 10, color: "var(--text3)", fontWeight: 400 }}>Content Studio</p>
           </div>
         </div>
-      </div>
+      </Link>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: "14px 8px 4px" }}>
-        {NAV.map((group) => (
-          <div key={group.group} style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: "1.5px", textTransform: "uppercase", color: "var(--text3)", padding: "0 6px", marginBottom: 4 }}>
-              {group.group}
-            </p>
-            {group.items.map((item) => {
-              const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 8,
-                    padding: "7px 10px", borderRadius: 8, marginBottom: 1,
-                    fontSize: "12.5px", fontWeight: active ? 500 : 450,
-                    color: active ? "#c0bcff" : "var(--text2)",
-                    background: active ? "rgba(108,99,255,0.15)" : "transparent",
-                    position: "relative", transition: "all 0.15s",
-                  }}
-                >
-                  {active && (
-                    <span style={{ position: "absolute", left: 0, top: 6, bottom: 6, width: 2, borderRadius: "0 2px 2px 0", background: "var(--accent)" }} />
-                  )}
-                  <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {item.badge && reviewCount ? (
-                    <span style={{ fontSize: 9, fontWeight: 700, background: "var(--accent2)", color: "white", padding: "1px 5px", borderRadius: 100 }}>
-                      {reviewCount}
-                    </span>
-                  ) : null}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+      <nav className="flex-1 overflow-y-auto" style={{ padding: "10px 8px 4px" }}>
+        {NAV.map((group, gi) => {
+          const GROUP_ACCENTS: Record<string, string> = {
+            "Studio": "#7c5cfc",
+            "Editing Tools": "#3b82f6",
+            "Content": "#f59e0b",
+            "Publish & Grow": "#10b981",
+            "Billing & Settings": "#6b7280",
+          };
+          const accent = GROUP_ACCENTS[group.group] ?? "#7c5cfc";
+
+          return (
+            <div key={group.group} style={{ marginBottom: 18 }}>
+              {/* Section divider line (skip first) */}
+              {gi > 0 && (
+                <div style={{ height: 1, background: "linear-gradient(90deg, transparent, var(--border), transparent)", margin: "6px 10px 14px" }} />
+              )}
+              {/* Section header — bold, visible, with accent bar */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 8px", marginBottom: 8 }}>
+                <span style={{ width: 3, height: 14, borderRadius: 2, background: accent, flexShrink: 0 }} />
+                <p style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.8px",
+                  textTransform: "uppercase",
+                  color: accent,
+                  margin: 0,
+                  lineHeight: 1,
+                }}>
+                  {group.group}
+                </p>
+              </div>
+              {group.items.map((item) => {
+                const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className="sidebar-link"
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      padding: "7px 10px", borderRadius: 8, marginBottom: 1,
+                      fontSize: "12.5px", fontWeight: active ? 600 : 450,
+                      color: active ? "#e0dcff" : "#8888a8",
+                      background: active ? `${accent}20` : "transparent",
+                      borderLeft: active ? `2px solid ${accent}` : "2px solid transparent",
+                      position: "relative",
+                      transition: "all 0.15s ease",
+                    }}
+                    onMouseEnter={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.background = `${accent}10`;
+                        (e.currentTarget as HTMLElement).style.color = "#c0c0e0";
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!active) {
+                        (e.currentTarget as HTMLElement).style.background = "transparent";
+                        (e.currentTarget as HTMLElement).style.color = "#8888a8";
+                      }
+                    }}
+                  >
+                    <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {item.badge && reviewCount ? (
+                      <span style={{ fontSize: 9, fontWeight: 700, background: "#ef4444", color: "white", padding: "1px 6px", borderRadius: 100, animation: "pulse 2s infinite" }}>
+                        {reviewCount}
+                      </span>
+                    ) : null}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: "12px 8px", borderTop: "1px solid var(--border)", marginTop: "auto" }}>
-        {/* Credit balance */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", marginBottom: 8, background: "var(--surface3)", borderRadius: 8 }}>
-          <span style={{ fontSize: 14 }}>💳</span>
+      <div style={{ padding: "10px 8px", borderTop: "1px solid var(--border)", marginTop: "auto" }}>
+        {/* Credit balance — prominent */}
+        <Link href="/dashboard/budget" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px", marginBottom: 6, background: "linear-gradient(135deg, rgba(0,229,195,0.08), rgba(124,92,252,0.08))", borderRadius: 10, border: "1px solid rgba(0,229,195,0.15)", textDecoration: "none" }}>
+          <span style={{ fontSize: 16 }}>💳</span>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>$0.00</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>$0.00</div>
             <div style={{ fontSize: 9, color: "var(--text3)" }}>Credit Balance</div>
           </div>
-          <a href="/dashboard/settings" style={{ fontSize: 10, padding: "2px 8px", borderRadius: 100, background: "rgba(0,229,195,0.12)", color: "var(--accent3, #00e5c3)", border: "1px solid rgba(0,229,195,0.25)", textDecoration: "none", fontWeight: 600 }}>
-            Settings
-          </a>
-        </div>
+          <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 100, background: "rgba(0,229,195,0.15)", color: "var(--accent3, #00e5c3)", fontWeight: 700 }}>
+            Top Up
+          </span>
+        </Link>
 
         {/* User */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, var(--accent), var(--accent2))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, color: "white", flexShrink: 0 }}>H</div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text)" }}>Henry</div>
-            <div style={{ fontSize: 10, color: "var(--accent3, #00e5c3)" }}>Creator</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8 }}>
+          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, var(--accent), var(--accent2))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white", flexShrink: 0 }}>H</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>Henry</div>
+            <div style={{ fontSize: 9, color: "var(--accent3, #00e5c3)" }}>Creator</div>
           </div>
+          <Link href="/dashboard/settings" style={{ fontSize: 12, color: "var(--text3)", textDecoration: "none" }} title="Settings">⚙</Link>
         </div>
 
         <LLMStatus />

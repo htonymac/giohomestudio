@@ -119,6 +119,44 @@ export const SFX_LIBRARY: SFXFile[] = [
   { event: "airhorn",         filename: "airhorn.mp3",          description: "DJ airhorn blast",                category: "music" },
   { event: "cymbal_crash",    filename: "cymbal_crash.mp3",     description: "Cymbal crash accent",             category: "music" },
   { event: "drum_roll",       filename: "drum_roll.mp3",        description: "Drum roll buildup",               category: "music" },
+  { event: "bass_drop",       filename: "bass_drop.mp3",        description: "Deep bass drop hit",              category: "music" },
+  { event: "808_bass",        filename: "808_bass.mp3",         description: "808 sub bass tone",               category: "music" },
+  { event: "kick_drum",       filename: "kick_drum.mp3",        description: "Kick drum hit",                   category: "music" },
+  { event: "snare",           filename: "snare.mp3",            description: "Snare drum hit",                  category: "music" },
+  { event: "hi_hat",          filename: "hi_hat.mp3",           description: "Hi-hat tick",                     category: "music" },
+
+  // ── Extra transitions ──
+  { event: "swoosh_magic",    filename: "swoosh_magic.mp3",     description: "Magical swoosh effect",           category: "transition" },
+  { event: "transition_swipe",filename: "transition_swipe.mp3", description: "Swipe transition sound",          category: "transition" },
+  { event: "sparkle",         filename: "sparkle.mp3",          description: "Sparkle / shimmer effect",        category: "transition" },
+  { event: "pop",             filename: "pop.mp3",              description: "Quick pop accent",                category: "transition" },
+  { event: "snap",            filename: "snap.mp3",             description: "Finger snap",                     category: "transition" },
+  { event: "ding",            filename: "ding.mp3",             description: "Ding accent tone",                category: "transition" },
+
+  // ── Extra ambience ──
+  { event: "heavy_rain",      filename: "heavy_rain.mp3",       description: "Heavy rain downpour",             category: "weather" },
+  { event: "forest_birds",    filename: "forest_birds.mp3",     description: "Forest with birdsong",            category: "nature" },
+  { event: "deep_ambience",   filename: "deep_ambience.mp3",    description: "Deep dark ambience",              category: "nature" },
+  { event: "crowd_ambience",  filename: "crowd_ambience.mp3",   description: "General crowd ambience",          category: "crowd" },
+  { event: "static_tv",       filename: "static_tv.mp3",        description: "TV static noise",                 category: "tech" },
+  { event: "sci_fi_hum",      filename: "sci_fi_hum.mp3",       description: "Sci-fi electronic hum",           category: "tech" },
+
+  // ── Extra household/urban ──
+  { event: "coin",            filename: "coin.mp3",             description: "Coin drop / collect",             category: "household" },
+  { event: "click",           filename: "click.mp3",            description: "Button click",                    category: "tech" },
+  { event: "beep",            filename: "beep.mp3",             description: "Short beep tone",                 category: "tech" },
+  { event: "alarm_beep",      filename: "alarm_beep.mp3",       description: "Alarm beep sequence",             category: "tech" },
+  { event: "siren",           filename: "siren.mp3",            description: "Emergency siren",                 category: "urban" },
+  { event: "motor_rev",       filename: "motor_rev.mp3",        description: "Engine revving",                  category: "vehicle" },
+  { event: "typing_key",      filename: "typing_key.mp3",       description: "Single keyboard key tap",         category: "tech" },
+  { event: "bell_church",     filename: "bell_church.mp3",      description: "Church bell ring",                category: "urban" },
+  { event: "error_buzz",      filename: "error_buzz.mp3",       description: "Error / wrong buzzer",            category: "tech" },
+  { event: "rumble",          filename: "rumble.mp3",           description: "Low rumble / earthquake",         category: "impact" },
+  { event: "boom",            filename: "boom.mp3",             description: "Deep boom impact",                category: "impact" },
+  { event: "sub_bass_hit",    filename: "sub_bass_hit.mp3",     description: "Sub-bass impact hit",             category: "impact" },
+  { event: "suspense_drone",  filename: "suspense_drone.mp3",   description: "Suspense drone tone",             category: "horror" },
+  { event: "tension_build",   filename: "tension_build.mp3",    description: "Tension building tone",           category: "horror" },
+  { event: "drum_roll_short", filename: "drum_roll_short.mp3",  description: "Short drum roll",                 category: "music" },
 ];
 
 const SFX_MAP = new Map<string, SFXFile>(SFX_LIBRARY.map(s => [s.event, s]));
