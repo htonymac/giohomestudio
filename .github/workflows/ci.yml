@@ -1,0 +1,45 @@
+name: GHS CI — Build & Type Check
+
+on:
+  push:
+    branches: [main, feature/*, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: TypeScript type check
+        run: npx tsc --noEmit
+
+      - name: Build Next.js
+        run: npx next build
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          SKIP_ENV_VALIDATION: "true"
+
+      - name: Report success
+        if: success()
+        run: echo "✅ Build passed — $(find .next -name '*.html' | wc -l) pages generated"
+
+      - name: Report failure
+        if: failure()
+        run: echo "❌ Build failed — check logs above"
