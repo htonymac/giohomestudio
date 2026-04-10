@@ -158,6 +158,17 @@ export const SFX_LIBRARY: SFXFile[] = [
   { event: "tension_build",   filename: "tension_build.mp3",    description: "Tension building tone",           category: "horror" },
   { event: "drum_roll_short", filename: "drum_roll_short.mp3",  description: "Short drum roll",                 category: "music" },
 
+  // ── Priority Pack (from SFX Loading Plan — only NEW unique entries) ──
+  { event: "car_engine",      filename: "car_engine.mp3",       description: "Car engine idle/drive",           category: "vehicle" },
+  { event: "road_tire",       filename: "road_tire.mp3",        description: "Road tire noise on pavement",     category: "vehicle" },
+  { event: "breathing_stress",filename: "breathing_stress.mp3", description: "Stressed heavy breathing",        category: "action" },
+  { event: "glass_shatter",   filename: "glass_shatter.mp3",    description: "Glass shattering",                category: "impact" },
+  { event: "baby_cry",        filename: "baby_cry.mp3",         description: "Baby crying",                     category: "animal" },
+  { event: "keyboard_typing", filename: "keyboard_typing.mp3",  description: "Keyboard key press",              category: "tech" },
+  { event: "door_slam",       filename: "door_slam.mp3",        description: "Door slamming shut",              category: "household" },
+  { event: "village_ambience",filename: "village_ambience.mp3",  description: "Quiet village background",        category: "nature" },
+  { event: "office_room_tone",filename: "office_room_tone.mp3", description: "Quiet office room tone",          category: "urban" },
+
   // ── Additional SFX (batch 2 — unique only) ──
   { event: "snake_hiss",      filename: "snake_hiss.mp3",       description: "Snake hissing",                   category: "nature" },
   { event: "footstep_gravel", filename: "footstep_gravel.mp3",  description: "Footstep on gravel",              category: "movement" },
