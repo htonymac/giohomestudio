@@ -613,3 +613,104 @@ model MusicVideoProject {
 
   @@map("music_video_projects")
 }
+
+// ── Protection & Metadata Foundation (from Support Canvas) ──────────────────
+
+// Sound Asset Record — tracks every sound with license info
+model SoundAsset {
+  id                String    @id @default(cuid())
+  title             String
+  creatorName       String?
+  sourcePlatform    String?   // "internal" | "freesound" | "pixabay" | "mixkit" | "user_upload" | "ai_generated"
+  sourceUrl         String?
+  licenseType       String    @default("owned") // "owned" | "cc0" | "cc_by" | "cc_by_nc" | "unknown"
+  requiresAttribution Boolean @default(false)
+  commercialAllowed Boolean   @default(true)
+  attributionText   String?   // e.g. '"Rain on Window" by Jane Doe, used under CC BY 4.0'
+  localFilename     String?
+  cacheStatus       String    @default("local") // "local" | "cached" | "remote"
+  usageBucket       String    @default("owned") // "owned" | "cc0" | "cc_by" — NO cc_by_nc in production
+  tags              Json?     // string[]
+  duration          Float?    // seconds
+  qualityRating     Int?      // 1-5
+  category          String?   // "sfx" | "music" | "ambience" | "foley"
+  blocked           Boolean   @default(false) // true if license doesn't allow production use
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  usages            ProjectSoundUsage[]
+
+  @@map("sound_assets")
+}
+
+// Project Sound Usage Record — tracks which sounds are used in which project
+model ProjectSoundUsage {
+  id                String    @id @default(cuid())
+  projectId         String    // movie/music-video/commercial project ID
+  projectType       String    // "movie" | "music_video" | "commercial" | "content"
+  assetId           String
+  usageType         String    // "background_music" | "sfx" | "ambience" | "narration_bed"
+  attributionIncluded Boolean @default(false)
+  commercialContext Boolean   @default(false) // true if used in commercial/ad content
+  exportEligible    Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  asset             SoundAsset @relation(fields: [assetId], references: [id])
+
+  @@map("project_sound_usages")
+}
+
+// Rights Confirmation Record — logs every rights check the user confirms
+model RightsConfirmation {
+  id                String    @id @default(cuid())
+  projectId         String?
+  projectType       String?
+  confirmationType  String    // "likeness" | "voice" | "commercial" | "third_party_media" | "endorsement"
+  confirmationText  String    // the exact text user agreed to
+  acceptedVersion   String    @default("1.0")
+  ipAddress         String?
+  createdAt         DateTime  @default(now())
+
+  @@map("rights_confirmations")
+}
+
+// Audit Log Record — tracks critical trust and assembly events
+model AuditLog {
+  id                String    @id @default(cuid())
+  eventType         String    // "upload_approved" | "export_approved" | "rights_confirmed" | "sound_used" | "render_started" | "assembly_completed"
+  projectId         String?
+  projectType       String?
+  details           Json?     // flexible event-specific data
+  soundAssetId      String?   // if event involves a sound
+  licenseType       String?   // license of sound used
+  attributionGenerated String? // attribution text if generated
+  plannerTier       String?   // "standard" | "pro" | "premium" | "premium_best"
+  supervisorTier    String?
+  providerUsed      String?
+  assemblyJsonVersion String?
+  previewStatus     String?
+  renderStatus      String?
+  sourceType        String?   // "uploaded" | "generated" | "imported" | "local"
+  stayedLocal       Boolean   @default(true) // whether media stayed on device
+  createdAt         DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+// Assembly Record — tracks assembly pipeline state
+model AssemblyRecord {
+  id                  String    @id @default(cuid())
+  projectId           String
+  projectType         String    // "movie" | "music_video" | "commercial"
+  assemblyJson        Json?     // the full assembly plan (source of truth)
+  assemblyJsonVersion Int       @default(1)
+  plannerModelTier    String?   // "standard" | "pro" | "premium" | "premium_best"
+  supervisorModelTier String?
+  previewStatus       String    @default("pending") // "pending" | "generated" | "approved"
+  renderStatus        String    @default("pending") // "pending" | "rendering" | "completed" | "failed"
+  exportApproved      Boolean   @default(false)
+  thumbnailUrl        String?
+  finalOutputUrl      String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("assembly_records")
+}

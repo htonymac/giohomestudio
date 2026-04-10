@@ -743,6 +743,164 @@ Full plan documented separately. 4 phases:
 - [x] Total SFX: 58 files
 - [x] Build passes (128 pages)
 
+---
+
+## FROM GHS SUPPORT CANVAS — MUST BUILD (Protection + Sound + Assembly + Legal)
+
+### Video Finishing Studio — Separate Workflow (NOT built)
+- [ ] Import existing video → analyze → plan layers → review → approve → assemble → export
+- [ ] One shared assembly engine underneath all entry points (Video Tools, Music Tools, Content)
+- [ ] Video Analyzer: reads imported video, extracts duration, audio presence, silence areas, cuts, speech areas
+- [ ] Assembly Planner: plans narration/music/SFX/subtitle/overlay timing
+- [ ] Audio Balance Planner: narration priority, music ducking, ambience support, SFX emphasis
+- [ ] Sound Source Resolver: user sound → local vault → CC0 → CC BY → generation → review fallback
+- [ ] FFmpeg Assembly Engine: deterministic execution from Assembly JSON
+
+### Assembly JSON Schema — Source of Truth (NOT built)
+- [ ] Structured assembly schema expressing: video segments, image segments, narration in/out timings, music in/out, SFX placements, ambience layers, subtitle timings, text overlay timings, logo placement, fade in/out, transitions, volume automation, ducking rules, export targets, aspect ratio variants
+- [ ] Planner AI produces Assembly JSON → Supervisor AI checks → FFmpeg builder executes
+- [ ] Same JSON contract across all model tiers — only planning quality changes, execution stays deterministic
+- [ ] Preview render from JSON before final render
+- [ ] Assembly Record: project_id, assembly_json_version, planner_model_tier, supervisor_model_tier, preview_status, render_status
+
+### Sound 3-Bucket Policy — STRICT (NOT enforced in code)
+- [ ] Bucket 1: Fully owned / custom-created / GHS-internal sounds — always allowed
+- [ ] Bucket 2: CC0 sounds — allowed, tracked but no attribution required
+- [ ] Bucket 3: CC BY sounds — allowed ONLY with automatic attribution support
+- [ ] BLOCK: CC BY-NC in ANY commercial production flow
+- [ ] BLOCK: Unknown-license sounds from entering production
+- [ ] BLOCK: "Free to download" ≠ "free to use commercially" — must be enforced
+- [ ] Every sound asset stores: asset_id, title, creator_name, source_platform, source_url, license_type, requires_attribution, commercial_allowed, attribution_text, local_filename, usage_bucket, tags, duration
+
+### Attribution System — MUST be a feature not a note (NOT built)
+- [ ] Per-sound license metadata stored in DB
+- [ ] Auto-generate project sound credits block from all CC BY sounds used
+- [ ] Copy Credits button
+- [ ] Show Attribution button
+- [ ] Include Credits in Export option
+- [ ] Optional end-card credits for videos
+- [ ] Optional description-ready credits text for YouTube/social
+- [ ] Project Sound Usage Record: project_id, asset_id, usage_type, attribution_included, commercial_context, export_eligible
+
+### Audit Logging — Trust & Accountability (NOT built)
+- [ ] Log: source type (uploaded/generated/imported)
+- [ ] Log: whether media stayed local or was uploaded
+- [ ] Log: upload approval timestamp
+- [ ] Log: export approval timestamp
+- [ ] Log: risky-action confirmation state
+- [ ] Log: rights-confirmation version accepted
+- [ ] Log: sound assets used + license type
+- [ ] Log: attribution text generated
+- [ ] Log: planner tier used + supervisor tier used
+- [ ] Log: provider used
+- [ ] Log: assembly JSON version
+- [ ] Log: preview status + final render status
+- [ ] Rights Confirmation Record: user_id, project_id, confirmation_type, accepted_version, timestamp
+
+### Rights Confirmation at Point of Risk (NOT built)
+- [ ] Popup when using third-party faces: "I own this or have permission"
+- [ ] Popup when cloning/synthesizing voice: "I have permission from voice owner"
+- [ ] Popup when building endorsement-style content: "I have commercial rights"
+- [ ] Popup when transforming imported third-party media: "I accept responsibility"
+- [ ] Must be a REAL interaction step, not buried legal text
+- [ ] Block by default: celebrity cloning, third-party voice cloning without confirmation, fake endorsements, "make this person say..." deception, non-consensual intimate edits, child-risk content
+
+### Model Tiers — 4 Levels (PARTIAL — needs proper API routing)
+- [ ] GHS Standard: local LLM (Ollama) — free, rough drafts, basic planning
+- [ ] GHS Pro: smaller hosted models (GPT-4o-mini, Claude Haiku) — 1 credit, better planning
+- [ ] GHS Premium: top production models (GPT-4o, Claude Sonnet) — 3 credits, strong planning
+- [ ] GHS Premium Best: highest reasoning (GPT-5.4, Claude Opus) — 5 credits, best supervision
+- [ ] FFmpeg execution MUST stay deterministic across ALL tiers
+- [ ] Local LLM must NOT be hidden default for all assembly intelligence
+- [ ] Pro/Premium/Premium Best must route to hosted providers
+- [ ] User sees tier choice, NOT provider names
+
+### Expanded Sound Vault — MUCH bigger (PARTIAL — 58 exists, needs 200+)
+- [ ] Priority sounds to add: piano hits, soft piano beds, various whooshes, risers, impacts, wind variants, rain variants, thunder, footsteps (wood/carpet/gravel/concrete), crowd ambience variants, market ambience, city ambience, village ambience, office room tone, keyboard/typing, cloth movement, paper movement, water splash variants, kitchen sounds, doors (open/close/slam), vehicle pass-bys, school ambience, classroom ambience, educational playful sounds, children learning support sounds
+- [ ] Do NOT use live generation for ordinary sounds that can be preloaded
+- [ ] Preloaded sounds should be properly tagged and searchable
+
+### User Messaging — Sound Ownership (NOT added)
+- [ ] Add to Terms: "Custom-generated sound created inside GHS may be used by the customer subject to GHS terms and any applicable third-party provider terms. For imported third-party sounds, the customer is responsible for complying with applicable license, attribution, and usage restrictions. GHS may provide attribution assistance, but the customer remains responsible for lawful final use."
+- [ ] Do NOT promise "no one can penalize them" or "they fully own everything"
+
+### Review Panels Before Export (NOT built as unified system)
+- [ ] Panel 1: Import Summary
+- [ ] Panel 2: Narration Plan
+- [ ] Panel 3: Music Plan
+- [ ] Panel 4: Sound Effects Plan
+- [ ] Panel 5: Subtitle / Overlay Plan
+- [ ] Panel 6: Source / License Summary
+- [ ] Panel 7: Assembly Preview
+- [ ] Panel 8: Export Settings
+- [ ] No final export without approval through these panels
+
+### Narration as First-Class System (PARTIAL)
+- [ ] Language selection per narration
+- [ ] Voice choice (standard AI / user voice / brand voice)
+- [ ] Speed, tone, pacing, emphasis control
+- [ ] Start/stop/pause points planned in timeline
+- [ ] Interaction with music (ducking rules)
+- [ ] Interaction with SFX (emphasis points)
+- [ ] Subtitle alignment
+- [ ] Narration decisions visible during review BEFORE rendering
+- [ ] Educational / commercial / story / explainer narration modes
+
+### Scene-Directed Audio Storytelling Layer (from gio_home_studio_scene_directed_audio_storytelling_pass.md)
+- [ ] Scene interpretation: detect emotional tone, speech style, ambience need, SFX need, music need, whisper/low-volume need
+- [ ] Audio layers model: narration, dialogue, music, ambience, foley/SFX, silence/pause — as separate controllable layers
+- [ ] Whisper and emotional voice handling: voice-direction tags (whisper, breath-heavy, trembling, intimate, grieving, fearful)
+- [ ] Voice-direction controls: volume style, speed, pause intensity, emotional style tag
+- [ ] Car driving scene ambience support: engine hum, road/tire, cabin vibration, dashboard rattle
+- [ ] Shooting/tension scene support: distant/near gunshot, burst fire, sword clash, shield movement, heartbeat pulse
+- [ ] SFX must fit the text — supervisor infers from story, not random
+- [ ] Multi-speaker dialogue: narrator + character 1 + character 2 + character 3 minimum
+- [ ] Character voice registry: name, age, gender, voice quality, preferred voice ID, language/dialect
+- [ ] Timeline and mixing rules: voice priority, music ducks under speech, SFX doesn't bury dialogue, silence preserved
+- [ ] Audio-only mode: MP3/WAV export, no video generation, same review workflow
+- [ ] Review page as finishing desk: editable narration, dialogue, voice selection, music, ambience, SFX, volumes
+- [ ] Preview tools: narrator voice, character voice, dialogue, music, ambience, SFX previews before full generation
+
+### SFX Library Loading Plan (from gio_home_studio_sfx_library_loading_plan_and_free_resource_links.md)
+- [ ] Free SFX Sources help card in SFX Library page: Freesound, Pixabay, Mixkit, Sonniss, Openverse links
+- [ ] Category-specific quick search links (thunder, rain, wind, gunshot, sword, footsteps, etc.)
+- [ ] Loading guidance: download → rename to expected filename → place in storage/sfx/ → refresh
+- [ ] Quality rules: clean, not too long, not overloaded with music, good for looping
+- [ ] Duration guidance: one-shot 0.5-5s, ambience 10-60s, tension 1-6s, beds 15-60s
+- [ ] Priority Pack 1 (must load): thunder, rain_light, rain_heavy, wind, storm, gunshot, sword_clash, footsteps, footsteps_run, door_creak, market_noise, crowd_murmur, horse_gallop, heartbeat, forest_ambience
+- [ ] Priority Pack 2: explosion, fire_crackling, crowd_cheer, crowd_panic, city_traffic, church_bell, ocean_waves, river_stream, horror_sting, dog_bark
+
+### Character Voice and Story Identity (from gio_home_studio_character_voice_and_story_identity_update.md)
+- [ ] Character creation Method A: manual create with name, age, height, gender, culture, country, dialect, voice type, images, voice preview
+- [ ] Character creation Method B: AI asks "Save this character?" after generation — save main actor / speaking actors / all / none
+- [ ] Character library: full profile with name, project association, voice ID, voice provider, appearance, wardrobe, hairstyle, personality, reference images, motion reference, pose pack, keep-same toggle
+- [ ] Character Pack system: front portrait, side portrait, three-quarter, full body, expressions, fixed look sheet
+- [ ] Character continuity: reuse same character across scenes and projects, fixed appearance description
+- [ ] Voice identity persistence: same voice repeated across all scenes, dialect/language preserved
+
+### Multi-Mode Architecture (from gio_home_studio_multi_mode_architecture_plan.md)
+- [ ] One shared AI media assembly engine powering all modes (not disconnected mini-products)
+- [ ] Core flow: Interpret → Plan → Generate assets → Sync on timeline → Review → Final render
+- [ ] Text to Audio mode: audiobook, radio drama, podcast, narrated story — cheaper than video
+- [ ] Supervisor system: brain that decides what needs to happen per scene
+- [ ] Timeline engine: places narration, dialogue, images, clips, music, SFX in correct sequence
+- [ ] Finishing desk: review area where user fixes/replaces/regenerates without restarting everything
+
+### Overlay/Text System Upgrade (from claude_code_overlay_upgrade_command.md)
+- [ ] Modern social media overlay style: text reveal, caption behavior, sticker/card look
+- [ ] Study reference videos for pacing and placement patterns
+- [ ] Must work in actual video rendering, not just preview
+
+### Product Controls BEFORE Automation
+- [ ] Rights confirmation flows before risky actions
+- [ ] Sound license metadata before production
+- [ ] Attribution generation before export
+- [ ] Approval gating before final render
+- [ ] Review-first export always
+- [ ] These are FOUNDATIONAL, not a future "compliance layer"
+
+---
+
 ### Later — AI Content Creator
 - [ ] Content Memory (learn preferred styles, tones, platforms over time)
 - [ ] Event/occasion awareness (Nigerian holidays, trending days, user birthdays)
