@@ -3,11 +3,11 @@
 import Link from "next/link";
 
 const DEMO_VIDEOS = [
-  { src: "/api/media/intro/demo-commercial-oj.mp4", label: "Commercial Maker", desc: "Orange juice promo — AI-generated product ad" },
-  { src: "/api/media/intro/demo-story-mode.mp4", label: "Story Mode", desc: "Episodic storytelling with narration & music" },
-  { src: "/api/media/intro/demo-short-reel.mp4", label: "Short Reel", desc: "Quick vertical reel for social platforms" },
-  { src: "/api/media/intro/hero-brave.mp4", label: "AI Video Generation", desc: "Cinematic scenes from a text prompt" },
-  { src: "/api/media/intro/hero-maintain.mp4", label: "AI Characters", desc: "Consistent characters across scenes" },
+  { src: "/api/media/demo/movie_complete_demo.mp4", label: "Hybrid Movie", desc: "AI images + video + narration + music" },
+  { src: "/api/media/intro/hero-brave.mp4", label: "Full Video Movie", desc: "Cinematic scenes from a text prompt" },
+  { src: "/api/media/demo/children_final_demo.mp4", label: "Children Video", desc: "ABC + text overlay + narration + music" },
+  { src: "/api/media/intro/demo-commercial-oj.mp4", label: "Commercial Maker", desc: "Product promo with AI narration & music" },
+  { src: "/api/media/demo/image_story_demo.mp4", label: "Image Movie", desc: "Pure images with Ken Burns — lowest cost" },
   { src: "/api/media/intro/demo-property.mp4", label: "Property Ads", desc: "Real estate promo with overlays & voice" },
 ];
 

@@ -153,18 +153,25 @@ export interface MusicGenerationInput {
   durationSeconds?: number; // target duration — search providers find closest match
   minDurationSeconds?: number;
   maxDurationSeconds?: number;
-  prompt?: string;          // free-text prompt for generation providers (Mubert)
+  prompt?: string;          // free-text prompt for generation providers
+  description?: string;     // alternative to prompt for describing the music
+  style?: string;           // music style (e.g. "Afrobeats", "Classical")
+  title?: string;           // song title (used by Kie.ai/Suno)
+  instrumental?: boolean;   // true = no vocals
+  lyrics?: string;          // lyrics text for vocal tracks
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path on disk — provider writes here
 }
 
 export interface MusicGenerationOutput {
-  status: "completed" | "failed" | "queued";
+  status: "completed" | "failed" | "queued" | "processing";
   jobId?: string;           // for async/generation providers that poll
   localPath?: string;       // absolute path to the downloaded/generated file
+  outputUrl?: string;       // remote URL of generated audio
   durationSeconds?: number;
   providerName: string;
   track?: MusicTrackMetadata; // populated for search providers; null for stock/mock
+  metadata?: Record<string, unknown>; // provider-specific metadata
   error?: string;
 }
 

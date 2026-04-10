@@ -134,9 +134,9 @@ export default function SeriesWizardPage() {
     <div className="max-w-4xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">Series Mode Wizard</h1>
+        <h1 className="text-2xl font-bold text-white">Series Planner</h1>
         <p className="text-xs mt-0.5 text-[#6060a0]">
-          Create episodic content with consistent characters, story arcs, and visual style
+          Plan episodic content with consistent characters, story bibles, and episode tracking
         </p>
       </div>
 

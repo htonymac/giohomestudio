@@ -15,7 +15,7 @@ export interface SFXFile {
   event: string;
   filename: string;
   description: string;
-  category: "weather" | "crowd" | "action" | "nature" | "urban" | "horror" | "animal" | "vehicle" | "transition" | "music" | "voice" | "nigerian" | "household" | "tech" | "weapon" | "impact";
+  category: "weather" | "crowd" | "action" | "nature" | "urban" | "horror" | "animal" | "vehicle" | "transition" | "music" | "voice" | "nigerian" | "household" | "tech" | "weapon" | "impact" | "movement" | "children";
 }
 
 // Master SFX library — event name → file info
@@ -75,7 +75,7 @@ export const SFX_LIBRARY: SFXFile[] = [
   { event: "gunshot_sniper",  filename: "gunshot_sniper.mp3",   description: "Sniper rifle shot",               category: "weapon" },
   { event: "reload",          filename: "reload.mp3",           description: "Gun reload click",                category: "weapon" },
   { event: "sword_slash",     filename: "sword_slash.mp3",      description: "Sword swing slash",               category: "weapon" },
-  { event: "sword_clash",     filename: "sword_clash.mp3",      description: "Swords clashing / metal on metal",category: "weapon" },
+  { event: "sword_clash_metal",filename: "sword_clash.mp3",      description: "Swords clashing / metal on metal",category: "weapon" },
   { event: "arrow_fire",      filename: "arrow_fire.mp3",       description: "Bow and arrow release",           category: "weapon" },
 
   // ── Impact / Body ──
@@ -83,7 +83,7 @@ export const SFX_LIBRARY: SFXFile[] = [
   { event: "kick",            filename: "kick.mp3",             description: "Body kick impact",                category: "impact" },
   { event: "body_fall",       filename: "body_fall.mp3",        description: "Body hitting the ground",         category: "impact" },
   { event: "glass_break",     filename: "glass_break.mp3",      description: "Glass shattering",                category: "impact" },
-  { event: "explosion",       filename: "explosion.mp3",        description: "Explosion blast",                 category: "impact" },
+  { event: "explosion_blast",  filename: "explosion.mp3",        description: "Explosion blast",                 category: "impact" },
   { event: "explosion_distant",filename: "explosion_distant.mp3",description: "Distant explosion rumble",      category: "impact" },
 
   // ── Nigerian Specific ──
@@ -157,6 +157,15 @@ export const SFX_LIBRARY: SFXFile[] = [
   { event: "suspense_drone",  filename: "suspense_drone.mp3",   description: "Suspense drone tone",             category: "horror" },
   { event: "tension_build",   filename: "tension_build.mp3",    description: "Tension building tone",           category: "horror" },
   { event: "drum_roll_short", filename: "drum_roll_short.mp3",  description: "Short drum roll",                 category: "music" },
+
+  // ── Additional SFX (batch 2 — unique only) ──
+  { event: "snake_hiss",      filename: "snake_hiss.mp3",       description: "Snake hissing",                   category: "nature" },
+  { event: "footstep_gravel", filename: "footstep_gravel.mp3",  description: "Footstep on gravel",              category: "movement" },
+  { event: "wood_crack",      filename: "wood_crack.mp3",       description: "Wood cracking / branch break",    category: "nature" },
+  { event: "water_splash",    filename: "water_splash.mp3",     description: "Water splash",                    category: "nature" },
+  { event: "children_laugh",  filename: "children_laugh.mp3",   description: "Children laughing",               category: "children" },
+  { event: "school_bell",     filename: "school_bell.mp3",      description: "School bell ring",                category: "children" },
+  { event: "page_turn",       filename: "page_turn.mp3",        description: "Book page turning",               category: "children" },
 ];
 
 const SFX_MAP = new Map<string, SFXFile>(SFX_LIBRARY.map(s => [s.event, s]));

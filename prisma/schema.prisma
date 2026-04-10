@@ -7,6 +7,67 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Auth Models ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String    @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?   // null for OAuth-only users
+  phone           String?
+  role            String    @default("user") // user | admin
+  termsAcceptedAt DateTime?
+  termsVersion    String?   // e.g. "1.0"
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ── Business Models ─────────────────────────────────────────────────────────
+
 model DestinationPage {
   id           String        @id @default(cuid())
   name         String
@@ -458,4 +519,97 @@ enum AIEditStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+// ── Movie & Series Planner Models ───────────────────────────────────────────
+
+model MovieProject {
+  id              String        @id @default(cuid())
+  title           String        @default("Untitled Movie")
+  idea            String        // short user input
+  expandedStory   String?       // optional longer description
+  genre           String?
+  style           String?       // storytelling style
+  format          String?       // output format (audio_only, audio_image, etc.)
+  productionMode  String?
+  planningDepth   String?       @default("smart")
+  tone            String?
+  setting         String?
+  duration        String?       @default("10 min")
+  language        String?       @default("English")
+  summary         String?       // AI-generated movie summary
+  storyArc        Json?         // { setup, tension, climax, resolution }
+  soundPlan       String?
+  musicDirection  String?
+  visualDirection String?
+  continuityNotes Json?         // string[]
+  missingAssets   Json?         // string[]
+  reviewerNotes   Json?         // string[]
+  estimatedCredits Int?         @default(0)
+  status          MovieStatus   @default(DRAFT)
+  cast            Json?         // [{ characterId, role }]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  scenes          MovieScene[]
+
+  @@map("movie_projects")
+}
+
+model MovieScene {
+  id                String    @id @default(cuid())
+  projectId         String
+  scene             Int       // scene number / order
+  title             String
+  goal              String?
+  duration          String?
+  characters        Json?     // string[] of character names
+  visualDescription String?
+  cameraDirection   String?
+  dialogue          String?
+  soundEffects      String?
+  ambience          String?
+  musicCue          String?
+  generationMethod  String?   // image, video, image-to-video, audio-only, hybrid
+  costLabel         String?   // cheap, balanced, premium
+  status            String    @default("planned") // planned, approved, generating, generated, needs_edit, blocked
+  generatedAssetUrl String?   // URL to generated video/image
+  generatedAudioUrl String?   // URL to generated audio for this scene
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  project           MovieProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("movie_scenes")
+}
+
+enum MovieStatus {
+  DRAFT
+  PLANNING
+  SCENES_READY
+  RENDERING
+  RENDERED
+  ASSEMBLED
+  EXPORTED
+}
+
+// ── Music Video Projects ────────────────────────────────────────────────────
+
+model MusicVideoProject {
+  id              String    @id @default(cuid())
+  title           String    @default("Untitled Music Video")
+  songTitle       String?
+  songUrl         String?
+  lyrics          String?
+  videoMode       String?   // official, lyric, visualizer, commercial, performance, dance, children, image-mv
+  visualStyle     String?
+  artistName      String?
+  status          String    @default("draft") // draft, planned, rendering, rendered, assembled
+  musicProfile    Json?     // from intelligence analysis
+  storyboard      Json?     // scene array
+  motionboard     Json?     // energy curve
+  recommendations Json?
+  renderedVideoUrl String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("music_video_projects")
 }

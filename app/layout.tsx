@@ -37,6 +37,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <main className="flex-1" style={{ padding: "24px 32px" }}>
               {children}
             </main>
+            <div className="shrink-0" style={{ padding: "6px 32px", borderTop: "1px solid var(--border)", background: "var(--surface)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 9, color: "#303050" }}>AI-assisted content. Human approval required. You are the publisher of record.</span>
+              <span style={{ fontSize: 9, color: "#303050" }}>
+                <a href="/terms" style={{ color: "#404060", textDecoration: "none", marginRight: 12 }}>Terms</a>
+                <a href="/privacy" style={{ color: "#404060", textDecoration: "none" }}>Privacy</a>
+              </span>
+            </div>
           </div>
         </div>
         <CommandPalette />

@@ -5,20 +5,37 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const NAV = [
-  // ── Studio — the main creative workspace ──
+  // ── Create — main entry points for creating content ──
   {
-    group: "Studio",
+    group: "Create",
     items: [
-      { href: "/dashboard",              label: "Create",           icon: "✦" },
-      { href: "/dashboard/templates",    label: "Templates",        icon: "🚀" },
-      { href: "/dashboard/commercial",   label: "Commercial Maker", icon: "📣" },
+      { href: "/dashboard",                label: "Create",               icon: "✦" },
+      { href: "/dashboard/auto-creator",   label: "AI Content Creator",   icon: "🤖" },
+      { href: "/dashboard/movie-creator",  label: "Movie & Series",       icon: "🎬" },
+      { href: "/dashboard/music-video",    label: "Music & Music Video",  icon: "🎶" },
+      { href: "/dashboard/short-video",    label: "Short Video",          icon: "⚡" },
+      { href: "/dashboard/viral-video",    label: "Viral Video",          icon: "🔥" },
+      { href: "/dashboard/commercial",     label: "Commercial",           icon: "📣" },
+      { href: "/dashboard/children-video", label: "AI Children Video",    icon: "🧒" },
     ],
   },
-  // ── Editing Tools — video, image, audio tools ──
+  // ── Planners — deep planning with multi-AI systems ──
   {
-    group: "Editing Tools",
+    group: "Planners",
     items: [
-      { href: "/dashboard/video-editor",  label: "Video Editor",     icon: "🎬" },
+      { href: "/dashboard/movie-planner",       label: "Movie Planner",           icon: "🎥" },
+      { href: "/dashboard/hybrid-planner",     label: "Hybrid Planner",          icon: "🔀" },
+      { href: "/dashboard/series-wizard",      label: "Series Planner",          icon: "📺" },
+      { href: "/dashboard/music-video-planner", label: "Music Video Planner",     icon: "🎹" },
+      { href: "/dashboard/children-planner",   label: "Child Video Planner",     icon: "🎠" },
+      { href: "/dashboard/commercial-planner",  label: "Commercial Planner",      icon: "📋" },
+    ],
+  },
+  // ── Tools — editing and production tools ──
+  {
+    group: "Tools",
+    items: [
+      { href: "/dashboard/video-editor",  label: "Video Editor",     icon: "🎞" },
       { href: "/dashboard/ad-editor",     label: "Ad / Image Editor",icon: "🖼" },
       { href: "/dashboard/video-tools",   label: "Video Tools",      icon: "✂" },
       { href: "/dashboard/video-trimmer", label: "Video Trimmer",    icon: "✄" },
@@ -35,20 +52,21 @@ const NAV = [
       { href: "/dashboard/assets",           label: "Asset Library",   icon: "📦" },
       { href: "/dashboard/character-voices", label: "Characters",      icon: "🎭" },
       { href: "/dashboard/story-bank",       label: "Story Bank",      icon: "💡" },
-      { href: "/dashboard/series-wizard",    label: "Series Wizard",   icon: "📺" },
+      { href: "/dashboard/templates",        label: "Templates",       icon: "🚀" },
     ],
   },
   // ── Publish & Grow — where content goes after creation ──
   {
     group: "Publish & Grow",
     items: [
-      { href: "/dashboard/destination-pages", label: "Publishing Pages", icon: "⊞" },
+      { href: "/dashboard/publishing",        label: "Publishing",       icon: "📤" },
+      { href: "/dashboard/destination-pages", label: "Channel Pages",    icon: "⊞" },
       { href: "/dashboard/calendar",          label: "Calendar",         icon: "📅" },
       { href: "/dashboard/analytics",         label: "Analytics",        icon: "📊" },
-      { href: "/dashboard/ab-testing",        label: "A/B Testing",      icon: "⚖" },
+      { href: "/dashboard/ab-testing",        label: "A/B Testing",     icon: "⚖" },
     ],
   },
-  // ── Billing & Settings — obvious, accessible ──
+  // ── Billing & Settings ──
   {
     group: "Billing & Settings",
     items: [

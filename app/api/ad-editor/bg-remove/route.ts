@@ -6,10 +6,20 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { prisma } from "@/lib/prisma";
+
+async function trackBgRemoveAsset(projectId: string, provider: string, outputUrl: string) {
+  try {
+    await prisma.adAsset.create({
+      data: { projectId, sourceType: "bg_remove", currentUrl: outputUrl, metadata: { provider } },
+    });
+  } catch (e) { console.warn("[bg-remove] DB tracking failed:", e); }
+}
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const file = form.get("file") as File | null;
+  const projectId = form.get("projectId") as string | null;
   if (!file) return NextResponse.json({ error: "No file" }, { status: 400 });
 
   const buf = Buffer.from(await file.arrayBuffer());
@@ -40,7 +50,9 @@ export async function POST(req: NextRequest) {
           const outPath = path.join(outDir, `nobg_${Date.now()}.png`);
           fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
           const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-          return NextResponse.json({ outputUrl: `/api/media/${relPath}`, outputPath: outPath, provider: "fal_ai" });
+          const outputUrl = `/api/media/${relPath}`;
+          if (projectId) trackBgRemoveAsset(projectId, "fal_ai", outputUrl);
+          return NextResponse.json({ outputUrl, outputPath: outPath, provider: "fal_ai" });
         }
       }
     } catch (e) { console.warn("[bg-remove] fal.ai failed:", e); }
@@ -59,7 +71,9 @@ export async function POST(req: NextRequest) {
         const outPath = path.join(outDir, `nobg_${Date.now()}.png`);
         fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
         const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-        return NextResponse.json({ outputUrl: `/api/media/${relPath}`, outputPath: outPath, provider: "segmind" });
+        const segOutputUrl = `/api/media/${relPath}`;
+        if (projectId) trackBgRemoveAsset(projectId, "segmind", segOutputUrl);
+        return NextResponse.json({ outputUrl: segOutputUrl, outputPath: outPath, provider: "segmind" });
       }
     } catch (e) { console.warn("[bg-remove] Segmind failed:", e); }
   }
@@ -80,7 +94,9 @@ export async function POST(req: NextRequest) {
         const outPath = path.join(outDir, `nobg_${Date.now()}.png`);
         fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
         const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-        return NextResponse.json({ outputUrl: `/api/media/${relPath}`, outputPath: outPath, provider: "remove_bg" });
+        const rmbgOutputUrl = `/api/media/${relPath}`;
+        if (projectId) trackBgRemoveAsset(projectId, "remove_bg", rmbgOutputUrl);
+        return NextResponse.json({ outputUrl: rmbgOutputUrl, outputPath: outPath, provider: "remove_bg" });
       }
     } catch (e) { console.warn("[bg-remove] remove.bg failed:", e); }
   }

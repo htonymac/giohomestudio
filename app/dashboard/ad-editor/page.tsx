@@ -107,7 +107,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     layers: [
       { type: "text", position: { x: 40, y: 60 }, size: { width: 1000, height: 80 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "MEGA SALE", style: { fontSize: 64, fontWeight: "bold", color: "#DC2626", textAlign: "center", opacity: 1 } },
       { type: "text", position: { x: 40, y: 160 }, size: { width: 1000, height: 50 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Up to 50% OFF all items", style: { fontSize: 24, fontWeight: "normal", color: "#666666", textAlign: "center", opacity: 1 } },
-      { type: "price", position: { x: 390, y: 800 }, size: { width: 300, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "₦15,000", style: { fontSize: 32, fontWeight: "bold", color: "#FFFFFF", bgColor: "#22c55e", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
+      { type: "price", position: { x: 390, y: 800 }, size: { width: 300, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "$15,000", style: { fontSize: 32, fontWeight: "bold", color: "#FFFFFF", bgColor: "#22c55e", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "cta", position: { x: 340, y: 900 }, size: { width: 400, height: 55 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "Shop Now", style: { fontSize: 22, fontWeight: "bold", color: "#FFFFFF", bgColor: "#7c5cfc", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "whatsapp", position: { x: 330, y: 990 }, size: { width: 420, height: 44 }, rotation: 0, zIndex: 6, locked: false, visible: true, content: "+234 800 000 0000", style: { fontSize: 16, fontWeight: "bold", color: "#FFFFFF", bgColor: "#25D366", bgRadius: 20, bgPadding: 10, opacity: 1 } },
     ],
@@ -127,7 +127,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     layers: [
       { type: "text", position: { x: 40, y: 60 }, size: { width: 1000, height: 70 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "LUXURY APARTMENT", style: { fontSize: 44, fontWeight: "bold", color: "#1A1A1A", textAlign: "center", opacity: 1 } },
       { type: "text", position: { x: 40, y: 140 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Lekki Phase 1, Lagos", style: { fontSize: 20, fontWeight: "normal", color: "#666", textAlign: "center", opacity: 1 } },
-      { type: "price", position: { x: 340, y: 1100 }, size: { width: 400, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "₦60,000/night", style: { fontSize: 28, fontWeight: "bold", color: "#FFFFFF", bgColor: "#7c5cfc", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
+      { type: "price", position: { x: 340, y: 1100 }, size: { width: 400, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "$60,000/night", style: { fontSize: 28, fontWeight: "bold", color: "#FFFFFF", bgColor: "#7c5cfc", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "text", position: { x: 40, y: 1180 }, size: { width: 1000, height: 30 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "24/7 Security  •  Smart TV  •  Free WiFi  •  Parking", style: { fontSize: 16, fontWeight: "normal", color: "#555", textAlign: "center", opacity: 1 } },
       { type: "whatsapp", position: { x: 330, y: 1260 }, size: { width: 420, height: 44 }, rotation: 0, zIndex: 6, locked: false, visible: true, content: "+234 800 000 0000", style: { fontSize: 16, fontWeight: "bold", color: "#FFFFFF", bgColor: "#25D366", bgRadius: 20, bgPadding: 10, opacity: 1 } },
     ],
@@ -138,7 +138,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     layers: [
       { type: "text", position: { x: 40, y: 60 }, size: { width: 1000, height: 70 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "TODAY'S SPECIAL", style: { fontSize: 52, fontWeight: "bold", color: "#f97316", textAlign: "center", opacity: 1 } },
       { type: "text", position: { x: 40, y: 150 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Jollof Rice & Grilled Chicken", style: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF", textAlign: "center", opacity: 1 } },
-      { type: "price", position: { x: 390, y: 850 }, size: { width: 300, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "₦3,500", style: { fontSize: 32, fontWeight: "bold", color: "#1a0a00", bgColor: "#f97316", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
+      { type: "price", position: { x: 390, y: 850 }, size: { width: 300, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "$3,500", style: { fontSize: 32, fontWeight: "bold", color: "#1a0a00", bgColor: "#f97316", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "cta", position: { x: 340, y: 940 }, size: { width: 400, height: 50 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "Order Now", style: { fontSize: 20, fontWeight: "bold", color: "#FFFFFF", bgColor: "#dc2626", bgRadius: 8, bgPadding: 12, textAlign: "center", opacity: 1 } },
     ],
   },
@@ -165,6 +165,72 @@ const CTA_LABELS = ["Order Now", "Limited Offer", "New Arrival", "Promo Price", 
 
 let _layerIdCounter = 0;
 function nextLayerId(type: string) { return `${type}_${Date.now()}_${++_layerIdCounter}`; }
+
+// ── Persistence helpers ─────────────────────────────────────────────────────
+
+interface ProjectSummary {
+  id: string;
+  name: string;
+  type: string;
+  canvasWidth: number;
+  canvasHeight: number;
+  updatedAt: string;
+  _count: { layers: number };
+}
+
+interface DbLayer {
+  id: string;
+  type: string;
+  positionX: number;
+  positionY: number;
+  width: number;
+  height: number;
+  rotation: number;
+  zIndex: number;
+  locked: boolean;
+  visible: boolean;
+  content: string;
+  style: Record<string, unknown>;
+}
+
+function canvasToPayload(canvas: CanvasState, projectId?: string, name?: string) {
+  return {
+    id: projectId,
+    name: name ?? "Untitled Ad",
+    canvasWidth: canvas.width,
+    canvasHeight: canvas.height,
+    background: canvas.background,
+    backgroundFinish: canvas.backgroundFinish,
+    layers: canvas.layers.map(l => ({
+      type: l.type,
+      positionX: l.position.x,
+      positionY: l.position.y,
+      width: l.size.width,
+      height: l.size.height,
+      rotation: l.rotation,
+      zIndex: l.zIndex,
+      locked: l.locked,
+      visible: l.visible,
+      content: l.content,
+      style: l.style as Record<string, unknown>,
+    })),
+  };
+}
+
+function dbLayerToLocal(l: DbLayer): AdLayer {
+  return {
+    id: l.id,
+    type: l.type as LayerType,
+    position: { x: l.positionX, y: l.positionY },
+    size: { width: l.width, height: l.height },
+    rotation: l.rotation,
+    zIndex: l.zIndex,
+    locked: l.locked,
+    visible: l.visible,
+    content: l.content,
+    style: l.style as LayerStyle,
+  };
+}
 
 // ── Shared styles ────────────────────────────────────────────────────────────
 
@@ -193,13 +259,24 @@ function AdEditorInner() {
     layers: [],
   });
 
+  // ── Project persistence state ──
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState("Untitled Ad");
+  const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [cropPreset, setCropPreset] = useState<CropPreset>("1:1");
   const [dragging, setDragging] = useState<{ id: string; offsetX: number; offsetY: number } | null>(null);
   const [customBg, setCustomBg] = useState("#FFFFFF");
+  const [currency, setCurrency] = useState("$");
   const [exporting, setExporting] = useState(false);
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [bgRemoving, setBgRemoving] = useState(false);
+  const [enhancing, setEnhancing] = useState(false);
   const [bgGradient, setBgGradient] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState<"ad" | "movie" | "banner" | "text_to_image">("ad");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -208,6 +285,112 @@ function AdEditorInner() {
   const [versionHistory, setVersionHistory] = useState<{ url: string; label: string }[]>([]);
 
   const selectedLayer = canvas.layers.find(l => l.id === selectedId) ?? null;
+
+  // ── Load project list on mount ──
+  useEffect(() => {
+    fetch("/api/ad-editor/project").then(r => r.json()).then(d => {
+      if (d.projects) setProjectList(d.projects);
+    }).catch(() => {});
+  }, []);
+
+  // ── Load project from URL ?project=ID ──
+  useEffect(() => {
+    const pid = searchParams.get("project");
+    if (!pid || projectId) return;
+    fetch(`/api/ad-editor/project/${pid}`).then(r => r.json()).then(d => {
+      if (d.project) {
+        setProjectId(d.project.id);
+        setProjectName(d.project.name);
+        setCanvas({
+          width: d.project.canvasWidth,
+          height: d.project.canvasHeight,
+          background: d.project.background,
+          backgroundFinish: d.project.backgroundFinish as "none" | "matte" | "gloss",
+          layers: (d.project.layers as DbLayer[]).map(dbLayerToLocal),
+        });
+        if (d.project.gradient) setBgGradient(d.project.gradient);
+      }
+    }).catch(() => {});
+  }, [searchParams, projectId]);
+
+  // ── Save project to DB ──
+  async function saveProject(canvasState?: CanvasState) {
+    const c = canvasState ?? canvas;
+    if (c.layers.length === 0 && !projectId) return; // don't save empty new projects
+    setSaving(true);
+    try {
+      const payload = canvasToPayload(c, projectId ?? undefined, projectName);
+      if (bgGradient) (payload as Record<string, unknown>).gradient = bgGradient;
+      const res = await fetch("/api/ad-editor/project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.project) {
+        if (!projectId) setProjectId(data.project.id);
+        setLastSaved(new Date().toLocaleTimeString());
+        // Refresh project list
+        fetch("/api/ad-editor/project").then(r => r.json()).then(d => {
+          if (d.projects) setProjectList(d.projects);
+        }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+    setSaving(false);
+  }
+
+  // ── Auto-save (debounced 3s after canvas changes) ──
+  useEffect(() => {
+    if (canvas.layers.length === 0 && !projectId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => { saveProject(canvas); }, 3000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canvas, projectName]);
+
+  // ── Load a saved project ──
+  async function loadProject(id: string) {
+    try {
+      const res = await fetch(`/api/ad-editor/project/${id}`);
+      const data = await res.json();
+      if (data.project) {
+        setProjectId(data.project.id);
+        setProjectName(data.project.name);
+        setCanvas({
+          width: data.project.canvasWidth,
+          height: data.project.canvasHeight,
+          background: data.project.background,
+          backgroundFinish: data.project.backgroundFinish as "none" | "matte" | "gloss",
+          layers: (data.project.layers as DbLayer[]).map(dbLayerToLocal),
+        });
+        setBgGradient(data.project.gradient ?? null);
+        setSelectedId(null);
+        setVersionHistory([]);
+        setShowProjectPicker(false);
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── New project ──
+  function newProject() {
+    setProjectId(null);
+    setProjectName("Untitled Ad");
+    setCanvas({ width: 1080, height: 1080, background: "#FFFFFF", backgroundFinish: "none", layers: [] });
+    setBgGradient(null);
+    setSelectedId(null);
+    setVersionHistory([]);
+    setShowProjectPicker(false);
+    setLastSaved(null);
+  }
+
+  // ── Delete project ──
+  async function deleteProject(id: string) {
+    try {
+      await fetch(`/api/ad-editor/project/${id}`, { method: "DELETE" });
+      setProjectList(prev => prev.filter(p => p.id !== id));
+      if (projectId === id) newProject();
+    } catch { /* ignore */ }
+  }
 
   // ── Background remove ──
   async function handleBgRemove() {
@@ -220,6 +403,7 @@ function AdEditorInner() {
       const blob = await imgRes.blob();
       const fd = new FormData();
       fd.append("file", blob, "image.png");
+      if (projectId) fd.append("projectId", projectId);
       const res = await fetch("/api/ad-editor/bg-remove", { method: "POST", body: fd });
       const data = await res.json();
       if (data.outputUrl) {
@@ -227,6 +411,27 @@ function AdEditorInner() {
       }
     } catch { /* ignore */ }
     setBgRemoving(false);
+  }
+
+  // ── AI Image Enhancement ──
+  async function handleEnhance() {
+    const imgLayer = canvas.layers.find(l => l.type === "image");
+    if (!imgLayer) return;
+    setEnhancing(true);
+    try {
+      const imgRes = await fetch(imgLayer.content);
+      const blob = await imgRes.blob();
+      const fd = new FormData();
+      fd.append("file", blob, "image.png");
+      fd.append("mode", "enhance");
+      const res = await fetch("/api/image/enhance", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.outputUrl) {
+        setVersionHistory(prev => [...prev, { url: imgLayer.content, label: `v${prev.length + 1}` }]);
+        updateLayer(imgLayer.id, { content: data.outputUrl });
+      }
+    } catch { /* ignore */ }
+    setEnhancing(false);
   }
 
   // ── Load ad template ──
@@ -262,7 +467,7 @@ function AdEditorInner() {
       const res = await fetch("/api/ad-editor/ai-edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: aiMode, prompt: aiPrompt, imageBase64, imageMime }),
+        body: JSON.stringify({ mode: aiMode, prompt: aiPrompt, imageBase64, imageMime, projectId }),
       });
       const data = await res.json();
       if (data.outputUrl) {
@@ -463,7 +668,7 @@ function AdEditorInner() {
       zIndex: canvas.layers.length + 1,
       locked: false,
       visible: true,
-      content: "₦25,000",
+      content: `${currency}25,000`,
       style: {
         fontSize: 28, fontWeight: "bold", color: "#FFFFFF",
         bgColor: "#22c55e", bgRadius: 8, bgPadding: 12,
@@ -547,7 +752,53 @@ function AdEditorInner() {
   const displayH = canvas.height * displayScale;
 
   return (
-    <div style={{ display: "flex", gap: 0, height: "calc(100vh - 60px)", overflow: "hidden" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 60px)", overflow: "hidden" }}>
+
+      {/* ── PROJECT BAR ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: "#0a0a16", borderBottom: "1px solid #1e1e30", flexShrink: 0 }}>
+        <input
+          value={projectName}
+          onChange={e => setProjectName(e.target.value)}
+          style={{ fontSize: 13, fontWeight: 600, color: "#e0e0f0", background: "transparent", border: "1px solid transparent", borderRadius: 4, padding: "2px 8px", width: 180 }}
+          onFocus={e => { e.target.style.borderColor = "#7c5cfc"; }}
+          onBlur={e => { e.target.style.borderColor = "transparent"; }}
+        />
+        <button onClick={() => saveProject()} disabled={saving}
+          style={{ ...btnSm, fontSize: 10, background: saving ? "#2a2a40" : "#7c5cfc", color: "#fff", borderColor: "#7c5cfc" }}>
+          {saving ? "Saving..." : "Save"}
+        </button>
+        <button onClick={newProject} style={{ ...btnSm, fontSize: 10 }}>New</button>
+        <button onClick={() => setShowProjectPicker(!showProjectPicker)} style={{ ...btnSm, fontSize: 10 }}>
+          Projects ({projectList.length})
+        </button>
+        {lastSaved && <span style={{ fontSize: 9, color: "#404060", marginLeft: "auto" }}>Saved {lastSaved}</span>}
+        {projectId && <span style={{ fontSize: 9, color: "#2a2a40", marginLeft: lastSaved ? 8 : "auto" }}>{projectId.slice(0, 8)}...</span>}
+      </div>
+
+      {/* ── PROJECT PICKER DROPDOWN ── */}
+      {showProjectPicker && (
+        <div style={{ background: "#0e0e1a", borderBottom: "1px solid #1e1e30", padding: "8px 14px", maxHeight: 200, overflowY: "auto", flexShrink: 0 }}>
+          {projectList.length === 0 && <p style={{ fontSize: 11, color: "#404060" }}>No saved projects yet</p>}
+          {projectList.map(p => (
+            <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 8px", borderRadius: 4, marginBottom: 2, background: projectId === p.id ? "rgba(124,92,252,0.1)" : "transparent", cursor: "pointer" }}
+              onClick={() => loadProject(p.id)}>
+              <div>
+                <span style={{ fontSize: 12, color: "#e0e0f0", fontWeight: projectId === p.id ? 700 : 400 }}>{p.name}</span>
+                <span style={{ fontSize: 9, color: "#404060", marginLeft: 8 }}>{p.canvasWidth}x{p.canvasHeight} &middot; {p._count.layers} layers</span>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                <span style={{ fontSize: 9, color: "#303050" }}>{new Date(p.updatedAt).toLocaleDateString()}</span>
+                <button onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
+                  style={{ fontSize: 9, color: "#f87171", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
+                  Del
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+    <div style={{ display: "flex", gap: 0, flex: 1, overflow: "hidden" }}>
 
       {/* ── LEFT PANEL — Tools ── */}
       <div style={{ width: 240, flexShrink: 0, background: panelBg, borderRight: `1px solid ${panelBorder}`, overflowY: "auto", padding: "16px 14px" }}>
@@ -639,6 +890,11 @@ function AdEditorInner() {
             style={{ ...btnSm, width: "100%", marginTop: 4, fontSize: 10 }}>
             + Studio Shadow
           </button>
+          {/* AI Enhance */}
+          <button onClick={handleEnhance} disabled={enhancing || !canvas.layers.some(l => l.type === "image")}
+            style={{ ...btnSm, width: "100%", marginTop: 4, fontSize: 10, background: enhancing ? "#2a2a40" : "#1a1a2e", color: enhancing ? "#6060a0" : "#10b981", borderColor: "#10b98140" }}>
+            {enhancing ? "Enhancing..." : "Enhance Image (AI)"}
+          </button>
         </div>
 
         {/* Text */}
@@ -646,7 +902,15 @@ function AdEditorInner() {
           <p style={sectionTitle}>Text</p>
           <button style={{ ...btnSm, width: "100%", marginBottom: 4 }} onClick={() => addTextBlock("Product Name")}>+ Product Title</button>
           <button style={{ ...btnSm, width: "100%", marginBottom: 4 }} onClick={() => addTextBlock("Subtitle text", { fontSize: 18, fontWeight: "normal", color: "#666666" })}>+ Subtitle</button>
-          <button style={{ ...btnSm, width: "100%" }} onClick={addPriceBadge}>+ Price Badge</button>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button style={{ ...btnSm, flex: 1 }} onClick={addPriceBadge}>+ Price Badge</button>
+            <select value={currency} onChange={e => setCurrency(e.target.value)}
+              style={{ fontSize: 11, padding: "5px 6px", borderRadius: 6, border: "1px solid #2a2a40", background: "#1a1a2e", color: "#e0e0f0", cursor: "pointer", width: 52 }}>
+              {["$", "€", "£", "₦", "¥", "₹", "R", "GH₵", "KSh", "Fr", "A$", "C$", "zł", "kr", "R$"].map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* WhatsApp */}
@@ -1035,6 +1299,7 @@ function AdEditorInner() {
           </div>
         )}
       </div>
+    </div>
     </div>
   );
 }

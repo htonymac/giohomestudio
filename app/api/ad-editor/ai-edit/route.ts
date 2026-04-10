@@ -7,12 +7,14 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { prisma } from "@/lib/prisma";
 
 interface EditRequest {
   mode: "ad" | "movie" | "banner" | "text_to_image";
   prompt: string;
   imageBase64?: string;    // existing image (for edit modes)
   imageMime?: string;
+  projectId?: string;      // if provided, track job + asset in DB
 }
 
 // LLM Planner — classifies and enhances the prompt
@@ -40,11 +42,23 @@ function planEdit(mode: string, userPrompt: string): { editType: string; enhance
   return { editType, enhancedPrompt, negativePrompt };
 }
 
+// Track AI edit job and output asset in DB (fire-and-forget)
+async function trackJob(projectId: string, mode: string, editType: string, prompt: string, enhancedPrompt: string, provider: string, outputUrl: string) {
+  try {
+    const asset = await prisma.adAsset.create({
+      data: { projectId, sourceType: editType === "generate" ? "ai_generate" : "ai_edit", currentUrl: outputUrl, metadata: { provider, editType } },
+    });
+    await prisma.aIEditJob.create({
+      data: { projectId, mode, editType, originalPrompt: prompt, enhancedPrompt, provider, outputAssetId: asset.id, outputUrl, status: "COMPLETED", completedAt: new Date() },
+    });
+  } catch (e) { console.warn("[ai-edit] DB tracking failed:", e); }
+}
+
 export async function POST(req: NextRequest) {
   let body: EditRequest;
   try { body = await req.json(); } catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
-  const { mode, prompt, imageBase64, imageMime } = body;
+  const { mode, prompt, imageBase64, imageMime, projectId } = body;
   if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
   const plan = planEdit(mode, prompt);
@@ -75,12 +89,9 @@ export async function POST(req: NextRequest) {
             const outPath = path.join(outDir, `gen_${Date.now()}.png`);
             fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
             const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-            return NextResponse.json({
-              outputUrl: `/api/media/${relPath}`,
-              editType: plan.editType,
-              enhancedPrompt: plan.enhancedPrompt,
-              provider: "fal_ai",
-            });
+            const outputUrl = `/api/media/${relPath}`;
+            if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "fal_ai", outputUrl);
+            return NextResponse.json({ outputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "fal_ai" });
           }
         }
       } catch (e) { console.warn("[ai-edit] fal.ai gen failed:", e); }
@@ -97,7 +108,9 @@ export async function POST(req: NextRequest) {
           const outPath = path.join(outDir, `gen_${Date.now()}.png`);
           fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
           const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-          return NextResponse.json({ outputUrl: `/api/media/${relPath}`, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "segmind" });
+          const segOutputUrl = `/api/media/${relPath}`;
+          if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "segmind", segOutputUrl);
+          return NextResponse.json({ outputUrl: segOutputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "segmind" });
         }
       } catch (e) { console.warn("[ai-edit] segmind gen failed:", e); }
     }
@@ -127,7 +140,9 @@ export async function POST(req: NextRequest) {
           const outPath = path.join(outDir, `edit_${Date.now()}.png`);
           fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
           const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-          return NextResponse.json({ outputUrl: `/api/media/${relPath}`, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "fal_ai" });
+          const editOutputUrl = `/api/media/${relPath}`;
+          if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "fal_ai", editOutputUrl);
+          return NextResponse.json({ outputUrl: editOutputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "fal_ai" });
         }
       }
     } catch (e) { console.warn("[ai-edit] fal.ai edit failed:", e); }
@@ -144,7 +159,9 @@ export async function POST(req: NextRequest) {
         const outPath = path.join(outDir, `edit_${Date.now()}.png`);
         fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
         const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-        return NextResponse.json({ outputUrl: `/api/media/${relPath}`, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "segmind" });
+        const segEditUrl = `/api/media/${relPath}`;
+        if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "segmind", segEditUrl);
+        return NextResponse.json({ outputUrl: segEditUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "segmind" });
       }
     } catch (e) { console.warn("[ai-edit] segmind edit failed:", e); }
   }

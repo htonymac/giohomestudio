@@ -81,6 +81,8 @@ interface CommercialProject {
   enhancementLevel: number | null;
   renderStatus: string;
   contentItemId: string | null;
+  renderedVideoPath: string | null;
+  createdAt: string;
   slides: CommercialSlide[];
 }
 
@@ -143,6 +145,8 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
   const [projects, setProjects] = useState<CommercialProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
 
   function reload() {
     fetch("/api/commercial/projects").then(r => r.json()).then(setProjects);
@@ -156,69 +160,177 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
   }, []);
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">📽️ Commercial Maker</h1>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Create professional ad videos from your images — upload, customize, render</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => onNew()} className="px-4 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
-            🚀 New Slide Ad
-          </button>
+    <div className="w-full">
+      {/* Hero with background video */}
+      <div className="relative rounded-2xl overflow-hidden mb-8" style={{ minHeight: 200 }}>
+        <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover opacity-20"
+          src="/api/media/intro/demo-commercial-oj.mp4" />
+        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(8,11,16,0.92), rgba(255,107,53,0.1))" }} />
+        <div className="relative p-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-4"
+            style={{ background: "rgba(255,107,53,0.1)", border: "1px solid rgba(255,107,53,0.25)", color: "#ff6b35", letterSpacing: 1.5, textTransform: "uppercase" }}>
+            Commercial Studio
+          </div>
+          <h1 className="text-3xl font-extrabold text-white mb-2" style={{ letterSpacing: "-0.5px" }}>Commercial Maker</h1>
+          <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)", maxWidth: 500, lineHeight: 1.6 }}>
+            Create professional ad videos, product promos, and property showcases. Upload images, AI builds the slides, narration, music, and renders.
+          </p>
         </div>
       </div>
 
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-3">
+          <button onClick={() => onNew()} className="px-5 py-2.5 bg-[#ff6b35] hover:bg-[#ff8555] text-white text-sm font-bold rounded-xl transition-all hover:-translate-y-0.5">
+            New Slide Ad
+          </button>
+          <a href="/dashboard/commercial-planner" className="px-5 py-2.5 text-sm font-semibold rounded-xl transition-colors border border-[#2a2a40] text-[#6060a0] hover:text-white hover:border-[#7c5cfc]/50">
+            Open Planner
+          </a>
+        </div>
+        <p className="text-xs" style={{ color: "#5a7080" }}>{projects.length} project{projects.length !== 1 ? "s" : ""}</p>
+      </div>
+
+      {/* Sample strip */}
+      <div className="flex gap-3 overflow-x-auto mb-8 pb-2">
+        {[
+          { src: "/api/media/intro/demo-commercial-oj.mp4", title: "Orange Juice Ad", type: "Product" },
+          { src: "/api/media/intro/demo-property.mp4", title: "Property Showcase", type: "Real Estate" },
+          { src: "/api/media/intro/demo-commercial.mp4", title: "Commercial Demo", type: "Brand" },
+        ].map(v => (
+          <div key={v.title} className="flex-shrink-0 rounded-xl overflow-hidden cursor-pointer relative" style={{ width: 180, border: "1px solid #1e2a35", background: "#0e1318" }}>
+            <video src={v.src} muted loop className="w-full object-cover" style={{ height: 100 }}
+              onMouseEnter={e => (e.target as HTMLVideoElement).play()}
+              onMouseLeave={e => { const vid = e.target as HTMLVideoElement; vid.pause(); vid.currentTime = 0; }} />
+            <span className="absolute top-2 left-2 text-[8px] font-semibold px-1.5 py-0.5 rounded-md" style={{ background: "rgba(255,107,53,0.85)", color: "#fff" }}>{v.type}</span>
+            <div className="px-3 py-2">
+              <p className="text-xs text-white font-semibold">{v.title}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {loading ? (
-        <p className="text-[#4040600] text-sm text-center py-12">Loading projects…</p>
+        <p className="text-[#5a7080] text-sm text-center py-12">Loading projects…</p>
       ) : projects.length === 0 ? (
-        <div className="border border-dashed border-[#2a2a40] rounded-xl p-12 text-center">
-          <p className="text-[#6060a0] text-sm mb-1">✨ No commercial projects yet</p>
-          <p className="text-[#4040600] text-xs mb-4">🖼️ Mode 1: Build slide-by-slide · 🤖 Mode 2: Upload footage, AI does the rest</p>
-          <button onClick={onNew} className="px-4 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
-            🚀 Create first Slide Ad
+        <div className="rounded-2xl p-16 text-center" style={{ background: "#0e1318", border: "1px solid #1e2a35" }}>
+          <p className="text-4xl mb-4">📽️</p>
+          <p className="text-white text-base font-semibold mb-2">No commercial projects yet</p>
+          <p className="text-xs mb-6" style={{ color: "#5a7080" }}>Mode 1: Build slide-by-slide &middot; Mode 2: Upload footage, AI does the rest</p>
+          <button onClick={onNew} className="px-6 py-3 bg-[#ff6b35] hover:bg-[#ff8555] text-white text-sm font-bold rounded-xl transition-colors">
+            Create Your First Commercial
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
           {projects.map(p => {
             const ready = p.slides?.filter(s => s.status === "ready").length ?? 0;
             const total = p.slides?.length ?? 0;
+            const progress = total > 0 ? Math.round((ready / total) * 100) : 0;
+            const statusColor = p.renderStatus === "ready" ? "#22c55e" : p.renderStatus === "rendering" ? "#7c5cfc" : p.renderStatus === "failed" ? "#ef4444" : "#5a7080";
             return (
-              <div key={p.id} className="flex items-center gap-2">
-              <button onClick={() => onOpen(p)} className="flex-1 text-left p-4 bg-[#12121e] border border-[#2a2a40] hover:border-[#7c5cfc]/50 rounded-xl transition-colors">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-white font-semibold">{p.projectName}</p>
-                    <p className="text-xs text-[#6060a0] mt-0.5">
-                      {p.aspectRatio} · {total} slide{total !== 1 ? "s" : ""}{total > 0 ? ` (${ready} ready)` : ""}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                    p.renderStatus === "ready"     ? "bg-green-900/40 text-green-400" :
-                    p.renderStatus === "rendering" ? "bg-indigo-900/40 text-indigo-400" :
-                    p.renderStatus === "failed"    ? "bg-red-900/40 text-red-400" :
-                    "bg-[#1a1a2e] text-[#6060a0]"
-                  }`}>
-                    {p.renderStatus === "ready" ? "✅ ready" : p.renderStatus === "rendering" ? "⏳ rendering" : p.renderStatus === "failed" ? "❌ failed" : "📝 draft"}
+              <div key={p.id}
+                onClick={() => onOpen(p)}
+                className="relative rounded-2xl overflow-hidden cursor-pointer transition-all hover:-translate-y-1"
+                style={{ background: "#0e1318", border: "1px solid #1e2a35" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,107,53,0.4)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "#1e2a35"; }}>
+
+                {/* Thumbnail area */}
+                <div className="h-32 relative" style={{ background: `linear-gradient(135deg, #1a0a0066, #0e1318)` }}>
+                  {p.slides?.[0]?.imagePath && (
+                    <img src={`/api/media/${(p.slides[0].imagePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                      alt="" className="absolute inset-0 w-full h-full object-cover opacity-50" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0e1318] via-transparent to-transparent" />
+
+                  {/* Quick play button for ready videos */}
+                  {p.renderStatus === "ready" && p.renderedVideoPath && (
+                    <button
+                      className="absolute inset-0 flex items-center justify-center z-10"
+                      onClick={e => { e.stopPropagation(); setPlayingVideo(playingVideo === p.id ? null : p.id); }}>
+                      <div className="w-12 h-12 rounded-full flex items-center justify-center transition-transform hover:scale-110"
+                        style={{ background: "rgba(34,197,94,0.85)", boxShadow: "0 4px 20px rgba(34,197,94,0.4)" }}>
+                        <span className="text-white text-lg ml-0.5">{playingVideo === p.id ? "⏸" : "▶"}</span>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Status badge */}
+                  <span className="absolute top-3 right-3 text-[9px] font-semibold px-2 py-0.5 rounded-full z-20"
+                    style={{ background: `${statusColor}20`, color: statusColor, border: `1px solid ${statusColor}30` }}>
+                    {p.renderStatus === "ready" ? "Ready" : p.renderStatus === "rendering" ? "Rendering" : p.renderStatus === "failed" ? "Failed" : "Draft"}
+                  </span>
+
+                  {/* Slide count badge */}
+                  <span className="absolute top-3 left-3 text-[9px] font-medium px-2 py-0.5 rounded-full z-20"
+                    style={{ background: "rgba(255,107,53,0.15)", color: "#ff6b35" }}>
+                    {total} slide{total !== 1 ? "s" : ""}
                   </span>
                 </div>
-              </button>
-              <button
-                title="Duplicate project"
-                disabled={duplicating === p.id}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  setDuplicating(p.id);
-                  try {
-                    const res = await fetch(`/api/commercial/projects/${p.id}/duplicate`, { method: "POST" });
-                    if (res.ok) reload();
-                  } finally { setDuplicating(null); }
-                }}
-                className="shrink-0 px-2.5 py-4 rounded-xl border border-[#2a2a40] hover:border-[#7c5cfc]/50 text-[#6060a0] hover:text-[#b090ff] transition-colors disabled:opacity-40"
-              >
-                {duplicating === p.id ? "..." : "📋"}
-              </button>
+
+                {/* Quick video player — expands when play is clicked */}
+                {playingVideo === p.id && p.renderedVideoPath && (
+                  <div className="px-3 pb-2" onClick={e => e.stopPropagation()}>
+                    <video
+                      src={`/api/media/${(p.renderedVideoPath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                      controls autoPlay className="w-full rounded-lg" style={{ maxHeight: 220, background: "#000" }}
+                    />
+                  </div>
+                )}
+
+                {/* Info */}
+                <div className="p-4">
+                  <p className="text-white font-bold text-sm mb-0.5">{p.projectName}</p>
+                  <p className="text-[10px] mb-1" style={{ color: "#5a7080" }}>{p.aspectRatio} &middot; {ready}/{total} ready</p>
+                  <p className="text-[9px] mb-3" style={{ color: "#3d5060" }}>
+                    {p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                  </p>
+
+                  {/* Progress bar */}
+                  {total > 0 && (
+                    <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: "#1e2a35" }}>
+                      <div className="h-full rounded-full transition-all" style={{ width: `${progress}%`, background: statusColor }} />
+                    </div>
+                  )}
+
+                  <div className="flex gap-2">
+                    <button className="flex-1 text-[10px] font-semibold py-1.5 rounded-lg transition-colors"
+                      style={{ background: "rgba(255,107,53,0.1)", color: "#ff6b35", border: "1px solid rgba(255,107,53,0.2)" }}>
+                      Open
+                    </button>
+                    <button
+                      title="Duplicate"
+                      disabled={duplicating === p.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setDuplicating(p.id);
+                        try {
+                          const res = await fetch(`/api/commercial/projects/${p.id}/duplicate`, { method: "POST" });
+                          if (res.ok) reload();
+                        } finally { setDuplicating(null); }
+                      }}
+                      className="text-[10px] px-2.5 py-1.5 rounded-lg transition-colors"
+                      style={{ border: "1px solid #1e2a35", color: "#5a7080" }}>
+                      {duplicating === p.id ? "..." : "Copy"}
+                    </button>
+                    <button
+                      title="Delete project"
+                      disabled={deleting === p.id}
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Delete "${p.projectName}"?`)) return;
+                        setDeleting(p.id);
+                        try {
+                          await fetch(`/api/commercial/projects/${p.id}`, { method: "DELETE" });
+                          reload();
+                        } finally { setDeleting(null); }
+                      }}
+                      className="text-[10px] px-2.5 py-1.5 rounded-lg transition-colors"
+                      style={{ border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
+                      {deleting === p.id ? "..." : "Del"}
+                    </button>
+                  </div>
+                </div>
               </div>
             );
           })}
@@ -411,13 +523,43 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
   }
 
   return (
-    <div className="w-full max-w-xl mx-auto">
-      <div className="flex items-center gap-3 mb-6">
-        <button onClick={onBack} className="text-[#6060a0] hover:text-white transition-colors text-sm">← Back</button>
-        <div>
-          <h2 className="text-xl font-bold text-white">🤖 AI Ad Builder</h2>
-          <p className="text-xs text-[#6060a0]">📸 Upload images → 🧠 AI analyses → 📝 generates script → 🚀 opens editor ready to render</p>
+    <div className="w-full">
+      {/* Hero */}
+      <div className="relative rounded-2xl overflow-hidden mb-6" style={{ minHeight: 160, background: "linear-gradient(135deg, rgba(168,85,247,0.08), rgba(8,11,16,0.95))" }}>
+        <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at top right, rgba(168,85,247,0.12), transparent 60%)" }} />
+        <div className="relative p-8 flex items-center justify-between">
+          <div>
+            <button onClick={onBack} className="text-[#5a7080] hover:text-white transition-colors text-xs mb-3 block">← Back to projects</button>
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-3xl">🤖</span>
+              <div>
+                <h2 className="text-2xl font-extrabold text-white" style={{ letterSpacing: "-0.5px" }}>AI Ad Creator</h2>
+                <p className="text-xs" style={{ color: "#a855f7" }}>Powered by multi-AI intelligence</p>
+              </div>
+            </div>
+            <p className="text-xs mt-2" style={{ color: "#5a7080", maxWidth: 400, lineHeight: 1.6 }}>
+              Upload your product images → AI analyses them → generates voiceover script → builds slides → ready to render. All automatic.
+            </p>
+          </div>
+          <div className="hidden md:flex flex-col gap-2">
+            {["Upload", "AI Analysis", "Script", "Build"].map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{ background: WIZARD_STEPS.indexOf(step) >= i ? "rgba(168,85,247,0.2)" : "#1e2a35", color: WIZARD_STEPS.indexOf(step) >= i ? "#a855f7" : "#3d5060", border: `1px solid ${WIZARD_STEPS.indexOf(step) >= i ? "rgba(168,85,247,0.3)" : "#1e2a35"}` }}>
+                  {i + 1}
+                </div>
+                <span className="text-[10px]" style={{ color: WIZARD_STEPS.indexOf(step) >= i ? "#a855f7" : "#3d5060" }}>{s}</span>
+              </div>
+            ))}
+          </div>
         </div>
+      </div>
+
+      {/* Mobile step bar */}
+      <div className="flex gap-2 mb-6 md:hidden">
+        {WIZARD_STEPS.map((s, i) => (
+          <div key={s} className={`flex-1 h-1.5 rounded-full ${step === s ? "bg-[#a855f7]" : i < WIZARD_STEPS.indexOf(step) ? "bg-[#a855f7]/40" : "bg-[#1e2a35]"}`} />
+        ))}
       </div>
 
       {/* Step indicator */}
@@ -1334,6 +1476,31 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 </button>
                 {selectedSlide.imagePath && (
                   <>
+                    <button
+                      disabled={uploading}
+                      onClick={async () => {
+                        if (!selectedSlide.imagePath) return;
+                        setUploading(true);
+                        try {
+                          const imgRes = await fetch(`/api/media/${selectedSlide.imagePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+                          const blob = await imgRes.blob();
+                          const fd = new FormData();
+                          fd.append("file", blob, "image.png");
+                          fd.append("mode", "enhance");
+                          const res = await fetch("/api/image/enhance", { method: "POST", body: fd });
+                          const data = await res.json();
+                          if (data.outputUrl) {
+                            const fullPath = `storage/${data.outputUrl.replace("/api/media/", "")}`;
+                            await patchSlide(selectedSlide.id, { imagePath: fullPath });
+                          }
+                        } catch { /* ignore */ }
+                        setUploading(false);
+                      }}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-900/40 text-emerald-400/80 hover:text-emerald-300 hover:border-emerald-500/50 transition-colors"
+                      title="Enhance image with AI (better lighting, sharper detail)"
+                    >
+                      {uploading ? "⏳ Enhancing…" : "✨ Enhance"}
+                    </button>
                     <button
                       onClick={() => patchSlide(selectedSlide.id, { imagePath: null })}
                       disabled={uploading}
@@ -2381,8 +2548,26 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
 type View = "list" | "new" | "editor" | "mode2";
 
 export default function CommercialPage() {
-  const [view,    setView]    = useState<View>("list");
+  const [view,    setViewRaw]    = useState<View>("list");
   const [project, setProject] = useState<CommercialProject | null>(null);
+
+  // Push browser history so back button returns to commercial list, not previous page
+  function setView(v: View) {
+    if (v !== "list" && view === "list") {
+      window.history.pushState({ commercialView: v }, "", window.location.pathname);
+    }
+    setViewRaw(v);
+  }
+
+  // Listen for browser back button
+  useEffect(() => {
+    function handlePopState() {
+      setViewRaw("list");
+      setProject(null);
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
 
   if (view === "new") {
     return (
@@ -2413,13 +2598,31 @@ export default function CommercialPage() {
 
   return (
     <div className="w-full p-1">
-      {/* Mode tabs */}
-      <div className="flex gap-2 mb-4 max-w-2xl mx-auto">
-        <button className="text-xs px-3 py-1.5 bg-[#7c5cfc]/20 border border-[#7c5cfc]/50 text-[#b090ff] rounded-lg font-medium">
-          🖼️ Mode 1 — Slide Ad
+      {/* Mode tabs — prominent */}
+      <div className="grid grid-cols-2 gap-3 mb-6">
+        <button className="relative overflow-hidden p-5 rounded-2xl text-left transition-all"
+          style={{ background: "linear-gradient(135deg, rgba(255,107,53,0.08), rgba(255,107,53,0.02))", border: "2px solid rgba(255,107,53,0.3)" }}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">🖼️</span>
+            <div>
+              <p className="text-white font-bold text-sm">Slide Ad Builder</p>
+              <p className="text-[10px]" style={{ color: "#ff6b35" }}>Currently viewing</p>
+            </div>
+          </div>
+          <p className="text-[11px]" style={{ color: "#5a7080" }}>Build slide-by-slide. Upload images, add narration, music, and captions per slide.</p>
         </button>
-        <button onClick={() => setView("mode2")} className="text-xs px-3 py-1.5 bg-[#12121e] border border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70] hover:text-white rounded-lg font-medium transition-colors">
-          🤖 Mode 2 — AI Ad ✨
+        <button onClick={() => setView("mode2")} className="relative overflow-hidden p-5 rounded-2xl text-left transition-all hover:-translate-y-1"
+          style={{ background: "linear-gradient(135deg, rgba(168,85,247,0.06), rgba(168,85,247,0.02))", border: "1px solid #1e2a35" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(168,85,247,0.4)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2a35"; }}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">🤖</span>
+            <div>
+              <p className="text-white font-bold text-sm">AI Ad Creator</p>
+              <p className="text-[10px]" style={{ color: "#a855f7" }}>Upload footage → AI does the rest</p>
+            </div>
+          </div>
+          <p className="text-[11px]" style={{ color: "#5a7080" }}>Upload your product images or video. AI analyses, writes script, builds slides, adds narration and music automatically.</p>
         </button>
       </div>
       <ProjectList

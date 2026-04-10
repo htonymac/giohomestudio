@@ -16,9 +16,25 @@ const createSchema = z.object({
 export async function GET() {
   const projects = await prisma.commercialProject.findMany({
     orderBy: { updatedAt: "desc" },
-    include: { slides: { select: { id: true, status: true } } },
+    include: { slides: { select: { id: true, status: true, imagePath: true } } },
   });
-  return NextResponse.json(projects);
+
+  // For "ready" projects, find the rendered video from ContentItem
+  const enriched = await Promise.all(projects.map(async (p) => {
+    let renderedVideoPath: string | null = null;
+    if (p.renderStatus === "ready" && p.contentItemId) {
+      try {
+        const content = await prisma.contentItem.findUnique({
+          where: { id: p.contentItemId },
+          select: { mergedOutputPath: true },
+        });
+        renderedVideoPath = content?.mergedOutputPath ?? null;
+      } catch { /* ignore */ }
+    }
+    return { ...p, renderedVideoPath };
+  }));
+
+  return NextResponse.json(enriched);
 }
 
 export async function POST(req: NextRequest) {
