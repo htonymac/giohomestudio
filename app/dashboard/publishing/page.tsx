@@ -42,18 +42,18 @@ export default function PublishingPage() {
   const [tab, setTab] = useState<"channels" | "queue" | "export">("channels");
 
   function connectChannel(id: string) {
-    // In production this would trigger OAuth flow
     const platform = channels.find(c => c.id === id);
     if (!platform) return;
 
     if (id === "yt") {
       window.open("/api/publish/youtube/auth", "_blank");
+      setChannels(prev => prev.map(c =>
+        c.id === id ? { ...c, connected: true, accountName: "Connecting..." } : c
+      ));
     } else {
-      alert(`${platform.platform} OAuth connection coming soon. Set up your ${platform.platform} API credentials in .env first.`);
+      // Don't set connected=true for platforms without OAuth yet
+      alert(`${platform.platform} connection requires OAuth credentials. Go to Settings → add your ${platform.platform} API key first.`);
     }
-    setChannels(prev => prev.map(c =>
-      c.id === id ? { ...c, connected: true, accountName: "Connected" } : c
-    ));
   }
 
   function disconnectChannel(id: string) {
@@ -128,7 +128,8 @@ export default function PublishingPage() {
                     {ch.lastPublish ? `Last post: ${ch.lastPublish}` : "No posts yet"}
                   </p>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button style={{ ...btnSm, flex: 1, textAlign: "center", fontSize: 10 }}>
+                    <button onClick={() => alert(`Test post to ${ch.platform} — this will send a test message when OAuth is configured.`)}
+                      style={{ ...btnSm, flex: 1, textAlign: "center", fontSize: 10 }}>
                       Test Post
                     </button>
                     <button onClick={() => disconnectChannel(ch.id)}
