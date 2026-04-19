@@ -11,6 +11,7 @@ import CharacterSavePrompt from "../../components/CharacterSavePrompt";
 import AudioPreview from "../../components/AudioPreview";
 import SceneImagePanel from "../../components/SceneImagePanel";
 import { useToast } from "../../components/Toast";
+import AnimatedStickerPicker, { type StickerOverlay, STICKER_DEFS } from "../../components/AnimatedStickerPicker";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Semi-AI Collaborative Editor — REBUILT FROM SCRATCH
@@ -272,6 +273,9 @@ function Editor() {
 
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["narration", "music", "sfx"]));
   const toggleSection = (s: string) => setExpandedSections(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
+
+  // ── Sticker overlays ──
+  const [stickers, setStickers] = useState<StickerOverlay[]>([]);
 
   // Sync a value to a ref on every render — used for stale-closure-safe callbacks
   function useSyncRef<T>(value: T) {
@@ -947,6 +951,7 @@ function Editor() {
           sfx: sfxForAssembly.length > 0 ? sfxForAssembly : undefined,
           caption: assembly.subtitles[0]?.text || assembly.overlays[0]?.content || undefined,
           captionPosition: assembly.subtitles[0]?.position || "bottom",
+          stickers: stickers.length > 0 ? stickers : undefined,
         }),
       });
       const d = await res.json();
@@ -1954,6 +1959,30 @@ function Editor() {
                       }}>{ovl.content}</div>
                   );
                 })}
+                {/* ── Animated sticker overlays — frame-accurate SVG draw ── */}
+                {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && stickers
+                  .filter(stk => currentTime >= stk.startTime && currentTime <= stk.startTime + stk.duration)
+                  .map(stk => {
+                    const def = STICKER_DEFS[stk.type as StickerOverlay["type"]];
+                    if (!def) return null;
+                    const isNew = currentTime - stk.startTime < 1.2;
+                    const isSpotlight = stk.type === "spotlight";
+                    return (
+                      <div key={stk.id} style={{ position: "absolute", left: `${stk.x}%`, top: `${stk.y}%`, width: `${stk.width}%`, height: `${stk.height}%`, pointerEvents: "none" }}>
+                        <svg viewBox={def.viewBox} fill="none" xmlns="http://www.w3.org/2000/svg" style={{ width: "100%", height: "100%" }}>
+                          <path
+                            d={def.path}
+                            stroke={stk.color}
+                            strokeWidth={stk.strokeWidth}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            fill={stk.type === "star" || stk.type === "burst" ? `${stk.color}22` : "none"}
+                            style={isNew ? { strokeDasharray: isSpotlight ? "8 6" : "800", strokeDashoffset: "800", animation: "sticker-draw 0.9s cubic-bezier(0.4,0,0.2,1) forwards" } : { strokeDasharray: isSpotlight ? "8 6" : undefined }}
+                          />
+                        </svg>
+                      </div>
+                    );
+                  })}
               </div>
             ) : (
               <div style={{ textAlign: "center", maxWidth: 640, width: "100%" }}>
@@ -4061,9 +4090,9 @@ function Editor() {
                       <option value="center">Center</option>
                       <option value="top">Top</option>
                     </select>
-                    <select id="overlay-fontsize" style={{ flex: 1, minWidth: 55, background: "#080b10", border: `1px solid ${border}`, borderRadius: 6, padding: "4px 6px", color: text, fontSize: 9, outline: "none" }}>
+                    <select id="overlay-fontsize" defaultValue="16" style={{ flex: 1, minWidth: 55, background: "#080b10", border: `1px solid ${border}`, borderRadius: 6, padding: "4px 6px", color: text, fontSize: 9, outline: "none" }}>
                       <option value="12">12px Small</option>
-                      <option value="16" selected>16px Normal</option>
+                      <option value="16">16px Normal</option>
                       <option value="20">20px Medium</option>
                       <option value="24">24px Large</option>
                       <option value="32">32px XL</option>
@@ -4127,6 +4156,23 @@ function Editor() {
                         </div>
                       ))}
                     </div>
+                  )}
+                </div>
+
+                {/* ── Sticker Overlays ── */}
+                <div style={{ marginBottom: 14 }}>
+                  <button onClick={() => toggleSection("stickers")} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: expandedSections.has("stickers") ? 8 : 0 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#f97316" }}>✨ Stickers</span>
+                    <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("stickers") ? "▼" : "▶"}</span>
+                  </button>
+                  {expandedSections.has("stickers") && (
+                    <AnimatedStickerPicker
+                      stickers={stickers}
+                      onChange={setStickers}
+                      accentColor="#ef4444"
+                      currentTime={currentTime}
+                      compact
+                    />
                   )}
                 </div>
 

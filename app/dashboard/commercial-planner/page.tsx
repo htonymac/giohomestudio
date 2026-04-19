@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
+import AnimatedStickerPicker, { type StickerOverlay } from "../../components/AnimatedStickerPicker";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Commercial Planner — PRODUCTION WORKSHOP
@@ -299,6 +300,10 @@ function CommercialPlannerInner() {
   const [showScriptReview, setShowScriptReview] = useState(false);
   const [sendingToScenes, setSendingToScenes] = useState(false);
   const [sendToScenesResult, setSendToScenesResult] = useState("");
+
+  // ── Sticker overlays ──
+  const [commStickers, setCommStickers] = useState<StickerOverlay[]>([]);
+  const [showStickerPanel, setShowStickerPanel] = useState(false);
 
   // ── Assembly named cuts ──
   const [assemblyName, setAssemblyName] = useState("Final Cut");
@@ -734,7 +739,7 @@ function CommercialPlannerInner() {
     try {
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, title: `${brief.brandName} — ${brief.productName} ${brief.format}`, scenes: assemblyScenes }),
+        body: JSON.stringify({ projectId, title: `${brief.brandName} — ${brief.productName} ${brief.format}`, scenes: assemblyScenes, stickers: commStickers.length > 0 ? commStickers : undefined }),
       });
       const data = await res.json();
       if (data.outputUrl) { setAssembledUrl(data.outputUrl); setAssemblyComplete(true); setLastAction("Commercial assembled"); }
@@ -1158,7 +1163,10 @@ function CommercialPlannerInner() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
             <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎬 Script & Scenes</h2>
-            <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>{scenes.length} scenes · {totalDuration}s total · {brief.format} format</p>
+            <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>
+              {scenes.length} scenes · {totalDuration}s total · {brief.format} format
+              {commStickers.length > 0 && <span style={{ color: "#f97316", marginLeft: 6 }}>· ✨ {commStickers.length} sticker{commStickers.length !== 1 ? "s" : ""}</span>}
+            </p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button style={btn(orange)} onClick={applyTemplate}>⚡ Reset Template</button>
@@ -1727,10 +1735,30 @@ function CommercialPlannerInner() {
           </div>
         )}
 
+        {/* ✨ Sticker Overlays */}
+        <div style={{ ...card, marginBottom: 12 }}>
+          <button
+            onClick={() => setShowStickerPanel(p => !p)}
+            style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316" }}>✨ Sticker Overlays {commStickers.length > 0 ? `(${commStickers.length})` : ""}</span>
+            <span style={{ fontSize: 11, color: muted }}>{showStickerPanel ? "▲ Close" : "▼ Open"}</span>
+          </button>
+          {showStickerPanel && (
+            <div style={{ marginTop: 10 }}>
+              <AnimatedStickerPicker
+                stickers={commStickers}
+                onChange={setCommStickers}
+                accentColor="#ef4444"
+              />
+            </div>
+          )}
+        </div>
+
         <div style={{ ...card, display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, color: "#fff", marginBottom: 4 }}>Final {brief.format} Commercial</div>
-            <div style={{ fontSize: 12, color: muted }}>{brief.brandName} — {brief.productName} · {brief.platform} · {brief.aspectRatio} · Music: {musicChoice} · VO: {voiceoverStyle}</div>
+            <div style={{ fontSize: 12, color: muted }}>{brief.brandName} — {brief.productName} · {brief.platform} · {brief.aspectRatio} · Music: {musicChoice} · VO: {voiceoverStyle}{commStickers.length > 0 ? ` · ${commStickers.length} sticker(s)` : ""}</div>
           </div>
           <button style={btn(assemblyReady ? orange : "#334")} disabled={!assemblyReady || assembling} onClick={assembleMovie}>
             {assembling ? "Assembling…" : assemblyReady ? "🚀 Assemble Commercial" : "Need Images First"}

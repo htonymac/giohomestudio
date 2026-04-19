@@ -46,6 +46,19 @@ interface SFXItem {
   volume: number;        // 0-1
 }
 
+interface StickerItem {
+  id: string;
+  type: string;
+  color: string;
+  x: number;      // % from left
+  y: number;      // % from top
+  width: number;  // % of frame width
+  height: number; // % of frame height
+  startTime: number;
+  duration: number;
+  strokeWidth: number;
+}
+
 interface AssemblyRequest {
   projectId?: string;
   title?: string;
@@ -61,6 +74,7 @@ interface AssemblyRequest {
   outputFormat?: "mp4" | "webm";
   aspectRatio?: "16:9" | "9:16" | "1:1";
   subtitleStyle?: "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
+  stickers?: StickerItem[]; // animated sticker overlays
 }
 
 // FFmpeg drawtext animation expressions
@@ -738,6 +752,95 @@ export async function POST(req: NextRequest) {
         ], { timeout: 120000 });
         finalPath = captionOutput;
       } catch { /* drawtext failed — skip caption */ }
+    }
+
+    // ── Step 5d: Burn sticker overlays via FFmpeg drawellipse / drawbox ──
+    if (body.stickers && body.stickers.length > 0) {
+      const stickerOutput = path.join(tempDir, "with_stickers.mp4");
+      try {
+        // Build a chain of FFmpeg video filters for each sticker
+        const stickerFilters: string[] = [];
+        for (const stk of body.stickers) {
+          // Convert hex color to FFmpeg color format (strip #)
+          const ffColor = stk.color.replace("#", "0x") + "CC"; // ~80% opacity
+          const enableExpr = `between(t,${stk.startTime},${stk.startTime + stk.duration})`;
+          const sw = Math.max(1, Math.round(stk.strokeWidth));
+
+          if (stk.type === "circle") {
+            // drawellipse: center x/y, semi-axes a/b
+            const cx = `W*${(stk.x + stk.width / 2) / 100}`;
+            const cy = `H*${(stk.y + stk.height / 2) / 100}`;
+            const ra = `W*${stk.width / 2 / 100}`;
+            const rb = `H*${stk.height / 2 / 100}`;
+            stickerFilters.push(
+              `drawellipse=x=${cx}:y=${cy}:a=${ra}:b=${rb}:color=${ffColor}:t=${sw}:enable='${enableExpr}'`
+            );
+          } else if (stk.type === "underline") {
+            // Horizontal line across the bottom of the region
+            const lx = `W*${stk.x / 100}`;
+            const ly = `H*${(stk.y + stk.height) / 100}`;
+            const lw = `W*${stk.width / 100}`;
+            stickerFilters.push(
+              `drawbox=x=${lx}:y=${ly}:w=${lw}:h=${sw}:color=${ffColor}:t=fill:enable='${enableExpr}'`
+            );
+          } else if (stk.type === "arrow_right") {
+            // Arrow shaft line
+            const lx = `W*${stk.x / 100}`;
+            const ly = `H*${(stk.y + stk.height / 2) / 100}`;
+            const lw = `W*${stk.width / 100}`;
+            stickerFilters.push(
+              `drawbox=x=${lx}:y=${ly}:w=${lw}:h=${sw}:color=${ffColor}:t=fill:enable='${enableExpr}'`
+            );
+          } else if (stk.type === "checkmark") {
+            // Two line segments approximated as thin boxes
+            const bx = `W*${stk.x / 100}`;
+            const by = `H*${(stk.y + stk.height * 0.5) / 100}`;
+            const bw = `W*${(stk.width * 0.4) / 100}`;
+            const bh = `H*${(stk.height * 0.5) / 100}`;
+            stickerFilters.push(
+              `drawbox=x=${bx}:y=${by}:w=${bw}:h=${sw}:color=${ffColor}:t=fill:enable='${enableExpr}'`
+            );
+          } else if (stk.type === "spotlight") {
+            // Double ellipse for glow ring effect
+            const cx = `W*${(stk.x + stk.width / 2) / 100}`;
+            const cy = `H*${(stk.y + stk.height / 2) / 100}`;
+            const ra = `W*${stk.width / 2 / 100}`;
+            const rb = `H*${stk.height / 2 / 100}`;
+            stickerFilters.push(
+              `drawellipse=x=${cx}:y=${cy}:a=${ra}:b=${rb}:color=${ffColor}:t=${sw}:enable='${enableExpr}'`
+            );
+            // Outer ring slightly larger — reuse base ffColor without the opacity suffix
+            const ffBase = ffColor.slice(0, -2); // strip the "CC" opacity suffix
+            stickerFilters.push(
+              `drawellipse=x=${cx}:y=${cy}:a=W*${(stk.width / 2 + 2) / 100}:b=H*${(stk.height / 2 + 2) / 100}:color=${ffBase}44:t=${Math.max(1, sw - 2)}:enable='${enableExpr}'`
+            );
+          } else {
+            // Default: draw bounding box for all other types (star, burst, bracket)
+            const bx = `W*${stk.x / 100}`;
+            const by = `H*${stk.y / 100}`;
+            const bw = `W*${stk.width / 100}`;
+            const bh = `H*${stk.height / 100}`;
+            stickerFilters.push(
+              `drawbox=x=${bx}:y=${by}:w=${bw}:h=${bh}:color=${ffColor}:t=${sw}:enable='${enableExpr}'`
+            );
+          }
+        }
+
+        if (stickerFilters.length > 0) {
+          await execFileAsync(env.ffmpegPath, [
+            "-i", finalPath,
+            "-vf", stickerFilters.join(","),
+            "-c:a", "copy",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22",
+            "-pix_fmt", "yuv420p",
+            "-y", stickerOutput,
+          ], { timeout: 180000 });
+          finalPath = stickerOutput;
+        }
+      } catch (err) {
+        console.warn("[assemble] Sticker overlay failed, skipping:", err);
+        // non-fatal — continue without stickers
+      }
     }
 
     // ── Step 6: Copy final to output directory ──
