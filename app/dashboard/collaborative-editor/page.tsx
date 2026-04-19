@@ -2713,14 +2713,14 @@ function Editor() {
                       </div>
                       {/* Summary */}
                       <div style={{ background: `${purple}08`, border: `1px solid ${purple}20`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
-                        <p style={{ fontSize: 10, color: text, lineHeight: 1.5 }}>{hybridExpansion.summary}</p>
+                        <p style={{ fontSize: 10, color: text, lineHeight: 1.5 }}>{hybridExpansion?.summary}</p>
                       </div>
                       {/* Characters */}
-                      {hybridExpansion.characters?.length > 0 && (
+                      {(hybridExpansion?.characters?.length ?? 0) > 0 && (
                         <div style={{ marginBottom: 8 }}>
                           <p style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Characters</p>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                            {hybridExpansion.characters.map(ch => (
+                            {hybridExpansion?.characters?.map(ch => (
                               <div key={ch.id} style={{ background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "6px 10px", minWidth: 80 }}>
                                 <p style={{ fontSize: 10, color: cyan, fontWeight: 700, marginBottom: 1 }}>{ch.name}</p>
                                 <p style={{ fontSize: 8, color: muted }}>{ch.role}</p>
@@ -2731,18 +2731,18 @@ function Editor() {
                       )}
                       {/* Locations & Moods */}
                       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                        {hybridExpansion.locations?.length > 0 && (
+                        {(hybridExpansion?.locations?.length ?? 0) > 0 && (
                           <div style={{ flex: 1 }}>
                             <p style={{ fontSize: 9, color: muted, marginBottom: 3 }}>Locations</p>
-                            {hybridExpansion.locations.map((loc, i) => (
+                            {hybridExpansion?.locations?.map((loc, i) => (
                               <span key={i} style={{ display: "inline-block", fontSize: 9, color: gold, background: `${gold}10`, borderRadius: 4, padding: "2px 6px", marginRight: 4, marginBottom: 3 }}>{loc}</span>
                             ))}
                           </div>
                         )}
-                        {hybridExpansion.moods?.length > 0 && (
+                        {(hybridExpansion?.moods?.length ?? 0) > 0 && (
                           <div style={{ flex: 1 }}>
                             <p style={{ fontSize: 9, color: muted, marginBottom: 3 }}>Moods</p>
-                            {hybridExpansion.moods.map((mood, i) => (
+                            {hybridExpansion?.moods?.map((mood, i) => (
                               <span key={i} style={{ display: "inline-block", fontSize: 9, color: green, background: `${green}10`, borderRadius: 4, padding: "2px 6px", marginRight: 4, marginBottom: 3 }}>{mood}</span>
                             ))}
                           </div>
@@ -2837,21 +2837,21 @@ function Editor() {
                       {/* Validation results */}
                       {hybridValidation && (
                         <div style={{ marginBottom: 8 }}>
-                          {hybridValidation.errors.length > 0 && (
+                          {(hybridValidation?.errors?.length ?? 0) > 0 && (
                             <div style={{ background: `${red}10`, border: `1px solid ${red}30`, borderRadius: 6, padding: "6px 10px", marginBottom: 4 }}>
-                              {hybridValidation.errors.map((err, i) => (
+                              {hybridValidation?.errors?.map((err, i) => (
                                 <p key={i} style={{ fontSize: 9, color: red, margin: "2px 0" }}>{err}</p>
                               ))}
                             </div>
                           )}
-                          {hybridValidation.warnings.length > 0 && (
+                          {(hybridValidation?.warnings?.length ?? 0) > 0 && (
                             <div style={{ background: `${gold}10`, border: `1px solid ${gold}30`, borderRadius: 6, padding: "6px 10px" }}>
-                              {hybridValidation.warnings.map((w, i) => (
+                              {hybridValidation?.warnings?.map((w, i) => (
                                 <p key={i} style={{ fontSize: 9, color: gold, margin: "2px 0" }}>{w}</p>
                               ))}
                             </div>
                           )}
-                          {hybridValidation.valid && hybridValidation.errors.length === 0 && (
+                          {hybridValidation?.valid && (hybridValidation?.errors?.length ?? 0) === 0 && (
                             <div style={{ background: `${green}10`, border: `1px solid ${green}30`, borderRadius: 6, padding: "6px 10px" }}>
                               <p style={{ fontSize: 9, color: green, margin: 0 }}>Validation passed. Ready to assemble.</p>
                             </div>
