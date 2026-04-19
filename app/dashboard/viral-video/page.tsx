@@ -1,6 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import CharacterPicker from "../../components/CharacterPicker";
+import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
+import ModelPicker from "../../components/ModelPicker";
+import DurationPicker from "../../components/DurationPicker";
 
 // Viral Video Creator — with content type → model selection → music → generate
 
@@ -32,69 +37,146 @@ const surface = "#0e1318";
 const border = "#1e2a35";
 const muted = "#5a7080";
 
+const SESSION_KEY = "ghs_viral_session";
+const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
 export default function ViralVideoPage() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [assignedCharacter, setAssignedCharacter] = useState<{
+    id: string; characterId: string | null; name: string; visualDescription: string | null;
+    imageUrl: string | null; voiceId: string | null; voiceName: string | null;
+    gender: string | null; age: string | null; country: string | null; culture: string | null;
+    voiceProvider: string | null; defaultSpeechStyle: string | null; role: string | null; personality: string | null;
+  } | null>(null);
   const [contentType, setContentType] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
+  const [imageModel, setImageModel] = useState("fal_flux_dev");
+  const [duration, setDuration] = useState("30–60 sec");
   const [viralStyle, setViralStyle] = useState("");
   const [platform, setPlatform] = useState("");
   const [musicChoice, setMusicChoice] = useState("");
   const [musicPrompt, setMusicPrompt] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [aiTier, setAiTier] = useState<AITier>("pro");
   const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [showResume, setShowResume] = useState(false);
 
   const models = MODEL_MAP[contentType] ?? [];
   const noMusic = musicChoice === "none";
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // ── Session save: persist to localStorage on every change ──
+  const saveSession = useCallback(() => {
+    if (!prompt && !contentType) return;
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        prompt, contentType, selectedModel, viralStyle, platform, musicChoice, musicPrompt, step, resultUrl,
+        savedAt: Date.now(),
+      }));
+    } catch { /* quota exceeded */ }
+  }, [prompt, contentType, selectedModel, viralStyle, platform, musicChoice, musicPrompt, step, resultUrl]);
+
+  useEffect(() => { saveSession(); }, [saveSession]);
+
+  // ── Session restore: check on mount ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (Date.now() - s.savedAt > SESSION_TTL) { localStorage.removeItem(SESSION_KEY); return; }
+      if (s.prompt || s.contentType) setShowResume(true);
+    } catch { /* corrupted */ }
+  }, []);
+
+  function resumeSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+      if (s.prompt) setPrompt(s.prompt);
+      if (s.contentType) setContentType(s.contentType);
+      if (s.selectedModel) setSelectedModel(s.selectedModel);
+      if (s.viralStyle) setViralStyle(s.viralStyle);
+      if (s.platform) setPlatform(s.platform);
+      if (s.musicChoice) setMusicChoice(s.musicChoice);
+      if (s.musicPrompt) setMusicPrompt(s.musicPrompt);
+      if (s.step) setStep(s.step);
+      if (s.resultUrl) setResultUrl(s.resultUrl);
+    } catch { /* ignore */ }
+    setShowResume(false);
+  }
+
+  function startFresh() {
+    localStorage.removeItem(SESSION_KEY);
+    setShowResume(false);
+  }
 
   async function handleGenerate() {
     if (!prompt.trim()) return;
     if (!musicChoice) { alert("Please select a music option — or choose 'No Music' to proceed without."); return; }
     setGenerating(true);
     setResultUrl(null);
+    setErrorMsg(null);
 
     try {
-      // Generate music first if requested
       let musicUrl: string | undefined;
       if (musicChoice === "generate") {
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: musicPrompt || `${viralStyle} music for ${contentType} video, 30 seconds`, tier: "standard", durationSeconds: 30 }),
+          body: JSON.stringify({ prompt: musicPrompt || `${viralStyle} music for ${contentType} video, 30 seconds`, tier: aiTier, llmModel: getModelForTier(aiTier).llmValue, durationSeconds: 30 }),
         });
-        const musicData = await musicRes.json();
-        if (musicData.musicPath) {
-          musicUrl = `/api/media/${musicData.musicPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        if (!musicRes.ok) {
+          const e = await musicRes.json().catch(() => ({}));
+          setErrorMsg(`Music generation failed: ${e.error || `HTTP ${musicRes.status}`}`);
+          setGenerating(false);
+          return;
         }
+        const musicData = await musicRes.json();
+        if (musicData.musicPath) musicUrl = `/api/media/${musicData.musicPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
       }
 
-      // Generate video
       const videoRes = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: `${prompt}. Style: ${viralStyle || "viral"}. Content type: ${contentType}. Platform: ${platform || "TikTok"}.`,
+          prompt: `${prompt}${assignedCharacter?.visualDescription ? `. Character appearance: ${assignedCharacter.visualDescription}` : ""}. Style: ${viralStyle || "viral"}. Content type: ${contentType}. Platform: ${platform || "TikTok"}.`,
           model: selectedModel || "hailuo-fast",
           aspectRatio: (platform === "YouTube Shorts" || platform === "Instagram Reels" || platform === "TikTok") ? "9:16" : "16:9",
         }),
       });
+      if (!videoRes.ok) {
+        const e = await videoRes.json().catch(() => ({}));
+        setErrorMsg(`Video generation failed: ${e.error || `HTTP ${videoRes.status}`}`);
+        setGenerating(false);
+        return;
+      }
       const videoData = await videoRes.json();
 
       if (videoData.outputUrl) {
-        // If we have music, assemble them together
         if (musicUrl) {
           const assembleRes = await fetch("/api/video/assemble", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: `Viral: ${prompt.slice(0, 30)}`, scenes: [{ scene: 1, videoUrl: videoData.outputUrl }], musicUrl }),
           });
-          const assembleData = await assembleRes.json();
-          setResultUrl(assembleData.outputUrl ?? videoData.outputUrl);
+          if (!assembleRes.ok) {
+            setResultUrl(videoData.outputUrl);
+          } else {
+            const assembleData = await assembleRes.json();
+            setResultUrl(assembleData.outputUrl ?? videoData.outputUrl);
+          }
         } else {
           setResultUrl(videoData.outputUrl);
         }
+      } else {
+        setErrorMsg("Video generation returned no output. Please try again.");
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      setErrorMsg(`Unexpected error: ${err instanceof Error ? err.message : "unknown"}`);
+    }
     setGenerating(false);
   }
 
@@ -129,6 +211,20 @@ export default function ViralVideoPage() {
         </div>
       </div>
 
+      {/* Session recovery banner */}
+      {showResume && (
+        <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b" }}>You have an unfinished viral video</p>
+            <p style={{ fontSize: 10, color: muted }}>Resume where you left off or start fresh.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={resumeSession} style={{ padding: "8px 18px", borderRadius: 10, background: "#f59e0b", color: "#000", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Resume</button>
+            <button onClick={startFresh} style={{ padding: "8px 18px", borderRadius: 10, background: "transparent", color: muted, fontSize: 12, border: `1px solid ${border}`, cursor: "pointer" }}>Start Fresh</button>
+          </div>
+        </div>
+      )}
+
       {/* Progress */}
       <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
         {[{ n: 1, l: "Content & Prompt" }, { n: 2, l: "AI Model" }, { n: 3, l: "Music & Generate" }].map(s => (
@@ -158,7 +254,7 @@ export default function ViralVideoPage() {
 
           <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Your idea</p>
           <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
-            placeholder="e.g. 'POV: You just discovered the best suya spot in Lagos at 2am — cinematic, funny, relatable'"
+            placeholder="e.g. 'POV: You just discovered the best street food spot at 2am — cinematic, funny, relatable'"
             style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 16 }} />
 
           <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Viral Style</p>
@@ -214,6 +310,45 @@ export default function ViralVideoPage() {
             ))}
           </div>
 
+          {/* ── Character Section ── */}
+          <div style={{ marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>
+              Character
+            </p>
+            {!assignedCharacter ? (
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => router.push("/dashboard/character-voices")}
+                  style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#22c55e", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Create Character
+                </button>
+                <button onClick={() => setShowCharacterPicker(true)}
+                  style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#a855f7", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Assign Character
+                </button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, border: `1px solid #a855f730`, background: "rgba(168,85,247,0.06)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, overflow: "hidden", background: "linear-gradient(135deg, #a855f730, #a855f710)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    {assignedCharacter.imageUrl ? (
+                      <img src={assignedCharacter.imageUrl} alt={assignedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <span style={{ fontSize: 14 }}>{assignedCharacter.gender === "female" || assignedCharacter.gender === "girl" ? "👩" : "👨"}</span>
+                    )}
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{assignedCharacter.name}</p>
+                    {assignedCharacter.characterId && <p style={{ fontSize: 9, fontFamily: "monospace", color: "#a855f7" }}>{assignedCharacter.characterId}</p>}
+                  </div>
+                </div>
+                <button onClick={() => setShowCharacterPicker(true)}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                  Switch
+                </button>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>Back</button>
             <button onClick={() => setStep(3)} disabled={!selectedModel}
@@ -255,14 +390,32 @@ export default function ViralVideoPage() {
             </div>
           )}
 
-          {/* Summary */}
-          <div style={{ background: "#080b10", borderRadius: 12, padding: 16, marginBottom: 20 }}>
-            <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Summary</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              <p style={{ fontSize: 11, color: muted }}>Type: <span style={{ color: "#fff" }}>{CONTENT_TYPES.find(t => t.id === contentType)?.label}</span></p>
-              <p style={{ fontSize: 11, color: muted }}>Model: <span style={{ color: "#fff" }}>{models.find(m => m.id === selectedModel)?.name}</span></p>
-              <p style={{ fontSize: 11, color: muted }}>Style: <span style={{ color: "#fff" }}>{viralStyle || "—"}</span></p>
-              <p style={{ fontSize: 11, color: muted }}>Music: <span style={{ color: "#fff" }}>{musicChoice === "none" ? "None" : musicChoice === "generate" ? "AI Generated" : "Upload"}</span></p>
+          {/* Summary + AI tier side by side */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 20, alignItems: "start" }}>
+            <div style={{ background: "#080b10", borderRadius: 12, padding: 16 }}>
+              <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Summary</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                <p style={{ fontSize: 11, color: muted }}>Type: <span style={{ color: "#fff" }}>{CONTENT_TYPES.find(t => t.id === contentType)?.label}</span></p>
+                <p style={{ fontSize: 11, color: muted }}>Model: <span style={{ color: "#fff" }}>{models.find(m => m.id === selectedModel)?.name}</span></p>
+                <p style={{ fontSize: 11, color: muted }}>Style: <span style={{ color: "#fff" }}>{viralStyle || "—"}</span></p>
+                <p style={{ fontSize: 11, color: muted }}>Music: <span style={{ color: "#fff" }}>{musicChoice === "none" ? "None" : musicChoice === "generate" ? "AI Generated" : "Upload"}</span></p>
+              </div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div>
+                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>AI Model</p>
+                <AITierSelector value={aiTier} onChange={setAiTier} compact />
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Duration</p>
+                <DurationPicker preset="video" value={duration} onChange={(label: string) => setDuration(label)} label="" accentColor="#ef4444" compact />
+              </div>
+              <div>
+                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Image Model</p>
+                <ModelPicker videoModel={selectedModel || "muapi_seedance_v2"} imageModel={imageModel}
+                  onVideoChange={() => {}} onImageChange={setImageModel}
+                  accentColor="#ef4444" compact />
+              </div>
             </div>
           </div>
 
@@ -273,6 +426,13 @@ export default function ViralVideoPage() {
               {generating ? "Generating..." : "🔥 Generate Viral Video"}
             </button>
           </div>
+
+          {/* Error */}
+          {errorMsg && (
+            <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
+              {errorMsg}
+            </div>
+          )}
 
           {/* Result */}
           {resultUrl && (
@@ -288,6 +448,27 @@ export default function ViralVideoPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ═══ Character Picker Modal ═══ */}
+      {showCharacterPicker && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.6)" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}>
+          <div style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflow: "auto", borderRadius: 16, border: `1px solid ${border}`, background: surface, padding: 20, boxShadow: "0 16px 64px rgba(0,0,0,0.5)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+              <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Pick a Character</p>
+              <button onClick={() => setShowCharacterPicker(false)}
+                style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                ✕
+              </button>
+            </div>
+            <CharacterPicker
+              onSelect={(character) => { setAssignedCharacter(character); setShowCharacterPicker(false); }}
+              onCreateNew={() => { setShowCharacterPicker(false); router.push("/dashboard/character-voices"); }}
+              selectedId={assignedCharacter?.id}
+            />
+          </div>
         </div>
       )}
     </div>

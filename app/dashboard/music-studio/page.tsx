@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import SFXPicker from "../../components/SFXPicker";
+import AITierSelector, { type AITier } from "../../components/AITierSelector";
 
 interface StockTrack {
   filename: string;
@@ -27,8 +28,17 @@ export default function MusicStudioPage() {
 
   // AI Generate state
   const [genPrompt, setGenPrompt] = useState("");
-  const [genResult, setGenResult] = useState<{ musicPath?: string; source?: string; error?: string; note?: string } | null>(null);
+  const [genGenre, setGenGenre] = useState("");
+  const [genMood, setGenMood] = useState("");
+  const [genDuration, setGenDuration] = useState(60);
+  const [genInstrumental, setGenInstrumental] = useState(false);
+  const [genTier, setGenTier] = useState<"standard" | "premium">("standard");
+  const [aiTier, setAiTier] = useState<AITier>("pro");
+  const [genTitle, setGenTitle] = useState("");
+  const [genLyrics, setGenLyrics] = useState("");
+  const [genResult, setGenResult] = useState<{ musicPath?: string; source?: string; provider?: string; tier?: string; error?: string; note?: string } | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [genHistory, setGenHistory] = useState<Array<{ prompt: string; musicPath: string; provider: string; tier: string }>>([]);
 
   // SFX state
   const [sfxPrompt, setSfxPrompt] = useState("");
@@ -60,9 +70,22 @@ export default function MusicStudioPage() {
       const res = await fetch("/api/music/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: genPrompt }),
+        body: JSON.stringify({
+          prompt: genPrompt,
+          genre: genGenre || undefined,
+          mood: genMood || undefined,
+          durationSeconds: genDuration,
+          instrumental: genInstrumental,
+          tier: genTier,
+          title: genTitle || undefined,
+          lyrics: genLyrics || undefined,
+        }),
       });
-      setGenResult(await res.json());
+      const result = await res.json();
+      setGenResult(result);
+      if (result.musicPath) {
+        setGenHistory(prev => [{ prompt: genPrompt, musicPath: result.musicPath!, provider: result.provider || "unknown", tier: result.tier || genTier }, ...prev.slice(0, 9)]);
+      }
     } catch { setGenResult({ error: "Network error" }); }
     setGenerating(false);
   }
@@ -113,38 +136,139 @@ export default function MusicStudioPage() {
 
       {/* AI Generate Tab */}
       {tab === "generate" && (
-        <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-6 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-1">AI Music Generator</h2>
-            <p className="text-xs text-[#6060a0]">Describe the mood, genre, and energy — AI generates an original track you own commercially.</p>
+        <div className="space-y-4">
+          {/* AI LLM tier + Music engine selector */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#6060a0", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>AI Intelligence</p>
+              <AITierSelector value={aiTier} onChange={setAiTier} compact />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#6060a0", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Music Engine</p>
+              <div style={{ display: "flex", gap: 6 }}>
+                {[
+                  { id: "standard" as const, label: "MiniMax", color: "#22c55e" },
+                  { id: "premium" as const, label: "Suno V5", color: "#f5c518" },
+                ].map(t => (
+                  <button key={t.id} onClick={() => setGenTier(t.id)} style={{
+                    flex: 1, padding: "8px 10px", borderRadius: 10, border: `1px solid ${genTier === t.id ? t.color + "60" : "#2a2a40"}`,
+                    background: genTier === t.id ? t.color + "15" : "#12121e",
+                    color: genTier === t.id ? t.color : "#888", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                  }}>{t.label}</button>
+                ))}
+              </div>
+            </div>
           </div>
-          <textarea
-            value={genPrompt}
-            onChange={e => setGenPrompt(e.target.value)}
-            placeholder="e.g. Afrobeats energy, upbeat, 60 seconds, perfect for property ad reel..."
-            rows={3}
-            className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-indigo-600 resize-none"
-          />
-          <button
-            disabled={generating || !genPrompt.trim()}
-            onClick={handleGenerate}
-            className="px-6 py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
-          >
-            {generating ? "Generating..." : "Generate Music"}
-          </button>
-          {genResult && (
-            <div className={`p-3 rounded-lg text-xs ${genResult.error ? "bg-red-950/40 text-red-400" : "bg-green-950/40 text-green-400"}`}>
-              {genResult.error ? genResult.error : (
-                <>
-                  <p>Track matched: {genResult.musicPath?.split(/[\\/]/).pop()}</p>
-                  <p className="text-[#6060a0] mt-1">{genResult.note}</p>
-                  {genResult.musicPath && (
-                    <button onClick={() => playTrack(genResult.musicPath!)} className="mt-2 text-[#7c5cfc] underline">
-                      {playing === genResult.musicPath ? "⏸ Stop" : "▶ Preview"}
+
+          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
+            <div>
+              <h2 className="text-base font-semibold text-white mb-0.5">AI Music Generator</h2>
+              <p className="text-[10px] text-[#6060a0]">Describe the vibe — AI composes an original track for your content.</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Genre</label>
+                <select value={genGenre} onChange={e => setGenGenre(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2">
+                  <option value="">Auto-detect</option>
+                  {["Afrobeats", "Afropop", "Afro Gospel", "Highlife", "Pop", "Hip-Hop", "R&B", "Gospel", "Jazz", "Classical", "Electronic", "Ambient", "Cinematic", "Drill", "Reggae", "Dancehall", "Trap", "Soul", "Country", "Rock"].map(g => <option key={g}>{g}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Mood</label>
+                <select value={genMood} onChange={e => setGenMood(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2">
+                  <option value="">Auto-detect</option>
+                  {["Upbeat", "Calm", "Emotional", "Epic", "Dramatic", "Romantic", "Dark", "Joyful", "Suspenseful", "Motivational", "Worshipful", "Festive", "Melancholic", "Energetic", "Peaceful"].map(m => <option key={m}>{m}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Describe the track</label>
+              <textarea value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
+                placeholder="e.g. Afrobeats party anthem, heavy bass, 60 seconds, perfect for real estate reel..."
+                rows={3} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c5cfc] resize-none" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[10px] text-[#6060a0] block mb-1">Duration: {genDuration}s</label>
+                <input type="range" min={10} max={240} step={5} value={genDuration} onChange={e => setGenDuration(Number(e.target.value))} className="w-full accent-[#7c5cfc]" />
+                <div className="flex justify-between text-[9px] text-[#6060a0]"><span>10s</span><span>240s</span></div>
+              </div>
+              <div className="flex flex-col gap-2 pt-1">
+                <label className="flex items-center gap-2 text-xs text-[#6060a0] cursor-pointer">
+                  <input type="checkbox" checked={genInstrumental} onChange={e => setGenInstrumental(e.target.checked)} className="accent-[#7c5cfc]" />
+                  Instrumental only (no vocals)
+                </label>
+                {genTier === "premium" && (
+                  <input value={genTitle} onChange={e => setGenTitle(e.target.value)} placeholder="Song title (optional)"
+                    className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#7c5cfc]" />
+                )}
+              </div>
+            </div>
+
+            {genTier === "premium" && (
+              <div>
+                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Lyrics (optional — for vocal songs)</label>
+                <textarea value={genLyrics} onChange={e => setGenLyrics(e.target.value)}
+                  placeholder="Paste your lyrics here — Suno will sing them..."
+                  rows={4} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c5cfc] resize-none" />
+              </div>
+            )}
+
+            <div className="flex gap-3 items-center">
+              <button disabled={generating || !genPrompt.trim()} onClick={handleGenerate}
+                className="px-6 py-2.5 text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
+                style={{ background: generating ? "#2a2a40" : "#7c5cfc", color: "#fff" }}>
+                {generating ? "Composing…" : `Generate ${genTier === "premium" ? "(Suno V5)" : "(MiniMax)"}`}
+              </button>
+              {generating && <span className="text-xs text-[#6060a0] animate-pulse">{genTier === "premium" ? "Suno V5 takes ~90 seconds…" : "MiniMax composing…"}</span>}
+            </div>
+
+            {genResult && (
+              <div className={`p-4 rounded-xl text-xs ${genResult.error ? "bg-red-950/40 border border-red-900/40" : "bg-green-950/40 border border-green-900/40"}`}>
+                {genResult.error ? (
+                  <p className="text-red-400">{genResult.error}</p>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-green-400 font-semibold">✓ Track generated</p>
+                      <span className="text-[9px] bg-[#1a1a2e] px-2 py-0.5 rounded text-[#7c5cfc]">{genResult.provider}</span>
+                    </div>
+                    <p className="text-[#6060a0] mb-2">{genResult.musicPath?.split(/[\\/]/).pop()}</p>
+                    {genResult.musicPath && (
+                      <button onClick={() => playTrack(genResult.musicPath!)}
+                        className="px-4 py-1.5 rounded-lg text-white text-xs font-semibold"
+                        style={{ background: playing === genResult.musicPath ? "#374151" : "#7c5cfc" }}>
+                        {playing === genResult.musicPath ? "⏸ Stop" : "▶ Play"}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* History */}
+          {genHistory.length > 0 && (
+            <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-4">
+              <p className="text-[10px] text-[#6060a0] uppercase tracking-wider mb-3">This session ({genHistory.length} generated)</p>
+              <div className="space-y-2">
+                {genHistory.map((h, i) => (
+                  <div key={i} className="flex items-center gap-3 py-2 border-b border-[#2a2a40] last:border-0">
+                    <button onClick={() => playTrack(h.musicPath)}
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
+                      style={{ background: playing === h.musicPath ? "#7c5cfc" : "#1e1e30" }}>
+                      {playing === h.musicPath ? "⏸" : "▶"}
                     </button>
-                  )}
-                </>
-              )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-white truncate">{h.prompt.slice(0, 60)}</p>
+                      <p className="text-[9px] text-[#6060a0]">{h.provider} · {h.tier}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
