@@ -388,7 +388,7 @@ export async function POST(req: NextRequest) {
             "-c:v", "libx264", "-preset", "fast", "-crf", "23",
             "-c:a", "aac", "-b:a", "128k",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart",
-            "-shortest", "-y", slideFile,
+            "-t", String(dur), "-y", slideFile,
           );
           await execFileAsync(ffmpeg, fallbackArgs, { timeout: 60000 });
           return slideFile;
