@@ -20,8 +20,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       >
         <ToastProvider>
         <div className="flex h-screen overflow-hidden">
-          {/* Sidebar — fixed width */}
-          <div className="shrink-0 h-full" style={{ width: 220 }}>
+          {/* Sidebar — collapsible */}
+          <div className="shrink-0 h-full">
             <Sidebar />
           </div>
 

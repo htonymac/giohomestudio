@@ -1,0 +1,294 @@
+You’re right. I did not answer the first question directly enough.
+
+Here is the direct answer.
+
+First question: how would they sue GHS if GHS has nothing to do with their images?
+
+They would usually not say:
+
+“GHS stored my image, so GHS is automatically guilty.”
+
+They would more likely say one or more of these:
+
+GHS enabled or facilitated misuse
+
+GHS processed and transformed my image/voice without proper safeguards
+
+GHS helped create a misleading or harmful output
+
+GHS failed to block obvious unauthorized use
+
+GHS exported or packaged infringing content
+
+GHS designed the tool in a way that encouraged misuse
+
+
+That is the practical risk.
+
+So even if:
+
+GHS does not post it,
+
+GHS does not keep it permanently,
+
+GHS processes more on-device,
+
+
+someone can still try to bring a claim if they believe your tool helped create an unlawful result involving their likeness, voice, privacy, or copyright. WIPO notes that image/personality/publicity-type rights can protect things like a person’s image and voice under different legal systems.
+
+In plain words
+
+Think of it like this:
+
+If someone uses GHS to make:
+
+a fake endorsement ad,
+
+a cloned voice message,
+
+a misleading video edit,
+
+or a commercial using somebody else’s face,
+
+
+that person may sue:
+
+the user first,
+
+but may also include GHS if they think GHS helped enable it, failed to stop it, or benefited from it.
+
+
+That does not mean they automatically win against GHS.
+It means GHS can still be dragged into the problem.
+
+What helps GHS strongly
+
+Your idea helps a lot:
+
+keep work on device first
+
+do not upload media by default
+
+upload only after user approval
+
+store only what is necessary
+
+let users delete their assets
+
+keep server retention minimal
+
+
+That reduces privacy and storage risk.
+
+But it does not fully protect GHS by itself, because the complaint can still be about:
+
+unauthorized likeness use
+
+unauthorized voice use
+
+misleading/deceptive edits
+
+copyright/licensing misuse
+
+
+Best prevention stack
+
+To reduce the chance of GHS being targeted, do these together:
+
+1. On-device-first design
+
+preview locally where possible
+
+avoid automatic cloud upload
+
+upload only after approval
+
+show clear “stored locally / uploaded” status
+
+
+2. Rights confirmation
+
+Before risky actions, require user confirmation:
+
+I own this content or have permission
+
+I have rights to use this face/voice
+
+I have commercial rights if this is an ad
+
+I accept responsibility for unauthorized use
+
+
+3. Strong blocking
+
+Block by default:
+
+celebrity cloning
+
+third-party voice cloning without explicit permission
+
+fake endorsement ads
+
+deceptive “make this person say this” edits
+
+intimate/degrading manipulations
+
+child-risk content
+
+
+4. Review-first workflow
+
+No final export/publish until:
+
+preview shown
+
+user approves
+
+rights check passed
+
+safety check passed
+
+license check passed
+
+
+5. Audit logs
+
+Keep records of:
+
+user approval
+
+rights-confirmation version
+
+whether media stayed local or was uploaded
+
+sound license used
+
+attribution generated
+
+export time
+
+provider used
+
+
+6. Clear terms
+
+State clearly:
+
+GHS is a tool
+
+users are responsible for rights they do not own
+
+GHS may block suspicious requests
+
+GHS may suspend misuse
+
+
+The strongest practical answer
+
+So the honest answer is:
+
+They could still sue GHS by claiming GHS helped enable unauthorized or harmful use of their likeness, voice, or content, even if GHS did not post it and did not keep it permanently.
+
+And the best defense is:
+
+on-device-first + approval-before-upload + strong rights checks + strict blocking + audit logs + review-first export.
+
+Very important correction
+
+Do not rely on this argument alone:
+
+> “GHS has nothing to do with their images.”
+
+
+
+That is too weak legally and product-wise.
+
+A better position is:
+
+> “GHS minimizes data retention, defaults to on-device handling where possible, requires user approval before upload, applies rights and safety checks, blocks risky uses, logs approvals, and provides attribution/licensing support. Users remain responsible for content they do not own or lack permission to use.”
+
+
+
+That is much stronger.
+
+Now, on the sound side:
+
+Automatic attribution support
+
+Yes, Claude Code should build this.
+
+For CC BY sounds, GHS should automatically store:
+
+creator name
+
+title
+
+source
+
+source URL
+
+license
+
+attribution text
+
+
+Then GHS should auto-generate:
+
+a credits block
+
+a copy button
+
+optional description text
+
+optional export metadata/end-card credits
+
+
+And yes, tell CC clearly:
+
+Sound policy for GHS
+
+Use only these 3 buckets:
+
+Fully owned / custom-created sounds
+
+CC0 sounds
+
+CC BY sounds with automatic attribution support
+
+
+Do not let CC BY-NC enter normal commercial production flows. Freesound’s FAQ explains that different sounds on the site have different licenses, including CC0, CC BY, and CC BY-NC, and the obligations differ.
+
+Predownload common sounds
+
+Yes — tell him plainly:
+
+Do not keep calling FAL for ordinary sounds that are already available in free/licensed libraries. Build a much larger internal tagged sound bank first.
+
+That is the smarter architecture.
+
+AI + FFmpeg
+
+And yes, this should be aligned clearly:
+
+AI should plan
+
+FFmpeg should assemble
+
+do not let a weak local model freestyle the whole pipeline
+
+
+Also tell CC:
+
+local model can be GHS Standard
+
+stronger hosted models should power Pro / Premium / Premium Best
+
+the assembly pipeline should stay deterministic even when the model tier changes
+
+
+You were right to call that out.
+
+If you want, I’ll now rewrite all of this as a direct message for Claude Code only.
+
+
+Discussed 3 hold don't tLk

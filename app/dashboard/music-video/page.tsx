@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef } from "react";
+import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
+import DurationPicker from "../../components/DurationPicker";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Music & Video Studio — Hub Page
@@ -100,9 +102,9 @@ const MUSIC_MODES: ModeConfig[] = [
     description: "Describe your song idea in words. GHS writes the lyrics, picks the style, and generates a full track.",
     generateLabel: "Generate My Song", generateAction: "music",
     fields: [
-      { type: "textarea", label: "Song Concept", key: "prompt", required: true, placeholder: "A heartbreak song about leaving Lagos for London, nostalgic, missing home and family..." },
-      { type: "select", label: "Genre", key: "genre", options: ["Afrobeats", "Amapiano", "Highlife", "Gospel", "R&B", "Hip Hop", "Fuji", "Juju", "Drill", "Pop", "Jazz", "EDM", "Country", "Classical"] },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "German", "Japanese", "Korean", "Mixed"] },
+      { type: "textarea", label: "Song Concept", key: "prompt", required: true, placeholder: "A heartbreak song about leaving home for a new city, nostalgic, missing family and familiar streets..." },
+      { type: "select", label: "Genre", key: "genre", options: ["Pop", "R&B", "Hip Hop", "Afrobeats", "Amapiano", "Gospel", "Jazz", "EDM", "Country", "Classical", "Drill", "Lo-fi", "Soul", "Electronic"] },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "German", "Arabic", "Hindi", "Japanese", "Korean", "Swahili", "Russian", "Turkish", "Italian", "Mixed"] },
       { type: "pills", label: "Mood", key: "mood", options: ["Joyful", "Melancholic", "Energetic", "Romantic", "Spiritual", "Angry", "Celebratory", "Nostalgic", "Peaceful", "Dark"] },
       { type: "pills", label: "Duration", key: "duration", options: ["1 min", "2 min", "3 min", "4 min"] },
     ],
@@ -115,7 +117,7 @@ const MUSIC_MODES: ModeConfig[] = [
       { type: "upload", label: "Upload Image", key: "image", required: true, accept: "image/*" },
       { type: "select", label: "Genre Preference", key: "genre", options: ["Let GHS decide", "Afrobeats", "Amapiano", "Gospel", "R&B", "Ambient", "Classical", "Jazz", "Pop"] },
       { type: "select", label: "Duration", key: "duration", options: ["1 min", "2 min", "3 min"] },
-      { type: "text", label: "Additional Notes (optional)", key: "notes", placeholder: "e.g. Make it feel like a Sunday morning in Lagos..." },
+      { type: "text", label: "Additional Notes (optional)", key: "notes", placeholder: "e.g. Make it feel like a peaceful Sunday morning in the countryside..." },
     ],
   },
   {
@@ -125,7 +127,7 @@ const MUSIC_MODES: ModeConfig[] = [
     fields: [
       { type: "upload", label: "Upload Voice Recording", key: "voice", required: true, accept: "audio/*" },
       { type: "select", label: "What to do with my voice", key: "voiceUse", options: ["Keep my voice as lead vocal", "Use as melody guide, generate new vocals", "Use for lyrics only, generate full production"] },
-      { type: "select", label: "Genre", key: "genre", options: ["Let GHS decide", "Afrobeats", "Gospel", "R&B", "Highlife", "Pop", "Hip Hop"] },
+      { type: "select", label: "Genre", key: "genre", options: ["Let GHS decide", "Pop", "R&B", "Gospel", "Hip Hop", "Jazz", "EDM", "Classical", "Soul", "Electronic"] },
       { type: "text", label: "What is this song about?", key: "about", placeholder: "Brief description helps GHS write better lyrics around your melody..." },
     ],
   },
@@ -148,7 +150,7 @@ const MUSIC_MODES: ModeConfig[] = [
       { type: "upload", label: "Upload Image to Animate", key: "image", required: true, accept: "image/*" },
       { type: "pills", label: "Music Source", key: "musicSource", options: ["Generate new music", "Upload my own music"] },
       { type: "pills", label: "Animation Style", key: "animStyle", options: ["Gentle pulse", "Dancing", "Breathing", "Zoom & pan", "Colour shift", "Particle burst"] },
-      { type: "select", label: "Music Style (if generating)", key: "genre", options: ["Match the image mood", "Afrobeats", "Ambient", "Gospel", "Electronic", "Jazz", "Pop"] },
+      { type: "select", label: "Music Style (if generating)", key: "genre", options: ["Match the image mood", "Ambient", "Pop", "Gospel", "Electronic", "Jazz", "Classical", "Lo-fi"] },
     ],
   },
   {
@@ -157,7 +159,7 @@ const MUSIC_MODES: ModeConfig[] = [
     generateLabel: "Generate Video for My Song", generateAction: "video",
     fields: [
       { type: "upload", label: "Upload Audio / Song", key: "audio", required: true, accept: "audio/*" },
-      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Abstract", "Nature", "Luxury", "Urban Lagos", "Rural Africa", "Fantasy"] },
+      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Abstract", "Nature", "Luxury", "Urban", "Fantasy", "Futuristic"] },
       { type: "text", label: "What is this song about? (optional)", key: "about", placeholder: "Helps GHS pick better visuals for your song..." },
       { type: "pills", label: "Output format", key: "format", options: ["16:9 YouTube", "9:16 Reels/TikTok", "Both"] },
     ],
@@ -173,8 +175,8 @@ const CHILDREN_MODES: ModeConfig[] = [
       { type: "info", label: "", key: "_info", infoText: "GHS will create a fun, educational alphabet song for children with colourful animation. Safe, joyful, and engaging for ages 2–8.", infoColor: "purple" },
       { type: "select", label: "Age Group", key: "age", options: ["Toddlers (2–3 years)", "Pre-school (3–5 years)", "Early school (5–8 years)"] },
       { type: "select", label: "Music Style", key: "musicStyle", options: ["Fun & Bouncy", "Calm & Gentle", "Afro-kids", "Classic nursery"] },
-      { type: "pills", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Hindi", "Mixed"] },
-      { type: "pills", label: "Animation Style", key: "animStyle", options: ["Cartoon animals", "Colourful letters", "Nigerian characters", "Space adventure", "Jungle theme"] },
+      { type: "pills", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Korean", "Mixed"] },
+      { type: "pills", label: "Animation Style", key: "animStyle", options: ["Cartoon animals", "Colourful letters", "Friendly characters", "Space adventure", "Jungle theme"] },
     ],
   },
   {
@@ -183,8 +185,8 @@ const CHILDREN_MODES: ModeConfig[] = [
     generateLabel: "Create Numbers Song", generateAction: "music",
     fields: [
       { type: "select", label: "Count up to", key: "countTo", options: ["1 to 10", "1 to 20", "1 to 50", "1 to 100"] },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Hindi"] },
-      { type: "pills", label: "Theme", key: "theme", options: ["Counting fruits", "Counting animals", "Counting stars", "Counting market items", "Pure numbers"] },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Korean"] },
+      { type: "pills", label: "Theme", key: "theme", options: ["Counting fruits", "Counting animals", "Counting stars", "Counting toys", "Pure numbers"] },
     ],
   },
   {
@@ -192,8 +194,8 @@ const CHILDREN_MODES: ModeConfig[] = [
     description: "Learn animal names and sounds through music.",
     generateLabel: "Create Animal Song", generateAction: "music",
     fields: [
-      { type: "pills", label: "Animals to include", key: "animals", options: ["Nigerian animals", "Farm animals", "Wild animals", "Ocean animals", "All animals", "Let GHS choose"] },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Hindi"] },
+      { type: "pills", label: "Animals to include", key: "animals", options: ["Safari animals", "Farm animals", "Wild animals", "Ocean animals", "All animals", "Let GHS choose"] },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Korean"] },
     ],
   },
   {
@@ -201,8 +203,8 @@ const CHILDREN_MODES: ModeConfig[] = [
     description: "Learn all colours through a catchy song.",
     generateLabel: "Create Colours Song", generateAction: "music",
     fields: [
-      { type: "pills", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Mixed"] },
-      { type: "pills", label: "Visual style", key: "visualStyle", options: ["Cartoon", "Watercolour", "3D shapes", "Nigerian patterns", "Rainbow"] },
+      { type: "pills", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Mixed"] },
+      { type: "pills", label: "Visual style", key: "visualStyle", options: ["Cartoon", "Watercolour", "3D shapes", "Geometric patterns", "Rainbow"] },
     ],
   },
   {
@@ -210,8 +212,8 @@ const CHILDREN_MODES: ModeConfig[] = [
     description: "Custom nursery rhymes for bedtime and playtime.",
     generateLabel: "Create Nursery Rhyme", generateAction: "music",
     fields: [
-      { type: "textarea", label: "Rhyme idea", key: "prompt", placeholder: "A bedtime song about the moon and stars over Lagos, gentle and calming..." },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Mixed"] },
+      { type: "textarea", label: "Rhyme idea", key: "prompt", placeholder: "A bedtime song about the moon and stars, gentle and calming, perfect for drifting off to sleep..." },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Mixed"] },
       { type: "select", label: "Mood", key: "mood", options: ["Calm & bedtime", "Playful", "Cheerful morning"] },
     ],
   },
@@ -222,7 +224,7 @@ const CHILDREN_MODES: ModeConfig[] = [
     fields: [
       { type: "textarea", label: "What should this song be about?", key: "prompt", required: true, placeholder: "A song teaching children about sharing and kindness, fun and bouncy, ages 4-6..." },
       { type: "select", label: "Age group", key: "age", options: ["Toddlers (2–3)", "Pre-school (3–5)", "Early school (5–8)", "Older kids (8–12)"] },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Hindi", "Mixed"] },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Korean", "Mixed"] },
     ],
   },
 ];
@@ -233,10 +235,10 @@ const VIDEO_MODES: ModeConfig[] = [
     description: "Type a concept. GHS writes the song, generates all scenes, syncs cuts to the beat, and produces a complete video.",
     generateLabel: "Start Full Music Video Pipeline", generateAction: "video",
     fields: [
-      { type: "textarea", label: "Song Concept", key: "prompt", required: true, placeholder: "A love song about Lagos nightlife, the energy of Victoria Island, meeting someone special under the city lights..." },
-      { type: "select", label: "Genre", key: "genre", options: ["Afrobeats", "Amapiano", "Highlife", "Gospel", "R&B", "Hip Hop", "Fuji", "Pop"] },
-      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Arabic", "Hindi", "Mixed"] },
-      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Luxury", "Nature", "Urban Lagos", "Abstract", "Fantasy"] },
+      { type: "textarea", label: "Song Concept", key: "prompt", required: true, placeholder: "A love song about city nightlife, rooftop parties, meeting someone special under glittering lights..." },
+      { type: "select", label: "Genre", key: "genre", options: ["Pop", "R&B", "Hip Hop", "Afrobeats", "Amapiano", "Gospel", "Jazz", "EDM", "Soul", "Electronic"] },
+      { type: "select", label: "Language", key: "language", options: ["English (US)", "English (UK)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Swahili", "Japanese", "Korean", "Mixed"] },
+      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Luxury", "Nature", "Urban", "Abstract", "Fantasy"] },
       { type: "select", label: "Duration", key: "duration", options: ["2 minutes", "3 minutes", "4 minutes"] },
       { type: "text", label: "Artist Name (for title card)", key: "artist", placeholder: "Your artist or brand name" },
       { type: "upload-multi", label: "Upload your own photos (optional)", key: "photos", accept: "image/*" },
@@ -248,7 +250,7 @@ const VIDEO_MODES: ModeConfig[] = [
     generateLabel: "Generate Video for My Track", generateAction: "video",
     fields: [
       { type: "upload", label: "Upload Your Song", key: "audio", required: true, accept: "audio/*" },
-      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Luxury", "Nature", "Urban Lagos", "Abstract", "Fantasy"] },
+      { type: "pills", label: "Visual Style", key: "visualStyle", options: ["Cinematic", "Street", "Luxury", "Nature", "Urban", "Abstract", "Fantasy"] },
       { type: "text", label: "Song description (optional)", key: "about", placeholder: "What is your song about? Helps GHS pick better scenes..." },
       { type: "pills", label: "Lyric overlay", key: "lyrics", options: ["Yes — show lyrics on screen", "No lyrics overlay"] },
     ],
@@ -270,8 +272,8 @@ const VIDEO_MODES: ModeConfig[] = [
     fields: [
       { type: "pills", label: "Song Source", key: "songSource", options: ["Generate new song", "Upload my song"] },
       { type: "textarea", label: "Song concept (if generating)", key: "prompt", placeholder: "Describe your song idea..." },
-      { type: "pills", label: "AI Artist Style", key: "artistStyle", options: ["Male Afrobeats artist", "Female R&B artist", "Gender neutral pop", "Traditional African", "Gospel performer"] },
-      { type: "pills", label: "Performance Stage", key: "stage", options: ["Concert stage", "Street corner", "Rooftop Lagos", "Luxury studio", "Beach", "Open field"] },
+      { type: "pills", label: "AI Artist Style", key: "artistStyle", options: ["Male pop artist", "Female R&B artist", "Gender neutral pop", "Traditional world music", "Gospel performer"] },
+      { type: "pills", label: "Performance Stage", key: "stage", options: ["Concert stage", "Street corner", "Rooftop city", "Luxury studio", "Beach", "Open field"] },
     ],
   },
   {
@@ -282,7 +284,7 @@ const VIDEO_MODES: ModeConfig[] = [
       { type: "upload", label: "Upload Your Song", key: "audio", required: true, accept: "audio/*" },
       { type: "textarea", label: "Lyrics (paste here)", key: "lyrics", placeholder: "Paste your song lyrics here. GHS will sync them to the audio automatically..." },
       { type: "pills", label: "Text Style", key: "textStyle", options: ["Bold street", "Elegant script", "Minimal clean", "Neon glow", "Hand-drawn", "Gold luxury"] },
-      { type: "pills", label: "Background Style", key: "bgStyle", options: ["Abstract motion", "Lagos cityscape", "Particles", "Gradient", "Dark minimal", "Cosmic"] },
+      { type: "pills", label: "Background Style", key: "bgStyle", options: ["Abstract motion", "City skyline", "Particles", "Gradient", "Dark minimal", "Cosmic"] },
     ],
   },
   {
@@ -317,7 +319,7 @@ export default function MusicVideoStudioPage() {
   const [audioProvider, setAudioProvider] = useState("");
   const [storyboard, setStoryboard] = useState<StoryboardScene[] | null>(null);
   const [storyboardLoading, setStoryboardLoading] = useState(false);
-  const [tier, setTier] = useState<"standard" | "premium">("standard");
+  const [tier, setTier] = useState<AITier>("pro");
   const [videoModel, setVideoModel] = useState<string>("");
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -414,6 +416,7 @@ export default function MusicVideoStudioPage() {
             music_mood: formData.mood ?? formData.genre ?? "cinematic",
           },
           context: `Music video storyboard for: ${prompt}. Mode: ${editMode.title}. Generate 4-6 scenes with visual prompts.`,
+          llmModel: getModelForTier(tier).llmValue,
         }),
       });
 
@@ -435,11 +438,7 @@ export default function MusicVideoStudioPage() {
 
   // ── Route to existing editors ──
   function routeToEditor() {
-    if (audioResult) {
-      window.location.href = `/dashboard/music-studio`;
-    } else {
-      window.location.href = `/dashboard/music-studio`;
-    }
+    window.location.href = `/dashboard/music-studio`;
   }
 
   // ── Render ─────────────────────────────────────────────────────────────
@@ -502,7 +501,7 @@ export default function MusicVideoStudioPage() {
               Children&apos;s Music Studio
             </h2>
             <p style={{ fontSize: 14, color: muted, maxWidth: 480, lineHeight: 1.6, marginBottom: 24 }}>
-              Create fun, educational songs for kids — alphabet songs, counting songs, nursery rhymes, animal songs, and more. Safe, colourful, and joyful. In English, Yoruba, Igbo, Hausa, and Pidgin.
+              Create fun, educational songs for kids — alphabet songs, counting songs, nursery rhymes, animal songs, and more. Safe, colourful, and joyful. In English, French, Spanish, Arabic, and more.
             </p>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               {CHILDREN_MODES.map(m => (
@@ -536,7 +535,7 @@ export default function MusicVideoStudioPage() {
               { icon: "🎵", title: "Full Song Generation", desc: "GHS writes and produces a complete song — lyrics, vocals, beat." },
               { icon: "🗺️", title: "Scene Planning", desc: "AI maps each section of your song to a matching visual scene." },
               { icon: "📝", title: "Lyric Overlay", desc: "Words appear on screen exactly as they are sung." },
-              { icon: "🌍", title: "African Genres", desc: "Afrobeats, Amapiano, Highlife, Gospel, Fuji, Drill and more." },
+              { icon: "🌍", title: "Global Genres", desc: "Pop, R&B, Afrobeats, Amapiano, Gospel, Jazz, EDM and more." },
               { icon: "📱", title: "Platform Cuts", desc: "Auto-generates YouTube, Reels, and TikTok versions." },
             ].map(f => (
               <div key={f.title} style={{ background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: 16, display: "flex", alignItems: "flex-start", gap: 12 }}>
@@ -620,7 +619,17 @@ export default function MusicVideoStudioPage() {
                     />
                   )}
 
-                  {field.type === "select" && (
+                  {field.type === "select" && field.key === "duration" && (
+                    <DurationPicker
+                      preset={editMode.generateAction === "music" ? "music" : "video"}
+                      value={formData[field.key]}
+                      onChange={(label) => updateField(field.key, label)}
+                      accentColor={COLORS[editMode.color].text}
+                      label=""
+                    />
+                  )}
+
+                  {field.type === "select" && field.key !== "duration" && (
                     <select
                       value={formData[field.key] ?? field.options?.[0] ?? ""}
                       onChange={e => updateField(field.key, e.target.value)}
@@ -630,7 +639,17 @@ export default function MusicVideoStudioPage() {
                     </select>
                   )}
 
-                  {field.type === "pills" && (
+                  {field.type === "pills" && field.key === "duration" && (
+                    <DurationPicker
+                      preset={editMode.generateAction === "music" ? "music" : "video"}
+                      value={formData[field.key]}
+                      onChange={(label) => updateField(field.key, label)}
+                      accentColor={COLORS[editMode.color].text}
+                      label=""
+                    />
+                  )}
+
+                  {field.type === "pills" && field.key !== "duration" && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {field.options?.map(o => (
                         <button key={o} onClick={() => togglePill(field.key, o)}
@@ -666,26 +685,6 @@ export default function MusicVideoStudioPage() {
                 </div>
               ))}
 
-              {/* ── Tier selector (for music generation) ── */}
-              {editMode.generateAction === "music" && (
-                <div style={{ marginBottom: 24 }}>
-                  <label style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10, display: "block" }}>
-                    Music Quality
-                  </label>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setTier("standard")}
-                      style={{ flex: 1, padding: "12px 16px", borderRadius: 12, border: `1px solid ${tier === "standard" ? "#22c55e" : border}`, background: tier === "standard" ? "rgba(34,197,94,0.08)" : "transparent", cursor: "pointer", textAlign: "left" }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Standard</p>
-                      <p style={{ fontSize: 11, color: muted }}>Standard — 1 credit/song</p>
-                    </button>
-                    <button onClick={() => setTier("premium")}
-                      style={{ flex: 1, padding: "12px 16px", borderRadius: 12, border: `1px solid ${tier === "premium" ? "#f59e0b" : border}`, background: tier === "premium" ? "rgba(245,158,11,0.08)" : "transparent", cursor: "pointer", textAlign: "left" }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Premium</p>
-                      <p style={{ fontSize: 11, color: muted }}>Premium — 3 credits/song</p>
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* ── Audio result player ── */}
               {audioResult && (
@@ -819,7 +818,15 @@ export default function MusicVideoStudioPage() {
                 </div>
               )}
 
-              {/* ── Generate button ── */}
+              {/* ── AI tier + Generate button ── */}
+              {!audioResult && !storyboard && (
+                <div style={{ marginTop: 28 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.2, textTransform: "uppercase" as const, color: muted }}>AI Model</label>
+                    <AITierSelector value={tier} onChange={setTier} compact />
+                  </div>
+                </div>
+              )}
               {!audioResult && !storyboard && (
                 <button
                   onClick={editMode.generateAction === "music" ? handleGenerateMusic : handleGenerateStoryboard}
@@ -829,7 +836,7 @@ export default function MusicVideoStudioPage() {
                     background: generating || storyboardLoading ? "#2a2a40" : COLORS[editMode.color].text,
                     color: "#000", fontSize: 16, fontWeight: 700, cursor: "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                    marginTop: 32, transition: "all 0.2s",
+                    transition: "all 0.2s",
                   }}>
                   {generating || storyboardLoading ? "Creating..." : `✦ ${editMode.generateLabel}`}
                 </button>

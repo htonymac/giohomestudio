@@ -16,6 +16,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { loadLLMSettings, getLLMSettingsStatus } from "@/lib/llm-settings";
+import { kieCallLLM } from "@/lib/generation/gateways/kie";
 
 // ── Provider models ───────────────────────────────────────────
 export type LLMSpeed = "fast" | "quality";
@@ -38,6 +39,28 @@ const GROK_MODELS: Record<LLMSpeed, string> = {
   fast:    "grok-3-mini",
   quality: "grok-3",
 };
+
+// All selectable models shown in the Story AI picker
+export const SELECTABLE_MODELS = [
+  // Auto
+  { value: "auto",                    label: "Auto — best available",              provider: "auto"   },
+  // Claude
+  { value: "claude:claude-opus-4-6",  label: "Claude Opus 4.6 — most powerful",   provider: "claude" },
+  { value: "claude:claude-sonnet-4-6",label: "Claude Sonnet 4.6 — recommended ✓", provider: "claude" },
+  { value: "claude:claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 — fast/cheap", provider: "claude" },
+  // OpenAI
+  { value: "openai:gpt-4o",           label: "GPT-4o — OpenAI best",              provider: "openai" },
+  { value: "openai:o3-mini",          label: "o3-mini — OpenAI reasoning",         provider: "openai" },
+  { value: "openai:gpt-4o-mini",      label: "GPT-4o mini — fast",                provider: "openai" },
+  // Grok
+  { value: "grok:grok-3",             label: "Grok 3 — xAI best (needs key)",     provider: "grok"   },
+  { value: "grok:grok-3-mini",        label: "Grok 3 mini — fast (needs key)",    provider: "grok"   },
+  // Ollama
+  { value: "ollama",                  label: "Ollama — local (no cost)",           provider: "ollama" },
+  // Kie / DeepSeek
+  { value: "kie:deepseek-r1",         label: "DeepSeek R1 — reasoning (Kie)",     provider: "kie"    },
+  { value: "kie:deepseek-v3",         label: "DeepSeek V3 — general (Kie)",       provider: "kie"    },
+] as const;
 
 /** Resolve the Ollama model name for a given role from saved settings. */
 function getOllamaModel(role: LLMRole): string {
@@ -65,9 +88,11 @@ export type LLMResult = LLMSuccess | LLMFailure;
 export interface LLMOptions {
   speed?: LLMSpeed;       // "fast" (default) or "quality" — used by cloud providers; ignored when role is set
   role?:  LLMRole;        // role-based routing — picks Ollama model and maps to cloud speed
-  maxTokens?: number;     // default 400
+  maxTokens?: number;     // default 1200
   temperature?: number;   // default 0.4
   timeoutMs?: number;     // default 20000
+  forceProvider?: "claude" | "openai" | "gpt" | "grok" | "ollama" | "kie" | "deepseek"; // override auto-selection
+  forceModel?: string;    // override specific model e.g. "claude-opus-4-6", "o3-mini"
 }
 
 // ── Per-provider callers ──────────────────────────────────────
@@ -83,15 +108,16 @@ async function callClaude(
 
   try {
     const client = new Anthropic({ apiKey: key });
+    const model = opts.forceModel || CLAUDE_MODELS[speed];
     const msg = await client.messages.create({
-      model: CLAUDE_MODELS[speed],
-      max_tokens: opts.maxTokens ?? 400,
+      model,
+      max_tokens: opts.maxTokens ?? 1200,
       system: system ?? "You are a helpful assistant.",
       messages: [{ role: "user", content: prompt }],
     });
     const text = (msg.content[0] as { type: string; text: string })?.text?.trim() ?? "";
     if (!text) return { ok: false, error: "Claude returned empty response" };
-    return { ok: true, text, provider: `claude/${CLAUDE_MODELS[speed]}` };
+    return { ok: true, text, provider: `claude/${model}` };
   } catch (err) {
     return { ok: false, error: `Claude error: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -108,18 +134,24 @@ async function callGPT(
 
   try {
     const client = new OpenAI({ apiKey: key });
+    const model = opts.forceModel || GPT_MODELS[speed];
+    // o1/o3 reasoning models: use max_completion_tokens, no temperature, no system role
+    const isReasoningModel = model.startsWith("o1") || model.startsWith("o3");
     const res = await client.chat.completions.create({
-      model: GPT_MODELS[speed],
-      max_tokens: opts.maxTokens ?? 400,
-      temperature: opts.temperature ?? 0.4,
+      model,
+      // Reasoning models require max_completion_tokens; standard models use max_tokens
+      ...(isReasoningModel
+        ? { max_completion_tokens: opts.maxTokens ?? 1200 }
+        : { max_tokens: opts.maxTokens ?? 1200, temperature: opts.temperature ?? 0.4 }
+      ),
       messages: [
-        ...(system ? [{ role: "system" as const, content: system }] : []),
-        { role: "user" as const, content: prompt },
+        ...(!isReasoningModel && system ? [{ role: "system" as const, content: system }] : []),
+        { role: "user" as const, content: isReasoningModel && system ? `${system}\n\n${prompt}` : prompt },
       ],
     });
     const text = res.choices[0]?.message?.content?.trim() ?? "";
     if (!text) return { ok: false, error: "GPT returned empty response" };
-    return { ok: true, text, provider: `openai/${GPT_MODELS[speed]}` };
+    return { ok: true, text, provider: `openai/${model}` };
   } catch (err) {
     return { ok: false, error: `GPT error: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -140,9 +172,10 @@ async function callGrok(
       apiKey: key,
       baseURL: "https://api.x.ai/v1",
     });
+    const model = opts.forceModel || GROK_MODELS[speed];
     const res = await client.chat.completions.create({
-      model: GROK_MODELS[speed],
-      max_tokens: opts.maxTokens ?? 400,
+      model,
+      max_tokens: opts.maxTokens ?? 1200,
       temperature: opts.temperature ?? 0.4,
       messages: [
         ...(system ? [{ role: "system" as const, content: system }] : []),
@@ -151,7 +184,7 @@ async function callGrok(
     });
     const text = res.choices[0]?.message?.content?.trim() ?? "";
     if (!text) return { ok: false, error: "Grok returned empty response" };
-    return { ok: true, text, provider: `grok/${GROK_MODELS[speed]}` };
+    return { ok: true, text, provider: `grok/${model}` };
   } catch (err) {
     return { ok: false, error: `Grok error: ${err instanceof Error ? err.message : String(err)}` };
   }
@@ -166,6 +199,19 @@ async function callOllama(
   const settings = loadLLMSettings();
   const ollamaBase = settings.OLLAMA_BASE_URL || "http://localhost:11434";
   const model = getOllamaModel(role);
+
+  // Fast reachability probe — 1.5s max. If Ollama isn't running, fail immediately
+  // so the router can move on to the next provider without a long delay.
+  try {
+    await fetch(`${ollamaBase}/api/tags`, {
+      method: "GET",
+      signal: AbortSignal.timeout(1500),
+    });
+  } catch {
+    return { ok: false, error: "Ollama: not reachable (not running locally)" };
+  }
+
+  // Ollama IS running — cap generation at 15s so slow local models don't block the fallback chain.
   try {
     const res = await fetch(`${ollamaBase}/api/chat`, {
       method: "POST",
@@ -178,9 +224,9 @@ async function callOllama(
         ],
         stream: false,
         keep_alive: "10m",
-        options: { temperature: opts.temperature ?? 0.4, num_predict: opts.maxTokens ?? 400 },
+        options: { temperature: opts.temperature ?? 0.4, num_predict: opts.maxTokens ?? 1200 },
       }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 4000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 15000),
     });
     if (!res.ok) return { ok: false, error: `Ollama HTTP ${res.status}` };
     const data = await res.json();
@@ -190,6 +236,19 @@ async function callOllama(
   } catch (err) {
     return { ok: false, error: `Ollama: ${err instanceof Error ? err.message : "unreachable"}` };
   }
+}
+
+async function callKieDeepSeek(
+  prompt: string,
+  system: string | undefined,
+  model: "deepseek-r1" | "deepseek-v3",
+  opts: LLMOptions
+): Promise<LLMResult> {
+  const key = process.env.KIE_API_KEY || process.env.KIE_AI_API_KEY;
+  if (!key) return { ok: false, error: "KIE_API_KEY not set" };
+  const result = await kieCallLLM({ model, prompt, system, maxTokens: opts.maxTokens ?? 1200, temperature: opts.temperature ?? 0.4 });
+  if (!result.ok) return { ok: false, error: result.error ?? "Kie LLM failed" };
+  return { ok: true, text: result.text!, provider: result.provider! };
 }
 
 // ── Main router — tries providers in priority order ──────────
@@ -203,12 +262,16 @@ export async function callLLM(
   const role: LLMRole = opts.role ?? (opts.speed === "quality" ? "quality" : "fast");
   const speed: LLMSpeed = roleToSpeed(role);
 
-  // Check forced provider first — avoids building the providers array unnecessarily
-  const forced = loadLLMSettings().LLM_PROVIDER?.toLowerCase();
+  // Check per-call forced provider first (opts.forceProvider), then global LLM_PROVIDER setting
+  const forced = opts.forceProvider?.toLowerCase() || loadLLMSettings().LLM_PROVIDER?.toLowerCase();
   if (forced === "claude")                     return callClaude(prompt, system, speed, opts);
   if (forced === "openai" || forced === "gpt") return callGPT(prompt, system, speed, opts);
   if (forced === "grok" || forced === "xai")   return callGrok(prompt, system, speed, opts);
   if (forced === "ollama")                     return callOllama(prompt, system, role, opts);
+  if (forced === "kie" || forced === "deepseek") {
+    const m = opts.forceModel === "deepseek-r1" ? "deepseek-r1" : "deepseek-v3";
+    return callKieDeepSeek(prompt, system, m, opts);
+  }
 
   const providers: Array<() => Promise<LLMResult>> = [
     () => callClaude(prompt, system, speed, opts),
@@ -238,3 +301,31 @@ export function getLLMProviderStatus(): Record<string, "configured" | "not_confi
 // ── Re-export Ollama caller for backward compat ───────────────
 // Existing callers that import callOllama directly keep working.
 export { callOllama as callOllamaOnly };
+
+// ── GHS AI Tier routing ───────────────────────────────────────
+// Maps user-visible tiers (GHS Free / Standard / Pro) to real models.
+// Use this in API routes that accept a `tier` param.
+export type GHSTier = "free" | "standard" | "pro";
+
+export async function callLLMTier(
+  prompt: string,
+  tier: GHSTier = "standard",
+  systemPrompt?: string,
+): Promise<string> {
+  let result: LLMResult;
+
+  if (tier === "free") {
+    // Free → Ollama first, fallback to standard if Ollama is down
+    result = await callLLM(prompt, systemPrompt, { forceProvider: "ollama" });
+    if (result.ok) return result.text;
+    // Ollama failed → fall through to standard
+    result = await callLLM(prompt, systemPrompt, { speed: "fast" });
+  } else if (tier === "pro") {
+    result = await callLLM(prompt, systemPrompt, { speed: "quality" });
+  } else {
+    result = await callLLM(prompt, systemPrompt, { speed: "fast" });
+  }
+
+  if (result.ok) return result.text;
+  throw new Error(result.error);
+}

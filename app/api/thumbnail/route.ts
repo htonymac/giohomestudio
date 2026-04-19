@@ -6,6 +6,7 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import * as crypto from "crypto";
 import { env } from "@/config/env";
 
 const execFileAsync = promisify(execFile);
@@ -23,9 +24,10 @@ export async function GET(req: NextRequest) {
   }
 
   // Check if thumbnail already cached
+  // Use MD5 of full resolved path — avoids prefix collisions from truncated base64
   const thumbDir = path.join(env.storagePath, "thumbnails");
   fs.mkdirSync(thumbDir, { recursive: true });
-  const hash = Buffer.from(resolved).toString("base64url").slice(0, 32);
+  const hash = crypto.createHash("md5").update(resolved).digest("hex");
   const thumbPath = path.join(thumbDir, `${hash}.jpg`);
 
   if (!fs.existsSync(thumbPath)) {

@@ -1,6 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import CharacterPicker from "../../components/CharacterPicker";
+import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
+import DurationPicker from "../../components/DurationPicker";
 
 // Short Video Creator — Quick social content with proper flow
 
@@ -15,12 +18,15 @@ const CONTENT_TYPES = [
 
 const DURATIONS = ["15 sec", "30 sec", "45 sec", "60 sec"];
 const FORMATS = ["9:16 Vertical", "1:1 Square", "16:9 Horizontal"];
-const MUSIC_MOODS = ["Upbeat", "Calm", "Dramatic", "Funny", "Afrobeats", "Gospel", "No Music"];
+const MUSIC_MOODS = ["Upbeat", "Calm", "Dramatic", "Romantic", "Hip Hop", "Electronic", "Cinematic", "No Music"];
 
 const surface = "#0e1318";
 const border = "#1e2a35";
 const muted = "#5a7080";
 const accent = "#f59e0b";
+
+const SESSION_KEY = "ghs_short_session";
+const SESSION_TTL = 24 * 60 * 60 * 1000;
 
 export default function ShortVideoPage() {
   const [prompt, setPrompt] = useState("");
@@ -30,20 +36,72 @@ export default function ShortVideoPage() {
   const [musicMood, setMusicMood] = useState("");
   const [generating, setGenerating] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [showResume, setShowResume] = useState(false);
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; visualDescription: string | null } | null>(null);
+  const [aiTier, setAiTier] = useState<AITier>("pro");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // ── Session save ──
+  const saveSession = useCallback(() => {
+    if (!prompt && !contentType) return;
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        prompt, contentType, duration, format, musicMood, resultUrl, savedAt: Date.now(),
+      }));
+    } catch { /* quota */ }
+  }, [prompt, contentType, duration, format, musicMood, resultUrl]);
+
+  useEffect(() => { saveSession(); }, [saveSession]);
+
+  // ── Session restore on mount ──
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SESSION_KEY);
+      if (!raw) return;
+      const s = JSON.parse(raw);
+      if (Date.now() - s.savedAt > SESSION_TTL) { localStorage.removeItem(SESSION_KEY); return; }
+      if (s.prompt || s.contentType) setShowResume(true);
+    } catch { /* corrupted */ }
+  }, []);
+
+  function resumeSession() {
+    try {
+      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
+      if (s.prompt) setPrompt(s.prompt);
+      if (s.contentType) setContentType(s.contentType);
+      if (s.duration) setDuration(s.duration);
+      if (s.format) setFormat(s.format);
+      if (s.musicMood) setMusicMood(s.musicMood);
+      if (s.resultUrl) setResultUrl(s.resultUrl);
+    } catch { /* ignore */ }
+    setShowResume(false);
+  }
+
+  function startFresh() {
+    localStorage.removeItem(SESSION_KEY);
+    setShowResume(false);
+  }
 
   async function handleGenerate() {
     if (!prompt.trim()) return;
     setGenerating(true);
     setResultUrl(null);
+    setErrorMsg(null);
     try {
-      // Generate music if mood selected (not "No Music")
       let musicUrl: string | undefined;
       if (musicMood && musicMood !== "No Music") {
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: `${musicMood} background music, ${duration}`, mood: musicMood, tier: "standard", durationSeconds: parseInt(duration) || 30 }),
+          body: JSON.stringify({ prompt: `${musicMood} background music, ${duration}`, mood: musicMood, tier: aiTier, durationSeconds: parseInt(duration) || 30 }),
         });
+        if (!musicRes.ok) {
+          const e = await musicRes.json().catch(() => ({}));
+          setErrorMsg(`Music generation failed: ${e.error || `HTTP ${musicRes.status}`}`);
+          setGenerating(false);
+          return;
+        }
         const musicData = await musicRes.json();
         if (musicData.musicPath) musicUrl = `/api/media/${musicData.musicPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
       }
@@ -52,8 +110,14 @@ export default function ShortVideoPage() {
       const videoRes = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.`, model: "hailuo-fast", aspectRatio: ar }),
+        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.${assignedCharacter?.visualDescription ? ` Character: ${assignedCharacter.visualDescription}.` : ""}`, model: "hailuo-fast", aspectRatio: ar, llmModel: getModelForTier(aiTier).llmValue }),
       });
+      if (!videoRes.ok) {
+        const e = await videoRes.json().catch(() => ({}));
+        setErrorMsg(`Video generation failed: ${e.error || `HTTP ${videoRes.status}`}`);
+        setGenerating(false);
+        return;
+      }
       const videoData = await videoRes.json();
 
       if (videoData.outputUrl) {
@@ -63,13 +127,21 @@ export default function ShortVideoPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: `Short: ${prompt.slice(0, 30)}`, scenes: [{ scene: 1, videoUrl: videoData.outputUrl }], musicUrl }),
           });
-          const assembleData = await assembleRes.json();
-          setResultUrl(assembleData.outputUrl ?? videoData.outputUrl);
+          if (!assembleRes.ok) {
+            setResultUrl(videoData.outputUrl);
+          } else {
+            const assembleData = await assembleRes.json();
+            setResultUrl(assembleData.outputUrl ?? videoData.outputUrl);
+          }
         } else {
           setResultUrl(videoData.outputUrl);
         }
+      } else {
+        setErrorMsg("Video generation returned no output. Please try again.");
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      setErrorMsg(`Unexpected error: ${err instanceof Error ? err.message : "unknown"}`);
+    }
     setGenerating(false);
   }
 
@@ -92,6 +164,20 @@ export default function ShortVideoPage() {
           </p>
         </div>
       </div>
+
+      {/* Session recovery banner */}
+      {showResume && (
+        <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: accent }}>You have an unfinished short video</p>
+            <p style={{ fontSize: 10, color: muted }}>Resume where you left off or start fresh.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={resumeSession} style={{ padding: "8px 18px", borderRadius: 10, background: accent, color: "#000", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Resume</button>
+            <button onClick={startFresh} style={{ padding: "8px 18px", borderRadius: 10, background: "transparent", color: muted, fontSize: 12, border: `1px solid ${border}`, cursor: "pointer" }}>Start Fresh</button>
+          </div>
+        </div>
+      )}
 
       {/* Sample strip */}
       <div style={{ display: "flex", gap: 12, overflowX: "auto", marginBottom: 28, paddingBottom: 4 }}>
@@ -141,32 +227,28 @@ export default function ShortVideoPage() {
           Describe your video
         </p>
         <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
-          placeholder="e.g. 'A 30-second reel showing Lagos street food, vibrant colours, afrobeats music, text overlay with prices'"
+          placeholder="e.g. 'A 30-second reel showing street food, vibrant colours, upbeat music, text overlay with prices'"
           style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 20 }} />
 
-        {/* Duration + Format row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+        {/* Duration · Format · AI row */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div>
-            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>Duration</p>
-            <div style={{ display: "flex", gap: 6 }}>
-              {DURATIONS.map(d => (
-                <button key={d} onClick={() => setDuration(d)}
-                  style={{ flex: 1, padding: "8px 8px", borderRadius: 8, border: `1px solid ${duration === d ? accent : border}`, background: duration === d ? `${accent}10` : "transparent", color: duration === d ? accent : muted, fontSize: 11, cursor: "pointer", fontWeight: duration === d ? 600 : 400 }}>
-                  {d}
-                </button>
-              ))}
-            </div>
+            <DurationPicker preset="short" value={duration} onChange={(label: string) => setDuration(label)} accentColor={accent} />
           </div>
           <div>
             <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>Format</p>
             <div style={{ display: "flex", gap: 6 }}>
               {FORMATS.map(f => (
                 <button key={f} onClick={() => setFormat(f)}
-                  style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1px solid ${format === f ? accent : border}`, background: format === f ? `${accent}10` : "transparent", color: format === f ? accent : muted, fontSize: 10, cursor: "pointer", fontWeight: format === f ? 600 : 400 }}>
+                  style={{ flex: 1, padding: "8px 4px", borderRadius: 8, border: `1px solid ${format === f ? accent : border}`, background: format === f ? `${accent}10` : "transparent", color: format === f ? accent : muted, fontSize: 9, cursor: "pointer", fontWeight: format === f ? 600 : 400 }}>
                   {f}
                 </button>
               ))}
             </div>
+          </div>
+          <div>
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>AI Model</p>
+            <AITierSelector value={aiTier} onChange={setAiTier} compact />
           </div>
         </div>
 
@@ -181,12 +263,46 @@ export default function ShortVideoPage() {
           ))}
         </div>
 
+        {/* Characters */}
+        <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>Characters</p>
+        <div style={{ display: "flex", gap: 8, marginBottom: assignedCharacter ? 10 : 24 }}>
+          <button onClick={() => { window.location.href = "/dashboard/character-voices"; }}
+            style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #22c55e", background: "rgba(34,197,94,0.06)", color: "#22c55e", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            + Create Character
+          </button>
+          <button onClick={() => setShowCharacterPicker(!showCharacterPicker)}
+            style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: "1px solid #a855f7", background: showCharacterPicker ? "rgba(168,85,247,0.12)" : "rgba(168,85,247,0.06)", color: "#a855f7", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            {showCharacterPicker ? "Close Picker" : "Assign Character"}
+          </button>
+        </div>
+        {assignedCharacter && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, border: `1px solid #a855f740`, background: "rgba(168,85,247,0.06)", marginBottom: 24 }}>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{assignedCharacter.name}</p>
+              {assignedCharacter.characterId && (
+                <p style={{ fontSize: 9, fontFamily: "monospace", color: "#a855f7", marginTop: 2 }}>{assignedCharacter.characterId}</p>
+              )}
+            </div>
+            <button onClick={() => setShowCharacterPicker(true)}
+              style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
+              Switch
+            </button>
+          </div>
+        )}
+
         {/* Generate */}
         <button onClick={handleGenerate}
           disabled={!prompt.trim() || generating}
           style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (!prompt.trim() || generating) ? "#2a2a40" : accent, color: "#000", fontSize: 16, fontWeight: 700, cursor: (!prompt.trim() || generating) ? "not-allowed" : "pointer" }}>
           {generating ? "Generating..." : "⚡ Generate Short Video"}
         </button>
+
+        {/* Error */}
+        {errorMsg && (
+          <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
+            {errorMsg}
+          </div>
+        )}
 
         {/* Result */}
         {resultUrl && (
@@ -203,6 +319,23 @@ export default function ShortVideoPage() {
           For deeper planning, use <a href="/dashboard/movie-planner" style={{ color: "#7c5cfc", textDecoration: "none" }}>Movie Planner</a> or <a href="/dashboard/music-video-planner" style={{ color: "#7c5cfc", textDecoration: "none" }}>Music Video Planner</a>
         </p>
       </div>
+
+      {/* Character Picker Modal */}
+      {showCharacterPicker && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(6,8,16,0.85)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}>
+          <div style={{ width: "100%", maxWidth: 520, maxHeight: "80vh", overflowY: "auto", margin: 20 }}>
+            <CharacterPicker
+              onSelect={(character) => {
+                setAssignedCharacter({ id: character.id, characterId: character.characterId, name: character.name, visualDescription: character.visualDescription });
+                setShowCharacterPicker(false);
+              }}
+              onCreateNew={() => { window.location.href = "/dashboard/character-voices"; }}
+              selectedId={assignedCharacter?.id}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

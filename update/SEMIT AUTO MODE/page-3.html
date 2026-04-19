@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHS — Collaborative Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg:      #060810;
+  --s1:      #0b0e18;
+  --s2:      #10141f;
+  --s3:      #161b28;
+  --s4:      #1c2333;
+  --border:  #1e2840;
+  --border2: #263450;
+  --text:    #dde4f0;
+  --muted:   #4e6080;
+  --muted2:  #344860;
+  --cyan:    #00d4ff;
+  --purple:  #a855f7;
+  --orange:  #ff6b35;
+  --gold:    #f59e0b;
+  --green:   #22c55e;
+  --red:     #ef4444;
+  --pink:    #ec4899;
+  --nav-h:   52px;
+}
+
+html,body { height:100%; overflow:hidden; }
+body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-weight:300; }
+
+/* ── TOP BAR ────────────────────────────────────────── */
+.topbar {
+  height:var(--nav-h); display:flex; align-items:center;
+  justify-content:space-between; padding:0 16px;
+  background:var(--s1); border-bottom:1px solid var(--border);
+  position:fixed; top:0; left:0; right:0; z-index:200;
+}
+.tb-left { display:flex; align-items:center; gap:14px; }
+.tb-logo { font-family:'Syne',sans-serif; font-weight:800; font-size:15px; letter-spacing:-0.5px; color:var(--text); display:flex; align-items:center; gap:6px; }
+.tb-logo span { color:var(--cyan); }
+.tb-sep { width:1px; height:20px; background:var(--border2); }
+.tb-project { font-size:13px; color:var(--muted); }
+.tb-project strong { color:var(--text); font-weight:500; }
+.tb-mode-badge {
+  display:flex; align-items:center; gap:6px;
+  background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.25);
+  padding:4px 12px; border-radius:100px; font-size:10px; font-weight:500;
+  color:var(--purple); letter-spacing:1px; text-transform:uppercase;
+}
+.tb-mode-badge::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--purple); animation:blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1}50%{opacity:0.3} }
+
+.tb-center { display:flex; align-items:center; gap:6px; }
+.tb-btn {
+  padding:6px 14px; border-radius:7px; font-size:12px; font-weight:400;
+  cursor:pointer; border:1px solid var(--border); background:transparent;
+  color:var(--muted); font-family:'DM Sans',sans-serif; transition:all 0.15s;
+  display:flex; align-items:center; gap:6px;
+}
+.tb-btn:hover { color:var(--text); border-color:var(--border2); background:var(--s2); }
+.tb-btn.active { color:var(--text); background:var(--s2); border-color:var(--border2); }
+.tb-btn.primary { background:var(--purple); border-color:var(--purple); color:#fff; }
+.tb-btn.primary:hover { background:#b97df7; }
+.tb-btn.green { background:rgba(34,197,94,0.1); border-color:rgba(34,197,94,0.3); color:var(--green); }
+.tb-btn.green:hover { background:rgba(34,197,94,0.18); }
+.tb-btn.danger { background:rgba(239,68,68,0.1); border-color:rgba(239,68,68,0.3); color:var(--red); }
+
+.tb-right { display:flex; align-items:center; gap:8px; }
+.undo-redo { display:flex; gap:2px; }
+.ur-btn { width:28px; height:28px; border-radius:6px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+.ur-btn:hover { color:var(--text); border-color:var(--border2); }
+.version-badge { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted2); background:var(--s2); border:1px solid var(--border); padding:3px 9px; border-radius:6px; }
+
+/* ── MAIN LAYOUT ────────────────────────────────────── */
+.editor-layout {
+  display:grid;
+  grid-template-columns: 220px 1fr 320px;
+  grid-template-rows: calc(100vh - var(--nav-h) - 160px) 160px;
+  height: calc(100vh - var(--nav-h));
+  margin-top: var(--nav-h);
+}
+
+/* ── LEFT — SCENE LIST ──────────────────────────────── */
+.panel-scenes {
+  grid-row: 1 / 3;
+  background:var(--s1); border-right:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.panel-header {
+  padding:12px 14px; border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+}
+.panel-title { font-size:10px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--muted); }
+.panel-action { font-size:18px; color:var(--muted); cursor:pointer; transition:color 0.15s; background:none; border:none; }
+.panel-action:hover { color:var(--text); }
+
+.scenes-scroll { flex:1; overflow-y:auto; padding:8px; }
+.scenes-scroll::-webkit-scrollbar { width:3px; }
+.scenes-scroll::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+.scene-thumb {
+  border-radius:10px; overflow:hidden; cursor:pointer;
+  border:2px solid transparent; transition:all 0.18s; margin-bottom:8px;
+  position:relative;
+}
+.scene-thumb:hover { border-color:var(--border2); }
+.scene-thumb.active { border-color:var(--purple); }
+.scene-thumb.locked { border-color:var(--green); }
+.scene-thumb.pending { border-color:var(--gold); }
+.scene-thumb.error { border-color:var(--red); }
+
+.scene-thumb-vis {
+  height:68px; display:flex; align-items:center; justify-content:center;
+  font-size:20px; position:relative; overflow:hidden;
+}
+.scene-thumb-overlay {
+  position:absolute; inset:0; display:flex; align-items:flex-start;
+  justify-content:space-between; padding:5px;
+}
+.sth-num { font-family:'DM Mono',monospace; font-size:9px; font-weight:500; background:rgba(0,0,0,0.6); padding:2px 6px; border-radius:4px; color:#fff; }
+.sth-status { font-size:10px; }
+.scene-thumb-info { background:var(--s2); padding:7px 10px; }
+.sti-title { font-size:11px; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px; }
+.sti-meta { font-size:10px; color:var(--muted); display:flex; align-items:center; justify-content:space-between; }
+.sti-dur { font-family:'DM Mono',monospace; }
+
+.scene-thumb-drag { position:absolute; left:0; top:0; bottom:0; width:8px; background:transparent; cursor:grab; display:flex; align-items:center; justify-content:center; }
+.scene-thumb-drag::after { content:'⋮⋮'; font-size:8px; color:var(--muted2); letter-spacing:-2px; }
+.scene-thumb:hover .scene-thumb-drag::after { color:var(--muted); }
+
+/* Regenerating pulse */
+.scene-thumb.regenerating .scene-thumb-vis::after {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(90deg,transparent,rgba(168,85,247,0.2),transparent);
+  animation:scanline 1.5s linear infinite;
+}
+@keyframes scanline { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+
+/* ── CENTER — PREVIEW ───────────────────────────────── */
+.panel-preview {
+  background:var(--bg); display:flex; flex-direction:column; overflow:hidden; position:relative;
+}
+
+/* Preview screen */
+.preview-screen {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden; background:#000;
+}
+.preview-bg {
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-size:64px; opacity:0.06;
+}
+.preview-video-placeholder {
+  width:100%; max-width:840px; aspect-ratio:16/9;
+  background:var(--s1); border-radius:4px; position:relative;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  overflow:hidden; box-shadow:0 0 0 1px var(--border);
+}
+.preview-scene-label {
+  position:absolute; top:16px; left:16px; background:rgba(0,0,0,0.7);
+  backdrop-filter:blur(10px); padding:6px 14px; border-radius:100px;
+  font-size:11px; color:var(--text); display:flex; align-items:center; gap:8px;
+  border:1px solid rgba(255,255,255,0.1);
+}
+.preview-scene-label .dot { width:6px; height:6px; border-radius:50%; background:var(--red); animation:blink 1s infinite; }
+
+/* Edit overlay — appears when paused and user types */
+.edit-overlay-hint {
+  position:absolute; bottom:16px; left:50%; transform:translateX(-50%);
+  background:rgba(0,0,0,0.75); backdrop-filter:blur(12px);
+  border:1px solid rgba(168,85,247,0.3); border-radius:100px;
+  padding:8px 20px; font-size:12px; color:var(--purple);
+  display:flex; align-items:center; gap:8px; white-space:nowrap;
+  opacity:0; transition:opacity 0.3s; pointer-events:none;
+}
+.preview-screen.paused .edit-overlay-hint { opacity:1; }
+
+/* Change markers on timeline — visual annotation dots */
+.change-markers {
+  position:absolute; bottom:0; left:0; right:0; height:3px; background:var(--s3);
+}
+.change-dot {
+  position:absolute; width:3px; height:3px; border-radius:50%;
+  transform:translateX(-50%); bottom:0;
+}
+
+/* Pending change banner */
+.pending-banner {
+  position:absolute; top:12px; right:16px;
+  background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.3);
+  backdrop-filter:blur(10px); border-radius:10px; padding:8px 14px;
+  font-size:11px; color:var(--gold); display:none; align-items:center; gap:8px;
+}
+.pending-banner.show { display:flex; }
+.pb-spinner { width:12px; height:12px; border:2px solid rgba(245,158,11,0.3); border-top-color:var(--gold); border-radius:50%; animation:spin 0.8s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* Preview content visuals */
+.preview-content { position:relative; z-index:1; text-align:center; }
+.preview-scene-icon { font-size:72px; margin-bottom:12px; display:block; filter:drop-shadow(0 0 40px rgba(0,0,0,0.8)); }
+.preview-scene-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--text); margin-bottom:6px; }
+.preview-scene-desc { font-size:12px; color:var(--muted); max-width:320px; line-height:1.6; }
+
+/* Scrub bar */
+.scrub-bar { padding:10px 20px 6px; background:var(--s1); border-top:1px solid var(--border); }
+.scrub-track { position:relative; height:4px; background:var(--s3); border-radius:2px; cursor:pointer; margin-bottom:8px; }
+.scrub-fill { height:100%; background:var(--purple); border-radius:2px; width:35%; transition:width 0.1s; }
+.scrub-head { position:absolute; top:50%; left:35%; transform:translate(-50%,-50%); width:12px; height:12px; background:var(--purple); border-radius:50%; border:2px solid var(--bg); box-shadow:0 0 0 2px var(--purple); cursor:grab; }
+.scrub-markers { display:flex; justify-content:space-between; }
+.scrub-marker { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted2); }
+
+/* Playback controls */
+.playback-controls {
+  display:flex; align-items:center; gap:8px; padding:6px 20px 10px;
+  background:var(--s1); border-top:1px solid var(--border);
+}
+.pc-time { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); min-width:80px; }
+.pc-btns { display:flex; gap:4px; margin:0 auto; }
+.pc-btn { width:32px; height:32px; border-radius:8px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:13px; transition:all 0.15s; }
+.pc-btn:hover { color:var(--text); border-color:var(--border2); background:var(--s2); }
+.pc-btn.play { width:40px; height:40px; border-radius:10px; background:var(--purple); border-color:var(--purple); color:#fff; font-size:16px; }
+.pc-btn.play:hover { background:#b97df7; }
+.pc-right { display:flex; align-items:center; gap:8px; }
+.vol-slider { width:70px; accent-color:var(--purple); }
+.pc-zoom { font-size:11px; color:var(--muted); }
+
+/* ── RIGHT — AI EDIT CONSOLE ────────────────────────── */
+.panel-console {
+  background:var(--s1); border-left:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.console-tabs { display:flex; border-bottom:1px solid var(--border); flex-shrink:0; }
+.console-tab { flex:1; padding:10px 6px; text-align:center; font-size:11px; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; transition:all 0.18s; background:none; border-top:none; border-left:none; border-right:none; font-family:'DM Sans',sans-serif; }
+.console-tab:hover { color:var(--text); }
+.console-tab.active { color:var(--text); border-bottom-color:var(--purple); }
+
+.console-body { flex:1; overflow-y:auto; padding:14px; }
+.console-body::-webkit-scrollbar { width:3px; }
+.console-body::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+/* AI Chat log */
+.chat-log { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+.chat-msg { display:flex; flex-direction:column; gap:4px; }
+.chat-msg.user .msg-bubble { background:rgba(168,85,247,0.1); border:1px solid rgba(168,85,247,0.2); margin-left:24px; border-radius:12px 12px 4px 12px; }
+.chat-msg.ai .msg-bubble { background:var(--s2); border:1px solid var(--border); margin-right:24px; border-radius:12px 12px 12px 4px; }
+.msg-bubble { padding:10px 13px; font-size:12px; line-height:1.6; color:var(--text); }
+.msg-meta { font-size:10px; color:var(--muted2); padding:0 4px; display:flex; align-items:center; gap:6px; }
+.msg-meta.right { justify-content:flex-end; }
+
+/* Change result card */
+.change-result {
+  background:var(--s2); border:1px solid var(--border); border-radius:10px;
+  padding:10px 13px; margin:4px 0; font-size:11px; color:var(--muted);
+}
+.change-result.applied { border-color:rgba(34,197,94,0.3); }
+.change-result.pending { border-color:rgba(245,158,11,0.3); }
+.change-result.failed { border-color:rgba(239,68,68,0.3); }
+.cr-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
+.cr-type { font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; }
+.cr-status { font-size:10px; display:flex; align-items:center; gap:4px; }
+.cr-status.applied { color:var(--green); }
+.cr-status.pending { color:var(--gold); }
+.cr-status.failed { color:var(--red); }
+.cr-action-row { display:flex; gap:6px; margin-top:8px; }
+.cr-btn { font-size:10px; padding:3px 9px; border-radius:6px; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+.cr-btn:hover { color:var(--text); }
+.cr-btn.accept { border-color:rgba(34,197,94,0.3); color:var(--green); }
+.cr-btn.reject { border-color:rgba(239,68,68,0.3); color:var(--red); }
+
+/* Input area */
+.console-input-area { padding:12px 14px; border-top:1px solid var(--border); flex-shrink:0; }
+.input-mode-toggle { display:flex; gap:4px; margin-bottom:10px; }
+.imt-btn { flex:1; padding:6px; border-radius:7px; font-size:11px; font-weight:400; color:var(--muted); cursor:pointer; border:1px solid var(--border); background:transparent; font-family:'DM Sans',sans-serif; transition:all 0.15s; text-align:center; }
+.imt-btn:hover { color:var(--text); }
+.imt-btn.active { background:var(--s2); color:var(--text); border-color:var(--border2); }
+
+.console-input-box { position:relative; }
+.console-textarea {
+  width:100%; background:var(--s2); border:1px solid var(--border2);
+  border-radius:12px; padding:11px 44px 11px 14px;
+  color:var(--text); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:300;
+  outline:none; resize:none; min-height:60px; max-height:120px;
+  transition:border-color 0.2s; line-height:1.6;
+}
+.console-textarea:focus { border-color:var(--purple); }
+.console-textarea::placeholder { color:var(--muted2); }
+.console-send {
+  position:absolute; bottom:10px; right:10px; width:28px; height:28px;
+  background:var(--purple); border:none; border-radius:8px; cursor:pointer;
+  color:#fff; font-size:13px; display:flex; align-items:center; justify-content:center;
+  transition:all 0.15s;
+}
+.console-send:hover { background:#b97df7; transform:scale(1.05); }
+
+/* Quick commands */
+.quick-cmds { margin-top:10px; }
+.qc-label { font-size:9px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); margin-bottom:6px; }
+.qc-row { display:flex; flex-wrap:wrap; gap:5px; }
+.qc-chip {
+  font-size:10px; color:var(--muted); padding:4px 10px; border-radius:100px;
+  border:1px solid var(--border); background:transparent; cursor:pointer;
+  transition:all 0.15s; font-family:'DM Sans',sans-serif;
+}
+.qc-chip:hover { color:var(--text); border-color:var(--border2); background:var(--s2); }
+
+/* Properties tab */
+.prop-group { margin-bottom:18px; }
+.prop-group-title { font-size:9px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); margin-bottom:8px; }
+.prop-row { display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px solid var(--border); }
+.prop-row:last-child { border-bottom:none; }
+.prop-label { font-size:11px; color:var(--muted); flex:1; }
+.prop-value { font-size:11px; color:var(--text); font-family:'DM Mono',monospace; }
+.prop-edit { font-size:10px; color:var(--purple); cursor:pointer; background:none; border:none; }
+.prop-slider { width:80px; accent-color:var(--purple); cursor:pointer; }
+
+/* Version history tab */
+.version-list { display:flex; flex-direction:column; gap:8px; }
+.version-item { background:var(--s2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; cursor:pointer; transition:all 0.18s; }
+.version-item:hover { border-color:var(--border2); }
+.version-item.current { border-color:rgba(168,85,247,0.35); }
+.vi-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.vi-label { font-family:'DM Mono',monospace; font-size:10px; font-weight:500; color:var(--text); }
+.vi-time { font-size:10px; color:var(--muted2); }
+.vi-desc { font-size:11px; color:var(--muted); line-height:1.5; }
+.vi-badge { font-size:9px; padding:2px 7px; border-radius:100px; background:rgba(168,85,247,0.1); color:var(--purple); border:1px solid rgba(168,85,247,0.2); margin-top:5px; display:inline-block; }
+
+/* ── TIMELINE (bottom) ──────────────────────────────── */
+.panel-timeline {
+  grid-column: 2 / 3;
+  background:var(--s1); border-top:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.timeline-header {
+  display:flex; align-items:center; gap:12px; padding:6px 16px;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.tl-label { font-size:9px; font-weight:500; letter-spacing:2px; text-transform:uppercase; color:var(--muted2); }
+.tl-sep { width:1px; height:14px; background:var(--border2); }
+.tl-duration { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); }
+.tl-zoom-btns { display:flex; gap:2px; margin-left:auto; }
+.tz-btn { width:22px; height:22px; border-radius:5px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:12px; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+.tz-btn:hover { color:var(--text); border-color:var(--border2); }
+
+.timeline-tracks { flex:1; overflow-x:auto; overflow-y:hidden; padding:8px 16px; display:flex; flex-direction:column; gap:6px; }
+.timeline-tracks::-webkit-scrollbar { height:3px; }
+.timeline-tracks::-webkit-scrollbar-thumb { background:var(--border2); border-radius:2px; }
+
+.track-row { display:flex; align-items:center; gap:8px; height:28px; }
+.track-label { font-size:9px; font-weight:500; letter-spacing:1px; text-transform:uppercase; color:var(--muted2); width:52px; flex-shrink:0; text-align:right; }
+.track-body { flex:1; position:relative; height:100%; background:var(--s3); border-radius:4px; overflow:hidden; }
+.track-playhead { position:absolute; top:0; bottom:0; width:2px; background:rgba(168,85,247,0.8); left:35%; z-index:10; }
+.track-playhead::before { content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:8px; height:8px; background:var(--purple); border-radius:50%; }
+
+/* Track clips */
+.track-clip {
+  position:absolute; top:3px; bottom:3px; border-radius:4px;
+  display:flex; align-items:center; padding:0 6px; overflow:hidden; cursor:pointer;
+  transition:opacity 0.15s; border:1px solid rgba(255,255,255,0.08);
+}
+.track-clip:hover { opacity:0.85; }
+.track-clip span { font-size:9px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.track-clip.video { background:rgba(168,85,247,0.25); }
+.track-clip.video span { color:rgba(168,85,247,0.9); }
+.track-clip.audio { background:rgba(0,212,255,0.2); }
+.track-clip.audio span { color:rgba(0,212,255,0.8); }
+.track-clip.music { background:rgba(34,197,94,0.2); }
+.track-clip.music span { color:rgba(34,197,94,0.8); }
+.track-clip.sfx { background:rgba(245,158,11,0.2); }
+.track-clip.sfx span { color:rgba(245,158,11,0.8); }
+.track-clip.active { outline:1px solid rgba(255,255,255,0.3); }
+.track-clip.edit-pending { outline:1px solid rgba(245,158,11,0.6); animation:pending-pulse 1.5s ease-in-out infinite; }
+@keyframes pending-pulse { 0%,100%{opacity:1}50%{opacity:0.6} }
+
+/* Time ruler */
+.time-ruler { position:relative; height:18px; background:var(--bg); border-bottom:1px solid var(--border); margin:-8px -16px 4px; padding:0 16px; }
+.time-mark { position:absolute; bottom:0; font-family:'DM Mono',monospace; font-size:8px; color:var(--muted2); }
+.time-mark::before { content:''; position:absolute; top:0; left:0; width:1px; height:5px; background:var(--muted2); }
+
+/* ── MODE SELECTOR (entry) ──────────────────────────── */
+.mode-select-overlay {
+  position:fixed; inset:0; z-index:300;
+  background:rgba(6,8,16,0.97); display:flex; align-items:center; justify-content:center;
+  flex-direction:column; padding:20px;
+}
+.ms-title { font-family:'Syne',sans-serif; font-size:clamp(24px,4vw,44px); font-weight:800; letter-spacing:-1.5px; text-align:center; margin-bottom:8px; }
+.ms-title em { font-style:normal; color:var(--purple); }
+.ms-sub { font-size:14px; color:var(--muted); text-align:center; margin-bottom:48px; max-width:500px; line-height:1.7; }
+.ms-cards { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; max-width:900px; width:100%; }
+.ms-card {
+  background:var(--s1); border:1px solid var(--border); border-radius:20px;
+  padding:28px 24px; cursor:pointer; transition:all 0.3s cubic-bezier(.4,0,.2,1);
+  position:relative; overflow:hidden;
+}
+.ms-card::before { content:''; position:absolute; inset:0; opacity:0; transition:opacity 0.3s; border-radius:20px; }
+.ms-card:hover { transform:translateY(-4px); box-shadow:0 24px 60px rgba(0,0,0,0.5); }
+.ms-card:hover::before { opacity:1; }
+.ms-card.auto::before { background:radial-gradient(ellipse at top,rgba(0,212,255,0.07) 0%,transparent 60%); }
+.ms-card.auto:hover { border-color:rgba(0,212,255,0.3); }
+.ms-card.semi::before { background:radial-gradient(ellipse at top,rgba(168,85,247,0.09) 0%,transparent 60%); }
+.ms-card.semi:hover { border-color:rgba(168,85,247,0.35); }
+.ms-card.manual::before { background:radial-gradient(ellipse at top,rgba(245,158,11,0.07) 0%,transparent 60%); }
+.ms-card.manual:hover { border-color:rgba(245,158,11,0.3); }
+.ms-card-icon { font-size:32px; margin-bottom:16px; }
+.ms-card-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:800; letter-spacing:-0.5px; margin-bottom:8px; }
+.ms-card-desc { font-size:12px; color:var(--muted); line-height:1.65; margin-bottom:16px; }
+.ms-card-features { list-style:none; }
+.ms-card-features li { font-size:11px; color:var(--muted2); padding:3px 0; display:flex; align-items:center; gap:7px; }
+.ms-card-features li::before { content:''; width:4px; height:4px; border-radius:50%; background:currentColor; flex-shrink:0; }
+.ms-card.auto .ms-card-features li { color:rgba(0,212,255,0.6); }
+.ms-card.semi .ms-card-features li { color:rgba(168,85,247,0.6); }
+.ms-card.manual .ms-card-features li { color:rgba(245,158,11,0.6); }
+.ms-recommended { position:absolute; top:14px; right:14px; font-size:9px; font-weight:500; letter-spacing:1px; text-transform:uppercase; padding:3px 9px; border-radius:100px; background:rgba(168,85,247,0.15); border:1px solid rgba(168,85,247,0.3); color:var(--purple); }
+
+/* ── CHANGE ROUTING INDICATOR ───────────────────────── */
+.routing-indicator {
+  position:fixed; bottom:180px; right:24px; z-index:150;
+  background:var(--s1); border:1px solid var(--border2); border-radius:14px;
+  padding:14px 16px; min-width:220px; display:none;
+  box-shadow:0 16px 40px rgba(0,0,0,0.5);
+}
+.routing-indicator.show { display:block; }
+.ri-header { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted2); margin-bottom:10px; }
+.ri-step { display:flex; align-items:center; gap:8px; padding:5px 0; }
+.ri-step-icon { font-size:14px; width:20px; text-align:center; }
+.ri-step-text { font-size:11px; color:var(--muted); flex:1; }
+.ri-step.active .ri-step-text { color:var(--text); }
+.ri-step.done .ri-step-text { color:var(--green); }
+.ri-step-status { font-size:10px; }
+.ri-step.active .ri-step-status { animation:blink 0.8s infinite; }
+
+/* ── DIFF PREVIEW ───────────────────────────────────── */
+.diff-modal {
+  position:fixed; inset:0; z-index:250; background:rgba(6,8,16,0.9);
+  backdrop-filter:blur(12px); display:none; align-items:center; justify-content:center;
+}
+.diff-modal.show { display:flex; }
+.diff-box { background:var(--s1); border:1px solid var(--border2); border-radius:20px; padding:28px; max-width:820px; width:90%; }
+.diff-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.diff-title { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; }
+.diff-close { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; }
+.diff-panels { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px; }
+.diff-panel { border-radius:12px; overflow:hidden; border:1px solid var(--border); }
+.diff-panel-label { font-size:10px; font-weight:500; letter-spacing:1.5px; text-transform:uppercase; padding:8px 14px; display:flex; align-items:center; gap:6px; }
+.diff-panel.before .diff-panel-label { background:rgba(239,68,68,0.08); color:var(--red); border-bottom:1px solid var(--border); }
+.diff-panel.after .diff-panel-label { background:rgba(34,197,94,0.08); color:var(--green); border-bottom:1px solid var(--border); }
+.diff-panel-body { height:160px; display:flex; align-items:center; justify-content:center; background:var(--s2); font-size:36px; color:var(--muted2); }
+.diff-actions { display:flex; gap:10px; justify-content:flex-end; }
+.diff-btn { padding:10px 22px; border-radius:10px; font-size:13px; font-weight:500; cursor:pointer; font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+.diff-btn.accept { background:var(--green); border:none; color:#000; }
+.diff-btn.accept:hover { background:#2dd46e; }
+.diff-btn.reject { background:transparent; border:1px solid var(--border2); color:var(--muted); }
+.diff-btn.reject:hover { color:var(--text); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MODE SELECTOR — shows on entry                          -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="mode-select-overlay" id="modeSelect">
+  <div class="ms-title">How do you want to<br><em>work on this?</em></div>
+  <p class="ms-sub">Choose your production mode. You can switch modes at any time from the top bar.</p>
+  <div class="ms-cards">
+
+    <div class="ms-card auto" onclick="enterEditor('auto')">
+      <div class="ms-card-icon">⚡</div>
+      <div class="ms-card-title">Auto Mode</div>
+      <p class="ms-card-desc">AI handles everything. You review, approve or reject when done. Fastest path to finished content.</p>
+      <ul class="ms-card-features">
+        <li>AI generates all scenes</li>
+        <li>Simple approve / reject review</li>
+        <li>Fastest production</li>
+        <li>No editing required</li>
+      </ul>
+    </div>
+
+    <div class="ms-card semi" onclick="enterEditor('semi')">
+      <span class="ms-recommended">Recommended</span>
+      <div class="ms-card-icon">🎬</div>
+      <div class="ms-card-title">Collaborative Mode</div>
+      <p class="ms-card-desc">AI generates a full draft. You direct it like a film editor — pause, type instructions, see changes apply in real time.</p>
+      <ul class="ms-card-features">
+        <li>AI builds the first cut</li>
+        <li>Type instructions to change anything</li>
+        <li>See edits apply immediately</li>
+        <li>Version history per edit</li>
+        <li>Scene-level approval</li>
+      </ul>
+    </div>
+
+    <div class="ms-card manual" onclick="enterEditor('manual')">
+      <div class="ms-card-icon">🛠</div>
+      <div class="ms-card-title">Manual Mode</div>
+      <p class="ms-card-desc">You drive every decision. AI assists with suggestions, continuity checks, and generation support. Coming soon.</p>
+      <ul class="ms-card-features">
+        <li>Full scene control</li>
+        <li>AI assists on request</li>
+        <li>Asset library access</li>
+        <li>Timeline drag & drop</li>
+        <li>Coming in next phase</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- CHANGE ROUTING INDICATOR (floating)                     -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="routing-indicator" id="routingIndicator">
+  <div class="ri-header">Processing edit</div>
+  <div class="ri-step done" id="ri1"><span class="ri-step-icon">📝</span><span class="ri-step-text">Parsing instruction</span><span class="ri-step-status">✓</span></div>
+  <div class="ri-step active" id="ri2"><span class="ri-step-icon">🔀</span><span class="ri-step-text">Routing to engine</span><span class="ri-step-status">⏳</span></div>
+  <div class="ri-step" id="ri3"><span class="ri-step-icon">⚙️</span><span class="ri-step-text">Applying change</span><span class="ri-step-status"></span></div>
+  <div class="ri-step" id="ri4"><span class="ri-step-icon">✅</span><span class="ri-step-text">Ready for review</span><span class="ri-step-status"></span></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- DIFF MODAL                                              -->
+<!-- ═══════════════════════════════════════════════════════ -->
+<div class="diff-modal" id="diffModal">
+  <div class="diff-box">
+    <div class="diff-header">
+      <div class="diff-title" id="diffTitle">Review Change</div>
+      <button class="diff-close" onclick="closeDiff()">×</button>
+    </div>
+    <div class="diff-panels">
+      <div class="diff-panel before">
+        <div class="diff-panel-label">⬅ Before</div>
+        <div class="diff-panel-body" id="diffBefore">🌅</div>
+      </div>
+      <div class="diff-panel after">
+        <div class="diff-panel-label">After →</div>
+        <div class="diff-panel-body" id="diffAfter">🌧</div>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:16px;" id="diffDesc">
+      Change applied: Scene 1 sky mood changed from clear morning to overcast/storm. Audio ambience updated to match.
+    </div>
+    <div class="diff-actions">
+      <button class="diff-btn reject" onclick="closeDiff()">↩ Reject Change</button>
+      <button class="diff-btn accept" onclick="acceptDiff()">✓ Accept Change</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════ -->
+<!-- MAIN EDITOR                                             -->
+<!-- ═══════════════════════════════════════════════════════ -->
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="tb-left">
+    <div class="tb-logo">🎬 GHS<span>Editor</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-project"><strong id="projectName">The Last Detective</strong> <span>/ Scene 4</span></div>
+    <div class="tb-mode-badge" id="modeBadge">Collaborative</div>
+  </div>
+  <div class="tb-center">
+    <button class="tb-btn" onclick="showModeSelect()">⚡ Switch Mode</button>
+    <button class="tb-btn active">🎞 Scenes</button>
+    <button class="tb-btn">📋 Plan</button>
+    <button class="tb-btn">📦 Assets</button>
+  </div>
+  <div class="tb-right">
+    <div class="undo-redo">
+      <button class="ur-btn" title="Undo" onclick="undoAction()">↩</button>
+      <button class="ur-btn" title="Redo">↪</button>
+    </div>
+    <div class="version-badge" id="versionBadge">v4</div>
+    <button class="tb-btn danger">⚠ 2 Gaps</button>
+    <button class="tb-btn green" onclick="showDiff()">✓ Approve Scene</button>
+    <button class="tb-btn primary">Export →</button>
+  </div>
+</div>
+
+<!-- EDITOR GRID -->
+<div class="editor-layout" id="editorLayout" style="display:none;">
+
+  <!-- LEFT — SCENE LIST -->
+  <div class="panel-scenes">
+    <div class="panel-header">
+      <span class="panel-title">Scenes (8)</span>
+      <button class="panel-action" title="Add scene">＋</button>
+    </div>
+    <div class="scenes-scroll" id="scenesList">
+      <!-- Scenes rendered by JS -->
+    </div>
+  </div>
+
+  <!-- CENTER — PREVIEW -->
+  <div class="panel-preview">
+    <div class="preview-screen" id="previewScreen">
+      <div class="preview-bg">🎬</div>
+
+      <div class="pending-banner" id="pendingBanner">
+        <div class="pb-spinner"></div>
+        Applying change to scene...
+      </div>
+
+      <div class="preview-video-placeholder" id="previewBox">
+        <div class="preview-scene-label">
+          <span class="dot"></span>
+          <span id="previewSceneLabel">Scene 4 — Street Chase</span>
+        </div>
+        <div class="preview-content" id="previewContent">
+          <span class="preview-scene-icon" id="previewIcon">🏃🏿</span>
+          <div class="preview-scene-title" id="previewTitle">Street Chase — Balogun Market</div>
+          <div class="preview-scene-desc" id="previewDesc">Chaotic Balogun market. Emeka chases suspect through stalls. Crowd scattering. Suspect vanishes into alley.</div>
+        </div>
+        <div class="edit-overlay-hint" id="editHint">
+          ⏸ Paused — type an edit instruction on the right
+        </div>
+        <div class="change-markers">
+          <div class="change-dot" style="left:20%;background:var(--green)"></div>
+          <div class="change-dot" style="left:55%;background:var(--gold)"></div>
+          <div class="change-dot" style="left:78%;background:var(--purple)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Scrub bar -->
+    <div class="scrub-bar">
+      <div class="scrub-track" onclick="scrubTo(event)">
+        <div class="scrub-fill" id="scrubFill"></div>
+        <div class="scrub-head" id="scrubHead"></div>
+      </div>
+      <div class="scrub-markers">
+        <span class="scrub-marker">0:00</span>
+        <span class="scrub-marker">0:15</span>
+        <span class="scrub-marker">0:30</span>
+        <span class="scrub-marker">0:45</span>
+        <span class="scrub-marker">1:00</span>
+        <span class="scrub-marker">1:15</span>
+        <span class="scrub-marker">1:30</span>
+      </div>
+    </div>
+
+    <!-- Playback controls -->
+    <div class="playback-controls">
+      <span class="pc-time" id="pcTime">0:32 / 1:30</span>
+      <div class="pc-btns">
+        <button class="pc-btn" title="Previous scene">⏮</button>
+        <button class="pc-btn" title="Back 5s">⏪</button>
+        <button class="pc-btn play" id="playBtn" onclick="togglePlay()">▶</button>
+        <button class="pc-btn" title="Forward 5s">⏩</button>
+        <button class="pc-btn" title="Next scene">⏭</button>
+      </div>
+      <div class="pc-right">
+        <span style="font-size:11px;color:var(--muted);">🔊</span>
+        <input type="range" class="vol-slider" min="0" max="100" value="80">
+        <span class="pc-zoom">100%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT — AI CONSOLE -->
+  <div class="panel-console">
+    <div class="console-tabs">
+      <button class="console-tab active" onclick="switchConsoleTab(this,'chat')">AI Edit</button>
+      <button class="console-tab" onclick="switchConsoleTab(this,'props')">Properties</button>
+      <button class="console-tab" onclick="switchConsoleTab(this,'versions')">History</button>
+    </div>
+
+    <!-- AI EDIT TAB -->
+    <div class="console-body" id="tab-chat">
+      <div class="chat-log" id="chatLog">
+
+        <div class="chat-msg ai">
+          <div class="msg-meta">🤖 GHS AI · Scene 4</div>
+          <div class="msg-bubble">Scene 4 is loaded — Street Chase through Balogun Market, 90 seconds, video scene. What do you want to change?</div>
+        </div>
+
+        <div class="chat-msg user">
+          <div class="msg-bubble">Make the market more chaotic — add more people, more colour. The shot feels too empty.</div>
+          <div class="msg-meta right">You · 2m ago</div>
+        </div>
+
+        <div class="chat-msg ai">
+          <div class="msg-meta">🤖 GHS AI</div>
+          <div class="msg-bubble">Got it. Routing to visual regeneration — increasing crowd density, adding fabric merchant stalls, bright ankara patterns for colour. This will take 2–3 minutes via Kling.</div>
+          <div class="change-result pending">
+            <div class="cr-header">
+              <span class="cr-type" style="color:var(--gold);">Visual · Regenerate</span>
+              <span class="cr-status pending"><span class="pb-spinner"></span> Generating...</span>
+            </div>
+            <div>Crowd density +70% · Add fabric stalls · Ankara patterns · Brighter colour grade</div>
+          </div>
+        </div>
+
+        <div class="chat-msg user">
+          <div class="msg-bubble">Add a loud market PA system announcement sound in the background</div>
+          <div class="msg-meta right">You · 1m ago</div>
+        </div>
+
+        <div class="chat-msg ai">
+          <div class="msg-meta">🤖 GHS AI</div>
+          <div class="msg-bubble">Done. Added Lagos market PA announcement (muffled, distant) to SFX layer at 0:08. Applied immediately via FFmpeg.</div>
+          <div class="change-result applied">
+            <div class="cr-header">
+              <span class="cr-type" style="color:var(--green);">Audio · SFX</span>
+              <span class="cr-status applied">✓ Applied</span>
+            </div>
+            <div>Market PA announcement added · 0:08 timestamp · Volume: 35%</div>
+            <div class="cr-action-row">
+              <button class="cr-btn accept">✓ Keep</button>
+              <button class="cr-btn reject" onclick="undoAction()">↩ Undo</button>
+              <button class="cr-btn">Preview</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-msg user">
+          <div class="msg-bubble">Cut the last 8 seconds — the alley shot goes on too long</div>
+          <div class="msg-meta right">You · just now</div>
+        </div>
+
+        <div class="chat-msg ai" id="latestAiMsg">
+          <div class="msg-meta">🤖 GHS AI</div>
+          <div class="msg-bubble">Trimmed. Scene is now 1:22 (was 1:30). Outro fades cleanly on Emeka's face in the alley entrance. Timeline updated.</div>
+          <div class="change-result applied">
+            <div class="cr-header">
+              <span class="cr-type" style="color:var(--green);">Trim · FFmpeg</span>
+              <span class="cr-status applied">✓ Applied</span>
+            </div>
+            <div>Duration: 1:30 → 1:22 · 8s removed from end · Fade applied</div>
+            <div class="cr-action-row">
+              <button class="cr-btn accept">✓ Keep</button>
+              <button class="cr-btn reject" onclick="undoAction()">↩ Undo</button>
+              <button class="cr-btn" onclick="showDiff()">Compare</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- PROPERTIES TAB -->
+    <div class="console-body" id="tab-props" style="display:none;">
+      <div class="prop-group">
+        <div class="prop-group-title">Scene</div>
+        <div class="prop-row"><span class="prop-label">Title</span><span class="prop-value">Street Chase</span><button class="prop-edit">Edit</button></div>
+        <div class="prop-row"><span class="prop-label">Duration</span><span class="prop-value">1:22</span><button class="prop-edit">Edit</button></div>
+        <div class="prop-row"><span class="prop-label">Asset type</span><span class="prop-value">Video (Kling)</span><button class="prop-edit">Swap</button></div>
+        <div class="prop-row"><span class="prop-label">Character</span><span class="prop-value">Emeka</span><button class="prop-edit">Edit</button></div>
+        <div class="prop-row"><span class="prop-label">Status</span><span class="prop-value" style="color:var(--gold)">Editing</span></div>
+      </div>
+      <div class="prop-group">
+        <div class="prop-group-title">Audio Mix</div>
+        <div class="prop-row"><span class="prop-label">Voice vol</span><input type="range" class="prop-slider" min="0" max="100" value="80"></div>
+        <div class="prop-row"><span class="prop-label">Music vol</span><input type="range" class="prop-slider" min="0" max="100" value="45"></div>
+        <div class="prop-row"><span class="prop-label">SFX vol</span><input type="range" class="prop-slider" min="0" max="100" value="65"></div>
+        <div class="prop-row"><span class="prop-label">Ambience vol</span><input type="range" class="prop-slider" min="0" max="100" value="30"></div>
+      </div>
+      <div class="prop-group">
+        <div class="prop-group-title">Visual</div>
+        <div class="prop-row"><span class="prop-label">Aspect ratio</span><span class="prop-value">16:9</span><button class="prop-edit">Edit</button></div>
+        <div class="prop-row"><span class="prop-label">Colour grade</span><span class="prop-value">Cinematic warm</span><button class="prop-edit">Edit</button></div>
+        <div class="prop-row"><span class="prop-label">Transition out</span><span class="prop-value">Cut</span><button class="prop-edit">Edit</button></div>
+      </div>
+    </div>
+
+    <!-- VERSION HISTORY TAB -->
+    <div class="console-body" id="tab-versions" style="display:none;">
+      <div class="version-list">
+        <div class="version-item current">
+          <div class="vi-header"><span class="vi-label">v4 — Current</span><span class="vi-time">just now</span></div>
+          <div class="vi-desc">Trimmed 8s from end. Scene now 1:22.</div>
+          <span class="vi-badge">Active</span>
+        </div>
+        <div class="version-item">
+          <div class="vi-header"><span class="vi-label">v3</span><span class="vi-time">1m ago</span></div>
+          <div class="vi-desc">Added market PA announcement SFX at 0:08.</div>
+          <button style="font-size:10px;color:var(--purple);background:none;border:none;cursor:pointer;margin-top:4px;">↩ Restore</button>
+        </div>
+        <div class="version-item">
+          <div class="vi-header"><span class="vi-label">v2</span><span class="vi-time">3m ago</span></div>
+          <div class="vi-desc">Visual regen queued — crowd density +70%, fabric stalls, ankara colour.</div>
+          <button style="font-size:10px;color:var(--purple);background:none;border:none;cursor:pointer;margin-top:4px;">↩ Restore</button>
+        </div>
+        <div class="version-item">
+          <div class="vi-header"><span class="vi-label">v1 — Original</span><span class="vi-time">AI generated</span></div>
+          <div class="vi-desc">AI-generated first draft. Crowd density low, no PA sound, 1:30 duration.</div>
+          <button style="font-size:10px;color:var(--purple);background:none;border:none;cursor:pointer;margin-top:4px;">↩ Restore Original</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INPUT AREA -->
+    <div class="console-input-area">
+      <div class="input-mode-toggle">
+        <button class="imt-btn active" onclick="setInputMode(this,'this-scene')">This scene</button>
+        <button class="imt-btn" onclick="setInputMode(this,'all-scenes')">All scenes</button>
+        <button class="imt-btn" onclick="setInputMode(this,'audio-only')">Audio only</button>
+      </div>
+      <div class="console-input-box">
+        <textarea class="console-textarea" id="editInput" placeholder="Type an edit instruction... e.g. 'Remove the tree on the right' or 'Add rain sounds' or 'Make the lighting darker'" rows="2" onkeydown="handleEnter(event)"></textarea>
+        <button class="console-send" onclick="sendEdit()">↑</button>
+      </div>
+      <div class="quick-cmds">
+        <div class="qc-label">Quick edits</div>
+        <div class="qc-row">
+          <button class="qc-chip" onclick="insertCmd('Make the lighting darker')">🌑 Darker lighting</button>
+          <button class="qc-chip" onclick="insertCmd('Add rain sound effect')">🌧 Add rain SFX</button>
+          <button class="qc-chip" onclick="insertCmd('Trim the last 5 seconds')">✂️ Trim end</button>
+          <button class="qc-chip" onclick="insertCmd('Increase music volume')">🔊 Louder music</button>
+          <button class="qc-chip" onclick="insertCmd('Change the sky to golden hour')">🌅 Golden hour</button>
+          <button class="qc-chip" onclick="insertCmd('Add subtitle overlay')">📝 Add subtitle</button>
+          <button class="qc-chip" onclick="insertCmd('Regenerate this scene with more energy')">⚡ More energy</button>
+          <button class="qc-chip" onclick="insertCmd('Lock this scene — no more edits')">🔒 Lock scene</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="panel-timeline">
+    <div class="timeline-header">
+      <span class="tl-label">Timeline</span>
+      <div class="tl-sep"></div>
+      <span class="tl-duration">Total: 18:24</span>
+      <div class="tl-zoom-btns" style="margin-left:auto;">
+        <button class="tz-btn">−</button>
+        <button class="tz-btn">+</button>
+      </div>
+    </div>
+    <div class="timeline-tracks">
+      <!-- Time ruler -->
+      <div class="time-ruler">
+        <span class="time-mark" style="left:0%">0:00</span>
+        <span class="time-mark" style="left:16.6%">3:00</span>
+        <span class="time-mark" style="left:33.3%">6:00</span>
+        <span class="time-mark" style="left:50%">9:00</span>
+        <span class="time-mark" style="left:66.6%">12:00</span>
+        <span class="time-mark" style="left:83.3%">15:00</span>
+      </div>
+      <!-- Video track -->
+      <div class="track-row">
+        <span class="track-label">Video</span>
+        <div class="track-body">
+          <div class="track-playhead"></div>
+          <div class="track-clip video" style="left:0%;width:8%"><span>S1 Docks</span></div>
+          <div class="track-clip video" style="left:9%;width:7%"><span>S2 Brief</span></div>
+          <div class="track-clip video edit-pending" style="left:17%;width:10%"><span>S3 Whouse</span></div>
+          <div class="track-clip video active" style="left:28%;width:9%"><span>S4 Chase</span></div>
+          <div class="track-clip video" style="left:38%;width:9%"><span>S5 Reveal</span></div>
+          <div class="track-clip video" style="left:48%;width:7%"><span>S6 Nona</span></div>
+          <div class="track-clip video edit-pending" style="left:56%;width:12%"><span>S7 Roof</span></div>
+          <div class="track-clip video" style="left:69%;width:8%"><span>S8 Bridge</span></div>
+        </div>
+      </div>
+      <!-- Audio track -->
+      <div class="track-row">
+        <span class="track-label">Voice</span>
+        <div class="track-body">
+          <div class="track-clip audio" style="left:0%;width:7%"><span>Emeka VO</span></div>
+          <div class="track-clip audio" style="left:17%;width:9%"><span>No voice</span></div>
+          <div class="track-clip audio active" style="left:28%;width:9%"><span>Breathing</span></div>
+          <div class="track-clip audio" style="left:38%;width:8%"><span>Emeka reveal</span></div>
+          <div class="track-clip audio" style="left:48%;width:6%"><span>Nona</span></div>
+          <div class="track-clip audio" style="left:56%;width:11%"><span>Dele + Emeka</span></div>
+        </div>
+      </div>
+      <!-- Music track -->
+      <div class="track-row">
+        <span class="track-label">Music</span>
+        <div class="track-body">
+          <div class="track-clip music" style="left:0%;width:26%"><span>Bass drone — Act 1</span></div>
+          <div class="track-clip music active" style="left:28%;width:9%"><span>Afro pulse chase</span></div>
+          <div class="track-clip music" style="left:38%;width:17%"><span>Emotional piano</span></div>
+          <div class="track-clip music" style="left:56%;width:22%"><span>Cinematic swell + choir</span></div>
+        </div>
+      </div>
+      <!-- SFX track -->
+      <div class="track-row">
+        <span class="track-label">SFX</span>
+        <div class="track-body">
+          <div class="track-clip sfx" style="left:0%;width:7%"><span>Foghorn, water</span></div>
+          <div class="track-clip sfx active" style="left:28%;width:9%"><span>Market chaos + PA</span></div>
+          <div class="track-clip sfx" style="left:56%;width:12%"><span>Heavy rain + thunder</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /editor-layout -->
+
+<script>
+// ── Scene data ───────────────────────────────────────────────
+const scenes = [
+  {id:1, title:'Opening — The Docks',    icon:'🌅', desc:'Pre-dawn Apapa dockyard. First body found.',          status:'locked',      dur:'1:30', color:'#0a1520'},
+  {id:2, title:'The Briefing Room',      icon:'🗂', desc:'Police station. Emeka gets the case file.',           status:'locked',      dur:'1:15', color:'#0d1520'},
+  {id:3, title:'The Warehouse',          icon:'🏭', desc:'Crime scene warehouse. Disturbing discovery.',        status:'error',       dur:'2:00', color:'#1a0d0d'},
+  {id:4, title:'Street Chase',           icon:'🏃🏿', desc:'Balogun market chase sequence.',                     status:'active',      dur:'1:22', color:'#0d1020'},
+  {id:5, title:'The Reveal',             icon:'😮', desc:'Documents reveal Emeka\'s brother is the boss.',      status:'normal',      dur:'1:45', color:'#100d20'},
+  {id:6, title:'Nona\'s Warning',        icon:'👩🏿', desc:'Mentor warns Emeka away from the case.',             status:'normal',      dur:'1:10', color:'#0d1a10'},
+  {id:7, title:'Rooftop Climax',         icon:'⛈', desc:'Rain-soaked rooftop confrontation with Dele.',         status:'pending',     dur:'2:30', color:'#0f0d1a'},
+  {id:8, title:'Resolution — The Bridge',icon:'🌉', desc:'Emeka walks Third Mainland Bridge alone.',            status:'normal',      dur:'1:30', color:'#0d1520'},
+];
+
+const statusLabel = { locked:'🔒', error:'⚠️', active:'▶', pending:'⏳', normal:'' };
+
+function renderScenes() {
+  const list = document.getElementById('scenesList');
+  list.innerHTML = scenes.map((s,i) => `
+    <div class="scene-thumb ${s.status === 'active' ? 'active' : s.status === 'locked' ? 'locked' : s.status === 'error' ? 'error' : s.status === 'pending' ? 'pending regenerating' : ''}"
+         onclick="selectScene(${i})" id="scene-thumb-${i}">
+      <div class="scene-thumb-drag"></div>
+      <div class="scene-thumb-vis" style="background:${s.color}">
+        <div class="scene-thumb-overlay">
+          <span class="sth-num">${String(s.id).padStart(2,'0')}</span>
+          <span class="sth-status">${statusLabel[s.status]||''}</span>
+        </div>
+        <span style="font-size:28px;z-index:1;position:relative">${s.icon}</span>
+      </div>
+      <div class="scene-thumb-info">
+        <div class="sti-title">${s.title}</div>
+        <div class="sti-meta">
+          <span>${s.status==='error'?'<span style="color:var(--red)">⚠ Gap</span>':s.status==='locked'?'<span style="color:var(--green)">Locked</span>':s.status==='pending'?'<span style="color:var(--gold)">Generating</span>':'Ready'}</span>
+          <span class="sti-dur">${s.dur}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function selectScene(i) {
+  const s = scenes[i];
+  document.querySelectorAll('.scene-thumb').forEach(t => t.classList.remove('active'));
+  document.getElementById('scene-thumb-'+i)?.classList.add('active');
+  document.getElementById('previewIcon').textContent = s.icon;
+  document.getElementById('previewTitle').textContent = s.title;
+  document.getElementById('previewDesc').textContent = s.desc;
+  document.getElementById('previewSceneLabel').textContent = `Scene ${s.id} — ${s.title}`;
+  document.getElementById('projectName').textContent = `The Last Detective`;
+  document.querySelector('.topbar .tb-project span').textContent = `/ Scene ${s.id}`;
+  document.getElementById('previewBox').style.background = s.color || 'var(--s1)';
+}
+
+// ── Mode select ──────────────────────────────────────────────
+function enterEditor(mode) {
+  document.getElementById('modeSelect').style.display = 'none';
+  document.getElementById('editorLayout').style.display = 'grid';
+  renderScenes();
+  const labels = { auto:'Auto', semi:'Collaborative', manual:'Manual' };
+  document.getElementById('modeBadge').textContent = labels[mode] || mode;
+}
+
+function showModeSelect() {
+  document.getElementById('modeSelect').style.display = 'flex';
+  document.getElementById('editorLayout').style.display = 'none';
+}
+
+// ── Console tabs ─────────────────────────────────────────────
+function switchConsoleTab(btn, tab) {
+  document.querySelectorAll('.console-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  ['chat','props','versions'].forEach(t => {
+    const el = document.getElementById('tab-'+t);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+  });
+}
+
+// ── Send edit ────────────────────────────────────────────────
+let editCount = 4;
+
+const editRoutes = {
+  'darker':      { type:'Visual · Grade',    engine:'FFmpeg',    fast:true,  icon:'🎨' },
+  'rain':        { type:'Audio · SFX',       engine:'FFmpeg',    fast:true,  icon:'🔊' },
+  'trim':        { type:'Trim · FFmpeg',     engine:'FFmpeg',    fast:true,  icon:'✂️' },
+  'cut':         { type:'Trim · FFmpeg',     engine:'FFmpeg',    fast:true,  icon:'✂️' },
+  'music':       { type:'Audio · Music',     engine:'Music Layer', fast:true, icon:'🎵' },
+  'sound':       { type:'Audio · SFX',       engine:'FFmpeg',    fast:true,  icon:'🔊' },
+  'subtitle':    { type:'Text · Overlay',    engine:'FFmpeg',    fast:true,  icon:'📝' },
+  'caption':     { type:'Text · Overlay',    engine:'FFmpeg',    fast:true,  icon:'📝' },
+  'regenerate':  { type:'Visual · Regen',    engine:'Kling',     fast:false, icon:'🎬' },
+  'remove':      { type:'Visual · Edit',     engine:'Kling',     fast:false, icon:'🎬' },
+  'add':         { type:'Visual · Edit',     engine:'Kling',     fast:false, icon:'🎬' },
+  'change sky':  { type:'Visual · Regen',    engine:'Kling',     fast:false, icon:'🎬' },
+  'golden':      { type:'Visual · Grade',    engine:'FFmpeg',    fast:true,  icon:'🌅' },
+  'lock':        { type:'Scene Lock',        engine:'Registry',  fast:true,  icon:'🔒' },
+  'voice':       { type:'Audio · Voice',     engine:'ElevenLabs',fast:false, icon:'🎙' },
+};
+
+function detectRoute(text) {
+  const low = text.toLowerCase();
+  for (const [key, val] of Object.entries(editRoutes)) {
+    if (low.includes(key)) return val;
+  }
+  return { type:'Visual · Regen', engine:'Kling', fast:false, icon:'🎬' };
+}
+
+function sendEdit() {
+  const input = document.getElementById('editInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const log = document.getElementById('chatLog');
+  editCount++;
+
+  // User message
+  log.innerHTML += `
+    <div class="chat-msg user">
+      <div class="msg-bubble">${escHtml(text)}</div>
+      <div class="msg-meta right">You · just now</div>
+    </div>`;
+
+  input.value = '';
+  log.scrollTop = log.scrollHeight;
+
+  const route = detectRoute(text);
+
+  // Show routing indicator
+  showRouting(route);
+
+  setTimeout(() => {
+    const fast = route.fast;
+    const status = fast ? 'applied' : 'pending';
+    const statusLabel = fast ? '✓ Applied' : '⏳ Generating...';
+    const statusClass = fast ? 'applied' : 'pending';
+    const response = generateAIResponse(text, route);
+
+    log.innerHTML += `
+      <div class="chat-msg ai">
+        <div class="msg-meta">🤖 GHS AI</div>
+        <div class="msg-bubble">${response}</div>
+        <div class="change-result ${statusClass}">
+          <div class="cr-header">
+            <span class="cr-type" style="color:${fast?'var(--green)':'var(--gold)'}">${route.icon} ${route.type} · ${route.engine}</span>
+            <span class="cr-status ${statusClass}">${fast?'':'<span class="pb-spinner"></span> '}${statusLabel}</span>
+          </div>
+          <div>${escHtml(text)}</div>
+          <div class="cr-action-row">
+            <button class="cr-btn accept">✓ Keep</button>
+            <button class="cr-btn reject" onclick="undoAction()">↩ Undo</button>
+            <button class="cr-btn" onclick="showDiff()">Compare</button>
+          </div>
+        </div>
+      </div>`;
+
+    document.getElementById('versionBadge').textContent = 'v' + editCount;
+    log.scrollTop = log.scrollHeight;
+
+    if (!fast) {
+      document.getElementById('pendingBanner').classList.add('show');
+      setTimeout(() => {
+        document.getElementById('pendingBanner').classList.remove('show');
+      }, 3500);
+    }
+
+    hideRouting();
+  }, fast ? 900 : 1800);
+}
+
+function generateAIResponse(text, route) {
+  const t = text.toLowerCase();
+  if (t.includes('dark')) return 'Applied. Colour grade shifted — shadows deepened, highlights pulled down by 15%. Applied instantly via FFmpeg.';
+  if (t.includes('rain')) return 'Rain SFX added to audio layer. Heavy Lagos rain with thunder roll. Applied at the current timestamp.';
+  if (t.includes('trim') || t.includes('cut')) return 'Trimmed as requested. Timeline and registry updated. Duration reduced.';
+  if (t.includes('music') || t.includes('volume')) return 'Audio levels adjusted. Music track volume updated in FFmpeg mix.';
+  if (t.includes('subtitle') || t.includes('caption')) return 'Subtitle overlay added. Text timed to scene start. Edit the text in Properties if needed.';
+  if (t.includes('lock')) return 'Scene locked. No further AI edits will be applied unless you unlock it manually.';
+  if (t.includes('remove') || t.includes('add') || t.includes('regenerate') || t.includes('energy')) return `Understood. Routing to Kling for visual regeneration — "${text}". This will take 2–4 minutes. Rest of your timeline stays editable.`;
+  if (t.includes('golden') || t.includes('sky')) return 'Golden hour grade applied. Warm orange tones lifted, blue channel cooled. Applied via FFmpeg instantly.';
+  return `Processing your edit — "${text}". Routed to ${route.engine}. ${route.fast ? 'Applied.' : 'Regeneration queued — takes 2–4 minutes.'}`;
+}
+
+function handleEnter(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendEdit(); }
+}
+
+function insertCmd(text) {
+  document.getElementById('editInput').value = text;
+  document.getElementById('editInput').focus();
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Routing indicator ────────────────────────────────────────
+function showRouting(route) {
+  const ri = document.getElementById('routingIndicator');
+  ri.classList.add('show');
+  document.getElementById('ri1').className = 'ri-step done';
+  document.getElementById('ri1').children[2].textContent = '✓';
+  document.getElementById('ri2').className = 'ri-step active';
+  document.getElementById('ri2').children[1].textContent = `Routing to ${route.engine}`;
+  document.getElementById('ri2').children[2].textContent = '⏳';
+  document.getElementById('ri3').className = 'ri-step';
+  document.getElementById('ri4').className = 'ri-step';
+}
+
+function hideRouting() {
+  setTimeout(() => {
+    ['ri2','ri3','ri4'].forEach(id => {
+      document.getElementById(id).className = 'ri-step done';
+      document.getElementById(id).children[2].textContent = '✓';
+    });
+    setTimeout(() => document.getElementById('routingIndicator').classList.remove('show'), 1200);
+  }, 600);
+}
+
+// ── Playback ─────────────────────────────────────────────────
+let playing = false;
+let progress = 35;
+let playInterval = null;
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById('playBtn').textContent = playing ? '⏸' : '▶';
+  document.getElementById('previewScreen').classList.toggle('paused', !playing);
+  document.getElementById('editHint').style.opacity = !playing ? '1' : '0';
+
+  if (playing) {
+    playInterval = setInterval(() => {
+      progress = Math.min(progress + 0.3, 100);
+      updateScrub();
+      if (progress >= 100) { playing = false; clearInterval(playInterval); document.getElementById('playBtn').textContent = '▶'; }
+    }, 100);
+  } else {
+    clearInterval(playInterval);
+  }
+}
+
+function updateScrub() {
+  document.getElementById('scrubFill').style.width = progress + '%';
+  document.getElementById('scrubHead').style.left = progress + '%';
+  const total = 90;
+  const cur = Math.floor(total * progress / 100);
+  document.getElementById('pcTime').textContent = `0:${String(cur).padStart(2,'0')} / 1:30`;
+}
+
+function scrubTo(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  progress = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+  updateScrub();
+}
+
+// ── Diff modal ───────────────────────────────────────────────
+function showDiff() {
+  document.getElementById('diffModal').classList.add('show');
+}
+function closeDiff() {
+  document.getElementById('diffModal').classList.remove('show');
+}
+function acceptDiff() {
+  closeDiff();
+}
+
+// ── Undo ─────────────────────────────────────────────────────
+function undoAction() {
+  if (editCount > 1) { editCount--; document.getElementById('versionBadge').textContent = 'v' + editCount; }
+}
+
+// ── Input mode toggle ────────────────────────────────────────
+function setInputMode(btn, mode) {
+  document.querySelectorAll('.imt-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const placeholders = {
+    'this-scene': 'Type an edit for this scene... e.g. "Add rain sound" or "Make lighting darker"',
+    'all-scenes': 'Type a global instruction... e.g. "Make all music louder" or "Add Lagos city ambience to all scenes"',
+    'audio-only': 'Type an audio edit... e.g. "Remove the background noise from Scene 4"',
+  };
+  document.getElementById('editInput').placeholder = placeholders[mode] || '';
+}
+</script>
+</body>
+</html>

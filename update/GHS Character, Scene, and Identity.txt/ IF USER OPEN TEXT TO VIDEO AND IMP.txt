@@ -1,0 +1,485 @@
+ IF USER OPEN TEXT TO VIDEO AND IMPORT A CHARACTOR WHAT HAPPEND NEXT- ACCORDING THE DOCUMENT OF CHARACT AND
+  IDENTITY FOR ANY MOVIE OR VIDEO AI NEED TO KNOW WHAT SKIN COLOUR HAIR TYPE AND MORE - IF THIS HAS ALREADY BEEING
+  BUILD IN CHARACTER THEN WHEN INPORT TO A STORY ALL THE INFORMATION WILL BE IN THE TEXT BOX SO USER DO NOT NEED TO
+  DESCRIBE THE CHARACT TO AI IN ALL SECTION - IF MY CHARACT IS A FLUFFY SMARY LONG TOOTH RABIT WITH A UNIQUE OFF
+  COLOUR TAIL(NOT THE SAME COLOUR WITH HIS KIN) AND THIS WAS DESIGNED IN CHARACTER - USER INPORT THIS CHARACTER TO
+  MAKE A STORY USR DONT NEED TO DESCRIBE THE STORY FOR AI TO GENERATE - NOW USER HAS IMAGE AND HAS DESCIPTION FROM
+  CHARACTER - WHEN USER IMPORT IN TEXT BOX JON_RABBIT848 - USER CAN CALL CHARACTER IN TEXT BOX ANY WHERE - USER
+  JUST NEED TO TIME CLICK CHACTER AND THE NAME WILL BE ADD ANY WHERE IN TEXT BOX FOR AI - NOW WE GO JON_RABBIT848
+  BOUGHT A WHITE CAR AND CAME HOME WITH HIS FAMILY TO CELEBRATE THE FOX_5858 CHILDREN WAS JELOUS AS USUAL -- NOW
+  USER DONT NEED TO TELL TXT BOX WHO IS JON WHO IS FOX - SO WHEN USE CLICK CREATE OR BUILD, AI IMPORT CHARACTER
+  IMAGE BY DEFAULT TO SEND TO KLIN AS USER AS ALREADY PREVIEW AND SELECT FROM MY PREVIOUS COMMAND WHERE ISAID
+  CHARACT SHOULD HAVE A QUICK VIEW WHEN CLICKED FOR USER TO SELECT AND ON THE QUICK VIEW THE CHARACTER IMAGE WILL
+  SHOW UP--THEN BY DEFAULT THE IMAGE GETS IMPORTED INTO THE TEXT SEND TO MODEL FOR GENERATION THIS WAY USER WILL
+  ALWAYS USE THE SAME CHARACTER - THIS BRINGS TO THE CHARACTER ASPECT WHERE USER MAKE THEIR CHARACTERS -GO BACK TO
+  GENERATER - A QUESTION HOW IS A CHARACTER GENERATED WITH GHS_CHARACTER - A CHARACTER ACCORDING TO THE CHARACTER
+  DOCUMENT SHOULD BE GENERATE WITH AGE HAIR COUNTRY NATIONALITY HIGHT WITH 3 OR MORE PICTURES AND ANGLE - CURRENTLY
+  THEIR IS NO INTELLIGENT AI IN CHARACTION - A CHARACTER WITHOUT AN INTELLEGIENT AI IS USELESS - CHARACTER SECTION
+  SHOULD HAVE AN INTELEGENT AI SECTION - USER CLICK BUILD CHARACTER - NEXT SHOW 2 BUTTON WITH A TEXT BOX IN THE
+  TEXT SAYS TYPE UR CHARACT PROPERTIES OR JUST DESCRIBE YOUR CHARACT OR JUST TYPE MALE INDIA FAIR 45 OR USA - USER
+  CAN USE SELECT BUTTON WITH OPTIONS MALE OR FEMALE OR ANIMA OR ROBOT OR ANY THING THEN AGE - NAME - HIGHE WHEN
+  USER CLICK BUTTON A PAGE WILL PROMT FOR USER TO MAKE THIS SELECTION - THIS PAGE AUTO HAVE ALL KIND OF HUMAN BEING
+  TO BE SELECT AND A TEXT PROMPT FOR USER TO TYPE WHEN IS NOT AVAIBLE TO BE SELECTED - OTHER OLD METHOD WHEN U
+  GOES TO
+
+
+
+We are extending GHS Character into a full reusable identity system.
+
+Do not remove or break the old character creation workflow.
+Keep the legacy form/prompt method exactly as it is.
+Add a second intelligent AI-assisted character builder on top of the old system.
+
+Core rule:
+A character in GHS must not behave like plain prompt text.
+A character must behave like a reusable identity object with:
+- persistent character ID
+- structured metadata
+- continuity rules
+- reference images
+- export/import support
+- cross-section usability
+
+Main expected behavior:
+If a user creates and saves a character such as JON_RABBIT848, and that character already contains appearance details like skin/fur color, hair type, age, height, species, face structure, tail uniqueness, clothing, nationality/cultural anchor, and other special traits, then when the user later imports that character into Text-to-Video, Hybrid, Movie, Short Video, Children Story, or other GHS sections, the user must not need to re-describe the character again.
+
+If the user clicks the saved character and inserts JON_RABBIT848 into the prompt box, GHS must automatically resolve that token into the full saved character identity package during generation.
+
+That means the visible prompt may stay simple, but the backend must assemble a richer generation payload including:
+- raw user story text
+- referenced character IDs
+- full character metadata
+- character continuity rules
+- character reference images
+- any project style rules relevant to generation
+
+Build requirements:
+
+1. Character Library Foundation
+- Create or refine a character object schema.
+- Each character must have a stable characterId.
+- Store text description, structured appearance fields, special traits, style family, continuity locks, and reference images.
+
+2. Keep Legacy Character Builder
+- Do not replace the old character creation flow.
+- Ensure the existing manual form/prompt method still works.
+- Both old and new methods must save into the same final character object system.
+
+3. Add Smart Character Builder
+- Add a new AI-assisted character creation path.
+- Entry options should include:
+  - free prompt input
+  - guided structured selection
+  - mixed mode
+- Example free prompt input:
+  - “male india fair 45 medium height beard calm face formal shirt”
+  - “smart fluffy rabbit with long teeth and off-colour tail”
+- Guided fields should support human, animal, robot, fantasy, child, elder, and custom types.
+- AI should transform rough user input into structured character data.
+- AI should help fill gaps, propose defaults, and prepare clean reusable character descriptions.
+
+4. Multi-Image Character Output
+- Character generation should create at least 3 reference images:
+  - front view
+  - 3/4 view
+  - side view
+- Optional extra views can be added later.
+- These images are essential for continuity.
+
+5. Character Picker and Quick View
+- In generation sections, add Import Character / Use Saved Character flow.
+- Show character cards with image thumbnail, name, ID, type, and short summary.
+- On click, show quick preview with larger image, alternate views, short identity summary, and use button.
+
+6. Prompt Insertion UX
+- When user selects a character, allow inserting the character token at cursor position inside the prompt box.
+- Example inserted token: JON_RABBIT848
+- Also attach selected character to the current project cast tray.
+
+7. Project Cast Tray
+- Add selected-character tray for the current project.
+- Show thumbnail, name, ID, preview, remove, and insert actions.
+- This tray should persist within the current creation flow.
+
+8. Token Resolution Engine
+- On Create / Build / Generate / Assemble, scan the prompt and/or scene objects for referenced character IDs.
+- Resolve each token into its saved identity object.
+- Attach corresponding metadata and reference images to the generation job.
+- Do not rely on raw text prompt only.
+
+9. Internal Prompt Assembly Layer
+- Build a prompt assembly layer before calling providers.
+- This layer should combine:
+  - user story prompt
+  - scene data if available
+  - selected character objects
+  - continuity locks
+  - reference images
+  - provider-specific generation instructions
+- User prompt should remain simple; backend prompt should become intelligent.
+
+10. Scene-Level Character Mapping
+- In scene-based workflows, scenes should store character references explicitly.
+- Example:
+  - Scene 1 uses JON_RABBIT848 and FOX_5858
+  - Scene 2 uses JON_RABBIT848 only
+- This improves continuity and generation targeting.
+
+11. Continuity Locks
+- Preserve key identity details across scenes unless user explicitly changes them.
+- Examples:
+  - skin/fur color
+  - hairstyle
+  - face structure
+  - teeth
+  - body proportions
+  - tail uniqueness
+  - default clothing identity
+  - accessories
+  - style family
+
+12. Export / Download Package
+- Saved characters must be downloadable as ZIP.
+- ZIP should contain:
+  - images folder
+  - TXT description file
+  - JSON structured character file
+- JSON should be designed for future re-import.
+
+13. Reuse Across GHS
+- Character assets must be reusable across:
+  - Text-to-Video
+  - Hybrid
+  - Movie Creator
+  - Short Video
+  - Children Story
+  - Series
+  - Semi-AI Collaborative mode
+  - future manual/editor flows
+
+14. Implementation Order
+Phase 1:
+- character schema
+- storage model
+- continuity fields
+- reference image handling
+
+Phase 2:
+- character picker
+- quick preview
+- cast tray
+- prompt token insertion
+
+Phase 3:
+- AI smart builder
+- guided attribute UI
+- prompt-to-structure parsing
+
+Phase 4:
+- token resolution engine
+- prompt assembly integration
+- provider payload enrichment
+
+Phase 5:
+- ZIP export/import
+- cross-section integration
+
+15. Acceptance criteria
+This work is complete only when:
+- legacy character flow still works
+- smart AI builder exists
+- saved characters can be previewed and selected
+- character token can be inserted into prompts
+- user does not need to re-describe saved characters every time
+- backend automatically expands character token into full identity context
+- reference images are attached during generation
+- continuity is preserved
+- character is exportable as ZIP with images, TXT, and JSON
+- character is reusable across GHS sections
+
+Use the existing GHS source-of-truth architecture. Do not implement this as a shallow UI-only feature. This must be data-first, continuity-aware, and generation-aware.
+
+
+
+Claude Code,
+
+We need to tighten the Hybrid planner/editor workflow so it matches the GHS Character, Scene, and Identity law and does not feel disconnected.
+
+The current system doctrine already implies this order:
+
+story text
+→ character extraction
+→ character creation / character assets
+→ scene breakdown
+→ scene image generation
+→ shot planning / motion / video
+→ assembly only when user approves
+
+What is missing is the practical UI workflow that makes this easy for the user inside the Planner and the Collaboration Editor.
+
+Build the Planner and Editor so they both operate on the same source-of-truth objects, not separate logic.
+
+Core requirement:
+
+The Planner and the Collaboration Editor must both work from the same persistent objects:
+
+* Story / project text
+* Character registry
+* Character IDs
+* Character image assets
+* Scene registry
+* Scene text
+* Scene image assets
+* Shot data
+* Audio plan
+
+No duplicate hidden workflow.
+No separate “planner version” and “editor version” of the same scene.
+Both must read and update the same records.
+
+What the user flow should feel like:
+
+1. User writes story text or imports text
+
+The text may already mention characters by name.
+System should detect likely characters automatically.
+
+2. Planner should show an “Extract Characters” or equivalent action
+
+When clicked, GHS should scan the text and create a proposed character list.
+
+Example detected output:
+
+* Jon UUU
+* Amaka
+* Narrator
+
+But these are not final yet.
+They must become structured character objects.
+
+3. Planner must have a direct button to create characters
+
+Examples of acceptable buttons:
+
+* Make Characters
+* Create Character Set
+* Build Character Registry
+
+When this is clicked, detected names should become real character objects with IDs, such as:
+
+* Jon UUU — CH01
+* Amaka — CH02
+* Narrator — CH03
+
+Each character card should allow:
+
+* display name
+* role type
+* voice
+* age/style notes
+* wardrobe / look notes
+* image generation / reference creation
+* import existing character
+* reuse existing character from project library
+
+Important:
+Character names shown in UI are for human reading.
+System logic must use Character IDs underneath.
+
+4. Character creation must support both generation and import
+
+User should be able to:
+
+* generate a new character
+* import existing character from registry/library
+* reuse a previously created project character
+* edit character profile before finalizing
+
+5. After characters exist, planner should show scene cards
+
+Each scene card should contain at minimum:
+
+* Scene ID
+* Scene title
+* Scene text box
+* selected characters
+* scene type
+* scene image preview
+* buttons for generate / regenerate / edit
+
+6. Scene cards must have a direct “Make Scene Image” button
+
+This is very important.
+
+The user should not need a confusing hidden path.
+Inside Planner or Collaboration Editor, each scene should have a clear button such as:
+
+* Make Scene Image
+* Generate Scene Image
+* Build Scene Frame
+
+7. When “Make Scene Image” is clicked, the scene must already know its characters
+
+User must be able to assign scene characters in a very simple way.
+
+Best UX:
+
+A scene character selector should appear showing project characters as clickable chips/cards like:
+
+* Jon UUU — CH01
+* Amaka — CH02
+* Narrator — CH03
+
+User can select by click.
+
+Also allow:
+
+* typing a name to search existing characters
+* importing another character
+* creating missing character if needed
+
+But final scene binding must always resolve to Character IDs, not plain text names.
+
+8. Scene image generation input must be structured
+
+When the user generates a scene image, the system should use:
+
+* Scene text
+* Selected character IDs
+* Character reference assets
+* mood / location / lighting info
+* optional scene framing notes
+
+So the flow becomes:
+
+user writes / edits scene text
+→ user selects characters from buttons or search
+→ system attaches Character IDs and reference assets
+→ user clicks Make Scene Image
+→ scene image generates correctly with the right characters
+
+9. If the scene text mentions a character that is not yet created, do not silently guess
+
+The system should prompt:
+
+“This scene references a character not yet in the registry. Create or import character first.”
+
+That avoids random identity drift.
+
+10. The Planner and the Collaboration Editor must both support this exact flow
+
+Planner use case:
+
+* create characters
+* assign characters to scenes
+* generate first scene images
+* prepare draft scene assets
+
+Collaboration Editor use case:
+
+* open existing scene
+* view bound characters
+* add/remove characters
+* update scene text
+* regenerate scene image
+* keep same Scene ID and Character IDs
+* do not break continuity
+
+So the Editor is not separate from the planner doctrine.
+It is the same doctrine in editable form.
+
+11. Important architecture rule
+
+Scene image generation must not be treated as a random prompt box.
+
+It must be:
+
+Scene Object
+
+* selected Character IDs
+* Character references
+* scene text
+* scene settings
+  = Scene Image Output
+
+12. Suggested UI actions to add
+
+At project / planner level:
+
+* Extract Characters
+* Make Characters
+* Import Character
+* Reuse Existing Character
+* Break Into Scenes
+
+At scene card level:
+
+* Edit Scene Text
+* Select Characters
+* Add Character
+* Import Character
+* Make Scene Image
+* Regenerate Scene Image
+* Approve Scene
+* Send to Editor
+
+Inside Collaboration Editor:
+
+* View Scene ID
+* View selected Character IDs
+* Edit Scene Text
+* Change selected characters
+* Replace scene image
+* Regenerate scene image
+* Lock scene
+* Send to shot/video stage
+
+13. Important usability rule
+
+Because the text already “knows” the likely characters, the system should help the user instead of making them repeat everything manually.
+
+So:
+
+* detect from text
+* propose characters
+* let user confirm
+* show button-based selection
+* generate with structured IDs underneath
+
+This should feel intelligent and easy, not like filling raw forms.
+
+14. Best practical UI behavior for character selection
+
+When user opens a scene, show a character selector area with existing characters as visible buttons/cards.
+
+Example:
+
+Selected Characters for Scene:
+[ Jon UUU — CH01 ]
+[ Amaka — CH02 ]
+[ + Import Character ]
+[ + Create New Character ]
+
+This is better than forcing the user to type free text.
+
+Typing can still exist as search, but button selection should be the main UX.
+
+15. Final requirement
+
+Please redesign the hybrid planner/editor workflow so the user can naturally do this:
+
+* enter story text
+* extract characters
+* make/import characters
+* break story into scenes
+* open a scene
+* select characters from visible buttons/cards
+* edit scene text
+* click Make Scene Image
+* get correct scene image using those character references
+* continue editing in planner or collaboration editor without breaking IDs or continuity
+
+This must work cleanly in both Planner and Collaboration Editor because both are part of the same source-of-truth pipeline.
+
+Do not implement this as separate disconnected tools.
+Implement it as one structured workflow with shared objects and direct buttons.

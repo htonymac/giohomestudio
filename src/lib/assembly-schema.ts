@@ -22,6 +22,23 @@ export interface AssemblySegment {
   transitionIn?: "cut" | "fade" | "dissolve" | "slide";
   transitionOut?: "cut" | "fade" | "dissolve" | "slide";
   transitionDuration?: number; // seconds
+
+  // Character assignment
+  characterId?: string;   // COUNTRY_NAMEageATTRIBUTE format
+  characterName?: string;
+
+  // Hybrid pipeline linkage
+  sceneId?: string;       // links segment to HybridScene (SC01, SC02...)
+  shotId?: string;        // links segment to HybridShot (SH01, SH02...)
+  sceneType?: string;     // image-led, video-led, image-to-video, audio-bridge, hybrid
+
+  // Motion + timing (advanced)
+  metadata?: {
+    motionPreset?: string;      // from motion-presets.ts
+    speedMultiplier?: number;   // 0.25 - 3.0
+    speedPoints?: Array<{ timestamp_ms: number; speed_multiplier: number }>; // speed ramp
+    [key: string]: unknown;
+  };
 }
 
 export interface NarrationEntry {
@@ -96,6 +113,7 @@ export interface OverlayEntry {
   position: { x: number; y: number };
   size: { width: number; height: number };
   opacity: number;
+  animation?: "fade" | "typewriter" | "slide_up" | "bounce" | "pop" | "glow" | "shake" | "none";
 }
 
 export interface VolumeAutomation {

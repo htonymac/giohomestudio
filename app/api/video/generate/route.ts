@@ -20,10 +20,11 @@ import { env } from "@/config/env";
 // ── Provider + pricing config ───────────────────────────────────────────────
 
 interface ProviderRoute {
-  provider: "fal" | "kie" | "runway" | "kling-direct";
+  provider: "fal" | "kie" | "runway" | "kling-direct" | "muapi";
   cost5s: number;
   endpoint?: string;
   kieModel?: string;
+  muapiModel?: string;
 }
 
 // Smart routing: cheapest provider first, fallback second
@@ -49,6 +50,7 @@ const MODEL_ROUTES: Record<string, ProviderRoute[]> = {
     { provider: "kie", cost5s: 0.80, kieModel: "kling-3.0/text-to-video" },
   ],
   "seedance": [
+    { provider: "muapi", cost5s: 0.20, muapiModel: "seedance-1-1" },  // MuAPI may be cheaper
     { provider: "fal", cost5s: 0.26, endpoint: "fal-ai/bytedance/seedance-2.0/text-to-video" },
   ],
   // ── Other ──
@@ -149,8 +151,8 @@ function toRelUrl(absPath: string): string {
 async function generateFal(
   prompt: string, endpoint: string, aspectRatio: string, durationSec: number, imageUrl?: string,
 ): Promise<{ videoUrl: string } | null> {
-  const FAL_KEY = process.env.FAL_API_KEY;
-  if (!FAL_KEY) return null;
+  const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;
+  if (!FAL_KEY) throw new Error("FAL_KEY not configured in .env");
 
   const body: Record<string, unknown> = { prompt };
 
@@ -172,10 +174,43 @@ async function generateFal(
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`FAL API error ${res.status}: ${errText.slice(0, 200)}`);
+  }
   const data = await res.json();
+
+  // FAL queue API returns request_id for async jobs
+  if (data.request_id && !data.video?.url) {
+    // Poll for completion
+    const reqId = data.request_id;
+    for (let i = 0; i < 60; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const pollRes = await fetch(`https://queue.fal.run/${endpoint}/requests/${reqId}/status`, {
+        headers: { Authorization: `Key ${FAL_KEY}` },
+      });
+      if (!pollRes.ok) continue;
+      const pollData = await pollRes.json();
+      if (pollData.status === "COMPLETED") {
+        // Get result
+        const resultRes = await fetch(`https://queue.fal.run/${endpoint}/requests/${reqId}`, {
+          headers: { Authorization: `Key ${FAL_KEY}` },
+        });
+        if (resultRes.ok) {
+          const resultData = await resultRes.json();
+          const url = resultData.video?.url ?? resultData.data?.video_url ?? resultData.url;
+          if (url) return { videoUrl: url };
+        }
+        break;
+      }
+      if (pollData.status === "FAILED") throw new Error(`FAL job failed: ${pollData.error || "unknown"}`);
+    }
+    throw new Error("FAL job timed out after 5 minutes");
+  }
+
   const videoUrl = data.video?.url ?? data.data?.video_url ?? data.url;
-  return videoUrl ? { videoUrl } : null;
+  if (!videoUrl) throw new Error(`FAL returned no video URL. Response keys: ${Object.keys(data).join(", ")}`);
+  return { videoUrl };
 }
 
 // ── Provider: Kie.ai ────────────────────────────────────────────────────────
@@ -231,18 +266,84 @@ async function generateKie(
   return null;
 }
 
+// ── Provider: MuAPI.ai ──────────────────────────────────────────────────────
+
+async function generateMuapi(
+  prompt: string, muapiModel: string, aspectRatio: string, durationSec: number,
+): Promise<{ videoUrl: string } | null> {
+  const MUAPI_KEY = process.env.MUAPI_API_KEY;
+  const MUAPI_BASE = process.env.MUAPI_BASE_URL || "https://api.muapi.ai";
+  if (!MUAPI_KEY) return null;
+
+  // Create task
+  const createRes = await fetch(`${MUAPI_BASE}/v1/video/generate`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${MUAPI_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: muapiModel,
+      prompt: prompt.slice(0, 1000),
+      aspect_ratio: aspectRatio === "9:16" ? "9:16" : aspectRatio === "1:1" ? "1:1" : "16:9",
+      duration: Math.min(durationSec, 10),
+    }),
+  });
+
+  if (!createRes.ok) {
+    const errText = await createRes.text().catch(() => "");
+    throw new Error(`MuAPI create failed: HTTP ${createRes.status} - ${errText.slice(0, 200)}`);
+  }
+
+  const createData = await createRes.json();
+  const taskId = createData.task_id || createData.id || createData.data?.taskId;
+  if (!taskId) {
+    // Some APIs return the video URL directly
+    if (createData.video_url || createData.output?.video_url) {
+      return { videoUrl: createData.video_url || createData.output.video_url };
+    }
+    throw new Error("MuAPI: no task_id in response");
+  }
+
+  // Poll for completion (max 3 minutes)
+  for (let i = 0; i < 36; i++) {
+    await new Promise(r => setTimeout(r, 5000));
+
+    const pollRes = await fetch(`${MUAPI_BASE}/v1/video/status/${taskId}`, {
+      headers: { "Authorization": `Bearer ${MUAPI_KEY}` },
+    });
+    if (!pollRes.ok) continue;
+    const pollData = await pollRes.json();
+
+    const status = pollData.status || pollData.state || pollData.data?.state;
+    if (status === "completed" || status === "success" || status === "done") {
+      const videoUrl = pollData.video_url || pollData.output?.video_url || pollData.data?.video_url;
+      if (videoUrl) return { videoUrl };
+      return null;
+    }
+    if (status === "failed" || status === "fail" || status === "error") {
+      throw new Error(`MuAPI generation failed: ${pollData.error || pollData.message || "Unknown"}`);
+    }
+  }
+
+  throw new Error("MuAPI: generation timed out after 3 minutes");
+}
+
 // ── Provider: Runway ────────────────────────────────────────────────────────
 
 async function generateRunway(prompt: string, durationSec: number): Promise<{ videoUrl: string } | null> {
   const RUNWAY_KEY = process.env.RUNWAY_API_KEY;
-  if (!RUNWAY_KEY) return null;
+  if (!RUNWAY_KEY) throw new Error("RUNWAY_API_KEY not configured in .env");
 
   const res = await fetch(`${env.runway.baseUrl}/v1/image_to_video`, {
     method: "POST",
     headers: { Authorization: `Bearer ${RUNWAY_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({ promptText: prompt, model: "gen3a_turbo", duration: Math.min(durationSec, 10) }),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    throw new Error(`Runway API error ${res.status}: ${errText.slice(0, 200)}`);
+  }
   const data = await res.json();
   if (!data.id) return null;
 
@@ -306,6 +407,14 @@ export async function POST(req: NextRequest) {
 
     if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
+    // Resolve character tokens in the prompt
+    const { resolveCharacterTokens } = await import("@/lib/character-resolver");
+    const resolved = await resolveCharacterTokens(prompt);
+    // Use enriched prompt for generation (character descriptions injected)
+    const enrichedPrompt = resolved.enrichedPrompt;
+    // If characters have reference images, use the first one as sourceImage for image-to-video
+    const charRefImage = resolved.referenceImages[0] || imageUrl;
+
     const modelId = model ?? "hailuo-fast";
     const routes = MODEL_ROUTES[modelId];
 
@@ -315,6 +424,7 @@ export async function POST(req: NextRequest) {
 
     const ar = aspectRatio ?? "16:9";
     const dur = durationSec ?? 5;
+    const effectiveImageUrl = imageUrl || (resolved.referenceImages.length > 0 ? charRefImage : undefined);
     const errors: string[] = [];
 
     // Try each provider in priority order (cheapest first)
@@ -323,13 +433,15 @@ export async function POST(req: NextRequest) {
         let result: { videoUrl: string } | null = null;
 
         if (route.provider === "fal" && route.endpoint) {
-          result = await generateFal(prompt, route.endpoint, ar, dur, imageUrl);
+          result = await generateFal(enrichedPrompt, route.endpoint, ar, dur, effectiveImageUrl);
         } else if (route.provider === "kie" && route.kieModel) {
-          result = await generateKie(prompt, route.kieModel, ar, dur);
+          result = await generateKie(enrichedPrompt, route.kieModel, ar, dur);
         } else if (route.provider === "runway") {
-          result = await generateRunway(prompt, dur);
+          result = await generateRunway(enrichedPrompt, dur);
         } else if (route.provider === "kling-direct") {
-          result = await generateKlingDirect(prompt, ar, dur);
+          result = await generateKlingDirect(enrichedPrompt, ar, dur);
+        } else if (route.provider === "muapi" && route.muapiModel) {
+          result = await generateMuapi(enrichedPrompt, route.muapiModel, ar, dur);
         }
 
         if (result?.videoUrl) {
@@ -355,6 +467,7 @@ export async function POST(req: NextRequest) {
             model: modelId,
             credits: route.cost5s <= 0.15 ? 1 : route.cost5s <= 0.30 ? 2 : route.cost5s <= 0.40 ? 3 : 4,
             route: `${route.provider} (cheapest available)`,
+            resolvedCharacters: resolved.characters.length > 0 ? resolved.characters : undefined,
           });
         }
       } catch (e) {

@@ -42,6 +42,9 @@ const schema = z.object({
   referenceImageUrl: z.string().max(500).optional(),
   imageActionPrompt: z.string().max(300).optional(),
   sourceVideoPath: z.string().optional(),
+  referenceVideoPath: z.string().optional(),   // ai_motion image+video: secondary reference video
+  slideImagePaths: z.array(z.string()).optional(), // images_audio: user-uploaded photos
+  llmModel: z.string().optional(),             // Free Mode AI model override (future use)
   storyContext: z.string().max(1000).optional(),
   previousContentItemId: z.string().optional(),
   storyThreadId: z.string().optional(),

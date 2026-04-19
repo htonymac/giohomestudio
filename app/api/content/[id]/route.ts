@@ -18,7 +18,7 @@ export async function PATCH(
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
 
-  const allowed = ["narrationScript", "voiceId", "voiceLanguage", "narrationSpeed",
+  const allowed = ["status", "notes", "narrationScript", "voiceId", "voiceLanguage", "narrationSpeed",
     "narrationVolume", "musicVolume", "musicGenre", "musicRegion", "musicMood"];
 
   const updates: Record<string, unknown> = {};

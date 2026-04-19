@@ -166,6 +166,8 @@ export async function getContentItem(id: string): Promise<ContentItem | null> {
 
 export async function listContentItems(filters?: {
   status?: ContentStatus;
+  excludeStatus?: ContentStatus;
+  renderedOnly?: boolean;
   mode?: string;
   search?: string;
   limit?: number;
@@ -173,6 +175,8 @@ export async function listContentItems(filters?: {
 }): Promise<{ items: ContentItem[]; total: number }> {
   const where: Record<string, unknown> = {};
   if (filters?.status) where.status = filters.status;
+  else if (filters?.excludeStatus) where.status = { not: filters.excludeStatus };
+  if (filters?.renderedOnly) where.mergedOutputPath = { not: null };
   if (filters?.mode) where.mode = filters.mode;
   if (filters?.search) {
     where.originalInput = { contains: filters.search, mode: "insensitive" };

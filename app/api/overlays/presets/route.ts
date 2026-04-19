@@ -1,5 +1,4 @@
 // GET /api/overlays/presets — overlay text style presets
-// Inspired by Nigerian property ad reels (reference video study)
 
 import { NextResponse } from "next/server";
 
@@ -7,7 +6,7 @@ const PRESETS = [
   {
     id: "property_headline",
     name: "Property Headline",
-    description: "Bold red headline with white stroke — like Lagos property ads",
+    description: "Bold red headline with white stroke — classic property ad style",
     category: "real_estate",
     layers: [
       {
@@ -30,7 +29,7 @@ const PRESETS = [
       },
       {
         type: "text" as const,
-        text: "📍 Sangotedo, Lekki - Lagos",
+        text: "📍 City Centre, Main District",
         position: { zone: "top" as const, y: 12 },
         style: {
           fontSize: 28,

@@ -1,0 +1,1882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GHS Studio — Music & Video</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b10;
+    --surface: #0e1318;
+    --surface2: #151c24;
+    --border: #1e2a35;
+    --border2: #263240;
+    --text: #e8edf2;
+    --muted: #5a7080;
+    --muted2: #3d5060;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #a855f7;
+    --accent4: #22c55e;
+    --gold: #f59e0b;
+    --pink: #ec4899;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Noise texture overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 64px;
+    background: rgba(8,11,16,0.85);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nav-logo span {
+    color: var(--accent);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+    font-size: 13px;
+    font-weight: 400;
+  }
+
+  .nav-links a {
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .nav-links a:hover, .nav-links a.active {
+    color: var(--text);
+  }
+
+  .nav-links a.active {
+    color: var(--accent);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    padding-top: 64px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HERO ── */
+  .studio-hero {
+    padding: 72px 40px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .studio-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 5px 14px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .studio-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  .studio-hero h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(36px, 5vw, 64px);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+
+  .studio-hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+
+  .studio-hero p {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.7;
+  }
+
+  /* ── STUDIO TABS ── */
+  .studio-tabs {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 40px 48px;
+  }
+
+  .tabs-row {
+    display: flex;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 4px;
+    border-radius: 14px;
+    width: fit-content;
+    margin-bottom: 48px;
+  }
+
+  .tab-btn {
+    padding: 10px 24px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+
+  .tab-btn.active .tab-dot {
+    background: var(--accent);
+  }
+
+  .tab-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted2);
+    transition: background 0.2s;
+  }
+
+  /* ── SECTION TITLES ── */
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--muted2);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── MODE CARDS GRID ── */
+  .modes-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 56px;
+  }
+
+  .mode-card {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 28px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    text-decoration: none;
+    display: block;
+  }
+
+  .mode-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+    border-radius: 20px;
+  }
+
+  .mode-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-3px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+
+  .mode-card:hover::before { opacity: 1; }
+
+  /* Card color variants */
+  .mode-card.cyan::before { background: radial-gradient(ellipse at top left, rgba(0,212,255,0.06) 0%, transparent 60%); }
+  .mode-card.cyan:hover { border-color: rgba(0,212,255,0.3); }
+  .mode-card.cyan .mode-icon { background: rgba(0,212,255,0.1); color: var(--accent); }
+  .mode-card.cyan .mode-tag { background: rgba(0,212,255,0.08); color: var(--accent); border-color: rgba(0,212,255,0.2); }
+
+  .mode-card.orange::before { background: radial-gradient(ellipse at top left, rgba(255,107,53,0.06) 0%, transparent 60%); }
+  .mode-card.orange:hover { border-color: rgba(255,107,53,0.3); }
+  .mode-card.orange .mode-icon { background: rgba(255,107,53,0.1); color: var(--accent2); }
+  .mode-card.orange .mode-tag { background: rgba(255,107,53,0.08); color: var(--accent2); border-color: rgba(255,107,53,0.2); }
+
+  .mode-card.purple::before { background: radial-gradient(ellipse at top left, rgba(168,85,247,0.06) 0%, transparent 60%); }
+  .mode-card.purple:hover { border-color: rgba(168,85,247,0.3); }
+  .mode-card.purple .mode-icon { background: rgba(168,85,247,0.1); color: var(--accent3); }
+  .mode-card.purple .mode-tag { background: rgba(168,85,247,0.08); color: var(--accent3); border-color: rgba(168,85,247,0.2); }
+
+  .mode-card.green::before { background: radial-gradient(ellipse at top left, rgba(34,197,94,0.06) 0%, transparent 60%); }
+  .mode-card.green:hover { border-color: rgba(34,197,94,0.3); }
+  .mode-card.green .mode-icon { background: rgba(34,197,94,0.1); color: var(--accent4); }
+  .mode-card.green .mode-tag { background: rgba(34,197,94,0.08); color: var(--accent4); border-color: rgba(34,197,94,0.2); }
+
+  .mode-card.gold::before { background: radial-gradient(ellipse at top left, rgba(245,158,11,0.06) 0%, transparent 60%); }
+  .mode-card.gold:hover { border-color: rgba(245,158,11,0.3); }
+  .mode-card.gold .mode-icon { background: rgba(245,158,11,0.1); color: var(--gold); }
+  .mode-card.gold .mode-tag { background: rgba(245,158,11,0.08); color: var(--gold); border-color: rgba(245,158,11,0.2); }
+
+  .mode-card.pink::before { background: radial-gradient(ellipse at top left, rgba(236,72,153,0.06) 0%, transparent 60%); }
+  .mode-card.pink:hover { border-color: rgba(236,72,153,0.3); }
+  .mode-card.pink .mode-icon { background: rgba(236,72,153,0.1); color: var(--pink); }
+  .mode-card.pink .mode-tag { background: rgba(236,72,153,0.08); color: var(--pink); border-color: rgba(236,72,153,0.2); }
+
+  .mode-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 18px;
+    transition: transform 0.2s;
+  }
+
+  .mode-card:hover .mode-icon {
+    transform: scale(1.1) rotate(-3deg);
+  }
+
+  .mode-card h3 {
+    font-family: 'Syne', sans-serif;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+
+  .mode-card p {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .mode-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid;
+  }
+
+  .mode-arrow {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    color: var(--muted2);
+    font-size: 18px;
+    transition: all 0.2s;
+  }
+
+  .mode-card:hover .mode-arrow {
+    color: var(--text);
+    transform: translate(3px, -3px);
+  }
+
+  /* ── SAMPLE VIDEOS STRIP ── */
+  .samples-strip {
+    margin-bottom: 56px;
+  }
+
+  .samples-scroll {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: none;
+  }
+
+  .samples-scroll::-webkit-scrollbar { display: none; }
+
+  .sample-card {
+    flex-shrink: 0;
+    width: 220px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+  }
+
+  .sample-card:hover {
+    border-color: var(--border2);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+  }
+
+  .sample-thumb {
+    width: 100%;
+    height: 140px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .sample-thumb-bg {
+    position: absolute;
+    inset: 0;
+    opacity: 0.5;
+  }
+
+  .sample-play {
+    width: 44px;
+    height: 44px;
+    background: rgba(255,255,255,0.15);
+    backdrop-filter: blur(10px);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    position: relative;
+    z-index: 1;
+    border: 1px solid rgba(255,255,255,0.2);
+    transition: all 0.2s;
+  }
+
+  .sample-card:hover .sample-play {
+    background: rgba(255,255,255,0.25);
+    transform: scale(1.1);
+  }
+
+  .sample-info {
+    padding: 14px;
+  }
+
+  .sample-info h4 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+
+  .sample-info p {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .sample-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 100px;
+    z-index: 2;
+  }
+
+  /* ── CHILDREN SECTION ── */
+  .children-section {
+    background: linear-gradient(135deg, rgba(168,85,247,0.05) 0%, rgba(236,72,153,0.05) 100%);
+    border: 1px solid rgba(168,85,247,0.15);
+    border-radius: 24px;
+    padding: 36px;
+    margin-bottom: 56px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .children-section::before {
+    content: '🎠';
+    position: absolute;
+    right: 36px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 80px;
+    opacity: 0.15;
+  }
+
+  .children-section h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+
+  .children-section p {
+    font-size: 14px;
+    color: var(--muted);
+    max-width: 480px;
+    line-height: 1.6;
+    margin-bottom: 24px;
+  }
+
+  .children-modes {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .children-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 12px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .children-chip:hover {
+    background: var(--surface2);
+    border-color: rgba(168,85,247,0.4);
+    transform: translateY(-2px);
+  }
+
+  .children-chip span:first-child { font-size: 20px; }
+
+  .children-chip-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .children-chip-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  /* ── EDIT SECTION (slides in) ── */
+  .edit-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: none;
+    align-items: flex-end;
+  }
+
+  .edit-overlay.open { display: flex; }
+
+  .edit-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    animation: fadeIn 0.3s ease;
+  }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .edit-panel {
+    position: relative;
+    width: 100%;
+    max-height: 92vh;
+    background: var(--surface);
+    border-top: 1px solid var(--border2);
+    border-radius: 28px 28px 0 0;
+    overflow-y: auto;
+    animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 1;
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  .edit-handle {
+    width: 40px;
+    height: 4px;
+    background: var(--border2);
+    border-radius: 2px;
+    margin: 16px auto 0;
+  }
+
+  .edit-inner {
+    padding: 24px 40px 40px;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .edit-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+  }
+
+  .edit-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.5px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .edit-close {
+    width: 36px;
+    height: 36px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 18px;
+    transition: all 0.2s;
+  }
+
+  .edit-close:hover {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  /* Edit form fields */
+  .field-group {
+    margin-bottom: 24px;
+  }
+
+  .field-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .field-input, .field-textarea, .field-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .field-input:focus, .field-textarea:focus, .field-select:focus {
+    border-color: var(--accent);
+  }
+
+  .field-textarea { resize: vertical; min-height: 100px; }
+
+  .field-select option { background: var(--surface); }
+
+  .fields-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed var(--border2);
+    border-radius: 16px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .upload-zone:hover {
+    border-color: var(--accent);
+    background: rgba(0,212,255,0.03);
+  }
+
+  .upload-zone-icon { font-size: 32px; margin-bottom: 12px; }
+
+  .upload-zone p {
+    font-size: 14px;
+    color: var(--muted);
+  }
+
+  .upload-zone strong {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  /* Pill selectors */
+  .pill-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .pill {
+    padding: 8px 16px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .pill:hover {
+    border-color: var(--border2);
+    color: var(--text);
+  }
+
+  .pill.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #000;
+    font-weight: 500;
+  }
+
+  /* Generate button */
+  .gen-btn {
+    width: 100%;
+    padding: 16px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 14px;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    letter-spacing: -0.3px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 32px;
+  }
+
+  .gen-btn:hover {
+    background: #33ddff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 30px rgba(0,212,255,0.3);
+  }
+
+  .gen-btn.orange { background: var(--accent2); }
+  .gen-btn.orange:hover { background: #ff8555; box-shadow: 0 8px 30px rgba(255,107,53,0.3); }
+  .gen-btn.purple { background: var(--accent3); color: #fff; }
+  .gen-btn.purple:hover { background: #b97df7; box-shadow: 0 8px 30px rgba(168,85,247,0.3); }
+  .gen-btn.gold { background: var(--gold); }
+  .gen-btn.gold:hover { background: #f9b12b; box-shadow: 0 8px 30px rgba(245,158,11,0.3); }
+  .gen-btn.pink { background: var(--pink); color: #fff; }
+  .gen-btn.pink:hover { box-shadow: 0 8px 30px rgba(236,72,153,0.3); }
+  .gen-btn.green { background: var(--accent4); color: #000; }
+  .gen-btn.green:hover { box-shadow: 0 8px 30px rgba(34,197,94,0.3); }
+
+  /* ── Music Video section specific ── */
+  .mv-feature-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .mv-feature {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .mv-feature-icon { font-size: 20px; flex-shrink: 0; }
+
+  .mv-feature-text h4 {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 3px;
+  }
+
+  .mv-feature-text p {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Scrollbar */
+  .edit-panel::-webkit-scrollbar { width: 4px; }
+  .edit-panel::-webkit-scrollbar-track { background: transparent; }
+  .edit-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  /* Tab panels */
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    nav { padding: 0 20px; }
+    .studio-hero, .studio-tabs { padding-left: 20px; padding-right: 20px; }
+    .modes-grid { grid-template-columns: 1fr; }
+    .fields-row { grid-template-columns: 1fr; }
+    .mv-feature-row { grid-template-columns: 1fr; }
+    .edit-inner { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">🎬 GHS<span>Studio</span></div>
+  <ul class="nav-links">
+    <li><a href="#">Dashboard</a></li>
+    <li><a href="#" class="active">Studio</a></li>
+    <li><a href="#">Review Queue</a></li>
+    <li><a href="#">Registry</a></li>
+  </ul>
+</nav>
+
+<main>
+  <!-- HERO -->
+  <div class="studio-hero">
+    <div class="studio-badge">AI Studio</div>
+    <h1>Create anything.<br><em>Music. Video. Magic.</em></h1>
+    <p>Turn your images, text, or voice into full music videos, animated songs, and AI content — in minutes.</p>
+  </div>
+
+  <!-- TABS -->
+  <div class="studio-tabs">
+
+    <!-- Tab switcher -->
+    <div class="tabs-row">
+      <button class="tab-btn active" onclick="switchTab('music')">
+        <span class="tab-dot"></span> Music Studio
+      </button>
+      <button class="tab-btn" onclick="switchTab('video')">
+        <span class="tab-dot"></span> Music Video Studio
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- MUSIC STUDIO TAB                                -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="tab-panel active" id="tab-music">
+
+      <div class="section-label">Choose your creation mode</div>
+
+      <!-- Mode cards -->
+      <div class="modes-grid">
+
+        <!-- Text to Music -->
+        <div class="mode-card cyan" onclick="openEdit('text-to-music')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">✍️</div>
+          <h3>Text to Music</h3>
+          <p>Describe your song idea in words. GHS writes the lyrics, picks the style, and generates a full track.</p>
+          <span class="mode-tag">✦ Most popular</span>
+        </div>
+
+        <!-- Image to Music -->
+        <div class="mode-card orange" onclick="openEdit('image-to-music')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🖼️</div>
+          <h3>Image to Music</h3>
+          <p>Upload a photo. GHS reads the mood, colours, and scene — then creates a song that matches the image.</p>
+          <span class="mode-tag">✦ Visual AI</span>
+        </div>
+
+        <!-- Voice to Music -->
+        <div class="mode-card purple" onclick="openEdit('voice-to-music')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎙️</div>
+          <h3>Voice to Music</h3>
+          <p>Record or upload your voice humming, singing, or speaking. GHS turns it into a full produced song.</p>
+          <span class="mode-tag">✦ Voice AI</span>
+        </div>
+
+        <!-- Image + Voice to Music -->
+        <div class="mode-card gold" onclick="openEdit('image-voice-to-music')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎨</div>
+          <h3>Image + Voice to Music</h3>
+          <p>Combine a photo with your voice. The image sets the visual mood, your voice sets the emotional tone.</p>
+          <span class="mode-tag">✦ Combined</span>
+        </div>
+
+        <!-- Image + Music Animation -->
+        <div class="mode-card pink" onclick="openEdit('image-animation')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎭</div>
+          <h3>Music with Animation</h3>
+          <p>Upload an image and music. GHS animates the image to move with the beat — dancing, pulsing, breathing.</p>
+          <span class="mode-tag">✦ Animated</span>
+        </div>
+
+        <!-- Audio to Video -->
+        <div class="mode-card green" onclick="openEdit('audio-to-video')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎵</div>
+          <h3>Audio to Video</h3>
+          <p>Upload your existing audio or song. GHS generates a matching visual video to go with it automatically.</p>
+          <span class="mode-tag">✦ Auto-visual</span>
+        </div>
+
+      </div>
+
+      <!-- Children's Music Section -->
+      <div class="children-section">
+        <div class="section-label">For children</div>
+        <h2>🧒 Children's Music Studio</h2>
+        <p>Create fun, educational songs for kids — alphabet songs, counting songs, nursery rhymes, animal songs, and more. Safe, colourful, and joyful.</p>
+        <div class="children-modes">
+          <a class="children-chip" onclick="openEdit('children-abc')">
+            <span>🔤</span>
+            <div>
+              <div class="children-chip-text">ABC Song</div>
+              <div class="children-chip-sub">Alphabet learning</div>
+            </div>
+          </a>
+          <a class="children-chip" onclick="openEdit('children-numbers')">
+            <span>🔢</span>
+            <div>
+              <div class="children-chip-text">Numbers Song</div>
+              <div class="children-chip-sub">Counting 1–100</div>
+            </div>
+          </a>
+          <a class="children-chip" onclick="openEdit('children-animals')">
+            <span>🐾</span>
+            <div>
+              <div class="children-chip-text">Animal Sounds</div>
+              <div class="children-chip-sub">Learn animal names</div>
+            </div>
+          </a>
+          <a class="children-chip" onclick="openEdit('children-colours')">
+            <span>🌈</span>
+            <div>
+              <div class="children-chip-text">Colours Song</div>
+              <div class="children-chip-sub">Learn all colours</div>
+            </div>
+          </a>
+          <a class="children-chip" onclick="openEdit('children-nursery')">
+            <span>🌙</span>
+            <div>
+              <div class="children-chip-text">Nursery Rhyme</div>
+              <div class="children-chip-sub">Custom rhymes</div>
+            </div>
+          </a>
+          <a class="children-chip" onclick="openEdit('children-custom')">
+            <span>✨</span>
+            <div>
+              <div class="children-chip-text">Custom Children's Song</div>
+              <div class="children-chip-sub">Any topic, any age</div>
+            </div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Sample Videos -->
+      <div class="samples-strip">
+        <div class="section-label">Sample outputs — see what GHS creates</div>
+        <div class="samples-scroll">
+          <div class="sample-card" onclick="openEdit('text-to-music')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #1a0533, #0d1f3c);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(0,212,255,0.15);color:var(--accent);">Text → Music</span>
+            <div class="sample-info">
+              <h4>Lagos in My Heart</h4>
+              <p>Afrobeats · 3:24</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('image-to-music')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #1f0a00, #2d1800);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(255,107,53,0.15);color:var(--accent2);">Image → Music</span>
+            <div class="sample-info">
+              <h4>Sunset Vibes</h4>
+              <p>Amapiano · 2:45</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('audio-to-video')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #0a1a0a, #0d2b1a);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(34,197,94,0.15);color:var(--accent4);">Audio → Video</span>
+            <div class="sample-info">
+              <h4>Morning Prayer</h4>
+              <p>Gospel · 4:12</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('children-abc')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #1a0a2e, #2d1060);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(168,85,247,0.15);color:var(--accent3);">Children</span>
+            <div class="sample-info">
+              <h4>ABC Naija Style</h4>
+              <p>Kids · 2:00</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('image-animation')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #1a0a18, #2d0d28);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(236,72,153,0.15);color:var(--pink);">Animated</span>
+            <div class="sample-info">
+              <h4>Dance Portrait</h4>
+              <p>Animation · 0:45</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-music -->
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!-- MUSIC VIDEO STUDIO TAB                          -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-video">
+
+      <div class="section-label">Full music video production</div>
+
+      <!-- Feature highlights -->
+      <div class="mv-feature-row" style="margin-bottom:40px;">
+        <div class="mv-feature">
+          <span class="mv-feature-icon">🎬</span>
+          <div class="mv-feature-text">
+            <h4>Beat-Synced Cuts</h4>
+            <p>Every video cut lands on a beat. Automatic. Professional.</p>
+          </div>
+        </div>
+        <div class="mv-feature">
+          <span class="mv-feature-icon">🎵</span>
+          <div class="mv-feature-text">
+            <h4>Full Song Generation</h4>
+            <p>GHS writes and produces a complete song — lyrics, vocals, beat.</p>
+          </div>
+        </div>
+        <div class="mv-feature">
+          <span class="mv-feature-icon">🗺️</span>
+          <div class="mv-feature-text">
+            <h4>Scene Planning</h4>
+            <p>AI maps each section of your song to a matching visual scene.</p>
+          </div>
+        </div>
+        <div class="mv-feature">
+          <span class="mv-feature-icon">📝</span>
+          <div class="mv-feature-text">
+            <h4>Lyric Overlay</h4>
+            <p>Words appear on screen exactly as they are sung.</p>
+          </div>
+        </div>
+        <div class="mv-feature">
+          <span class="mv-feature-icon">🌍</span>
+          <div class="mv-feature-text">
+            <h4>African Genres</h4>
+            <p>Afrobeats, Amapiano, Highlife, Gospel, Fuji, Drill and more.</p>
+          </div>
+        </div>
+        <div class="mv-feature">
+          <span class="mv-feature-icon">📱</span>
+          <div class="mv-feature-text">
+            <h4>Platform Cuts</h4>
+            <p>Auto-generates YouTube, Reels, and TikTok versions.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Choose your music video mode</div>
+
+      <div class="modes-grid">
+
+        <!-- Full Music Video -->
+        <div class="mode-card cyan" onclick="openEdit('full-music-video')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎬</div>
+          <h3>Full Music Video</h3>
+          <p>Type a concept. GHS writes the song, generates all scenes, syncs cuts to the beat, and produces a complete video.</p>
+          <span class="mode-tag">✦ Full pipeline</span>
+        </div>
+
+        <!-- Bring Your Song -->
+        <div class="mode-card orange" onclick="openEdit('bring-your-song')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🎤</div>
+          <h3>Bring Your Own Song</h3>
+          <p>Already have a track? Upload your audio. GHS generates a full visual video to match your music automatically.</p>
+          <span class="mode-tag">✦ Your music</span>
+        </div>
+
+        <!-- Image Music Video -->
+        <div class="mode-card gold" onclick="openEdit('image-music-video')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">📸</div>
+          <h3>Image Music Video</h3>
+          <p>Upload your own photos. GHS animates them into a music video — your memories, your story, your song.</p>
+          <span class="mode-tag">✦ Personal</span>
+        </div>
+
+        <!-- AI Artist Performance -->
+        <div class="mode-card purple" onclick="openEdit('ai-performance')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">🕺</div>
+          <h3>AI Artist Performance</h3>
+          <p>Generate an AI avatar artist performing your song. Choose look, style, stage, background, and movement.</p>
+          <span class="mode-tag">✦ Avatar</span>
+        </div>
+
+        <!-- Lyric Video -->
+        <div class="mode-card green" onclick="openEdit('lyric-video')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">📝</div>
+          <h3>Lyric Video</h3>
+          <p>Upload a song. GHS generates a stylised lyric video with animated text synced to every word of your track.</p>
+          <span class="mode-tag">✦ Lyric sync</span>
+        </div>
+
+        <!-- Short Teaser -->
+        <div class="mode-card pink" onclick="openEdit('short-teaser')">
+          <span class="mode-arrow">↗</span>
+          <div class="mode-icon">⚡</div>
+          <h3>Short Teaser Cut</h3>
+          <p>60-second vertical teaser for Reels and TikTok. The most energetic 60 seconds of your video, auto-selected.</p>
+          <span class="mode-tag">✦ Social ready</span>
+        </div>
+
+      </div>
+
+      <!-- Sample Videos -->
+      <div class="samples-strip" style="margin-top:40px;">
+        <div class="section-label">Music video samples</div>
+        <div class="samples-scroll">
+          <div class="sample-card" onclick="openEdit('full-music-video')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #0d1f3c, #1a0533);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(0,212,255,0.15);color:var(--accent);">Full MV</span>
+            <div class="sample-info">
+              <h4>Eko Bridge Story</h4>
+              <p>Afrobeats · 3:45 · 5 scenes</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('lyric-video')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #0a1a0a, #162b16);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(34,197,94,0.15);color:var(--accent4);">Lyric Video</span>
+            <div class="sample-info">
+              <h4>Mama's Prayer</h4>
+              <p>Gospel · 4:20</p>
+            </div>
+          </div>
+          <div class="sample-card" onclick="openEdit('short-teaser')">
+            <div class="sample-thumb">
+              <div class="sample-thumb-bg" style="background: linear-gradient(135deg, #1a0a18, #330d2e);"></div>
+              <div class="sample-play">▶</div>
+            </div>
+            <span class="sample-badge" style="background:rgba(236,72,153,0.15);color:var(--pink);">Teaser</span>
+            <div class="sample-info">
+              <h4>Sunday Best</h4>
+              <p>Amapiano · 0:60</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /tab-video -->
+
+  </div><!-- /studio-tabs -->
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- EDIT OVERLAY — slides up when any mode card is clicked     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="edit-overlay" id="editOverlay">
+  <div class="edit-backdrop" onclick="closeEdit()"></div>
+  <div class="edit-panel" id="editPanel">
+    <div class="edit-handle"></div>
+    <div class="edit-inner" id="editInner">
+      <!-- Content injected by JS -->
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Tab switching ────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Edit panel content map ───────────────────────────────────
+const editConfigs = {
+
+  'text-to-music': {
+    icon: '✍️', title: 'Text to Music', color: 'cyan',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Song Concept *</label>
+        <textarea class="field-textarea" placeholder="A heartbreak song about leaving Lagos for London, nostalgic, missing home and family..."></textarea>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Genre</label>
+          <select class="field-select">
+            <option>Afrobeats</option><option>Amapiano</option><option>Highlife</option>
+            <option>Gospel</option><option>R&B</option><option>Hip Hop</option>
+            <option>Fuji</option><option>Juju</option><option>Drill</option><option>Pop</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Language</label>
+          <select class="field-select">
+            <option>English</option><option>Yoruba</option><option>Igbo</option>
+            <option>Hausa</option><option>Pidgin</option><option>Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Mood</label>
+        <div class="pill-group">
+          ${['Joyful','Melancholic','Energetic','Romantic','Spiritual','Angry','Celebratory','Nostalgic'].map(m =>
+            `<button class="pill" onclick="togglePill(this)">${m}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Duration</label>
+        <div class="pill-group">
+          ${['1 min','2 min','3 min','4 min'].map(d =>
+            `<button class="pill" onclick="togglePill(this)">${d}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn" onclick="startGeneration()">✦ Generate My Song</button>
+    `
+  },
+
+  'image-to-music': {
+    icon: '🖼️', title: 'Image to Music', color: 'orange',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Image *</label>
+        <div class="upload-zone" onclick="document.getElementById('imgUpload1').click()">
+          <input type="file" id="imgUpload1" accept="image/*" style="display:none" onchange="showFileName(this,'imgUpload1Label')">
+          <div class="upload-zone-icon">🖼️</div>
+          <p id="imgUpload1Label">Tap to upload your image<br><strong>GHS will read its mood and create music to match</strong></p>
+        </div>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Genre Preference</label>
+          <select class="field-select">
+            <option>Let GHS decide</option><option>Afrobeats</option><option>Amapiano</option>
+            <option>Gospel</option><option>R&B</option><option>Ambient</option><option>Classical</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Duration</label>
+          <select class="field-select">
+            <option>1 min</option><option>2 min</option><option>3 min</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Additional Notes (optional)</label>
+        <input class="field-input" placeholder="e.g. Make it feel like a Sunday morning in Lagos...">
+      </div>
+      <button class="gen-btn orange" onclick="startGeneration()">✦ Generate Music from Image</button>
+    `
+  },
+
+  'voice-to-music': {
+    icon: '🎙️', title: 'Voice to Music', color: 'purple',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Voice Recording *</label>
+        <div class="upload-zone" onclick="document.getElementById('voiceUpload').click()">
+          <input type="file" id="voiceUpload" accept="audio/*" style="display:none">
+          <div class="upload-zone-icon">🎙️</div>
+          <p>Upload your voice recording<br><strong>Humming, singing, or speaking — GHS handles all of it</strong></p>
+        </div>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">What to do with my voice</label>
+          <select class="field-select">
+            <option>Keep my voice as the lead vocal</option>
+            <option>Use as melody guide, generate new vocals</option>
+            <option>Use for lyrics only, generate full production</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Genre</label>
+          <select class="field-select">
+            <option>Let GHS decide</option><option>Afrobeats</option><option>Gospel</option>
+            <option>R&B</option><option>Highlife</option><option>Pop</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">What is this song about?</label>
+        <input class="field-input" placeholder="Brief description helps GHS write better lyrics around your melody...">
+      </div>
+      <button class="gen-btn purple" onclick="startGeneration()">✦ Generate Song from My Voice</button>
+    `
+  },
+
+  'image-voice-to-music': {
+    icon: '🎨', title: 'Image + Voice to Music', color: 'gold',
+    html: `
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Upload Image *</label>
+          <div class="upload-zone" onclick="document.getElementById('ivImg').click()" style="padding:24px;">
+            <input type="file" id="ivImg" accept="image/*" style="display:none">
+            <div class="upload-zone-icon">🖼️</div>
+            <p style="font-size:12px;">Upload image<br><strong>Sets the visual mood</strong></p>
+          </div>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Upload Voice *</label>
+          <div class="upload-zone" onclick="document.getElementById('ivVoice').click()" style="padding:24px;">
+            <input type="file" id="ivVoice" accept="audio/*" style="display:none">
+            <div class="upload-zone-icon">🎙️</div>
+            <p style="font-size:12px;">Upload voice<br><strong>Sets the emotional tone</strong></p>
+          </div>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Song Direction (optional)</label>
+        <textarea class="field-textarea" placeholder="Add any extra direction for GHS — theme, story, mood words..."></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Duration</label>
+        <div class="pill-group">
+          ${['1 min','2 min','3 min'].map(d => `<button class="pill" onclick="togglePill(this)">${d}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn gold" onclick="startGeneration()">✦ Combine & Generate</button>
+    `
+  },
+
+  'image-animation': {
+    icon: '🎭', title: 'Music with Animation', color: 'pink',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Image to Animate *</label>
+        <div class="upload-zone" onclick="document.getElementById('animImg').click()">
+          <input type="file" id="animImg" accept="image/*" style="display:none">
+          <div class="upload-zone-icon">🎭</div>
+          <p>Upload your image<br><strong>GHS will animate it to move with the music beat</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Music Source</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">Generate new music</button>
+          <button class="pill" onclick="togglePill(this)">Upload my own music</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Animation Style</label>
+        <div class="pill-group">
+          ${['Gentle pulse','Dancing','Breathing','Zoom & pan','Colour shift','Particle burst'].map(a =>
+            `<button class="pill" onclick="togglePill(this)">${a}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Music Style (if generating)</label>
+        <select class="field-select">
+          <option>Match the image mood</option><option>Afrobeats</option><option>Ambient</option>
+          <option>Gospel</option><option>Electronic</option><option>Jazz</option>
+        </select>
+      </div>
+      <button class="gen-btn pink" onclick="startGeneration()">✦ Animate & Generate</button>
+    `
+  },
+
+  'audio-to-video': {
+    icon: '🎵', title: 'Audio to Video', color: 'green',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Audio / Song *</label>
+        <div class="upload-zone" onclick="document.getElementById('audioUpload').click()">
+          <input type="file" id="audioUpload" accept="audio/*" style="display:none">
+          <div class="upload-zone-icon">🎵</div>
+          <p>Upload your audio file<br><strong>MP3, WAV, AAC — GHS generates a matching video</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Visual Style</label>
+        <div class="pill-group">
+          ${['Cinematic','Street','Abstract','Nature','Luxury','Urban Lagos','Rural Africa','Fantasy'].map(v =>
+            `<button class="pill" onclick="togglePill(this)">${v}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">What is this song about? (optional)</label>
+        <input class="field-input" placeholder="Helps GHS pick better visuals for your song...">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Output format</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">16:9 YouTube</button>
+          <button class="pill" onclick="togglePill(this)">9:16 Reels/TikTok</button>
+          <button class="pill" onclick="togglePill(this)">Both</button>
+        </div>
+      </div>
+      <button class="gen-btn green" onclick="startGeneration()">✦ Generate Video for My Song</button>
+    `
+  },
+
+  // ── Children modes ───────────────────────────────────────────
+  'children-abc': {
+    icon: '🔤', title: 'ABC Alphabet Song', color: 'purple',
+    html: `
+      <div style="background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.2);border-radius:14px;padding:16px;margin-bottom:24px;">
+        <p style="font-size:13px;color:#c4b5fd;line-height:1.6;">GHS will create a fun, educational alphabet song for children with colourful animation. Safe, joyful, and engaging for ages 2–8.</p>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Age Group</label>
+          <select class="field-select">
+            <option>Toddlers (2–3 years)</option>
+            <option>Pre-school (3–5 years)</option>
+            <option>Early school (5–8 years)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Music Style</label>
+          <select class="field-select">
+            <option>Fun & Bouncy</option><option>Calm & Gentle</option>
+            <option>Afro-kids</option><option>Classic nursery</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Language</label>
+        <div class="pill-group">
+          ${['English','Yoruba','Igbo','Hausa','Pidgin','Mixed English + Yoruba'].map(l =>
+            `<button class="pill" onclick="togglePill(this)">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Animation Style</label>
+        <div class="pill-group">
+          ${['Cartoon animals','Colourful letters','Nigerian characters','Space adventure','Jungle theme'].map(a =>
+            `<button class="pill" onclick="togglePill(this)">${a}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn purple" onclick="startGeneration()">🔤 Create ABC Song</button>
+    `
+  },
+
+  'children-numbers': {
+    icon: '🔢', title: 'Numbers & Counting Song', color: 'gold',
+    html: `
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Count up to</label>
+          <select class="field-select">
+            <option>1 to 10</option><option>1 to 20</option>
+            <option>1 to 50</option><option>1 to 100</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Language</label>
+          <select class="field-select">
+            <option>English</option><option>Yoruba</option><option>Igbo</option><option>Hausa</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Theme</label>
+        <div class="pill-group">
+          ${['Counting fruits','Counting animals','Counting stars','Counting market items','Pure numbers'].map(t =>
+            `<button class="pill" onclick="togglePill(this)">${t}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn gold" onclick="startGeneration()">🔢 Create Numbers Song</button>
+    `
+  },
+
+  'children-animals': {
+    icon: '🐾', title: 'Animal Sounds Song', color: 'green',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Animals to include</label>
+        <div class="pill-group">
+          ${['Nigerian animals','Farm animals','Wild animals','Ocean animals','All animals','Let GHS choose'].map(a =>
+            `<button class="pill" onclick="togglePill(this)">${a}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Language</label>
+        <select class="field-select">
+          <option>English</option><option>Yoruba</option><option>Igbo</option><option>Hausa</option>
+        </select>
+      </div>
+      <button class="gen-btn green" onclick="startGeneration()">🐾 Create Animal Song</button>
+    `
+  },
+
+  'children-colours': {
+    icon: '🌈', title: 'Colours Song', color: 'pink',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Language</label>
+        <div class="pill-group">
+          ${['English','Yoruba','Igbo','Hausa','Mixed'].map(l =>
+            `<button class="pill" onclick="togglePill(this)">${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Visual style</label>
+        <div class="pill-group">
+          ${['Cartoon','Watercolour','3D shapes','Nigerian patterns','Rainbow'].map(v =>
+            `<button class="pill" onclick="togglePill(this)">${v}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn pink" onclick="startGeneration()">🌈 Create Colours Song</button>
+    `
+  },
+
+  'children-nursery': {
+    icon: '🌙', title: 'Nursery Rhyme', color: 'cyan',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Rhyme idea</label>
+        <textarea class="field-textarea" placeholder="A bedtime song about the moon and stars over Lagos, gentle and calming..."></textarea>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Language</label>
+          <select class="field-select">
+            <option>English</option><option>Yoruba</option><option>Igbo</option><option>Hausa</option><option>Mixed</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Mood</label>
+          <select class="field-select">
+            <option>Calm & bedtime</option><option>Playful</option><option>Cheerful morning</option>
+          </select>
+        </div>
+      </div>
+      <button class="gen-btn" onclick="startGeneration()">🌙 Create Nursery Rhyme</button>
+    `
+  },
+
+  'children-custom': {
+    icon: '✨', title: 'Custom Children\'s Song', color: 'purple',
+    html: `
+      <div class="field-group">
+        <label class="field-label">What should this song be about? *</label>
+        <textarea class="field-textarea" placeholder="A song teaching children about sharing and kindness, fun and bouncy, ages 4-6..."></textarea>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Age group</label>
+          <select class="field-select">
+            <option>Toddlers (2–3)</option><option>Pre-school (3–5)</option>
+            <option>Early school (5–8)</option><option>Older kids (8–12)</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Language</label>
+          <select class="field-select">
+            <option>English</option><option>Yoruba</option><option>Igbo</option>
+            <option>Hausa</option><option>Pidgin</option><option>Mixed</option>
+          </select>
+        </div>
+      </div>
+      <button class="gen-btn purple" onclick="startGeneration()">✨ Create Children's Song</button>
+    `
+  },
+
+  // ── Music Video modes ────────────────────────────────────────
+  'full-music-video': {
+    icon: '🎬', title: 'Full Music Video', color: 'cyan',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Song Concept *</label>
+        <textarea class="field-textarea" placeholder="A love song about Lagos nightlife, the energy of Victoria Island, meeting someone special under the city lights..."></textarea>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Genre</label>
+          <select class="field-select">
+            <option>Afrobeats</option><option>Amapiano</option><option>Highlife</option>
+            <option>Gospel</option><option>R&B</option><option>Hip Hop</option><option>Fuji</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Language</label>
+          <select class="field-select">
+            <option>English</option><option>Yoruba</option><option>Igbo</option>
+            <option>Hausa</option><option>Pidgin</option><option>Mixed</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Visual Style</label>
+        <div class="pill-group">
+          ${['Cinematic','Street','Luxury','Nature','Urban Lagos','Abstract','Fantasy'].map(v =>
+            `<button class="pill" onclick="togglePill(this)">${v}</button>`).join('')}
+        </div>
+      </div>
+      <div class="fields-row">
+        <div class="field-group">
+          <label class="field-label">Duration</label>
+          <select class="field-select">
+            <option>2 minutes</option><option>3 minutes</option><option>4 minutes</option>
+          </select>
+        </div>
+        <div class="field-group">
+          <label class="field-label">Artist Name (for title card)</label>
+          <input class="field-input" placeholder="Your artist or brand name">
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Upload your own photos (optional — GHS will cut them in as scenes)</label>
+        <div class="upload-zone" style="padding:20px;" onclick="document.getElementById('mvPhotos').click()">
+          <input type="file" id="mvPhotos" multiple accept="image/*" style="display:none">
+          <p style="font-size:13px;">Tap to add your photos <strong>(optional)</strong></p>
+        </div>
+      </div>
+      <button class="gen-btn" onclick="startGeneration()">🎬 Start Full Music Video Pipeline</button>
+    `
+  },
+
+  'bring-your-song': {
+    icon: '🎤', title: 'Bring Your Own Song', color: 'orange',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Your Song *</label>
+        <div class="upload-zone" onclick="document.getElementById('bySong').click()">
+          <input type="file" id="bySong" accept="audio/*" style="display:none">
+          <div class="upload-zone-icon">🎤</div>
+          <p>Upload your finished track<br><strong>GHS generates a full video around your music</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Visual Style</label>
+        <div class="pill-group">
+          ${['Cinematic','Street','Luxury','Nature','Urban Lagos','Abstract','Fantasy'].map(v =>
+            `<button class="pill" onclick="togglePill(this)">${v}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Song description (optional)</label>
+        <input class="field-input" placeholder="What is your song about? Helps GHS pick better scenes...">
+      </div>
+      <div class="field-group">
+        <label class="field-label">Lyric overlay</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">Yes — show lyrics on screen</button>
+          <button class="pill" onclick="togglePill(this)">No lyrics overlay</button>
+        </div>
+      </div>
+      <button class="gen-btn orange" onclick="startGeneration()">🎤 Generate Video for My Track</button>
+    `
+  },
+
+  'ai-performance': {
+    icon: '🕺', title: 'AI Artist Performance', color: 'purple',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Song Source</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">Generate new song</button>
+          <button class="pill" onclick="togglePill(this)">Upload my song</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Song concept (if generating)</label>
+        <textarea class="field-textarea" placeholder="Describe your song idea..."></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">AI Artist Style</label>
+        <div class="pill-group">
+          ${['Male Afrobeats artist','Female R&B artist','Gender neutral pop','Traditional African','Gospel performer'].map(a =>
+            `<button class="pill" onclick="togglePill(this)">${a}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Performance Stage</label>
+        <div class="pill-group">
+          ${['Concert stage','Street corner','Rooftop Lagos','Luxury studio','Beach','Open field'].map(s =>
+            `<button class="pill" onclick="togglePill(this)">${s}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn purple" onclick="startGeneration()">🕺 Generate AI Performance Video</button>
+    `
+  },
+
+  'lyric-video': {
+    icon: '📝', title: 'Lyric Video', color: 'green',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Your Song *</label>
+        <div class="upload-zone" onclick="document.getElementById('lvSong').click()">
+          <input type="file" id="lvSong" accept="audio/*" style="display:none">
+          <div class="upload-zone-icon">📝</div>
+          <p>Upload your track<br><strong>GHS syncs your lyrics word by word</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Lyrics (paste here)</label>
+        <textarea class="field-textarea" placeholder="Paste your song lyrics here. GHS will sync them to the audio automatically..."></textarea>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Text Style</label>
+        <div class="pill-group">
+          ${['Bold street','Elegant script','Minimal clean','Neon glow','Hand-drawn','Gold luxury'].map(t =>
+            `<button class="pill" onclick="togglePill(this)">${t}</button>`).join('')}
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Background Style</label>
+        <div class="pill-group">
+          ${['Abstract motion','Lagos cityscape','Particles','Gradient','Dark minimal','Cosmic'].map(b =>
+            `<button class="pill" onclick="togglePill(this)">${b}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn green" onclick="startGeneration()">📝 Create Lyric Video</button>
+    `
+  },
+
+  'short-teaser': {
+    icon: '⚡', title: 'Short Teaser Cut', color: 'pink',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Full Video or Song *</label>
+        <div class="upload-zone" onclick="document.getElementById('teaserUpload').click()">
+          <input type="file" id="teaserUpload" accept="video/*,audio/*" style="display:none">
+          <div class="upload-zone-icon">⚡</div>
+          <p>Upload your full video or audio<br><strong>GHS picks the best 60 seconds automatically</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Output platform</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">Instagram Reels</button>
+          <button class="pill" onclick="togglePill(this)">TikTok</button>
+          <button class="pill" onclick="togglePill(this)">YouTube Shorts</button>
+          <button class="pill" onclick="togglePill(this)">All three</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Teaser length</label>
+        <div class="pill-group">
+          ${['30 seconds','45 seconds','60 seconds','90 seconds'].map(t =>
+            `<button class="pill" onclick="togglePill(this)">${t}</button>`).join('')}
+        </div>
+      </div>
+      <button class="gen-btn pink" onclick="startGeneration()">⚡ Create Short Teaser</button>
+    `
+  },
+
+  'image-music-video': {
+    icon: '📸', title: 'Image Music Video', color: 'gold',
+    html: `
+      <div class="field-group">
+        <label class="field-label">Upload Your Photos *</label>
+        <div class="upload-zone" onclick="document.getElementById('imvPhotos').click()">
+          <input type="file" id="imvPhotos" multiple accept="image/*" style="display:none">
+          <div class="upload-zone-icon">📸</div>
+          <p>Upload 3–20 photos<br><strong>GHS animates them into a music video with your song</strong></p>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Music Source</label>
+        <div class="pill-group">
+          <button class="pill selected" onclick="togglePill(this)">Generate music for my photos</button>
+          <button class="pill" onclick="togglePill(this)">Upload my own music</button>
+        </div>
+      </div>
+      <div class="field-group">
+        <label class="field-label">Story / Caption (optional)</label>
+        <textarea class="field-textarea" placeholder="Tell GHS what these photos are about — a birthday, a trip, a wedding, a business launch..."></textarea>
+      </div>
+      <button class="gen-btn gold" onclick="startGeneration()">📸 Create My Image Music Video</button>
+    `
+  }
+};
+
+// ── Open edit panel ──────────────────────────────────────────
+function openEdit(mode) {
+  const config = editConfigs[mode];
+  if (!config) return;
+
+  const colorMap = {
+    cyan: '#00d4ff', orange: '#ff6b35', purple: '#a855f7',
+    gold: '#f59e0b', pink: '#ec4899', green: '#22c55e'
+  };
+
+  document.getElementById('editInner').innerHTML = `
+    <div class="edit-header">
+      <div class="edit-title">
+        <span>${config.icon}</span>
+        ${config.title}
+      </div>
+      <button class="edit-close" onclick="closeEdit()">×</button>
+    </div>
+    ${config.html}
+  `;
+
+  document.getElementById('editOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeEdit() {
+  document.getElementById('editOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── Pill toggle ──────────────────────────────────────────────
+function togglePill(el) {
+  const group = el.closest('.pill-group');
+  const isMulti = !group.dataset.single;
+  if (!isMulti) {
+    group.querySelectorAll('.pill').forEach(p => p.classList.remove('selected'));
+  }
+  el.classList.toggle('selected');
+}
+
+// ── File name display ────────────────────────────────────────
+function showFileName(input, labelId) {
+  const label = document.getElementById(labelId);
+  if (label && input.files[0]) {
+    label.innerHTML = `✓ <strong>${input.files[0].name}</strong> selected`;
+  }
+}
+
+// ── Generation stub ──────────────────────────────────────────
+function startGeneration() {
+  const btn = document.querySelector('.edit-panel .gen-btn');
+  if (!btn) return;
+  const original = btn.innerHTML;
+  btn.innerHTML = '⏳ Starting pipeline...';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.innerHTML = '✅ Added to queue — check Review Queue';
+    btn.style.background = '#22c55e';
+    btn.style.color = '#000';
+  }, 2000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,973 @@
+# GHS Semi-AI Collaboration Mode Plan
+
+## Full Product Canvas for Claude Code
+
+## Purpose
+
+This document defines a new major product direction for GHS:
+
+**Semi-AI Collaboration Mode**
+
+This mode sits between:
+
+- full AI auto mode
+- and full manual editing mode
+
+The goal is to let the user and AI build together.
+
+This should not be treated as a small feature. It is a product mode that can become one of the strongest parts of GHS.
+
+This document is also aligned with the related helper direction:
+
+**GHS Semi-AI Collaborative Studio**
+
+That helper framing supports the same core direction and should be treated as reinforcement, not as a replacement for this master plan.
+
+---
+
+## 1. Core Product Idea
+
+Right now, much of GHS behaves like an auto mode:
+
+- user selects a mode
+- user enters a prompt
+- AI builds a result
+
+That is useful, but it has limits.
+
+Users often want:
+
+- more control
+- the ability to fix specific things
+- the ability to steer the output
+- the ability to collaborate with AI instead of restarting everything
+
+So GHS needs a second major mode:
+
+**Semi-AI Collaboration Mode**
+
+This is a co-creation mode where:
+
+- AI creates a draft
+- user sees a review screen
+- user gives instructions
+- AI updates the plan
+- affected sections are updated
+- the user reviews again
+- the process continues until approval
+
+This should feel like:
+
+- producer + AI
+- director + AI
+- editor + AI
+
+Not just:
+
+- one prompt in
+- one output out
+
+---
+
+## 2. Product Positioning
+
+Semi-AI Collaboration Mode is not full manual editing yet.
+
+It is not meant to be DaVinci Resolve. It is not meant to become an overwhelming professional timeline editor at the first stage.
+
+Instead, it should be:
+
+- structured
+- promptable
+- editable
+- visual
+- responsive
+- collaborative
+- review-first
+
+The correct first target is:
+
+**AI-assisted editable production**
+
+This means:
+
+- the user sees what AI has built
+- the user can ask for changes
+- the system updates intelligently
+- the user can keep shaping the output without rebuilding from scratch
+
+---
+
+## 3. Why This Mode Matters
+
+This mode solves major weaknesses of full-auto generation.
+
+Without Semi-AI mode, users may feel:
+
+- trapped by the first draft
+- unable to fix one small issue
+- forced to regenerate the whole project
+- unable to direct the result properly
+- uncertain about what AI is doing
+
+Semi-AI mode gives the user:
+
+- control
+- confidence
+- visibility
+- creative collaboration
+- better review quality
+- a stronger sense of ownership
+
+This can become one of the strongest differentiators in GHS.
+
+---
+
+## 4. Relationship to Other Modes
+
+GHS should eventually have three clear production modes.
+
+### Mode 1 — Auto Mode
+
+User enters prompt or selects input. AI generates full draft with minimal user involvement.
+
+### Mode 2 — Semi-AI Collaboration Mode
+
+User and AI work together through a review-and-instruct workflow. This is the focus now.
+
+### Mode 3 — Manual Mode
+
+A deeper manual editing system with stronger direct control. This can come later.
+
+### Important Rule
+
+Do Semi-AI first. Do not jump directly into a heavy manual editor.
+
+A clean top-level product ladder can be:
+
+- **Auto Mode** — “Generate it for me.”
+- **Semi-AI Mode** — “Help me improve it.”
+- **Manual Mode — Later** — “Let me control more of it.”
+
+---
+
+## 5. Main Workflow
+
+The correct Semi-AI workflow is:
+
+1. user starts project
+2. AI creates first draft
+3. user enters review screen
+4. user plays preview
+5. user types edit instruction or uses quick action controls
+6. AI parses the request
+7. AI updates the project plan
+8. affected section is re-rendered or reassembled
+9. preview updates
+10. user reviews again
+11. user approves final result
+
+### Important Principle
+
+The user should not need to restart the whole project for every small change.
+
+This workflow should repeat as needed.
+
+---
+
+## 6. Review Screen
+
+The review screen is the heart of this mode.
+
+This is where the user and AI collaborate.
+
+### Main Review Screen Goals
+
+- show current draft clearly
+- let user inspect what AI built
+- let user issue changes easily
+- show the effect of changes quickly
+- preserve project continuity
+
+### Core Review Screen Elements
+
+- preview player
+- play/pause
+- scrub/timeline bar
+- scene or segment list
+- asset list
+- instruction box
+- quick edit chips/buttons
+- narration section
+- music section
+- SFX section
+- text/overlay section
+- edit history
+- apply / approve / undo / regenerate controls
+
+### Best Practical Screen Structure
+
+**Left Panel**
+
+- scene list
+- shot list
+- asset list
+- project structure
+
+**Center Panel**
+
+- main preview player
+- before/after preview when needed
+- scene focus area
+
+**Right Panel**
+
+- selected scene properties
+- AI instruction box
+- quick actions
+- audio/text/visual controls
+
+**Bottom Area — Simple First Pass**
+
+- lightweight timeline or range strip
+- audio range indicator later if needed
+
+### Important Rule
+
+The screen should feel:
+
+- clean
+- direct
+- collaborative
+- not overloaded
+
+---
+
+## 7. Instruction Box
+
+This is a key interaction layer.
+
+The user should be able to type instructions such as:
+
+- remove this tree
+- add another tree
+- cut this sound
+- add this SFX
+- reduce background music
+- change narration to female voice
+- shorten intro
+- make this section more energetic
+- replace image 2
+- add subtitle here
+- move logo to the end
+- make the color warmer
+- remove this noise
+- add piano sound
+- make text larger
+
+### Important Rule
+
+The instruction box should not behave like a loose chat only. It should connect to structured project changes.
+
+---
+
+## 8. Quick Action Controls
+
+To reduce friction, the review screen should also have common edit controls.
+
+### Examples
+
+- remove object
+- replace image
+- shorten scene
+- trim intro
+- trim outro
+- change narration
+- add SFX
+- change music
+- add subtitle
+- restyle scene
+- add logo
+- regenerate section only
+- lower narration speed
+- soften background music
+- improve sync
+
+These actions should work alongside the instruction box.
+
+---
+
+## 9. AI Change Planner
+
+This is one of the most important backend pieces.
+
+The system should not blindly regenerate the whole project every time the user types something.
+
+Instead, GHS needs an **AI Change Planner**.
+
+### AI Change Planner Responsibilities
+
+- parse the user instruction
+- detect what part of the project is affected
+- decide whether the change is:
+  - metadata only
+  - text only
+  - timing only
+  - audio only
+  - visual only
+  - single-scene regeneration
+  - full project regeneration
+- update the project plan
+- request only the necessary tools/providers
+
+### Why this matters
+
+Without this layer:
+
+- costs go up
+- latency gets worse
+- user trust drops
+- the editor feels unstable
+
+---
+
+## 10. Project State as Source of Truth
+
+This mode requires a structured project state.
+
+The source of truth should not be just:
+
+- raw prompt
+- final video
+
+It should be a living project structure.
+
+### Project State Should Track
+
+- scenes or segments
+- assets used
+- image/video references
+- narration track
+- music track
+- SFX placements
+- subtitles/overlay text
+- timing map
+- transitions
+- logo placements
+- selected style
+- edit history
+- approval state
+
+### Important Rule
+
+User edits must update the project state. Then the renderer works from that updated state.
+
+This is what makes collaboration stable.
+
+---
+
+## 11. Correct Update Flow
+
+The update flow should be:
+
+**User Instruction → Intent Parser → Change Planner → Project State Update → Preview Render → User Review**
+
+Not:
+
+**User Instruction → Full Project Rebuild From Scratch**
+
+This difference is critical.
+
+---
+
+## 12. Edit Scope Classification
+
+Claude Code should classify edit requests by scope.
+
+### Low-Scope Changes
+
+- text overlay change
+- subtitle style change
+- logo position change
+- music volume change
+- narration volume change
+- cut intro/outro
+- timing adjustment
+
+### Medium-Scope Changes
+
+- replace image
+- restyle scene
+- add SFX
+- remove SFX
+- change narration voice
+- reorder scenes
+- regenerate one segment
+
+### High-Scope Changes
+
+- remove object from video
+- add object to video
+- change scene composition deeply
+- replace key subject
+- transform multiple segments
+- regenerate major visual structure
+
+### Why this matters
+
+Different scopes should trigger different pipelines and different costs.
+
+---
+
+## 13. Role of FFmpeg
+
+FFmpeg should be the deterministic execution layer for assembly.
+
+### FFmpeg Should Handle
+
+- trimming
+- concatenation
+- overlays
+- subtitle burn-in where needed
+- audio mixing
+- volume balancing
+- transitions where appropriate
+- logo placement
+- export formatting
+
+### Important Rule
+
+FFmpeg should not be treated as a random last step. It should execute the structured assembly plan.
+
+---
+
+## 14. AI + FFmpeg Collaboration
+
+The correct architecture is:
+
+**AI plans. FFmpeg executes.**
+
+### AI Responsibilities
+
+- understand user instruction
+- decide what must change
+- update timing logic
+- update asset logic
+- update scene plan
+- update music/narration/SFX plan
+
+### FFmpeg Responsibilities
+
+- assemble
+- trim
+- mix
+- overlay
+- subtitle
+- concatenate
+- render preview
+- render final output
+
+### Important Rule
+
+The system should not let AI freestyle raw FFmpeg commands as the primary control model. A structured assembly format should exist between planning and execution.
+
+---
+
+## 15. Specialized Provider Routing
+
+Not all edits should use the same tool.
+
+### Examples
+
+**Use deterministic assembly only when possible**
+
+- cut sound
+- change volume
+- move logo
+- adjust subtitle
+- trim intro
+- trim outro
+
+**Use generation/edit providers only when needed**
+
+- remove object from video
+- add visual object
+- replace image with generated alternative
+- transform a scene style
+- rebuild a visual segment
+
+### Important Rule
+
+Only call heavy external generation/editing providers when genuinely needed.
+
+---
+
+## 16. Runway and Similar Editing APIs
+
+Yes, external APIs such as Runway can help in parts of this mode.
+
+### Suitable Use Cases
+
+- object removal
+- video restyling
+- visual transformation
+- selective scene changes
+- image-to-video replacement moments
+- background change
+- scene transformation
+- regenerating selected visual parts
+
+### Important Rule
+
+Even when using external APIs:
+
+- GHS must own the project state
+- GHS must own the review UI
+- GHS must own edit history
+- GHS must own the approval flow
+- GHS must own the assembly pipeline
+
+Do not let external providers become the source of truth.
+
+Runway should be treated as one editing/generation engine. It is not the whole GHS editor.
+
+---
+
+## 17. Recommended MVP for Semi-AI Mode
+
+Do not start with a full manual timeline editor.
+
+### Start With
+
+- full auto draft generation
+- review screen
+- instruction box
+- quick edit controls
+- project state storage
+- targeted updates
+- preview rerender
+- approval flow
+
+### Best First Edit Types
+
+- change text overlay
+- change narration voice
+- adjust music volume
+- add/remove SFX
+- trim intro/outro
+- replace still image
+- change subtitle style
+- add logo/watermark
+- reorder scenes
+- regenerate one section only
+
+This is realistic and valuable.
+
+### Video-Focused Features
+
+- trim scene
+- replace scene
+- regenerate one scene only
+- remove object
+- restyle scene
+- change background
+- add logo/image overlay
+- replace one image in a scene
+
+### Audio-Focused Features
+
+- replace music
+- add music
+- lower music under narration
+- add SFX at a timestamp
+- change narration voice
+- remove original audio partly or fully
+- add ambience
+
+### Text-Focused Features
+
+- edit subtitle text
+- add title card
+- add CTA card
+- adjust subtitle timing
+- add overlay text or learning text where needed
+
+These are high-value and realistic for first pass.
+
+---
+
+## 18. Later Advanced Edit Types
+
+After the MVP works well, GHS can expand to:
+
+- remove object from video
+- add object to video
+- extend scene
+- advanced masking
+- scene-level inpainting
+- actor/subject replacement
+- more direct timeline editing
+- keyframe-like controls
+
+These should come later.
+
+Manual Mode can come later too.
+
+That later mode may support:
+
+- deeper timeline editing
+- more manual layer control
+- manual keyframe control
+- richer editing precision
+
+But Semi-AI should come first because it gives high value much earlier.
+
+---
+
+## 19. User Experience Goal
+
+Semi-AI mode should feel like:
+
+- the user is directing production
+- AI is cooperating
+- edits are understandable
+- changes are visible quickly
+- the project remains stable while evolving
+
+It should not feel like:
+
+- random re-generation chaos
+- one prompt destroying everything else
+- editing without visibility
+- hidden state changes
+
+The defining experience should be:
+
+**pause the draft, tell GHS what to fix, review the targeted change, approve it, and keep building with AI instead of starting over.**
+
+---
+
+## 20. Model Tier Design
+
+This mode should respect the GHS tier system.
+
+### GHS Standard
+
+Use for:
+
+- local LLM support
+- rough first-pass planning
+- simple edits
+- low-cost assistance
+
+### GHS Pro
+
+Use for:
+
+- better change planning
+- stronger structured updates
+- better instruction parsing
+- stronger supervision
+
+### GHS Premium
+
+Use for:
+
+- advanced collaboration planning
+- better project continuity
+- better timing and assembly suggestions
+- stronger creative supervision
+
+### GHS Premium Best
+
+Use for:
+
+- hardest collaboration tasks
+- premium supervisory reasoning
+- difficult production planning
+- highest confidence edit planning
+
+### Important Rule
+
+Do not make local LLM the hidden default for all collaboration logic. Local can serve Standard mode, but stronger tiers must route to stronger hosted models.
+
+---
+
+## 21. Collaboration-Specific Routing Rule
+
+For Semi-AI mode, Claude Code must build routing carefully.
+
+### Local LLM Can Help With
+
+- rough intent parsing
+- draft metadata
+- basic edit classification
+- simple helper suggestions
+
+### Stronger Hosted Models Should Handle
+
+- important change planning
+- complex instruction parsing
+- multi-step updates
+- visual/audio coordination reasoning
+- stronger project supervision
+
+### Important Rule
+
+As the model tier changes, the execution layer must remain stable. The planner can change, but the project-state schema and assembly schema must remain consistent.
+
+---
+
+## 22. Review Panel Sections
+
+The review screen should expose key editable sections.
+
+### Recommended Sections
+
+- Scenes / Segments
+- Assets
+- Narration
+- Music
+- SFX
+- Text / Captions
+- Style / Mood
+- Logo / Branding
+- Edit History
+- Change Requests
+- Preview / Compare
+
+This gives the user visibility without overwhelming them.
+
+---
+
+## 23. Immediate-Effect Principle
+
+A key goal is that user instructions should feel responsive.
+
+### Important Principle
+
+When the user changes something, the system should show the effect as quickly as possible.
+
+This does not always mean instant full render. It can mean:
+
+- draft update preview
+- partial rerender
+- affected scene only rerender
+- audio-only reassembly
+- visual compare
+
+### Goal
+
+The user should feel:
+
+- “my instruction took effect”
+- “I can keep working”
+- “I do not need to start again”
+
+---
+
+## 24. Approval and Pay-to-Apply Logic
+
+In some cases, applying a change may cost credits.
+
+### Required Behavior
+
+If a user request triggers expensive regeneration:
+
+- show what is changing
+- show the cost
+- let user approve before spending
+
+### Examples
+
+- replace scene with new AI video
+- remove object using a heavy provider
+- generate new image asset
+- regenerate a segment with a premium model
+
+### Low-Cost Deterministic Edits
+
+Simple edits may not require the same approval threshold, such as:
+
+- subtitle change
+- volume change
+- trim intro
+- move logo
+
+Every meaningful change should be reviewable.
+
+Before applying a change, GHS should show:
+
+- what scene or range is affected
+- what type of edit is being made
+- whether it changes visuals, audio, text, or structure
+- whether it requires generation cost
+- whether it is assembly-only
+
+### User Actions
+
+- approve change
+- reject change
+- request another version
+- apply only to selected scene
+- apply to similar scenes later if supported
+
+---
+
+## 25. Change History and Undo
+
+Semi-AI mode needs visible change history.
+
+### The System Should Track
+
+- user instructions
+- AI interpretation
+- changes applied
+- preview versions
+- approval points
+
+### User Actions
+
+- undo last change
+- compare previous version
+- restore earlier state
+- approve current state
+
+This strengthens trust and editing confidence.
+
+---
+
+## 26. Source of Truth Principle
+
+The source of truth should become:
+
+- structured project state
+- structured change requests
+- structured assembly plan
+- preview/final approval state
+
+Not just the first prompt.
+
+This is critical.
+
+---
+
+## 27. What Claude Code Must Build First
+
+### First Priority
+
+- project state schema
+- change planner
+- review screen
+- instruction box
+- quick action controls
+- assembly plan schema
+- preview rerender flow
+
+### Second Priority
+
+- edit scope classification
+- section-only update logic
+- narration/music/SFX editable blocks
+- change history
+- undo/restore support
+
+### Third Priority
+
+- provider routing for deeper edits
+- scene-only regeneration
+- stronger hosted-model routing by tier
+
+### Fourth Priority
+
+- advanced object-level edits
+- stronger compare tools
+- deeper timeline controls later
+
+---
+
+## 28. What Claude Code Must Not Do
+
+- do not try to build a full DaVinci-style editor first
+- do not regenerate the whole project for every small change
+- do not let AI freestyle unstable project updates
+- do not make local LLM the hidden default for all collaboration logic
+- do not let external providers become the source of truth
+- do not skip structured project state
+- do not hide what changed from the user
+- do not force full regeneration for every small change
+- do not rely only on one prompt box
+- do not blur Semi-AI into Auto Mode
+
+---
+
+## 29. Main Clarification for Claude Code
+
+We need a new major GHS mode called **Semi-AI Collaboration Mode**.
+
+This mode should sit between full auto generation and future full manual editing.
+
+The user should be able to:
+
+- review AI output
+- type change instructions
+- use quick edit actions
+- change music, narration, SFX, overlays, timing, assets, and scene behavior
+- see the effect of those changes quickly
+- approve before expensive updates are applied
+
+Please build this as a structured collaboration system, not as a loose chat or a full manual timeline editor.
+
+### Core architecture direction
+
+1. AI creates first draft
+2. review screen becomes collaboration center
+3. user issues edit requests
+4. AI Change Planner updates project state
+5. only affected sections are rerendered or reassembled where possible
+6. FFmpeg executes deterministic assembly
+7. external providers are used only when deeper edits are needed
+8. project state remains the source of truth
+9. model tiers must route appropriately and not default everything to local LLM
+
+Build this as a **Semi-AI Collaborative Studio**, not as a full manual editor.
+
+Core rules:
+
+- the user must be able to collaborate with AI on an existing draft
+- edits should target selected scenes, ranges, layers, or text
+- AI should parse intent and route the request intelligently
+- FFmpeg should remain the deterministic assembly layer
+- Runway and similar tools should be treated as optional engines, not the full product
+- every meaningful change should be reviewable before final application
+
+---
+
+## 30. Final Position
+
+Semi-AI Collaboration Mode should become one of the most powerful product layers in GHS.
+
+It gives the user something between autopilot and full manual editing:
+
+- fast drafts
+- visible review
+- direct instructions
+- targeted changes
+- stable project memory
+- strong producer-style control
+
+If built properly, this mode can make GHS feel less like a one-shot generator and more like a real AI production workbench where the user and AI build together.
+
+GHS Semi-AI Collaborative Studio should become the mode where users and AI co-produce content together: reviewing, correcting, replacing, trimming, enhancing, and reassembling scenes, audio, and text in a structured workspace before final export.
+
+This is the bridge between:
+
+- full Auto Mode
+- and future deep Manual Mode
+
+This is not a full DaVinci replacement. This is not a random prompt box. This is not only generation.
+
+This is:
+
+**review + edit + AI assistance + approval + reassembly**
+

@@ -45,6 +45,17 @@ export const env = {
     chatId: optional("TELEGRAM_CHAT_ID"),
   },
 
+  // MuAPI — cheaper alternative for Seedance and Wan video generation
+  muapi: {
+    apiKey: optional("MUAPI_API_KEY"),
+    baseUrl: optional("MUAPI_BASE_URL", "https://api.muapi.ai"),
+  },
+
+  // Freesound — free CC-licensed SFX library (get key at freesound.org/apiv2/apply)
+  freesound: {
+    apiKey: optional("FREESOUND_API_KEY"),
+  },
+
   // Music provider selection
   music: {
     provider:     optional("MUSIC_PROVIDER", "stock_library"),

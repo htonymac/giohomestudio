@@ -1,11 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import NarrationPanel from "../../components/NarrationPanel";
+import LayerizePanel, { type LayerizeResult } from "../../components/LayerizePanel";
+import NarrationControls, { type NarrationSettings as NarrationControlsSettings } from "../../components/NarrationControls";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 import OverlayPanel from "../../components/OverlayPanel";
 import AssetPicker from "../../components/AssetPicker";
 import SFXPicker from "../../components/SFXPicker";
+import CharacterPicker from "../../components/CharacterPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
@@ -378,7 +382,7 @@ function NewProjectForm({ onCreated, onCancel }: { onCreated: (p: CommercialProj
       <div className={`${sectionCls}`}>
         <div>
           <label className={labelCls}>📋 Project name *</label>
-          <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. 🏠 Lagos Property Promo April" className={inputCls} />
+          <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. 🏠 City Property Promo April" className={inputCls} />
         </div>
         <div>
           <label className={labelCls}>🏷️ Brand / business name</label>
@@ -625,7 +629,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 
             <div>
               <label className={labelCls}>🎯 Product / service name</label>
-              <input type="text" value={form.productName} onChange={e => setF("productName", e.target.value)} placeholder="e.g. 🎯 GioStudio Pro · 🍛 Mama's Jollof · 🏠 3BR Apartment" className={inputCls} />
+              <input type="text" value={form.productName} onChange={e => setF("productName", e.target.value)} placeholder="e.g. 🎯 GioStudio Pro · 🍜 Chef's Special · 🏠 3BR Apartment" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>⭐ Key features / benefits</label>
@@ -765,7 +769,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 
 // ── Commercial Editor (Mode 1) ────────────────────────────────────────────────
 
-function CommercialEditor({ initialProject, onBack }: { initialProject: CommercialProject; onBack: () => void }) {
+function CommercialEditor({ initialProject, onBack, initialCharacterId }: { initialProject: CommercialProject; onBack: () => void; initialCharacterId?: string }) {
   const [project, setProject]     = useState<CommercialProject>(initialProject);
   const [selectedId, setSelectedId] = useState<string | null>(project.slides[0]?.id ?? null);
   const [uploading, setUploading] = useState(false);
@@ -790,8 +794,11 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
   const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
   const [narrationSettings, setNarrationSettings] = useState<NarrationSettings>(DEFAULT_NARRATION_SETTINGS);
+  const [narrationText, setNarrationText] = useState("");
+  const [narrationControlsSettings, setNarrationControlsSettings] = useState<NarrationControlsSettings>({ mode: "commercial" } as NarrationControlsSettings);
   const [overlayLayers, setOverlayLayers] = useState<OverlayLayer[]>([]);
   const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [layerizeResult, setLayerizeResult] = useState<LayerizeResult | null>(null);
   const [orderSuggestion, setOrderSuggestion] = useState<{ ids: string[]; reasoning: string } | null>(null);
   const [suggestingOrder, setSuggestingOrder] = useState(false);
   const [showSmartPro, setShowSmartPro] = useState(false);
@@ -813,6 +820,31 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
   const [translateState, setTranslateState] = useState<{ slideId: string; field: "caption" | "narration"; translated: string; loading: boolean; lang: string } | null>(null);
   const [translateLang, setTranslateLang] = useState("fr");
   const [readImageState, setReadImageState] = useState<{ slideId: string; caption: string; narration: string; loading: boolean; error?: string; details?: string[] } | null>(null);
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; gender: string | null; age: string | null; country: string | null; culture: string | null; imageUrl: string | null; visualDescription: string | null; voiceId: string | null; voiceName: string | null; voiceProvider: string | null; defaultSpeechStyle: string | null; role: string | null; personality: string | null } | null>(null);
+
+  // Handle characterId passed from character-voices page
+  useEffect(() => {
+    if (!initialCharacterId) return;
+    fetch("/api/character-voices").then(r => r.json()).then(d => {
+      const char = (d.voices || []).find((v: { id: string }) => v.id === initialCharacterId);
+      if (char) {
+        setAssignedCharacter({
+          id: char.id, characterId: char.characterId || null, name: char.name,
+          gender: char.gender || null, age: char.age || null, country: char.country || null,
+          culture: char.culture || null, imageUrl: char.imageUrl || null,
+          visualDescription: char.visualDescription || null,
+          voiceId: char.voiceId || null, voiceName: char.voiceName || null,
+          voiceProvider: null, defaultSpeechStyle: char.defaultSpeechStyle || null,
+          role: char.role || null, personality: char.personality || null,
+        });
+        // If the character has a voice, set it on the project
+        if (char.voiceId) {
+          setProject(prev => ({ ...prev, voiceId: char.voiceId, voiceLanguage: char.language || prev.voiceLanguage }));
+        }
+      }
+    }).catch(() => {});
+  }, [initialCharacterId]);
 
   useEffect(() => {
     fetch("/api/llm/status")
@@ -934,12 +966,12 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
   async function handleDrop() {
     if (!draggedId) return;
     setDraggedId(null);
-    // Persist new order to server
-    await fetch(`/api/commercial/projects/${project.id}/slides/reorder`, {
+    const res = await fetch(`/api/commercial/projects/${project.id}/slides/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order: project.slides.map(s => s.id) }),
     });
+    if (!res.ok) console.error("[commercial] reorder failed", res.status);
   }
 
   // ── AI slide order suggestion ───────────────────────────────────────────
@@ -963,11 +995,12 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
     const reordered = orderSuggestion.ids.map((id, i) => ({ ...idToSlide.get(id)!, slideOrder: i + 1 }));
     setProject(prev => ({ ...prev, slides: reordered }));
     setOrderSuggestion(null);
-    await fetch(`/api/commercial/projects/${project.id}/slides/reorder`, {
+    const res = await fetch(`/api/commercial/projects/${project.id}/slides/reorder`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order: reordered.map(s => s.id) }),
     });
+    if (!res.ok) console.error("[commercial] apply-order reorder failed", res.status);
   }
 
   // ── Slide field auto-save (debounced 800ms) ─────────────────────────────
@@ -978,11 +1011,12 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
     }));
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
-      await fetch(`/api/commercial/projects/${project.id}/slides/${slideId}`, {
+      const res = await fetch(`/api/commercial/projects/${project.id}/slides/${slideId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patch),
       });
+      if (!res.ok) console.error("[commercial] slide auto-save failed", res.status);
     }, 800);
   }, [project.id]);
 
@@ -1300,7 +1334,7 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
       {/* LLM not configured warning */}
       {llmReady === false && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-orange-950/30 border border-orange-800/40 text-xs text-orange-300 flex items-center justify-between gap-2 flex-shrink-0">
-          <span>⚠️ No cloud AI key found. ✨ Polish &amp; 🤖 AI-order use Ollama (local). If Ollama is not running, these will fail.</span>
+          <span>⚠️ No AI key configured. AI features (Polish &amp; AI-order) need at least GHS Standard running. Go to Settings to configure.</span>
           <a href="/dashboard/settings" className="shrink-0 px-2 py-0.5 bg-[#7c5cfc]/20 border border-[#7c5cfc]/40 text-[#b090ff] rounded-lg font-medium hover:bg-[#7c5cfc]/30 transition-colors whitespace-nowrap">
             ⚙️ Add API key →
           </a>
@@ -1347,10 +1381,10 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
           </div>
           <input ref={batchImportRef} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => { handleBatchImport(e.target.files); e.target.value = ""; }} />
 
-          <p className="text-[10px] text-[#4040600]">↕️ Drag to reorder</p>
+          <p className="text-[10px] text-[#404060]">↕️ Drag to reorder</p>
 
           {project.slides.length === 0 ? (
-            <button onClick={addSlide} className="border border-dashed border-[#2a2a40] rounded-lg p-4 text-center text-xs text-[#4040600] hover:border-[#7c5cfc]/40 transition-colors">
+            <button onClick={addSlide} className="border border-dashed border-[#2a2a40] rounded-lg p-4 text-center text-xs text-[#404060] hover:border-[#7c5cfc]/40 transition-colors">
               ➕ Add first slide
             </button>
           ) : (
@@ -1474,6 +1508,66 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 >
                   📦 Library
                 </button>
+                <button
+                  disabled={aiImageLoading || !selectedSlide.captionOriginal?.trim()}
+                  onClick={async () => {
+                    const prompt = selectedSlide.captionOriginal?.trim();
+                    if (!prompt) return;
+                    setAiImageLoading(true);
+                    try {
+                      const res = await fetch("/api/ad-editor/ideogram-transparent", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ prompt: `${prompt}, product photo, transparent background`, projectId: project.id }),
+                      });
+                      const data = await res.json();
+                      if (data.outputUrl) {
+                        await patchSlide(selectedSlide.id, { imagePath: `storage/${data.outputUrl.replace("/api/media/", "")}` } as never);
+                        setProject(prev => ({
+                          ...prev,
+                          slides: prev.slides.map(s => s.id === selectedSlide.id ? { ...s, imagePath: `storage/${data.outputUrl.replace("/api/media/", "")}` } : s),
+                        }));
+                      }
+                    } catch { /* ignore */ }
+                    setAiImageLoading(false);
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg bg-purple-900/20 text-purple-400 hover:bg-purple-900/30 disabled:opacity-40 transition-colors"
+                  title="Generate transparent PNG cutout from caption (Ideogram V3)"
+                >
+                  ✂️ Transparent PNG
+                </button>
+                {selectedSlide.imagePath && (
+                  <button
+                    disabled={aiImageLoading}
+                    onClick={async () => {
+                      if (!selectedSlide.imagePath) return;
+                      setAiImageLoading(true);
+                      try {
+                        const imgUrl = `/api/media/${selectedSlide.imagePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+                        const res = await fetch("/api/layerize", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ imageUrl: imgUrl, projectType: "commercial", projectId: project.id }),
+                        });
+                        const data = await res.json();
+                        if (data.ok && data.backgroundUrl) {
+                          setLayerizeResult({
+                            designId: data.designId,
+                            backgroundUrl: data.backgroundUrl,
+                            textContainers: data.textContainers ?? [],
+                            overlayHtml: data.overlayHtml ?? "",
+                            sourceImageUrl: imgUrl,
+                          });
+                        }
+                      } catch { /* ignore */ }
+                      setAiImageLoading(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 disabled:opacity-40 transition-colors"
+                    title="Extract text layers — edit text without regenerating the image (Ideogram Layerize)"
+                  >
+                    🔤 Edit Text Layers
+                  </button>
+                )}
                 {selectedSlide.imagePath && (
                   <>
                     <button
@@ -1634,11 +1728,11 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                       <option value="de">German</option>
                       <option value="ar">Arabic</option>
                       <option value="hi">Hindi</option>
-                      <option value="yo">Yoruba</option>
-                      <option value="ha">Hausa</option>
-                      <option value="ig">Igbo</option>
+                      <option value="ja">Japanese</option>
+                      <option value="ko">Korean</option>
+                      <option value="ru">Russian</option>
                       <option value="sw">Swahili</option>
-                      <option value="pcm">Pidgin</option>
+                      <option value="tr">Turkish</option>
                       <option value="zh">Chinese</option>
                     </select>
                     <button
@@ -1858,6 +1952,15 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
                 )}
               </div>
 
+              {/* Narration Controls — voice, speed, tone, pacing */}
+              <NarrationControls
+                narrationText={selectedSlide.narrationLine ?? ""}
+                onNarrationChange={(text) => patchSlide(selectedSlide.id, { narrationLine: text })}
+                onSettingsChange={setNarrationControlsSettings}
+                initialSettings={{ mode: "commercial" }}
+                compact
+              />
+
               {/* Timing + Orientation */}
               <div className={sectionCls}>
                 <p className={sectionTitle}>⏱️ Timing & Orientation</p>
@@ -2048,6 +2151,53 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
               <p className="text-xs text-[#404060]">👆 Select a slide to edit</p>
             </div>
           )}
+
+          {/* ── Character ── */}
+          <div className={sectionCls}>
+            <p className={sectionTitle}>🎭 Character</p>
+            {assignedCharacter ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0d0d1a", border: "1px solid #1e2a35", borderRadius: 10, padding: "8px 10px" }}>
+                {assignedCharacter.imageUrl ? (
+                  <img src={assignedCharacter.imageUrl} alt={assignedCharacter.name} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", border: "1px solid #1e2a35" }} />
+                ) : (
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e2a35", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🎭</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#dde4f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{assignedCharacter.name}</p>
+                  <p style={{ fontSize: 10, color: "#5a7080", margin: 0 }}>{assignedCharacter.role || assignedCharacter.country || "Character"}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAssignedCharacter(null)}
+                  style={{ fontSize: 10, color: "#ef4444", background: "none", border: "none", cursor: "pointer", padding: "2px 6px" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <p style={{ fontSize: 11, color: "#5a7080", margin: 0 }}>No character assigned</p>
+            )}
+            <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+              <button
+                type="button"
+                onClick={() => window.location.href = "/dashboard/character-voices"}
+                style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #a855f7", background: "rgba(168,85,247,0.08)", color: "#a855f7", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(168,85,247,0.18)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(168,85,247,0.08)"; }}
+              >
+                + Create Character
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowCharacterPicker(true)}
+                style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #22c55e", background: "rgba(34,197,94,0.08)", color: "#22c55e", fontSize: 11, fontWeight: 600, cursor: "pointer", transition: "background 0.15s" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(34,197,94,0.18)"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(34,197,94,0.08)"; }}
+              >
+                Assign Character
+              </button>
+            </div>
+          </div>
 
           {/* ── Project settings ── */}
           <div className={sectionCls}>
@@ -2539,17 +2689,598 @@ function CommercialEditor({ initialProject, onBack }: { initialProject: Commerci
         }}
         title={assetPickerOpen === "image" ? "Pick image for slide" : "Pick music track"}
       />
+
+      {/* Layerize Text Panel */}
+      {layerizeResult && (
+        <LayerizePanel
+          result={layerizeResult}
+          onClose={() => setLayerizeResult(null)}
+          onSaved={() => setLayerizeResult(null)}
+        />
+      )}
+
+      {/* Character Picker Modal */}
+      {showCharacterPicker && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.6)" }}
+          onClick={e => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}
+        >
+          <div style={{ width: "100%", maxWidth: 640, maxHeight: "80vh", overflow: "auto", borderRadius: 16, border: "1px solid #1e2a35", background: "#0b0e18", padding: 20, position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setShowCharacterPicker(false)}
+              style={{ position: "absolute", top: 12, right: 14, background: "none", border: "none", color: "#5a7080", fontSize: 18, cursor: "pointer", lineHeight: 1 }}
+            >
+              ✕
+            </button>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#dde4f0", marginBottom: 12 }}>Assign Character</p>
+            <CharacterPicker
+              onSelect={(character) => { setAssignedCharacter(character); setShowCharacterPicker(false); }}
+              onCreateNew={() => { window.location.href = "/dashboard/character-voices"; }}
+              selectedId={assignedCharacter?.id}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AI Video Commercial — Product image → AI video ad ─────────────────────────
+
+const VIDEO_MODELS = [
+  { id: "kling3-pro", name: "Kling 3.0 Pro", cost: "4 credits", speed: "2-4 min", quality: "Best", best: "Cinematic product shots" },
+  { id: "kling2", name: "Kling 2.0", cost: "2 credits", speed: "1-2 min", quality: "Good", best: "Quick product ads" },
+  { id: "hailuo-pro", name: "Hailuo 2.3 Pro", cost: "3 credits", speed: "2-3 min", quality: "High", best: "Creative animation" },
+  { id: "hailuo-fast", name: "Hailuo 2.3 Fast", cost: "1 credit", speed: "30-60s", quality: "Draft", best: "Fast previews" },
+  { id: "seedance", name: "SeeDance 2.0", cost: "2 credits", speed: "1-2 min", quality: "High", best: "Motion + dance" },
+  { id: "wan25", name: "Wan 2.5", cost: "1 credit", speed: "1-2 min", quality: "Good", best: "Budget option" },
+];
+
+// ── Scene blueprint type for the 4-step wizard ──
+interface CommercialScene {
+  id: string;
+  purpose: string;        // e.g. "Hook", "Features", "Price", "CTA", "Location"
+  prompt: string;
+  approved: boolean;
+}
+
+function AiVideoCommercial({ onBack }: { onBack: () => void }) {
+  const [productImage, setProductImage] = useState<File | null>(null);
+  const [productImageUrl, setProductImageUrl] = useState("");
+  const [productName, setProductName] = useState("");
+  const [productCategory, setProductCategory] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [ctaText, setCtaText] = useState("Order Now");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [price, setPrice] = useState("");
+  const [selectedModel, setSelectedModel] = useState("kling2");
+  const [generating, setGenerating] = useState(false);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [step, setStepRaw] = useState<1 | 2 | 3 | 4>(1);
+  // Product identity details
+  const [identityLocked, setIdentityLocked] = useState(false);
+  const [flavorVariant, setFlavorVariant] = useState("");
+  const [packSize, setPackSize] = useState("");
+  const [brandColors, setBrandColors] = useState("");
+  const [brandStyle, setBrandStyle] = useState("");
+  const [allowedClaims, setAllowedClaims] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // Step 2: AI-planned scenes
+  const [plannedScenes, setPlannedScenes] = useState<CommercialScene[]>([]);
+  const [planning, setPlanning] = useState(false);
+
+  // Step 4: Per-scene generation progress
+  const [sceneProgress, setSceneProgress] = useState<Record<string, "pending" | "generating" | "done" | "error">>({});
+  const [sceneOutputs, setSceneOutputs] = useState<Record<string, string>>({});
+
+  function setStep(s: 1 | 2 | 3 | 4) {
+    if (s !== 1 && step === 1) window.history.pushState({ commercialVideoStep: s }, "", window.location.pathname);
+    setStepRaw(s);
+  }
+
+  useEffect(() => {
+    function handlePop() { setStepRaw(1); }
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+
+  const handleUpload = async (file: File) => {
+    setProductImage(file);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.url) setProductImageUrl(data.url);
+    } catch { /* upload failed */ }
+  };
+
+  // Step 2: AI Planning — generate scene blueprints
+  const handlePlanScenes = async () => {
+    setPlanning(true);
+    try {
+      const productDetails = [
+        flavorVariant && `Variant: ${flavorVariant}`,
+        packSize && `Pack size: ${packSize}`,
+        brandColors && `Brand colors: ${brandColors}`,
+        brandStyle && `Brand style: ${brandStyle}`,
+        allowedClaims && `Claims: ${allowedClaims}`,
+      ].filter(Boolean).join(". ");
+
+      const planPrompt = `Plan a 5-scene commercial video ad for: ${productName || "product"} (${productCategory || "general"}). Tagline: "${tagline || ""}". ${productDetails}. Price: ${price || "N/A"}. CTA: ${ctaText || "Order Now"}.
+
+Return EXACTLY 5 scenes in this JSON array format, no other text:
+[
+  {"purpose":"Hook","prompt":"..."},
+  {"purpose":"Features","prompt":"..."},
+  {"purpose":"Price Reveal","prompt":"..."},
+  {"purpose":"CTA","prompt":"..."},
+  {"purpose":"Location/Lifestyle","prompt":"..."}
+]
+
+Each prompt should be a detailed cinematic video generation prompt for the product. Keep the product as hero.`;
+
+      const res = await fetch("/api/enhance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: planPrompt, mode: "json" }),
+      });
+      const data = await res.json();
+      const raw = data.enhanced || data.result || data.text || "";
+
+      // Parse the JSON array from the response
+      const jsonMatch = raw.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]) as Array<{ purpose: string; prompt: string }>;
+        const scenes: CommercialScene[] = parsed.map((s, i) => ({
+          id: `scene_${i}_${Date.now()}`,
+          purpose: s.purpose || `Scene ${i + 1}`,
+          prompt: s.prompt || "",
+          approved: true,
+        }));
+        setPlannedScenes(scenes);
+        setStep(3);
+      } else {
+        // Fallback: generate default blueprint
+        const defaultScenes: CommercialScene[] = [
+          { id: `scene_0_${Date.now()}`, purpose: "Hook", prompt: `Eye-catching opening shot of ${productName || "product"} with dramatic lighting, slow zoom in, premium feel.`, approved: true },
+          { id: `scene_1_${Date.now()}`, purpose: "Features", prompt: `Close-up detail shots of ${productName || "product"} features, smooth camera rotation, highlighting quality and craftsmanship.`, approved: true },
+          { id: `scene_2_${Date.now()}`, purpose: "Price Reveal", prompt: `Clean slate reveal showing ${productName || "product"} with price ${price || ""}, elegant typography animation, brand colors.`, approved: true },
+          { id: `scene_3_${Date.now()}`, purpose: "CTA", prompt: `Final call to action shot: "${ctaText}" with ${productName || "product"} center frame, ${whatsapp ? "WhatsApp contact visible" : "contact info overlay"}, urgency feel.`, approved: true },
+          { id: `scene_4_${Date.now()}`, purpose: "Location/Lifestyle", prompt: `Lifestyle shot showing ${productName || "product"} being used/enjoyed in real-world setting, warm tones, aspirational mood.`, approved: true },
+        ];
+        setPlannedScenes(defaultScenes);
+        setStep(3);
+      }
+    } catch {
+      // On error, use default blueprint
+      const defaultScenes: CommercialScene[] = [
+        { id: `scene_0_${Date.now()}`, purpose: "Hook", prompt: `Eye-catching opening shot of ${productName || "product"} with dramatic lighting.`, approved: true },
+        { id: `scene_1_${Date.now()}`, purpose: "Features", prompt: `Close-up detail shots of ${productName || "product"} features.`, approved: true },
+        { id: `scene_2_${Date.now()}`, purpose: "Price Reveal", prompt: `Price reveal for ${productName || "product"}: ${price || "TBD"}.`, approved: true },
+        { id: `scene_3_${Date.now()}`, purpose: "CTA", prompt: `Call to action: "${ctaText}" for ${productName || "product"}.`, approved: true },
+        { id: `scene_4_${Date.now()}`, purpose: "Location/Lifestyle", prompt: `Lifestyle shot of ${productName || "product"} in use.`, approved: true },
+      ];
+      setPlannedScenes(defaultScenes);
+      setStep(3);
+    }
+    setPlanning(false);
+  };
+
+  // Step 3: Review helpers
+  const moveScene = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= plannedScenes.length) return;
+    setPlannedScenes(prev => {
+      const copy = [...prev];
+      [copy[idx], copy[target]] = [copy[target], copy[idx]];
+      return copy;
+    });
+  };
+
+  const deleteScene = (idx: number) => {
+    setPlannedScenes(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const updateScenePrompt = (idx: number, prompt: string) => {
+    setPlannedScenes(prev => prev.map((s, i) => i === idx ? { ...s, prompt } : s));
+  };
+
+  const toggleApproval = (idx: number) => {
+    setPlannedScenes(prev => prev.map((s, i) => i === idx ? { ...s, approved: !s.approved } : s));
+  };
+
+  // Step 4: Generate approved scenes
+  const handleGenerateApproved = async () => {
+    const approved = plannedScenes.filter(s => s.approved);
+    if (approved.length === 0) return;
+    setGenerating(true);
+
+    // Initialize progress
+    const progress: Record<string, "pending" | "generating" | "done" | "error"> = {};
+    approved.forEach(s => { progress[s.id] = "pending"; });
+    setSceneProgress({ ...progress });
+    setSceneOutputs({});
+
+    const productDetails = [
+      flavorVariant && `Variant: ${flavorVariant}`,
+      packSize && `Pack size: ${packSize}`,
+      brandColors && `Brand colors: ${brandColors}`,
+      brandStyle && `Brand style: ${brandStyle}`,
+      allowedClaims && `Claims: ${allowedClaims}`,
+    ].filter(Boolean).join(". ");
+
+    const outputs: Record<string, string> = {};
+
+    for (const scene of approved) {
+      setSceneProgress(prev => ({ ...prev, [scene.id]: "generating" }));
+      try {
+        const fullPrompt = `${scene.prompt} Product: ${productName || "product"}. ${productDetails} ${identityLocked ? "IMPORTANT: The product appearance must match the uploaded image exactly." : ""}`;
+        const res = await fetch("/api/video/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: fullPrompt,
+            model: selectedModel,
+            sourceImage: productImageUrl,
+            aspectRatio: "16:9",
+          }),
+        });
+        const data = await res.json();
+        if (data.outputUrl) {
+          outputs[scene.id] = data.outputUrl;
+          setSceneOutputs(prev => ({ ...prev, [scene.id]: data.outputUrl }));
+          setSceneProgress(prev => ({ ...prev, [scene.id]: "done" }));
+        } else {
+          setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
+        }
+      } catch {
+        setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
+      }
+    }
+
+    // If we have at least one output, set the first as result
+    const firstOutput = Object.values(outputs)[0];
+    if (firstOutput) {
+      setResultUrl(firstOutput);
+    }
+    setGenerating(false);
+  };
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ fontSize: 11, color: "#5a7080", background: "none", border: "none", cursor: "pointer", marginBottom: 16 }}>← Back to Commercial</button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+        <span style={{ fontSize: 28 }}>🎬</span>
+        <div>
+          <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>AI Video Commercial</h2>
+          <p style={{ fontSize: 12, color: "#5a7080" }}>Upload your product image → AI generates a video commercial</p>
+        </div>
+      </div>
+
+      {/* Progress */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
+        {[{ n: 1, l: "Product Info" }, { n: 2, l: "AI Planning" }, { n: 3, l: "Review & Edit" }, { n: 4, l: "Generate" }].map(s => (
+          <div key={s.n} style={{ flex: 1 }}>
+            <div style={{ height: 4, borderRadius: 2, marginBottom: 6, background: step >= s.n ? "#22c55e" : "#1e2a35" }} />
+            <p style={{ fontSize: 9, color: step >= s.n ? "#22c55e" : "#3d5060", fontWeight: step === s.n ? 700 : 400, textAlign: "center" }}>{s.l}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Step 1: Product info */}
+      {step === 1 && (
+        <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
+          <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) handleUpload(e.target.files[0]); }} />
+
+          <div onClick={() => fileRef.current?.click()}
+            style={{ border: `2px dashed ${productImageUrl ? "#22c55e" : "#1e2a35"}`, borderRadius: 14, padding: "30px 20px", textAlign: "center", cursor: "pointer", marginBottom: 20, background: productImageUrl ? "rgba(34,197,94,0.03)" : "transparent" }}>
+            {productImageUrl ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "center" }}>
+                <img src={productImageUrl} alt="Product" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 10 }} />
+                <div style={{ textAlign: "left" }}>
+                  <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{productImage?.name}</p>
+                  <p style={{ fontSize: 10, color: "#22c55e" }}>Uploaded — click to change</p>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <span style={{ fontSize: 36, display: "block", marginBottom: 8 }}>📸</span>
+                <p style={{ fontSize: 14, color: "#fff", fontWeight: 600 }}>Upload Product Image</p>
+                <p style={{ fontSize: 11, color: "#5a7080" }}>JPG, PNG, WebP — clear product photo works best</p>
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Product Name</p>
+              <input value={productName} onChange={e => setProductName(e.target.value)} placeholder="e.g. Fresh Mango Juice"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Category</p>
+              <input value={productCategory} onChange={e => setProductCategory(e.target.value)} placeholder="e.g. Beverages, Fashion, Tech"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Tagline</p>
+              <input value={tagline} onChange={e => setTagline(e.target.value)} placeholder="e.g. Made fresh daily"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", justifyContent: "flex-end" }} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 20 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>CTA Text</p>
+              <input value={ctaText} onChange={e => setCtaText(e.target.value)} placeholder="Order Now"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>WhatsApp (optional)</p>
+              <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="+234..."
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Price (optional)</p>
+              <input value={price} onChange={e => setPrice(e.target.value)} placeholder="e.g. $5.99"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+          </div>
+
+          {/* Extended product identity */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Flavor / Variant</p>
+              <input value={flavorVariant} onChange={e => setFlavorVariant(e.target.value)} placeholder="e.g. Original, Spicy, Large"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Pack Size</p>
+              <input value={packSize} onChange={e => setPackSize(e.target.value)} placeholder="e.g. 500ml, 1kg, Single"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Brand Colors</p>
+              <input value={brandColors} onChange={e => setBrandColors(e.target.value)} placeholder="e.g. Red + Gold"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+            <div>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Brand Style</p>
+              <input value={brandStyle} onChange={e => setBrandStyle(e.target.value)} placeholder="e.g. Premium, Street, Modern"
+                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Allowed Claims</p>
+            <input value={allowedClaims} onChange={e => setAllowedClaims(e.target.value)} placeholder="e.g. 100% Natural, No Preservatives, Award Winning"
+              style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+          </div>
+
+          {/* Identity lock confirmation */}
+          {productImageUrl && !identityLocked && (
+            <div style={{ padding: 16, borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.05)", marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "#f59e0b", marginBottom: 6 }}>Confirm Product Identity</p>
+              <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 10 }}>Lock this product image as the master packshot. AI will generate scenes that maintain this exact look.</p>
+              <button onClick={() => setIdentityLocked(true)}
+                style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#f59e0b", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                🔒 Lock Product Identity
+              </button>
+            </div>
+          )}
+
+          {identityLocked && (
+            <div style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.05)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ color: "#22c55e", fontWeight: 700 }}>🔒</span>
+              <span style={{ fontSize: 11, color: "#22c55e" }}>Product identity locked — AI will maintain this look</span>
+              <button onClick={() => setIdentityLocked(false)} style={{ marginLeft: "auto", fontSize: 9, color: "#5a7080", background: "none", border: "none", cursor: "pointer" }}>Unlock</button>
+            </div>
+          )}
+
+          <button onClick={() => setStep(2)} disabled={!productImageUrl}
+            style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: productImageUrl ? "#22c55e" : "#2a2a40", color: productImageUrl ? "#000" : "#5a7080", fontSize: 16, fontWeight: 700, cursor: productImageUrl ? "pointer" : "not-allowed" }}>
+            Next — AI Planning
+          </button>
+        </div>
+      )}
+
+      {/* Step 2: AI Planning — select model + generate scene blueprint */}
+      {step === 2 && (
+        <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
+          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 12 }}>AI Planning — Scene Blueprint</p>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+            {VIDEO_MODELS.map(m => (
+              <button key={m.id} onClick={() => setSelectedModel(m.id)}
+                style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${selectedModel === m.id ? "#22c55e" : "#1e2a35"}`, background: selectedModel === m.id ? "rgba(34,197,94,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{m.name}</p>
+                  <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>{m.cost}</span>
+                </div>
+                <p style={{ fontSize: 10, color: "#5a7080" }}>{m.best} · {m.speed} · {m.quality}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Preview */}
+          {productImageUrl && (
+            <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "12px 16px", background: "#080b10", borderRadius: 12, border: "1px solid #1e2a35", marginBottom: 20 }}>
+              <img src={productImageUrl} alt="Product" style={{ width: 60, height: 60, objectFit: "cover", borderRadius: 8 }} />
+              <div>
+                <p style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{productName || "Product"}</p>
+                <p style={{ fontSize: 10, color: "#5a7080" }}>{tagline} {price ? `· ${price}` : ""} {productCategory ? `· ${productCategory}` : ""}</p>
+                <p style={{ fontSize: 9, color: "#22c55e" }}>AI will plan 5 commercial scenes for review</p>
+              </div>
+            </div>
+          )}
+
+          <p style={{ fontSize: 11, color: "#5a7080", marginBottom: 16 }}>AI will generate a 5-scene commercial blueprint (Hook, Features, Price, CTA, Location) based on your product info. You can review and edit each scene before generating.</p>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: 14, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 14, cursor: "pointer" }}>Back</button>
+            <button onClick={handlePlanScenes} disabled={planning}
+              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: planning ? "#2a2a40" : "#22c55e", color: planning ? "#5a7080" : "#000", fontSize: 16, fontWeight: 700, cursor: planning ? "not-allowed" : "pointer" }}>
+              {planning ? "AI is planning scenes..." : "Generate Scene Blueprint"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Review & Edit — user reviews, edits, reorders planned scenes */}
+      {step === 3 && (
+        <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
+          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 6 }}>Review & Edit Scenes</p>
+          <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 16 }}>Check each scene. Edit prompts, reorder, or remove scenes before generation. Only approved scenes will be rendered.</p>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+            {plannedScenes.map((scene, idx) => (
+              <div key={scene.id} style={{ border: `1px solid ${scene.approved ? "rgba(34,197,94,0.3)" : "#1e2a35"}`, borderRadius: 12, padding: 16, background: scene.approved ? "rgba(34,197,94,0.03)" : "transparent" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", background: "rgba(34,197,94,0.1)", borderRadius: 6, padding: "2px 8px" }}>Scene {idx + 1}</span>
+                    <span style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>{scene.purpose}</span>
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    <button onClick={() => moveScene(idx, -1)} disabled={idx === 0} title="Move up"
+                      style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #1e2a35", background: "transparent", color: idx === 0 ? "#1e2a35" : "#5a7080", cursor: idx === 0 ? "default" : "pointer", fontSize: 12 }}>
+                      &#9650;
+                    </button>
+                    <button onClick={() => moveScene(idx, 1)} disabled={idx === plannedScenes.length - 1} title="Move down"
+                      style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid #1e2a35", background: "transparent", color: idx === plannedScenes.length - 1 ? "#1e2a35" : "#5a7080", cursor: idx === plannedScenes.length - 1 ? "default" : "pointer", fontSize: 12 }}>
+                      &#9660;
+                    </button>
+                    <button onClick={() => deleteScene(idx)} title="Delete scene"
+                      style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.06)", color: "#ef4444", cursor: "pointer", fontSize: 12 }}>
+                      &#10005;
+                    </button>
+                  </div>
+                </div>
+
+                <textarea value={scene.prompt} onChange={e => updateScenePrompt(idx, e.target.value)} rows={3}
+                  style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 11, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }} />
+
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    <input type="checkbox" checked={scene.approved} onChange={() => toggleApproval(idx)}
+                      style={{ accentColor: "#22c55e", width: 14, height: 14 }} />
+                    <span style={{ fontSize: 10, color: scene.approved ? "#22c55e" : "#5a7080" }}>{scene.approved ? "Approved" : "Skipped"}</span>
+                  </label>
+                  <span style={{ fontSize: 9, color: "#3d5060" }}>{scene.prompt.length} chars</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {plannedScenes.length === 0 && (
+            <div style={{ textAlign: "center", padding: 24, color: "#5a7080", fontSize: 12 }}>No scenes planned. Go back to regenerate.</div>
+          )}
+
+          <div style={{ padding: "10px 14px", borderRadius: 10, background: "#080b10", marginBottom: 16 }}>
+            <p style={{ fontSize: 10, color: "#5a7080" }}>
+              {plannedScenes.filter(s => s.approved).length} of {plannedScenes.length} scenes approved for generation
+              {plannedScenes.filter(s => s.approved).length > 0 && ` · Est. ${plannedScenes.filter(s => s.approved).length * 2}-${plannedScenes.filter(s => s.approved).length * 4} min`}
+            </p>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep(2)} style={{ padding: "14px 24px", borderRadius: 14, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 14, cursor: "pointer" }}>Back</button>
+            <button onClick={() => { setStep(4); handleGenerateApproved(); }} disabled={plannedScenes.filter(s => s.approved).length === 0}
+              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: plannedScenes.filter(s => s.approved).length > 0 ? "#22c55e" : "#2a2a40", color: plannedScenes.filter(s => s.approved).length > 0 ? "#000" : "#5a7080", fontSize: 16, fontWeight: 700, cursor: plannedScenes.filter(s => s.approved).length > 0 ? "pointer" : "not-allowed" }}>
+              Generate {plannedScenes.filter(s => s.approved).length} Approved Scenes
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 4: Generate & Assemble — per-scene progress + results */}
+      {step === 4 && (
+        <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
+          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 6 }}>Generate & Assemble</p>
+          <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 16 }}>Rendering approved scenes. This may take a few minutes per scene.</p>
+
+          {/* Per-scene progress */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {plannedScenes.filter(s => s.approved).map((scene, idx) => {
+              const status = sceneProgress[scene.id] || "pending";
+              const output = sceneOutputs[scene.id];
+              const statusColors: Record<string, string> = { pending: "#5a7080", generating: "#f59e0b", done: "#22c55e", error: "#ef4444" };
+              const statusLabels: Record<string, string> = { pending: "Queued", generating: "Generating...", done: "Done", error: "Failed" };
+              return (
+                <div key={scene.id} style={{ border: `1px solid ${statusColors[status]}30`, borderRadius: 10, padding: 14, background: status === "done" ? "rgba(34,197,94,0.03)" : "transparent" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: statusColors[status] }}>Scene {idx + 1}</span>
+                      <span style={{ fontSize: 10, color: "#fff" }}>{scene.purpose}</span>
+                    </div>
+                    <span style={{ fontSize: 9, color: statusColors[status], fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 1 }}>{statusLabels[status]}</span>
+                  </div>
+                  {status === "generating" && (
+                    <div style={{ height: 3, borderRadius: 2, background: "#1e2a35", overflow: "hidden" }}>
+                      <div style={{ width: "60%", height: "100%", background: "#f59e0b", borderRadius: 2, animation: "pulse 1.5s ease-in-out infinite" }} />
+                    </div>
+                  )}
+                  {status === "done" && output && (
+                    <div style={{ marginTop: 8 }}>
+                      <video src={output} controls style={{ width: "100%", maxHeight: 180, borderRadius: 8 }} />
+                    </div>
+                  )}
+                  {status === "error" && (
+                    <p style={{ fontSize: 10, color: "#ef4444", marginTop: 4 }}>Generation failed for this scene. You can retry from Review step.</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Summary when all done */}
+          {!generating && Object.values(sceneProgress).some(s => s === "done") && (
+            <div style={{ borderRadius: 14, overflow: "hidden", border: "1px solid #1e2a35", marginBottom: 20 }}>
+              {resultUrl && <video src={resultUrl} controls style={{ width: "100%", maxHeight: 400 }} />}
+              <div style={{ padding: "12px 16px", background: "#080b10", display: "flex", gap: 8 }}>
+                {resultUrl && <a href={resultUrl} download style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: 10, background: "#22c55e", color: "#000", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>Download</a>}
+                <a href="/dashboard/assets" style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", color: "#5a7080", fontSize: 13, textDecoration: "none" }}>Asset Library</a>
+                <button onClick={() => { setStep(1); setResultUrl(null); setPlannedScenes([]); setSceneProgress({}); setSceneOutputs({}); }}
+                  style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 13, cursor: "pointer" }}>New Video</button>
+              </div>
+            </div>
+          )}
+
+          {!generating && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setStep(3)} style={{ padding: "14px 24px", borderRadius: 14, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 14, cursor: "pointer" }}>Back to Review</button>
+              <a href="/dashboard/commercial-planner" style={{ flex: 1, textAlign: "center", padding: "14px 16px", borderRadius: 14, border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.06)", color: "#a855f7", fontSize: 12, textDecoration: "none", fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                Open Commercial Planner for deeper editing
+              </a>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 
-type View = "list" | "new" | "editor" | "mode2";
+type View = "list" | "new" | "editor" | "mode2" | "ai_video";
 
-export default function CommercialPage() {
+function CommercialPageInner() {
+  const searchParams = useSearchParams();
+  const characterIdParam = searchParams.get("characterId") ?? "";
   const [view,    setViewRaw]    = useState<View>("list");
   const [project, setProject] = useState<CommercialProject | null>(null);
+
+  // Sidebar click forces page reload (handled in Sidebar component) which resets state
 
   // Push browser history so back button returns to commercial list, not previous page
   function setView(v: View) {
@@ -2580,7 +3311,7 @@ export default function CommercialPage() {
   if (view === "editor" && project) {
     return (
       <div className="w-full p-1">
-        <CommercialEditor initialProject={project} onBack={() => { setProject(null); setView("list"); }} />
+        <CommercialEditor initialProject={project} onBack={() => { setProject(null); setView("list"); }} initialCharacterId={characterIdParam || undefined} />
       </div>
     );
   }
@@ -2596,10 +3327,18 @@ export default function CommercialPage() {
     );
   }
 
+  if (view === "ai_video") {
+    return (
+      <div className="w-full p-1">
+        <AiVideoCommercial onBack={() => setView("list")} />
+      </div>
+    );
+  }
+
   return (
     <div className="w-full p-1">
       {/* Mode tabs — prominent */}
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <button className="relative overflow-hidden p-5 rounded-2xl text-left transition-all"
           style={{ background: "linear-gradient(135deg, rgba(255,107,53,0.08), rgba(255,107,53,0.02))", border: "2px solid rgba(255,107,53,0.3)" }}>
           <div className="flex items-center gap-3 mb-2">
@@ -2624,6 +3363,19 @@ export default function CommercialPage() {
           </div>
           <p className="text-[11px]" style={{ color: "#5a7080" }}>Upload your product images or video. AI analyses, writes script, builds slides, adds narration and music automatically.</p>
         </button>
+        <button onClick={() => setView("ai_video")} className="relative overflow-hidden p-5 rounded-2xl text-left transition-all hover:-translate-y-1"
+          style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.06), rgba(34,197,94,0.02))", border: "1px solid #1e2a35" }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.4)"; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2a35"; }}>
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-2xl">🎬</span>
+            <div>
+              <p className="text-white font-bold text-sm">AI Video Commercial</p>
+              <p className="text-[10px]" style={{ color: "#22c55e" }}>Product photo → AI video ad</p>
+            </div>
+          </div>
+          <p className="text-[11px]" style={{ color: "#5a7080" }}>Upload your product image. AI generates a professional video commercial with motion, text, and music. Powered by Kling, Runway, Hailuo.</p>
+        </button>
       </div>
       <ProjectList
         onOpen={p => {
@@ -2632,5 +3384,13 @@ export default function CommercialPage() {
         onNew={() => setView("new")}
       />
     </div>
+  );
+}
+
+export default function CommercialPage() {
+  return (
+    <Suspense fallback={<div style={{ color: "#5a5a7a", padding: 20 }}>Loading...</div>}>
+      <CommercialPageInner />
+    </Suspense>
   );
 }

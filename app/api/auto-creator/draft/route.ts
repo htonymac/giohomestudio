@@ -3,7 +3,7 @@
 // Returns: title, caption, hashtags, CTA, voice script, music direction, credit estimate
 
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM } from "@/lib/llm";
+import { callPlanner, getTierConfig, type ModelTier } from "@/lib/model-tier-router";
 
 const SYSTEM_PROMPT = `You are GHM Draft Factory — a professional content creation assistant.
 
@@ -22,7 +22,7 @@ Return a JSON object with:
 - "platform_tips": 1 sentence on what makes this work well on the target platform
 - "estimated_credits": number (1-10 scale, based on complexity)
 
-Be specific and creative. Write like a Nigerian/African social media pro. Make the caption and script sound natural, not robotic.
+Be specific and creative. Write like a global social media pro. Make the caption and script sound natural, not robotic.
 
 IMPORTANT: Return ONLY valid JSON. No markdown wrapping.`;
 
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { suggestion, mediaNames, context } = body;
+    const tier: ModelTier = body.tier ?? "pro";
 
     if (!suggestion) {
       return NextResponse.json({ error: "No suggestion provided" }, { status: 400 });
@@ -45,11 +46,8 @@ ${context ? `User context: "${context}"` : ""}
 
 Create a complete, ready-to-review draft. Return ONLY JSON.`;
 
-    const result = await callLLM(prompt, SYSTEM_PROMPT, {
-      role: "creative",
-      maxTokens: 800,
-      temperature: 0.6,
-    });
+    const tierConfig = getTierConfig(tier);
+    const result = await callPlanner(prompt, SYSTEM_PROMPT, tier);
 
     if (!result.ok) {
       // Fallback draft
@@ -76,7 +74,7 @@ Create a complete, ready-to-review draft. Return ONLY JSON.`;
       const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
       if (jsonMatch) jsonText = jsonMatch[0];
       const draft = JSON.parse(jsonText);
-      return NextResponse.json({ draft, provider: result.provider });
+      return NextResponse.json({ draft, provider: result.provider, tier, credits: tierConfig.credits });
     } catch {
       return NextResponse.json({
         draft: {

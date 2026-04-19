@@ -8,7 +8,7 @@ import type { SpeechStyle, ElevenLabsModel } from "@/types/providers";
 import type { OutputMode } from "@/modules/timeline/types";
 import NarrationPanel from "../components/NarrationPanel";
 import AssetPicker from "../components/AssetPicker";
-import SFXPicker from "../components/SFXPicker";
+// SFXPicker moved to dedicated SFX Library page (/dashboard/sfx-library)
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 
 interface ContinuationSuggestion {
@@ -607,7 +607,7 @@ function StudioPageInner() {
   const [showHome, setShowHome] = useState(true);
 
   useEffect(() => {
-    fetch("/api/registry?limit=5").then(r=>r.json()).then(d=>{setRecentItems(d.items??[]); setTotalCount(d.total??0);}).catch(()=>{});
+    fetch("/api/registry?limit=5&renderedOnly=1").then(r=>r.json()).then(d=>{setRecentItems(d.items??[]); setTotalCount(d.total??0);}).catch(()=>{});
     fetch("/api/review").then(r=>r.json()).then(d=>{setReviewCount(d.items?.length??0)}).catch(()=>{});
     fetch("/api/analytics").then(r=>r.json()).then(d=>{setSuccessCount(d.summary?.successCount??0)}).catch(()=>{});
   }, []);
@@ -656,7 +656,7 @@ function StudioPageInner() {
                 <div style={{ fontSize: 11, color: "var(--text2)", marginBottom: 12 }}>Jump straight into creating</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <a href="/dashboard/commercial" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--accent, #6c63ff)", color: "white", textDecoration: "none", textAlign: "center" }}>🎬 Make a Commercial</a>
-                  <button onClick={() => { setOutputMode("text_to_video"); setShowHome(false); }} style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--surface3)", color: "var(--text2)", border: "1px solid var(--border)" }}>✨ Free Mode — Describe Anything</button>
+                  <a href="/dashboard/free-mode" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--surface3)", color: "var(--text2)", border: "1px solid var(--border)", textDecoration: "none", display: "block", textAlign: "center" }}>✨ Free Mode — Describe Anything</a>
                   <a href="/dashboard/templates" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(255,140,66,0.12)", color: "var(--accent-warm, #ff8c42)", border: "1px solid rgba(255,140,66,0.25)", textDecoration: "none", textAlign: "center" }}>🚀 Browse Templates</a>
                   <a href="/dashboard/music-studio" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "rgba(0,229,195,0.12)", color: "var(--accent3, #00e5c3)", border: "1px solid rgba(0,229,195,0.25)", textDecoration: "none", textAlign: "center" }}>🎵 Open Music Studio</a>
                 </div>
@@ -696,9 +696,9 @@ function StudioPageInner() {
 
             {/* Quick links */}
             <div className="grid grid-cols-4 gap-2">
-              <button onClick={() => { setOutputMode("image_to_video"); setShowHome(false); }} style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500 }}>
+              <a href="/dashboard/free-mode?mode=image_to_video" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left" as const, color: "var(--text2)", fontSize: 11, fontWeight: 500, textDecoration: "none", display: "block" }}>
                 🎭 Animate Actor
-              </button>
+              </a>
               <a href="/dashboard/assets" style={{ padding: "10px 12px", borderRadius: 8, background: "var(--surface3)", border: "1px solid var(--border)", textAlign: "left", color: "var(--text2)", fontSize: 11, fontWeight: 500, textDecoration: "none", display: "block" }}>
                 📦 Asset Library
               </a>
@@ -713,60 +713,9 @@ function StudioPageInner() {
         )}
       </div>
 
-      {/* ── STUDIO ──────────────────────────────────────── */}
-      <div className="flex items-center gap-3 mb-3">
-        <h2 className="text-lg font-bold text-white">Studio</h2>
-        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(123,97,255,0.15)", color: "#a89bff", border: "1px solid rgba(123,97,255,0.25)" }}>Command Center</span>
-      </div>
 
-      {/* ── Output mode selector ──────────────────────────── */}
-      <div style={{ marginBottom: 20 }}>
-        <p style={{ fontSize: 10, color: "var(--text3)", textTransform: "uppercase", letterSpacing: "1.2px", fontWeight: 600, marginBottom: 8 }}>
-          What do you want to create?
-        </p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {OUTPUT_MODES.map(m => {
-            const active = outputMode === m.id;
-            return (
-              <button
-                key={m.id}
-                onClick={() => m.live && setOutputMode(m.id)}
-                title={m.live ? m.desc : `${m.desc} — coming soon`}
-                style={{
-                  background: active ? "#7c5cfc22" : "#0f0f1a",
-                  border: `1px solid ${active ? "#7c5cfc" : "#1e1e38"}`,
-                  borderRadius: 10,
-                  padding: "10px 8px",
-                  cursor: m.live ? "pointer" : "default",
-                  opacity: m.live ? 1 : 0.45,
-                  textAlign: "center",
-                  transition: "border-color 0.15s, background 0.15s",
-                }}
-              >
-                <p style={{ fontSize: 18, marginBottom: 4 }}>{m.icon}</p>
-                <p style={{ fontSize: 11, fontWeight: 600, color: active ? "#a080ff" : "#7070a0", lineHeight: 1.2 }}>{m.label}</p>
-                {!m.live && <p style={{ fontSize: 9, color: "#3a3a5a", marginTop: 2 }}>Soon</p>}
-              </button>
-            );
-          })}
-        </div>
-        {/* Mode description */}
-        {(() => {
-          const mode = OUTPUT_MODES.find(m => m.id === outputMode);
-          if (!mode) return null;
-          const borderColor = outputMode === "text_to_audio" ? "#1a3a5a" : "#2a2a40";
-          const bgColor = outputMode === "text_to_audio" ? "#0d1a2e" : "#0e0e1a";
-          const textColor = outputMode === "text_to_audio" ? "#60a5fa" : "#8080b0";
-          return (
-            <p style={{ fontSize: 11, color: textColor, marginTop: 8, background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 6, padding: "8px 12px", lineHeight: 1.6 }}>
-              <span style={{ fontWeight: 600, color: "#a080ff" }}>{mode.label}:</span> {mode.fullDesc}
-            </p>
-          );
-        })()}
-      </div>
-
-      {/* ── Story continuation banner ──────────────────────── */}
-      {continueFromId ? (
+      {/* ── Studio form — hidden on dashboard, use /dashboard/free-mode ── */}
+      {!showHome && continueFromId ? (
         <div style={{ background: "#1a1a2e", border: "1px solid #7c5cfc44", borderRadius: 10, padding: "14px 18px", marginBottom: 20 }}>
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -842,7 +791,7 @@ function StudioPageInner() {
         </p>
       )}
 
-      <div className="space-y-5">
+      {!showHome && <div className="space-y-5">
 
         {/* Idea input */}
         <div>
@@ -874,13 +823,13 @@ function StudioPageInner() {
               <option value="it">Italian</option>
               <option value="ar">Arabic</option>
               <option value="hi">Hindi</option>
-              <option value="yo">Yoruba</option>
-              <option value="ha">Hausa</option>
-              <option value="ig">Igbo</option>
-              <option value="sw">Swahili</option>
-              <option value="pcm">Pidgin</option>
               <option value="zh">Chinese</option>
               <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="ru">Russian</option>
+              <option value="tr">Turkish</option>
+              <option value="sw">Swahili</option>
+              <option value="nl">Dutch</option>
             </select>
             <button
               onClick={handleTranslate}
@@ -1537,17 +1486,13 @@ function StudioPageInner() {
                     <option value="tr">Turkish</option>
                     <option value="id">Indonesian</option>
                   </optgroup>
-                  <optgroup label="African languages (turbo_v2_5)">
+                  <optgroup label="More languages">
                     <option value="sw">Swahili</option>
-                    <option value="yo">Yoruba</option>
-                    <option value="ig">Igbo</option>
-                    <option value="ha">Hausa</option>
                     <option value="am">Amharic</option>
                     <option value="zu">Zulu</option>
-                    <option value="xh">Xhosa</option>
                     <option value="af">Afrikaans</option>
-                    <option value="so">Somali</option>
-                    <option value="sn">Shona</option>
+                    <option value="tl">Filipino</option>
+                    <option value="ms">Malay</option>
                   </optgroup>
                   <optgroup label="Other">
                     <option value="vi">Vietnamese</option>
@@ -1715,35 +1660,14 @@ function StudioPageInner() {
             </div>
           </div>
 
-          {/* SFX subsection */}
-          <div style={{ marginTop: 12 }}>
-            <p className="text-xs text-gray-600 uppercase tracking-wide mb-2">Sound Effects</p>
-            <p className="text-[10px] text-gray-700 mb-2">Browse and preview SFX — AI also auto-detects needed effects from your script.</p>
-            <SFXPicker compact onSelect={(event) => {
-              const ta = document.querySelector<HTMLTextAreaElement>("#studio-prompt");
-              if (ta) { ta.value += `\n[SFX: ${event}]`; ta.dispatchEvent(new Event("input", { bubbles: true })); }
-            }} />
-          </div>
-        </div>
-
-        {/* ── Destination ── */}
-        <div className="border border-gray-800 rounded-xl p-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Destination</p>
-          <div>
-            <label className={labelCls}>Destination page</label>
-            <select value={destinationPageId} onChange={(e) => setDestinationPageId(e.target.value)} className={selectCls}>
-              <option value="">— No destination —</option>
-              {pages.filter((p) => p.isActive).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.platform}{p.handle ? ` · ${p.handle}` : ""})
-                </option>
-              ))}
-            </select>
-            {pages.length === 0 && (
-              <p className="text-xs text-gray-600 mt-1">
-                <a href="/dashboard/destination-pages" className="text-blue-400 hover:text-blue-300">Add a destination page</a>
-              </p>
-            )}
+          {/* SFX + Destination — links to dedicated pages */}
+          <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+            <a href="/dashboard/sfx-library" className="flex-1 text-center text-xs py-2 px-3 rounded-lg border border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors" style={{ textDecoration: "none" }}>
+              💥 SFX Library (256 sounds)
+            </a>
+            <a href="/dashboard/publishing" className="flex-1 text-center text-xs py-2 px-3 rounded-lg border border-gray-800 text-gray-500 hover:text-gray-300 hover:border-gray-600 transition-colors" style={{ textDecoration: "none" }}>
+              📡 Publishing & Channels
+            </a>
           </div>
         </div>
 
@@ -2069,7 +1993,7 @@ function StudioPageInner() {
             )}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* Asset Picker Modal */}
       <AssetPicker

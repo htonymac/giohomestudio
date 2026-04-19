@@ -179,7 +179,7 @@ export default function ModelsPage() {
               {m.is_active && (
                 <div className="flex gap-1.5">
                   <a
-                    href={`/dashboard?mode=${m.type === "video" ? "text_to_video" : "text_to_video"}&provider=${m.provider_name}`}
+                    href={`/dashboard/collaborative-editor?mode=${m.type === "video" ? "text_to_video" : "text_to_video"}&provider=${m.provider_name}`}
                     className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold text-center transition-colors"
                     style={{ background: "var(--accent, #6c63ff)", color: "white" }}
                   >

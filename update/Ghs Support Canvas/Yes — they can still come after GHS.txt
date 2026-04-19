@@ -1,0 +1,543 @@
+Yes — they can still come after GHS, even if GHS is not the one posting publicly or permanently storing the media.
+
+Why? Because a product can still be accused of facilitating unlawful use if it provides the tool, processes the material, generates altered outputs, clones a voice, adds endorsements, or assembles misleading content. The risk is higher when the app helps create identifiable uses of a person’s image, name, or voice, because WIPO notes that these kinds of attributes are protected under different legal frameworks such as image rights, personality rights, and publicity rights, and WIPO materials also list voice among the protected personal attributes in this area. 
+
+So your point is partly right:
+
+not uploading everything by default helps
+
+not posting for the user helps
+
+keeping more work on-device helps
+
+
+But that only reduces some risk. It does not fully remove risk if GHS:
+
+helps create unauthorized likeness/voice outputs,
+
+helps create misleading endorsements,
+
+helps assemble defamatory or deceptive edits,
+
+or uses third-party sounds/images under the wrong license terms. 
+
+
+How they could still sue GHS
+
+The typical argument would not be “you stored my photo forever.”
+It would more likely be:
+
+your software enabled unauthorized use of my face or voice,
+
+your software generated a misleading version of me,
+
+your software helped package and export infringing material,
+
+your software failed to warn/block obviously risky use,
+
+or your product design encouraged misuse without proper controls.
+
+
+That does not mean they would win. It means GHS can still be dragged into the dispute, spend money on defense, or face takedown/platform pressure.
+
+Best way to reduce that risk
+
+You need product controls, not just legal text.
+
+The strongest prevention stack is:
+
+1. On-device-first where possible
+
+Do:
+
+import and preview on device first
+
+analyze locally where feasible
+
+upload only after user approval
+
+let the user delete approved assets
+
+keep server retention minimal
+
+
+This helps privacy and reduces exposure if something sensitive is involved.
+
+2. Rights confirmation before risky use
+
+Before voice cloning, face-based generation, endorsement-style ads, or third-party media transformation, require the user to confirm:
+
+I own this content or have permission
+
+I have permission to use this likeness/voice
+
+I have commercial rights if this is an ad
+
+I understand I am responsible for false or unauthorized use
+
+
+3. Strict blocking rules
+
+Block by default:
+
+celebrity cloning
+
+third-party voice cloning without explicit rights confirmation
+
+“make this person say…” fraud-style requests
+
+fake testimonial/ad endorsement edits
+
+non-consensual intimate or misleading edits
+
+child-risk content
+
+
+4. Audit logs
+
+Store logs for:
+
+source type
+
+whether it stayed local or was uploaded
+
+user approval moment
+
+rights-confirmation checkbox version
+
+sound license used
+
+attribution text generated
+
+provider used
+
+export time
+
+
+5. Review-first workflow
+
+No final render, upload, or publish until:
+
+user previewed,
+
+user approved,
+
+license checks passed,
+
+rights checks passed,
+
+safety checks passed.
+
+
+That is one of your best legal and product defenses.
+
+Your 3 sound buckets are the right policy
+
+Tell Claude Code to build the sound system around only these buckets:
+
+1. Fully owned / custom-created sounds
+
+
+2. CC0 sounds
+
+
+3. CC BY sounds with automatic attribution support
+
+
+
+That is a good rule because Freesound says uploaded sounds may use different licenses, including CC0, CC BY, and CC BY-NC, and those licenses do not all allow the same things. CC0 is unrestricted; CC BY requires attribution; CC BY-NC is not appropriate for normal commercial use. Freesound also warns that user-uploaded content can sometimes be illegal or wrongly uploaded. 
+
+How to build automatic attribution support
+
+Claude Code should treat attribution as a system feature, not a manual note.
+
+Each imported sound asset should store:
+
+source platform
+
+source URL
+
+sound title
+
+creator name
+
+license type
+
+attribution text template
+
+commercial-use flag
+
+allowed-for-production flag
+
+local cached filename
+
+checksum / asset ID
+
+
+For CC BY sounds
+
+When the user uses a CC BY sound, GHS should automatically generate:
+
+credits text for export
+
+project metadata attribution block
+
+optional end-card credits
+
+optional description text for YouTube or download page
+
+
+Example attribution object
+
+{
+  "asset_id": "sfx_001245",
+  "title": "Rain on Window",
+  "creator": "Jane Doe",
+  "source_platform": "Freesound",
+  "source_url": "https://...",
+  "license": "CC-BY-4.0",
+  "requires_attribution": true,
+  "commercial_allowed": true,
+  "attribution_text": "\"Rain on Window\" by Jane Doe, used under CC BY 4.0"
+}
+
+Example automatic output behavior
+
+If a project uses 3 CC BY sounds, GHS should:
+
+collect all attribution entries
+
+deduplicate them
+
+generate one “Sound Credits” block
+
+expose a Copy Credits button
+
+optionally append them to export metadata / video description
+
+
+That is what “automatic attribution support” should mean in practice.
+
+Important warning for CC
+
+Tell him:
+
+do not allow CC BY-NC into commercial production pipelines
+
+do not mix unknown-license sounds into export
+
+do not treat “free to download” as “free to use commercially”
+
+
+That distinction matters a lot. 
+
+Wording to note inside GHS
+
+Yes, this is worth adding:
+
+> Custom-generated sound created inside GHS may be used by the customer subject to GHS terms and any third-party provider terms. For imported third-party sounds, the customer is responsible for following the applicable license and attribution requirements.
+
+
+
+That is sensible product wording.
+
+I would strengthen it slightly:
+
+> Custom-generated sound created inside GHS may be used by the customer subject to GHS terms and any applicable third-party provider terms. For imported third-party sounds, the customer is responsible for complying with the applicable license, attribution, and usage restrictions. GHS may provide attribution assistance, but the customer remains responsible for lawful final use.
+
+
+
+That protects you better.
+
+Tell CC to predownload hundreds of common sounds
+
+Yes — tell him directly.
+
+He should not call FAL for ordinary sounds that already exist in standard libraries.
+
+The smarter architecture is:
+
+Preload a large internal SFX library for common needs
+
+Examples:
+
+piano hits
+
+whooshes
+
+risers
+
+rain
+
+thunder
+
+wind
+
+footsteps
+
+crowd murmur
+
+market ambience
+
+traffic
+
+birds
+
+dog bark
+
+door open/close
+
+typing
+
+cloth movement
+
+water splash
+
+room tone
+
+office ambience
+
+kitchen sounds
+
+city ambience
+
+
+Use providers like FAL only when:
+
+the sound is unusual
+
+the user wants a custom sound design
+
+no good match exists internally
+
+the scene requires a very specific generated ambience
+
+
+That will reduce:
+
+cost
+
+latency
+
+repeated API calls
+
+provider dependency
+
+
+And it gives you a much more stable product.
+
+AI + FFmpeg: align this very well
+
+Yes — this should be a core architecture rule:
+
+AI plans. FFmpeg executes.
+
+FFmpeg supports the kinds of assembly you need: audio mixing, overlays, subtitles, and other timed composition tasks through its filter system. 
+
+So Claude Code should not build this as:
+
+random model output → raw ad hoc ffmpeg commands
+
+
+He should build it as:
+
+Recommended assembly pipeline
+
+1. Planner model creates a structured timeline
+
+
+2. Supervisor model checks timing and consistency
+
+
+3. Assembly JSON becomes source of truth
+
+
+4. FFmpeg command builder converts JSON into commands
+
+
+5. Preview render checks sync
+
+
+6. Final render runs only after approval
+
+
+
+Example assembly JSON sections
+
+timeline segments
+
+narration in/out
+
+music track in/out
+
+SFX placements
+
+overlay text timings
+
+volume automation
+
+ducking rules
+
+transitions
+
+subtitle timings
+
+
+That is much better than letting a local model freestyle FFmpeg directly.
+
+Tell CC not to assign this to local LLM by default
+
+Yes — for this workflow, defaulting everything to a local model is the wrong decision.
+
+The local model can be useful as:
+
+a director helper
+
+a supervisor helper
+
+a draft planner
+
+a low-cost first pass
+
+
+But for high-value planning, timing, creative supervision, and reliable structured outputs, you should support selectable tiers.
+
+OpenAI’s current model docs show GPT-5.4 as the top frontier model in that lineup, with gpt-5.4-mini and gpt-5.4-nano as lower-cost/lower-latency options. Anthropic’s current docs show Claude Sonnet 4.6 and Claude Opus 4.6 in the family. 
+
+Better model-tier plan for GHS
+
+Do not expose provider complexity too much to the user, but internally this is a good tier design:
+
+GHS Standard
+
+Use for:
+
+local helper model
+
+fast director drafts
+
+low-cost supervision
+
+basic tagging
+
+simple edit suggestions
+
+
+Good for:
+
+low-cost planning
+
+first-pass timing
+
+rough metadata
+
+non-critical assistant tasks
+
+
+GHS Pro
+
+Use for:
+
+stronger remote planning
+
+medium-cost structured generation
+
+better narration planning
+
+better sound planning
+
+better assembly supervision
+
+
+Suggested internal class:
+
+smaller OpenAI/Anthropic production models
+
+not the highest-cost tier
+
+
+GHS Premium
+
+Use for:
+
+advanced creative planning
+
+stronger scene/music alignment
+
+better structured timeline output
+
+higher confidence creative supervision
+
+
+Suggested internal class:
+
+top practical production models like GPT-5.4 / Claude Sonnet-class or similar, depending on the exact task and latency target. 
+
+
+GHS Premium Best
+
+Use for:
+
+hardest creative planning
+
+best supervisory reasoning
+
+difficult continuity checks
+
+final planning pass on important exports
+
+
+Suggested internal class:
+
+highest-end reasoning/coding/supervision tier available to you, such as GPT-5.4-class plus Claude Opus 4.6-class routing where justified by cost and task value. 
+
+
+Important instruction for CC
+
+Tell him this:
+
+do not make local LLM the hidden default for all assembly intelligence
+
+local can be used for Standard
+
+but Pro / Premium / Premium Best must be able to route to stronger hosted models
+
+the planner and supervisor should be model-tier aware
+
+FFmpeg execution must remain deterministic even when model tier changes
+
+
+That is the clean architecture.
+
+The practical answer to “how to prevent being sued”
+
+You cannot guarantee nobody will sue.
+You can greatly reduce risk by combining:
+
+on-device-first handling where possible
+
+upload only after approval
+
+strong rights-confirmation flows
+
+no deceptive cloning
+
+strict licensing buckets
+
+automatic attribution support
+
+preloaded vetted sound library
+
+audit logs
+
+review-first export/publish pipeline
+
+clear GHS terms and user warnings
+
+
+That is the real prevention stack.
+
+If you want, I can turn this into a sharp Claude Code instruction block next.
+
+
+Hold do not anything that documents is  for discussion 2

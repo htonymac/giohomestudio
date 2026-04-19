@@ -30,7 +30,7 @@ const TIER_CONFIG: Record<ModelTier, TierConfig> = {
     maxTokens: 800,
     temperature: 0.5,
     credits: 0,
-    description: "Local AI — fast drafts, basic planning",
+    description: "GHS Standard — quick drafts, basic planning",
   },
   pro: {
     plannerRole: "quality",
@@ -38,7 +38,7 @@ const TIER_CONFIG: Record<ModelTier, TierConfig> = {
     maxTokens: 1200,
     temperature: 0.5,
     credits: 1,
-    description: "Hosted AI — better structured planning, sound placement",
+    description: "GHS Pro — structured planning, sound placement",
   },
   premium: {
     plannerRole: "creative",
@@ -46,7 +46,7 @@ const TIER_CONFIG: Record<ModelTier, TierConfig> = {
     maxTokens: 2000,
     temperature: 0.5,
     credits: 3,
-    description: "Top AI — strong creative planning, continuity, timing",
+    description: "GHS Premium — strong creative planning, continuity, timing",
   },
   premium_best: {
     plannerRole: "supervisor",
@@ -54,7 +54,7 @@ const TIER_CONFIG: Record<ModelTier, TierConfig> = {
     maxTokens: 3000,
     temperature: 0.4,
     credits: 5,
-    description: "Best AI — hardest planning, strongest supervision",
+    description: "GHS Best — strongest planning, full supervision",
   },
 };
 

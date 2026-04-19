@@ -126,7 +126,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     canvasWidth: 1080, canvasHeight: 1350, background: "#F5F0E8", backgroundFinish: "matte",
     layers: [
       { type: "text", position: { x: 40, y: 60 }, size: { width: 1000, height: 70 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "LUXURY APARTMENT", style: { fontSize: 44, fontWeight: "bold", color: "#1A1A1A", textAlign: "center", opacity: 1 } },
-      { type: "text", position: { x: 40, y: 140 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Lekki Phase 1, Lagos", style: { fontSize: 20, fontWeight: "normal", color: "#666", textAlign: "center", opacity: 1 } },
+      { type: "text", position: { x: 40, y: 140 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Downtown, City Centre", style: { fontSize: 20, fontWeight: "normal", color: "#666", textAlign: "center", opacity: 1 } },
       { type: "price", position: { x: 340, y: 1100 }, size: { width: 400, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "$60,000/night", style: { fontSize: 28, fontWeight: "bold", color: "#FFFFFF", bgColor: "#7c5cfc", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "text", position: { x: 40, y: 1180 }, size: { width: 1000, height: 30 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "24/7 Security  •  Smart TV  •  Free WiFi  •  Parking", style: { fontSize: 16, fontWeight: "normal", color: "#555", textAlign: "center", opacity: 1 } },
       { type: "whatsapp", position: { x: 330, y: 1260 }, size: { width: 420, height: 44 }, rotation: 0, zIndex: 6, locked: false, visible: true, content: "+234 800 000 0000", style: { fontSize: 16, fontWeight: "bold", color: "#FFFFFF", bgColor: "#25D366", bgRadius: 20, bgPadding: 10, opacity: 1 } },
@@ -137,7 +137,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     canvasWidth: 1080, canvasHeight: 1080, background: "#1a0a00", backgroundFinish: "none",
     layers: [
       { type: "text", position: { x: 40, y: 60 }, size: { width: 1000, height: 70 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "TODAY'S SPECIAL", style: { fontSize: 52, fontWeight: "bold", color: "#f97316", textAlign: "center", opacity: 1 } },
-      { type: "text", position: { x: 40, y: 150 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Jollof Rice & Grilled Chicken", style: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF", textAlign: "center", opacity: 1 } },
+      { type: "text", position: { x: 40, y: 150 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Grilled Chicken & Fresh Salad", style: { fontSize: 24, fontWeight: "bold", color: "#FFFFFF", textAlign: "center", opacity: 1 } },
       { type: "price", position: { x: 390, y: 850 }, size: { width: 300, height: 60 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "$3,500", style: { fontSize: 32, fontWeight: "bold", color: "#1a0a00", bgColor: "#f97316", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
       { type: "cta", position: { x: 340, y: 940 }, size: { width: 400, height: 50 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "Order Now", style: { fontSize: 20, fontWeight: "bold", color: "#FFFFFF", bgColor: "#dc2626", bgRadius: 8, bgPadding: 12, textAlign: "center", opacity: 1 } },
     ],
@@ -148,7 +148,7 @@ const AD_TEMPLATES: AdTemplate[] = [
     layers: [
       { type: "text", position: { x: 40, y: 80 }, size: { width: 1000, height: 80 }, rotation: 0, zIndex: 2, locked: false, visible: true, content: "LIVE CONCERT", style: { fontSize: 56, fontWeight: "bold", color: "#FFFFFF", textAlign: "center", opacity: 1 } },
       { type: "text", position: { x: 40, y: 180 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 3, locked: false, visible: true, content: "Saturday, April 15 • 7PM", style: { fontSize: 22, fontWeight: "normal", color: "#a080ff", textAlign: "center", opacity: 1 } },
-      { type: "text", position: { x: 40, y: 240 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "Eko Convention Centre, Lagos", style: { fontSize: 18, fontWeight: "normal", color: "#6060a0", textAlign: "center", opacity: 1 } },
+      { type: "text", position: { x: 40, y: 240 }, size: { width: 1000, height: 40 }, rotation: 0, zIndex: 4, locked: false, visible: true, content: "Grand Convention Centre, City Hall", style: { fontSize: 18, fontWeight: "normal", color: "#6060a0", textAlign: "center", opacity: 1 } },
       { type: "cta", position: { x: 290, y: 1200 }, size: { width: 500, height: 55 }, rotation: 0, zIndex: 5, locked: false, visible: true, content: "Get Tickets Now", style: { fontSize: 22, fontWeight: "bold", color: "#FFFFFF", bgColor: "#ec4899", bgRadius: 10, bgPadding: 14, textAlign: "center", opacity: 1, shadow: true } },
     ],
   },
@@ -277,6 +277,29 @@ function AdEditorInner() {
   const [templateLoaded, setTemplateLoaded] = useState(false);
   const [bgRemoving, setBgRemoving] = useState(false);
   const [enhancing, setEnhancing] = useState(false);
+
+  // AI Background generation
+  const [aiBgPrompt, setAiBgPrompt] = useState("");
+  const [aiBgLoading, setAiBgLoading] = useState(false);
+  const [aiBgResult, setAiBgResult] = useState<string | null>(null);
+  const [aiBgType, setAiBgType] = useState<"ai" | "import" | "white">("ai");
+  const bgFileRef = useRef<HTMLInputElement>(null);
+
+  // Ideogram Transparent PNG
+  const [ideogramPrompt, setIdeogramPrompt] = useState("");
+  const [ideogramLoading, setIdeogramLoading] = useState(false);
+
+  // Layerize Text
+  const [layerizeLoading, setLayerizeLoading] = useState(false);
+  const [layerizeResult, setLayerizeResult] = useState<{ background_url?: string; text_containers?: unknown[] } | null>(null);
+
+  // Gemini TTS
+  const [ttsText, setTtsText] = useState("");
+  const [ttsVoice, setTtsVoice] = useState("Aoede");
+  const [ttsSpeed, setTtsSpeed] = useState(1.0);
+  const [ttsPitch, setTtsPitch] = useState<"low" | "medium" | "high">("medium");
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsResult, setTtsResult] = useState<string | null>(null);
   const [bgGradient, setBgGradient] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState<"ad" | "movie" | "banner" | "text_to_image">("ad");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -432,6 +455,94 @@ function AdEditorInner() {
       }
     } catch { /* ignore */ }
     setEnhancing(false);
+  }
+
+  // ── AI Background generation ──
+  async function handleAiBg() {
+    if (!aiBgPrompt.trim()) return;
+    setAiBgLoading(true);
+    try {
+      const res = await fetch("/api/ad-editor/ai-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "text_to_image", prompt: aiBgPrompt + " background, no text, full scene", projectId }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) {
+        setAiBgResult(data.outputUrl);
+        setCanvas(prev => ({ ...prev, background: `url(${data.outputUrl})` }));
+      }
+    } catch { /* ignore */ }
+    setAiBgLoading(false);
+  }
+
+  async function handleBgImport(file: File) {
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      if (!res.ok) return;
+      const data = await res.json();
+      const url = `/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+      setAiBgResult(url);
+      setCanvas(prev => ({ ...prev, background: `url(${url})` }));
+    } catch { /* ignore */ }
+  }
+
+  // ── Ideogram Transparent PNG ──
+  async function handleIdeogramTransparent() {
+    if (!ideogramPrompt.trim()) return;
+    setIdeogramLoading(true);
+    try {
+      const res = await fetch("/api/ad-editor/ideogram-transparent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: ideogramPrompt, projectId }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) {
+        addLayer({
+          id: nextLayerId("img"), type: "image",
+          position: { x: 40, y: 40 }, size: { width: 500, height: 500 },
+          rotation: 0, zIndex: canvas.layers.length + 1, locked: false, visible: true,
+          content: data.outputUrl, style: { opacity: 1 },
+        });
+      }
+    } catch { /* ignore */ }
+    setIdeogramLoading(false);
+  }
+
+  // ── Layerize Text ──
+  async function handleLayerize() {
+    const imgLayer = canvas.layers.find(l => l.type === "image");
+    if (!imgLayer) return;
+    setLayerizeLoading(true);
+    try {
+      const res = await fetch("/api/ad-editor/layerize-text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_url: imgLayer.content }),
+      });
+      const data = await res.json();
+      if (data.ok) setLayerizeResult(data);
+    } catch { /* ignore */ }
+    setLayerizeLoading(false);
+  }
+
+  // ── Gemini TTS ──
+  async function handleGeminiTts() {
+    if (!ttsText.trim()) return;
+    setTtsLoading(true);
+    try {
+      const res = await fetch("/api/ad-editor/gemini-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: ttsText, voice: ttsVoice, speed: ttsSpeed, pitch: ttsPitch, projectId }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) setTtsResult(data.outputUrl);
+    } catch { /* ignore */ }
+    setTtsLoading(false);
   }
 
   // ── Load ad template ──
@@ -958,6 +1069,138 @@ function AdEditorInner() {
             {aiLoading ? "Processing..." : aiMode === "text_to_image" ? "Generate Image" : "Edit with AI"}
           </button>
           {aiError && <p style={{ fontSize: 10, color: "#f87171", marginTop: 4 }}>{aiError}</p>}
+        </div>
+
+        {/* ── AI Background ── */}
+        <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
+          <p style={sectionTitle}>AI Background</p>
+          <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
+            {(["ai", "import", "white"] as const).map(t => (
+              <button key={t} onClick={() => setAiBgType(t)}
+                style={{ ...btnSm, flex: 1, fontSize: 9, padding: "3px 4px", background: aiBgType === t ? "rgba(16,185,129,0.15)" : "#1a1a2e", borderColor: aiBgType === t ? "#10b981" : "#2a2a40", color: aiBgType === t ? "#10b981" : "#a080ff", textTransform: "capitalize" }}>
+                {t === "ai" ? "Generate" : t === "import" ? "Import" : "White"}
+              </button>
+            ))}
+          </div>
+          {aiBgType === "ai" && (
+            <>
+              <textarea value={aiBgPrompt} onChange={e => setAiBgPrompt(e.target.value)} rows={2}
+                placeholder="Describe background scene… e.g. luxury city skyline at sunset"
+                style={{ ...inputSm, resize: "none", marginBottom: 6, fontSize: 11 }} />
+              <button onClick={handleAiBg} disabled={aiBgLoading || !aiBgPrompt.trim()}
+                style={{ ...btnSm, width: "100%", background: aiBgLoading ? "#2a2a40" : "#10b981", color: "#000", borderColor: "#10b981", fontWeight: 700 }}>
+                {aiBgLoading ? "Generating…" : "Generate Background"}
+              </button>
+            </>
+          )}
+          {aiBgType === "import" && (
+            <>
+              <button style={{ ...btnSm, width: "100%", marginBottom: 4 }} onClick={() => bgFileRef.current?.click()}>
+                Import Image
+              </button>
+              <input ref={bgFileRef} type="file" accept="image/*" style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleBgImport(f); }} />
+            </>
+          )}
+          {aiBgType === "white" && (
+            <button onClick={() => { setCanvas(prev => ({ ...prev, background: "#FFFFFF" })); setAiBgResult(null); }}
+              style={{ ...btnSm, width: "100%", background: "#fff", color: "#000", borderColor: "#ffffff40", fontWeight: 700 }}>
+              Set White Background
+            </button>
+          )}
+          {aiBgResult && (
+            <div style={{ marginTop: 8, borderRadius: 6, overflow: "hidden", border: "1px solid #2a2a40" }}>
+              <img src={aiBgResult} alt="AI Background" style={{ width: "100%", display: "block", maxHeight: 80, objectFit: "cover" }} />
+              <button onClick={() => { setAiBgResult(null); setCanvas(prev => ({ ...prev, background: "#FFFFFF" })); }}
+                style={{ ...btnSm, width: "100%", fontSize: 9, borderRadius: 0 }}>Clear</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Ideogram Transparent PNG ── */}
+        <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
+          <p style={sectionTitle}>Transparent PNG (AI)</p>
+          <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Generate an object or logo with no background</p>
+          <textarea value={ideogramPrompt} onChange={e => setIdeogramPrompt(e.target.value)} rows={2}
+            placeholder="e.g. luxury perfume bottle, gold and black, product photo"
+            style={{ ...inputSm, resize: "none", marginBottom: 6, fontSize: 11 }} />
+          <button onClick={handleIdeogramTransparent} disabled={ideogramLoading || !ideogramPrompt.trim()}
+            style={{ ...btnSm, width: "100%", background: ideogramLoading ? "#2a2a40" : "rgba(168,85,247,0.15)", color: "#a855f7", borderColor: "#a855f740", fontWeight: 700 }}>
+            {ideogramLoading ? "Generating…" : "Generate Transparent PNG"}
+          </button>
+        </div>
+
+        {/* ── Layerize Text ── */}
+        <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
+          <p style={sectionTitle}>Extract Text Layers (AI)</p>
+          <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Select an image layer, then extract its text for editing</p>
+          <button onClick={handleLayerize}
+            disabled={layerizeLoading || !canvas.layers.some(l => l.type === "image")}
+            style={{ ...btnSm, width: "100%", background: layerizeLoading ? "#2a2a40" : "rgba(59,130,246,0.15)", color: "#3b82f6", borderColor: "#3b82f640", fontWeight: 700 }}>
+            {layerizeLoading ? "Analyzing…" : "Extract Text Layers"}
+          </button>
+          {layerizeResult?.background_url && (
+            <div style={{ marginTop: 8 }}>
+              <p style={{ fontSize: 9, color: "#10b981", marginBottom: 4 }}>✓ Background extracted</p>
+              <button onClick={() => {
+                if (!layerizeResult.background_url) return;
+                addLayer({
+                  id: nextLayerId("img"), type: "image",
+                  position: { x: 0, y: 0 }, size: { width: canvas.width, height: canvas.height },
+                  rotation: 0, zIndex: 0, locked: false, visible: true,
+                  content: layerizeResult.background_url, style: { opacity: 1 },
+                });
+                setLayerizeResult(null);
+              }} style={{ ...btnSm, width: "100%", fontSize: 9 }}>Add Background to Canvas</button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Gemini TTS Voice-Over ── */}
+        <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
+          <p style={sectionTitle}>Voice-Over (Gemini TTS)</p>
+          <textarea value={ttsText} onChange={e => setTtsText(e.target.value)} rows={3}
+            placeholder="Type your ad script here…"
+            style={{ ...inputSm, resize: "vertical", marginBottom: 8, fontSize: 11 }} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 8 }}>
+            <div>
+              <label style={{ fontSize: 9, color: "#6060a0", display: "block", marginBottom: 3 }}>Voice</label>
+              <select value={ttsVoice} onChange={e => setTtsVoice(e.target.value)}
+                style={{ ...inputSm, fontSize: 10 }}>
+                {["Zephyr","Puck","Charon","Kore","Fenrir","Leda","Orus","Aoede","Callirrhoe","Autonoe"].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 9, color: "#6060a0", display: "block", marginBottom: 3 }}>Pitch</label>
+              <select value={ttsPitch} onChange={e => setTtsPitch(e.target.value as "low" | "medium" | "high")}
+                style={{ ...inputSm, fontSize: 10 }}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <div style={{ marginBottom: 8 }}>
+            <label style={{ fontSize: 9, color: "#6060a0" }}>Speed: {ttsSpeed.toFixed(1)}x</label>
+            <input type="range" min={0.5} max={2.0} step={0.1} value={ttsSpeed}
+              onChange={e => setTtsSpeed(parseFloat(e.target.value))}
+              style={{ width: "100%", marginTop: 4 }} />
+          </div>
+          <button onClick={handleGeminiTts} disabled={ttsLoading || !ttsText.trim()}
+            style={{ ...btnSm, width: "100%", background: ttsLoading ? "#2a2a40" : "rgba(6,182,212,0.15)", color: "#06b6d4", borderColor: "#06b6d440", fontWeight: 700 }}>
+            {ttsLoading ? "Generating…" : "Generate Voice-Over"}
+          </button>
+          {ttsResult && (
+            <div style={{ marginTop: 8, background: "#0a0a18", borderRadius: 8, padding: 8, border: "1px solid #2a2a40" }}>
+              <p style={{ fontSize: 9, color: "#10b981", marginBottom: 6 }}>✓ Voice-over ready</p>
+              <audio controls src={ttsResult} style={{ width: "100%", height: 32 }} />
+              <a href={ttsResult} download style={{ display: "block", textAlign: "center", fontSize: 9, color: "#06b6d4", marginTop: 6, textDecoration: "none" }}>
+                Download Audio
+              </a>
+            </div>
+          )}
         </div>
 
         {/* Version History */}

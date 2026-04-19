@@ -136,12 +136,12 @@ const VOICE_LANGUAGES = [
   { value: "hi", label: "Hindi",   supported: true },
   { value: "it", label: "Italian", supported: true },
   { value: "pl", label: "Polish",  supported: true },
-  { value: "yo", label: "Yoruba (partial — quality varies)", supported: false },
-  { value: "ig", label: "Igbo (partial — quality varies)",   supported: false },
-  { value: "ha", label: "Hausa (partial — quality varies)",  supported: false },
-  { value: "sw", label: "Swahili", supported: true },
-  { value: "zu", label: "Zulu (partial — quality varies)",   supported: false },
-  { value: "pidgin", label: "Nigerian Pidgin (best effort — use English model)", supported: false },
+  { value: "ru", label: "Russian",  supported: true },
+  { value: "tr", label: "Turkish",  supported: true },
+  { value: "ko", label: "Korean",   supported: true },
+  { value: "sw", label: "Swahili",  supported: true },
+  { value: "nl", label: "Dutch",    supported: true },
+  { value: "vi", label: "Vietnamese", supported: true },
 ];
 
 // ── Voice category filter labels ──────────────────────────────
@@ -1158,14 +1158,58 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [recentlyActioned, setRecentlyActioned] = useState<{ id: string; action: "approved" | "rejected" }[]>([]);
+  const [pendingItems, setPendingItems] = useState<Array<{ id: string; originalInput: string; createdAt: string }>>([]);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [dismissingAll, setDismissingAll] = useState(false);
 
   async function fetchQueue() {
     setLoading(true);
-    const res = await fetch("/api/review");
-    const data = await res.json();
-    setItems(data.items ?? []);
+    const [reviewRes, pendingRes] = await Promise.all([
+      fetch("/api/review"),
+      fetch("/api/registry?status=PENDING&limit=20"),
+    ]);
+    const reviewData = await reviewRes.json();
+    const pendingData = await pendingRes.json().catch(() => ({ items: [] }));
+    setItems(reviewData.items ?? []);
+    setPendingItems((pendingData.items ?? []).map((i: { id: string; originalInput: string; createdAt: string }) => ({
+      id: i.id, originalInput: i.originalInput, createdAt: i.createdAt,
+    })));
     setLoading(false);
   }
+
+  async function retryItem(id: string) {
+    setRetryingId(id);
+    try {
+      await fetch("/api/pipeline/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contentItemId: id }),
+      });
+      setPendingItems(prev => prev.filter(i => i.id !== id));
+    } catch { /* ignore */ }
+    setRetryingId(null);
+  }
+
+  async function dismissAllStuck() {
+    setDismissingAll(true);
+    await Promise.allSettled(
+      stuckItems.map(item =>
+        fetch(`/api/content/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "FAILED" }),
+        })
+      )
+    );
+    setPendingItems(prev => prev.filter(i => !stuckItems.some(s => s.id === i.id)));
+    setDismissingAll(false);
+  }
+
+  // Only show PENDING items older than 30 minutes as "stuck" — recent ones may still be processing
+  const STUCK_THRESHOLD_MS = 30 * 60 * 1000;
+  const stuckItems = pendingItems.filter(
+    i => Date.now() - new Date(i.createdAt).getTime() > STUCK_THRESHOLD_MS
+  );
 
   useEffect(() => { fetchQueue(); }, []);
 
@@ -1238,6 +1282,42 @@ export default function ReviewPage() {
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Stuck PENDING items — only items older than 30min are shown as stuck */}
+      {!loading && stuckItems.length > 0 && (
+        <div style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: "16px 20px", marginBottom: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>⚠ {stuckItems.length} stuck pipeline item{stuckItems.length > 1 ? "s" : ""}</p>
+              <p style={{ fontSize: 10, color: "#5a7080", marginTop: 2 }}>These started 30+ min ago and never finished — usually a server restart or timeout. Retry or dismiss.</p>
+            </div>
+            <button
+              onClick={dismissAllStuck}
+              disabled={dismissingAll}
+              style={{ padding: "5px 12px", borderRadius: 7, border: "1px solid rgba(239,68,68,0.3)", background: "transparent", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: dismissingAll ? "not-allowed" : "pointer", flexShrink: 0, opacity: dismissingAll ? 0.5 : 1 }}>
+              {dismissingAll ? "Dismissing…" : "Dismiss All"}
+            </button>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {stuckItems.map(item => (
+              <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.1)" }}>
+                <p style={{ flex: 1, fontSize: 11, color: "#e0e0f0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {item.originalInput.slice(0, 80)}
+                </p>
+                <p style={{ fontSize: 9, color: "#5a7080", flexShrink: 0 }}>
+                  {new Date(item.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+                <button
+                  onClick={() => retryItem(item.id)}
+                  disabled={retryingId === item.id}
+                  style={{ padding: "4px 12px", borderRadius: 6, border: "none", background: retryingId === item.id ? "#2a2a40" : "#ef4444", color: "#fff", fontSize: 10, fontWeight: 700, cursor: retryingId === item.id ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                  {retryingId === item.id ? "Retrying..." : "Retry"}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

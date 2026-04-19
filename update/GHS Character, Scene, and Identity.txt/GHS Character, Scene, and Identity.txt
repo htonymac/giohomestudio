@@ -1,0 +1,833 @@
+GHS Character, Scene, and Identity Pipeline — Master Source of Truth
+
+Purpose of This Document
+
+This document defines the mandatory character, scene, and identity workflow architecture for GioHomeStudio (GHS).
+
+This document is a core system law, not a suggestion.
+
+Claude Code must treat this document as a source-of-truth operational blueprint across:
+
+Movie Creator
+
+Series Creator
+
+Hybrid Creator
+
+Children Story Creator
+
+Short Video Creator
+
+Commercial Creator
+
+Semi-AI Collaborative Mode
+
+Future Manual Mode
+
+
+All systems must follow this structure.
+
+No section is allowed to bypass identity control or structured scene workflow.
+
+
+---
+
+Core System Philosophy
+
+Rule 1 — Characters Are System Objects, Not Text Names
+
+Characters must never exist only as text in prompts.
+
+Every character must exist as a structured identity object.
+
+Character identity must persist across:
+
+scenes
+
+shots
+
+audio
+
+video
+
+timeline
+
+edits
+
+regeneration
+
+
+Character names alone are not sufficient.
+
+Character IDs are mandatory.
+
+
+---
+
+Rule 2 — Story Must Always Be Scene-Based
+
+All stories inside GHS must exist as scene structures, not long paragraphs.
+
+Stories are never rendered directly from raw text.
+
+Stories must be:
+
+1. Generated
+
+
+2. Broken into scenes
+
+
+3. Stored as scene objects
+
+
+4. Kept in draft mode
+
+
+
+Until user explicitly assembles.
+
+
+---
+
+Rule 3 — No Local LLM for Core Intelligence
+
+All planning intelligence must use:
+
+reliable cloud LLMs
+
+strong reasoning models
+
+
+Local LLM usage is not allowed for:
+
+story planning
+
+character creation
+
+scene breakdown
+
+dialogue planning
+
+audio planning
+
+continuity logic
+
+
+Local models may be used only for:
+
+optional experimental tools
+
+non-critical preview logic
+
+
+Core intelligence must remain cloud-based.
+
+
+---
+
+Global Character Identity System
+
+This is the backbone of GHS character continuity.
+
+All modules must use this structure.
+
+
+---
+
+Character Identity Object Structure
+
+Every character must include:
+
+Character ID: CH01
+Display Name: Emeka
+Role Type: Hero / Villain / Narrator / Support
+Gender / Presentation:
+Age Range:
+Height:
+Body Type:
+Skin Tone:
+Hair Style:
+Facial Traits:
+Wardrobe Style:
+Speech Style:
+Accent Type:
+Emotion Profile:
+Voice ID:
+Language:
+Character Tags:
+
+Character IDs must be persistent.
+
+Example:
+
+CH01 = Emeka CH02 = Chike CH03 = Ifeanyi
+
+These IDs must be reused everywhere.
+
+Never replaced.
+
+Never regenerated randomly.
+
+
+---
+
+Character Visual Identity Storage
+
+Each character must include approved reference assets.
+
+Minimum set:
+
+Hero Portrait
+
+3/4 Portrait
+
+Side Profile
+
+Full Body
+
+Expression Variant
+
+
+Optional:
+
+Costume Variants
+
+Lighting Variants
+
+Mood Variants
+
+
+These assets must be stored in:
+
+Character Asset Registry
+
+Not regenerated every time.
+
+
+---
+
+Character Voice Identity Storage
+
+Each character must include:
+
+Voice ID mapping:
+
+Example:
+
+CH01 → Voice_Emeka_Adult_Male_NG
+
+Dialogue must always map to voice ID.
+
+Never assigned randomly.
+
+
+---
+
+Character Packs System (Existing Feature Alignment)
+
+Character Packs must preload identity frameworks.
+
+Example Packs:
+
+Nigerian Pidgin Narrator Pack
+
+African Cinema Character Pack
+
+English Cinematic Character Pack
+
+
+These packs must contain:
+
+preset roles
+
+preset voices
+
+preset description templates
+
+preset visual seeds
+
+
+Users may modify but IDs remain stable.
+
+
+---
+
+Story Intelligence Pipeline
+
+All creators must use this structure.
+
+
+---
+
+Step 1 — User Story Input
+
+User enters:
+
+idea
+
+concept
+
+script
+
+description
+
+
+System captures raw intent.
+
+No rendering happens here.
+
+
+---
+
+Step 2 — Story Expansion (Cloud LLM)
+
+System expands user story into:
+
+structured narrative
+
+emotional logic
+
+environment logic
+
+pacing logic
+
+tone definition
+
+
+Output must include:
+
+Character List
+
+Location List
+
+Mood Tags
+
+Sound Suggestions
+
+
+
+---
+
+Step 3 — Scene Breakdown (Cloud LLM)
+
+Story is split into scenes.
+
+Mandatory output:
+
+Scene ID
+Scene Title
+Location
+Time of Day
+Weather
+Mood
+Characters Present
+Primary Speaker
+Secondary Speakers
+Camera Style Suggestion
+Sound Suggestion
+Music Suggestion
+Scene Duration Estimate
+
+Scenes must be saved immediately.
+
+
+---
+
+Mandatory Draft State Behavior
+
+All scenes must remain in:
+
+DRAFT STATE
+
+Until user action.
+
+
+---
+
+Assembly Lock Rule
+
+Scenes must not assemble automatically.
+
+Assembly occurs only when user triggers:
+
+"Assemble My Scenes"
+
+Before assembly:
+
+scenes remain editable
+
+scenes remain separate
+
+no timeline merge occurs
+
+
+After assembly:
+
+Timeline creation begins.
+
+This applies to:
+
+Movie Mode
+
+Series Mode
+
+Hybrid Mode
+
+Children Story Mode
+
+Semi-AI Mode
+
+
+
+---
+
+Scene Object Architecture
+
+Each scene must be stored as a structured object.
+
+
+---
+
+Scene Object Fields
+
+Scene ID
+Scene Title
+Location
+Time of Day
+Weather
+Mood
+Characters Present (IDs)
+Dialogue Map
+Sound Plan
+Music Plan
+Lighting Plan
+Camera Plan
+Shot List
+Scene Status
+Draft State
+
+Characters must be referenced using IDs.
+
+Not names alone.
+
+
+---
+
+Shot-Level Control System
+
+This is critical for multi-character scenes.
+
+
+---
+
+Shot Object Structure
+
+Each shot must include:
+
+Shot ID
+Scene ID
+Characters Visible (IDs)
+Speaking Character ID
+Listening Character IDs
+Camera Angle
+Camera Movement
+Framing Type
+Lighting Style
+Dialogue Line
+Audio Timing
+Environment SFX
+
+Shots must be generated before video generation.
+
+Not skipped.
+
+
+---
+
+Character Dialogue Ownership System
+
+This prevents voice mixing.
+
+
+---
+
+Dialogue Mapping Rule
+
+Every line must attach to:
+
+Character ID
+
+Example:
+
+CH01: "You sure say this plan go hold?"
+CH02: "If man no risk, man no change story."
+CH03: "Abi you sure say we fit reach there before night?"
+
+Voice generation must use:
+
+Character Voice ID.
+
+Never random voice selection.
+
+
+---
+
+Visual Generation Pipeline
+
+
+---
+
+Step 1 — Character Reference Confirmation
+
+Before scene generation:
+
+Character reference images must exist.
+
+If missing:
+
+System must generate them.
+
+
+---
+
+Step 2 — Scene Still Generation
+
+Each scene generates:
+
+establishing frame
+
+layout preview
+
+
+Before video generation.
+
+
+---
+
+Step 3 — Shot Video Generation
+
+Video generation happens only after:
+
+Shot structure exists.
+
+Supported Engines:
+
+Kling
+
+Wan
+
+Veo
+
+Runway
+
+Future engines
+
+
+Character references must be attached to generation calls.
+
+
+---
+
+Audio Planning Pipeline
+
+Audio must be planned early.
+
+Not added randomly.
+
+
+---
+
+Sound Planning Includes
+
+Dialogue Voices
+
+Background Music
+
+Weather Sound
+
+Ambient Sound
+
+Action Sound
+
+
+Sound must map to scenes.
+
+
+---
+
+Semi-AI Collaborative Mode Rules
+
+Semi-AI mode must follow the same pipeline.
+
+No bypass allowed.
+
+
+---
+
+Semi-AI Behavior
+
+User may:
+
+pause scene
+
+request change
+
+regenerate single shot
+
+change dialogue
+
+adjust sound
+
+
+But:
+
+Character IDs must remain stable.
+
+Scene IDs must remain stable.
+
+
+---
+
+Regeneration Rules
+
+Only affected shots regenerate.
+
+Never full timeline unless requested.
+
+
+---
+
+Timeline Assembly Rules
+
+Triggered only by:
+
+User Command:
+
+"Assemble My Scenes"
+
+
+---
+
+Assembly Steps
+
+1. Validate Scene Order
+
+
+2. Validate Character Continuity
+
+
+3. Validate Audio Mapping
+
+
+4. Generate Timeline
+
+
+5. Apply Transitions
+
+
+6. Sync Dialogue
+
+
+7. Lock Scene Timing
+
+
+
+
+---
+
+Hybrid Mode Requirements
+
+Hybrid mode must support:
+
+image scenes
+
+motion scenes
+
+video scenes
+
+
+Scene type must be defined before rendering.
+
+
+---
+
+Children Story Mode Requirements
+
+Children Story Mode must:
+
+use simplified character sets
+
+maintain visual clarity
+
+support read-along narration
+
+highlight speaking characters
+
+
+Character IDs still mandatory.
+
+
+---
+
+Continuity Validation System
+
+System must automatically check:
+
+wrong speaker
+
+missing character reference
+
+duplicate character
+
+voice mismatch
+
+scene order conflict
+
+
+Errors must surface before rendering.
+
+
+---
+
+Finishing Layer Requirements
+
+Inspired by CapCut workflows.
+
+Minimum features:
+
+Trim
+
+Cut
+
+Reorder
+
+Subtitle Sync
+
+Audio Level Control
+
+Scene Lock
+
+Scene Replace
+
+Transition Control
+
+
+
+---
+
+Model Routing Logic
+
+Video generation must not use one engine blindly.
+
+Routing rules must evaluate:
+
+scene complexity
+
+motion need
+
+cost
+
+priority
+
+
+Example:
+
+Image Scene → Image Model Motion Scene → Low-cost Video Model Hero Scene → Premium Model
+
+
+---
+
+Data Persistence Rules
+
+All core objects must persist:
+
+Character IDs
+
+Scene IDs
+
+Shot IDs
+
+Voice IDs
+
+
+Never regenerated randomly.
+
+
+---
+
+Asset Registry System
+
+All assets must be stored in structured registry.
+
+Includes:
+
+Character images
+
+Scene images
+
+Video clips
+
+Audio tracks
+
+
+Assets must be reusable.
+
+
+---
+
+Export Readiness Checks
+
+Before export:
+
+System must verify:
+
+Dialogue sync
+
+Scene order
+
+Character continuity
+
+Audio completeness
+
+
+
+---
+
+Final System Truth Summary
+
+This document defines:
+
+The Character Identity System
+
+The Scene Workflow System
+
+The Dialogue Ownership Model
+
+The Assembly Pipeline
+
+The Collaborative Editing Behavior
+
+This must apply globally across:
+
+Movies
+
+Series
+
+Hybrid
+
+Children Stories
+
+Short Videos
+
+Commercials
+
+
+No system module is allowed to ignore these rules.
+
+This document is the Character and Scene Source-of-Truth Law for GHS.
+
+This master.pipe line all section will follow but for this very chat we should concentrate on semi ai collabo 
+
+Using all.the information make a CANVANS FOR  GHS Character, Scene, and Identity Pipeline — Master Source of Truth AI COLLABORATION 
+

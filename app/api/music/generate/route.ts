@@ -57,8 +57,11 @@ async function downloadAndSave(audioUrl: string, prefix: string): Promise<string
   const outDir = path.join(env.storagePath, "music", "generated");
   fs.mkdirSync(outDir, { recursive: true });
   const res = await fetch(audioUrl);
-  const outPath = path.join(outDir, `${prefix}_${Date.now()}.mp3`);
+  const fileName = `${prefix}_${Date.now()}.mp3`;
+  const outPath = path.join(outDir, fileName);
   fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+
+  const fileUrl = `/api/media/music/generated/${fileName}`;
 
   // Auto-save to asset library
   try {
@@ -70,10 +73,12 @@ async function downloadAndSave(audioUrl: string, prefix: string): Promise<string
       type: "music",
       name: `AI Music — ${prefix}`,
       filePath: outPath,
+      fileUrl,
       tags: ["music", "ai-generated", prefix],
       source: prefix,
       createdAt: new Date().toISOString(),
     });
+    fs.mkdirSync(path.join(env.storagePath, "config"), { recursive: true });
     fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
   } catch { /* best effort */ }
 

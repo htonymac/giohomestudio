@@ -263,7 +263,7 @@ export default function CharacterImagesPage() {
         <textarea
           value={aiPrompt}
           onChange={e => setAiPrompt(e.target.value)}
-          placeholder="e.g. Nigerian woman in her 30s, natural afro hair, wearing a red ankara blouse, warm brown eyes, confident expression"
+          placeholder="e.g. Woman in her 30s, natural curly hair, wearing a red blouse, warm brown eyes, confident expression"
           rows={3}
           style={{
             width: "100%", background: "#12102a", border: "1px solid #2a1a5a",
@@ -458,19 +458,19 @@ export default function CharacterImagesPage() {
         <p style={{ fontSize: 12, fontWeight: 600, color: "#b090ff", marginBottom: 12 }}>Use This Character</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <a
-            href={`/dashboard?mode=image_to_video&characterId=${character.id}`}
+            href={`/dashboard/collaborative-editor?mode=image_to_video&characterId=${character.id}`}
             style={{ padding: "8px 16px", borderRadius: 8, background: "#7c5cfc", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
           >
             🎭 Image → Video
           </a>
           <a
-            href={`/dashboard?mode=text_to_video&characterId=${character.id}`}
+            href={`/dashboard/collaborative-editor?mode=text_to_video&characterId=${character.id}`}
             style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
           >
             🎬 Text → Video
           </a>
           <a
-            href={`/dashboard?mode=text_to_audio&characterId=${character.id}`}
+            href={`/dashboard/collaborative-editor?mode=text_to_audio&characterId=${character.id}`}
             style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
           >
             🎙 Text → Audio

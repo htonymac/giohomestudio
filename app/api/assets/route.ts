@@ -131,6 +131,44 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Auto-seed scene videos (storage/videos/) — sync on every request so new clips appear immediately
+  {
+    const videosDir = path.resolve(env.storagePath, "videos");
+    if (fs.existsSync(videosDir)) {
+      const files = fs.readdirSync(videosDir)
+        .filter(f => f.endsWith(".mp4"))
+        .sort((a, b) => {
+          // Sort by timestamp embedded in filename (scene_SC01_1234567890.mp4)
+          const ta = parseInt(a.match(/(\d{10,})/)?.[1] ?? "0");
+          const tb = parseInt(b.match(/(\d{10,})/)?.[1] ?? "0");
+          return tb - ta; // newest first
+        });
+      let changed = false;
+      for (const f of files) {
+        const id = `scene_vid_${f}`;
+        if (assets.some(a => a.id === id)) continue; // already in library
+        // Build a clean display name from the filename
+        // scene_SC01_1776292452097.mp4 → "Scene SC01 · Setting Out" (sceneId only)
+        const sceneIdMatch = f.match(/scene_(SC\d+[^_]*)/i);
+        const sceneId = sceneIdMatch ? sceneIdMatch[1].replace(/_/g, " ") : f.replace(/\.mp4$/, "");
+        const ts = parseInt(f.match(/(\d{10,})/)?.[1] ?? "0");
+        const dateStr = ts ? new Date(ts).toLocaleDateString() : "";
+        assets.push({
+          id,
+          type: "video",
+          name: `Scene ${sceneId}${dateStr ? " · " + dateStr : ""}`,
+          description: `Generated scene clip — ${f}`,
+          filePath: path.join(videosDir, f),
+          tags: ["video", "scene", sceneId.toLowerCase().replace(/\s+/g, "-")],
+          source: "scene_generated",
+          createdAt: ts ? new Date(ts).toISOString() : new Date().toISOString(),
+        });
+        changed = true;
+      }
+      if (changed) saveAssets(assets);
+    }
+  }
+
   // Auto-seed merged videos
   const hasMerged = assets.some(a => a.source === "auto_merged");
   if (!hasMerged) {

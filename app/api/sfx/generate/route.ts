@@ -76,7 +76,8 @@ export async function POST(req: NextRequest) {
         fs.writeFileSync(assetFile, JSON.stringify(assets, null, 2));
       } catch { /* best effort */ }
 
-      return NextResponse.json({ sfxPath: outPath, source: "elevenlabs_ai", matched: `AI: ${description}` });
+      const fileUrl = `/api/media/sfx/${path.basename(outPath)}`;
+      return NextResponse.json({ ok: true, sfxPath: outPath, fileUrl, source: "elevenlabs_ai", name: description.slice(0, 50) });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`[SFX] ElevenLabs generation failed: ${msg}`);

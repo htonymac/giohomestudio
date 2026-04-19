@@ -16,10 +16,12 @@ export async function POST(req: NextRequest) {
   fs.mkdirSync(previewDir, { recursive: true });
   const outputPath = path.join(previewDir, `piper_preview_${Date.now()}.mp3`);
 
+  const speed = body.speed ? parseFloat(body.speed) : 0.85; // default slightly slower for narration
   const result = await piperVoiceProvider.generate({
     text,
     voiceId,
     outputPath,
+    speed,
   });
 
   if (result.status !== "completed" || !result.localPath) {

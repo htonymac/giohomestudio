@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 interface SFXEntry {
@@ -309,7 +310,7 @@ function MetadataPanel({ sfx, note, onSave, saving }: {
 }
 
 // ── SFX Card ─────────────────────────────────────────────────────────────────
-function SFXCard({ sfx, note, onCopy, playing, onPlay, onStop, onSaveNote }: {
+function SFXCard({ sfx, note, onCopy, playing, onPlay, onStop, onSaveNote, isSelectMode, onSelect }: {
   sfx: SFXEntry;
   note: SFXSourceNote | undefined;
   onCopy: (filename: string) => void;
@@ -317,6 +318,8 @@ function SFXCard({ sfx, note, onCopy, playing, onPlay, onStop, onSaveNote }: {
   onPlay: () => void;
   onStop: () => void;
   onSaveNote: (draft: SFXSourceNote) => Promise<void>;
+  isSelectMode?: boolean;
+  onSelect?: (sfx: SFXEntry) => void;
 }) {
   const color = CATEGORY_COLORS[sfx.category] ?? "#7c5cfc";
   const freesoundUrl = FREESOUND_LINKS[sfx.event];
@@ -443,20 +446,37 @@ function SFXCard({ sfx, note, onCopy, playing, onPlay, onStop, onSaveNote }: {
           )}
         </div>
 
+        {/* Select button (in select mode) */}
+        {isSelectMode && sfx.available && (
+          <button
+            onClick={() => onSelect?.(sfx)}
+            style={{
+              background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+              border: "none", borderRadius: 8, padding: "6px 16px", fontSize: 11,
+              fontWeight: 700, color: "#fff", cursor: "pointer", flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(168,85,247,0.3)",
+            }}
+          >
+            Select
+          </button>
+        )}
+
         {/* Notes expand toggle */}
-        <button
-          onClick={() => setExpanded(e => !e)}
-          title={expanded ? "Collapse source notes" : "Edit source notes / auto-mode / quality"}
-          style={{
-            background: expanded ? "#1a1a30" : "transparent",
-            border: `1px solid ${expanded ? "#2a2a4a" : "transparent"}`,
-            borderRadius: 5, padding: "3px 8px", fontSize: 11,
-            color: expanded ? "#7070b0" : "#2a2a4a", cursor: "pointer",
-            flexShrink: 0, transition: "all 0.15s ease",
-          }}
-        >
-          {expanded ? "▲" : "✎"}
-        </button>
+        {!isSelectMode && (
+          <button
+            onClick={() => setExpanded(e => !e)}
+            title={expanded ? "Collapse source notes" : "Edit source notes / auto-mode / quality"}
+            style={{
+              background: expanded ? "#1a1a30" : "transparent",
+              border: `1px solid ${expanded ? "#2a2a4a" : "transparent"}`,
+              borderRadius: 5, padding: "3px 8px", fontSize: 11,
+              color: expanded ? "#7070b0" : "#2a2a4a", cursor: "pointer",
+              flexShrink: 0, transition: "all 0.15s ease",
+            }}
+          >
+            {expanded ? "▲" : "✎"}
+          </button>
+        )}
       </div>
 
       {/* ── Expanded metadata panel ── */}
@@ -474,18 +494,42 @@ function SFXCard({ sfx, note, onCopy, playing, onPlay, onStop, onSaveNote }: {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function SFXLibraryPage() {
+  return <Suspense fallback={<div style={{ padding: 40, color: "#5a5a7a" }}>Loading SFX Library...</div>}><SFXLibraryInner /></Suspense>;
+}
+
+function SFXLibraryInner() {
+  const searchParams = useSearchParams();
+  const selectMode = searchParams.get("selectMode"); // "music" = user is picking music to bring back
+  const returnTo = searchParams.get("returnTo") || ""; // e.g. "auto-creator", "hybrid-planner", "movie-planner"
+  const isSelectMode = selectMode === "music";
+
   const [library, setLibrary] = useState<SFXEntry[]>([]);
   const [notes, setNotes] = useState<NotesMap>({});
   const [availableCount, setAvailableCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<string>(isSelectMode ? "music" : "all");
   const [playingEvent, setPlayingEvent] = useState<string | null>(null);
   const [copied, setCopied] = useState("");
   const [showSources, setShowSources] = useState(false);
   const [showPriority, setShowPriority] = useState(false);
   const [errandLoading, setErrandLoading] = useState(false);
   const [errandResult, setErrandResult] = useState("");
+
+  // Select mode: when user picks a track, save URL to localStorage and navigate back
+  function selectAndReturn(sfx: SFXEntry) {
+    const musicUrl = `/api/sfx/play?event=${sfx.event}`;
+    localStorage.setItem("ghs_selected_music", JSON.stringify({
+      url: musicUrl,
+      event: sfx.event,
+      filename: sfx.filename,
+      category: sfx.category,
+      timestamp: Date.now(),
+    }));
+    // Navigate back to the returnTo page
+    const returnPath = returnTo ? `/dashboard/${returnTo}` : "/dashboard/auto-creator";
+    window.location.href = returnPath;
+  }
 
   async function loadLibrary() {
     setLoading(true);
@@ -502,7 +546,9 @@ export default function SFXLibraryPage() {
 
   useEffect(() => { loadLibrary(); }, []);
 
-  const filtered = filter === "all" ? library : library.filter(s => s.category === filter);
+  const CATEGORIES = ["weather","crowd","action","nature","urban","horror","animal","vehicle","transition","music","voice","nigerian","household","tech","weapon","impact","movement","children"];
+  const isCategory = filter === "all" || CATEGORIES.includes(filter);
+  const filtered = filter === "all" ? library : isCategory ? library.filter(s => s.category === filter) : library.filter(s => s.event.includes(filter) || s.description.toLowerCase().includes(filter));
   const grouped = CATEGORY_ORDER.reduce<Record<string, SFXEntry[]>>((acc, cat) => {
     const items = filtered.filter(s => s.category === cat);
     if (items.length) acc[cat] = items;
@@ -590,6 +636,29 @@ export default function SFXLibraryPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Select Mode Banner ── */}
+      {isSelectMode && (
+        <div style={{
+          background: "linear-gradient(135deg, #a855f715, #00d4ff08)",
+          border: "2px solid #a855f740",
+          borderRadius: 14, padding: "16px 20px", marginBottom: 16,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#a855f7", marginBottom: 4 }}>
+              Select Music Track
+            </p>
+            <p style={{ fontSize: 11, color: "#7070b0" }}>
+              Preview and click "Select" on any track to use it. You will be returned to {returnTo ? returnTo.replace(/-/g, " ") : "the page you came from"}.
+            </p>
+          </div>
+          <a href={returnTo ? `/dashboard/${returnTo}` : "/dashboard/auto-creator"}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #3a3a5a", background: "transparent", color: "#7070b0", fontSize: 11, textDecoration: "none", cursor: "pointer", flexShrink: 0 }}>
+            Cancel
+          </a>
+        </div>
+      )}
 
       {/* ── Copied toast ── */}
       {copied && (
@@ -736,6 +805,45 @@ export default function SFXLibraryPage() {
         )}
       </div>
 
+      {/* ── Free SFX Sources Help Card ── */}
+      <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 14, padding: "16px 20px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>Free SFX Sources — Download and add to your library</p>
+          <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.2)" }}>All Free / CC0</span>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 8, marginBottom: 10 }}>
+          {[
+            { name: "Freesound", url: "https://freesound.org", desc: "Largest CC0/CC BY library" },
+            { name: "Pixabay Audio", url: "https://pixabay.com/sound-effects", desc: "Free for commercial use" },
+            { name: "Mixkit", url: "https://mixkit.co/free-sound-effects", desc: "Free, no attribution" },
+            { name: "Sonniss GDC", url: "https://sonniss.com/gameaudiogdc", desc: "30GB+ free game audio" },
+            { name: "Openverse", url: "https://openverse.org", desc: "CC-licensed audio search" },
+          ].map(src => (
+            <a key={src.name} href={src.url} target="_blank" rel="noopener noreferrer"
+              style={{ padding: "6px 12px", borderRadius: 8, background: "#10141f", border: "1px solid #1e2a35", textDecoration: "none", display: "flex", flexDirection: "column" as const }}>
+              <span style={{ fontSize: 11, color: "#a855f7", fontWeight: 600 }}>{src.name}</span>
+              <span style={{ fontSize: 9, color: "#5a7080" }}>{src.desc}</span>
+            </a>
+          ))}
+        </div>
+        <div style={{ fontSize: 10, color: "#5a7080", lineHeight: 1.6 }}>
+          <strong style={{ color: "#fff" }}>How to add:</strong> Download MP3 → rename to match the event name (e.g. <code style={{ color: "#a855f7" }}>thunder.mp3</code>) → place in <code style={{ color: "#a855f7" }}>storage/sfx/</code> → refresh this page.
+          <br />
+          <strong style={{ color: "#fff" }}>Quality rules:</strong> Clean audio, 0.5-5s for one-shots, 10-60s for ambience, no music mixed in, good for looping.
+        </div>
+      </div>
+
+      {/* ── Quick search links ── */}
+      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginBottom: 10 }}>
+        <span style={{ fontSize: 9, color: "#5a7080", marginRight: 4, lineHeight: "24px" }}>Quick:</span>
+        {["thunder", "rain", "wind", "gunshot", "sword", "footsteps", "door", "crowd", "explosion", "car", "dog", "ocean", "fire", "bird", "piano", "whoosh"].map(q => (
+          <button key={q} onClick={() => setFilter(q)}
+            style={{ fontSize: 9, padding: "3px 10px", borderRadius: 100, border: "1px solid #1e2a35", background: filter === q ? "#7c5cfc15" : "transparent", color: filter === q ? "#7c5cfc" : "#5a7080", cursor: "pointer" }}>
+            {q}
+          </button>
+        ))}
+      </div>
+
       {/* ── Category filter bar ── */}
       <div className="flex gap-2 flex-wrap mb-4">
         <button onClick={() => setFilter("all")} style={{
@@ -792,6 +900,8 @@ export default function SFXLibraryPage() {
                   onPlay={() => setPlayingEvent(sfx.event)}
                   onStop={() => setPlayingEvent(null)}
                   onSaveNote={handleSaveNote}
+                  isSelectMode={isSelectMode}
+                  onSelect={selectAndReturn}
                 />
               ))}
             </div>

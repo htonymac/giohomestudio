@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { generateCharacterId } from "@/lib/character-id";
 
 export async function GET() {
   const voices = await prisma.characterVoice.findMany({
@@ -16,16 +17,29 @@ export async function POST(req: NextRequest) {
   const {
     name, gender, toneClass, accent, language, voiceId, voiceName, isNarrator, notes,
     imageUrl, visualDescription, role, defaultSpeechStyle,
+    age, height, culture, country, dialect, personality, wardrobe, hairstyle,
+    expressions, posePack, motionReference, keepSameToggle, voiceProvider, projectAssociation,
+    characterId: providedCharId, skinTone, attribute,
   } = body;
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
+  // Auto-generate character ID if not provided
+  const characterId = providedCharId || generateCharacterId({
+    country: country || undefined,
+    name,
+    age: age || undefined,
+    skinTone: skinTone || undefined,
+    attribute: attribute || undefined,
+  });
+
   try {
     const voice = await prisma.characterVoice.create({
       data: {
         name: name.toUpperCase().trim(),
+        characterId,
         gender: gender ?? null,
         toneClass: toneClass ?? null,
         accent: accent ?? null,
@@ -38,6 +52,20 @@ export async function POST(req: NextRequest) {
         visualDescription: visualDescription ?? null,
         role: role ?? null,
         defaultSpeechStyle: defaultSpeechStyle ?? null,
+        age: age ?? null,
+        height: height ?? null,
+        culture: culture ?? null,
+        country: country ?? null,
+        dialect: dialect ?? null,
+        personality: personality ?? null,
+        wardrobe: wardrobe ?? null,
+        hairstyle: hairstyle ?? null,
+        expressions: expressions ?? undefined,
+        posePack: posePack ?? undefined,
+        motionReference: motionReference ?? null,
+        keepSameToggle: keepSameToggle ?? true,
+        voiceProvider: voiceProvider ?? null,
+        projectAssociation: projectAssociation ?? null,
       },
     });
     return NextResponse.json({ voice }, { status: 201 });

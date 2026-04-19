@@ -1,0 +1,1388 @@
+"use client";
+
+import { useState, useEffect, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import NarrationControls from "../../components/NarrationControls";
+import type { NarrationSettings } from "../../components/NarrationControls";
+import SceneImagePanel from "../../components/SceneImagePanel";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// GHS AI Movie & Series Planner — The Brain
+// Multi-AI cinematic expansion: user writes simple idea → AI produces
+// full cinematic blueprint with characters, scenes, sound, and generation plan
+//
+// 2 AI layers: Primary Planner (story expansion) + Reviewer (quality check)
+// 3 Non-LLM engines: Continuity Checker, Sound Cue Planner, Generation Strategy
+//
+// Features: save/load projects, continue existing, scene editing, render queue
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Types ────────────────────────────────────────────────────────────────────
+
+interface Character {
+  id: string;
+  name: string;
+  role?: string;
+  description?: string;
+}
+
+interface SceneCard {
+  scene: number;
+  title: string;
+  goal: string;
+  duration: string;
+  characters: string[];
+  visualDescription: string;
+  cameraDirection: string;
+  dialogue: string;
+  soundEffects: string;
+  ambience: string;
+  musicCue: string;
+  generationMethod: "image" | "video" | "image-to-video" | "audio-only" | "hybrid";
+  costLabel: "cheap" | "balanced" | "premium";
+  status: "planned" | "approved" | "generating" | "generated" | "needs_edit" | "blocked";
+}
+
+interface MoviePlan {
+  summary: string;
+  storyArc: { setup: string; tension: string; climax: string; resolution: string };
+  scenes: SceneCard[];
+  soundPlan: string;
+  musicDirection: string;
+  visualDirection: string;
+  continuityNotes: string[];
+  missingAssets: string[];
+  reviewerNotes: string[];
+  estimatedCredits: number;
+}
+
+// ── Constants ────────────────────────────────────────────────────────────────
+
+const GENRES = [
+  "Children Story", "Short Story", "Action", "African Cinema", "Epic Fantasy",
+  "Mythology", "Historical Drama", "Adventure", "Romance", "Thriller",
+  "Horror", "Comedy", "Sci-Fi", "War", "Crime", "Supernatural", "Survival", "Inspirational",
+];
+
+const STYLES = [
+  "Cinematic", "Dialogue Driven", "Narrated", "Voiceover Led",
+  "Minimal Dialogue", "Visual Only", "Documentary Style", "Music Led",
+];
+
+const FORMATS = [
+  { id: "audio_video_image", label: "Hybrid Movie", desc: "Images for setup/emotion + Video for action + Audio ties it together. Save 50-75% credits.", cost: "1-2 credits/scene", badge: "RECOMMENDED", badgeColor: "#22c55e",
+    detail: "AI decides per scene: calm scenes use images with rich narration, action scenes use 5-10s video, transitions use audio bridges. Same story quality, much lower cost." },
+  { id: "video_first", label: "Full Video Movie", desc: "Every scene is full video. Highest quality and motion. For premium productions.", cost: "4 credits/scene", badge: "PREMIUM", badgeColor: "#7c5cfc",
+    detail: "Maximum visual quality. Every scene generated as video. Best for cinematic action, high-budget productions. Narration is minimal — motion tells the story." },
+  { id: "audio_image", label: "Image-Led Narrated Movie", desc: "Heavy narration with images. Minimal motion. Cheapest format.", cost: "1 credit/scene", badge: "BUDGET", badgeColor: "#f59e0b",
+    detail: "Best for children stories, emotional stories, recap storytelling. Strong narration carries every scene. Images with pan/zoom effects. Very low cost." },
+  { id: "audio_only", label: "Audio Only Movie", desc: "Radio drama, voice-led storytelling. No visuals. Pure audio experience.", cost: "0 credits/scene", badge: "FREE", badgeColor: "#00d4ff",
+    detail: "Voice acting, narration, SFX, and music only. No image or video generation needed. For podcasts, audio dramas, and voice-led stories." },
+];
+
+const PRODUCTION_MODES = [
+  { id: "ai_generated", label: "AI Generated Movie", desc: "AI plans and generates, you review and approve" },
+  { id: "ai_human", label: "AI + Human Movie", desc: "AI plans, you edit important creative decisions" },
+  { id: "manual_assisted", label: "Manual Assisted Movie", desc: "You control scene design, AI assists" },
+];
+
+const PLANNING_DEPTHS = [
+  { id: "quick", label: "Standard", desc: "Basic AI planning — fast outline, simple scenes", cost: "Free", badge: "FREE", badgeColor: "#22c55e",
+    detail: "1 AI system creates a basic plan. Good for quick ideas and testing." },
+  { id: "smart", label: "Smart", desc: "2 AI systems — AI Story Director + AI Quality Reviewer", cost: "1 credit", badge: "RECOMMENDED", badgeColor: "#7c5cfc",
+    detail: "AI Story Director expands your idea. AI Quality Reviewer checks for logic gaps and pacing. Better scenes, sound planning, and style." },
+  { id: "full", label: "Premium", desc: "3 AI systems — Story Director + Technical Director + Quality Reviewer", cost: "3 credits", badge: "PREMIUM", badgeColor: "#f59e0b",
+    detail: "Full multi-AI orchestration. AI Story Director expands, AI Technical Director adds exact SFX and physics, AI Quality Reviewer validates. Complete producer-grade blueprint." },
+];
+
+const TONES = [
+  "Emotional", "Suspenseful", "Heroic", "Magical", "Dark", "Funny",
+  "Warm", "Tragic", "Adventurous", "Intense", "Romantic", "Mysterious",
+];
+
+const SETTINGS = [
+  "Modern City", "Village", "Desert", "Mountain Snow", "Ancient Kingdom",
+  "Mythic World", "Futuristic City", "Forest", "War Zone", "Ocean",
+  "Space", "Underground", "Market", "School", "Palace",
+];
+
+const ROLES = [
+  "Hero", "Heroine", "Villain", "Narrator", "Mentor", "Side Character",
+  "Comic Relief", "Antihero", "Child Lead", "Warrior", "Ruler", "Love Interest",
+];
+
+// ── Styles ───────────────────────────────────────────────────────────────
+
+const surface = "#0e1318";
+const border = "#1e2a35";
+const border2 = "#263240";
+const muted = "#5a7080";
+const accent = "#7c5cfc";
+
+const cardStyle: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 24 };
+const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10, display: "block" };
+const inputStyle: React.CSSProperties = { width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, fontWeight: 300, outline: "none", fontFamily: "inherit" };
+const pillStyle = (selected: boolean, color?: string): React.CSSProperties => ({
+  padding: "8px 16px", borderRadius: 100, cursor: "pointer",
+  border: `1px solid ${selected ? (color ?? accent) : border}`,
+  background: selected ? `${color ?? accent}15` : "transparent",
+  color: selected ? (color ?? accent) : muted,
+  fontSize: 12, fontWeight: selected ? 600 : 400, transition: "all 0.2s",
+});
+
+// ── Page ─────────────────────────────────────────────────────────────────
+
+export default function MoviePlannerPage() {
+  return <Suspense fallback={<div style={{ padding: 40, color: "#5a7080" }}>Loading Movie Planner...</div>}><MoviePlannerInner /></Suspense>;
+}
+
+function MoviePlannerInner() {
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
+
+  // Step 1: Movie basics
+  const [title, setTitle] = useState("");
+  const [idea, setIdea] = useState("");
+  const [expandedStory, setExpandedStory] = useState("");
+  const [duration, setDuration] = useState("10 min");
+  const [language, setLanguage] = useState("English");
+
+  // Step 2: Creative design
+  const [genre, setGenre] = useState("");
+  const [style, setStyle] = useState("");
+  const [format, setFormat] = useState("");
+  const [productionMode, setProductionMode] = useState("");
+  const [planningDepth, setPlanningDepth] = useState("smart");
+  const [tone, setTone] = useState("");
+  const [setting, setSetting] = useState("");
+
+  // Step 3: Characters
+  const [savedCharacters, setSavedCharacters] = useState<Character[]>([]);
+  const [selectedCast, setSelectedCast] = useState<Array<{ characterId: string; role: string }>>([]);
+  const [loadingChars, setLoadingChars] = useState(false);
+
+  // Step 4: AI Planning
+  const [planning, setPlanning] = useState(false);
+  const [moviePlan, setMoviePlan] = useState<MoviePlan | null>(null);
+
+  // Step 5: Scene editing
+  const [selectedScene, setSelectedScene] = useState<number | null>(null);
+  const [sceneImagePanelOpen, setSceneImagePanelOpen] = useState<number | null>(null);
+
+  // Narration voice controls (per-scene text keyed by scene number)
+  const [narrationTexts, setNarrationTexts] = useState<Record<number, string>>({});
+  const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
+
+  // Project persistence
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectList, setProjectList] = useState<Array<{ id: string; title: string; genre: string | null; status: string; updatedAt: string; _count: { scenes: number } }>>([]);
+  const [showContinue, setShowContinue] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [renderingScene, setRenderingScene] = useState<number | null>(null);
+  const [videoModel, setVideoModel] = useState("hailuo-fast");
+  const [assembling, setAssembling] = useState(false);
+  const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+
+  // Load project list + check for continue
+  useEffect(() => {
+    fetch("/api/movie-planner/project").then(r => r.json()).then(d => {
+      if (d.projects) setProjectList(d.projects);
+    }).catch(() => {});
+    if (searchParams.get("continue") === "true") setShowContinue(true);
+    const preFormat = searchParams.get("format");
+    if (preFormat) setFormat(preFormat);
+  }, [searchParams]);
+
+  // ── Save project to DB ──
+  const saveProject = useCallback(async () => {
+    if (!moviePlan && !idea.trim()) return;
+    setSaving(true);
+    try {
+      const payload = {
+        id: projectId ?? undefined,
+        title, idea, expandedStory, genre, style, format, productionMode,
+        planningDepth, tone, setting, duration, language,
+        summary: moviePlan?.summary, storyArc: moviePlan?.storyArc,
+        soundPlan: moviePlan?.soundPlan, musicDirection: moviePlan?.musicDirection,
+        visualDirection: moviePlan?.visualDirection, continuityNotes: moviePlan?.continuityNotes,
+        missingAssets: moviePlan?.missingAssets, reviewerNotes: moviePlan?.reviewerNotes,
+        estimatedCredits: moviePlan?.estimatedCredits, cast: selectedCast,
+        status: moviePlan ? "SCENES_READY" : "DRAFT",
+        scenes: moviePlan?.scenes ?? [],
+      };
+      const res = await fetch("/api/movie-planner/project", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (data.project) {
+        setProjectId(data.project.id);
+        // Refresh list
+        fetch("/api/movie-planner/project").then(r => r.json()).then(d => {
+          if (d.projects) setProjectList(d.projects);
+        }).catch(() => {});
+      }
+    } catch { /* ignore */ }
+    setSaving(false);
+  }, [projectId, title, idea, expandedStory, genre, style, format, productionMode, planningDepth, tone, setting, duration, language, moviePlan, selectedCast]);
+
+  // ── Load existing project ──
+  async function loadProject(id: string) {
+    try {
+      const res = await fetch(`/api/movie-planner/project/${id}`);
+      const data = await res.json();
+      if (data.project) {
+        const p = data.project;
+        setProjectId(p.id);
+        setTitle(p.title); setIdea(p.idea); setExpandedStory(p.expandedStory ?? "");
+        setGenre(p.genre ?? ""); setStyle(p.style ?? ""); setFormat(p.format ?? "");
+        setProductionMode(p.productionMode ?? ""); setPlanningDepth(p.planningDepth ?? "smart");
+        setTone(p.tone ?? ""); setSetting(p.setting ?? "");
+        setDuration(p.duration ?? "10 min"); setLanguage(p.language ?? "English");
+        if (p.cast) setSelectedCast(p.cast as Array<{ characterId: string; role: string }>);
+        if (p.scenes?.length > 0) {
+          setMoviePlan({
+            summary: p.summary ?? "", storyArc: (p.storyArc as MoviePlan["storyArc"]) ?? { setup: "", tension: "", climax: "", resolution: "" },
+            scenes: p.scenes.map((s: Record<string, unknown>) => ({ ...s, characters: s.characters ?? [] })) as SceneCard[],
+            soundPlan: p.soundPlan ?? "", musicDirection: p.musicDirection ?? "",
+            visualDirection: p.visualDirection ?? "", continuityNotes: (p.continuityNotes ?? []) as string[],
+            missingAssets: (p.missingAssets ?? []) as string[], reviewerNotes: (p.reviewerNotes ?? []) as string[],
+            estimatedCredits: p.estimatedCredits ?? 0,
+          });
+          setStep(5);
+        } else if (p.genre) {
+          setStep(3);
+        } else {
+          setStep(1);
+        }
+        setShowContinue(false);
+      }
+    } catch { /* ignore */ }
+  }
+
+  // ── Delete project ──
+  async function deleteProject(id: string) {
+    await fetch(`/api/movie-planner/project/${id}`, { method: "DELETE" }).catch(() => {});
+    setProjectList(prev => prev.filter(p => p.id !== id));
+    if (projectId === id) { setProjectId(null); setStep(1); }
+  }
+
+  // ── Scene editing helpers ──
+  function updateScene(sceneNum: number, patch: Partial<SceneCard>) {
+    if (!moviePlan) return;
+    setMoviePlan(prev => prev ? {
+      ...prev,
+      scenes: prev.scenes.map(s => s.scene === sceneNum ? { ...s, ...patch } : s),
+    } : prev);
+  }
+
+  function moveScene(sceneNum: number, direction: "up" | "down") {
+    if (!moviePlan) return;
+    const scenes = [...moviePlan.scenes];
+    const idx = scenes.findIndex(s => s.scene === sceneNum);
+    if (direction === "up" && idx > 0) [scenes[idx - 1], scenes[idx]] = [scenes[idx], scenes[idx - 1]];
+    if (direction === "down" && idx < scenes.length - 1) [scenes[idx], scenes[idx + 1]] = [scenes[idx + 1], scenes[idx]];
+    // Renumber
+    scenes.forEach((s, i) => { s.scene = i + 1; });
+    setMoviePlan(prev => prev ? { ...prev, scenes } : prev);
+  }
+
+  function duplicateScene(sceneNum: number) {
+    if (!moviePlan) return;
+    const scene = moviePlan.scenes.find(s => s.scene === sceneNum);
+    if (!scene) return;
+    const newScenes = [...moviePlan.scenes];
+    const idx = newScenes.findIndex(s => s.scene === sceneNum);
+    newScenes.splice(idx + 1, 0, { ...scene, scene: 0, status: "planned", generatedAssetUrl: undefined } as unknown as SceneCard);
+    newScenes.forEach((s, i) => { s.scene = i + 1; });
+    setMoviePlan(prev => prev ? { ...prev, scenes: newScenes } : prev);
+  }
+
+  function deleteScene(sceneNum: number) {
+    if (!moviePlan) return;
+    const scenes = moviePlan.scenes.filter(s => s.scene !== sceneNum);
+    scenes.forEach((s, i) => { s.scene = i + 1; });
+    setMoviePlan(prev => prev ? { ...prev, scenes } : prev);
+    if (selectedScene === sceneNum) setSelectedScene(null);
+  }
+
+  // ── Render a single scene ──
+  async function renderScene(sceneNum: number) {
+    if (!moviePlan) return;
+    const scene = moviePlan.scenes.find(s => s.scene === sceneNum);
+    if (!scene) return;
+    setRenderingScene(sceneNum);
+    updateScene(sceneNum, { status: "generating" });
+
+    try {
+      const res = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `${scene.visualDescription}. Camera: ${scene.cameraDirection}. Style: ${genre} ${style}. Mood: ${tone}. Setting: ${setting}.`,
+          model: videoModel,
+          aspectRatio: "16:9",
+        }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) {
+        updateScene(sceneNum, { status: "generated", generatedAssetUrl: data.outputUrl } as Partial<SceneCard>);
+      } else {
+        updateScene(sceneNum, { status: "needs_edit" });
+      }
+    } catch {
+      updateScene(sceneNum, { status: "needs_edit" });
+    }
+    setRenderingScene(null);
+  }
+
+  // Load saved characters
+  useEffect(() => {
+    setLoadingChars(true);
+    fetch("/api/character-voices")
+      .then(r => r.json())
+      .then(d => {
+        if (d.characters) setSavedCharacters(d.characters);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingChars(false));
+  }, []);
+
+  // ── Cast helpers ──
+  function addToCast(charId: string) {
+    if (selectedCast.some(c => c.characterId === charId)) return;
+    setSelectedCast(prev => [...prev, { characterId: charId, role: "Hero" }]);
+  }
+
+  function removeCast(charId: string) {
+    setSelectedCast(prev => prev.filter(c => c.characterId !== charId));
+  }
+
+  function setCastRole(charId: string, role: string) {
+    setSelectedCast(prev => prev.map(c => c.characterId === charId ? { ...c, role } : c));
+  }
+
+  // ── AI Planning: Multi-AI cinematic expansion ──
+  async function generateMoviePlan() {
+    setPlanning(true);
+    setMoviePlan(null);
+
+    const castForAI = selectedCast.map(c => {
+      const char = savedCharacters.find(ch => ch.id === c.characterId);
+      return char ? { name: char.name, role: c.role, description: char.description ?? "" } : null;
+    }).filter(Boolean);
+
+    try {
+      // ═══ Call Multi-AI Scene Intelligence API ═══
+      // This calls 3 AI layers (Story AI → Technical AI → Review AI)
+      // Plus 3 non-LLM engines (Continuity, SFX, Generation Strategy)
+      const res = await fetch("/api/movie-planner/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idea, expandedStory, genre, style, format, productionMode,
+          planningDepth, tone, setting, language,
+          characters: castForAI,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (data.scenes?.length > 0) {
+        // Convert analyze response into MoviePlan format
+        const scenes: SceneCard[] = data.scenes.map((s: Record<string, unknown>) => ({
+          scene: s.scene as number,
+          title: (s.title as string) ?? `Scene ${s.scene}`,
+          goal: (s.goal as string) ?? (s.summary as string) ?? "",
+          duration: (s.duration as string) ?? "30s",
+          characters: (s.characters as string[]) ?? [],
+          visualDescription: (s.summary as string) ?? (s.visualDescription as string) ?? "",
+          cameraDirection: (s.camera as string) ?? (s.cameraDirection as string) ?? "",
+          dialogue: (s.dialogue as string) ?? "",
+          soundEffects: ((s.sfx_needed as string[]) ?? []).join(", ") || ((s.soundEffects as string) ?? ""),
+          ambience: (s.ambience as string) ?? "",
+          musicCue: (s.music_cue as string) ?? (s.musicCue as string) ?? "",
+          generationMethod: (s.generationMethod as string) ?? "image-to-video",
+          costLabel: (s.costLabel as string) ?? "balanced",
+          status: "planned" as const,
+        }));
+
+        // Build review notes from all 3 sources
+        const reviewerNotes: string[] = [];
+        // From AI Layer 3 (Review AI)
+        const review = data.review ?? {};
+        if (review.issues) (review.issues as Array<Record<string, string>>).forEach((i: Record<string, string>) => reviewerNotes.push(`[${i.type}] Scene ${i.scene}: ${i.description}`));
+        if (review.improvements) (review.improvements as Array<Record<string, string>>).forEach((i: Record<string, string>) => reviewerNotes.push(`[improve] Scene ${i.scene}: ${i.suggestion}`));
+        if (review.missing_scenes) (review.missing_scenes as string[]).forEach((s: string) => reviewerNotes.push(`[missing] ${s}`));
+        // From Continuity Engine
+        if (data.continuityIssues) (data.continuityIssues as string[]).forEach((c: string) => reviewerNotes.push(`[continuity] ${c}`));
+        // From SFX resolution
+        if (data.missingSfx?.length > 0) reviewerNotes.push(`[sfx] ${data.missingSfx.length} sound effects need AI generation or external retrieval`);
+        // Cast check
+        if (selectedCast.length === 0) reviewerNotes.push("[cast] No characters selected — AI used generic characters. Select from saved characters for better results.");
+
+        const plan: MoviePlan = {
+          summary: scenes.map(s => s.goal).join(". "),
+          storyArc: { setup: scenes[0]?.goal ?? "", tension: scenes[Math.floor(scenes.length / 3)]?.goal ?? "", climax: scenes[Math.floor(scenes.length * 2 / 3)]?.goal ?? "", resolution: scenes[scenes.length - 1]?.goal ?? "" },
+          scenes,
+          soundPlan: `Multi-AI analyzed sound design: ${data.sfxResolution?.stats?.total ?? 0} SFX identified, ${data.sfxResolution?.stats?.high_confidence ?? 0} matched from library`,
+          musicDirection: `${genre} score — ${tone} mood. AI-planned per scene.`,
+          visualDirection: `${setting} setting. ${style} approach. ${format} output format.`,
+          continuityNotes: data.continuityIssues ?? [],
+          missingAssets: data.missingSfx?.map((s: Record<string, string>) => `SFX needed: ${s.need}`) ?? [],
+          reviewerNotes,
+          estimatedCredits: format === "audio_only" ? 5 : format === "video_first" ? scenes.length * 5 : scenes.length * 3,
+        };
+
+        setMoviePlan(plan);
+        setStep(5);
+        setTimeout(() => saveProject(), 500);
+      }
+    } catch { /* ignore */ }
+    setPlanning(false);
+  }
+
+  // ── Method cost colors ──
+  const methodColors: Record<string, string> = {
+    image: "#22c55e", video: "#ef4444", "image-to-video": "#f59e0b",
+    "audio-only": "#3b82f6", hybrid: "#a855f7",
+  };
+  const costColors: Record<string, string> = { cheap: "#22c55e", balanced: "#f59e0b", premium: "#ef4444" };
+
+  // ── Render ──
+
+  return (
+    <div>
+
+      {/* Header */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(124,92,252,0.08)", border: "1px solid rgba(124,92,252,0.2)", padding: "5px 14px", borderRadius: 100, fontSize: 11, fontWeight: 500, color: accent, letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 16 }}>
+          Multi-AI Cinematic Planning
+        </div>
+        <h1 style={{ fontSize: 30, fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 8 }}>
+          Movie & Series Planner
+        </h1>
+        <p style={{ fontSize: 14, color: muted, lineHeight: 1.6 }}>
+          Write a simple idea. AI expands it into a full cinematic blueprint — characters, scenes, sound design, camera, music, and generation plan.
+        </p>
+      </div>
+
+      {/* ── Project bar ── */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "8px 14px", background: surface, border: `1px solid ${border}`, borderRadius: 10 }}>
+        <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{title || "New Project"}</span>
+        <button onClick={() => saveProject()} disabled={saving}
+          style={{ marginLeft: "auto", fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid ${saving ? border : accent}`, background: saving ? "transparent" : `${accent}15`, color: saving ? muted : accent, cursor: "pointer", fontWeight: 600 }}>
+          {saving ? "Saving..." : "Save Project"}
+        </button>
+        <button onClick={() => setShowContinue(!showContinue)}
+          style={{ fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>
+          Projects ({projectList.length})
+        </button>
+        {projectId && <span style={{ fontSize: 9, color: "#3d5060" }}>{projectId.slice(0, 8)}...</span>}
+      </div>
+
+      {/* ── Continue / Load existing ── */}
+      {showContinue && (
+        <div style={{ ...cardStyle, marginBottom: 16, maxHeight: 240, overflowY: "auto" }}>
+          <p style={{ ...labelStyle }}>Your Movie Projects</p>
+          {projectList.length === 0 && <p style={{ fontSize: 12, color: muted }}>No saved projects yet</p>}
+          {projectList.map(p => (
+            <div key={p.id} onClick={() => loadProject(p.id)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 8, marginBottom: 4, background: projectId === p.id ? `${accent}10` : "transparent", cursor: "pointer", border: `1px solid ${projectId === p.id ? accent : "transparent"}` }}>
+              <div>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{p.title}</span>
+                <span style={{ fontSize: 10, color: muted, marginLeft: 8 }}>{p.genre ?? ""} &middot; {p._count.scenes} scenes &middot; {p.status}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <span style={{ fontSize: 9, color: "#3d5060" }}>{new Date(p.updatedAt).toLocaleDateString()}</span>
+                <button onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
+                  style={{ fontSize: 9, color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}>Del</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Progress */}
+      {/* ── Workshop Tabs ── */}
+      <div style={{ display: "flex", gap: 2, marginBottom: 28, background: "#080b10", borderRadius: 14, padding: 4, border: "1px solid #1e2a35" }}>
+        {[
+          { n: 1, label: "Story" },
+          { n: 2, label: "Design" },
+          { n: 3, label: "Cast" },
+          { n: 4, label: "AI Planning" },
+          { n: 5, label: "Scenes" },
+          { n: 6, label: "Generate" },
+        ].map(s => {
+          const isActive = step === s.n;
+          const isPast = step > s.n;
+          return (
+            <button key={s.n} onClick={() => setStep(s.n as typeof step)}
+              style={{
+                flex: 1, padding: "10px 6px", borderRadius: 10, border: "none",
+                background: isActive ? accent : "transparent",
+                color: isActive ? "#000" : isPast ? accent : "#3d5060",
+                fontSize: 10, fontWeight: isActive ? 700 : isPast ? 600 : 400,
+                cursor: "pointer", transition: "all 0.2s",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+              }}>
+              {isPast && <span style={{ fontSize: 9 }}>{"\u2713"}</span>}
+              {s.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══ STEP 1: Story Basics ═══ */}
+      {step === 1 && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>What&apos;s your movie about?</h2>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Movie Title</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. The Last Guardian" style={inputStyle} />
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Movie Idea *</label>
+            <textarea value={idea} onChange={e => setIdea(e.target.value)} rows={3}
+              placeholder="e.g. 'The man walked slowly toward the giant snake. The beast glared at him like prey. Beside him was a fallen log. He grabbed it and prepared to fight.'"
+              style={{ ...inputStyle, resize: "vertical" }} />
+            <p style={{ fontSize: 10, color: "#3d5060", marginTop: 6 }}>Write short — AI will expand this into full cinematic detail with sound, camera, emotion, and movement.</p>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelStyle}>Expanded Story (optional)</label>
+            <textarea value={expandedStory} onChange={e => setExpandedStory(e.target.value)} rows={4}
+              placeholder="Add more story detail if you have it — backstory, character motivations, key plot points..."
+              style={{ ...inputStyle, resize: "vertical" }} />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+            <div>
+              <label style={labelStyle}>Duration</label>
+              <select value={duration} onChange={e => setDuration(e.target.value)} style={inputStyle}>
+                {["5 min", "10 min", "15 min", "20 min", "30 min", "45 min", "60 min", "90 min"].map(d => (
+                  <option key={d} value={d} style={{ background: surface }}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>Language</label>
+              <select value={language} onChange={e => setLanguage(e.target.value)} style={inputStyle}>
+                {["English (US)", "English (UK)", "English (AU)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Mandarin", "Yoruba", "Igbo", "Hausa", "Pidgin", "Twi", "Swahili", "Zulu", "Amharic", "German", "Italian", "Japanese", "Korean", "Mixed"].map(l => (
+                  <option key={l} value={l} style={{ background: surface }}>{l}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <button onClick={() => setStep(2)} disabled={!idea.trim()}
+            style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: idea.trim() ? accent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: idea.trim() ? "pointer" : "not-allowed" }}>
+            Next — Design Your Movie
+          </button>
+        </div>
+      )}
+
+      {/* ═══ STEP 2: Creative Design (4 planning layers) ═══ */}
+      {step === 2 && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Design Your Movie</h2>
+          <p style={{ fontSize: 12, color: muted, marginBottom: 24 }}>These 4 layers tell AI how to plan your production — genre, style, format, and control level.</p>
+
+          {/* Genre */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>1. Story Genre *</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {GENRES.map(g => <button key={g} onClick={() => setGenre(g)} style={pillStyle(genre === g)}>{g}</button>)}
+            </div>
+          </div>
+
+          {/* Style */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>2. Storytelling Style *</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {STYLES.map(s => <button key={s} onClick={() => setStyle(s)} style={pillStyle(style === s, "#00d4ff")}>{s}</button>)}
+            </div>
+          </div>
+
+          {/* Format — the core GHS choice */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>3. Production Format * — How your movie is built</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {FORMATS.map(f => {
+                const isSelected = format === f.id;
+                const color = f.badgeColor;
+                return (
+                  <button key={f.id} onClick={() => setFormat(f.id)}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "18px 18px", borderRadius: 14, border: `2px solid ${isSelected ? color : border}`, background: isSelected ? `${color}08` : "transparent", cursor: "pointer", textAlign: "left", transition: "all 0.2s", position: "relative" }}>
+                    {/* Badge */}
+                    {f.badge && (
+                      <span style={{ position: "absolute", top: -1, right: 16, fontSize: 8, fontWeight: 800, padding: "3px 10px", borderRadius: "0 0 8px 8px", background: color, color: f.badge === "BUDGET" || f.badge === "FREE" ? "#000" : "#fff", letterSpacing: 0.5 }}>
+                        {f.badge}
+                      </span>
+                    )}
+                    {/* Radio */}
+                    <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${isSelected ? color : "#3d5060"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                      {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{f.label}</p>
+                        <span style={{ fontSize: 10, color, fontWeight: 600 }}>{f.cost}</span>
+                      </div>
+                      <p style={{ fontSize: 12, color: "#8090a0", lineHeight: 1.5 }}>{f.desc}</p>
+                      {isSelected && f.detail && (
+                        <p style={{ fontSize: 11, color: "#5a7080", lineHeight: 1.6, marginTop: 8, padding: "10px 12px", borderRadius: 8, background: "#080b10", border: `1px solid ${border}` }}>
+                          {f.detail}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Production Mode */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>4. Production Mode</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {PRODUCTION_MODES.map(m => (
+                <button key={m.id} onClick={() => setProductionMode(m.id)}
+                  style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: `1px solid ${productionMode === m.id ? "#22c55e" : border}`, background: productionMode === m.id ? "rgba(34,197,94,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{m.label}</p>
+                  <p style={{ fontSize: 10, color: muted }}>{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Tone + Setting */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <div>
+              <label style={labelStyle}>Tone / Mood</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {TONES.map(t => <button key={t} onClick={() => setTone(t)} style={{ ...pillStyle(tone === t, "#ec4899"), fontSize: 11, padding: "6px 12px" }}>{t}</button>)}
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>Setting / World</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {SETTINGS.map(s => <button key={s} onClick={() => setSetting(s)} style={{ ...pillStyle(setting === s, "#00d4ff"), fontSize: 11, padding: "6px 12px" }}>{s}</button>)}
+              </div>
+            </div>
+          </div>
+
+          {/* Intelligence Tier */}
+          <div style={{ marginBottom: 24 }}>
+            <label style={labelStyle}>AI Intelligence Tier — How deeply AI plans your movie</label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {PLANNING_DEPTHS.map(p => {
+                const isSelected = planningDepth === p.id;
+                const color = p.badgeColor;
+                return (
+                  <button key={p.id} onClick={() => setPlanningDepth(p.id)}
+                    style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", borderRadius: 12, border: `1px solid ${isSelected ? color : border}`, background: isSelected ? `${color}08` : "transparent", cursor: "pointer", textAlign: "left", position: "relative" }}>
+                    {p.badge && (
+                      <span style={{ position: "absolute", top: -1, right: 14, fontSize: 8, fontWeight: 800, padding: "2px 8px", borderRadius: "0 0 6px 6px", background: color, color: p.badge === "PREMIUM" ? "#000" : "#fff" }}>
+                        {p.badge}
+                      </span>
+                    )}
+                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${isSelected ? color : "#3d5060"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                      {isSelected && <div style={{ width: 8, height: 8, borderRadius: "50%", background: color }} />}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{p.label}</p>
+                        <span style={{ fontSize: 10, color }}>{p.cost}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: muted }}>{p.desc}</p>
+                      {isSelected && p.detail && (
+                        <p style={{ fontSize: 10, color: "#5a7080", marginTop: 6, padding: "8px 10px", borderRadius: 6, background: "#080b10", border: `1px solid ${border}` }}>
+                          {p.detail}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>
+              Back
+            </button>
+            <button onClick={() => setStep(3)} disabled={!genre || !style || !format}
+              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: (genre && style && format) ? accent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (genre && style && format) ? "pointer" : "not-allowed" }}>
+              Next — Select Cast
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 3: Character Selection ═══ */}
+      {step === 3 && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Select Your Cast</h2>
+          <p style={{ fontSize: 12, color: muted, marginBottom: 24 }}>
+            Pick from your saved characters. AI will use their profiles for scene planning.
+            {selectedCast.length === 0 && " You can skip this — AI will suggest roles."}
+          </p>
+
+          {/* Available characters */}
+          {loadingChars ? (
+            <p style={{ color: muted, fontSize: 13 }}>Loading characters...</p>
+          ) : savedCharacters.length === 0 ? (
+            <div style={{ background: "#080b10", borderRadius: 12, padding: 20, textAlign: "center", marginBottom: 20 }}>
+              <p style={{ fontSize: 13, color: muted }}>No saved characters yet.</p>
+              <a href="/dashboard/character-voices" style={{ fontSize: 12, color: accent, textDecoration: "none" }}>Create characters first →</a>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8, marginBottom: 24 }}>
+              {savedCharacters.map(char => {
+                const inCast = selectedCast.some(c => c.characterId === char.id);
+                return (
+                  <button key={char.id} onClick={() => inCast ? removeCast(char.id) : addToCast(char.id)}
+                    style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${inCast ? "#22c55e" : border}`, background: inCast ? "rgba(34,197,94,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 20 }}>🎭</span>
+                      <div>
+                        <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{char.name}</p>
+                        <p style={{ fontSize: 10, color: muted }}>{char.description?.slice(0, 40) ?? "No description"}</p>
+                      </div>
+                      {inCast && <span style={{ marginLeft: "auto", fontSize: 14, color: "#22c55e" }}>✓</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Assigned roles */}
+          {selectedCast.length > 0 && (
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>Assign Roles</label>
+              {selectedCast.map(c => {
+                const char = savedCharacters.find(ch => ch.id === c.characterId);
+                return (
+                  <div key={c.characterId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 0", borderBottom: `1px solid ${border}` }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#fff", minWidth: 100 }}>{char?.name}</span>
+                    <select value={c.role} onChange={e => setCastRole(c.characterId, e.target.value)} style={{ ...inputStyle, width: 160, padding: "8px 12px", fontSize: 12 }}>
+                      {ROLES.map(r => <option key={r} value={r} style={{ background: surface }}>{r}</option>)}
+                    </select>
+                    <button onClick={() => removeCast(c.characterId)} style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer" }}>Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep(2)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>
+              Back
+            </button>
+            <button onClick={() => { setStep(4); generateMoviePlan(); }}
+              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: accent, color: "#fff", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>
+              Generate Movie Plan with AI
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 4: AI Planning (loading) ═══ */}
+      {step === 4 && planning && (
+        <div style={{ ...cardStyle, padding: "48px 40px" }}>
+          <div style={{ textAlign: "center", marginBottom: 32 }}>
+            <p style={{ fontSize: 40, marginBottom: 12 }}>🎬</p>
+            <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Multi-AI Cinematic Expansion</h2>
+            <p style={{ fontSize: 13, color: muted }}>3 AI systems are analyzing your idea simultaneously</p>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 500, margin: "0 auto" }}>
+            {/* AI Layers */}
+            {[
+              { icon: "🧠", label: "AI Story Director", desc: "Expanding your idea into full cinematic scenes — emotion, movement, dialogue, camera", color: accent },
+              { icon: "🔧", label: "AI Technical Director", desc: "Adding physical realism — exact SFX, ambience, weather, props, spatial audio", color: "#00d4ff" },
+              { icon: "✅", label: "AI Quality Reviewer", desc: "Checking for logic gaps, missing beats, pacing issues, continuity breaks", color: "#22c55e" },
+            ].map((ai, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: `1px solid ${border}` }}>
+                <span style={{ fontSize: 22 }}>{ai.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: ai.color }}>{ai.label}</p>
+                  <p style={{ fontSize: 10, color: muted }}>{ai.desc}</p>
+                </div>
+                <div style={{ width: 24, height: 24, borderRadius: "50%", border: `2px solid ${ai.color}40`, borderTopColor: ai.color, animation: "spin 1s linear infinite" }} />
+              </div>
+            ))}
+
+            {/* Non-LLM Engines */}
+            <div style={{ borderTop: `1px solid ${border}`, paddingTop: 12, marginTop: 4 }}>
+              <p style={{ fontSize: 9, color: "#3d5060", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Non-AI Engines</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                {["Continuity Checker", "SFX Resolver", "Generation Strategy"].map(e => (
+                  <span key={e} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 8, background: "#141424", color: muted, border: `1px solid ${border}` }}>{e}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
+
+      {/* ═══ STEP 5: Movie Plan Review + Scene Cards + Right Sidebar ═══ */}
+      {step === 5 && moviePlan && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 16 }}>
+          {/* ── Left: Main content ── */}
+          <div>
+          {/* Summary */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <h2 style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>Movie Blueprint</h2>
+              <span style={{ fontSize: 11, padding: "4px 12px", borderRadius: 20, background: "rgba(34,197,94,0.1)", color: "#22c55e", fontWeight: 600 }}>
+                {moviePlan.scenes.length} scenes &middot; ~{moviePlan.estimatedCredits} credits
+              </span>
+            </div>
+            <p style={{ fontSize: 13, color: "#e0e0f0", lineHeight: 1.7, marginBottom: 16 }}>{moviePlan.summary}</p>
+
+            {/* Story Arc */}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+              {(["setup", "tension", "climax", "resolution"] as const).map(phase => (
+                <div key={phase} style={{ background: "#080b10", borderRadius: 10, padding: 12 }}>
+                  <p style={{ fontSize: 9, fontWeight: 600, color: accent, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{phase}</p>
+                  <p style={{ fontSize: 11, color: muted, lineHeight: 1.5 }}>{moviePlan.storyArc[phase]}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Direction cards */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+              <div style={{ background: "#080b10", borderRadius: 10, padding: 12 }}>
+                <p style={{ fontSize: 9, fontWeight: 600, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Sound Plan</p>
+                <p style={{ fontSize: 11, color: muted }}>{moviePlan.soundPlan}</p>
+              </div>
+              <div style={{ background: "#080b10", borderRadius: 10, padding: 12 }}>
+                <p style={{ fontSize: 9, fontWeight: 600, color: "#ec4899", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Music Direction</p>
+                <p style={{ fontSize: 11, color: muted }}>{moviePlan.musicDirection}</p>
+              </div>
+              <div style={{ background: "#080b10", borderRadius: 10, padding: 12 }}>
+                <p style={{ fontSize: 9, fontWeight: 600, color: "#00d4ff", textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Visual Direction</p>
+                <p style={{ fontSize: 11, color: muted }}>{moviePlan.visualDirection}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Reviewer notes */}
+          {(moviePlan.reviewerNotes.length > 0 || moviePlan.continuityNotes.length > 0 || moviePlan.missingAssets.length > 0) && (
+            <div style={{ ...cardStyle, marginBottom: 16, background: "rgba(245,158,11,0.04)", borderColor: "rgba(245,158,11,0.15)" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>AI Reviewer Notes</p>
+              {moviePlan.reviewerNotes.map((n, i) => <p key={i} style={{ fontSize: 12, color: "#f59e0b", marginBottom: 4 }}>• {n}</p>)}
+              {moviePlan.continuityNotes.map((n, i) => <p key={`c${i}`} style={{ fontSize: 12, color: muted, marginBottom: 4 }}>• Continuity: {n}</p>)}
+              {moviePlan.missingAssets.map((n, i) => <p key={`m${i}`} style={{ fontSize: 12, color: "#ef4444", marginBottom: 4 }}>• Missing: {n}</p>)}
+            </div>
+          )}
+
+          {/* Scene Cards */}
+          <div style={{ marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 2, textTransform: "uppercase", color: "#3d5060", marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+              Scene Cards
+              <span style={{ flex: 1, height: 1, background: border }} />
+            </p>
+
+            {moviePlan.scenes.map(scene => (
+              <div key={scene.scene} onClick={() => setSelectedScene(selectedScene === scene.scene ? null : scene.scene)}
+                style={{ ...cardStyle, marginBottom: 8, cursor: "pointer", borderColor: selectedScene === scene.scene ? accent : border }}>
+                {/* Scene header */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: selectedScene === scene.scene ? 16 : 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "#080b10", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: muted }}>
+                      {scene.scene}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{scene.title}</p>
+                      <p style={{ fontSize: 11, color: muted }}>{scene.goal}</p>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${methodColors[scene.generationMethod] ?? accent}15`, color: methodColors[scene.generationMethod] ?? accent, fontWeight: 600 }}>
+                      {scene.generationMethod}
+                    </span>
+                    <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${costColors[scene.costLabel]}15`, color: costColors[scene.costLabel], fontWeight: 600 }}>
+                      {scene.costLabel}
+                    </span>
+                    <span style={{ fontSize: 10, color: muted }}>{scene.duration}</span>
+                  </div>
+                </div>
+
+                {/* Expanded scene detail — editable */}
+                {selectedScene === scene.scene && (
+                  <div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Visual Description</p>
+                        <textarea value={scene.visualDescription} onChange={e => updateScene(scene.scene, { visualDescription: e.target.value })}
+                          rows={2} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Camera Direction</p>
+                        <input value={scene.cameraDirection} onChange={e => updateScene(scene.scene, { cameraDirection: e.target.value })}
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Sound Effects</p>
+                        <input value={scene.soundEffects} onChange={e => updateScene(scene.scene, { soundEffects: e.target.value })}
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Ambience</p>
+                        <input value={scene.ambience} onChange={e => updateScene(scene.scene, { ambience: e.target.value })}
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Music Cue</p>
+                        <input value={scene.musicCue} onChange={e => updateScene(scene.scene, { musicCue: e.target.value })}
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Duration</p>
+                        <input value={scene.duration} onChange={e => updateScene(scene.scene, { duration: e.target.value })}
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                      <div style={{ gridColumn: "1 / -1" }}>
+                        <p style={{ ...labelStyle, fontSize: 9 }}>Dialogue / Narration</p>
+                        <textarea value={scene.dialogue} onChange={e => updateScene(scene.scene, { dialogue: e.target.value })}
+                          rows={2} placeholder="Add dialogue or narration for this scene..."
+                          style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                      </div>
+                    </div>
+
+                    {/* Hybrid scene intelligence info */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginTop: 10, marginBottom: 10 }}>
+                      <div style={{ background: "#080b10", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                        <p style={{ fontSize: 8, color: "#22c55e", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Scene Type</p>
+                        <p style={{ fontSize: 11, color: "#fff", fontWeight: 500 }}>{(scene as unknown as Record<string, unknown>).sceneType as string ?? scene.generationMethod}</p>
+                        <p style={{ fontSize: 8, color: muted }}>{(scene as unknown as Record<string, unknown>).hybridReason as string ?? ""}</p>
+                      </div>
+                      <div style={{ background: "#080b10", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                        <p style={{ fontSize: 8, color: "#f59e0b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Narration</p>
+                        <p style={{ fontSize: 11, color: "#fff", fontWeight: 500 }}>{(scene as unknown as Record<string, unknown>).narrationMode as string ?? "—"}</p>
+                        <p style={{ fontSize: 8, color: muted }}>Strength: {(scene as unknown as Record<string, unknown>).narrationStrength as string ?? "—"}</p>
+                      </div>
+                      <div style={{ background: "#080b10", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                        <p style={{ fontSize: 8, color: "#7c5cfc", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Music</p>
+                        <p style={{ fontSize: 11, color: "#fff", fontWeight: 500 }}>{(scene as unknown as Record<string, unknown>).music_style as string || scene.musicCue || "—"}</p>
+                        <p style={{ fontSize: 8, color: muted }}>Intensity: {(scene as unknown as Record<string, unknown>).music_intensity as string ?? "medium"}</p>
+                      </div>
+                    </div>
+
+                    {/* Generated asset preview */}
+                    {(scene as unknown as { generatedAssetUrl?: string }).generatedAssetUrl && (
+                      <div style={{ marginBottom: 12, borderRadius: 8, overflow: "hidden", border: `1px solid ${border}` }}>
+                        <video src={(scene as unknown as { generatedAssetUrl: string }).generatedAssetUrl} controls style={{ width: "100%", maxHeight: 200 }} />
+                      </div>
+                    )}
+
+                    {/* Music volume + Image treatment controls */}
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                      {/* Music volume per scene */}
+                      <div style={{ background: "#080b10", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                        <p style={{ fontSize: 8, color: "#f59e0b", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Music Volume</p>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          {[
+                            { label: "Off", val: "0", desc: "No music" },
+                            { label: "Low", val: "15", desc: "Subtle bed" },
+                            { label: "Med", val: "30", desc: "Balanced" },
+                            { label: "High", val: "50", desc: "Prominent" },
+                          ].map(v => (
+                            <button key={v.label} style={{ flex: 1, padding: "3px 4px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}
+                              title={v.desc}>{v.label}</button>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: 7, color: "#3d5060", marginTop: 3 }}>
+                          {(scene as unknown as Record<string, unknown>).sceneType === "image-led" ? "Image scene — music can be louder" : "Video scene — music should be lower"}
+                        </p>
+                      </div>
+                      {/* Image treatment (for image/hybrid scenes) */}
+                      <div style={{ background: "#080b10", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                        <p style={{ fontSize: 8, color: "#22c55e", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Image Treatment</p>
+                        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                          {["Static", "Zoom In", "Zoom Out", "Pan", "Parallax"].map(t => (
+                            <button key={t} style={{ padding: "2px 6px", borderRadius: 4, border: `1px solid ${border}`, background: (scene as unknown as Record<string, unknown>).imageTreatment === t ? "rgba(34,197,94,0.1)" : "transparent", color: (scene as unknown as Record<string, unknown>).imageTreatment === t ? "#22c55e" : muted, fontSize: 7, cursor: "pointer" }}>{t}</button>
+                          ))}
+                        </div>
+                        <p style={{ fontSize: 7, color: "#3d5060", marginTop: 3 }}>
+                          {(scene as unknown as Record<string, unknown>).imageTreatment as string || "AI selected"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Generate narration for this scene */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch("/api/narration/generate", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              sceneDescription: scene.goal || scene.visualDescription,
+                              sceneType: (scene as unknown as Record<string, unknown>).sceneType ?? scene.generationMethod,
+                              mood: scene.musicCue,
+                              characters: scene.characters,
+                              sceneNumber: scene.scene,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.narrationText) {
+                            updateScene(scene.scene, { dialogue: data.narrationText });
+                          }
+                        } catch { /* ignore */ }
+                      }}
+                      style={{ fontSize: 9, padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.06)", color: "#f59e0b", cursor: "pointer", marginBottom: 10, width: "100%" }}>
+                      AI Write Narration for This Scene
+                    </button>
+
+                    {/* Narration voice/speed/tone controls per scene */}
+                    <div style={{ marginBottom: 10 }}>
+                      <NarrationControls
+                        narrationText={narrationTexts[scene.scene] ?? scene.dialogue ?? ""}
+                        onNarrationChange={(text) => {
+                          setNarrationTexts(prev => ({ ...prev, [scene.scene]: text }));
+                          updateScene(scene.scene, { dialogue: text });
+                        }}
+                        onSettingsChange={(settings) => {
+                          setNarrationSettings(prev => ({ ...prev, [scene.scene]: settings }));
+                        }}
+                        initialSettings={narrationSettings[scene.scene]}
+                        compact={true}
+                      />
+                    </div>
+
+                    {/* Scene action buttons */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button onClick={async () => {
+                        try {
+                          const res = await fetch("/api/hybrid/scene-image", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              sceneId: `SC${String(scene.scene).padStart(2, "0")}`,
+                              sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
+                              characterIds: scene.characters || [],
+                              mood: scene.musicCue,
+                              cameraFraming: scene.cameraDirection,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.imageUrl || data.imagePath) {
+                            updateScene(scene.scene, { generationMethod: "image" as const, status: "generated" as const });
+                          }
+                        } catch { /* ignore */ }
+                      }}
+                        style={{ fontSize: 10, padding: "6px 14px", borderRadius: 6, border: "none", background: "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", cursor: "pointer", fontWeight: 600 }}>
+                        Make Scene Image
+                      </button>
+                      <a href={`/dashboard/collaborative-editor?mode=ghs_hybrid&sceneId=SC${String(scene.scene).padStart(2, "0")}`} style={{ textDecoration: "none" }}>
+                        <button style={{ fontSize: 10, padding: "6px 14px", borderRadius: 6, border: "1px solid rgba(168,85,247,0.3)", background: "rgba(168,85,247,0.06)", color: "#a855f7", cursor: "pointer", fontWeight: 600 }}>
+                          Open in Editor
+                        </button>
+                      </a>
+                      <button onClick={() => moveScene(scene.scene, "up")} disabled={scene.scene === 1}
+                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>Up</button>
+                      <button onClick={() => moveScene(scene.scene, "down")} disabled={scene.scene === moviePlan!.scenes.length}
+                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>Down</button>
+                      <button onClick={() => duplicateScene(scene.scene)}
+                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: "#00d4ff", cursor: "pointer" }}>Duplicate</button>
+                      <button onClick={() => renderScene(scene.scene)} disabled={renderingScene === scene.scene}
+                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: renderingScene === scene.scene ? `${accent}20` : `${accent}10`, color: accent, cursor: "pointer", fontWeight: 600 }}>
+                        {renderingScene === scene.scene ? "Rendering..." : "Render Scene"}
+                      </button>
+                      <button onClick={() => deleteScene(scene.scene)}
+                        style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.3)", background: "transparent", color: "#ef4444", cursor: "pointer", marginLeft: "auto" }}>Delete</button>
+                      <button onClick={() => setSceneImagePanelOpen(sceneImagePanelOpen === scene.scene ? null : scene.scene)}
+                        style={{ fontSize: 10, padding: "6px 14px", borderRadius: 6, border: `1px solid #00d4ff30`, background: sceneImagePanelOpen === scene.scene ? "#00d4ff10" : "transparent", color: "#00d4ff", cursor: "pointer", fontWeight: 600 }}>
+                        {sceneImagePanelOpen === scene.scene ? "Close Panel" : "Image Panel"}
+                      </button>
+                    </div>
+                    {/* SceneImagePanel — structured image creation with character chips */}
+                    {sceneImagePanelOpen === scene.scene && (
+                      <div style={{ marginTop: 10 }}>
+                        <SceneImagePanel
+                          sceneId={`SC${String(scene.scene).padStart(2, "0")}`}
+                          sceneTitle={scene.title}
+                          sceneText={scene.visualDescription || scene.goal}
+                          onImageGenerated={(url) => {
+                            updateScene(scene.scene, { status: "generated" as const });
+                          }}
+                          onCharacterSelect={(ids) => updateScene(scene.scene, { characters: ids })}
+                          onTextChange={(t) => updateScene(scene.scene, { visualDescription: t })}
+                          compact
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Actions */}
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setStep(3)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>
+              Back to Cast
+            </button>
+            <button onClick={() => { setStep(4); generateMoviePlan(); }}
+              style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: accent, fontSize: 14, cursor: "pointer" }}>
+              Regenerate Plan
+            </button>
+            <button onClick={() => setStep(6)}
+              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: "#22c55e", color: "#000", fontSize: 16, fontWeight: 700, cursor: "pointer" }}>
+              Approve Plan — Prepare Generation Queue
+            </button>
+          </div>
+          </div>{/* end left column */}
+
+          {/* ── Right Sidebar: Movie Intelligence Panel ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {/* Detected Cast */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "#ec4899", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Detected Cast</p>
+              {(() => {
+                const allChars = new Set(moviePlan.scenes.flatMap(s => s.characters));
+                return allChars.size > 0 ? Array.from(allChars).map(c => (
+                  <div key={c} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 0", borderBottom: `1px solid ${border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 16 }}>🎭</span>
+                      <span style={{ fontSize: 12, color: "#fff", fontWeight: 500 }}>{c}</span>
+                    </div>
+                    <span style={{ fontSize: 9, color: muted }}>{moviePlan.scenes.filter(s => s.characters.includes(c)).length} scenes</span>
+                  </div>
+                )) : <p style={{ fontSize: 11, color: muted }}>No characters detected</p>;
+              })()}
+              <div style={{ display: "flex", gap: 4, marginTop: 10, flexWrap: "wrap" }}>
+                <a href="/dashboard/character-voices" style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, background: "rgba(236,72,153,0.1)", color: "#ec4899", textDecoration: "none", fontWeight: 600 }}>Build Character</a>
+                <button style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, background: "rgba(124,92,252,0.1)", color: accent, border: "none", cursor: "pointer", fontWeight: 600 }}>Import</button>
+                <button style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, background: "rgba(34,197,94,0.1)", color: "#22c55e", border: "none", cursor: "pointer", fontWeight: 600 }}>Reuse Existing</button>
+              </div>
+            </div>
+
+            {/* Environment */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "#00d4ff", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Environment</p>
+              {moviePlan.scenes.slice(0, 4).map(s => (
+                <div key={s.scene} style={{ padding: "4px 0", borderBottom: `1px solid ${border}` }}>
+                  <p style={{ fontSize: 10, color: muted }}>Scene {s.scene}</p>
+                  <p style={{ fontSize: 11, color: "#e0e0f0" }}>{s.visualDescription?.slice(0, 60) || "—"}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* SFX Status */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "#f59e0b", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Sound & SFX</p>
+              <p style={{ fontSize: 12, color: "#fff", fontWeight: 600, marginBottom: 4 }}>{moviePlan.soundPlan?.slice(0, 80) || "Pending"}</p>
+              {moviePlan.missingAssets.filter(a => a.toLowerCase().includes("sfx")).length > 0 && (
+                <div style={{ marginTop: 6, padding: "6px 8px", borderRadius: 6, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                  <p style={{ fontSize: 9, color: "#f59e0b" }}>{moviePlan.missingAssets.filter(a => a.toLowerCase().includes("sfx")).length} SFX need generation</p>
+                </div>
+              )}
+            </div>
+
+            {/* Continuity */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "#ef4444", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Continuity</p>
+              {moviePlan.continuityNotes.length > 0 ? moviePlan.continuityNotes.map((n, i) => (
+                <p key={i} style={{ fontSize: 10, color: "#ef4444", marginBottom: 4, lineHeight: 1.4 }}>• {n}</p>
+              )) : (
+                <p style={{ fontSize: 11, color: "#22c55e" }}>No issues detected</p>
+              )}
+            </div>
+
+            {/* Music Direction */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: "#a855f7", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Music</p>
+              <p style={{ fontSize: 11, color: "#e0e0f0", lineHeight: 1.5 }}>{moviePlan.musicDirection?.slice(0, 100) || "Pending"}</p>
+            </div>
+
+            {/* AI Providers used */}
+            <div style={cardStyle}>
+              <p style={{ fontSize: 10, fontWeight: 600, color: muted, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>AI Systems Used</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 10, color: accent }}>AI Story Director</span>
+                <span style={{ fontSize: 10, color: "#00d4ff" }}>AI Technical Director</span>
+                <span style={{ fontSize: 10, color: "#22c55e" }}>AI Quality Reviewer</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ STEP 6: Generation Queue — with video model selector ═══ */}
+      {step === 6 && moviePlan && (
+        <div>
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Generation Queue</h2>
+            <p style={{ fontSize: 13, color: muted, marginBottom: 20 }}>
+              {moviePlan.scenes.length} scenes ready. Choose your AI video model, then render.
+            </p>
+
+            {/* Video model selector */}
+            <div style={{ marginBottom: 24 }}>
+              <p style={{ ...labelStyle }}>Choose Video AI Model</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { id: "kling3-pro", name: "Kling 3.0 Pro", cost: "4 credits/scene", badge: "Best quality", speed: "Slow" },
+                  { id: "kling2", name: "Kling 2.1", cost: "1 credit/scene", badge: "Best price", speed: "Medium" },
+                  { id: "seedance", name: "SeeDance 2.0", cost: "2 credits/scene", speed: "Medium" },
+                  { id: "hailuo-fast", name: "Hailuo 2.3 Fast", cost: "2 credits/scene", badge: "Fastest", speed: "Fast" },
+                  { id: "hailuo-pro", name: "Hailuo 2.3 Pro", cost: "4 credits/scene", speed: "Medium" },
+                  { id: "runway", name: "Runway Gen-3", cost: "2 credits/scene", speed: "Medium" },
+                ].map(m => (
+                  <button key={m.id} onClick={() => setVideoModel(m.id)}
+                    style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${videoModel === m.id ? accent : border}`, background: videoModel === m.id ? `${accent}08` : "transparent", cursor: "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${videoModel === m.id ? accent : "#3d5060"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {videoModel === m.id && <div style={{ width: 6, height: 6, borderRadius: "50%", background: accent }} />}
+                      </div>
+                      <div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{m.name}</span>
+                        {m.badge && <span style={{ fontSize: 8, marginLeft: 6, padding: "1px 6px", borderRadius: 10, background: m.badge === "Best price" ? "rgba(34,197,94,0.15)" : `${accent}15`, color: m.badge === "Best price" ? "#22c55e" : accent }}>{m.badge}</span>}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <span style={{ fontSize: 11, color: "#fff", fontWeight: 500 }}>{m.cost}</span>
+                      <span style={{ fontSize: 9, color: muted, display: "block" }}>{m.speed}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Scene queue */}
+            {moviePlan.scenes.map(scene => (
+              <div key={scene.scene} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 10, marginBottom: 6, background: "#080b10", border: `1px solid ${scene.status === "generated" ? "rgba(34,197,94,0.3)" : scene.status === "generating" ? "rgba(124,92,252,0.3)" : border}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <input type="checkbox" defaultChecked={scene.status !== "generated"} disabled={scene.status === "generating"} style={{ accentColor: accent }} />
+                  <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Scene {scene.scene}: {scene.title}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${methodColors[scene.generationMethod] ?? accent}15`, color: methodColors[scene.generationMethod] ?? accent, fontWeight: 600 }}>{scene.generationMethod}</span>
+                  {scene.status === "generated" && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: "rgba(34,197,94,0.15)", color: "#22c55e", fontWeight: 600 }}>Done</span>}
+                  {scene.status === "generating" && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${accent}15`, color: accent, fontWeight: 600 }}>Rendering...</span>}
+                  {scene.status !== "generated" && scene.status !== "generating" && (
+                    <button onClick={() => renderScene(scene.scene)} disabled={renderingScene !== null}
+                      style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${accent}15`, color: accent, border: "none", cursor: "pointer", fontWeight: 600 }}>
+                      Render
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Credit estimate */}
+            {(() => {
+              const creditsPerScene: Record<string, number> = { "kling3-pro": 4, "kling2": 1, "seedance": 2, "hailuo-pro": 4, "hailuo-fast": 2, "runway": 2, "kling-direct": 1, "wan25": 1 };
+              const perScene = creditsPerScene[videoModel] ?? 2;
+              const videoScenes = moviePlan.scenes.filter(s => s.generationMethod !== "audio-only" && s.status !== "generated").length;
+              return (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 20, padding: "14px 16px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
+                  <span style={{ fontSize: 12, color: "#f59e0b" }}>{videoScenes} scenes × {perScene} credits</span>
+                  <span style={{ fontSize: 18, fontWeight: 700, color: "#f59e0b" }}>{videoScenes * perScene} credits</span>
+                </div>
+              );
+            })()}
+
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={() => setStep(5)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>
+                Back to Scenes
+              </button>
+              <button
+                onClick={async () => {
+                  // Render all unrendered scenes sequentially
+                  for (const scene of moviePlan.scenes) {
+                    if (scene.status !== "generated" && scene.generationMethod !== "audio-only") {
+                      await renderScene(scene.scene);
+                    }
+                  }
+                  saveProject();
+                }}
+                disabled={renderingScene !== null}
+                style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: renderingScene !== null ? "#2a2a40" : accent, color: "#fff", fontSize: 16, fontWeight: 700, cursor: renderingScene !== null ? "not-allowed" : "pointer" }}>
+                {renderingScene !== null ? `Rendering Scene ${renderingScene}...` : "Render All Remaining Scenes"}
+              </button>
+            </div>
+            <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 8 }}>Credits charged per scene after generation completes. Project auto-saves.</p>
+
+            {/* Assemble final movie — shows when scenes are rendered */}
+            {moviePlan.scenes.some(s => s.status === "generated") && (
+              <div style={{ marginTop: 24, padding: 20, borderRadius: 14, background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.15)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Final Assembly</p>
+                    <p style={{ fontSize: 11, color: muted }}>
+                      {moviePlan.scenes.filter(s => s.status === "generated").length}/{moviePlan.scenes.length} scenes rendered
+                    </p>
+                  </div>
+                  {assembledUrl && (
+                    <a href={assembledUrl} target="_blank" rel="noopener noreferrer"
+                      style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: "rgba(34,197,94,0.15)", color: "#22c55e", textDecoration: "none", fontWeight: 600 }}>
+                      Watch Final Movie
+                    </a>
+                  )}
+                </div>
+
+                {assembledUrl && (
+                  <div style={{ borderRadius: 10, overflow: "hidden", marginBottom: 12, border: `1px solid ${border}` }}>
+                    <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 320 }} />
+                  </div>
+                )}
+
+                <button
+                  onClick={async () => {
+                    setAssembling(true);
+                    try {
+                      const renderedScenes = moviePlan.scenes
+                        .filter(s => s.status === "generated" && (s as unknown as { generatedAssetUrl?: string }).generatedAssetUrl)
+                        .map(s => ({
+                          scene: s.scene,
+                          videoUrl: (s as unknown as { generatedAssetUrl: string }).generatedAssetUrl,
+                        }));
+
+                      const res = await fetch("/api/video/assemble", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          projectId: projectId,
+                          title: title,
+                          scenes: renderedScenes,
+                        }),
+                      });
+                      const data = await res.json();
+                      if (data.outputUrl) {
+                        setAssembledUrl(data.outputUrl);
+                      }
+                    } catch { /* ignore */ }
+                    setAssembling(false);
+                    saveProject();
+                  }}
+                  disabled={assembling || !moviePlan.scenes.some(s => s.status === "generated")}
+                  style={{
+                    width: "100%", padding: 16, borderRadius: 14, border: "none",
+                    background: assembling ? "#2a2a40" : "#22c55e",
+                    color: assembling ? muted : "#000",
+                    fontSize: 16, fontWeight: 700, cursor: assembling ? "not-allowed" : "pointer",
+                  }}>
+                  {assembling ? "Assembling movie..." : assembledUrl ? "Re-assemble Movie" : `Assemble ${moviePlan.scenes.filter(s => s.status === "generated").length} Scenes into Final Movie`}
+                </button>
+                <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>
+                  FFmpeg merges all rendered scenes + audio into one video. Auto-saved to Asset Library.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

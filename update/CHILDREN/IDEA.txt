@@ -1,0 +1,1227 @@
+Child hybrid ghs 
+
+
+GHS Children Story Video and Hybrid Planner
+
+Clean Product Canvas for Claude Code
+
+Purpose
+
+This document defines how Children Story should work inside GHS.
+
+Children Story already exists conceptually, but it now needs to be clarified into a strictly supervised product mode with a clear structure, child-safe planning logic, rhythm-based narration/text sync, and proper background music support.
+
+This is not a loose creative mode. This is a high-control, child-safe, education-sensitive mode.
+
+
+---
+
+1. Core Product Structure
+
+When the user clicks Children Story, the system should not open one loose mixed generator.
+
+It should open two controlled branches:
+
+Children Story Video
+
+Children Story Hybrid
+
+
+These two branches should sit under Children Story.
+
+Meaning of Each Branch
+
+Children Story Video
+
+This is for:
+
+active animated children content
+
+mini children movie content
+
+learning videos
+
+nursery content with motion
+
+phonics and ABC videos with stronger movement
+
+more dynamic scene-based output
+
+
+Children Story Hybrid
+
+This is for:
+
+storybook-style content
+
+image + narration + text overlay
+
+light-motion children content
+
+read-aloud books
+
+poem and rhyme content
+
+3-letter word learning content
+
+calm educational hybrid output
+
+
+
+---
+
+2. Main Product Principle
+
+Children Story mode must be strictly supervised.
+
+This is non-negotiable.
+
+AI must not be allowed to behave loosely here because children content has a higher safety, clarity, and educational responsibility than ordinary creative content.
+
+Required Rule
+
+Children Story must use a dedicated Child-Safe Planner.
+
+It must not simply reuse the general generator with light prompt edits.
+
+The Child-Safe Planner should control:
+
+prompt interpretation
+
+visual style restrictions
+
+narration restrictions
+
+music restrictions
+
+text style restrictions
+
+pacing restrictions
+
+review flow
+
+final export checks
+
+
+
+---
+
+3. Main Children Content Types
+
+Inside Children Story Video and Children Story Hybrid, GHS should support:
+
+Storybook
+
+Word Learning
+
+3-Letter Word Learning
+
+Word Family Learning
+
+Poem
+
+Rhyme
+
+Nursery Rhyme
+
+ABC Learning
+
+Phonics Learning
+
+Counting
+
+Shapes and Colors
+
+Simple Educational Lesson
+
+Children Movie
+
+Read-Aloud Book
+
+Learning Chant
+
+
+
+---
+
+4. Product Flow
+
+Step 1 — User clicks Children Story
+
+The system opens two choices:
+
+Video
+
+Hybrid
+
+
+Step 2 — User selects content type
+
+Examples:
+
+Storybook
+
+3-Letter Word Learning
+
+ABC
+
+Poem
+
+Nursery Rhyme
+
+Children Movie
+
+Educational Lesson
+
+
+Step 3 — User selects tone
+
+Examples:
+
+Soft
+
+Active
+
+Fun
+
+Bedtime
+
+Learning
+
+Classroom
+
+
+Step 4 — User selects narration style
+
+Examples:
+
+Gentle Story Reader
+
+Early Learning Teacher
+
+Fun Kids Narrator
+
+Calm Bedtime Narrator
+
+
+Step 5 — User selects music behavior
+
+Examples:
+
+No music
+
+One background music track
+
+More than one background music track where supported
+
+Soft story bed
+
+Learning rhythm bed
+
+Nursery rhyme bed
+
+
+Step 6 — GHS analyzes input and builds a child-safe plan
+
+Step 7 — GHS generates preview draft
+
+Step 8 — First review and second review both run
+
+Step 9 — User approves final render
+
+
+---
+
+5. Child-Safe Planner
+
+Purpose
+
+The Child-Safe Planner is the intelligence layer responsible for making sure children content is appropriate, clear, educational, and well-structured.
+
+It should detect and control:
+
+age-appropriateness
+
+reading level
+
+narration tone
+
+visual simplicity
+
+safe color and motion usage
+
+word difficulty
+
+sentence complexity
+
+whether the content is better as Video or Hybrid
+
+whether the content should be soft or active
+
+whether music should be minimal or rhythmic
+
+whether text should be word-level or sentence-level highlighted
+
+
+It must block or restrict:
+
+sexual or suggestive output
+
+disturbing visuals
+
+horror-like mistakes
+
+unsafe body styling
+
+adult-looking characters for child content
+
+dark aggressive music
+
+sensual narration
+
+confusing fast overlays
+
+non-child-safe props or backgrounds
+
+
+
+---
+
+6. Non-Negotiable Rhythm and Sync Rule
+
+This is a hard requirement.
+
+The system must not treat text, narration, and background music as separate loose layers.
+
+They must work in rhythm together.
+
+Required Sync Behavior
+
+overlay text must align with narration timing
+
+word highlight must follow spoken word timing
+
+sentence highlight must follow spoken sentence timing
+
+line-by-line reading must feel coordinated
+
+pause timing must feel intentional
+
+image or motion changes must not break reading rhythm
+
+if background music exists, narration must still stay clear
+
+
+Critical Rule
+
+Aligned text must rhythm with narration.
+
+Not approximately. Not loosely. Not as an afterthought.
+
+This must be part of the generation and rendering pipeline.
+
+Why this matters
+
+If rhythm is wrong:
+
+children become confused
+
+reading support becomes weak
+
+educational value drops
+
+the content feels messy
+
+the narration and text no longer reinforce each other
+
+
+This rule is especially important for:
+
+ABC learning
+
+phonics
+
+3-letter words
+
+word families
+
+poems and rhymes
+
+storybook read-aloud
+
+hybrid educational stories
+
+
+
+---
+
+7. Background Music Logic
+
+The previous planning gap must be fixed here.
+
+Background music must be formally handled in Children Story mode.
+
+User Music Choices
+
+The user should be able to choose:
+
+No music
+
+One background music track
+
+Multiple background music tracks where supported
+
+
+Music Rules
+
+If music is used:
+
+narration remains the priority
+
+music must not overpower the voice
+
+music must support the educational or storytelling rhythm
+
+music must remain child-friendly
+
+music must not feel sensual, dark, aggressive, or club-like
+
+music changes must not disrupt the text/narration sync
+
+
+Music Types for Children Mode
+
+GHS should provide child-safe music categories such as:
+
+Soft Storybook Bed
+
+ABC Learning Bed
+
+Counting Rhythm
+
+Nursery Rhyme Loop
+
+Gentle Poem Bed
+
+Bright Classroom Bed
+
+Playful Learning Loop
+
+Calm Bedtime Bed
+
+
+Multiple Music Track Support
+
+If the user selects more than one background music track:
+
+the system must manage transitions cleanly
+
+tracks must not fight each other
+
+narration clarity must remain protected
+
+the rhythm engine must keep narration and text timing stable
+
+music layering must remain simple and controlled for child output
+
+
+Music Mix Rule
+
+Children mode should use a Narration-First Mix.
+
+That means:
+
+narration is always the main layer
+
+music is supportive, not dominant
+
+educational clarity is more important than musical excitement
+
+
+
+---
+
+8. Children Narration Rules
+
+Narration must be child-specific.
+
+Allowed Narration Styles
+
+Early Learning Teacher
+
+Gentle Story Reader
+
+Fun Kids Narrator
+
+Calm Bedtime Narrator
+
+Classroom Guide
+
+
+Narration Requirements
+
+clear pronunciation
+
+slower pace where needed
+
+clean separation of words
+
+warm tone
+
+safe energy
+
+easy-to-follow delivery
+
+
+Narration Must Not Feel Like
+
+aggressive ad voice
+
+seductive commercial voice
+
+overly dramatic thriller voice
+
+complex adult documentary tone
+
+
+
+---
+
+9. Word Learning Mode
+
+This mode is for simple word teaching.
+
+Examples
+
+cat
+
+sat
+
+ram
+
+jam
+
+ran
+
+
+Output Goals
+
+show the word clearly
+
+show matching child-friendly visual
+
+read the word clearly
+
+highlight the word as it is read
+
+optionally combine words into a phrase or sentence
+
+
+Example Flow
+
+Screen 1: CAT
+
+image of cat
+
+narration says “Cat”
+
+highlight follows the spoken word
+
+
+Screen 2: SAT
+
+image of sitting action
+
+narration says “Sat”
+
+highlight follows the spoken word
+
+
+Screen 3: CAT SAT
+
+image shows cat sitting
+
+narration says “Cat sat”
+
+each word highlights in order
+
+
+
+---
+
+10. 3-Letter Word and Word Family Mode
+
+This mode should support:
+
+CVC learning
+
+word family grouping
+
+repeated learning rhythm
+
+
+Examples
+
+cat / bat / hat / mat
+
+ram / jam / ham
+
+sat / mat / rat
+
+
+Required Behavior
+
+repeated timing pattern
+
+consistent highlight rhythm
+
+stable narration pattern
+
+matching simple images
+
+optional phonics emphasis
+
+
+
+---
+
+11. Storybook Mode
+
+This is for calm illustrated read-aloud content.
+
+Output Style
+
+one page or scene per line/paragraph
+
+illustrated image or hybrid image-motion page
+
+text overlay on screen
+
+narration reading the text
+
+text highlighting as it is read
+
+gentle transitions
+
+soft background music if enabled
+
+
+Best For
+
+bedtime stories
+
+read-aloud books
+
+soft moral stories
+
+calm picture-book content
+
+
+
+---
+
+12. Poem and Rhyme Mode
+
+This is for:
+
+nursery rhymes
+
+children poems
+
+rhythm-based learning lines
+
+repeated learning chants
+
+
+Required Behavior
+
+line-by-line timing
+
+rhythmic narration
+
+matching visual changes
+
+optional bounce/highlight effect
+
+child-safe music support
+
+
+Strong Rule
+
+Poem/rhyme content should feel musically and verbally coordinated, not like plain subtitles placed on a random video.
+
+
+---
+
+13. Children Movie Mode
+
+This is the more active children branch under Video.
+
+It should support:
+
+short animated educational scenes
+
+simple character continuity
+
+narrator-led mini stories
+
+motion-based lesson delivery
+
+more energetic learning sequences
+
+
+Important Restriction
+
+Even in movie mode, child safety and clarity still come first. It must not become visually chaotic or too aggressive.
+
+
+---
+
+14. Soft Mode vs Active Mode
+
+This should be a real toggle.
+
+Soft Mode
+
+Best for:
+
+bedtime story
+
+calm storybook
+
+gentle read-aloud
+
+soft poem content
+
+
+Uses:
+
+soft visuals
+
+slower narration
+
+gentle transitions
+
+quieter background music
+
+minimal motion
+
+
+Active Mode
+
+Best for:
+
+phonics
+
+word practice
+
+ABC learning
+
+counting videos
+
+educational children movie
+
+playful lesson content
+
+
+Uses:
+
+brighter visuals
+
+stronger motion
+
+slightly faster pacing
+
+playful timing
+
+energetic but child-safe background music
+
+
+
+---
+
+15. First Review and Second Review
+
+Children mode must use two review checkpoints.
+
+First Review
+
+This should happen before preview generation goes too far.
+
+It checks:
+
+text interpretation
+
+narration style choice
+
+age fit
+
+visual plan
+
+word difficulty
+
+music suitability
+
+accent suitability
+
+safety of prompt understanding
+
+
+Second Review
+
+This should happen after preview generation.
+
+It checks:
+
+final visuals
+
+final characters
+
+movement style
+
+background objects
+
+text overlay quality
+
+highlight sync quality
+
+narration quality
+
+background music fit
+
+any unsafe or strange AI mistakes
+
+
+Reason
+
+Children content needs higher protection because even if text seems safe, visuals or audio may still come out wrong.
+
+
+---
+
+16. Accent and Pronunciation Control
+
+Accent and pronunciation must be appropriate for children learning.
+
+Required Support
+
+child-friendly pronunciation
+
+clear phonics-friendly reading where relevant
+
+stable accent selection
+
+educational pronunciation style
+
+
+Accent Rule
+
+Accent must help the learning experience, not confuse it.
+
+For learning content such as ABC, phonics, 3-letter words, and read-aloud mode, pronunciation clarity is more important than stylish voice design.
+
+
+---
+
+17. Overlay Text System
+
+The children overlay system can be built from the same base idea as commercial overlay text, but it must be adapted for child learning.
+
+Children Overlay Requirements
+
+larger text
+
+simpler layout
+
+stronger readability
+
+slower timing
+
+cleaner highlighting
+
+less decorative styling
+
+educational focus over marketing style
+
+
+Text Modes
+
+word-by-word highlight
+
+sentence highlight
+
+line-by-line highlight
+
+karaoke-style follow-along
+
+static text for pause moments
+
+
+
+---
+
+18. Visual Rules
+
+Visuals must remain child-safe and easy to understand.
+
+Visual Priorities
+
+simple compositions
+
+clear object focus
+
+child-friendly colors
+
+readable scene layout
+
+emotionally safe imagery
+
+consistency with the spoken text
+
+
+Visual Restrictions
+
+no disturbing imagery
+
+no adult-looking fashion styling
+
+no sexualized body presentation
+
+no horror look
+
+no confusing cluttered backgrounds
+
+no unsafe object emphasis
+
+
+
+---
+
+19. Hybrid Output Model
+
+Children Story Hybrid should combine:
+
+illustrated images
+
+text overlay
+
+narration
+
+text highlighting
+
+light motion where needed
+
+safe background music
+
+
+Best Use Cases
+
+read-aloud books
+
+calm educational stories
+
+3-letter word lessons
+
+poems and rhymes
+
+sentence learning
+
+soft story pages
+
+
+
+---
+
+20. Video Output Model
+
+Children Story Video should combine:
+
+animated scenes
+
+moving objects or characters
+
+child-safe pacing
+
+narration
+
+sync text when needed
+
+educational rhythm
+
+background music under narration
+
+
+Best Use Cases
+
+ABC videos
+
+phonics videos
+
+counting videos
+
+nursery learning videos
+
+active educational mini-movies
+
+
+
+---
+
+21. Product Identity and Verification Marking
+
+Each final output should support product identity details.
+
+Every export should support:
+
+user name
+
+verification mark
+
+ABC mark where relevant
+
+version label
+
+
+Example Product Identity Elements
+
+Created for Henry
+
+Verified
+
+ABC Mode
+
+Version 1.0
+
+
+Placement Options
+
+intro card
+
+outro card
+
+footer tag
+
+watermark area
+
+export metadata
+
+
+This should be clean and professional, not distracting.
+
+
+---
+
+22. Required System Engines
+
+To make this work properly, GHS needs these engines.
+
+1. Child-Safe Planner
+
+Decides mode, restrictions, safety rules, and learning suitability.
+
+2. Text Understanding Engine
+
+Understands words, story level, rhyme structure, and educational type.
+
+3. Narration Timing Engine
+
+Maps spoken timing for words, lines, and pauses.
+
+4. Highlight Sync Engine
+
+Aligns overlay text with narration rhythm.
+
+5. Children Music Engine
+
+Selects and controls child-safe background music behavior.
+
+6. Visual Planning Engine
+
+Chooses image/scene style and visual pacing.
+
+7. Review Engine
+
+Runs first review and second review.
+
+8. Export Identity Engine
+
+Applies user name, verification mark, ABC mark, and versioning support.
+
+
+---
+
+23. Source of Truth Principle
+
+The source of truth for Children Story generation should not just be the raw text the user typed.
+
+It should become a structured child-content plan including:
+
+selected branch (Video or Hybrid)
+
+content type
+
+tone
+
+narration style
+
+music choice
+
+pronunciation/accent setting
+
+text timing plan
+
+highlight timing plan
+
+visual plan
+
+review status
+
+
+This keeps the output controlled and stable.
+
+
+---
+
+24. What Claude Code Must Understand
+
+This is not just a text overlay feature.
+
+This is a coordinated child-content system where:
+
+narration
+
+text timing
+
+highlight timing
+
+music behavior
+
+images or motion
+
+child safety
+
+review layers
+
+
+must all work together.
+
+The most important hard rule is:
+
+Text, narration, and background music must rhythm together.
+
+This is non-negotiable.
+
+
+---
+
+25. Main Clarification for Claude Code
+
+We already have Children Story conceptually, but it now needs a strict structure.
+
+When the user clicks Children Story, the system should open two controlled paths:
+
+Children Story Video
+
+Children Story Hybrid
+
+
+This mode must be strictly supervised because it is for children.
+
+I want this system to support:
+
+storybook
+
+word learning
+
+3-letter word learning
+
+word families
+
+poem
+
+rhyme
+
+ABC
+
+phonics
+
+counting
+
+children movie
+
+educational lessons
+
+
+Children mode must use a dedicated child-safe planner and two review checkpoints.
+
+Also, this is a hard non-negotiable rule:
+
+text overlay must align with narration timing
+
+highlighted text must rhythm with narration
+
+background music must support the rhythm and never overpower narration
+
+the user should be able to choose no music, one music track, or more than one track where supported
+
+narration must remain the priority in the final mix
+
+
+Every final export should support:
+
+user name
+
+verification mark
+
+ABC mark where relevant
+
+version label
+
+
+Please plan this as a structured children content pipeline, not as a simple text-on-video feature.
+
+
+---
+
+26. Final Position
+
+Children Story should become one of the most carefully controlled areas in GHS.
+
+If built correctly, it can support:
+
+educational reading content
+
+phonics learning
+
+ABC and counting videos
+
+poems and rhymes
+
+read-aloud books
+
+children hybrid stories
+
+mini educational children movies
+
+
+But it must be built with:
+
+strict supervision
+
+child-safe planning
+
+two-stage review
+
+strong rhythm sync
+
+background music control
+
+child-appropriate accent and narration
+
+professional export identity support
+
+
+This is the correct architecture direction for GHS Children Story Video and Children Story Hybrid.
+
+The above file is not the master is the helper 
+Hold don't talk 

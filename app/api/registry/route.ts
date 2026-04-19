@@ -23,7 +23,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid status: ${rawStatus}` }, { status: 400 });
   }
 
+  const rawExclude = searchParams.get("excludeStatus");
+  const excludeStatus = rawExclude as ContentStatus | null;
+  const renderedOnly = searchParams.get("renderedOnly") === "1";
+
   const status = rawStatus as ContentStatus | null;
-  const result = await listContentItems({ status: status ?? undefined, mode, search, limit, offset });
+  const result = await listContentItems({ status: status ?? undefined, excludeStatus: excludeStatus ?? undefined, renderedOnly, mode, search, limit, offset });
   return NextResponse.json({ items: result.items, total: result.total });
 }

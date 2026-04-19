@@ -160,6 +160,7 @@ model ContentItem {
 // Extended in Pass D: full character profile with image, visual description, role, default speech style.
 model CharacterVoice {
   id                 String   @id @default(cuid())
+  characterId        String?  // format: COUNTRY_NAMEageATTRIBUTE e.g. US_JAMES57BLACK1, NG_TUNDE38FAIRBLACK
   name               String   @unique  // character name e.g. "JOHN", "NARRATOR", "MAMA"
   gender             String?  // "male" | "female" | "boy" | "girl"
   toneClass          String?  // "bass" | "tenor" | "soft" | "commanding" | "elder" | "youthful"
@@ -176,6 +177,21 @@ model CharacterVoice {
   defaultSpeechStyle String?  // normal | whisper | emotional | commanding | trembling
   // Multi-angle reference images for video generation consistency
   referenceImages    Json?    // [{url: string, angle: string, label: string}]
+  // Character Pack — extended profile
+  age                String?  // "child" | "teen" | "young_adult" | "adult" | "elder"
+  height             String?  // "short" | "average" | "tall"
+  culture            String?  // cultural background
+  country            String?  // country of origin
+  dialect            String?  // specific dialect
+  personality        String?  // personality traits summary
+  wardrobe           String?  // default clothing/outfit description
+  hairstyle          String?  // hair description
+  expressions        Json?    // [{emotion: string, imageUrl: string}] — happy, sad, angry, surprised
+  posePack           Json?    // [{pose: string, imageUrl: string}] — front, side, three_quarter, full_body
+  motionReference    String?  // URL to motion reference video
+  keepSameToggle     Boolean  @default(true) // maintain appearance across scenes
+  voiceProvider      String?  // "piper" | "elevenlabs" | "user_upload"
+  projectAssociation String?  // linked project ID
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -312,6 +328,33 @@ enum AlertStatus {
   FAILED
 }
 
+// ── Free Mode History ─────────────────────────────────────────────────────────
+
+model FreeModeHistory {
+  id             String   @id @default(cuid())
+  rawPrompt      String
+  enhancedPrompt String?
+  mode           String
+  motionSub      String?
+  aspect         String   @default("9:16")
+  duration       Int      @default(10)
+  language       String   @default("en")
+  style          String?
+  audioMode      String   @default("voice_music")
+  aiModel        String   @default("haiku")
+  status         String   @default("generating") // generating | done | error
+  resultType     String   @default("job")        // image | job
+  resultUrl      String?
+  errorMsg       String?
+  contentItemId  String?
+  uploadedPaths  String[]
+  refImagePaths  String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("free_mode_history")
+}
+
 // ── Commercial Maker ───────────────────────────────────────────────────────────
 
 model CommercialProject {
@@ -386,6 +429,8 @@ model StoryIdea {
   platform        String?  // youtube, instagram, tiktok
   status          String   @default("idea") // idea, scripted, in_production, used
   usedInContentId String?
+  expandedText    String?  @db.Text // AI-expanded full story
+  brainstormLog   Json?    // [{role, content, timestamp}]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -713,4 +758,281 @@ model AssemblyRecord {
   updatedAt           DateTime  @updatedAt
 
   @@map("assembly_records")
+}
+
+// ── Children Learning Memory ──
+// Tracks what was taught per child/session so content can continue from where they left off.
+// Powers: progress tracking, repetition engine, curriculum continuity.
+model LearningProgress {
+  id              String   @id @default(cuid())
+  childName       String?  // optional child name / profile
+  ageGroup        String   // toddler | preschool | early | older
+  contentType     String   // phonics | mathematics | science | etc.
+  language        String   @default("en")
+  secondLanguage  String?  // bilingual pair
+  // What was taught
+  topicsCovered   Json     @default("[]") // ["letter_A", "letter_B", "counting_1_5"]
+  wordsLearned    Json     @default("[]") // ["cat", "dog", "sun"]
+  conceptsMastered Json    @default("[]") // ["shapes_circle", "colour_red"]
+  // Progress
+  currentLevel    Int      @default(1)
+  totalSessions   Int      @default(0)
+  lastSessionDate DateTime?
+  nextSuggested   String?  // AI-suggested next topic
+  // Repetition engine
+  reviewDue       Json     @default("[]") // topics needing "Remember?" review
+  reviewHistory   Json     @default("[]") // [{topic, reviewedAt, correct}]
+  // Curriculum template tracking
+  curriculumId    String?  // e.g. "read30", "phonics20"
+  curriculumStep  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("learning_progress")
+}
+
+// ── Editor Projects — collaborative editor projects saved to DB ──
+model EditorProject {
+  id            String    @id @default(cuid())
+  title         String    @default("Untitled Project")
+  type          String    @default("collaborative") // collaborative | auto | manual
+  status        String    @default("draft") // draft | archived | exported
+  assembly      Json      // full AssemblyJSON — source of truth
+  segmentCount  Int       @default(0)
+  totalDuration Float     @default(0) // seconds
+  creationMode  String?   // invtext | text_to_video | hybrid | ai_motion
+  thumbnailUrl  String?   // first scene thumbnail
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("editor_projects")
+}
+
+// ── Content Memory — learns user preferences over time ──
+model ContentMemory {
+  id              String   @id @default(cuid())
+  userId          String?  // linked user if auth active
+  // Preferred styles
+  preferredTone   String?  // classy, hype, storytelling, etc.
+  preferredStyle  String?  // cinematic, playful, minimalist
+  preferredPlatform String? // TikTok, Instagram, YouTube
+  preferredFormat String?  // 9:16, 1:1, 16:9
+  preferredMusic  String?  // afrobeats, cinematic, lo-fi
+  preferredVoice  String?  // voice ID or style
+  // Learning from usage
+  topPlatforms    Json     @default("[]") // [{platform, count}]
+  topContentTypes Json     @default("[]") // [{type, count}]
+  topMoods        Json     @default("[]") // [{mood, count}]
+  avgDuration     Int?     // average video duration in seconds
+  totalCreated    Int      @default(0)
+  // Event awareness
+  customEvents    Json     @default("[]") // [{name, date, recurring}]
+  timezone        String?
+  country         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("content_memory")
+}
+
+// ── GHS Hybrid Pipeline — Master Workflow Models ──
+// Source of truth: update/GHS_HYBRID_MASTER_WORKFLOW.md
+
+model HybridProject {
+  id                String    @id @default(cuid())
+  title             String    @default("Untitled Hybrid")
+  storyInput        String                          // raw user input
+  expandedStory     Json?                           // structured expansion output
+  targetDuration    String?                         // "5 min", "10 min"
+  audience          String?                         // general, children, business
+  language          String    @default("English")
+  costPreference    String?                         // efficient, balanced, premium
+  narrationPref     String?                         // heavy, balanced, minimal
+  tone              String?
+  genre             String?
+  status            String    @default("STORY_INPUT") // HybridStatus enum
+  characterIds      String[]                        // linked CharacterVoice IDs
+  editorProjectId   String?                         // linked EditorProject for assembly
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  scenes            HybridScene[]
+
+  @@map("hybrid_projects")
+}
+
+// ── Hybrid Planner — persistent project state (replaces localStorage) ──
+// Keyed by the client-generated localId so state survives page refreshes,
+// different browsers, and multi-session workflows.
+model HybridSavedState {
+  localId   String   @id                      // UUID generated client-side
+  data      Json                              // full project state blob
+  updatedAt DateTime @updatedAt
+
+  @@map("hybrid_saved_states")
+}
+
+model HybridScene {
+  id                String    @id @default(cuid())
+  projectId         String
+  sceneId           String                          // SC01, SC02...
+  title             String
+  orderIndex        Int
+  location          String?
+  timeOfDay         String?
+  weather           String?
+  mood              String?
+  characterIds      String[]                        // CH01, CH02...
+  primarySpeaker    String?                         // CH01
+  secondarySpeakers String[]
+  sceneType         String                          // image-led, video-led, image-to-video, audio-bridge, hybrid
+  motionNeed        String?                         // low, medium, high
+  imageSuitability  Int?                            // 1-10
+  motionNecessity   Int?                            // 1-10
+  narrationIntensity String?                        // low, medium, high
+  dialogueDensity   String?                         // low, medium, high
+  emotionalWeight   String?                         // low, medium, high
+  costPriority      String?                         // efficient, balanced, premium
+  durationEstimate  Float?                          // seconds
+  lightingPlan      String?
+  cameraSuggestion  String?
+  soundSuggestion   String?
+  musicSuggestion   String?
+  tags              String[]                        // narration-heavy, action-heavy, etc.
+  draftState        String    @default("draft")     // draft, reviewed, locked, generating, generated
+  status            String    @default("planned")
+  generatedAssetUrl String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  project           HybridProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shots             HybridShot[]
+  dialogueLines     DialogueLine[]
+  audioPlan         AudioPlan?
+
+  @@map("hybrid_scenes")
+}
+
+model HybridShot {
+  id                  String    @id @default(cuid())
+  sceneId             String
+  shotId              String                        // SH01, SH02...
+  orderIndex          Int
+  visibleCharacterIds String[]
+  speakingCharacterId String?
+  listeningCharacterIds String[]
+  cameraAngle         String?                       // close-up, medium, wide, OTS
+  cameraMovement      String?                       // static, pan, tilt, dolly, crane
+  framingType         String?                       // single, two-shot, group, establishing
+  lightingStyle       String?
+  dialogueLineId      String?
+  mediaType           String?                       // image, video, image-to-video
+  plannedDuration     Float?
+  environmentSfx      String?
+  regenEligible       Boolean   @default(true)
+  generatedAssetUrl   String?
+  status              String    @default("planned")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  scene               HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("hybrid_shots")
+}
+
+model DialogueLine {
+  id            String    @id @default(cuid())
+  sceneId       String
+  shotId        String?
+  characterId   String                              // CH01 — NEVER unowned
+  voiceId       String?                             // ElevenLabs voice ID
+  lineText      String
+  timingType    String?                             // sync, pre-lap, post-lap, overlap
+  orderIndex    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  scene         HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("dialogue_lines")
+}
+
+model AudioPlan {
+  id                  String    @id @default(cuid())
+  sceneId             String    @unique
+  narrationTrack      Json?                         // {text, voiceId, intensity, style}
+  dialogueTracks      Json?                         // [{characterId, voiceId, lines}]
+  ambienceTracks      Json?                         // [{description, volume, loop}]
+  sfxTracks           Json?                         // [{event, timing, volume}]
+  musicTrack          Json?                         // {mood, intensity, instrument, fadeIn, fadeOut}
+  transitionAudioLogic String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  scene               HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("audio_plans")
+}
+
+// ── Story Bank ───────────────────────────────────────────────────────────────
+
+model Story {
+  id                    String      @id @default(cuid())
+  title                 String
+  genre                 String?
+  tone                  String?
+  logline               String?     // one-line pitch
+  targetDurationSeconds Int         @default(0)
+  status                String      @default("draft")  // draft | scripted | in_production | done
+  chapters              Chapter[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@map("stories")
+}
+
+model Chapter {
+  id          String       @id @default(cuid())
+  storyId     String
+  title       String
+  summary     String?
+  orderIndex  Int          @default(0)
+  story       Story        @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  scenes      StoryScene[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("chapters")
+}
+
+model StoryScene {
+  id              String   @id @default(cuid())
+  chapterId       String
+  title           String?
+  description     String   @default("")
+  durationSeconds Int      @default(5)
+  orderIndex      Int      @default(0)
+  notes           String?
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("story_scenes")
+}
+
+// ── Layerized Designs ─────────────────────────────────────────────────────────
+// Stores Ideogram V3 Layerize results — editable text layers over background images.
+// Text edits and re-compositing happen client-side (free — no API call after initial).
+
+model LayerizedDesign {
+  id               String   @id @default(cuid())
+  userId           String
+  sourceImageUrl   String
+  backgroundUrl    String
+  textContainers   Json
+  overlayHtml      String?  @db.Text
+  imageLayers      Json?
+  currentTextEdits Json?
+  falSeed          Int?
+  projectType      String?  // "commercial" | "movie" | "hybrid" | "music_video" | "children"
+  projectId        String?  // link to source project
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("layerized_designs")
 }

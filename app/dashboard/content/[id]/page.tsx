@@ -246,7 +246,7 @@ function ContinueStoryPanel({ item, router }: { item: import("@/types/content").
   function pickSuggestion(s: ContinuationSuggestion) {
     const params = new URLSearchParams({ continue: item.id });
     if (s.promptSeed) params.set("promptSeed", s.promptSeed);
-    router.push(`/dashboard?${params.toString()}`);
+    router.push(`/dashboard/collaborative-editor?${params.toString()}`);
   }
 
   return (
@@ -1006,7 +1006,7 @@ export default function ContentDetailPage() {
               <p className="text-xs text-gray-600 mt-0.5">Re-open Studio with all settings pre-filled.</p>
             </div>
             <a
-              href={`/dashboard?revise=${item.id}`}
+              href={`/dashboard/collaborative-editor?revise=${item.id}`}
               className="shrink-0 bg-indigo-700 hover:bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               Revise →

@@ -4,7 +4,7 @@
 // Uses the multi-provider LLM router (Claude → GPT → Grok → Ollama)
 
 import { NextRequest, NextResponse } from "next/server";
-import { callLLM } from "@/lib/llm";
+import { callPlanner, getTierConfig, type ModelTier } from "@/lib/model-tier-router";
 
 interface MediaItem {
   name: string;
@@ -32,7 +32,7 @@ Return a JSON object with TWO keys:
   - "music_mood": suggested music mood (e.g. "afrobeats chill", "cinematic", "upbeat pop")
   - "estimated_duration": for video content, suggested seconds (15, 30, 60)
 
-Be creative, relevant, practical. Write like a Nigerian/African social media pro. Optimize format, caption style, and duration for the specific platform.
+Be creative, relevant, practical. Write like a global social media pro. Optimize format, caption style, and duration for the specific platform.
 
 IMPORTANT: Return ONLY valid JSON. No markdown, no explanation, just the JSON object.`;
 
@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
     const context: string = body.context ?? "";
     const platform: string = body.platform ?? "";
     const format: string = body.format ?? "";
+    const tier: ModelTier = body.tier ?? "pro";
 
     if (media.length === 0 && !context) {
       return NextResponse.json({ error: "No media or context provided" }, { status: 400 });
@@ -67,11 +68,8 @@ Then suggest 4-6 smart content ideas specifically optimized for ${platform || "s
 
 Return a JSON object with "activities" and "suggestions" arrays.`;
 
-    const result = await callLLM(prompt, SYSTEM_PROMPT, {
-      role: "creative",
-      maxTokens: 1200,
-      temperature: 0.7,
-    });
+    const tierConfig = getTierConfig(tier);
+    const result = await callPlanner(prompt, SYSTEM_PROMPT, tier);
 
     if (!result.ok) {
       // Fallback: generate rule-based suggestions when no LLM is available
@@ -90,6 +88,8 @@ Return a JSON object with "activities" and "suggestions" arrays.`;
           activities: parsed.activities ?? [],
           suggestions: parsed.suggestions ?? parsed,
           provider: result.provider,
+          tier,
+          credits: tierConfig.credits,
         });
       }
       // Fall back to array format

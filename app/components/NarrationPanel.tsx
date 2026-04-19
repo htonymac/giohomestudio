@@ -59,8 +59,8 @@ const SUB_ACCENT_MAP: Partial<Record<string, AccentLocale[]>> = {
 };
 
 const REGION_GROUPS = [
-  { label: "Nigerian English",      locales: ["en-NG-yoruba", "en-NG-igbo", "en-NG-hausa", "en-NG-standard", "en-NG-polished"] },
-  { label: "Ghanaian English",      locales: ["en-GH-standard", "en-GH-accra"] },
+  { label: "Australian English",    locales: ["en-AU"] },
+  { label: "West African English",  locales: ["en-GH-standard", "en-GH-accra"] },
   { label: "South African English", locales: ["en-ZA-johannesburg", "en-ZA-capetown"] },
   { label: "Other",                 locales: ["en-GB", "en-US", "custom"] },
 ];

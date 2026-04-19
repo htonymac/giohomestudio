@@ -1,0 +1,264 @@
+GHS VIDEO MOTION SYSTEM — IMPLEMENTATION ORDER
+
+Build GHS video generation as a 3-stage system:
+
+STAGE 1 — PLAN
+Do not send raw user text directly to Kling.
+Convert the user request into a structured Video Blueprint object first.
+
+The Video Blueprint must contain:
+1. video_goal
+2. format_type
+   - product_ad
+   - realtor_ad
+   - tutorial
+   - promo
+   - social_short
+3. aspect_ratio
+   - 9:16
+   - 16:9
+   - 1:1
+4. target_duration
+5. hook_text
+6. scene_list
+7. product_or_subject_identity
+8. caption_plan
+9. audio_plan
+10. CTA
+
+Each scene object must contain:
+- scene_id
+- purpose
+- duration_sec
+- visual_type
+  - generated_video
+  - generated_image_then_animate
+  - screen_recording
+  - talking_head
+  - stock_or_broll
+- shot_type
+  - closeup
+  - medium
+  - wide
+  - macro
+  - topdown
+  - screen_zoom
+- motion_preset
+- entry_transition
+- exit_transition
+- speed_behavior
+- caption_lines
+- voiceover_line
+- kling_prompt
+- fallback_prompt
+- assembly_notes
+
+STAGE 2 — GENERATE
+GHS should decide per scene whether to:
+A. generate image first, then animate
+B. generate direct video
+C. use uploaded screen recording
+D. use talking-head clip
+E. use product packshot clip
+
+Do NOT force every scene to be pure text-to-video.
+For product ads, default to:
+1. generate approved product still first
+2. lock product identity
+3. create 3 to 8 second motion clips from that identity
+4. assemble multiple clips in timeline
+
+STAGE 3 — ASSEMBLE
+GHS must assemble timing, transitions, speed ramps, captions, narration, SFX, and music inside GHS after generation.
+Kling is not the final editor. GHS is the final editor.
+
+--------------------------------------------------
+MOTION PRESET LIBRARY
+--------------------------------------------------
+
+Create reusable motion presets like CapCut-style editing behavior:
+
+1. fade_in
+2. fade_out
+3. slide_in_left
+4. slide_in_right
+5. push_up_in
+6. push_down_out
+7. zoom_in_soft
+8. zoom_out_soft
+9. whip_pan_sim
+10. reveal_hold_exit
+11. fast_forward_ramp
+12. slow_motion_emphasis
+13. beat_cut
+14. screen_punch_zoom
+15. parallax_float
+16. product_orbit_sim
+17. detail_macro_reveal
+18. before_after_split
+19. blur_to_focus
+20. caption_pop_in
+
+Each preset must support:
+- start_time_ms
+- end_time_ms
+- easing
+- intensity
+- direction
+- scale_from
+- scale_to
+- opacity_from
+- opacity_to
+- motion_blur_on
+- sound_sync_marker
+
+--------------------------------------------------
+TIMING RULES
+--------------------------------------------------
+
+Support sub-second timing.
+Do not limit transitions to full seconds only.
+
+Every scene should support:
+- duration_ms
+- in_offset_ms
+- out_offset_ms
+- entry_transition_duration_ms
+- exit_transition_duration_ms
+- speed_points[]
+
+speed_points[] should allow:
+- timestamp_ms
+- speed_multiplier
+
+Example:
+[
+  { "timestamp_ms": 0, "speed_multiplier": 1.0 },
+  { "timestamp_ms": 900, "speed_multiplier": 1.8 },
+  { "timestamp_ms": 1400, "speed_multiplier": 0.7 },
+  { "timestamp_ms": 2200, "speed_multiplier": 1.0 }
+]
+
+This is how fast-forward, dramatic slowdown, and CapCut-style motion feel should be created.
+
+--------------------------------------------------
+SCREEN SHARE / TUTORIAL MODE
+--------------------------------------------------
+
+For tutorials and software demos, add a dedicated Screen Motion layer.
+
+Support:
+- mouse-follow zoom
+- click highlight pulse
+- rectangular callout
+- crop-and-focus region
+- screen_pan
+- step labels
+- subtitle sync
+- narrator overlay
+- picture-in-picture presenter
+- translation captions
+
+Tutorial scene types:
+- full_screen_capture
+- zoom_to_panel
+- cursor_demo
+- split_screen_narration
+- presenter_plus_screen
+- screen_with_bottom_captions
+
+If user uploads screen recording:
+1. transcribe it
+2. detect clicks or action moments
+3. auto-suggest zoom points
+4. auto-suggest caption timing
+5. allow narrator overlay
+6. allow translation subtitle layer
+
+--------------------------------------------------
+PRODUCT AD MODE
+--------------------------------------------------
+
+For products like plantain flakes or protector flakes:
+
+Do NOT start with random motion.
+Start with product identity control.
+
+Required flow:
+1. collect product info
+   - product name
+   - flavor / variant
+   - pack size
+   - packaging colors
+   - brand style
+   - claims allowed
+2. generate or upload master packshot image
+3. approve packshot identity
+4. generate scene prompts from the approved packshot
+5. animate scenes one by one
+6. assemble with music, SFX, captions, CTA
+
+Recommended product shot sequence:
+- Hook shot
+- Hero pack reveal
+- Ingredient / texture closeup
+- Lifestyle use moment
+- Benefit text shot
+- Offer / CTA shot
+
+Example motion styles:
+- pack rising from bottom with soft glow
+- macro texture pass
+- slow product rotate
+- hand pickup shot
+- falling flakes / crumbs
+- table-top premium reveal
+- splash / light sweep / shadow pass
+
+--------------------------------------------------
+KLIING PROMPT STRATEGY
+--------------------------------------------------
+
+Do not send vague prompts like:
+“make a nice professional ad”
+
+Instead send:
+- subject
+- environment
+- camera framing
+- camera motion
+- speed feel
+- lighting
+- product continuity
+- forbidden changes
+- shot duration
+
+Example prompt:
+“Premium sealed pack of Plantain Flakes standing upright on a clean studio table, hero close-up, soft commercial lighting, slow push-in camera, gentle right-to-left parallax, crisp packaging text preserved, realistic shadows, premium food advertisement look, 4 seconds, no label distortion, no extra objects, no warped packaging.”
+
+--------------------------------------------------
+MULTI-SHOT RULE
+--------------------------------------------------
+
+Even if Kling supports multi-shot and storyboard control, GHS should still prefer short controlled shot generation per scene for reliability.
+Use multi-shot only when the user explicitly chooses it or when the planner marks it safe.
+
+Default safer rule:
+- 1 scene = 1 generated shot
+- GHS timeline handles most cuts and transitions
+
+--------------------------------------------------
+OUTPUT QUALITY RULE
+--------------------------------------------------
+
+Every project must be editable after generation.
+Users should be able to adjust:
+- speed
+- transitions
+- captions
+- scene order
+- voiceover timing
+- music level
+- CTA ending
+
+The generated result is a draft, not final truth.

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { generateCharacterId } from "@/lib/character-id";
 
 interface ReferenceImage {
   url: string;
@@ -10,6 +11,7 @@ interface ReferenceImage {
 
 interface CharacterVoice {
   id: string;
+  characterId: string | null;
   name: string;
   gender: string | null;
   toneClass: string | null;
@@ -24,11 +26,15 @@ interface CharacterVoice {
   role: string | null;
   defaultSpeechStyle: string | null;
   referenceImages: ReferenceImage[] | null;
+  age: string | null;
+  country: string | null;
+  personality: string | null;
+  culture: string | null;
 }
 
 const GENDER_OPTIONS   = ["male", "female", "boy", "girl"];
 const TONE_OPTIONS     = ["bass", "tenor", "soft", "commanding", "elder", "youthful", "raspy", "smooth"];
-const ACCENT_OPTIONS   = ["american", "british", "african", "nigerian", "naija", "neutral", "west_african"];
+const ACCENT_OPTIONS   = ["neutral", "american", "british", "australian", "european", "african", "east_asian", "latin", "south_asian", "middle_eastern"];
 const ROLE_OPTIONS     = [
   { value: "protagonist",  label: "Protagonist (Hero)" },
   { value: "antagonist",   label: "Antagonist (Villain)" },
@@ -46,12 +52,21 @@ const SPEECH_STYLE_OPTIONS = [
   { value: "trembling",  label: "Trembling — fearful, shaky" },
 ];
 const LANGUAGE_OPTIONS = [
-  { value: "en",             label: "English" },
-  { value: "nigerian_pidgin",label: "Nigerian Pidgin (Naija)" },
-  { value: "pidgin",         label: "Pidgin (general)" },
-  { value: "yo",             label: "Yoruba" },
-  { value: "ig",             label: "Igbo" },
-  { value: "ha",             label: "Hausa" },
+  { value: "en",  label: "English" },
+  { value: "es",  label: "Spanish" },
+  { value: "fr",  label: "French" },
+  { value: "pt",  label: "Portuguese" },
+  { value: "de",  label: "German" },
+  { value: "ja",  label: "Japanese" },
+  { value: "zh",  label: "Chinese (Mandarin)" },
+  { value: "ar",  label: "Arabic" },
+  { value: "hi",  label: "Hindi" },
+  { value: "ko",  label: "Korean" },
+  { value: "it",  label: "Italian" },
+  { value: "ru",  label: "Russian" },
+  { value: "sw",  label: "Swahili" },
+  { value: "tr",  label: "Turkish" },
+  { value: "nl",  label: "Dutch" },
 ];
 
 // ElevenLabs built-in voices on Starter plan
@@ -66,88 +81,88 @@ const DEFAULT_VOICES = [
   { id: "onwK4e9ZLuTAKqWW03F9", name: "Daniel — Deep British (male)" },
 ];
 
-type PackEntry = Omit<CharacterVoice, "id" | "referenceImages">;
+type PackEntry = Omit<CharacterVoice, "id" | "referenceImages" | "characterId" | "age" | "country" | "personality" | "culture">;
 
-// Nigerian Pidgin narrator pack — 5 age-group narrators
-const NIGERIAN_PIDGIN_PACK: PackEntry[] = [
+// Universal Narrator Pack — 5 age-group narrators, global neutral English
+const UNIVERSAL_NARRATOR_PACK: PackEntry[] = [
   {
-    name: "NARRATOR_CHILD_PIDGIN", gender: "girl", toneClass: "youthful",
-    accent: "naija", language: "nigerian_pidgin", voiceId: null, voiceName: null,
+    name: "NARR_CHILD", gender: "girl", toneClass: "youthful",
+    accent: "neutral", language: "en", voiceId: null, voiceName: null,
     isNarrator: true, role: "narrator", defaultSpeechStyle: "normal",
     imageUrl: null, visualDescription: null,
-    notes: "Child narrator, Nigerian Pidgin English. Ages 8–12. Light, curious tone. Paste your ElevenLabs cloned voice ID when ready.",
+    notes: "Child narrator. Ages 8–12. Light, curious, warm tone. Paste your ElevenLabs cloned voice ID when ready.",
   },
   {
-    name: "NARRATOR_TEEN_PIDGIN", gender: "male", toneClass: "youthful",
-    accent: "naija", language: "nigerian_pidgin", voiceId: null, voiceName: null,
+    name: "NARR_TEEN", gender: "male", toneClass: "youthful",
+    accent: "neutral", language: "en", voiceId: null, voiceName: null,
     isNarrator: true, role: "narrator", defaultSpeechStyle: "normal",
     imageUrl: null, visualDescription: null,
-    notes: "Teen narrator, Nigerian Pidgin. Ages 13–17. Street energy, casual Naija flow. Paste your ElevenLabs cloned voice ID when ready.",
+    notes: "Teen narrator. Ages 13–17. Energetic, relatable, casual delivery. Paste your ElevenLabs voice ID when ready.",
   },
   {
-    name: "NARRATOR_YOUTH_PIDGIN", gender: "male", toneClass: "tenor",
-    accent: "naija", language: "nigerian_pidgin", voiceId: null, voiceName: null,
+    name: "NARR_YOUTH", gender: "male", toneClass: "tenor",
+    accent: "neutral", language: "en", voiceId: null, voiceName: null,
     isNarrator: true, role: "narrator", defaultSpeechStyle: "normal",
     imageUrl: null, visualDescription: null,
-    notes: "Young adult narrator, Nigerian Pidgin. Ages 18–28. Energetic, confident urban Naija voice.",
+    notes: "Young adult narrator. Ages 18–28. Confident, dynamic, engaging universal voice.",
   },
   {
-    name: "NARRATOR_ADULT_PIDGIN", gender: "male", toneClass: "commanding",
-    accent: "naija", language: "nigerian_pidgin", voiceId: null, voiceName: null,
+    name: "NARR_ADULT", gender: "male", toneClass: "commanding",
+    accent: "neutral", language: "en", voiceId: null, voiceName: null,
     isNarrator: true, role: "narrator", defaultSpeechStyle: "commanding",
     imageUrl: null, visualDescription: null,
-    notes: "Adult narrator, Nigerian Pidgin. Ages 30–50. Grounded, authoritative Naija delivery.",
+    notes: "Adult narrator. Ages 30–50. Grounded, authoritative, professional delivery.",
   },
   {
-    name: "NARRATOR_ELDER_PIDGIN", gender: "male", toneClass: "elder",
-    accent: "naija", language: "nigerian_pidgin", voiceId: null, voiceName: null,
+    name: "NARR_ELDER", gender: "male", toneClass: "elder",
+    accent: "neutral", language: "en", voiceId: null, voiceName: null,
     isNarrator: true, role: "elder", defaultSpeechStyle: "emotional",
     imageUrl: null, visualDescription: null,
-    notes: "Elder narrator, Nigerian Pidgin. Ages 55+. Deep, wise elder voice. Steady pace.",
+    notes: "Elder narrator. Ages 55+. Deep, wise, measured pace. Carries gravitas and warmth.",
   },
 ];
 
-// African Cinema character pack — archetypal characters for African drama
-const AFRICAN_CINEMA_PACK: PackEntry[] = [
+// World Cinema Pack — universal drama characters for global storytelling
+const WORLD_CINEMA_PACK: PackEntry[] = [
   {
-    name: "HERO_AFRIKAN", gender: "male", toneClass: "commanding",
-    accent: "african", language: "en", voiceId: "pNInz6obpgDQGcFmaJgB", voiceName: "Adam",
+    name: "HERO_WORLD", gender: "male", toneClass: "commanding",
+    accent: "neutral", language: "en", voiceId: "pNInz6obpgDQGcFmaJgB", voiceName: "Adam",
     isNarrator: false, role: "protagonist", defaultSpeechStyle: "commanding",
     imageUrl: null,
-    visualDescription: "Tall, strong Black African man in his 30s. Determined gaze. Traditional and modern clothing mix.",
-    notes: "Lead male hero. Voices the hero's journey. Confident, purposeful delivery.",
+    visualDescription: "Strong, determined man in his 30s. Resilient build, confident presence. Adaptable — fits any culture or setting.",
+    notes: "Lead male hero. Universal archetype. Confident, purposeful, emotionally grounded delivery.",
   },
   {
-    name: "HEROINE_AFRIKAN", gender: "female", toneClass: "commanding",
-    accent: "african", language: "en", voiceId: "EXAVITQu4vr4xnSDxMaL", voiceName: "Sarah",
+    name: "HEROINE_WORLD", gender: "female", toneClass: "commanding",
+    accent: "neutral", language: "en", voiceId: "EXAVITQu4vr4xnSDxMaL", voiceName: "Sarah",
     isNarrator: false, role: "protagonist", defaultSpeechStyle: "emotional",
     imageUrl: null,
-    visualDescription: "Confident Black African woman in her late 20s to 30s. Strong presence. Traditional attire with modern edge.",
-    notes: "Lead female hero. Emotional range — warm and fierce depending on scene.",
+    visualDescription: "Confident, capable woman in her late 20s to 30s. Strong presence, expressive eyes. Works across any genre or culture.",
+    notes: "Lead female hero. Wide emotional range — warm, fierce, determined depending on scene.",
   },
   {
-    name: "MAMA_FIGURE", gender: "female", toneClass: "elder",
-    accent: "african", language: "en", voiceId: "EXAVITQu4vr4xnSDxMaL", voiceName: "Sarah",
+    name: "ELDER_FIGURE", gender: "female", toneClass: "elder",
+    accent: "neutral", language: "en", voiceId: "EXAVITQu4vr4xnSDxMaL", voiceName: "Sarah",
     isNarrator: false, role: "elder", defaultSpeechStyle: "emotional",
     imageUrl: null,
-    visualDescription: "Older African woman, 50s-60s. Warm, maternal. Wrapper and head tie. Wise eyes.",
-    notes: "The mother/elder archetype. Gentle but firm. Carries cultural weight in dialogue.",
+    visualDescription: "Older woman, 50s-60s. Warm, maternal energy. Wise eyes, calm presence. Universal elder archetype.",
+    notes: "The mother/elder archetype. Gentle but firm. Carries wisdom and emotional weight.",
   },
   {
-    name: "VILLAIN_AFRIKAN", gender: "male", toneClass: "bass",
-    accent: "african", language: "en", voiceId: "VR6AewLTigWG4xSOukaG", voiceName: "Arnold",
+    name: "VILLAIN_WORLD", gender: "male", toneClass: "bass",
+    accent: "neutral", language: "en", voiceId: "VR6AewLTigWG4xSOukaG", voiceName: "Arnold",
     isNarrator: false, role: "antagonist", defaultSpeechStyle: "commanding",
     imageUrl: null,
-    visualDescription: "Imposing African man, 40s-50s. Sharp features, expensive dark suit. Cold, calculating gaze.",
-    notes: "The antagonist. Measured, menacing delivery. Speaks with authority and threat.",
+    visualDescription: "Imposing man, 40s-50s. Sharp, angular features. Expensive dark attire. Cold, calculating gaze.",
+    notes: "The antagonist. Measured, menacing delivery. Speaks with authority and controlled threat.",
   },
   {
-    name: "STREET_YOUTH_AFRIKAN", gender: "male", toneClass: "youthful",
-    accent: "naija", language: "en", voiceId: "TxGEqnHWrfWFTfGW9XjX", voiceName: "Josh",
+    name: "SIDEKICK_WORLD", gender: "male", toneClass: "youthful",
+    accent: "neutral", language: "en", voiceId: "TxGEqnHWrfWFTfGW9XjX", voiceName: "Josh",
     isNarrator: false, role: "supporting", defaultSpeechStyle: "normal",
     imageUrl: null,
-    visualDescription: "Young African man, early 20s. Street-smart energy. Casual urban clothing, quick eyes.",
-    notes: "Street-level supporting character. Fast delivery, casual energy, comic potential.",
+    visualDescription: "Young man, early 20s. Street-smart energy. Casual urban style, quick eyes, likeable face.",
+    notes: "Sidekick / comic relief. Fast, casual delivery. Works in action, comedy, or drama.",
   },
 ];
 
@@ -220,6 +235,14 @@ function Select({
   );
 }
 
+// ── URL normalizer: converts storage paths to /api/media URLs ──
+function normalizeImageUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http") || url.startsWith("/api/") || url.startsWith("blob:")) return url;
+  const cleaned = url.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "");
+  return `/api/media/${cleaned}`;
+}
+
 // ── Voice + character profile form ────────────────────────────
 function VoiceForm({
   initial, onSave, onCancel, saving,
@@ -229,11 +252,11 @@ function VoiceForm({
   onCancel: () => void;
   saving: boolean;
 }) {
-  const [form, setForm] = useState<Partial<CharacterVoice>>(initial);
+  const [form, setForm] = useState<Partial<CharacterVoice> & { skinTone?: string; attribute?: string }>(initial);
   const [previewing, setPreviewing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const set = (k: keyof CharacterVoice, v: string | boolean | null) =>
+  const set = (k: string, v: string | boolean | null) =>
     setForm(f => ({ ...f, [k]: v === "" ? null : v }));
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -330,6 +353,48 @@ function VoiceForm({
           </select>
         </div>
       </div>
+
+      {/* ── Row 2b: Character ID fields (Country + Age + Skin/Attribute) ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+        <div>
+          <label style={labelStyle}>Country</label>
+          <select value={form.country ?? ""} onChange={e => set("country", e.target.value)} style={selectStyle}>
+            <option value="">— Select —</option>
+            {["United States", "United Kingdom", "Canada", "Australia", "France", "Germany", "Spain", "Italy", "Brazil", "Mexico", "Japan", "China", "South Korea", "India", "Russia", "Turkey", "South Africa", "Egypt", "Nigeria", "Ghana", "Kenya", "Ethiopia", "Morocco", "Argentina", "Colombia", "Saudi Arabia", "Indonesia", "Philippines", "Pakistan"].map(c => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Age</label>
+          <select value={form.age ?? ""} onChange={e => set("age", e.target.value)} style={selectStyle}>
+            <option value="">— Select —</option>
+            <option value="child">Child (8)</option>
+            <option value="teen">Teen (15)</option>
+            <option value="young_adult">Young Adult (25)</option>
+            <option value="adult">Adult (35)</option>
+            <option value="elder">Elder (65)</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>Skin Tone</label>
+          <input value={form.skinTone ?? ""} onChange={e => setForm(f => ({ ...f, skinTone: e.target.value || undefined }))} placeholder="e.g. DARK, FAIR, LIGHT" style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>Attribute</label>
+          <input value={form.attribute ?? ""} onChange={e => setForm(f => ({ ...f, attribute: e.target.value || undefined }))} placeholder="e.g. NINJA, TALL" style={inputStyle} />
+        </div>
+      </div>
+
+      {/* Auto-generated Character ID */}
+      {form.name && (
+        <div style={{ marginBottom: 14, padding: "8px 12px", borderRadius: 8, background: "rgba(168,85,247,0.08)", border: "1px solid rgba(168,85,247,0.2)" }}>
+          <span style={{ fontSize: 10, color: "#7070a0" }}>Character ID: </span>
+          <span style={{ fontSize: 13, fontFamily: "monospace", color: "#a855f7", fontWeight: 700 }}>
+            {generateCharacterId({ country: form.country ?? "", name: form.name ?? "", age: form.age ?? "", skinTone: form.skinTone ?? "", attribute: form.attribute ?? "" })}
+          </span>
+        </div>
+      )}
 
       {/* ── Row 3: Gender + Tone + Accent + Language ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -432,7 +497,7 @@ function VoiceForm({
           </label>
           {form.imageUrl && (
             <img
-              src={form.imageUrl}
+              src={normalizeImageUrl(form.imageUrl)}
               alt="preview"
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
               style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", border: "1px solid #2a2a40", flexShrink: 0 }}
@@ -451,7 +516,7 @@ function VoiceForm({
         <textarea
           value={form.visualDescription ?? ""}
           onChange={e => set("visualDescription", e.target.value)}
-          placeholder="e.g. Tall Nigerian man in his 30s, wearing agbada, confident gaze, strong build"
+          placeholder="e.g. Tall man in his 30s, athletic build, determined gaze, casual modern clothing"
           rows={2}
           style={{ ...inputStyle, resize: "vertical", lineHeight: 1.5 }}
         />
@@ -463,7 +528,7 @@ function VoiceForm({
         <input
           value={form.notes ?? ""}
           onChange={e => set("notes", e.target.value)}
-          placeholder="e.g. Nigerian elder, speaks slowly in Pidgin"
+          placeholder="e.g. Wise elder archetype, speaks slowly and thoughtfully"
           style={inputStyle}
         />
       </div>
@@ -498,15 +563,15 @@ const ROLE_BADGE_COLOR: Record<string, string> = {
   comic_relief: "#fb923c",
 };
 
-function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
+function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview }: {
   v: CharacterVoice;
   onEdit: (id: string | null) => void;
   onDelete: (id: string, name: string) => void;
   editingId: string | null;
   onUpdate: (id: string, form: Partial<CharacterVoice>) => void;
   saving: boolean;
+  onPreview?: (v: CharacterVoice) => void;
 }) {
-  const isPidgin = v.language === "nigerian_pidgin";
   const roleColor = v.role ? (ROLE_BADGE_COLOR[v.role] ?? "#9090b0") : null;
 
   if (editingId === v.id) {
@@ -522,8 +587,8 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
 
   return (
     <div style={{
-      background: isPidgin ? "#0d130d" : "#1a1a2e",
-      border: `1px solid ${isPidgin ? "#1a3a1a" : "#2a2a40"}`,
+      background: "#1a1a2e",
+      border: "1px solid #2a2a40",
       borderRadius: 10,
       overflow: "hidden",
     }}>
@@ -533,7 +598,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
         <div style={{ flexShrink: 0 }}>
           {v.imageUrl ? (
             <img
-              src={v.imageUrl}
+              src={normalizeImageUrl(v.imageUrl)}
               alt={v.name}
               onError={e => { (e.target as HTMLImageElement).src = ""; (e.target as HTMLImageElement).style.display = "none"; }}
               style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", border: "1px solid #2a2a40" }}
@@ -548,8 +613,12 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
         {/* Identity column */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
-            {isPidgin && <span>🇳🇬</span>}
             <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{v.name}</span>
+            {v.characterId && (
+              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#a855f7", background: "rgba(168,85,247,0.1)", padding: "1px 6px", borderRadius: 4, border: "1px solid rgba(168,85,247,0.2)" }}>
+                {v.characterId}
+              </span>
+            )}
             {v.isNarrator && (
               <span style={{ background: "#7c5cfc22", color: "#7c5cfc", fontSize: 10, borderRadius: 4, padding: "1px 6px", border: "1px solid #7c5cfc44" }}>
                 NARRATOR
@@ -582,7 +651,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
               </span>
             ))}
             {v.language && (
-              <span style={{ background: isPidgin ? "#1a2a1a" : "#2a2a40", color: isPidgin ? "#4ade80" : "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 7px", border: isPidgin ? "1px solid #2a4a2a" : "none" }}>
+              <span style={{ background: "#2a2a40", color: "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 7px" }}>
                 {LANGUAGE_OPTIONS.find(l => l.value === v.language)?.label ?? v.language}
               </span>
             )}
@@ -607,7 +676,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
         <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
           {v.imageUrl && (
             <a
-              href={`/dashboard?mode=image_to_video&characterId=${v.id}`}
+              href={`/dashboard/collaborative-editor?mode=image_to_video&characterId=${v.id}`}
               style={{ background: "var(--accent, #6c63ff)", color: "white", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
             >
               🎬 Use in Studio
@@ -620,6 +689,46 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
           >
             📷 Images
           </a>
+          {/* Quick send buttons */}
+          <a href={`/dashboard/movie-planner?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+            Movie
+          </a>
+          <a href={`/dashboard/hybrid-planner?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+            Hybrid
+          </a>
+          <a href={`/dashboard/collaborative-editor?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
+            Editor
+          </a>
+          {/* Preview + more destinations */}
+          {onPreview && (
+            <button
+              onClick={() => onPreview(v)}
+              style={{ background: "#1a1a2e", color: "#a855f7", border: "1px solid #3a2a5a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              Preview + Send...
+            </button>
+          )}
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch(`/api/character/export?id=${v.id}`);
+                if (!res.ok) { alert("Export failed"); return; }
+                // API returns ZIP file directly
+                const blob = await res.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `${(v.name || "character").replace(/[^a-zA-Z0-9_-]/g, "_")}_export.zip`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              } catch { alert("Download failed"); }
+            }}
+            style={{ background: "#1a1a2e", color: "#60a5fa", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+          >
+            ⬇ Download ZIP
+          </button>
           <button
             onClick={() => onEdit(v.id)}
             style={{ background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
@@ -642,7 +751,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving }: {
           {(v.referenceImages as ReferenceImage[]).map(r => (
             <img
               key={r.angle}
-              src={r.url}
+              src={normalizeImageUrl(r.url)}
               alt={r.label}
               title={r.label}
               style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", border: "1px solid #1e1e38" }}
@@ -697,7 +806,7 @@ function PackWidget({
                   color: isIn ? color : "#3a3a5a",
                   borderRadius: 5, padding: "3px 9px", fontSize: 11,
                 }}>
-                  {isIn ? "✓" : "○"} {e.name.replace("_EN", "").replace("_AFRIKAN", "").replace("_PIDGIN", "").replace("NARRATOR_", "NARR ").replace(/_/g, " ")}
+                  {isIn ? "✓" : "○"} {e.name.replace("_EN", "").replace("_WORLD", "").replace("NARRATOR_", "NARR ").replace(/_/g, " ")}
                 </span>
               );
             })}
@@ -723,14 +832,533 @@ function PackWidget({
   );
 }
 
+// ── AI Smart Builder types ───────────────────────────────────
+interface SmartBuilderResult {
+  voice: CharacterVoice;
+  parsed: Record<string, unknown>;
+  images: Array<{ angle: string; url: string; label: string }>;
+  provider: string;
+}
+
+// Character type configs for guided mode
+const CHAR_TYPE_OPTIONS = ["Human", "Animal", "Robot", "Fantasy", "Child", "Elder", "Custom"] as const;
+
+const HUMAN_FIELDS = [
+  { key: "gender", label: "Gender", options: ["male", "female", "boy", "girl"] },
+  { key: "age", label: "Age", options: ["child", "teen", "young adult", "adult", "middle-aged", "elder"] },
+  { key: "ethnicity", label: "Ethnicity / Nationality", options: ["American", "European", "British", "Latin American", "East Asian", "South Asian", "African", "Middle Eastern", "Caribbean", "Southeast Asian", "Pacific Islander", "Indigenous", "Mixed / Multiracial"] },
+  { key: "skinTone", label: "Skin Tone", options: ["very dark", "dark brown", "medium brown", "light brown", "olive", "fair", "pale"] },
+  { key: "height", label: "Height", options: ["short", "below average", "average", "above average", "tall", "very tall"] },
+  { key: "build", label: "Build", options: ["slim", "lean", "athletic", "average", "stocky", "muscular", "heavyset"] },
+  { key: "hair", label: "Hair", options: ["bald", "short cropped", "afro", "dreadlocks", "braids", "long straight", "curly", "wavy", "mohawk", "buzz cut", "grey/white"] },
+  { key: "face", label: "Face", options: ["round", "oval", "angular", "square jaw", "kind eyes", "stern", "bearded", "clean-shaven", "scarred", "glasses"] },
+  { key: "clothing", label: "Clothing", options: ["casual", "formal suit", "business casual", "streetwear", "military uniform", "traditional / cultural attire", "robes", "lab coat", "sports jersey", "fantasy / period costume"] },
+  { key: "accessories", label: "Accessories", options: ["none", "watch", "necklace", "hat/cap", "earrings", "sunglasses", "staff/cane", "headwrap", "crown/headpiece", "weapon"] },
+];
+
+const ANIMAL_FIELDS = [
+  { key: "species", label: "Species", options: ["dog", "cat", "rabbit", "lion", "eagle", "elephant", "monkey", "fox", "wolf", "bear", "horse", "snake", "owl"] },
+  { key: "colorPattern", label: "Color / Pattern", options: ["white", "black", "brown", "golden", "grey", "spotted", "striped", "multi-colored", "albino", "calico"] },
+  { key: "size", label: "Size", options: ["tiny", "small", "medium", "large", "huge"] },
+  { key: "specialFeatures", label: "Special Features", options: ["wings", "horns", "long tail", "short tail", "big ears", "scars", "glowing eyes", "unusual markings", "crown/jewelry"] },
+  { key: "personality", label: "Personality", options: ["brave", "mischievous", "wise", "gentle", "fierce", "playful", "loyal", "cunning", "shy", "noble"] },
+];
+
+const FANTASY_ROBOT_FIELDS = [
+  { key: "style", label: "Style", options: ["futuristic", "steampunk", "medieval", "cyberpunk", "mythological", "cosmic", "tribal", "ancient", "post-apocalyptic"] },
+  { key: "material", label: "Material", options: ["metal", "organic", "crystal", "stone", "energy/light", "wood", "bone", "holographic", "mixed"] },
+  { key: "era", label: "Era", options: ["ancient", "medieval", "victorian", "modern", "near-future", "far-future", "timeless"] },
+  { key: "specialFeatures", label: "Special Features", options: ["glowing eyes", "wings", "tail", "horns", "multiple arms", "floating parts", "aura/glow", "weapon integrated", "shape-shifting"] },
+];
+
+function getFieldsForType(type: string) {
+  switch (type) {
+    case "Human": case "Child": case "Elder": return HUMAN_FIELDS;
+    case "Animal": return ANIMAL_FIELDS;
+    case "Robot": case "Fantasy": return FANTASY_ROBOT_FIELDS;
+    case "Custom": return HUMAN_FIELDS;
+    default: return [];
+  }
+}
+
+// ── Smart Builder Modal ──────────────────────────────────────
+function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  const [mode, setMode] = useState<"free" | "guided">("free");
+  const [freePrompt, setFreePrompt] = useState("");
+  const [charType, setCharType] = useState("");
+  const [guidedFields, setGuidedFields] = useState<Record<string, string>>({});
+  const [building, setBuilding] = useState(false);
+  const [buildError, setBuildError] = useState("");
+  const [result, setResult] = useState<SmartBuilderResult | null>(null);
+
+  const setField = (key: string, val: string) => setGuidedFields(f => ({ ...f, [key]: val }));
+
+  async function handleBuild() {
+    setBuilding(true);
+    setBuildError("");
+    setResult(null);
+
+    const payload = mode === "free"
+      ? { prompt: freePrompt }
+      : { type: charType, ...guidedFields };
+
+    try {
+      const res = await fetch("/api/character/smart-build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBuildError(data.error || "Build failed");
+        setBuilding(false);
+        return;
+      }
+      setResult(data);
+    } catch {
+      setBuildError("Network error. Check connection.");
+    } finally {
+      setBuilding(false);
+    }
+  }
+
+  const canBuild = mode === "free" ? freePrompt.trim().length > 10 : !!charType;
+  const fields = charType ? getFieldsForType(charType) : [];
+
+  const sbInputStyle = { background: "#12121a", color: "#fff", border: "1px solid #3a2a5a", borderRadius: 6, padding: "6px 10px", fontSize: 13, width: "100%" };
+  const sbSelectStyle = { background: "#1a1a2e", color: "#ccc", border: "1px solid #3a2a5a", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%" };
+  const sbLabelStyle = { fontSize: 11, color: "#9070c0", display: "block", marginBottom: 4 } as const;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      padding: 20,
+    }}>
+      <div style={{
+        background: "#12121a", border: "1px solid #3a2a5a", borderRadius: 14,
+        maxWidth: 720, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 28,
+      }}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div>
+            <h2 style={{ color: "#e0d0ff", fontSize: 18, fontWeight: 700, margin: 0 }}>
+              AI Smart Builder
+            </h2>
+            <p style={{ color: "#6a5a8a", fontSize: 12, marginTop: 4 }}>
+              Describe your character and AI will build a full profile with reference images
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{ background: "none", border: "none", color: "#6a5a8a", fontSize: 22, cursor: "pointer", padding: "4px 8px" }}
+          >
+            x
+          </button>
+        </div>
+
+        {/* Result view */}
+        {result ? (
+          <div>
+            <div style={{ background: "#1a1a2e", border: "1px solid #3a2a5a", borderRadius: 10, padding: 20, marginBottom: 16 }}>
+              {/* Character header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>
+                  {(result.parsed.displayName as string) || result.voice.name}
+                </span>
+                <span style={{
+                  fontFamily: "monospace", fontSize: 10, color: "#a855f7",
+                  background: "rgba(168,85,247,0.1)", padding: "2px 8px", borderRadius: 4,
+                  border: "1px solid rgba(168,85,247,0.25)",
+                }}>
+                  {result.voice.characterId}
+                </span>
+                {result.voice.role && (
+                  <span style={{
+                    background: "rgba(168,85,247,0.1)", color: "#a855f7", fontSize: 10,
+                    borderRadius: 4, padding: "2px 8px", border: "1px solid rgba(168,85,247,0.2)",
+                  }}>
+                    {result.voice.role}
+                  </span>
+                )}
+              </div>
+
+              {/* Generated images */}
+              {result.images.length > 0 && (
+                <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                  {result.images.map((img) => (
+                    <div key={img.angle} style={{ textAlign: "center" }}>
+                      <img
+                        src={normalizeImageUrl(img.url)}
+                        alt={img.label}
+                        style={{
+                          width: 180, height: 180, borderRadius: 10, objectFit: "cover",
+                          border: "2px solid #3a2a5a",
+                        }}
+                        onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                      <p style={{ fontSize: 10, color: "#6a5a8a", marginTop: 4 }}>{img.label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {result.images.length === 0 && (
+                <p style={{ fontSize: 12, color: "#4a4a6a", marginBottom: 12, fontStyle: "italic" }}>
+                  No images generated (image provider may be offline). You can add reference images later.
+                </p>
+              )}
+
+              {/* Visual description */}
+              {result.voice.visualDescription && (
+                <p style={{ fontSize: 13, color: "#a0a0c0", lineHeight: 1.6, marginBottom: 12 }}>
+                  {result.voice.visualDescription}
+                </p>
+              )}
+
+              {/* Character details grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+                {[
+                  { label: "Gender", val: result.voice.gender },
+                  { label: "Age", val: result.voice.age },
+                  { label: "Country", val: result.voice.country },
+                  { label: "Tone", val: result.voice.toneClass },
+                  { label: "Accent", val: result.voice.accent },
+                  { label: "Role", val: result.voice.role },
+                  { label: "Personality", val: result.voice.personality },
+                  { label: "Wardrobe", val: (result.parsed.wardrobeStyle as string) },
+                  { label: "Species", val: (result.parsed.species as string) },
+                ].filter(x => x.val).map(x => (
+                  <div key={x.label} style={{ background: "#12121a", borderRadius: 6, padding: "6px 10px" }}>
+                    <span style={{ fontSize: 9, color: "#5a5a7a", display: "block" }}>{x.label}</span>
+                    <span style={{ fontSize: 12, color: "#c0c0e0" }}>{x.val}</span>
+                  </div>
+                ))}
+              </div>
+
+              <p style={{ fontSize: 10, color: "#3a3a5a" }}>
+                LLM: {result.provider}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => { onCreated(); onClose(); }}
+                style={{
+                  background: "#a855f7", color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+                }}
+              >
+                Done — Character Saved
+              </button>
+              <button
+                onClick={() => { setResult(null); setBuildError(""); }}
+                style={{
+                  background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 8,
+                  padding: "10px 20px", fontSize: 13, cursor: "pointer",
+                }}
+              >
+                Build Another
+              </button>
+              {/* Export dropdown */}
+              <select
+                defaultValue=""
+                onChange={e => { if (e.target.value) window.location.href = e.target.value; }}
+                style={{
+                  background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a",
+                  borderRadius: 8, padding: "10px 12px", fontSize: 12, cursor: "pointer",
+                }}
+              >
+                <option value="" disabled>Export to...</option>
+                <option value={`/dashboard/collaborative-editor?characterId=${result.voice.id}`}>Collaborative Editor</option>
+                <option value={`/dashboard/movie-planner?characterId=${result.voice.id}`}>Movie Planner</option>
+                <option value={`/dashboard/music-video-planner?characterId=${result.voice.id}`}>Music Video Planner</option>
+                <option value={`/dashboard/hybrid-planner?characterId=${result.voice.id}`}>Hybrid Planner</option>
+                <option value={`/dashboard/short-video?characterId=${result.voice.id}`}>Short Video</option>
+                <option value={`/dashboard/commercial?characterId=${result.voice.id}`}>Commercial</option>
+                <option value={`/dashboard/children-video?characterId=${result.voice.id}`}>Children Video</option>
+              </select>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Mode toggle */}
+            <div style={{ display: "flex", gap: 0, marginBottom: 20, borderRadius: 8, overflow: "hidden", border: "1px solid #3a2a5a" }}>
+              <button
+                onClick={() => setMode("free")}
+                style={{
+                  flex: 1, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  background: mode === "free" ? "#a855f7" : "#1a1a2e",
+                  color: mode === "free" ? "#fff" : "#7070a0",
+                  border: "none",
+                }}
+              >
+                Option A: Free Prompt
+              </button>
+              <button
+                onClick={() => setMode("guided")}
+                style={{
+                  flex: 1, padding: "10px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer",
+                  background: mode === "guided" ? "#a855f7" : "#1a1a2e",
+                  color: mode === "guided" ? "#fff" : "#7070a0",
+                  border: "none",
+                }}
+              >
+                Option B: Guided Selection
+              </button>
+            </div>
+
+            {/* Free prompt mode */}
+            {mode === "free" && (
+              <div>
+                <label style={sbLabelStyle}>Describe your character in any way...</label>
+                <textarea
+                  value={freePrompt}
+                  onChange={e => setFreePrompt(e.target.value)}
+                  placeholder={"Examples:\n- smart fluffy rabbit with long teeth, off-colour tail, wears a tiny red vest, mischievous personality\n- male india fair 45 medium height beard calm face formal shirt\n- fierce African warrior queen, tall, dark skin, golden crown, leopard-print robe, commanding presence"}
+                  rows={6}
+                  style={{ ...sbInputStyle, resize: "vertical", lineHeight: 1.6 }}
+                />
+                <p style={{ fontSize: 11, color: "#4a4a6a", marginTop: 6 }}>
+                  Be as specific as you like. Include species, appearance, clothing, personality, backstory — the AI will parse it all.
+                </p>
+              </div>
+            )}
+
+            {/* Guided mode */}
+            {mode === "guided" && (
+              <div>
+                <label style={sbLabelStyle}>Character Type</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>
+                  {CHAR_TYPE_OPTIONS.map(t => (
+                    <button
+                      key={t}
+                      onClick={() => { setCharType(t); setGuidedFields({}); }}
+                      style={{
+                        background: charType === t ? "#a855f7" : "#1a1a2e",
+                        color: charType === t ? "#fff" : "#9090b0",
+                        border: `1px solid ${charType === t ? "#a855f7" : "#3a2a5a"}`,
+                        borderRadius: 8, padding: "8px 16px", fontSize: 13,
+                        cursor: "pointer", fontWeight: charType === t ? 700 : 400,
+                      }}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+
+                {charType && (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    {fields.map(f => (
+                      <div key={f.key}>
+                        <label style={sbLabelStyle}>{f.label}</label>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <select
+                            value={f.options.includes(guidedFields[f.key] || "") ? guidedFields[f.key] : ""}
+                            onChange={e => setField(f.key, e.target.value)}
+                            style={{ ...sbSelectStyle, flex: 1 }}
+                          >
+                            <option value="">-- Select --</option>
+                            {f.options.map(o => <option key={o} value={o}>{o}</option>)}
+                          </select>
+                          <input
+                            value={!f.options.includes(guidedFields[f.key] || "") ? (guidedFields[f.key] || "") : ""}
+                            onChange={e => setField(f.key, e.target.value)}
+                            placeholder="or type..."
+                            style={{ ...sbInputStyle, flex: 1 }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Error */}
+            {buildError && (
+              <div style={{ background: "#2a1a1a", border: "1px solid #f87171", borderRadius: 8, padding: 12, marginTop: 16, color: "#f87171", fontSize: 13 }}>
+                {buildError}
+              </div>
+            )}
+
+            {/* Build button */}
+            <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+              <button
+                onClick={handleBuild}
+                disabled={building || !canBuild}
+                style={{
+                  background: building ? "#6a3aaa" : "#a855f7",
+                  color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 24px", fontSize: 14, fontWeight: 600,
+                  cursor: building || !canBuild ? "not-allowed" : "pointer",
+                  opacity: !canBuild ? 0.5 : 1,
+                }}
+              >
+                {building ? "Building character..." : "Build Character"}
+              </button>
+              <button
+                onClick={onClose}
+                style={{
+                  background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 8,
+                  padding: "10px 20px", fontSize: 13, cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+
+            {/* Building progress */}
+            {building && (
+              <div style={{ marginTop: 16, padding: 16, background: "#1a1020", border: "1px solid #3a2a5a", borderRadius: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{
+                    width: 16, height: 16, border: "2px solid #a855f7", borderTop: "2px solid transparent",
+                    borderRadius: "50%", animation: "spin 1s linear infinite",
+                  }} />
+                  <span style={{ color: "#a855f7", fontSize: 13 }}>
+                    AI is analyzing your description, building character profile, and generating reference images...
+                  </span>
+                </div>
+                <p style={{ color: "#4a3a6a", fontSize: 11, marginTop: 8 }}>
+                  This may take 15-60 seconds depending on image generation.
+                </p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Spinner animation */}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
+
 // ── Main page ────────────────────────────────────────────────
+// ── Character Preview Modal ──────────────────────────────────
+function CharacterPreviewModal({ character, onClose }: { character: CharacterVoice; onClose: () => void }) {
+  const DESTINATIONS = [
+    { label: "Movie Planner", path: "/dashboard/movie-planner" },
+    { label: "Hybrid Planner", path: "/dashboard/hybrid-planner" },
+    { label: "Children Planner", path: "/dashboard/children-planner" },
+    { label: "Commercial", path: "/dashboard/commercial" },
+    { label: "Collab Editor", path: "/dashboard/collaborative-editor" },
+    { label: "Music Video", path: "/dashboard/music-video-planner" },
+    { label: "Short Video", path: "/dashboard/short-video" },
+    { label: "Viral Video", path: "/dashboard/viral-video" },
+    { label: "Video Finishing", path: "/dashboard/video-finishing" },
+  ];
+  const roleColor = character.role ? (ROLE_BADGE_COLOR[character.role] ?? "#9090b0") : null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ background: "#12121e", border: "1px solid #2a2a50", borderRadius: 16, padding: 28, maxWidth: 540, width: "90%", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
+          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>{character.name}</h2>
+          <button onClick={onClose} style={{ background: "none", border: "none", color: "#6a6a8a", fontSize: 20, cursor: "pointer", padding: 4 }}>x</button>
+        </div>
+
+        {/* Character image + details */}
+        <div style={{ display: "flex", gap: 18, marginBottom: 20 }}>
+          <div style={{ width: 140, height: 140, borderRadius: 14, background: "#1a1a2e", border: "1px solid #2a2a50", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            {character.imageUrl ? (
+              <img src={normalizeImageUrl(character.imageUrl)} alt={character.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <span style={{ fontSize: 48, opacity: 0.25 }}>👤</span>
+            )}
+          </div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+            {character.characterId && (
+              <span style={{ fontFamily: "monospace", fontSize: 10, color: "#a855f7", background: "rgba(168,85,247,0.1)", padding: "2px 8px", borderRadius: 4, border: "1px solid rgba(168,85,247,0.2)", alignSelf: "flex-start" }}>
+                {character.characterId}
+              </span>
+            )}
+            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+              {character.role && roleColor && (
+                <span style={{ background: `${roleColor}18`, color: roleColor, fontSize: 11, borderRadius: 4, padding: "2px 8px", border: `1px solid ${roleColor}33` }}>
+                  {character.role.replaceAll("_", " ")}
+                </span>
+              )}
+              {[character.gender, character.toneClass, character.accent].filter(Boolean).map(tag => (
+                <span key={tag} style={{ background: "#2a2a40", color: "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 8px" }}>
+                  {tag}
+                </span>
+              ))}
+            </div>
+            {character.voiceName && (
+              <span style={{ fontSize: 11, color: "#4ade80" }}>Voice: {character.voiceName}</span>
+            )}
+            {character.language && (
+              <span style={{ fontSize: 11, color: "#60a5fa" }}>
+                {LANGUAGE_OPTIONS.find(l => l.value === character.language)?.label ?? character.language}
+              </span>
+            )}
+            {character.age && <span style={{ fontSize: 11, color: "#9090b0" }}>Age: {character.age}</span>}
+            {character.personality && <span style={{ fontSize: 11, color: "#9090b0" }}>Personality: {character.personality}</span>}
+          </div>
+        </div>
+
+        {/* Visual description */}
+        {character.visualDescription && (
+          <div style={{ background: "#0d0d18", border: "1px solid #1e1e38", borderRadius: 10, padding: 14, marginBottom: 18 }}>
+            <p style={{ fontSize: 10, color: "#5a5a7a", marginBottom: 4, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Visual Description</p>
+            <p style={{ fontSize: 12, color: "#a0a0c0", lineHeight: 1.6, margin: 0 }}>{character.visualDescription}</p>
+          </div>
+        )}
+
+        {/* Reference images */}
+        {Array.isArray(character.referenceImages) && character.referenceImages.length > 0 && (
+          <div style={{ marginBottom: 18 }}>
+            <p style={{ fontSize: 10, color: "#5a5a7a", marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Reference Images</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {(character.referenceImages as ReferenceImage[]).map(r => (
+                <img key={r.angle} src={normalizeImageUrl(r.url)} alt={r.label} title={r.label} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover", border: "1px solid #2a2a40" }} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {character.notes && (
+          <p style={{ fontSize: 11, color: "#4a4a6a", marginBottom: 18 }}>{character.notes}</p>
+        )}
+
+        {/* Send to Planner buttons */}
+        <div style={{ borderTop: "1px solid #1e1e38", paddingTop: 16 }}>
+          <p style={{ fontSize: 10, color: "#5a5a7a", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>Send to Planner</p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {DESTINATIONS.map(d => (
+              <a
+                key={d.path}
+                href={`${d.path}?characterId=${character.id}`}
+                style={{
+                  background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a",
+                  borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600,
+                  textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#1a3a1a")}
+                onMouseLeave={e => (e.currentTarget.style.background = "#1a2a1a")}
+              >
+                {d.label}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function CharacterVoicesPage() {
   const [voices, setVoices] = useState<CharacterVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showSmartBuilder, setShowSmartBuilder] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [previewCharacter, setPreviewCharacter] = useState<CharacterVoice | null>(null);
 
   // Pack seeding state
   const [seedingPack, setSeedingPack] = useState<string | null>(null);
@@ -753,10 +1381,20 @@ export default function CharacterVoicesPage() {
 
   async function handleCreate(form: Partial<CharacterVoice>) {
     setSaving(true); setError("");
+    // Auto-generate characterId from country/name/age/skin/attribute
+    const formExt = form as Partial<CharacterVoice> & { skinTone?: string; attribute?: string };
+    const charId = form.name ? generateCharacterId({
+      country: form.country ?? "",
+      name: form.name,
+      age: form.age ?? "",
+      skinTone: formExt.skinTone ?? "",
+      attribute: formExt.attribute ?? "",
+    }) : undefined;
+    const payload = { ...form, characterId: charId };
     const res = await fetch("/api/character-voices", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "Failed"); setSaving(false); return; }
@@ -821,14 +1459,27 @@ export default function CharacterVoicesPage() {
             Full character profiles — voice, appearance, role, and speech style — for consistent multi-voice casting.
           </p>
         </div>
-        {!showForm && (
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              style={{ background: "#7c5cfc", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, cursor: "pointer" }}
+            >
+              + Add Character
+            </button>
+          )}
           <button
-            onClick={() => setShowForm(true)}
-            style={{ background: "#7c5cfc", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, cursor: "pointer", flexShrink: 0 }}
+            onClick={() => setShowSmartBuilder(true)}
+            style={{
+              background: "linear-gradient(135deg, #a855f7, #7c3aed)",
+              color: "#fff", border: "none", borderRadius: 8,
+              padding: "8px 18px", fontSize: 13, cursor: "pointer",
+              fontWeight: 600,
+            }}
           >
-            + Add Character
+            AI Smart Builder
           </button>
-        )}
+        </div>
       </div>
 
       {error && (
@@ -842,27 +1493,27 @@ export default function CharacterVoicesPage() {
         <p style={{ color: "#5a5a7a", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Character Packs</p>
 
         <PackWidget
-          label="Nigerian Pidgin English — Narrator Pack"
-          emoji="🇳🇬"
-          description="5 age-group narrators: Child · Teen · Young Adult · Adult · Elder. Naija accent + Nigerian Pidgin. Voice IDs blank by default — paste your ElevenLabs cloned voice IDs after seeding."
-          entries={NIGERIAN_PIDGIN_PACK}
+          label="Universal Narrator Pack"
+          emoji="🎙"
+          description="5 age-group narrators: Child · Teen · Young Adult · Adult · Elder. Neutral global English. Voice IDs blank by default — paste your ElevenLabs cloned voice IDs after seeding."
+          entries={UNIVERSAL_NARRATOR_PACK}
           voices={voices}
-          seeding={seedingPack === "pidgin"}
-          seedMsg={seedMsgs["pidgin"] ?? ""}
+          seeding={seedingPack === "universal"}
+          seedMsg={seedMsgs["universal"] ?? ""}
           color="#4ade80"
-          onSeed={() => seedPack("pidgin", NIGERIAN_PIDGIN_PACK)}
+          onSeed={() => seedPack("universal", UNIVERSAL_NARRATOR_PACK)}
         />
 
         <PackWidget
-          label="African Cinema — Character Pack"
-          emoji="🎬"
-          description="5 archetypal African drama characters: Hero · Heroine · Mama Figure · Villain · Street Youth. Pre-configured with African accent, visual descriptions, and default ElevenLabs voices."
-          entries={AFRICAN_CINEMA_PACK}
+          label="World Cinema — Character Pack"
+          emoji="🌍"
+          description="5 universal drama characters: Hero · Heroine · Elder Figure · Villain · Sidekick. Global archetypes with visual descriptions and default ElevenLabs voices pre-assigned."
+          entries={WORLD_CINEMA_PACK}
           voices={voices}
-          seeding={seedingPack === "african"}
-          seedMsg={seedMsgs["african"] ?? ""}
+          seeding={seedingPack === "world"}
+          seedMsg={seedMsgs["world"] ?? ""}
           color="#f472b6"
-          onSeed={() => seedPack("african", AFRICAN_CINEMA_PACK)}
+          onSeed={() => seedPack("world", WORLD_CINEMA_PACK)}
         />
 
         <PackWidget
@@ -905,7 +1556,7 @@ export default function CharacterVoicesPage() {
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {narrators.map(v => (
-                  <VoiceCard key={v.id} v={v} onEdit={setEditingId} onDelete={handleDelete} editingId={editingId} onUpdate={handleUpdate} saving={saving} />
+                  <VoiceCard key={v.id} v={v} onEdit={setEditingId} onDelete={handleDelete} editingId={editingId} onUpdate={handleUpdate} saving={saving} onPreview={setPreviewCharacter} />
                 ))}
               </div>
             </div>
@@ -917,7 +1568,7 @@ export default function CharacterVoicesPage() {
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {characters.map(v => (
-                  <VoiceCard key={v.id} v={v} onEdit={setEditingId} onDelete={handleDelete} editingId={editingId} onUpdate={handleUpdate} saving={saving} />
+                  <VoiceCard key={v.id} v={v} onEdit={setEditingId} onDelete={handleDelete} editingId={editingId} onUpdate={handleUpdate} saving={saving} onPreview={setPreviewCharacter} />
                 ))}
               </div>
             </div>
@@ -929,33 +1580,46 @@ export default function CharacterVoicesPage() {
       <div style={{ background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 10, padding: 20, marginTop: 28 }}>
         <h3 style={{ color: "#9090b0", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Multi-Voice Script Format</h3>
         <pre style={{ background: "#12121a", borderRadius: 6, padding: 14, fontSize: 12, color: "#a0a0c0", overflow: "auto" }}>
-{`NARRATOR_ADULT_PIDGIN: "The market dey full with noise that morning."
-[AMBIENCE: market_noise]
-MAMA_FIGURE: "Chukwuemeka, come help me carry dis bag!"
-HERO_AFRIKAN: "Yes Mama, I dey come."
-NARRATOR_ADULT_PIDGIN [emotional]: "E run through the crowd, dodging traders and pickin."
+{`NARR_ADULT: "The city streets hummed with life that morning."
+[AMBIENCE: city_ambient]
+ELDER_FIGURE: "Stay close — this place holds secrets."
+HERO_WORLD: "I understand. I won't let you down."
+NARR_ADULT [emotional]: "He moved through the crowd, searching for answers."
 [SFX: crowd_murmur]
-VILLAIN_AFRIKAN [commanding]: "Nobody leaves this market today."`}
+VILLAIN_WORLD [commanding]: "Nobody leaves this city today."`}
         </pre>
         <p style={{ fontSize: 11, color: "#3a3a5a", marginTop: 8 }}>
           Characters not in the registry get auto-assigned default voices. Use <code style={{ color: "#7c5cfc" }}>CHARACTER [style]:</code> for per-line speech direction.
         </p>
       </div>
 
-      {/* ── Nigerian Pidgin Voice ID Guide ── */}
-      <div style={{ background: "#0d130d", border: "1px solid #1a3a1a", borderRadius: 10, padding: 20, marginTop: 14 }}>
-        <p style={{ color: "#4ade80", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>🇳🇬 How to get Nigerian Pidgin voice IDs</p>
-        <ol style={{ color: "#4a6a4a", fontSize: 12, lineHeight: 2, margin: 0, paddingLeft: 18 }}>
+      {/* ── Voice ID Guide ── */}
+      <div style={{ background: "#0d0d18", border: "1px solid #1e1e38", borderRadius: 10, padding: 20, marginTop: 14 }}>
+        <p style={{ color: "#60a5fa", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>🎙 How to get custom voice IDs</p>
+        <ol style={{ color: "#4a4a6a", fontSize: 12, lineHeight: 2, margin: 0, paddingLeft: 18 }}>
           <li>Go to <span style={{ color: "#60a5fa" }}>elevenlabs.io</span> → Voice Lab → Create New Voice</li>
-          <li>Record or upload audio samples of the voice you want (child, teen, adult etc.)</li>
-          <li>Name the cloned voice matching the age group</li>
+          <li>Record or upload audio samples of the voice you want (any language or accent)</li>
+          <li>Name the cloned voice to match your character</li>
           <li>Copy the Voice ID from the voice settings page</li>
-          <li>Come back here → Edit the narrator profile → Paste the voice ID → Preview to confirm</li>
+          <li>Come back here → Edit the character → Paste the voice ID → Preview to confirm</li>
         </ol>
-        <p style={{ color: "#2a4a2a", fontSize: 11, marginTop: 10 }}>
-          ElevenLabs does not have a built-in Nigerian Pidgin model — cloned voices give the most authentic result.
+        <p style={{ color: "#3a3a5a", fontSize: 11, marginTop: 10 }}>
+          ElevenLabs supports 30+ languages. Clone any voice or pick from their built-in voice library.
         </p>
       </div>
+
+      {/* ── AI Smart Builder Modal ── */}
+      {showSmartBuilder && (
+        <SmartBuilderModal
+          onClose={() => setShowSmartBuilder(false)}
+          onCreated={() => load()}
+        />
+      )}
+
+      {/* ── Character Preview Modal ── */}
+      {previewCharacter && (
+        <CharacterPreviewModal character={previewCharacter} onClose={() => setPreviewCharacter(null)} />
+      )}
     </div>
   );
 }

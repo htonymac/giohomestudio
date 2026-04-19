@@ -48,7 +48,12 @@ export default function TermsPage() {
       <h2 style={h2}>12. Account Suspension</h2>
       <p style={p}>We may suspend or terminate accounts that violate these terms, create prohibited content, or misuse platform features.</p>
 
-      <h2 style={h2}>13. Governing Law</h2>
+      <h2 style={h2}>13. Sound and Music Ownership</h2>
+      <p style={p}>Custom-generated sound created inside GioHomeStudio may be used by the customer subject to GHS terms and any applicable third-party provider terms. For imported third-party sounds, the customer is responsible for complying with applicable license, attribution, and usage restrictions. GHS may provide attribution assistance, but the customer remains responsible for lawful final use.</p>
+      <p style={p}>GioHomeStudio classifies sounds into three usage buckets: (1) Fully owned or GHS-internal sounds — always allowed; (2) CC0 / public domain sounds — allowed, no attribution required; (3) CC BY sounds — allowed only with proper attribution, which GHS can auto-generate. Sounds with CC BY-NC licenses or unknown licenses are blocked from commercial production flows.</p>
+      <p style={p}>GioHomeStudio does not guarantee that generated or imported sounds are free from all third-party claims. The customer should verify usage rights independently when creating content for commercial distribution.</p>
+
+      <h2 style={h2}>14. Governing Law</h2>
       <p style={p}>These terms are governed by the laws of the Federal Republic of Nigeria.</p>
 
       <div style={{ borderTop: "1px solid #1e1e30", marginTop: 40, paddingTop: 16 }}>

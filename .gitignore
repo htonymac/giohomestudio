@@ -18,16 +18,65 @@ build/
 # Prisma
 prisma/migrations/*/migration_lock.toml
 
-# Storage (media files)
+# Storage (media files — never commit binaries)
 storage/video/*
 storage/voice/*
 storage/music/*
 storage/merged/*
+storage/outputs/*
+storage/narration/*
+storage/audio/*
+storage/cache/*
+storage/previews/*
+storage/thumbnails/*
+storage/videos/*
+storage/images/*
+storage/piper-models/*
+storage/uploads/*
+storage/series-projects/*
+storage/demo/*
+storage/sfx/*.mp3
+storage/commercial/*/
+storage/projects/*
 !storage/.gitkeep
 !storage/video/.gitkeep
 !storage/voice/.gitkeep
 !storage/music/.gitkeep
 !storage/merged/.gitkeep
+
+# Screenshots and test artifacts
+storage/*.png
+storage/comm_check.json
+storage/registry_check.json
+storage/rendered_check.json
+storage/video-registry.json
+storage/*.js
+storage/*.ps1
+playwright-screenshots/
+test-screenshots/
+tests/screenshots/
+test_screenshots/
+scripts/pw-shots/
+playwright-report/
+
+# Temp test scripts
+test-*.mjs
+test-*.js
+send-*.mjs
+pw-*.js
+get-assets.cjs
+proxy.ts
+bear_rescue_tg.mp4
+"video samples/"
+
+# Debug/log files
+dev.log
+*.log
+
+# Update folder media
+update/Images/
+update/*.mp4
+update/movie_export_*.mp4
 
 # OS
 .DS_Store

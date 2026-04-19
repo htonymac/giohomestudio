@@ -349,15 +349,18 @@ export async function overlayCaptionsOnVideo(
     // so we don't need to clamp the offset — out-of-window values are never rendered.
     let xExpr = "0";
     let yExpr = "0";
-    const elapsed = `(t-${st.toFixed(3)})`;  // seconds since slide start
+    const fadeEnd = (st + fadeDur).toFixed(3);
 
     if (ov.animation === "fade-up") {
-      // slide up 60 px over fadeDur — plain linear decay, no function calls
-      yExpr = `(60*(1-${elapsed}/${fadeDur}))`;
+      // Slide up 60px over fadeDur, then lock at y=0.
+      // between(t,st,fadeEnd) returns 1 during the anim window, 0 after — clamps movement.
+      yExpr = `'between(t,${st.toFixed(3)},${fadeEnd})*60*(1-(t-${st.toFixed(3)})/${fadeDur})'`;
     } else if (ov.animation === "fly-in-left") {
-      xExpr = `(-200*(1-${elapsed}/${fadeDur}))`;
+      // Fly in from 200px left, then lock at x=0.
+      xExpr = `'between(t,${st.toFixed(3)},${fadeEnd})*(-200)*(1-(t-${st.toFixed(3)})/${fadeDur})'`;
     } else if (ov.animation === "fly-in-right") {
-      xExpr = `(200*(1-${elapsed}/${fadeDur}))`;
+      // Fly in from 200px right, then lock at x=0.
+      xExpr = `'between(t,${st.toFixed(3)},${fadeEnd})*200*(1-(t-${st.toFixed(3)})/${fadeDur})'`;
     }
     // "fade" and "none": x=0, y=0 — alpha fade only
 
