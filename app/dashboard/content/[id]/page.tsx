@@ -1073,7 +1073,7 @@ export default function ContentDetailPage() {
 
             <div className="grid grid-cols-2 gap-2 text-xs pt-2 border-t border-gray-800">
               <div>
-                <p className="text-gray-600 mb-0.5">Created</p>
+                <p className="text-gray-600 mb-0.5">Date of Production</p>
                 <p className="text-gray-400">{new Date(item.createdAt).toLocaleString()}</p>
               </div>
               {item.approvedAt && (

@@ -189,7 +189,7 @@ export default function RegistryPage() {
                   <th className="pb-3 pr-4 font-medium">Status</th>
                   <th className="pb-3 pr-4 font-medium">Destination</th>
                   <th className="pb-3 pr-4 font-medium">Providers</th>
-                  <th className="pb-3 pr-4 font-medium">Created</th>
+                  <th className="pb-3 pr-4 font-medium">Date of Production</th>
                   <th className="pb-3 font-medium">Error</th>
                 </tr>
               </thead>

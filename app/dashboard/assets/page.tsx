@@ -164,6 +164,9 @@ export default function AssetsPage() {
                 </div>
                 <p className="text-xs text-white font-medium truncate">{a.name}</p>
                 {a.description && <p className="text-[9px] text-[#6060a0] truncate mt-0.5">{a.description}</p>}
+                {a.createdAt && (
+                  <p className="text-[8px] text-[#404060] mt-0.5">📅 {new Date(a.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })}</p>
+                )}
                 {a.tags.length > 0 && (
                   <div className="flex flex-wrap gap-0.5 mt-1">
                     {a.tags.slice(0, 3).map(t => (

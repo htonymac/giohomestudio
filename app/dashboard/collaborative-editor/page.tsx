@@ -230,6 +230,7 @@ function Editor() {
   const [chatLog, setChatLog] = useState<Array<{ role: "user" | "ai"; text: string; approval?: { instruction: string; plan: Record<string, unknown>; meta: Record<string, unknown> } }>>([]);
   const [editInput, setEditInput] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [voiceEngine, setVoiceEngine] = useState<"piper" | "elevenlabs" | "gemini">("piper");
 
   // ── Versions ──
   const [versions, setVersions] = useState<Array<{ label: string; desc: string; assembly: AssemblyJSON }>>([]);
@@ -714,7 +715,39 @@ function Editor() {
     setChatLog(p => [...p, { role: "ai", text: `Generating voice for: "${narrText.slice(0, 50)}..."` }]);
 
     try {
-      // Try Piper TTS first (free, local) — returns audio blob
+      // Premium: Gemini Flash TTS via fal.ai
+      if (voiceEngine === "gemini") {
+        const gemRes = await fetch("/api/tts/gemini", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: narrText, voice: "Charon" }),
+        });
+        const gemData = await gemRes.json();
+        if (gemData.audioUrl) {
+          updateAssembly(a => { const n = a.narration.find(x => x.id === `narr_${activeSegIdx}`); if (n) n.audioUrl = gemData.audioUrl; });
+          setChatLog(p => [...p, { role: "ai", text: `GHS Premium voice (Gemini) generated!` }]);
+          saveVersion("Voice generated (Gemini)");
+          setProcessing(false);
+          return;
+        }
+      }
+
+      // Pro: ElevenLabs directly
+      if (voiceEngine === "elevenlabs") {
+        const elRes = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: narrText, engine: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" }),
+        });
+        const elData = await elRes.json();
+        if (elData.audioUrl) {
+          updateAssembly(a => { const n = a.narration.find(x => x.id === `narr_${activeSegIdx}`); if (n) n.audioUrl = elData.audioUrl; });
+          setChatLog(p => [...p, { role: "ai", text: `GHS Pro voice (ElevenLabs) generated!` }]);
+          saveVersion("Voice generated (ElevenLabs)");
+          setProcessing(false);
+          return;
+        }
+      }
+
+      // Standard: Try Piper TTS first (free, local) — returns audio blob
       const res = await fetch("/api/voices/piper-preview", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: narrText, speed: 0.75 }),
@@ -3740,6 +3773,24 @@ function Editor() {
                   {expandedSections.has("narration") && <><textarea value={activeNarr?.text || ""} onChange={e => setNarration(e.target.value)}
                     placeholder="Write narration for this scene..." rows={3}
                     style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 8, padding: "8px 10px", color: text, fontSize: 12, outline: "none", resize: "vertical", fontFamily: "inherit" }} />
+                  {/* Voice Engine Selector */}
+                  <div style={{ marginTop: 8, marginBottom: 4, background: "#060810", borderRadius: 8, padding: "8px 10px", border: `1px solid ${border}` }}>
+                    <p style={{ fontSize: 8, fontWeight: 700, letterSpacing: 1.2, color: muted, marginBottom: 6, textTransform: "uppercase" as const }}>Voice Engine</p>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      {([
+                        { key: "piper", label: "Standard", sub: "Piper · Free", color: "#22c55e" },
+                        { key: "elevenlabs", label: "Pro", sub: "ElevenLabs", color: "#a855f7" },
+                        { key: "gemini", label: "Premium", sub: "Gemini", color: "#00d4ff" },
+                      ] as const).map(t => (
+                        <button key={t.key}
+                          onClick={() => setVoiceEngine(t.key)}
+                          style={{ flex: 1, padding: "5px 4px", borderRadius: 6, border: `1px solid ${voiceEngine === t.key ? t.color : border}`, background: voiceEngine === t.key ? `${t.color}12` : "transparent", cursor: "pointer", textAlign: "center" as const }}>
+                          <p style={{ fontSize: 9, fontWeight: 700, color: voiceEngine === t.key ? t.color : "#4a6070" }}>{t.label}</p>
+                          <p style={{ fontSize: 7, color: voiceEngine === t.key ? t.color + "88" : "#2a3a45" }}>{t.sub}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   <button onClick={generateNarration} disabled={processing || !activeNarr?.text}
                     style={{ width: "100%", marginTop: 6, padding: 8, borderRadius: 6, border: `1px solid ${cyan}30`, background: `${cyan}10`, color: cyan, fontSize: 12, cursor: !activeNarr?.text ? "not-allowed" : "pointer", fontWeight: 600 }}>
                     🎙 Generate Voice (This Scene)

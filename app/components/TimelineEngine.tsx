@@ -201,7 +201,7 @@ export function assemblyToTimelineClips(assembly: {
   for (const s of assembly.sfx) {
     clips.push({ id: s.id, track: "sfx", label: s.event, startTime: s.startTime, endTime: s.startTime + s.duration });
   }
-  for (const a of assembly.ambience) {
+  for (const a of (assembly.ambience || [])) {
     clips.push({ id: a.id, track: "ambience", label: a.description.slice(0, 15), startTime: a.startTime, endTime: a.endTime });
   }
   for (const s of assembly.subtitles) {

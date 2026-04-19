@@ -5,7 +5,7 @@ import Link from "next/link";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Tool = "trim" | "narrate" | "motion";
+type Tool = "trim" | "narrate" | "motion" | "bg_image" | "bg_video" | "object_remove";
 
 interface VoiceOption {
   id: string;
@@ -454,10 +454,13 @@ function MotionTransferTool() {
 export default function VideoToolsPage() {
   const [activeTool, setActiveTool] = useState<Tool>("trim");
 
-  const TOOLS: { id: Tool; label: string; icon: string; desc: string }[] = [
-    { id: "trim",    label: "Trim Video",      icon: "✂",  desc: "Cut a clip to specific start and end times" },
-    { id: "narrate", label: "Add Narration",   icon: "🎙", desc: "Layer a voiceover onto an existing video" },
-    { id: "motion",  label: "Motion Transfer", icon: "🏃", desc: "Animate a still image using motion from a video" },
+  const TOOLS: { id: Tool; label: string; icon: string; desc: string; provider?: string; cost?: string }[] = [
+    { id: "trim",          label: "Trim Video",         icon: "✂",  desc: "Cut a clip to specific start and end times" },
+    { id: "narrate",       label: "Add Narration",      icon: "🎙", desc: "Layer a voiceover onto an existing video" },
+    { id: "motion",        label: "Motion Transfer",    icon: "🏃", desc: "Animate a still image using motion from a video" },
+    { id: "bg_image",      label: "Remove BG (Image)",  icon: "🖼", desc: "Bria RMBG 2.0 — remove image background", provider: "Bria RMBG 2.0", cost: "~$0.01" },
+    { id: "bg_video",      label: "Remove BG (Video)",  icon: "🎬", desc: "fal.ai VEED pipeline — remove video background", provider: "fal.ai (VEED)", cost: "~$0.10/sec" },
+    { id: "object_remove", label: "Remove Object",      icon: "🧹", desc: "Erase any object from a video using AI", provider: "fal.ai Eraser", cost: "~$0.05" },
   ];
 
   return (
@@ -473,28 +476,30 @@ export default function VideoToolsPage() {
       </div>
 
       {/* Tool tabs */}
-      <div className="flex gap-3 mb-6">
+      <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
         {TOOLS.map(t => (
           <button
             key={t.id}
             onClick={() => setActiveTool(t.id)}
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 18px",
-              borderRadius: 10,
+              display: "flex", flexDirection: "column", alignItems: "flex-start",
+              gap: 2, padding: "9px 14px", borderRadius: 10,
               border: `1px solid ${activeTool === t.id ? "#7c5cfc" : "#2a2a40"}`,
               background: activeTool === t.id ? "rgba(124,92,252,0.12)" : "#12121a",
               color: activeTool === t.id ? "#a080ff" : "#7070a0",
-              fontSize: 13,
-              fontWeight: activeTool === t.id ? 600 : 400,
-              cursor: "pointer",
-              transition: "all 0.15s",
+              fontSize: 12, fontWeight: activeTool === t.id ? 600 : 400,
+              cursor: "pointer", transition: "all 0.15s",
             }}
           >
-            <span style={{ fontSize: 16 }}>{t.icon}</span>
-            {t.label}
+            <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 14 }}>{t.icon}</span>
+              {t.label}
+            </span>
+            {t.provider && (
+              <span style={{ fontSize: 9, color: activeTool === t.id ? "#7070c0" : "#3a3a5a" }}>
+                {t.provider} · {t.cost}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -522,7 +527,7 @@ export default function VideoToolsPage() {
 
       {activeTool === "motion" && (
         <SectionCard title="Motion Transfer" icon="🏃">
-          <p style={{ color: "#5a5a7a", fontSize: 13, marginBottom: 20 }}>
+          <p style={{ color: "#8090a0", fontSize: 13, marginBottom: 20 }}>
             Upload a still image and a motion reference video. The system animates the image
             using the motion from the video — e.g. make a photo of a person dance.
           </p>
@@ -530,19 +535,220 @@ export default function VideoToolsPage() {
         </SectionCard>
       )}
 
-      {/* Coming soon */}
-      <div style={{ marginTop: 24, padding: "16px 20px", background: "#0e0e18", border: "1px solid #1a1a30", borderRadius: 10 }}>
-        <p style={{ color: "#3a3a6a", fontSize: 12, fontWeight: 500, marginBottom: 8 }}>
-          Coming to Video Tools
-        </p>
-        <div className="flex gap-4 flex-wrap">
+      {activeTool === "bg_image" && (
+        <SectionCard title="Remove Background — Image" icon="🖼">
+          <ProviderBadge name="Bria RMBG 2.0" via="fal.ai" cost="~$0.01 / image" phase="Phase 1 — daily need" />
+          <p style={{ color: "#8090a0", fontSize: 13, marginBottom: 20 }}>
+            Upload any image. AI removes the background and returns a transparent PNG.
+            Best for product shots, portraits, and marketing assets.
+          </p>
+          <BgImageTool />
+        </SectionCard>
+      )}
+
+      {activeTool === "bg_video" && (
+        <SectionCard title="Remove Background — Video" icon="🎬">
+          <ProviderBadge name="VEED via fal.ai" via="fal.ai" cost="~$0.10 / sec" phase="Phase 2" />
+          <p style={{ color: "#8090a0", fontSize: 13, marginBottom: 20 }}>
+            Upload a video. AI removes the background from every frame.
+            Optionally set a new background color or description.
+          </p>
+          <BgVideoTool />
+        </SectionCard>
+      )}
+
+      {activeTool === "object_remove" && (
+        <SectionCard title="Remove Object from Video" icon="🧹">
+          <ProviderBadge name="fal.ai Object Eraser" via="fal.ai" cost="~$0.05 / clip" phase="Phase 2" />
+          <p style={{ color: "#8090a0", fontSize: 13, marginBottom: 20 }}>
+            Describe the object you want removed (logo, person, watermark, etc.) and AI
+            erases it from every frame using inpainting.
+          </p>
+          <ObjectRemoveTool />
+        </SectionCard>
+      )}
+
+      {/* Footer */}
+      <div style={{ marginTop: 20, padding: "12px 16px", background: "#0e0e18", border: "1px solid #1a1a30", borderRadius: 10 }}>
+        <p style={{ color: "#3a3a5a", fontSize: 11, fontWeight: 500, marginBottom: 6 }}>Coming next</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           {["Replace Music", "Add SFX", "Replace Voiceover", "Subtitle Burn-in"].map(f => (
-            <span key={f} style={{ color: "#3a3a6a", fontSize: 12, background: "#1a1a2e", border: "1px solid #2a2a3a", borderRadius: 6, padding: "4px 10px" }}>
-              {f}
-            </span>
+            <span key={f} style={{ color: "#3a3a5a", fontSize: 11, background: "#1a1a2e", border: "1px solid #2a2a3a", borderRadius: 6, padding: "3px 9px" }}>{f}</span>
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Provider badge ──────────────────────────────────────────────────────────
+
+function ProviderBadge({ name, via, cost, phase }: { name: string; via: string; cost: string; phase: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+      <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: "#7c5cfc20", color: "#a080ff" }}>{name}</span>
+      <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "#00d4ff10", color: "#00d4ff" }}>{via}</span>
+      <span style={{ fontSize: 10, color: "#4a6070" }}>{cost}</span>
+      <span style={{ fontSize: 10, color: "#3a5060", marginLeft: "auto" }}>{phase}</span>
+    </div>
+  );
+}
+
+// ── BG Image Removal tool ───────────────────────────────────────────────────
+
+function BgImageTool() {
+  const ref = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [provider, setProvider] = useState("");
+  const [error, setError] = useState("");
+
+  async function run() {
+    if (!file) return;
+    setLoading(true); setError(""); setResult(null);
+    const fd = new FormData(); fd.append("file", file);
+    try {
+      const res = await fetch("/api/image/bg-remove", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed"); return; }
+      setResult(data.outputUrl);
+      setProvider(data.provider);
+    } catch { setError("Network error"); } finally { setLoading(false); }
+  }
+
+  const inp: React.CSSProperties = { background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 8, padding: "9px 12px", color: "#e0e0f8", fontSize: 13, width: "100%" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div>
+        <label style={{ display: "block", color: "#9090b0", fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Image file</label>
+        <div onClick={() => ref.current?.click()} style={{ border: "2px dashed #2a2a40", borderRadius: 8, padding: "20px", textAlign: "center", cursor: "pointer" }}>
+          {file ? <p style={{ color: "#c0c0e0", fontSize: 12 }}>{file.name}</p> : <p style={{ color: "#5a5a7a", fontSize: 12 }}>Drop image or click to browse (JPG, PNG, WebP)</p>}
+        </div>
+        <input ref={ref} type="file" accept="image/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setResult(null); }}} />
+      </div>
+      {result && (
+        <div style={{ background: "#0a0a18", border: "1px solid #2a2a40", borderRadius: 8, padding: 12 }}>
+          <p style={{ color: "#4ade80", fontSize: 11, marginBottom: 8 }}>✓ {provider}</p>
+          <img src={result} alt="No BG" style={{ maxWidth: "100%", borderRadius: 6, border: "1px solid #2a2a40", background: "repeating-conic-gradient(#1a1a2e 0% 25%, #0a0a18 0% 50%) 0 0 / 16px 16px" }} />
+          <a href={result} download style={{ display: "inline-block", marginTop: 8, color: "#7c5cfc", fontSize: 11, textDecoration: "underline" }}>Download PNG</a>
+        </div>
+      )}
+      {error && <p style={{ color: "#f87171", fontSize: 12 }}>{error}</p>}
+      <button onClick={run} disabled={loading || !file} style={{ background: loading || !file ? "#2a2a40" : "#22c55e", color: loading || !file ? "#5a5a7a" : "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: loading || !file ? "not-allowed" : "pointer", alignSelf: "flex-start" }}>
+        {loading ? "Removing background…" : "Remove Background"}
+      </button>
+    </div>
+  );
+}
+
+// ── BG Video Removal tool ───────────────────────────────────────────────────
+
+function BgVideoTool() {
+  const ref = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [newBg, setNewBg] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [provider, setProvider] = useState("");
+  const [error, setError] = useState("");
+
+  async function run() {
+    if (!file) return;
+    setLoading(true); setError(""); setResult(null);
+    const fd = new FormData(); fd.append("file", file);
+    if (newBg) fd.append("newBackground", newBg);
+    try {
+      const res = await fetch("/api/video/bg-remove", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed"); return; }
+      setResult(data.outputUrl); setProvider(data.provider);
+    } catch { setError("Network error"); } finally { setLoading(false); }
+  }
+
+  const inp: React.CSSProperties = { background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 8, padding: "9px 12px", color: "#e0e0f8", fontSize: 13, width: "100%" };
+  const lbl: React.CSSProperties = { display: "block", color: "#9090b0", fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div>
+        <label style={lbl}>Video file</label>
+        <div onClick={() => ref.current?.click()} style={{ border: "2px dashed #2a2a40", borderRadius: 8, padding: "20px", textAlign: "center", cursor: "pointer" }}>
+          {file ? <p style={{ color: "#c0c0e0", fontSize: 12 }}>{file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)</p> : <p style={{ color: "#5a5a7a", fontSize: 12 }}>Drop video or click to browse</p>}
+        </div>
+        <input ref={ref} type="file" accept="video/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setResult(null); }}} />
+      </div>
+      <div>
+        <label style={lbl}>New background (optional)</label>
+        <input value={newBg} onChange={e => setNewBg(e.target.value)} placeholder="white, #000000, transparent, blue studio..." style={inp} />
+      </div>
+      {result && (
+        <div style={{ background: "#0a0a18", border: "1px solid #2a2a40", borderRadius: 8, padding: 12 }}>
+          <p style={{ color: "#4ade80", fontSize: 11, marginBottom: 8 }}>✓ {provider}</p>
+          <video src={result} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
+          <a href={result} download style={{ display: "inline-block", marginTop: 8, color: "#7c5cfc", fontSize: 11, textDecoration: "underline" }}>Download</a>
+        </div>
+      )}
+      {error && <p style={{ color: "#f87171", fontSize: 12 }}>{error}</p>}
+      <button onClick={run} disabled={loading || !file} style={{ background: loading || !file ? "#2a2a40" : "#00d4ff", color: loading || !file ? "#5a5a7a" : "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: loading || !file ? "not-allowed" : "pointer", alignSelf: "flex-start" }}>
+        {loading ? "Removing background…" : "Remove Video Background"}
+      </button>
+    </div>
+  );
+}
+
+// ── Object Removal tool ─────────────────────────────────────────────────────
+
+function ObjectRemoveTool() {
+  const ref = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+  const [provider, setProvider] = useState("");
+  const [error, setError] = useState("");
+
+  async function run() {
+    if (!file || !prompt.trim()) return;
+    setLoading(true); setError(""); setResult(null);
+    const fd = new FormData(); fd.append("file", file); fd.append("prompt", prompt);
+    try {
+      const res = await fetch("/api/video/object-remove", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setError(data.error ?? "Failed"); return; }
+      setResult(data.outputUrl); setProvider(data.provider);
+    } catch { setError("Network error"); } finally { setLoading(false); }
+  }
+
+  const inp: React.CSSProperties = { background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 8, padding: "9px 12px", color: "#e0e0f8", fontSize: 13, width: "100%" };
+  const lbl: React.CSSProperties = { display: "block", color: "#9090b0", fontSize: 11, fontWeight: 500, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.06em" };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div>
+        <label style={lbl}>Video file</label>
+        <div onClick={() => ref.current?.click()} style={{ border: "2px dashed #2a2a40", borderRadius: 8, padding: "20px", textAlign: "center", cursor: "pointer" }}>
+          {file ? <p style={{ color: "#c0c0e0", fontSize: 12 }}>{file.name} ({(file.size / 1024 / 1024).toFixed(1)} MB)</p> : <p style={{ color: "#5a5a7a", fontSize: 12 }}>Drop video or click to browse</p>}
+        </div>
+        <input ref={ref} type="file" accept="video/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) { setFile(e.target.files[0]); setResult(null); }}} />
+      </div>
+      <div>
+        <label style={lbl}>What to remove</label>
+        <input value={prompt} onChange={e => setPrompt(e.target.value)} placeholder="the logo in top right, person walking in background, watermark..." style={inp} />
+        <p style={{ color: "#3a3a5a", fontSize: 11, marginTop: 4 }}>Be specific. AI detects and erases this object from every frame.</p>
+      </div>
+      {result && (
+        <div style={{ background: "#0a0a18", border: "1px solid #2a2a40", borderRadius: 8, padding: 12 }}>
+          <p style={{ color: "#4ade80", fontSize: 11, marginBottom: 8 }}>✓ {provider}</p>
+          <video src={result} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
+          <a href={result} download style={{ display: "inline-block", marginTop: 8, color: "#7c5cfc", fontSize: 11, textDecoration: "underline" }}>Download</a>
+        </div>
+      )}
+      {error && <p style={{ color: "#f87171", fontSize: 12 }}>{error}</p>}
+      <button onClick={run} disabled={loading || !file || !prompt.trim()} style={{ background: loading || !file || !prompt.trim() ? "#2a2a40" : "#f59e0b", color: loading || !file || !prompt.trim() ? "#5a5a7a" : "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: loading || !file || !prompt.trim() ? "not-allowed" : "pointer", alignSelf: "flex-start" }}>
+        {loading ? "Removing object…" : "Remove Object"}
+      </button>
     </div>
   );
 }

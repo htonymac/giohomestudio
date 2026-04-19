@@ -12,18 +12,31 @@ import { spawn } from "child_process";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, voiceId, speed } = body;
+    const { text, voiceId, speed, engine } = body;
 
     if (!text?.trim()) {
       return NextResponse.json({ error: "text required" }, { status: 400 });
+    }
+
+    // ── Try Gemini Premium if explicitly requested ──
+    if (engine === "gemini" || engine === "premium") {
+      try {
+        const { generateSpeechGemini } = await import("@/lib/generation/gateways/fal");
+        const result = await generateSpeechGemini(text, { voice: voiceId || "Charon" });
+        if (result.audioUrl) {
+          return NextResponse.json({ audioUrl: result.audioUrl, engine: "gemini-flash-tts", text: text.slice(0, 100) });
+        }
+      } catch { /* fall through to Piper */ }
     }
 
     const audioDir = path.join(env.storagePath, "audio", "tts");
     fs.mkdirSync(audioDir, { recursive: true });
     const outFile = path.join(audioDir, `tts_${Date.now()}.wav`);
 
-    // Try 1: Piper TTS (free, local)
-    try {
+    // Try 1: Piper TTS (free, local) — skip if Pro/Premium explicitly requested
+    if (engine === "elevenlabs" || engine === "pro") {
+      // Jump straight to ElevenLabs — handled below
+    } else try {
       const piperPath = process.env.PIPER_BIN || path.join(os.homedir(), "piper", "piper");
       const piperModel = path.join(env.storagePath, "..", "piper", "en_US-lessac-medium.onnx");
 

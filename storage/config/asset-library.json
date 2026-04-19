@@ -1,0 +1,5119 @@
+[
+  {
+    "id": "asset_1776573756048_ql0tp6",
+    "type": "image",
+    "name": "test sunset",
+    "description": "test sunset",
+    "filePath": "storage\\images\\gen_1776573748713.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-04-19T04:42:36.048Z"
+  },
+  {
+    "id": "asset_1776563769036_ofr4a2",
+    "type": "video",
+    "name": "Simba: The Brave King",
+    "description": "",
+    "filePath": "/api/media/video/assembled/movie_export_1776563768101.mp4",
+    "tags": [],
+    "source": "generated",
+    "createdAt": "2026-04-19T01:56:09.036Z"
+  },
+  {
+    "id": "movie_1776563768344",
+    "type": "video",
+    "name": "Movie: Simba: The Brave King",
+    "description": "10 scenes, 41s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776563768101.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-19T01:56:08.344Z"
+  },
+  {
+    "id": "asset_1776562921459_tpts9d",
+    "type": "video",
+    "name": "Simba: The Brave King",
+    "description": "",
+    "filePath": "/api/media/video/assembled/movie_export_1776562920777.mp4",
+    "tags": [],
+    "source": "generated",
+    "createdAt": "2026-04-19T01:42:01.459Z"
+  },
+  {
+    "id": "movie_1776562921025",
+    "type": "video",
+    "name": "Movie: Simba: The Brave King",
+    "description": "10 scenes, 41s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776562920777.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-19T01:42:01.025Z"
+  },
+  {
+    "id": "asset_1776552405628_mt2hgj",
+    "type": "video",
+    "name": "Simba: The Brave King",
+    "description": "",
+    "filePath": "/api/media/video/assembled/movie_export_1776552404842.mp4",
+    "tags": [],
+    "source": "generated",
+    "createdAt": "2026-04-18T22:46:45.628Z"
+  },
+  {
+    "id": "movie_1776552405054",
+    "type": "video",
+    "name": "Movie: Simba: The Brave King",
+    "description": "10 scenes, 41s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776552404842.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-18T22:46:45.055Z"
+  },
+  {
+    "id": "asset_1776551579538_mebhbb",
+    "type": "video",
+    "name": "Simba: The Brave King",
+    "description": "",
+    "filePath": "/api/media/video/assembled/movie_export_1776551578801.mp4",
+    "tags": [],
+    "source": "generated",
+    "createdAt": "2026-04-18T22:32:59.538Z"
+  },
+  {
+    "id": "movie_1776551578954",
+    "type": "video",
+    "name": "Movie: Simba: The Brave King",
+    "description": "10 scenes, 41s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776551578801.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-18T22:32:58.954Z"
+  },
+  {
+    "id": "asset_commercial_cmo4pj5rq000o2usqx08qh57o",
+    "type": "video",
+    "name": "Commercial: Auto Test Commercial",
+    "description": "1 slides, 9:16",
+    "filePath": "C:/Users/USER/Desktop/CLAUDE/giohomestudio/storage/merged/commercial_cmo4pj5rq000o2usqx08qh57o_final.mp4",
+    "tags": [
+      "commercial",
+      "generated",
+      "9:16"
+    ],
+    "source": "commercial_render",
+    "createdAt": "2026-04-18T19:05:40.886Z"
+  },
+  {
+    "id": "asset_commercial_cmo4pfy1f000j2usqcqwvhm27",
+    "type": "video",
+    "name": "Commercial: Auto Test Commercial",
+    "description": "1 slides, 9:16",
+    "filePath": "C:/Users/USER/Desktop/CLAUDE/giohomestudio/storage/merged/commercial_cmo4pfy1f000j2usqcqwvhm27_final.mp4",
+    "tags": [
+      "commercial",
+      "generated",
+      "9:16"
+    ],
+    "source": "commercial_render",
+    "createdAt": "2026-04-18T19:03:17.732Z"
+  },
+  {
+    "id": "movie_1776454303356",
+    "type": "video",
+    "name": "Movie: BEAR RECUE DOG",
+    "description": "8 scenes, 51s",
+    "filePath": "storage\\video\\assembled\\movie_proj_1776390520480_1776454303209.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T19:31:43.356Z"
+  },
+  {
+    "id": "movie_1776443713680",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 182s",
+    "filePath": "storage\\video\\assembled\\movie_proj_1776128520203_1776443713530.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T16:35:13.680Z"
+  },
+  {
+    "id": "movie_1776443645815",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 182s",
+    "filePath": "storage\\video\\assembled\\movie_proj_1776128520203_1776443645623.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T16:34:05.815Z"
+  },
+  {
+    "id": "movie_1776442180714",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 53s",
+    "filePath": "storage\\video\\assembled\\movie_teddy_dog_restored_1776442180557.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T16:09:40.714Z"
+  },
+  {
+    "id": "movie_1776441147087",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 53s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776441146940.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:52:27.087Z"
+  },
+  {
+    "id": "movie_1776440919221",
+    "type": "video",
+    "name": "Movie: Fix Test",
+    "description": "1 scenes, 37s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776440919073.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:48:39.221Z"
+  },
+  {
+    "id": "movie_1776440629741",
+    "type": "video",
+    "name": "Movie: Debug Test",
+    "description": "1 scenes, 37s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776440629614.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:43:49.741Z"
+  },
+  {
+    "id": "movie_1776440411715",
+    "type": "video",
+    "name": "Movie: Audio Test",
+    "description": "1 scenes, 37s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776440411590.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:40:11.715Z"
+  },
+  {
+    "id": "movie_1776440249035",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 182s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776440248876.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:37:29.035Z"
+  },
+  {
+    "id": "movie_1776439942320",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 53s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776439941875.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:32:22.320Z"
+  },
+  {
+    "id": "movie_1776439007524",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 182s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776439007352.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T15:16:47.524Z"
+  },
+  {
+    "id": "movie_1776437630884",
+    "type": "video",
+    "name": "Movie: Teddy and Dog",
+    "description": "4 scenes, 37s",
+    "filePath": "storage\\video\\assembled\\movie_teddy_dog_clean_1776437630717.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:53:50.884Z"
+  },
+  {
+    "id": "movie_1776436580840",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 61s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776436580660.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:36:20.840Z"
+  },
+  {
+    "id": "movie_1776436217397",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 182s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776436217228.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:30:17.397Z"
+  },
+  {
+    "id": "movie_1776436156408",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 181s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776436156196.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:29:16.408Z"
+  },
+  {
+    "id": "movie_1776434617855",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 53s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776434617703.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:03:37.855Z"
+  },
+  {
+    "id": "movie_1776434415701",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 53s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776434409603.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T14:00:15.701Z"
+  },
+  {
+    "id": "movie_1776432020723",
+    "type": "video",
+    "name": "Movie: BEAR RECUE DOG",
+    "description": "8 scenes, 173s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776432020530.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T13:20:20.724Z"
+  },
+  {
+    "id": "movie_1776405730286",
+    "type": "video",
+    "name": "Movie: BEAR RECUE DOG",
+    "description": "8 scenes, 51s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776405730138.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T06:02:10.286Z"
+  },
+  {
+    "id": "movie_1776397986595",
+    "type": "video",
+    "name": "Movie: BEAR RECUE DOG",
+    "description": "8 scenes, 51s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776397986440.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T03:53:06.595Z"
+  },
+  {
+    "id": "asset_1776396822976_enqq6x",
+    "type": "video",
+    "name": "Scene Video: Safe on Shore. BRUNO emerges from the river, gentl",
+    "description": "Safe on Shore. BRUNO emerges from the river, gently carrying DAISY in his mouth. They both collapse onto the riverbank, relieved and exhausted, as the sun shines warmly upon them.. Smooth cinematic mo",
+    "filePath": "storage\\videos\\scene_SC06_1776396722856.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-17T03:33:42.976Z"
+  },
+  {
+    "id": "asset_1776396693008_z26exb",
+    "type": "video",
+    "name": "Scene Video: The Swirling River. BRUNO arrives at the edge of a",
+    "description": "The Swirling River. BRUNO arrives at the edge of a swirling, turbulent river where DAISY is stranded on a small rock, barking frantically as the water rushes around her.. Smooth cinematic motion. Cons",
+    "filePath": "storage\\videos\\scene_SC05_1776396654331.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-17T03:31:33.008Z"
+  },
+  {
+    "id": "asset_1776396555359_fs212r",
+    "type": "video",
+    "name": "Scene Video: The Call for Help. BRUNO hears a distant, frantic ",
+    "description": "The Call for Help. BRUNO hears a distant, frantic bark echoing through the forest. His ears perk up as he looks towards the source of the sound, realizing DAISY is in trouble.. Smooth cinematic motion",
+    "filePath": "storage\\videos\\scene_SC03_1776396522239.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-17T03:29:15.359Z"
+  },
+  {
+    "id": "asset_1776396486824_cuvqgs",
+    "type": "video",
+    "name": "Scene Video: Bruno's Heroic Leap. With a deep breath, BRUNO lea",
+    "description": "Bruno's Heroic Leap. With a deep breath, BRUNO leaps into the river, swimming powerfully against the current to reach DAISY, determination shining in his eyes.. Smooth cinematic motion. Consistent cha",
+    "filePath": "storage\\videos\\scene_SC01_1776396442017.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-17T03:28:06.824Z"
+  },
+  {
+    "id": "asset_1776393725517_kyki6j",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC02: The Call for Help",
+    "description": "BRUNO hears a distant, frantic bark echoing through the forest. His ears perk up as he looks towards the source of the s",
+    "filePath": "/api/media/images/scene_SC02_1776393711004.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC02",
+      "tense"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:42:05.517Z"
+  },
+  {
+    "id": "asset_1776393725385_zhhfut",
+    "type": "image",
+    "name": "Scene: The Call for Help. BRUNO hears a distant, frantic ",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC02_1776393711004.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO",
+      "DAISY"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:42:05.385Z"
+  },
+  {
+    "id": "asset_1776392939938_mehqyc",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC06: Safe on Shore",
+    "description": "BRUNO emerges from the river, gently carrying DAISY in his mouth. They both collapse onto the riverbank, relieved and ex",
+    "filePath": "/api/media/images/scene_SC06_1776392925848.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC06",
+      "joyful"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:28:59.938Z"
+  },
+  {
+    "id": "asset_1776392939760_9iuzzd",
+    "type": "image",
+    "name": "Scene: Safe on Shore. BRUNO emerges from the river, gentl",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC06_1776392925848.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO",
+      "DAISY"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:28:59.760Z"
+  },
+  {
+    "id": "asset_1776392872545_ws5dvs",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC05: Bruno's Heroic Leap",
+    "description": "With a deep breath, BRUNO leaps into the river, swimming powerfully against the current to reach DAISY, determination sh",
+    "filePath": "/api/media/images/scene_SC05_1776392858610.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC05",
+      "heroic"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:27:52.545Z"
+  },
+  {
+    "id": "asset_1776392872512_jx46rz",
+    "type": "image",
+    "name": "Scene: Bruno's Heroic Leap. With a deep breath, BRUNO lea",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC05_1776392858610.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO",
+      "DAISY"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:27:52.512Z"
+  },
+  {
+    "id": "asset_1776392658841_gfvy2w",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC04: The Swirling River",
+    "description": "BRUNO arrives at the edge of a swirling, turbulent river where DAISY is stranded on a small rock, barking frantically as",
+    "filePath": "/api/media/images/scene_SC04_1776392644541.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC04",
+      "urgent"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:24:18.841Z"
+  },
+  {
+    "id": "asset_1776392658808_5uig6h",
+    "type": "image",
+    "name": "Scene: The Swirling River. BRUNO arrives at the edge of a",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC04_1776392644541.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO",
+      "DAISY"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:24:18.808Z"
+  },
+  {
+    "id": "asset_1776392651540_vfxkwp",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC03: Racing to the Rescue",
+    "description": "BRUNO charges through the forest, dodging trees and leaping over obstacles as he races towards the sound of DAISY's dist",
+    "filePath": "/api/media/images/scene_SC03_1776392637423.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC03",
+      "dramatic"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:24:11.540Z"
+  },
+  {
+    "id": "asset_1776392650647_mm9s21",
+    "type": "image",
+    "name": "Scene: Racing to the Rescue. BRUNO charges through the fo",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC03_1776392637423.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:24:10.647Z"
+  },
+  {
+    "id": "asset_1776392650465_ul4hnj",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC03: Racing to the Rescue",
+    "description": "BRUNO charges through the forest, dodging trees and leaping over obstacles as he races towards the sound of DAISY's dist",
+    "filePath": "/api/media/images/scene_SC03_1776392639370.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC03",
+      "dramatic"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:24:10.465Z"
+  },
+  {
+    "id": "asset_1776392649972_esljr1",
+    "type": "image",
+    "name": "Scene: Racing to the Rescue. BRUNO charges through the fo",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC03_1776392639370.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:24:09.972Z"
+  },
+  {
+    "id": "asset_1776392649888_86grxx",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC03: Racing to the Rescue",
+    "description": "BRUNO charges through the forest, dodging trees and leaping over obstacles as he races towards the sound of DAISY's dist",
+    "filePath": "/api/media/images/scene_SC03_1776392639158.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC03",
+      "dramatic"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:24:09.888Z"
+  },
+  {
+    "id": "asset_1776392649733_hocdaj",
+    "type": "image",
+    "name": "Scene: Racing to the Rescue. BRUNO charges through the fo",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC03_1776392639158.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:24:09.733Z"
+  },
+  {
+    "id": "asset_1776392648734_udgkqp",
+    "type": "image",
+    "name": "BEAR RECUE DOG — SC01: Bruno's Awakening",
+    "description": "The morning sun filters through the dense, green canopy of the animated forest as BRUNO, a large grizzly bear with a det",
+    "filePath": "/api/media/images/scene_SC01_1776392633816.png",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC01",
+      "hopeful"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-04-17T02:24:08.734Z"
+  },
+  {
+    "id": "asset_1776392648491_0bid5z",
+    "type": "image",
+    "name": "Scene: Bruno's Awakening. The morning sun filters through",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. BRUNO: bear",
+    "filePath": "storage\\images\\scene_SC01_1776392633816.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "BRUNO"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-04-17T02:24:08.491Z"
+  },
+  {
+    "id": "movie_1776389889319",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 59s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776389889181.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-17T01:38:09.319Z"
+  },
+  {
+    "id": "asset_1776388827491_trxvbh",
+    "type": "video",
+    "name": "Scene Video: The Mountain Summons. A narrow fog-shrouded mounta",
+    "description": "The Mountain Summons. A narrow fog-shrouded mountain path leads upward toward a dark timber workshop perched on jagged cliffs; a crude handwritten notice nailed to a post reads REPAIRS NEEDED — Benny ",
+    "filePath": "storage\\videos\\scene_SC03_1776388794131.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-17T01:20:27.491Z"
+  },
+  {
+    "id": "movie_1776330628716",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 63s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776330628564.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-16T09:10:28.716Z"
+  },
+  {
+    "id": "movie_1776328114843",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 63s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776328114610.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-16T08:28:34.843Z"
+  },
+  {
+    "id": "movie_1776313930282",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 63s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776313930136.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-16T04:32:10.282Z"
+  },
+  {
+    "id": "movie_1776306730271",
+    "type": "video",
+    "name": "Movie: Teddy & Dog",
+    "description": "9 scenes, 63s",
+    "filePath": "storage\\video\\assembled\\movie_export_1776306730097.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-04-16T02:32:10.271Z"
+  },
+  {
+    "id": "asset_1776293012875_hl7c3c",
+    "type": "video",
+    "name": "Scene Video: Wandering Repairmen. A sun-drenched dirt road wind",
+    "description": "Wandering Repairmen. A sun-drenched dirt road winds through a quaint storybook town; Benny the bear, wearing worn overalls and carrying a toolbox, walks beside Scout the dog who trots eagerly with a s",
+    "filePath": "storage\\videos\\scene_SC01_1776292560436.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "kling_direct_v2_5_std"
+    ],
+    "source": "scene-video-generation",
+    "provider": "kling",
+    "createdAt": "2026-04-15T22:43:32.875Z"
+  },
+  {
+    "id": "asset_1776292899164_njx67e",
+    "type": "video",
+    "name": "Scene Video: Bruno the Bear, a large brown bear in denim overal",
+    "description": "Bruno the Bear, a large brown bear in denim overalls, walks through a cheerful sunny village at dawn with Pip, a small golden-brown terrier dog trotting alongside him excitedly. Bruno carries a silver",
+    "filePath": "storage\\videos\\scene_SC01_1776292452097.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "kling_direct_v2_5_std"
+    ],
+    "source": "scene-video-generation",
+    "provider": "kling",
+    "createdAt": "2026-04-15T22:41:39.164Z"
+  },
+  {
+    "id": "asset_1776292409860_93g1hj",
+    "type": "video",
+    "name": "Scene Video: A large brown bear in denim overalls walks through",
+    "description": "A large brown bear in denim overalls walks through a sunny village with a small terrier dog by his side. Warm morning light, cinematic adventure scene.. gentle forward walk, camera follows at eye leve",
+    "filePath": "storage\\videos\\scene_SC01_KLING_DIRECT_1776292225667.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "kling_direct_v2_5_std"
+    ],
+    "source": "scene-video-generation",
+    "provider": "kling",
+    "createdAt": "2026-04-15T22:33:29.860Z"
+  },
+  {
+    "id": "asset_1776231286723_14acfb",
+    "type": "video",
+    "name": "Scene Video: A large brown bear in denim overalls walks through",
+    "description": "A large brown bear in denim overalls walks through a sunny village with a small terrier dog. Warm morning light, cinematic adventure.. gentle forward walk, camera follows at eye level. Smooth cinemati",
+    "filePath": "storage\\videos\\scene_SC01_STEST_1776231089179.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_v2"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-15T05:34:46.723Z"
+  },
+  {
+    "id": "asset_1776220561392_mgawim",
+    "type": "video",
+    "name": "Scene Video: Scene SC05. Cinematic scene SC05. Characters move ",
+    "description": "Scene SC05. Cinematic scene SC05. Characters move naturally through the environment.. Smooth cinematic motion. Consistent characters and environment. Natural movement.",
+    "filePath": "storage\\videos\\scene_SC05_1776220495858.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-15T02:36:01.392Z"
+  },
+  {
+    "id": "asset_1776220467287_cu0vi4",
+    "type": "video",
+    "name": "Scene Video: Scene SC06. Cinematic scene SC06. Characters move ",
+    "description": "Scene SC06. Cinematic scene SC06. Characters move naturally through the environment.. Smooth cinematic motion. Consistent characters and environment. Natural movement.",
+    "filePath": "storage\\videos\\scene_SC06_1776220395477.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-15T02:34:27.287Z"
+  },
+  {
+    "id": "asset_1776219828610_80pt9z",
+    "type": "video",
+    "name": "Scene Video: Scene SC07. Cinematic scene SC07. Characters move ",
+    "description": "Scene SC07. Cinematic scene SC07. Characters move through the environment with natural motion.. Smooth cinematic motion. Consistent characters and environment. Natural movement.",
+    "filePath": "storage\\videos\\scene_SC07_1776219780304.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-15T02:23:48.610Z"
+  },
+  {
+    "id": "asset_1776219776626_v6v3g5",
+    "type": "video",
+    "name": "Scene Video: Scene SC04. Cinematic scene SC04. Characters move ",
+    "description": "Scene SC04. Cinematic scene SC04. Characters move through the environment with natural motion.. Smooth cinematic motion. Consistent characters and environment. Natural movement.",
+    "filePath": "storage\\videos\\scene_SC04_1776219687192.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "muapi_seedance_lite"
+    ],
+    "source": "scene-video-generation",
+    "provider": "muapi",
+    "createdAt": "2026-04-15T02:22:56.626Z"
+  },
+  {
+    "id": "stock_action.mp3",
+    "type": "music",
+    "name": "Action",
+    "description": "Stock music track — Action",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\action.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "action"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.281Z"
+  },
+  {
+    "id": "stock_calm.mp3",
+    "type": "music",
+    "name": "Calm",
+    "description": "Stock music track — Calm",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\calm.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "calm"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.281Z"
+  },
+  {
+    "id": "stock_dance.mp3",
+    "type": "music",
+    "name": "Dance",
+    "description": "Stock music track — Dance",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\dance.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "dance"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.281Z"
+  },
+  {
+    "id": "stock_default_background.mp3",
+    "type": "music",
+    "name": "Default Background",
+    "description": "Stock music track — Default Background",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\default_background.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "default"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.281Z"
+  },
+  {
+    "id": "stock_dramatic.mp3",
+    "type": "music",
+    "name": "Dramatic",
+    "description": "Stock music track — Dramatic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\dramatic.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "dramatic"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.281Z"
+  },
+  {
+    "id": "stock_dramatic_orchestral.mp3",
+    "type": "music",
+    "name": "Dramatic Orchestral",
+    "description": "Stock music track — Dramatic Orchestral",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\dramatic_orchestral.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "dramatic"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_emotional.mp3",
+    "type": "music",
+    "name": "Emotional",
+    "description": "Stock music track — Emotional",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\emotional.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "emotional"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_emotional_piano.mp3",
+    "type": "music",
+    "name": "Emotional Piano",
+    "description": "Stock music track — Emotional Piano",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\emotional_piano.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "emotional"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_epic.mp3",
+    "type": "music",
+    "name": "Epic",
+    "description": "Stock music track — Epic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\epic.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "epic"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_epic_orchestral.mp3",
+    "type": "music",
+    "name": "Epic Orchestral",
+    "description": "Stock music track — Epic Orchestral",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\epic_orchestral.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "epic"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_heavy_rain.mp3",
+    "type": "music",
+    "name": "Heavy Rain",
+    "description": "Stock music track — Heavy Rain",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\heavy_rain.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "heavy"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_nature.mp3",
+    "type": "music",
+    "name": "Nature",
+    "description": "Stock music track — Nature",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\nature.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "nature"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_rain.mp3",
+    "type": "music",
+    "name": "Rain",
+    "description": "Stock music track — Rain",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\rain.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "rain"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_suspense.mp3",
+    "type": "music",
+    "name": "Suspense",
+    "description": "Stock music track — Suspense",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\suspense.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "suspense"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_upbeat.mp3",
+    "type": "music",
+    "name": "Upbeat",
+    "description": "Stock music track — Upbeat",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\upbeat.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "upbeat"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_upbeat_pop.mp3",
+    "type": "music",
+    "name": "Upbeat Pop",
+    "description": "Stock music track — Upbeat Pop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\upbeat_pop.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "upbeat"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "stock_war.mp3",
+    "type": "music",
+    "name": "War",
+    "description": "Stock music track — War",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\music\\stock\\war.mp3",
+    "tags": [
+      "stock",
+      "music",
+      "war"
+    ],
+    "source": "stock_music",
+    "createdAt": "2026-04-15T00:16:19.282Z"
+  },
+  {
+    "id": "sfx_808_bass.mp3",
+    "type": "sfx",
+    "name": "808 Bass",
+    "description": "Sound effect — 808 Bass",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\808_bass.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_agbero_shout.mp3",
+    "type": "sfx",
+    "name": "Agbero Shout",
+    "description": "Sound effect — Agbero Shout",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\agbero_shout.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_agogo_bell.mp3",
+    "type": "sfx",
+    "name": "Agogo Bell",
+    "description": "Sound effect — Agogo Bell",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\agogo_bell.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_airhorn.mp3",
+    "type": "sfx",
+    "name": "Airhorn",
+    "description": "Sound effect — Airhorn",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\airhorn.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_alarm_beep.mp3",
+    "type": "sfx",
+    "name": "Alarm Beep",
+    "description": "Sound effect — Alarm Beep",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\alarm_beep.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_arrow_fire.mp3",
+    "type": "sfx",
+    "name": "Arrow Fire",
+    "description": "Sound effect — Arrow Fire",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\arrow_fire.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_arrow_release.mp3",
+    "type": "sfx",
+    "name": "Arrow Release",
+    "description": "Sound effect — Arrow Release",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\arrow_release.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_aso_ebi_crowd.mp3",
+    "type": "sfx",
+    "name": "Aso Ebi Crowd",
+    "description": "Sound effect — Aso Ebi Crowd",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\aso_ebi_crowd.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_baby_cry.mp3",
+    "type": "sfx",
+    "name": "Baby Cry",
+    "description": "Sound effect — Baby Cry",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\baby_cry.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_balloon_pop.mp3",
+    "type": "sfx",
+    "name": "Balloon Pop",
+    "description": "Sound effect — Balloon Pop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\balloon_pop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_bass_drop.mp3",
+    "type": "sfx",
+    "name": "Bass Drop",
+    "description": "Sound effect — Bass Drop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\bass_drop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_beat_drop.mp3",
+    "type": "sfx",
+    "name": "Beat Drop",
+    "description": "Sound effect — Beat Drop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\beat_drop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_beep.mp3",
+    "type": "sfx",
+    "name": "Beep",
+    "description": "Sound effect — Beep",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\beep.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_bell_church.mp3",
+    "type": "sfx",
+    "name": "Bell Church",
+    "description": "Sound effect — Bell Church",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\bell_church.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_bell_ring.mp3",
+    "type": "sfx",
+    "name": "Bell Ring",
+    "description": "Sound effect — Bell Ring",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\bell_ring.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_bicycle_bell.mp3",
+    "type": "sfx",
+    "name": "Bicycle Bell",
+    "description": "Sound effect — Bicycle Bell",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\bicycle_bell.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_birds_chirping.mp3",
+    "type": "sfx",
+    "name": "Birds Chirping",
+    "description": "Sound effect — Birds Chirping",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\birds_chirping.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_boat_engine.mp3",
+    "type": "sfx",
+    "name": "Boat Engine",
+    "description": "Sound effect — Boat Engine",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\boat_engine.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.286Z"
+  },
+  {
+    "id": "sfx_body_fall.mp3",
+    "type": "sfx",
+    "name": "Body Fall",
+    "description": "Sound effect — Body Fall",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\body_fall.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_boom.mp3",
+    "type": "sfx",
+    "name": "Boom",
+    "description": "Sound effect — Boom",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\boom.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_branch_snap.mp3",
+    "type": "sfx",
+    "name": "Branch Snap",
+    "description": "Sound effect — Branch Snap",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\branch_snap.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_breathing_stress.mp3",
+    "type": "sfx",
+    "name": "Breathing Stress",
+    "description": "Sound effect — Breathing Stress",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\breathing_stress.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_breath_heavy.mp3",
+    "type": "sfx",
+    "name": "Breath Heavy",
+    "description": "Sound effect — Breath Heavy",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\breath_heavy.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_cabin_ambience.mp3",
+    "type": "sfx",
+    "name": "Cabin Ambience",
+    "description": "Sound effect — Cabin Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cabin_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_cafe_ambience.mp3",
+    "type": "sfx",
+    "name": "Cafe Ambience",
+    "description": "Sound effect — Cafe Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cafe_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_call_to_prayer.mp3",
+    "type": "sfx",
+    "name": "Call To Prayer",
+    "description": "Sound effect — Call To Prayer",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\call_to_prayer.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_camera_shutter.mp3",
+    "type": "sfx",
+    "name": "Camera Shutter",
+    "description": "Sound effect — Camera Shutter",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\camera_shutter.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_brake.mp3",
+    "type": "sfx",
+    "name": "Car Brake",
+    "description": "Sound effect — Car Brake",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_brake.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_door.mp3",
+    "type": "sfx",
+    "name": "Car Door",
+    "description": "Sound effect — Car Door",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_door.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_drive.mp3",
+    "type": "sfx",
+    "name": "Car Drive",
+    "description": "Sound effect — Car Drive",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_drive.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_engine.mp3",
+    "type": "sfx",
+    "name": "Car Engine",
+    "description": "Sound effect — Car Engine",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_engine.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_horn.mp3",
+    "type": "sfx",
+    "name": "Car Horn",
+    "description": "Sound effect — Car Horn",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_horn.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_idle.mp3",
+    "type": "sfx",
+    "name": "Car Idle",
+    "description": "Sound effect — Car Idle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_idle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_car_start.mp3",
+    "type": "sfx",
+    "name": "Car Start",
+    "description": "Sound effect — Car Start",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\car_start.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_cat_meow.mp3",
+    "type": "sfx",
+    "name": "Cat Meow",
+    "description": "Sound effect — Cat Meow",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cat_meow.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_cat_purr.mp3",
+    "type": "sfx",
+    "name": "Cat Purr",
+    "description": "Sound effect — Cat Purr",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cat_purr.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_chain_rattle.mp3",
+    "type": "sfx",
+    "name": "Chain Rattle",
+    "description": "Sound effect — Chain Rattle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\chain_rattle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_chalk_board.mp3",
+    "type": "sfx",
+    "name": "Chalk Board",
+    "description": "Sound effect — Chalk Board",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\chalk_board.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_children_laugh.mp3",
+    "type": "sfx",
+    "name": "Children Laugh",
+    "description": "Sound effect — Children Laugh",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\children_laugh.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_children_singing.mp3",
+    "type": "sfx",
+    "name": "Children Singing",
+    "description": "Sound effect — Children Singing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\children_singing.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_church_bell.mp3",
+    "type": "sfx",
+    "name": "Church Bell",
+    "description": "Sound effect — Church Bell",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\church_bell.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_city_ambience.mp3",
+    "type": "sfx",
+    "name": "City Ambience",
+    "description": "Sound effect — City Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\city_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_city_traffic.mp3",
+    "type": "sfx",
+    "name": "City Traffic",
+    "description": "Sound effect — City Traffic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\city_traffic.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_clapping.mp3",
+    "type": "sfx",
+    "name": "Clapping",
+    "description": "Sound effect — Clapping",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\clapping.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_classroom_ambience.mp3",
+    "type": "sfx",
+    "name": "Classroom Ambience",
+    "description": "Sound effect — Classroom Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\classroom_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_click.mp3",
+    "type": "sfx",
+    "name": "Click",
+    "description": "Sound effect — Click",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\click.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_cloth_movement.mp3",
+    "type": "sfx",
+    "name": "Cloth Movement",
+    "description": "Sound effect — Cloth Movement",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cloth_movement.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.287Z"
+  },
+  {
+    "id": "sfx_coin.mp3",
+    "type": "sfx",
+    "name": "Coin",
+    "description": "Sound effect — Coin",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\coin.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_cooking.mp3",
+    "type": "sfx",
+    "name": "Cooking",
+    "description": "Sound effect — Cooking",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cooking.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_correct_ding.mp3",
+    "type": "sfx",
+    "name": "Correct Ding",
+    "description": "Sound effect — Correct Ding",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\correct_ding.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_countdown_tick.mp3",
+    "type": "sfx",
+    "name": "Countdown Tick",
+    "description": "Sound effect — Countdown Tick",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\countdown_tick.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_cow_moo.mp3",
+    "type": "sfx",
+    "name": "Cow Moo",
+    "description": "Sound effect — Cow Moo",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cow_moo.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_cricket_night.mp3",
+    "type": "sfx",
+    "name": "Cricket Night",
+    "description": "Sound effect — Cricket Night",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cricket_night.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_crowd_ambience.mp3",
+    "type": "sfx",
+    "name": "Crowd Ambience",
+    "description": "Sound effect — Crowd Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\crowd_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_crowd_applause.mp3",
+    "type": "sfx",
+    "name": "Crowd Applause",
+    "description": "Sound effect — Crowd Applause",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\crowd_applause.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_crowd_cheer.mp3",
+    "type": "sfx",
+    "name": "Crowd Cheer",
+    "description": "Sound effect — Crowd Cheer",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\crowd_cheer.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_crowd_murmur.mp3",
+    "type": "sfx",
+    "name": "Crowd Murmur",
+    "description": "Sound effect — Crowd Murmur",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\crowd_murmur.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_crowd_panic.mp3",
+    "type": "sfx",
+    "name": "Crowd Panic",
+    "description": "Sound effect — Crowd Panic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\crowd_panic.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_cymbal_crash.mp3",
+    "type": "sfx",
+    "name": "Cymbal Crash",
+    "description": "Sound effect — Cymbal Crash",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\cymbal_crash.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_danfo_horn.mp3",
+    "type": "sfx",
+    "name": "Danfo Horn",
+    "description": "Sound effect — Danfo Horn",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\danfo_horn.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_deep_ambience.mp3",
+    "type": "sfx",
+    "name": "Deep Ambience",
+    "description": "Sound effect — Deep Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\deep_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_ding.mp3",
+    "type": "sfx",
+    "name": "Ding",
+    "description": "Sound effect — Ding",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\ding.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_dog_bark.mp3",
+    "type": "sfx",
+    "name": "Dog Bark",
+    "description": "Sound effect — Dog Bark",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\dog_bark.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_dog_whimper.mp3",
+    "type": "sfx",
+    "name": "Dog Whimper",
+    "description": "Sound effect — Dog Whimper",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\dog_whimper.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_door_close.mp3",
+    "type": "sfx",
+    "name": "Door Close",
+    "description": "Sound effect — Door Close",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\door_close.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_door_creak.mp3",
+    "type": "sfx",
+    "name": "Door Creak",
+    "description": "Sound effect — Door Creak",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\door_creak.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_door_knock.mp3",
+    "type": "sfx",
+    "name": "Door Knock",
+    "description": "Sound effect — Door Knock",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\door_knock.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_door_open.mp3",
+    "type": "sfx",
+    "name": "Door Open",
+    "description": "Sound effect — Door Open",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\door_open.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_door_slam.mp3",
+    "type": "sfx",
+    "name": "Door Slam",
+    "description": "Sound effect — Door Slam",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\door_slam.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_drum_fill.mp3",
+    "type": "sfx",
+    "name": "Drum Fill",
+    "description": "Sound effect — Drum Fill",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\drum_fill.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_drum_roll.mp3",
+    "type": "sfx",
+    "name": "Drum Roll",
+    "description": "Sound effect — Drum Roll",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\drum_roll.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_drum_roll_short.mp3",
+    "type": "sfx",
+    "name": "Drum Roll Short",
+    "description": "Sound effect — Drum Roll Short",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\drum_roll_short.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_engine_hum.mp3",
+    "type": "sfx",
+    "name": "Engine Hum",
+    "description": "Sound effect — Engine Hum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\engine_hum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_error_beep.mp3",
+    "type": "sfx",
+    "name": "Error Beep",
+    "description": "Sound effect — Error Beep",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\error_beep.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_error_buzz.mp3",
+    "type": "sfx",
+    "name": "Error Buzz",
+    "description": "Sound effect — Error Buzz",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\error_buzz.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_explosion.mp3",
+    "type": "sfx",
+    "name": "Explosion",
+    "description": "Sound effect — Explosion",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\explosion.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.288Z"
+  },
+  {
+    "id": "sfx_explosion_distant.mp3",
+    "type": "sfx",
+    "name": "Explosion Distant",
+    "description": "Sound effect — Explosion Distant",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\explosion_distant.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_fan_spinning.mp3",
+    "type": "sfx",
+    "name": "Fan Spinning",
+    "description": "Sound effect — Fan Spinning",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\fan_spinning.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_fire_campfire.mp3",
+    "type": "sfx",
+    "name": "Fire Campfire",
+    "description": "Sound effect — Fire Campfire",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\fire_campfire.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_fire_crackling.mp3",
+    "type": "sfx",
+    "name": "Fire Crackling",
+    "description": "Sound effect — Fire Crackling",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\fire_crackling.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_floor_creak.mp3",
+    "type": "sfx",
+    "name": "Floor Creak",
+    "description": "Sound effect — Floor Creak",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\floor_creak.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_flute_trill.mp3",
+    "type": "sfx",
+    "name": "Flute Trill",
+    "description": "Sound effect — Flute Trill",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\flute_trill.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps.mp3",
+    "type": "sfx",
+    "name": "Footsteps",
+    "description": "Sound effect — Footsteps",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_carpet.mp3",
+    "type": "sfx",
+    "name": "Footsteps Carpet",
+    "description": "Sound effect — Footsteps Carpet",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_carpet.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_concrete.mp3",
+    "type": "sfx",
+    "name": "Footsteps Concrete",
+    "description": "Sound effect — Footsteps Concrete",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_concrete.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_grass.mp3",
+    "type": "sfx",
+    "name": "Footsteps Grass",
+    "description": "Sound effect — Footsteps Grass",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_grass.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_puddle.mp3",
+    "type": "sfx",
+    "name": "Footsteps Puddle",
+    "description": "Sound effect — Footsteps Puddle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_puddle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_run.mp3",
+    "type": "sfx",
+    "name": "Footsteps Run",
+    "description": "Sound effect — Footsteps Run",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_run.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_sand.mp3",
+    "type": "sfx",
+    "name": "Footsteps Sand",
+    "description": "Sound effect — Footsteps Sand",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_sand.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footsteps_wood.mp3",
+    "type": "sfx",
+    "name": "Footsteps Wood",
+    "description": "Sound effect — Footsteps Wood",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footsteps_wood.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_footstep_gravel.mp3",
+    "type": "sfx",
+    "name": "Footstep Gravel",
+    "description": "Sound effect — Footstep Gravel",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\footstep_gravel.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_forest_ambience.mp3",
+    "type": "sfx",
+    "name": "Forest Ambience",
+    "description": "Sound effect — Forest Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\forest_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_forest_birds.mp3",
+    "type": "sfx",
+    "name": "Forest Birds",
+    "description": "Sound effect — Forest Birds",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\forest_birds.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_fridge_hum.mp3",
+    "type": "sfx",
+    "name": "Fridge Hum",
+    "description": "Sound effect — Fridge Hum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\fridge_hum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_frog_croak.mp3",
+    "type": "sfx",
+    "name": "Frog Croak",
+    "description": "Sound effect — Frog Croak",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\frog_croak.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_generator_hum.mp3",
+    "type": "sfx",
+    "name": "Generator Hum",
+    "description": "Sound effect — Generator Hum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\generator_hum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_glass_break.mp3",
+    "type": "sfx",
+    "name": "Glass Break",
+    "description": "Sound effect — Glass Break",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\glass_break.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_glass_clink.mp3",
+    "type": "sfx",
+    "name": "Glass Clink",
+    "description": "Sound effect — Glass Clink",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\glass_clink.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_glass_shatter.mp3",
+    "type": "sfx",
+    "name": "Glass Shatter",
+    "description": "Sound effect — Glass Shatter",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\glass_shatter.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_glitch.mp3",
+    "type": "sfx",
+    "name": "Glitch",
+    "description": "Sound effect — Glitch",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\glitch.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_goat_bleat.mp3",
+    "type": "sfx",
+    "name": "Goat Bleat",
+    "description": "Sound effect — Goat Bleat",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\goat_bleat.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_guitar_strum.mp3",
+    "type": "sfx",
+    "name": "Guitar Strum",
+    "description": "Sound effect — Guitar Strum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\guitar_strum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_gunshot.mp3",
+    "type": "sfx",
+    "name": "Gunshot",
+    "description": "Sound effect — Gunshot",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.289Z"
+  },
+  {
+    "id": "sfx_gunshot_burst.mp3",
+    "type": "sfx",
+    "name": "Gunshot Burst",
+    "description": "Sound effect — Gunshot Burst",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_burst.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_distant.mp3",
+    "type": "sfx",
+    "name": "Gunshot Distant",
+    "description": "Sound effect — Gunshot Distant",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_distant.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_pistol.mp3",
+    "type": "sfx",
+    "name": "Gunshot Pistol",
+    "description": "Sound effect — Gunshot Pistol",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_pistol.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_rifle.mp3",
+    "type": "sfx",
+    "name": "Gunshot Rifle",
+    "description": "Sound effect — Gunshot Rifle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_rifle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_shotgun.mp3",
+    "type": "sfx",
+    "name": "Gunshot Shotgun",
+    "description": "Sound effect — Gunshot Shotgun",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_shotgun.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_single.mp3",
+    "type": "sfx",
+    "name": "Gunshot Single",
+    "description": "Sound effect — Gunshot Single",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_single.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_gunshot_sniper.mp3",
+    "type": "sfx",
+    "name": "Gunshot Sniper",
+    "description": "Sound effect — Gunshot Sniper",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\gunshot_sniper.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_hail.mp3",
+    "type": "sfx",
+    "name": "Hail",
+    "description": "Sound effect — Hail",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\hail.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_harp_gliss.mp3",
+    "type": "sfx",
+    "name": "Harp Gliss",
+    "description": "Sound effect — Harp Gliss",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\harp_gliss.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_heartbeat.mp3",
+    "type": "sfx",
+    "name": "Heartbeat",
+    "description": "Sound effect — Heartbeat",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\heartbeat.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_heavy_rain.mp3",
+    "type": "sfx",
+    "name": "Heavy Rain",
+    "description": "Sound effect — Heavy Rain",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\heavy_rain.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_helicopter.mp3",
+    "type": "sfx",
+    "name": "Helicopter",
+    "description": "Sound effect — Helicopter",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\helicopter.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_hit_cinematic.mp3",
+    "type": "sfx",
+    "name": "Hit Cinematic",
+    "description": "Sound effect — Hit Cinematic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\hit_cinematic.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_hit_impact.mp3",
+    "type": "sfx",
+    "name": "Hit Impact",
+    "description": "Sound effect — Hit Impact",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\hit_impact.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_hi_hat.mp3",
+    "type": "sfx",
+    "name": "Hi Hat",
+    "description": "Sound effect — Hi Hat",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\hi_hat.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_horror_sting.mp3",
+    "type": "sfx",
+    "name": "Horror Sting",
+    "description": "Sound effect — Horror Sting",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\horror_sting.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_horse_gallop.mp3",
+    "type": "sfx",
+    "name": "Horse Gallop",
+    "description": "Sound effect — Horse Gallop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\horse_gallop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_impact_glass.mp3",
+    "type": "sfx",
+    "name": "Impact Glass",
+    "description": "Sound effect — Impact Glass",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\impact_glass.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_impact_hit.mp3",
+    "type": "sfx",
+    "name": "Impact Hit",
+    "description": "Sound effect — Impact Hit",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\impact_hit.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_impact_low.mp3",
+    "type": "sfx",
+    "name": "Impact Low",
+    "description": "Sound effect — Impact Low",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\impact_low.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_kettle_boil.mp3",
+    "type": "sfx",
+    "name": "Kettle Boil",
+    "description": "Sound effect — Kettle Boil",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\kettle_boil.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_keyboard_typing.mp3",
+    "type": "sfx",
+    "name": "Keyboard Typing",
+    "description": "Sound effect — Keyboard Typing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\keyboard_typing.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_key_lock.mp3",
+    "type": "sfx",
+    "name": "Key Lock",
+    "description": "Sound effect — Key Lock",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\key_lock.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_kick.mp3",
+    "type": "sfx",
+    "name": "Kick",
+    "description": "Sound effect — Kick",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\kick.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_kick_drum.mp3",
+    "type": "sfx",
+    "name": "Kick Drum",
+    "description": "Sound effect — Kick Drum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\kick_drum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_leaves_rustling.mp3",
+    "type": "sfx",
+    "name": "Leaves Rustling",
+    "description": "Sound effect — Leaves Rustling",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\leaves_rustling.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_market_haggling.mp3",
+    "type": "sfx",
+    "name": "Market Haggling",
+    "description": "Sound effect — Market Haggling",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\market_haggling.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_market_noise.mp3",
+    "type": "sfx",
+    "name": "Market Noise",
+    "description": "Sound effect — Market Noise",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\market_noise.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_metal_scrape.mp3",
+    "type": "sfx",
+    "name": "Metal Scrape",
+    "description": "Sound effect — Metal Scrape",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\metal_scrape.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_microwave_beep.mp3",
+    "type": "sfx",
+    "name": "Microwave Beep",
+    "description": "Sound effect — Microwave Beep",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\microwave_beep.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_mosquito_buzz.mp3",
+    "type": "sfx",
+    "name": "Mosquito Buzz",
+    "description": "Sound effect — Mosquito Buzz",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\mosquito_buzz.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_motorcycle.mp3",
+    "type": "sfx",
+    "name": "Motorcycle",
+    "description": "Sound effect — Motorcycle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\motorcycle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_motor_rev.mp3",
+    "type": "sfx",
+    "name": "Motor Rev",
+    "description": "Sound effect — Motor Rev",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\motor_rev.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_mouse_click.mp3",
+    "type": "sfx",
+    "name": "Mouse Click",
+    "description": "Sound effect — Mouse Click",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\mouse_click.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_calm_ambient.mp3",
+    "type": "sfx",
+    "name": "Music Calm Ambient",
+    "description": "Sound effect — Music Calm Ambient",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_calm_ambient.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_children_happy.mp3",
+    "type": "sfx",
+    "name": "Music Children Happy",
+    "description": "Sound effect — Music Children Happy",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_children_happy.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_cinematic_epic.mp3",
+    "type": "sfx",
+    "name": "Music Cinematic Epic",
+    "description": "Sound effect — Music Cinematic Epic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_cinematic_epic.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_corporate.mp3",
+    "type": "sfx",
+    "name": "Music Corporate",
+    "description": "Sound effect — Music Corporate",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_corporate.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_dark_suspense.mp3",
+    "type": "sfx",
+    "name": "Music Dark Suspense",
+    "description": "Sound effect — Music Dark Suspense",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_dark_suspense.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_gospel_warm.mp3",
+    "type": "sfx",
+    "name": "Music Gospel Warm",
+    "description": "Sound effect — Music Gospel Warm",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_gospel_warm.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_motivational.mp3",
+    "type": "sfx",
+    "name": "Music Motivational",
+    "description": "Sound effect — Music Motivational",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_motivational.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_music_soft_piano.mp3",
+    "type": "sfx",
+    "name": "Music Soft Piano",
+    "description": "Sound effect — Music Soft Piano",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\music_soft_piano.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_naija_party.mp3",
+    "type": "sfx",
+    "name": "Naija Party",
+    "description": "Sound effect — Naija Party",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\naija_party.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_notification.mp3",
+    "type": "sfx",
+    "name": "Notification",
+    "description": "Sound effect — Notification",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\notification.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_notification_soft.mp3",
+    "type": "sfx",
+    "name": "Notification Soft",
+    "description": "Sound effect — Notification Soft",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\notification_soft.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_ocean_waves.mp3",
+    "type": "sfx",
+    "name": "Ocean Waves",
+    "description": "Sound effect — Ocean Waves",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\ocean_waves.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_office_ambience.mp3",
+    "type": "sfx",
+    "name": "Office Ambience",
+    "description": "Sound effect — Office Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\office_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_office_room_tone.mp3",
+    "type": "sfx",
+    "name": "Office Room Tone",
+    "description": "Sound effect — Office Room Tone",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\office_room_tone.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.290Z"
+  },
+  {
+    "id": "sfx_owambe.mp3",
+    "type": "sfx",
+    "name": "Owambe",
+    "description": "Sound effect — Owambe",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\owambe.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_owl_hoot.mp3",
+    "type": "sfx",
+    "name": "Owl Hoot",
+    "description": "Sound effect — Owl Hoot",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\owl_hoot.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_page_turn.mp3",
+    "type": "sfx",
+    "name": "Page Turn",
+    "description": "Sound effect — Page Turn",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\page_turn.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_palm_wine_pour.mp3",
+    "type": "sfx",
+    "name": "Palm Wine Pour",
+    "description": "Sound effect — Palm Wine Pour",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\palm_wine_pour.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_paper_rustle.mp3",
+    "type": "sfx",
+    "name": "Paper Rustle",
+    "description": "Sound effect — Paper Rustle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\paper_rustle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_pencil_writing.mp3",
+    "type": "sfx",
+    "name": "Pencil Writing",
+    "description": "Sound effect — Pencil Writing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\pencil_writing.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_phone_ring.mp3",
+    "type": "sfx",
+    "name": "Phone Ring",
+    "description": "Sound effect — Phone Ring",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\phone_ring.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_phone_vibrate.mp3",
+    "type": "sfx",
+    "name": "Phone Vibrate",
+    "description": "Sound effect — Phone Vibrate",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\phone_vibrate.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_piano_bed.mp3",
+    "type": "sfx",
+    "name": "Piano Bed",
+    "description": "Sound effect — Piano Bed",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\piano_bed.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_piano_chord.mp3",
+    "type": "sfx",
+    "name": "Piano Chord",
+    "description": "Sound effect — Piano Chord",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\piano_chord.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_piano_hit.mp3",
+    "type": "sfx",
+    "name": "Piano Hit",
+    "description": "Sound effect — Piano Hit",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\piano_hit.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_plate_clink.mp3",
+    "type": "sfx",
+    "name": "Plate Clink",
+    "description": "Sound effect — Plate Clink",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\plate_clink.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_pop.mp3",
+    "type": "sfx",
+    "name": "Pop",
+    "description": "Sound effect — Pop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\pop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_power_down.mp3",
+    "type": "sfx",
+    "name": "Power Down",
+    "description": "Sound effect — Power Down",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\power_down.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_power_up.mp3",
+    "type": "sfx",
+    "name": "Power Up",
+    "description": "Sound effect — Power Up",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\power_up.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_punch.mp3",
+    "type": "sfx",
+    "name": "Punch",
+    "description": "Sound effect — Punch",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\punch.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rain_heavy.mp3",
+    "type": "sfx",
+    "name": "Rain Heavy",
+    "description": "Sound effect — Rain Heavy",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rain_heavy.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rain_light.mp3",
+    "type": "sfx",
+    "name": "Rain Light",
+    "description": "Sound effect — Rain Light",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rain_light.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rain_medium.mp3",
+    "type": "sfx",
+    "name": "Rain Medium",
+    "description": "Sound effect — Rain Medium",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rain_medium.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rain_on_roof.mp3",
+    "type": "sfx",
+    "name": "Rain On Roof",
+    "description": "Sound effect — Rain On Roof",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rain_on_roof.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rain_on_window.mp3",
+    "type": "sfx",
+    "name": "Rain On Window",
+    "description": "Sound effect — Rain On Window",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rain_on_window.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_reload.mp3",
+    "type": "sfx",
+    "name": "Reload",
+    "description": "Sound effect — Reload",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\reload.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_restaurant_ambience.mp3",
+    "type": "sfx",
+    "name": "Restaurant Ambience",
+    "description": "Sound effect — Restaurant Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\restaurant_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_riser.mp3",
+    "type": "sfx",
+    "name": "Riser",
+    "description": "Sound effect — Riser",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\riser.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_riser_noise.mp3",
+    "type": "sfx",
+    "name": "Riser Noise",
+    "description": "Sound effect — Riser Noise",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\riser_noise.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_riser_reverse.mp3",
+    "type": "sfx",
+    "name": "Riser Reverse",
+    "description": "Sound effect — Riser Reverse",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\riser_reverse.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_riser_tonal.mp3",
+    "type": "sfx",
+    "name": "Riser Tonal",
+    "description": "Sound effect — Riser Tonal",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\riser_tonal.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_river_stream.mp3",
+    "type": "sfx",
+    "name": "River Stream",
+    "description": "Sound effect — River Stream",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\river_stream.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_road_noise.mp3",
+    "type": "sfx",
+    "name": "Road Noise",
+    "description": "Sound effect — Road Noise",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\road_noise.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_road_tire.mp3",
+    "type": "sfx",
+    "name": "Road Tire",
+    "description": "Sound effect — Road Tire",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\road_tire.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rooster.mp3",
+    "type": "sfx",
+    "name": "Rooster",
+    "description": "Sound effect — Rooster",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rooster.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_rumble.mp3",
+    "type": "sfx",
+    "name": "Rumble",
+    "description": "Sound effect — Rumble",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\rumble.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_school_ambience.mp3",
+    "type": "sfx",
+    "name": "School Ambience",
+    "description": "Sound effect — School Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\school_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_school_bell.mp3",
+    "type": "sfx",
+    "name": "School Bell",
+    "description": "Sound effect — School Bell",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\school_bell.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sci_fi_hum.mp3",
+    "type": "sfx",
+    "name": "Sci Fi Hum",
+    "description": "Sound effect — Sci Fi Hum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sci_fi_hum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_shekere.mp3",
+    "type": "sfx",
+    "name": "Shekere",
+    "description": "Sound effect — Shekere",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\shekere.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_shield_block.mp3",
+    "type": "sfx",
+    "name": "Shield Block",
+    "description": "Sound effect — Shield Block",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\shield_block.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_siren.mp3",
+    "type": "sfx",
+    "name": "Siren",
+    "description": "Sound effect — Siren",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\siren.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_snake_hiss.mp3",
+    "type": "sfx",
+    "name": "Snake Hiss",
+    "description": "Sound effect — Snake Hiss",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\snake_hiss.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_snap.mp3",
+    "type": "sfx",
+    "name": "Snap",
+    "description": "Sound effect — Snap",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\snap.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_snare.mp3",
+    "type": "sfx",
+    "name": "Snare",
+    "description": "Sound effect — Snare",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\snare.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sparkle.mp3",
+    "type": "sfx",
+    "name": "Sparkle",
+    "description": "Sound effect — Sparkle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sparkle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_static_tv.mp3",
+    "type": "sfx",
+    "name": "Static Tv",
+    "description": "Sound effect — Static Tv",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\static_tv.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_storm.mp3",
+    "type": "sfx",
+    "name": "Storm",
+    "description": "Sound effect — Storm",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\storm.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sub_bass_hit.mp3",
+    "type": "sfx",
+    "name": "Sub Bass Hit",
+    "description": "Sound effect — Sub Bass Hit",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sub_bass_hit.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_success_chime.mp3",
+    "type": "sfx",
+    "name": "Success Chime",
+    "description": "Sound effect — Success Chime",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\success_chime.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_suspense_drone.mp3",
+    "type": "sfx",
+    "name": "Suspense Drone",
+    "description": "Sound effect — Suspense Drone",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\suspense_drone.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_swoosh_magic.mp3",
+    "type": "sfx",
+    "name": "Swoosh Magic",
+    "description": "Sound effect — Swoosh Magic",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\swoosh_magic.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sword_clash.mp3",
+    "type": "sfx",
+    "name": "Sword Clash",
+    "description": "Sound effect — Sword Clash",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sword_clash.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sword_draw.mp3",
+    "type": "sfx",
+    "name": "Sword Draw",
+    "description": "Sound effect — Sword Draw",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sword_draw.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.291Z"
+  },
+  {
+    "id": "sfx_sword_slash.mp3",
+    "type": "sfx",
+    "name": "Sword Slash",
+    "description": "Sound effect — Sword Slash",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sword_slash.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_sword_swing.mp3",
+    "type": "sfx",
+    "name": "Sword Swing",
+    "description": "Sound effect — Sword Swing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\sword_swing.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_talking_drum.mp3",
+    "type": "sfx",
+    "name": "Talking Drum",
+    "description": "Sound effect — Talking Drum",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\talking_drum.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_tambourine.mp3",
+    "type": "sfx",
+    "name": "Tambourine",
+    "description": "Sound effect — Tambourine",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\tambourine.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_tap.mp3",
+    "type": "sfx",
+    "name": "Tap",
+    "description": "Sound effect — Tap",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\tap.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_tape_stop.mp3",
+    "type": "sfx",
+    "name": "Tape Stop",
+    "description": "Sound effect — Tape Stop",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\tape_stop.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_tension_build.mp3",
+    "type": "sfx",
+    "name": "Tension Build",
+    "description": "Sound effect — Tension Build",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\tension_build.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_thunder.mp3",
+    "type": "sfx",
+    "name": "Thunder",
+    "description": "Sound effect — Thunder",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\thunder.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_toy_squeak.mp3",
+    "type": "sfx",
+    "name": "Toy Squeak",
+    "description": "Sound effect — Toy Squeak",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\toy_squeak.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_transition_swipe.mp3",
+    "type": "sfx",
+    "name": "Transition Swipe",
+    "description": "Sound effect — Transition Swipe",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\transition_swipe.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_truck_passby.mp3",
+    "type": "sfx",
+    "name": "Truck Passby",
+    "description": "Sound effect — Truck Passby",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\truck_passby.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_typing.mp3",
+    "type": "sfx",
+    "name": "Typing",
+    "description": "Sound effect — Typing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\typing.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_typing_key.mp3",
+    "type": "sfx",
+    "name": "Typing Key",
+    "description": "Sound effect — Typing Key",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\typing_key.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_ui_click.mp3",
+    "type": "sfx",
+    "name": "Ui Click",
+    "description": "Sound effect — Ui Click",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\ui_click.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_village_ambience.mp3",
+    "type": "sfx",
+    "name": "Village Ambience",
+    "description": "Sound effect — Village Ambience",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\village_ambience.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_vinyl_scratch.mp3",
+    "type": "sfx",
+    "name": "Vinyl Scratch",
+    "description": "Sound effect — Vinyl Scratch",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\vinyl_scratch.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_violin_sustain.mp3",
+    "type": "sfx",
+    "name": "Violin Sustain",
+    "description": "Sound effect — Violin Sustain",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\violin_sustain.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_waterfall.mp3",
+    "type": "sfx",
+    "name": "Waterfall",
+    "description": "Sound effect — Waterfall",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\waterfall.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_water_pour.mp3",
+    "type": "sfx",
+    "name": "Water Pour",
+    "description": "Sound effect — Water Pour",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\water_pour.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_water_splash.mp3",
+    "type": "sfx",
+    "name": "Water Splash",
+    "description": "Sound effect — Water Splash",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\water_splash.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_water_tap.mp3",
+    "type": "sfx",
+    "name": "Water Tap",
+    "description": "Sound effect — Water Tap",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\water_tap.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whisper.mp3",
+    "type": "sfx",
+    "name": "Whisper",
+    "description": "Sound effect — Whisper",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whisper.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whoosh.mp3",
+    "type": "sfx",
+    "name": "Whoosh",
+    "description": "Sound effect — Whoosh",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whoosh.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whoosh_deep.mp3",
+    "type": "sfx",
+    "name": "Whoosh Deep",
+    "description": "Sound effect — Whoosh Deep",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whoosh_deep.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whoosh_fast.mp3",
+    "type": "sfx",
+    "name": "Whoosh Fast",
+    "description": "Sound effect — Whoosh Fast",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whoosh_fast.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whoosh_heavy.mp3",
+    "type": "sfx",
+    "name": "Whoosh Heavy",
+    "description": "Sound effect — Whoosh Heavy",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whoosh_heavy.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_whoosh_slow.mp3",
+    "type": "sfx",
+    "name": "Whoosh Slow",
+    "description": "Sound effect — Whoosh Slow",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\whoosh_slow.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wind.mp3",
+    "type": "sfx",
+    "name": "Wind",
+    "description": "Sound effect — Wind",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wind.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wind_gentle.mp3",
+    "type": "sfx",
+    "name": "Wind Gentle",
+    "description": "Sound effect — Wind Gentle",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wind_gentle.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wind_howling.mp3",
+    "type": "sfx",
+    "name": "Wind Howling",
+    "description": "Sound effect — Wind Howling",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wind_howling.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wind_strong.mp3",
+    "type": "sfx",
+    "name": "Wind Strong",
+    "description": "Sound effect — Wind Strong",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wind_strong.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wood_crack.mp3",
+    "type": "sfx",
+    "name": "Wood Crack",
+    "description": "Sound effect — Wood Crack",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wood_crack.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_wrong_buzz.mp3",
+    "type": "sfx",
+    "name": "Wrong Buzz",
+    "description": "Sound effect — Wrong Buzz",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\wrong_buzz.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "sfx_xylophone_note.mp3",
+    "type": "sfx",
+    "name": "Xylophone Note",
+    "description": "Sound effect — Xylophone Note",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\xylophone_note.mp3",
+    "tags": [
+      "sfx",
+      "stock"
+    ],
+    "source": "stock_sfx",
+    "createdAt": "2026-04-15T00:16:19.292Z"
+  },
+  {
+    "id": "genimg_gen_1775555383548.png",
+    "type": "image",
+    "name": "Generated 1775555383548",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1775555383548.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1775592315316.png",
+    "type": "image",
+    "name": "Generated 1775592315316",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1775592315316.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1775675108900.png",
+    "type": "image",
+    "name": "Generated 1775675108900",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1775675108900.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776029864310.png",
+    "type": "image",
+    "name": "Generated 1776029864310",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776029864310.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776029864410.png",
+    "type": "image",
+    "name": "Generated 1776029864410",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776029864410.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776029864441.png",
+    "type": "image",
+    "name": "Generated 1776029864441",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776029864441.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776052101225.png",
+    "type": "image",
+    "name": "Generated 1776052101225",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776052101225.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776052101265.png",
+    "type": "image",
+    "name": "Generated 1776052101265",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776052101265.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776052101282.png",
+    "type": "image",
+    "name": "Generated 1776052101282",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776052101282.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776065418216.png",
+    "type": "image",
+    "name": "Generated 1776065418216",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776065418216.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776065421531.png",
+    "type": "image",
+    "name": "Generated 1776065421531",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776065421531.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776065422228.png",
+    "type": "image",
+    "name": "Generated 1776065422228",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776065422228.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776133097172.png",
+    "type": "image",
+    "name": "Generated 1776133097172",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776133097172.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776140102488.png",
+    "type": "image",
+    "name": "Generated 1776140102488",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776140102488.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776145988653.png",
+    "type": "image",
+    "name": "Generated 1776145988653",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776145988653.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776146006732.png",
+    "type": "image",
+    "name": "Generated 1776146006732",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776146006732.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776148547243.png",
+    "type": "image",
+    "name": "Generated 1776148547243",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776148547243.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776148569414.png",
+    "type": "image",
+    "name": "Generated 1776148569414",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776148569414.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776149417459.png",
+    "type": "image",
+    "name": "Generated 1776149417459",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776149417459.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776149556245.png",
+    "type": "image",
+    "name": "Generated 1776149556245",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776149556245.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776149558276.png",
+    "type": "image",
+    "name": "Generated 1776149558276",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776149558276.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776150571104.png",
+    "type": "image",
+    "name": "Generated 1776150571104",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150571104.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776150683803.png",
+    "type": "image",
+    "name": "Generated 1776150683803",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150683803.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776150692246.png",
+    "type": "image",
+    "name": "Generated 1776150692246",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150692246.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776150694789.png",
+    "type": "image",
+    "name": "Generated 1776150694789",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150694789.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.299Z"
+  },
+  {
+    "id": "genimg_gen_1776150698209.png",
+    "type": "image",
+    "name": "Generated 1776150698209",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150698209.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776150818242.png",
+    "type": "image",
+    "name": "Generated 1776150818242",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150818242.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776150875116.png",
+    "type": "image",
+    "name": "Generated 1776150875116",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776150875116.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152141532.png",
+    "type": "image",
+    "name": "Generated 1776152141532",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152141532.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152582725.png",
+    "type": "image",
+    "name": "Generated 1776152582725",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152582725.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152592472.png",
+    "type": "image",
+    "name": "Generated 1776152592472",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152592472.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152606280.png",
+    "type": "image",
+    "name": "Generated 1776152606280",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152606280.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152615210.png",
+    "type": "image",
+    "name": "Generated 1776152615210",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152615210.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152898055.png",
+    "type": "image",
+    "name": "Generated 1776152898055",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152898055.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "genimg_gen_1776152919222.png",
+    "type": "image",
+    "name": "Generated 1776152919222",
+    "description": "AI-generated image",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\images\\gen_1776152919222.png",
+    "tags": [
+      "image",
+      "generated"
+    ],
+    "source": "auto_gen_images",
+    "createdAt": "2026-04-15T00:16:19.300Z"
+  },
+  {
+    "id": "merged_commercial_cmnjoazqu002y57jw1azjua2y_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnjoazqu002y57jw1azjua2y Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnjoazqu002y57jw1azjua2y_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnjodjcv002z57jwqlwp8jr1_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnjodjcv002z57jwqlwp8jr1 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnjodjcv002z57jwqlwp8jr1_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnju55r7006m57jwx1716as0_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnju55r7006m57jwx1716as0 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnju55r7006m57jwx1716as0_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnjukcd6006n57jwinobjwdv_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnjukcd6006n57jwinobjwdv Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnjukcd6006n57jwinobjwdv_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnjwmpte008757jwxma2agkz_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnjwmpte008757jwxma2agkz Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnjwmpte008757jwxma2agkz_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnk4h76b00bc57jwktagspst_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnk4h76b00bc57jwktagspst Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnk4h76b00bc57jwktagspst_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnk4ji9y00bd57jwuoiesphd_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnk4ji9y00bd57jwuoiesphd Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnk4ji9y00bd57jwuoiesphd_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnk4nygc00bo57jw7maqvz8w_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnk4nygc00bo57jw7maqvz8w Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnk4nygc00bo57jw7maqvz8w_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnk4u7wp00bp57jwse28qgx7_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnk4u7wp00bp57jwse28qgx7 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnk4u7wp00bp57jwse28qgx7_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnkl3a6q00bt57jwp92w3hzf_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkl3a6q00bt57jwp92w3hzf Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkl3a6q00bt57jwp92w3hzf_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnklabz300bu57jwtv55siku_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnklabz300bu57jwtv55siku Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnklabz300bu57jwtv55siku_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnkn1blm00c057jwanbzjrw5_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkn1blm00c057jwanbzjrw5 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkn1blm00c057jwanbzjrw5_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.307Z"
+  },
+  {
+    "id": "merged_commercial_cmnkn2t3g00c157jwxfpapa21_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkn2t3g00c157jwxfpapa21 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkn2t3g00c157jwxfpapa21_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnkna5qo00c257jwtonkbjk3_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkna5qo00c257jwtonkbjk3 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkna5qo00c257jwtonkbjk3_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnknb7c100c357jwej2nwl9q_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnknb7c100c357jwej2nwl9q Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnknb7c100c357jwej2nwl9q_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnknfgqh00c457jwdj590skk_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnknfgqh00c457jwdj590skk Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnknfgqh00c457jwdj590skk_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnkrq5gn00c557jwtoka7b0o_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkrq5gn00c557jwtoka7b0o Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkrq5gn00c557jwtoka7b0o_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnkruuej00cj57jwkam0g14y_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnkruuej00cj57jwkam0g14y Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnkruuej00cj57jwkam0g14y_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnks388x00ck57jwsjrzcfz8_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnks388x00ck57jwsjrzcfz8 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnks388x00ck57jwsjrzcfz8_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "merged_commercial_cmnksqm6v00cw57jwltv30610_final.mp4",
+    "type": "video",
+    "name": "Commercial Cmnksqm6v00cw57jwltv30610 Final",
+    "description": "Rendered video",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\merged\\commercial_cmnksqm6v00cw57jwltv30610_final.mp4",
+    "tags": [
+      "video",
+      "rendered"
+    ],
+    "source": "auto_merged",
+    "createdAt": "2026-04-15T00:16:19.308Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_1776292560436.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/15/2026",
+    "description": "Generated scene clip — scene_SC01_1776292560436.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_1776292560436.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T22:36:00.436Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_1776292452097.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/15/2026",
+    "description": "Generated scene clip — scene_SC01_1776292452097.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_1776292452097.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T22:34:12.097Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_KLING_DIRECT_1776292225667.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/15/2026",
+    "description": "Generated scene clip — scene_SC01_KLING_DIRECT_1776292225667.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_KLING_DIRECT_1776292225667.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T22:30:25.667Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_STEST_1776231089179.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/14/2026",
+    "description": "Generated scene clip — scene_SC01_STEST_1776231089179.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_STEST_1776231089179.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T05:31:29.179Z"
+  },
+  {
+    "id": "scene_vid_scene_SC05_1776220495858.mp4",
+    "type": "video",
+    "name": "Scene SC05 · 4/14/2026",
+    "description": "Generated scene clip — scene_SC05_1776220495858.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC05_1776220495858.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc05"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T02:34:55.858Z"
+  },
+  {
+    "id": "scene_vid_scene_SC06_1776220395477.mp4",
+    "type": "video",
+    "name": "Scene SC06 · 4/14/2026",
+    "description": "Generated scene clip — scene_SC06_1776220395477.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC06_1776220395477.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc06"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T02:33:15.477Z"
+  },
+  {
+    "id": "scene_vid_scene_SC07_1776219780304.mp4",
+    "type": "video",
+    "name": "Scene SC07 · 4/14/2026",
+    "description": "Generated scene clip — scene_SC07_1776219780304.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC07_1776219780304.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc07"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T02:23:00.304Z"
+  },
+  {
+    "id": "scene_vid_scene_SC04_1776219687192.mp4",
+    "type": "video",
+    "name": "Scene SC04 · 4/14/2026",
+    "description": "Generated scene clip — scene_SC04_1776219687192.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC04_1776219687192.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc04"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-15T02:21:27.192Z"
+  },
+  {
+    "id": "scene_vid_scene_SC03_1776388794131.mp4",
+    "type": "video",
+    "name": "Scene SC03 · 4/16/2026",
+    "description": "Generated scene clip — scene_SC03_1776388794131.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC03_1776388794131.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc03"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-17T01:19:54.131Z"
+  },
+  {
+    "id": "scene_vid_scene_SC06_1776396722856.mp4",
+    "type": "video",
+    "name": "Scene SC06 · 4/16/2026",
+    "description": "Generated scene clip — scene_SC06_1776396722856.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC06_1776396722856.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc06"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-17T03:32:02.856Z"
+  },
+  {
+    "id": "scene_vid_scene_SC05_1776396654331.mp4",
+    "type": "video",
+    "name": "Scene SC05 · 4/16/2026",
+    "description": "Generated scene clip — scene_SC05_1776396654331.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC05_1776396654331.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc05"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-17T03:30:54.331Z"
+  },
+  {
+    "id": "scene_vid_scene_SC03_1776396522239.mp4",
+    "type": "video",
+    "name": "Scene SC03 · 4/16/2026",
+    "description": "Generated scene clip — scene_SC03_1776396522239.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC03_1776396522239.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc03"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-17T03:28:42.239Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_1776396442017.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/16/2026",
+    "description": "Generated scene clip — scene_SC01_1776396442017.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_1776396442017.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-17T03:27:22.017Z"
+  }
+]

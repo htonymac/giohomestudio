@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import CharacterPicker from "../../components/CharacterPicker";
 import NarrationControls from "../../components/NarrationControls";
+import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
 import type { NarrationSettings } from "../../components/NarrationControls";
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -58,6 +59,8 @@ export default function VideoFinishingPage() {
   const [enabledLayers, setEnabledLayers] = useState({ narration: true, music: true, sfx: true, subtitles: false, overlays: false });
   const [narrationText, setNarrationText] = useState("");
   const [narrationSettings, setNarrationSettings] = useState<NarrationSettings | null>(null);
+  const [voiceTier, setVoiceTier] = useState<VoiceTierConfig>({ tier: "standard" });
+  const [aiSwitchLog, setAiSwitchLog] = useState<string>("");
   const [showCharacterPicker, setShowCharacterPicker] = useState(false);
   const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; [key: string]: any } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -75,17 +78,29 @@ export default function VideoFinishingPage() {
     } catch { /* upload failed */ }
   }
 
+  // ── AI model for tier — auto-switch if no credits ──
+  function getAiModel(t: "standard" | "pro" | "premium"): string {
+    if (t === "standard") return "claude-haiku-4-5-20251001";
+    if (t === "pro") return "claude-sonnet-4-6";
+    return "claude-opus-4-7"; // premium
+  }
+
   // ── Analyze ──
   async function handleAnalyze() {
     if (!videoUrl) return;
     setAnalyzing(true);
+    setAiSwitchLog("");
+    const aiModel = getAiModel(tier);
     try {
       const res = await fetch("/api/video-finishing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoPath: videoUrl, projectTitle, tier }),
+        body: JSON.stringify({ videoPath: videoUrl, projectTitle, tier, aiModel }),
       });
       const data = await res.json();
+      // Auto-switch notice from server
+      if (data.aiSwitched) setAiSwitchLog(`⚡ Auto-switched to ${data.aiModel} (${data.switchReason})`);
+      else setAiSwitchLog(`✓ Using ${data.aiModel ?? aiModel}`);
       if (data.analysis) setAnalysis(data.analysis);
       if (data.layerPlan) setLayerPlan(data.layerPlan);
       setStep(3);
@@ -180,19 +195,31 @@ export default function VideoFinishingPage() {
           {/* GHS Intelligence Tier */}
           <div style={{ marginTop: 16 }}>
             <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>GHS Intelligence Level</p>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
               {([
-                { id: "standard" as const, label: "GHS Standard", cost: "Free", color: green },
-                { id: "pro" as const, label: "GHS Pro", cost: "1 credit", color: purple },
-                { id: "premium" as const, label: "GHS Premium", cost: "3 credits", color: gold },
+                { id: "standard" as const, label: "GHS Standard", model: "Claude Haiku", cost: "Free", color: green },
+                { id: "pro" as const, label: "GHS Pro", model: "Claude Sonnet", cost: "1 credit", color: purple },
+                { id: "premium" as const, label: "GHS Premium", model: "Claude Opus", cost: "3 credits", color: gold },
               ]).map(t => (
                 <button key={t.id} onClick={() => setTier(t.id)}
                   style={{ flex: 1, padding: "10px 8px", borderRadius: 10, border: `1px solid ${tier === t.id ? t.color : border}`, background: tier === t.id ? `${t.color}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: tier === t.id ? t.color : "#fff" }}>{t.label}</p>
-                  <p style={{ fontSize: 9, color: muted }}>{t.cost}</p>
+                  <p style={{ fontSize: 9, color: muted }}>{t.model}</p>
+                  <p style={{ fontSize: 8, color: tier === t.id ? t.color + "88" : "#2a3a45" }}>{t.cost}</p>
                 </button>
               ))}
             </div>
+            {aiSwitchLog && (
+              <p style={{ fontSize: 10, color: aiSwitchLog.startsWith("⚡") ? gold : green, padding: "4px 8px", background: "#080b10", borderRadius: 5, border: `1px solid ${border}` }}>
+                {aiSwitchLog}
+              </p>
+            )}
+          </div>
+
+          {/* Voice Engine */}
+          <div style={{ marginTop: 16 }}>
+            <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Voice Engine</p>
+            <VoiceTierSelector value={voiceTier} onChange={setVoiceTier} compact />
           </div>
 
           {/* Characters */}
