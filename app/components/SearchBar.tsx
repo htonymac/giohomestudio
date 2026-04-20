@@ -24,6 +24,19 @@ export default function SearchBar() {
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside — no full-screen overlay, so rest of UI stays clickable
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
 
   useEffect(() => {
     if (query.length < 2) { setResults([]); setOpen(false); return; }
@@ -55,7 +68,7 @@ export default function SearchBar() {
   }, []);
 
   return (
-    <div className="relative" style={{ width: "100%", maxWidth: 400 }}>
+    <div ref={containerRef} className="relative" style={{ width: "100%", maxWidth: 400 }}>
       <div className="relative">
         <input
           ref={inputRef}
@@ -124,8 +137,6 @@ export default function SearchBar() {
         </div>
       )}
 
-      {/* Click outside to close */}
-      {open && <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setOpen(false)} />}
     </div>
   );
 }

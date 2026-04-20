@@ -264,6 +264,7 @@ function AdEditorInner() {
   const [projectName, setProjectName] = useState("Untitled Ad");
   const [projectList, setProjectList] = useState<ProjectSummary[]>([]);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [projectFilter, setProjectFilter] = useState("");
   const [saving, setSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,6 +285,7 @@ function AdEditorInner() {
   const [aiBgResult, setAiBgResult] = useState<string | null>(null);
   const [aiBgType, setAiBgType] = useState<"ai" | "import" | "white">("ai");
   const bgFileRef = useRef<HTMLInputElement>(null);
+  const layerizeFileRef = useRef<HTMLInputElement>(null);
 
   // Ideogram Transparent PNG
   const [ideogramPrompt, setIdeogramPrompt] = useState("");
@@ -930,24 +932,52 @@ function AdEditorInner() {
 
       {/* ── PROJECT PICKER DROPDOWN ── */}
       {showProjectPicker && (
-        <div style={{ background: "#0e0e1a", borderBottom: "1px solid #1e1e30", padding: "8px 14px", maxHeight: 200, overflowY: "auto", flexShrink: 0 }}>
-          {projectList.length === 0 && <p style={{ fontSize: 11, color: "#404060" }}>No saved projects yet</p>}
-          {projectList.map(p => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "5px 8px", borderRadius: 4, marginBottom: 2, background: projectId === p.id ? "rgba(124,92,252,0.1)" : "transparent", cursor: "pointer" }}
-              onClick={() => loadProject(p.id)}>
-              <div>
-                <span style={{ fontSize: 12, color: "#e0e0f0", fontWeight: projectId === p.id ? 700 : 400 }}>{p.name}</span>
-                <span style={{ fontSize: 9, color: "#404060", marginLeft: 8 }}>{p.canvasWidth}x{p.canvasHeight} &middot; {p._count.layers} layers</span>
-              </div>
-              <div style={{ display: "flex", gap: 4 }}>
-                <span style={{ fontSize: 9, color: "#303050" }}>{new Date(p.updatedAt).toLocaleDateString()}</span>
-                <button onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
-                  style={{ fontSize: 9, color: "#f87171", background: "none", border: "none", cursor: "pointer", padding: "0 4px" }}>
-                  Del
+        <div style={{ background: "#0e0e1a", borderBottom: "1px solid #1e1e30", padding: "10px 14px", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#e0e0f0", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+              All Projects · {projectList.length}
+            </span>
+            <input
+              value={projectFilter}
+              onChange={e => setProjectFilter(e.target.value)}
+              placeholder="Search projects…"
+              style={{ flex: 1, maxWidth: 240, fontSize: 11, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#e0e0f0", padding: "4px 8px", borderRadius: 4, outline: "none" }}
+            />
+            <button onClick={() => setShowProjectPicker(false)}
+              style={{ fontSize: 10, color: "#606080", background: "none", border: "1px solid #2a2a40", padding: "3px 8px", borderRadius: 4, cursor: "pointer" }}>
+              Close
+            </button>
+          </div>
+          <div style={{ maxHeight: 420, overflowY: "auto", paddingRight: 4, scrollbarColor: "#404060 transparent", scrollbarWidth: "thin" }}>
+            {projectList.length === 0 && <p style={{ fontSize: 11, color: "#404060", padding: "16px 0", textAlign: "center" }}>No saved projects yet. Click <b>Save Project</b> to create one.</p>}
+            {projectList
+              .filter(p => !projectFilter || p.name.toLowerCase().includes(projectFilter.toLowerCase()))
+              .map(p => (
+              <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: 5, marginBottom: 3, background: projectId === p.id ? "rgba(124,92,252,0.15)" : "rgba(255,255,255,0.02)", cursor: "pointer", border: `1px solid ${projectId === p.id ? "rgba(124,92,252,0.3)" : "transparent"}`, transition: "background 0.1s" }}
+                onMouseEnter={e => { if (projectId !== p.id) e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+                onMouseLeave={e => { if (projectId !== p.id) e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
+                onClick={() => loadProject(p.id)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                  <span style={{ fontSize: 13 }}>{p.type === "BANNER" ? "📐" : p.type === "MOVIE_POSTER" ? "🎬" : p.type === "EVENT" ? "🎫" : "📣"}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, color: "#e0e0f0", fontWeight: projectId === p.id ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                    <div style={{ fontSize: 9, color: "#606080", marginTop: 2 }}>
+                      {p.canvasWidth}×{p.canvasHeight} · {p._count.layers} layers · {new Date(p.updatedAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <button onClick={e => { e.stopPropagation(); if (confirm(`Delete project "${p.name}"?`)) deleteProject(p.id); }}
+                  title="Delete project"
+                  style={{ fontSize: 10, color: "#f87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", cursor: "pointer", padding: "3px 8px", borderRadius: 4, flexShrink: 0, marginLeft: 8 }}>
+                  Delete
                 </button>
               </div>
-            </div>
-          ))}
+            ))}
+            {projectList.length > 0 && projectFilter &&
+              projectList.filter(p => p.name.toLowerCase().includes(projectFilter.toLowerCase())).length === 0 && (
+                <p style={{ fontSize: 11, color: "#404060", padding: "12px 0", textAlign: "center" }}>No projects match &ldquo;{projectFilter}&rdquo;</p>
+              )}
+          </div>
         </div>
       )}
 
@@ -1183,7 +1213,13 @@ function AdEditorInner() {
         {/* ── Layerize Text ── */}
         <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
           <p style={sectionTitle}>Extract Text Layers (AI)</p>
-          <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Select an image layer, then extract its text for editing</p>
+          <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Upload or use an existing image layer — AI separates text from background</p>
+          <button style={{ ...btnSm, width: "100%", marginBottom: 6, background: "rgba(168,85,247,0.1)", color: "#a855f7", borderColor: "#a855f740" }}
+            onClick={() => layerizeFileRef.current?.click()}>
+            ↑ Upload Image to Extract
+          </button>
+          <input ref={layerizeFileRef} type="file" accept="image/*" style={{ display: "none" }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
           <button onClick={handleLayerize}
             disabled={layerizeLoading || !canvas.layers.some(l => l.type === "image")}
             style={{ ...btnSm, width: "100%", background: layerizeLoading ? "#2a2a40" : "rgba(59,130,246,0.15)", color: "#3b82f6", borderColor: "#3b82f640", fontWeight: 700 }}>
