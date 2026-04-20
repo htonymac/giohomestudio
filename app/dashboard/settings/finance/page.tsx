@@ -66,11 +66,31 @@ interface BudgetData {
   monthly?: Array<{ month: string; cost: number }>;
 }
 
+interface BalanceData {
+  userId: string;
+  balance: number;
+  tier: string;
+}
+
+interface CreditTxn {
+  id: string;
+  type: string;
+  amount: number;
+  reason: string;
+  modelUsed: string | null;
+  costToHenry: number | null;
+  generationRef: string | null;
+  balanceAfter: number;
+  createdAt: string;
+}
+
 // ── Main page ───────────────────────────────────────────────────────
 export default function FinancePage() {
   const [models, setModels] = useState<Model[]>([]);
   const [tiers, setTiers] = useState<Tier[]>([]);
   const [budget, setBudget] = useState<BudgetData | null>(null);
+  const [balance, setBalance] = useState<BalanceData | null>(null);
+  const [recentTxns, setRecentTxns] = useState<CreditTxn[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ msg: string; type: "ok" | "err" } | null>(null);
 
@@ -85,10 +105,14 @@ export default function FinancePage() {
       fetch("/api/settings/models").then(r => r.json()),
       fetch("/api/settings/tiers").then(r => r.json()),
       fetch("/api/budget").then(r => r.json()).catch(() => ({ providerCosts: {}, totalEstimated: 0 })),
-    ]).then(([m, t, b]) => {
+      fetch("/api/credits/balance").then(r => r.json()).catch(() => null),
+      fetch("/api/credits/transactions?limit=10").then(r => r.json()).catch(() => ({ transactions: [] })),
+    ]).then(([m, t, b, bal, txns]) => {
       setModels(m.models ?? []);
       setTiers(t.tiers ?? []);
       setBudget(b);
+      if (bal && !bal.error) setBalance(bal);
+      setRecentTxns(txns.transactions ?? []);
       setLoading(false);
     });
   }, []);
@@ -199,6 +223,52 @@ export default function FinancePage() {
             {models.length} models · {tiers.length} tiers · {providers.length} providers
           </div>
         </div>
+
+        {/* ── SECTION E: LIVE CREDIT BALANCE (Phase 2) ── */}
+        <section style={{ marginBottom: 20 }}>
+          <SectionHeader title="Live Credit Balance" icon="🪙" sub="Phase 2 — local credit ledger. No real billing yet." />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+
+            {/* Balance card */}
+            <div style={{
+              background: GOLD_SOFT, border: `1px solid ${GOLD}`, borderRadius: 12, padding: "22px 24px",
+              position: "relative", overflow: "hidden",
+            }}>
+              <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: GOLD_GLOW, borderRadius: "50%", filter: "blur(40px)" }} />
+              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: GOLD, textTransform: "uppercase", marginBottom: 10 }}>
+                Default User · {balance?.tier ?? "FREE"}
+              </p>
+              <p className="mono" style={{ fontSize: 36, fontWeight: 700, color: GOLD, lineHeight: 1, marginBottom: 4 }}>
+                {balance ? balance.balance.toLocaleString() : "—"}
+              </p>
+              <p style={{ fontSize: 11, color: TEXT2, marginBottom: 2 }}>
+                credits available · ≈ ${balance ? (balance.balance * 0.001).toFixed(2) : "0.00"}
+              </p>
+              <p className="mono" style={{ fontSize: 9, color: TEXT3, marginTop: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
+                userId: {balance?.userId ?? "—"}
+              </p>
+            </div>
+
+            {/* Recent transactions list */}
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 18 }}>
+              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 12 }}>
+                Recent Transactions (last 10)
+              </p>
+              {recentTxns.length === 0 ? (
+                <p style={{ fontSize: 11, color: TEXT3, fontStyle: "italic" }}>
+                  No transactions yet. Credits will deduct here once the middleware is wired to generation routes (Phase 2b).
+                </p>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {recentTxns.map(t => (
+                    <TxnRow key={t.id} txn={t} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+          </div>
+        </section>
 
         {/* ── SECTION B: CURRENT SPEND ── */}
         <section style={{ marginBottom: 20 }}>
@@ -542,6 +612,37 @@ function QualityBadge({ tier }: { tier: string }) {
     <span className="mono" style={{ fontSize: 9, color: TEXT3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
       {tier}
     </span>
+  );
+}
+
+function TxnRow({ txn }: { txn: CreditTxn }) {
+  const typeColor =
+    txn.type === "deposit" || txn.type === "bonus" || txn.type === "refund" ? GREEN :
+    txn.type === "deduct" ? RED :
+    txn.type === "reserve" ? GOLD : TEXT3;
+  const sign =
+    txn.type === "deposit" || txn.type === "bonus" || txn.type === "refund" ? "+" :
+    txn.type === "deduct" || txn.type === "reserve" ? "−" : "";
+  const when = new Date(txn.createdAt);
+  const timeLabel = `${when.toLocaleDateString()} ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
+
+  return (
+    <div style={{
+      display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 10, alignItems: "center",
+      padding: "6px 10px", background: SURFACE2, borderRadius: 6, fontSize: 11,
+    }}>
+      <span className="mono" style={{
+        fontSize: 8, fontWeight: 700, color: typeColor,
+        background: `${typeColor}18`, border: `1px solid ${typeColor}30`,
+        padding: "2px 6px", borderRadius: 999, letterSpacing: "0.05em", textTransform: "uppercase",
+      }}>{txn.type}</span>
+      <span style={{ color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {txn.reason}
+        {txn.modelUsed && <span className="mono" style={{ color: TEXT3, marginLeft: 6, fontSize: 9 }}>· {txn.modelUsed}</span>}
+      </span>
+      <span className="mono" style={{ color: typeColor, fontWeight: 700 }}>{sign}{txn.amount}c</span>
+      <span className="mono" style={{ color: TEXT3, fontSize: 9 }}>{timeLabel}</span>
+    </div>
   );
 }
 

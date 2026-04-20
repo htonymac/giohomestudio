@@ -12,7 +12,7 @@ datasource db {
 model User {
   id              String    @id @default(cuid())
   name            String?
-  email           String    @unique
+  email           String?   @unique
   emailVerified   DateTime?
   image           String?
   passwordHash    String?   // null for OAuth-only users
@@ -20,12 +20,65 @@ model User {
   role            String    @default("user") // user | admin
   termsAcceptedAt DateTime?
   termsVersion    String?   // e.g. "1.0"
+  // ── Finance Phase 2: credit tracking ────────────────────────────────
+  tier             String    @default("FREE")  // FREE|STARTER|PRO|PREMIUM
+  creditBalance    Int       @default(100)     // default Free tier credits
+  billingCountry   String?
+  paddleCustomerId String?   @unique
+  autoTopUp        Boolean   @default(false)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   accounts        Account[]
   sessions        Session[]
+  subscriptions   Subscription[]
+  transactions    CreditTransaction[]
 
   @@map("users")
+}
+
+// ── Finance Phase 2: subscriptions & credit ledger ──────────────────────
+model Subscription {
+  id                    String    @id @default(cuid())
+  userId                String
+  paddleSubscriptionId  String?   @unique
+  tier                  String    // STARTER|PRO|PREMIUM
+  status                String    // active|paused|canceled|past_due
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  user                  User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model CreditTransaction {
+  id              String    @id @default(cuid())
+  userId          String
+  type            String    // deposit|deduct|refund|bonus|reserve
+  amount          Int       // positive; sign interpreted by type
+  reason          String    // "tier_renewal" | "topup" | "generation:<tool>:<modelId>"
+  costToHenry     Float?    // USD Henry paid provider
+  modelUsed       String?
+  generationRef   String?
+  balanceAfter    Int       // snapshot of user balance after this txn
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+model PaddleEvent {
+  id              String    @id @default(cuid())
+  paddleEventId   String    @unique
+  eventType       String
+  payload         Json
+  processed       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@map("paddle_events")
 }
 
 model Account {
