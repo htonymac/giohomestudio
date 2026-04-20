@@ -226,7 +226,7 @@ function ChildrenPlannerInner() {
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState("segmind_pruna");
+  const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
   const [aidStyle, setAidStyle] = useState<"all"|"2d"|"3d"|"cartoon"|"realistic">("all");

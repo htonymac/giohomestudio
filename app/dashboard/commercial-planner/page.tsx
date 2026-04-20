@@ -282,7 +282,7 @@ function CommercialPlannerInner() {
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState("segmind_pruna");
+  const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
   const [transparentBg, setTransparentBg] = useState(false);
   const [aiTier, setAiTier] = useState<AITier>("standard");
   const [showAidPicker, setShowAidPicker] = useState(false);

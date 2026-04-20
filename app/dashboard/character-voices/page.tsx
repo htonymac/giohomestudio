@@ -630,7 +630,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
               </span>
             )}
             {v.defaultSpeechStyle && v.defaultSpeechStyle !== "normal" && (
-              <span style={{ background: "#1a2a3a", color: "#60a5fa", fontSize: 10, borderRadius: 4, padding: "1px 6px", border: "1px solid #2a3a5a" }}>
+              <span style={{ background: "#1a2a3a", color: "#e0e8f0", fontSize: 10, borderRadius: 4, padding: "1px 6px", border: "1px solid #2a3a5a" }}>
                 {v.defaultSpeechStyle}
               </span>
             )}
@@ -725,7 +725,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
                 URL.revokeObjectURL(url);
               } catch { alert("Download failed"); }
             }}
-            style={{ background: "#1a1a2e", color: "#60a5fa", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+            style={{ background: "#1a1a2e", color: "#e0e8f0", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
           >
             ⬇ Download ZIP
           </button>
@@ -890,6 +890,7 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState("");
   const [result, setResult] = useState<SmartBuilderResult | null>(null);
+  const [imageModelId, setImageModelId] = useState("fal_flux_schnell");
 
   const setField = (key: string, val: string) => setGuidedFields(f => ({ ...f, [key]: val }));
 
@@ -906,7 +907,7 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
       const res = await fetch("/api/character/smart-build", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, imageModelId }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1181,6 +1182,23 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
                 {buildError}
               </div>
             )}
+
+            {/* Image model selector */}
+            <div style={{ marginTop: 16, marginBottom: 4 }}>
+              <label style={{ ...sbLabelStyle, marginBottom: 6 }}>Image Model (for portrait generation)</label>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[
+                  { id: "fal_flux_schnell", label: "Flux Schnell", price: "$0.003", color: "#22c55e" },
+                  { id: "segmind_pruna", label: "Pruna P Image", price: "$0.005", color: "#7dd3fc" },
+                  { id: "fal_flux_dev", label: "Flux Dev", price: "$0.025", color: "#f59e0b" },
+                  { id: "fal_flux_pro", label: "Flux Pro", price: "$0.05", color: "#a855f7" },
+                ].map(m => (
+                  <button key={m.id} onClick={() => setImageModelId(m.id)} style={{ background: imageModelId === m.id ? "#1e1e38" : "transparent", border: `1px solid ${imageModelId === m.id ? m.color : "#2a2a40"}`, borderRadius: 6, padding: "4px 10px", fontSize: 11, color: imageModelId === m.id ? m.color : "#6a6a8a", cursor: "pointer" }}>
+                    {m.label} <span style={{ color: "#22c55e", fontSize: 10 }}>{m.price}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Build button */}
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>

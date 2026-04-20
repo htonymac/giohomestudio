@@ -427,7 +427,7 @@ function ReviewCard({
             <p className="text-xs text-gray-600 font-mono truncate mb-0.5">{item.id}</p>
             <a
               href={`/dashboard/content/${item.id}`}
-              className="text-white font-medium text-sm cursor-pointer hover:text-blue-300 transition-colors block"
+              className="text-white font-medium text-sm cursor-pointer hover:text-amber-300 transition-colors block"
               style={{ textDecoration: "none" }}
             >
               {item.originalInput}
@@ -1059,7 +1059,7 @@ function ReviewCard({
                   Multi-voice dialogue uses character voice registry. Assign voices in{" "}
                   <button
                     onClick={() => router.push("/dashboard/character-voices")}
-                    className="text-blue-400 hover:text-blue-300 transition-colors"
+                    className="text-amber-300 hover:text-amber-200 transition-colors"
                   >
                     Character Voices →
                   </button>
@@ -1085,7 +1085,7 @@ function ReviewCard({
         {/* View full details link */}
         <a
           href={`/dashboard/content/${item.id}`}
-          className="text-xs text-blue-400 hover:text-blue-300 transition-colors mb-3 block"
+          className="text-xs text-amber-300 hover:text-amber-200 transition-colors mb-3 block"
           style={{ textDecoration: "none" }}
         >
           View full details, version history, audio tracks →
@@ -1276,7 +1276,7 @@ export default function ReviewPage() {
               </span>
               <button
                 onClick={() => router.push(`/dashboard/content/${id}`)}
-                className="text-xs text-blue-400 hover:text-blue-300 underline transition-colors"
+                className="text-xs text-amber-300 hover:text-amber-200 underline transition-colors"
               >
                 View details →
               </button>

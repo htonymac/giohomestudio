@@ -168,7 +168,7 @@ export default function RegistryPage() {
         <div className="text-center py-16 text-gray-600">
           <p className="text-lg">No content items found.</p>
           {(search || filter || modeFilter) && (
-            <button onClick={() => { setSearch(""); setSearchInput(""); setFilter(""); setModeFilter(""); setPage(0); }} className="mt-2 text-sm text-indigo-400 hover:text-indigo-300">
+            <button onClick={() => { setSearch(""); setSearchInput(""); setFilter(""); setModeFilter(""); setPage(0); }} className="mt-2 text-sm text-amber-300 hover:text-amber-200">
               Clear all filters
             </button>
           )}

@@ -340,7 +340,7 @@ function AudioTrack({ label, url, filePath, source }: {
     <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ml-1 ${
       source === "generated" ? "bg-green-950/60 text-green-500" :
       source === "uploaded"  ? "bg-yellow-950/60 text-yellow-500" :
-      source === "stock" || source === "pixabay" ? "bg-blue-950/60 text-blue-500" :
+      source === "stock" || source === "pixabay" ? "bg-blue-950/60 text-sky-200" :
       "bg-gray-800 text-gray-600"
     }`}>{source}</span>
   ) : null;
@@ -370,7 +370,7 @@ function AudioTrack({ label, url, filePath, source }: {
         <span className="text-xs text-gray-500 uppercase tracking-wide w-12 shrink-0">{label}</span>
         {fileName && <span className="text-xs text-gray-700 font-mono truncate flex-1">{fileName}</span>}
         {sourceBadge}
-        <a href={url} download className="text-xs text-blue-400 hover:text-blue-300 shrink-0 transition-colors">↓</a>
+        <a href={url} download className="text-xs text-amber-300 hover:text-amber-200 shrink-0 transition-colors">↓</a>
       </div>
       <audio src={url} controls className="w-full" preload="metadata" style={{ height: 32 }} />
     </div>
@@ -542,7 +542,7 @@ export default function ContentDetailPage() {
     return (
       <div className="text-center py-16">
         <p className="text-gray-500 text-lg">Content item not found.</p>
-        <button onClick={() => router.push("/dashboard/registry")} className="mt-4 text-sm text-blue-400 hover:text-blue-300">
+        <button onClick={() => router.push("/dashboard/registry")} className="mt-4 text-sm text-amber-300 hover:text-amber-200">
           Back to Registry
         </button>
       </div>
@@ -615,7 +615,7 @@ export default function ContentDetailPage() {
               {/* Format badge */}
               <span className={`text-xs px-2 py-0.5 rounded font-mono font-semibold ${
                 aspectRatio === "9:16"
-                  ? "bg-blue-950/60 text-blue-300 border border-blue-800/60"
+                  ? "bg-blue-950/60 text-white border border-blue-800/60"
                   : aspectRatio === "16:9"
                   ? "bg-green-950/60 text-green-300 border border-green-800/60"
                   : "bg-purple-950/60 text-purple-300 border border-purple-800/60"
@@ -665,7 +665,7 @@ export default function ContentDetailPage() {
               <p className="text-gray-500 text-sm">Pipeline in progress — video not yet available.</p>
               <button
                 onClick={fetchItem}
-                className="mt-3 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                className="mt-3 text-xs text-amber-300 hover:text-amber-200 transition-colors"
               >
                 Refresh status
               </button>
@@ -789,7 +789,7 @@ export default function ContentDetailPage() {
                       alert(data.status === "published" ? `Sent to Telegram! ${data.postUrl ?? ""}` : `Failed: ${data.error}`);
                     } catch { alert("Network error"); }
                   }}
-                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-900/30 border border-blue-700/40 text-blue-400 hover:bg-blue-900/50 text-xs font-medium transition-colors"
+                  className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-900/30 border border-blue-700/40 text-sky-200 hover:bg-blue-900/50 text-xs font-medium transition-colors"
                 >
                   📨 Telegram
                 </button>
@@ -864,7 +864,7 @@ export default function ContentDetailPage() {
                     if (!editingNarration) setEditNarration(item.narrationScript ?? item.originalInput ?? "");
                     setEditingNarration(v => !v);
                   }}
-                  className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-xs text-amber-300 hover:text-amber-200 transition-colors"
                 >
                   {editingNarration ? "Cancel" : "Edit"}
                 </button>
@@ -935,7 +935,7 @@ export default function ContentDetailPage() {
                 {item.musicSource && (
                   <span className={`text-xs px-1.5 py-0.5 rounded font-mono ${
                     item.musicSource === "uploaded" ? "bg-yellow-950/60 text-yellow-400 border border-yellow-900/50" :
-                    item.musicSource === "stock" || item.musicSource === "pixabay" ? "bg-blue-950/60 text-blue-400 border border-blue-900/50" :
+                    item.musicSource === "stock" || item.musicSource === "pixabay" ? "bg-blue-950/60 text-sky-200 border border-blue-900/50" :
                     "bg-gray-800 text-gray-500 border border-gray-700"
                   }`}>{item.musicSource}</span>
                 )}
@@ -1207,13 +1207,13 @@ export default function ContentDetailPage() {
                             {active.map(([label, value]) => (
                               <div key={label} className="flex gap-2 pt-1">
                                 <span className="text-gray-600 w-24 shrink-0">{label}</span>
-                                <span className="text-blue-300/80">{value}</span>
+                                <span className="text-slate-200/90">{value}</span>
                               </div>
                             ))}
                             {p.tensionLevel != null && (
                               <div className="flex gap-2 pt-1">
                                 <span className="text-gray-600 w-24 shrink-0">Tension</span>
-                                <span className="text-blue-300/80">
+                                <span className="text-slate-200/90">
                                   {"▮".repeat(Number(p.tensionLevel))}{"▯".repeat(3 - Number(p.tensionLevel))} {String(p.tensionLevel)}/3
                                 </span>
                               </div>
@@ -1340,7 +1340,7 @@ export default function ContentDetailPage() {
                     {!!p.recommendedAudioMode && (
                       <div>
                         <p className="text-gray-700 mb-0.5">Recommended audio</p>
-                        <span className="font-mono text-blue-300/70 text-[11px]">{String(p.recommendedAudioMode).replace(/_/g, " ")}</span>
+                        <span className="font-mono text-slate-300 text-[11px]">{String(p.recommendedAudioMode).replace(/_/g, " ")}</span>
                       </div>
                     )}
                     {!!p.duckingPlan && p.duckingPlan !== "none" && (
@@ -1434,14 +1434,14 @@ export default function ContentDetailPage() {
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Output</p>
               {item.outputMode && (
                 <Row label="Mode">
-                  <span className="font-mono text-indigo-300">{item.outputMode.replace(/_/g, " ")}</span>
+                  <span className="font-mono text-slate-200">{item.outputMode.replace(/_/g, " ")}</span>
                 </Row>
               )}
               {Array.isArray(item.castingCharacters) && item.castingCharacters.length > 0 && (
                 <Row label="Cast">
                   <div className="flex flex-wrap gap-1">
                     {item.castingCharacters?.map((c: string) => (
-                      <span key={c} className="text-xs px-2 py-0.5 bg-indigo-950/60 border border-indigo-800/50 text-indigo-300 rounded font-mono">{c}</span>
+                      <span key={c} className="text-xs px-2 py-0.5 bg-indigo-950/60 border border-indigo-800/50 text-slate-200 rounded font-mono">{c}</span>
                     ))}
                   </div>
                 </Row>
@@ -1581,15 +1581,15 @@ export default function ContentDetailPage() {
             item.cultureContext || item.referenceImageUrl) && (
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-2">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Casting & Identity</p>
-              {item.castingEthnicity && <Row label="Ethnicity"><span className="font-mono text-indigo-300">{item.castingEthnicity}</span></Row>}
-              {item.castingGender && <Row label="Gender"><span className="font-mono text-indigo-300">{item.castingGender}</span></Row>}
-              {item.castingAge && <Row label="Age group"><span className="font-mono text-indigo-300">{item.castingAge.replace("_", " ")}</span></Row>}
-              {item.castingCount && <Row label="Cast size"><span className="font-mono text-indigo-300">{item.castingCount}</span></Row>}
-              {item.cultureContext && <Row label="Culture"><span className="font-mono text-indigo-300">{item.cultureContext}</span></Row>}
+              {item.castingEthnicity && <Row label="Ethnicity"><span className="font-mono text-slate-200">{item.castingEthnicity}</span></Row>}
+              {item.castingGender && <Row label="Gender"><span className="font-mono text-slate-200">{item.castingGender}</span></Row>}
+              {item.castingAge && <Row label="Age group"><span className="font-mono text-slate-200">{item.castingAge.replace("_", " ")}</span></Row>}
+              {item.castingCount && <Row label="Cast size"><span className="font-mono text-slate-200">{item.castingCount}</span></Row>}
+              {item.cultureContext && <Row label="Culture"><span className="font-mono text-slate-200">{item.cultureContext}</span></Row>}
               {item.referenceImageUrl && (
                 <Row label="Ref image">
                   <a href={item.referenceImageUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 truncate max-w-[220px] block">
+                    className="text-amber-300 hover:text-amber-200 truncate max-w-[220px] block">
                     {item.referenceImageUrl}
                   </a>
                 </Row>
@@ -1745,7 +1745,7 @@ function PublishPanel({ contentItemId, title }: { contentItemId: string; title: 
             <span className="text-base">{PLATFORM_ICONS[p.platform] ?? "📤"}</span>
             <span className="capitalize">{p.platform}</span>
             {!p.configured && <span className="text-[9px] text-gray-700 ml-auto">Not connected</span>}
-            {publishing === p.platform && <span className="ml-auto text-[9px] text-indigo-400">Publishing...</span>}
+            {publishing === p.platform && <span className="ml-auto text-[9px] text-gray-300">Publishing...</span>}
           </button>
         ))}
         {platforms.length === 0 && (

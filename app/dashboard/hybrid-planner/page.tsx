@@ -329,7 +329,7 @@ function HybridPlannerInner() {
   const [aidMode, setAidMode] = useState<"video" | "image">("video");
   const [aidStyle, setAidStyle] = useState<"all" | "2d" | "3d" | "cartoon" | "realistic">("all");
   const [aidSort, setAidSort] = useState<"cheapest" | "quality" | "expensive">("cheapest");
-  const [selectedImageModelId, setSelectedImageModelId] = useState<string>("segmind_pruna");
+  const [selectedImageModelId, setSelectedImageModelId] = useState<string>("fal_flux_schnell");
   const [transparentBg, setTransparentBg] = useState(false); // Ideogram V3 transparent PNG mode
   const [aiTier, setAiTier] = useState<AITier>("standard"); // GHS AI tier for story expansion
   // ── Generation progress bars (sceneId → live progress) ──
@@ -4560,7 +4560,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               <span style={{ fontSize: 8, color: muted, textTransform: "capitalize" as const }}>{intel.timeOfDay}</span>
                               {intel.weather !== "clear" && (
                                 <><span style={{ fontSize: 8, color: muted }}>•</span>
-                                <span style={{ fontSize: 8, color: "#60a5fa", textTransform: "capitalize" as const }}>{intel.weather}</span></>
+                                <span style={{ fontSize: 8, color: "#c0d0e0", textTransform: "capitalize" as const }}>{intel.weather}</span></>
                               )}
                               <span style={{ marginLeft: "auto", fontSize: 7, padding: "1px 5px", borderRadius: 4, background: `${energyColor}20`, color: energyColor, fontWeight: 700, textTransform: "uppercase" as const }}>{intel.energyLevel}</span>
                             </div>
@@ -5426,7 +5426,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
                   {([
                     { tier: "free",     label: "GHS Free",     badge: "FREE", color: "#22c55e", provider: "ollama",                      desc: "Local · No cost" },
-                    { tier: "standard", label: "GHS Standard", badge: "STD",  color: "#3b82f6", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low cost" },
+                    { tier: "standard", label: "GHS Standard", badge: "STD",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low cost" },
                     { tier: "pro",      label: "GHS Pro",      badge: "PRO",  color: "#a855f7", provider: "claude:claude-sonnet-4-6",     desc: "Best quality" },
                   ] as const).map(t => {
                     const isActive = storyAiProvider === t.provider;
