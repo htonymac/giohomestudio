@@ -519,12 +519,53 @@ function AdEditorInner() {
     fd.append("file", file);
     try {
       const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
-      if (!res.ok) return;
+      if (!res.ok) {
+        alert("Upload failed. Please try a smaller image.");
+        return;
+      }
       const data = await res.json();
       const url = `/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
       setAiBgResult(url);
       setCanvas(prev => ({ ...prev, background: `url(${url})` }));
-    } catch { /* ignore */ }
+
+      // Auto-prompt: if there's an image layer with a busy bg, offer to remove it
+      const hasImageLayer = canvas.layers.some(l => l.type === "image");
+      if (hasImageLayer) {
+        const doRemove = confirm(
+          "You've set a new background. Would you like to AI-remove the old background from your imported image so the new one shows through?"
+        );
+        if (doRemove) {
+          await handleReplaceImageBg();
+        }
+      }
+    } catch {
+      alert("Could not import that image. Check file type (JPG/PNG) and try again.");
+    }
+  }
+
+  // ── One-click: remove image layer's background to let canvas.background show through ──
+  async function handleReplaceImageBg() {
+    const imgLayer = canvas.layers.find(l => l.type === "image");
+    if (!imgLayer) {
+      alert("No image layer found. Import an image first.");
+      return;
+    }
+    setBgRemoving(true);
+    try {
+      const imgRes = await fetch(imgLayer.content);
+      const blob = await imgRes.blob();
+      const fd = new FormData();
+      fd.append("file", blob, "image.png");
+      if (projectId) fd.append("projectId", projectId);
+      const res = await fetch("/api/ad-editor/bg-remove", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!data.outputUrl) throw new Error(data.error ?? "Bg removal failed");
+      setVersionHistory(prev => [...prev, { url: imgLayer.content, label: `v${prev.length + 1}` }]);
+      updateLayer(imgLayer.id, { content: data.outputUrl });
+    } catch (e) {
+      alert(`Replace background failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    }
+    setBgRemoving(false);
   }
 
   // ── Ideogram Transparent PNG ──
@@ -1175,11 +1216,15 @@ function AdEditorInner() {
           )}
           {aiBgType === "import" && (
             <>
-              <button style={{ ...btnSm, width: "100%", marginBottom: 4 }} onClick={() => bgFileRef.current?.click()}>
-                Import Image
+              <p style={{ fontSize: 9, color: "#8080a0", marginBottom: 6, lineHeight: 1.4 }}>
+                Upload your own background image (JPG/PNG). Will replace current background.
+              </p>
+              <button style={{ ...btnSm, width: "100%", marginBottom: 4, background: "#1e40af", color: "#fff", borderColor: "#3b82f6", fontWeight: 700 }}
+                onClick={() => bgFileRef.current?.click()}>
+                📁 Upload Background from Device
               </button>
               <input ref={bgFileRef} type="file" accept="image/*" style={{ display: "none" }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleBgImport(f); }} />
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleBgImport(f); e.target.value = ""; }} />
             </>
           )}
           {aiBgType === "white" && (
@@ -1195,6 +1240,18 @@ function AdEditorInner() {
                 style={{ ...btnSm, width: "100%", fontSize: 9, borderRadius: 0 }}>Clear</button>
             </div>
           )}
+
+          {/* Apply-to-Image — shown only when user has BOTH an image layer AND a non-white canvas background */}
+          {canvas.layers.some(l => l.type === "image") && canvas.background !== "#FFFFFF" && (
+            <button onClick={handleReplaceImageBg} disabled={bgRemoving}
+              title="AI removes the existing background from your imported image so your new background shows through."
+              style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, background: bgRemoving ? "#2a2a40" : "#d4a843", color: "#000", borderColor: "#d4a843", fontWeight: 700 }}>
+              {bgRemoving ? "Working..." : "🪄 Apply Background to Image"}
+            </button>
+          )}
+          <p style={{ fontSize: 9, color: "#606080", marginTop: 6, lineHeight: 1.4 }}>
+            Tip: To replace an image&apos;s sky/background with a new scene — import or generate a background above, then click <b>Apply Background to Image</b>.
+          </p>
         </div>
 
         {/* ── Ideogram Transparent PNG ── */}
