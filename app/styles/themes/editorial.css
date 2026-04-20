@@ -1,0 +1,368 @@
+/* ══════════════════════════════════════════════════════════════
+   GHS THEMES — editorial.css
+   Dark Editorial Precision — warm pastels on deep charcoal.
+   Ported from update/css/GioHomeStudio Dashboard v13.html with
+   the fixes from GHS_CSS_V13_INTEGRATION_PLAN.md §3 applied.
+   ══════════════════════════════════════════════════════════════ */
+
+:root[data-theme="editorial"] {
+  /* Core surfaces */
+  --bg:         #18161d;                     /* was --paper */
+  --paper:      #18161d;
+  --surface:    rgba(255, 255, 255, 0.06);   /* FIX §3.2: raised from 0.035 → 0.06 for more solid cards */
+  --surface2:   rgba(255, 255, 255, 0.09);
+  --surface3:   rgba(255, 255, 255, 0.12);
+  --card:       rgba(255, 255, 255, 0.06);
+
+  /* Ink (text) */
+  --text:   #f2efe8;
+  --text2:  #c9c4b8;
+  --text3:  #857f72;
+  --ink:    #f2efe8;
+  --ink-2:  #c9c4b8;
+  --mute:   #857f72;
+  --mute-2: #625d53;
+
+  /* Warm pastel palette (dialed ~40% against charcoal) */
+  --lilac:    #b8a5e8;
+  --lav:      #c7b8ec;
+  --sky:      #e0cca8;   /* warm sand */
+  --blue:     #8ea8d1;
+  --indigo:   #9a8ee0;
+  --magenta:  #d9b8a0;   /* warm clay */
+  --pink:     #d8a8c0;
+  --mint:     #b8cdb0;
+  --gold:     #d4a87a;   /* warm gold */
+  --coral:    #d9a898;
+
+  /* Primary accent = indigo, like v13 */
+  --accent:       var(--indigo);
+  --accent-soft:  rgba(154, 142, 224, 0.10);
+  --accent-glow:  rgba(154, 142, 224, 0.22);
+
+  /* Borders */
+  --line:     rgba(242, 239, 232, 0.07);
+  --line-2:   rgba(242, 239, 232, 0.14);
+  --border:   rgba(242, 239, 232, 0.07);
+  --border2:  rgba(242, 239, 232, 0.14);
+
+  /* Status colours (warm variants that play with pastels) */
+  --success: #9bcf9b;
+  --warning: #e0c088;
+  --danger:  #d89090;
+  --info:    #9ab8d8;
+
+  /* Fonts */
+  --font-display: 'Geist', system-ui, sans-serif;
+  --font-serif:   'Instrument Serif', Georgia, serif;
+  --font-mono:    'JetBrains Mono', monospace;
+
+  /* Editorial-only custom properties (used by utility classes below) */
+  --blur-sidebar: 14px;   /* FIX §3.2: reduced from 28px → 14px */
+  --blur-card:    10px;
+  --mesh-opacity: 0.25;   /* FIX §3.2: capped at 0.25 max */
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Registered angle property (for conic-gradient animations)
+   ══════════════════════════════════════════════════════════════ */
+@property --ghs-ang {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Keyframes (scoped-safe global names, prefixed)
+   ══════════════════════════════════════════════════════════════ */
+@keyframes ghs-rise       { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes ghs-fadeIn     { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ghs-float-y    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ghs-spin       { to { transform: rotate(360deg); } }
+@keyframes ghs-spinAng    { to { --ghs-ang: 360deg; } }
+@keyframes ghs-shimmer    { to { transform: translateX(100%); } }
+@keyframes ghs-pulse      { 0%, 100% { box-shadow: 0 0 0 0 rgba(184, 205, 176, 0.6); } 50% { box-shadow: 0 0 0 10px rgba(184, 205, 176, 0); } }
+@keyframes ghs-mesh-d1    { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(70px, 50px) scale(1.1); } }
+@keyframes ghs-mesh-d2    { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-60px, 70px) scale(1.15); } }
+@keyframes ghs-mesh-d3    { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(50px, -60px) scale(1.08); } }
+@keyframes ghs-mesh-d4    { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-40px, 40px) scale(1.2); } }
+@keyframes ghs-sweep      { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+@keyframes ghs-ring-hover { 0% { box-shadow: 0 0 0 0 rgba(209, 123, 255, 0.55); } 100% { box-shadow: 0 0 0 18px rgba(209, 123, 255, 0); } }
+/* NOTE: the old infinite `animation: ring 2s ease-out infinite` was REMOVED per §3.2.
+   ghs-ring-hover is now only triggered on :hover of the primary action, see .ghs-roll below. */
+
+/* ══════════════════════════════════════════════════════════════
+   Editorial-scoped utility classes
+   Everything below lives only when data-theme="editorial" is set.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Mesh blob background ─────────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-mesh {
+  position: fixed;
+  inset: -10%;
+  z-index: 0;
+  pointer-events: none;
+  filter: blur(110px) saturate(0.85);
+  opacity: var(--mesh-opacity);
+}
+:root[data-theme="editorial"] .ghs-mesh .b {
+  position: absolute;
+  border-radius: 50%;
+}
+/* Each blob opacity individually capped at 0.25 max (was 0.38–0.62 in v13) */
+:root[data-theme="editorial"] .ghs-mesh .b1 { width: 680px; height: 680px; background: var(--lav);     top: -12%;   left: -8%;  animation: ghs-mesh-d1 22s ease-in-out infinite; opacity: 0.25; }
+:root[data-theme="editorial"] .ghs-mesh .b2 { width: 580px; height: 580px; background: var(--sky);     top:  18%;   right: -10%; animation: ghs-mesh-d2 26s ease-in-out infinite; opacity: 0.22; }
+:root[data-theme="editorial"] .ghs-mesh .b3 { width: 560px; height: 560px; background: var(--magenta); bottom: -22%; left: 28%;  animation: ghs-mesh-d3 28s ease-in-out infinite; opacity: 0.20; }
+:root[data-theme="editorial"] .ghs-mesh .b4 { width: 420px; height: 420px; background: var(--lilac);   top: 60%;    left: 8%;   animation: ghs-mesh-d4 24s ease-in-out infinite; opacity: 0.18; }
+:root[data-theme="editorial"] .ghs-mesh .b5 { width: 300px; height: 300px; background: var(--coral);   top: 5%;     left: 45%;  animation: ghs-mesh-d1 30s ease-in-out infinite; opacity: 0.15; }
+
+/* ── Fine grid overlay with radial mask ──────────────────────── */
+:root[data-theme="editorial"] .ghs-grid-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(91, 79, 224, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91, 79, 224, 0.035) 1px, transparent 1px);
+  background-size: 64px 64px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 30%, transparent 100%);
+          mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, black 30%, transparent 100%);
+}
+
+/* ── Typography helpers ───────────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  color: var(--indigo);
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+:root[data-theme="editorial"] .ghs-kicker::before {
+  content: "";
+  width: 22px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--indigo), var(--magenta));
+  border-radius: 2px;
+}
+
+:root[data-theme="editorial"] .ghs-h1 {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(40px, 5.4vw, 68px);
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+  color: var(--ink);
+}
+:root[data-theme="editorial"] .ghs-h1 em {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  background: linear-gradient(100deg, var(--indigo), var(--lilac), var(--sky), var(--magenta), var(--indigo));
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+  animation: ghs-sweep 5s ease-in-out infinite;
+  padding: 0 0.03em;
+}
+
+:root[data-theme="editorial"] .ghs-label-mono {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--mute);
+  text-transform: uppercase;
+}
+
+/* ── Card primitives ──────────────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-card {
+  background: var(--card);                   /* 0.06 alpha — fixed per §3.2 */
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  padding: 20px 22px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 16px 40px -20px rgba(91, 79, 224, 0.18);
+  transition: transform 0.2s var(--e-soft), box-shadow 0.2s var(--e-soft);
+}
+:root[data-theme="editorial"] .ghs-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset, 0 32px 60px -18px rgba(91, 79, 224, 0.42);
+}
+
+/* Gradient-border (conic) card — used for wallet / compose */
+:root[data-theme="editorial"] .ghs-border-conic {
+  position: relative;
+  border-radius: var(--radius-2xl);
+  padding: 1.5px;
+  background: conic-gradient(from var(--ghs-ang, 0deg), var(--lilac), var(--sky), var(--magenta), var(--indigo), var(--lilac));
+  animation: ghs-spinAng 12s linear infinite;
+  box-shadow: 0 30px 60px -30px rgba(91, 79, 224, 0.4);
+}
+:root[data-theme="editorial"] .ghs-border-conic-inner {
+  background: rgba(24, 22, 29, 0.92);        /* dark inner, prevents the jarring "white inline card" per §3.2 */
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: calc(var(--radius-2xl) - 1.5px);
+  padding: 20px 22px 18px;
+}
+
+/* ── Pills / chips ────────────────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--ink-2);
+  text-transform: uppercase;
+  backdrop-filter: blur(var(--blur-card));
+  -webkit-backdrop-filter: blur(var(--blur-card));
+}
+:root[data-theme="editorial"] .ghs-pill .d {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--mint), var(--sky));
+  animation: ghs-pulse 1.8s ease-in-out infinite;
+}
+
+:root[data-theme="editorial"] .ghs-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-2);
+  color: var(--ink-2);
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.2s var(--e-soft);
+  background: transparent;
+}
+:root[data-theme="editorial"] .ghs-chip:hover {
+  border-color: var(--indigo);
+  color: var(--indigo);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px -4px rgba(91, 79, 224, 0.3);
+}
+:root[data-theme="editorial"] .ghs-chip.on {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--indigo), var(--magenta));
+  color: #fff;
+}
+
+/* ── Primary action button ("roll") ──────────────────────────── */
+/* FIX §3.2: removed `animation: ring 2s ease-out infinite`.
+   Now the ring only fires on :hover, per Henry's note. */
+:root[data-theme="editorial"] .ghs-roll {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(135deg, var(--indigo), var(--magenta));
+  color: #fff;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 10px 22px -8px rgba(209, 123, 255, 0.6);
+  position: relative;
+  overflow: hidden;
+  border: none;
+  transition: transform 0.25s var(--e-bounce), box-shadow 0.25s, filter 0.2s;
+}
+:root[data-theme="editorial"] .ghs-roll:hover {
+  transform: scale(1.06);
+  filter: brightness(1.1);
+  box-shadow: 0 14px 28px -8px rgba(209, 123, 255, 0.75);
+  animation: ghs-ring-hover 1.2s ease-out;   /* ← pulse only fires on hover */
+}
+
+/* ── Ghost / secondary button ────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-btn-ghost {
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+:root[data-theme="editorial"] .ghs-btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--line-2);
+  color: var(--ink);
+}
+
+/* ── Stat-card value (gradient text — only for 24px+ headlines) ── */
+:root[data-theme="editorial"] .ghs-stat-value {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 46px;              /* §3.3: keep gradient text only for 24px+ */
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  background: linear-gradient(135deg, var(--indigo), var(--lilac));
+  -webkit-background-clip: text;
+          background-clip: text;
+  color: transparent;
+}
+
+/* ── Alert bar ────────────────────────────────────────────────── */
+:root[data-theme="editorial"] .ghs-alert {
+  padding: 14px 18px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(95deg, rgba(245, 166, 35, 0.14), rgba(209, 123, 255, 0.10), rgba(91, 79, 224, 0.08));
+  border: 1px solid rgba(245, 166, 35, 0.3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+:root[data-theme="editorial"] .ghs-alert::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  transform: translateX(-100%);
+  animation: ghs-shimmer 4s linear infinite;
+}
+
+/* ── Scoped link helper ───────────────────────────────────────── */
+:root[data-theme="editorial"] .theme-link {
+  color: var(--indigo);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s var(--e-soft);
+}
+:root[data-theme="editorial"] .theme-link:hover {
+  border-bottom-color: var(--indigo);
+}

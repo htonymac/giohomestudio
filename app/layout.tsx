@@ -12,8 +12,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <head />
+    <html lang="en" data-theme="classic">
+      <head>
+        {/* Apply saved theme before first paint — prevents flash of wrong theme */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{document.documentElement.dataset.theme=localStorage.getItem("ghs_theme")||"classic"}catch(e){}`,
+          }}
+        />
+      </head>
       <body
         className="min-h-screen"
         style={{ background: "var(--bg, #070710)", color: "var(--text, #eeeeff)", fontFamily: "'Outfit', system-ui, sans-serif", fontSize: 13 }}

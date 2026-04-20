@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme layer — loaded once here, scoped under :root[data-theme="…"] */
+@import "./styles/themes/base.css";
+@import "./styles/themes/classic.css";
+@import "./styles/themes/editorial.css";
+
 /* ══════════════════════════════════════════════════════════════
    GioHomeStudio — Signature Design System
    Aurora Glass: African warmth meets futuristic tech
