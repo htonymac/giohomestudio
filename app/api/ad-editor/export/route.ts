@@ -106,9 +106,49 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Build background layer — handle 3 forms: solid color, CSS gradient, or url(image)
+  const bg = (canvas.background ?? "#FFFFFF").trim();
+  let bgSvg = "";
+  let defs = "";
+
+  if (bg.startsWith("url(")) {
+    // Embed the referenced image as base64 so the SVG is self-contained for sharp
+    const rawUrl = bg.slice(4, -1).replace(/^["']|["']$/g, "");
+    const relPath = rawUrl.replace(/^\/api\/media\//, "");
+    const absPath = path.join(env.storagePath, relPath);
+    if (fs.existsSync(absPath)) {
+      const buf = fs.readFileSync(absPath);
+      const ext = absPath.toLowerCase().endsWith(".png") ? "png" : absPath.toLowerCase().endsWith(".webp") ? "webp" : "jpeg";
+      const b64 = buf.toString("base64");
+      bgSvg = `<image x="0" y="0" width="${w}" height="${h}" href="data:image/${ext};base64,${b64}" preserveAspectRatio="xMidYMid slice"/>`;
+    } else {
+      bgSvg = `<rect width="${w}" height="${h}" fill="#FFFFFF"/>`;
+    }
+  } else if (bg.startsWith("linear-gradient") || bg.startsWith("radial-gradient") || bg.startsWith("conic-gradient")) {
+    // Simple gradient support: parse "linear-gradient(deg, colorA, colorB)" only
+    const m = bg.match(/linear-gradient\(([^,]+),\s*([^,]+)(?:,\s*([^)]+))?\)/);
+    if (m) {
+      const angle = m[1].trim();
+      const stops = [m[2], m[3]].filter(Boolean).map(s => s?.trim() ?? "");
+      const deg = parseFloat(angle) || 0;
+      const rad = (deg - 90) * Math.PI / 180;
+      const x1 = 50 + Math.cos(rad) * 50, y1 = 50 + Math.sin(rad) * 50;
+      const x2 = 50 - Math.cos(rad) * 50, y2 = 50 - Math.sin(rad) * 50;
+      defs = `<defs><linearGradient id="bgGrad" x1="${x2}%" y1="${y2}%" x2="${x1}%" y2="${y1}%">` +
+        stops.map((s, i) => `<stop offset="${i * 100 / Math.max(1, stops.length - 1)}%" stop-color="${s}"/>`).join("") +
+        `</linearGradient></defs>`;
+      bgSvg = `<rect width="${w}" height="${h}" fill="url(#bgGrad)"/>`;
+    } else {
+      bgSvg = `<rect width="${w}" height="${h}" fill="#FFFFFF"/>`;
+    }
+  } else {
+    bgSvg = `<rect width="${w}" height="${h}" fill="${bg}"/>`;
+  }
+
   // Build full SVG
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-  <rect width="${w}" height="${h}" fill="${canvas.background}"/>
+  ${defs}
+  ${bgSvg}
   ${svgLayers.join("\n  ")}
 </svg>`;
 

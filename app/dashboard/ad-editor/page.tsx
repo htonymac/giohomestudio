@@ -416,23 +416,59 @@ function AdEditorInner() {
   }
 
   // ── Background remove ──
+  // Handles both: (a) an <image> layer, or (b) canvas.background when set to url(...)
+  // Provider default: fal.ai Birefnet → Segmind (Pruna) → remove.bg (fallback)
   async function handleBgRemove() {
     const imgLayer = canvas.layers.find(l => l.type === "image");
-    if (!imgLayer) return;
+
+    // Case B: canvas has a URL background (from AI Background / Import) and no image layer
+    const bgIsUrl = typeof canvas.background === "string" && canvas.background.startsWith("url(");
+    const bgUrl = bgIsUrl ? canvas.background.slice(4, -1).replace(/^["']|["']$/g, "") : null;
+
+    if (!imgLayer && !bgUrl) {
+      alert("No image to process. Import an image, generate a background, or add an image layer first.");
+      return;
+    }
+
     setBgRemoving(true);
     try {
-      // Fetch the image file, send to bg-remove API
-      const imgRes = await fetch(imgLayer.content);
+      const sourceUrl = imgLayer?.content ?? bgUrl!;
+      const imgRes = await fetch(sourceUrl);
+      if (!imgRes.ok) throw new Error("Could not fetch image");
       const blob = await imgRes.blob();
       const fd = new FormData();
       fd.append("file", blob, "image.png");
       if (projectId) fd.append("projectId", projectId);
       const res = await fetch("/api/ad-editor/bg-remove", { method: "POST", body: fd });
       const data = await res.json();
-      if (data.outputUrl) {
+      if (!data.outputUrl) throw new Error(data.error ?? "Background removal failed");
+
+      if (imgLayer) {
+        // Replace layer content in-place
+        setVersionHistory(prev => [...prev, { url: imgLayer.content, label: `v${prev.length + 1}` }]);
         updateLayer(imgLayer.id, { content: data.outputUrl });
+      } else {
+        // Promote the URL background to an image layer so user can see/move/edit
+        setCanvas(prev => {
+          const newLayer: AdLayer = {
+            id: `img_${Date.now()}`,
+            type: "image",
+            position: { x: 0, y: 0 },
+            size: { width: prev.width, height: prev.height },
+            rotation: 0,
+            zIndex: 0,
+            locked: false,
+            visible: true,
+            content: data.outputUrl,
+            style: { opacity: 1 },
+          };
+          return { ...prev, background: "#FFFFFF", layers: [newLayer, ...prev.layers] };
+        });
+        setAiBgResult(null);
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      alert(`Background removal failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    }
     setBgRemoving(false);
   }
 
@@ -875,8 +911,14 @@ function AdEditorInner() {
           onBlur={e => { e.target.style.borderColor = "transparent"; }}
         />
         <button onClick={() => saveProject()} disabled={saving}
+          title="Save project to cloud (DB) — your work is kept safe"
           style={{ ...btnSm, fontSize: 10, background: saving ? "#2a2a40" : "#7c5cfc", color: "#fff", borderColor: "#7c5cfc" }}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving..." : "💾 Save Project"}
+        </button>
+        <button onClick={() => handleExport("png")} disabled={exporting}
+          title="Download current canvas as PNG to your device"
+          style={{ ...btnSm, fontSize: 10, background: exporting ? "#2a2a40" : "#10b981", color: "#fff", borderColor: "#10b981" }}>
+          {exporting ? "..." : "⬇️ Download PNG"}
         </button>
         <button onClick={newProject} style={{ ...btnSm, fontSize: 10 }}>New</button>
         <button onClick={() => setShowProjectPicker(!showProjectPicker)} style={{ ...btnSm, fontSize: 10 }}>
@@ -988,11 +1030,19 @@ function AdEditorInner() {
             ))}
             <button onClick={() => { setBgGradient(null); }} style={{ ...btnSm, fontSize: 8, padding: "2px 6px" }}>Clear</button>
           </div>
-          {/* BG Remove */}
-          <button onClick={handleBgRemove} disabled={bgRemoving || !canvas.layers.some(l => l.type === "image")}
-            style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, opacity: bgRemoving ? 0.5 : 1 }}>
-            {bgRemoving ? "Removing..." : "Remove Background (AI)"}
-          </button>
+          {/* BG Remove — works on image layer OR url() background */}
+          {(() => {
+            const hasImageLayer = canvas.layers.some(l => l.type === "image");
+            const hasUrlBg = typeof canvas.background === "string" && canvas.background.startsWith("url(");
+            const canRemove = hasImageLayer || hasUrlBg;
+            return (
+              <button onClick={handleBgRemove} disabled={bgRemoving || !canRemove}
+                title={canRemove ? "Removes the background using FAL Birefnet AI" : "Import or generate an image first"}
+                style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, opacity: bgRemoving || !canRemove ? 0.5 : 1 }}>
+                {bgRemoving ? "Removing…" : "✂️ Remove Background (Birefnet)"}
+              </button>
+            );
+          })()}
           {/* Studio Shadow */}
           <button onClick={() => {
             const imgLayer = canvas.layers.find(l => l.type === "image");

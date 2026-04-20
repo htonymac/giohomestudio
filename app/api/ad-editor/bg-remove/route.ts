@@ -1,6 +1,7 @@
 // POST /api/ad-editor/bg-remove — remove background from uploaded image
-// Provider-agnostic: tries fal.ai, then Segmind, then returns error
-// Returns { outputPath, provider } or { error }
+// Provider ladder (default): fal.ai Birefnet → Segmind (Pruna) → remove.bg
+// User never sees a "no credit" error — silent fallback.
+// Returns { outputUrl, outputPath, provider } or { error }
 
 import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
