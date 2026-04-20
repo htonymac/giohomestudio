@@ -137,6 +137,7 @@ export async function POST(req: NextRequest) {
 
   // Step 3: Generate reference images (fire and forget — non-blocking)
   const imagePrompts = parsed.imagePrompts as Record<string, string> | undefined;
+  const imageModelId = typeof body.imageModelId === "string" ? body.imageModelId : "fal_flux_schnell";
   const generatedImages: Array<{ angle: string; url: string; label: string }> = [];
 
   if (imagePrompts) {
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
               prompt,
               width: 768,
               height: 768,
+              modelId: imageModelId,
             }),
           });
           if (!imgRes.ok) return null;

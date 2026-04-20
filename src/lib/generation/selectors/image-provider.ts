@@ -46,31 +46,8 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
   let imageBuffer: Buffer | undefined;
   let imageUrl: string | undefined;
 
-  if (model.gateway === "segmind") {
-    // Use p-image (text-to-image). Character consistency enforced by:
-    // 1. Character description placed FIRST in prompt
-    // 2. [CHARACTER LOCK] identity block repeated at end
-    // p-image-edit requires public image_urls which cannot be served locally.
-    const result = await segmindGenerateImage({
-      endpoint: model.endpoint_id,
-      prompt: req.prompt,
-      negativePrompt: req.negativePrompt,
-      width: req.width,
-      height: req.height,
-      seed: req.seed,
-    });
-    if (!result.success) {
-      // Segmind unavailable — fall back to FAL flux/schnell
-      console.warn(`[ImageProvider] Segmind failed (${result.error}) — falling back to FAL flux/schnell`);
-      const falResult = await falGenerateImage({ endpoint: "fal-ai/flux/schnell", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
-      if (!falResult.success) return { success: false, error: falResult.error, model };
-      if (falResult.imageUrl) {
-        imageBuffer = await downloadFalMedia(falResult.imageUrl);
-      }
-    } else {
-      imageBuffer = result.data;
-    }
-  } else if (model.gateway === "fal") {
+  if (model.gateway === "fal") {
+    // Primary: FAL flux/schnell ($0.003/image). Fallback: Segmind p-image.
     const result = await falGenerateImage({
       endpoint: model.endpoint_id,
       prompt: req.prompt,
@@ -80,14 +57,34 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
       seed: req.seed,
     });
     if (!result.success) {
-      // FAL failed — try Kie z-image-turbo as fallback
-      console.warn(`[ImageProvider] FAL failed (${result.error}) — falling back to Kie z-image-turbo`);
-      const kieResult = await kieGenerateImage({ endpoint_id: "z-image-turbo", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
-      if (!kieResult.success) return { success: false, error: `FAL: ${result.error} | Kie fallback: ${kieResult.error}`, model };
-      imageBuffer = kieResult.data;
+      console.warn(`[ImageProvider] FAL failed (${result.error}) — falling back to Segmind p-image`);
+      const segResult = await segmindGenerateImage({ endpoint: "p-image", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
+      if (!segResult.success) return { success: false, error: `FAL: ${result.error} | Segmind fallback: ${segResult.error}`, model };
+      imageBuffer = segResult.data;
     } else {
       imageUrl = result.imageUrl;
       if (imageUrl) imageBuffer = await downloadFalMedia(imageUrl);
+    }
+  } else if (model.gateway === "segmind") {
+    // Use p-image (text-to-image). Character consistency enforced by:
+    // 1. Character description placed FIRST in prompt
+    // 2. [CHARACTER LOCK] identity block repeated at end
+    const result = await segmindGenerateImage({
+      endpoint: model.endpoint_id,
+      prompt: req.prompt,
+      negativePrompt: req.negativePrompt,
+      width: req.width,
+      height: req.height,
+      seed: req.seed,
+    });
+    if (!result.success) {
+      // Segmind failed — fall back to FAL flux/schnell
+      console.warn(`[ImageProvider] Segmind failed (${result.error}) — falling back to FAL flux/schnell`);
+      const falResult = await falGenerateImage({ endpoint: "fal-ai/flux/schnell", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
+      if (!falResult.success) return { success: false, error: falResult.error, model };
+      if (falResult.imageUrl) imageBuffer = await downloadFalMedia(falResult.imageUrl);
+    } else {
+      imageBuffer = result.data;
     }
   } else if (model.gateway === "kie") {
     const result = await kieGenerateImage({
