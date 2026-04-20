@@ -323,6 +323,21 @@ function AdEditorInner() {
   const [aiError, setAiError] = useState("");
   const [versionHistory, setVersionHistory] = useState<{ url: string; label: string }[]>([]);
 
+  // ── Left-panel 4-tab navigation ──
+  const [leftTab, setLeftTab] = useState<"setup" | "ai" | "content" | "audio">("setup");
+
+  // ── Model selector state (per AI action) ──
+  const [selectedImageModel, setSelectedImageModel] = useState<string>("fal_flux_schnell");
+  const [selectedBgModel, setSelectedBgModel] = useState<string>("segmind_pruna");
+  const [availableModels, setAvailableModels] = useState<{ id: string; display_name: string; provider_name: string; type: string; cost_to_henry: number }[]>([]);
+
+  // ── Clarification modal state ──
+  const [clarifyOpen, setClarifyOpen] = useState(false);
+  const [clarifyQuestions, setClarifyQuestions] = useState<string[]>([]);
+  const [clarifyAnswers, setClarifyAnswers] = useState<string[]>([]);
+  const [clarifyOriginalPrompt, setClarifyOriginalPrompt] = useState("");
+  const [clarifyContinue, setClarifyContinue] = useState<((finalPrompt: string) => void) | null>(null);
+
   const selectedLayer = canvas.layers.find(l => l.id === selectedId) ?? null;
 
   // ── Load project list on mount ──
@@ -331,6 +346,65 @@ function AdEditorInner() {
       if (d.projects) setProjectList(d.projects);
     }).catch(() => {});
   }, []);
+
+  // ── Load available models + saved choices from localStorage (once) ──
+  useEffect(() => {
+    fetch("/api/settings/models")
+      .then(r => r.json())
+      .then(d => setAvailableModels(Array.isArray(d.models) ? d.models : []))
+      .catch(() => {});
+    try {
+      const savedImg = localStorage.getItem("ghs_ad_editor_image_model");
+      if (savedImg) setSelectedImageModel(savedImg);
+      const savedBg = localStorage.getItem("ghs_ad_editor_bg_model");
+      if (savedBg) setSelectedBgModel(savedBg);
+    } catch { /* ignore */ }
+  }, []);
+
+  // Persist model choices
+  useEffect(() => {
+    try { localStorage.setItem("ghs_ad_editor_image_model", selectedImageModel); } catch { /* ignore */ }
+  }, [selectedImageModel]);
+  useEffect(() => {
+    try { localStorage.setItem("ghs_ad_editor_bg_model", selectedBgModel); } catch { /* ignore */ }
+  }, [selectedBgModel]);
+
+  // ── Clarification helper ──
+  // Wraps a generation action: pre-checks whether prompt is vague and opens a
+  // clarification modal. Resolves to a (possibly refined) prompt.
+  const GENERIC_PROMPT_RE = /^\s*(generate|make|create|draw|design)\s+(a|an|the)?\s*(image|bg|background|picture|pic|photo|scene)\s*\.?\s*$/i;
+  async function clarifyPromptIfNeeded(prompt: string, context: "image" | "video" | "bg"): Promise<string | null> {
+    const p = prompt.trim();
+    if (!p) return prompt;
+    // Only trigger for clearly-short or clearly-generic prompts — specific prompts skip the network call.
+    const shouldCheck = p.length < 15 || GENERIC_PROMPT_RE.test(p);
+    if (!shouldCheck) return prompt;
+
+    try {
+      const res = await fetch("/api/llm/clarify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, context }),
+      });
+      const data = await res.json();
+      if (!data?.needsClarification || !Array.isArray(data.clarifications) || data.clarifications.length === 0) {
+        return typeof data?.refinedPrompt === "string" && data.refinedPrompt ? data.refinedPrompt : prompt;
+      }
+      // Open the modal and wait for the user.
+      return await new Promise<string | null>((resolve) => {
+        setClarifyQuestions(data.clarifications as string[]);
+        setClarifyAnswers(new Array((data.clarifications as string[]).length).fill(""));
+        setClarifyOriginalPrompt(prompt);
+        setClarifyContinue(() => (finalPrompt: string) => {
+          setClarifyOpen(false);
+          resolve(finalPrompt);
+        });
+        setClarifyOpen(true);
+      });
+    } catch {
+      return prompt; // silent pass-through
+    }
+  }
 
   // ── Load project from URL ?project=ID ──
   useEffect(() => {
@@ -512,12 +586,15 @@ function AdEditorInner() {
   // ── AI Background generation ──
   async function handleAiBg() {
     if (!aiBgPrompt.trim()) return;
+    const clarified = await clarifyPromptIfNeeded(aiBgPrompt, "bg");
+    if (clarified === null) return; // user skipped and we explicitly cancelled — treat as no-op
+    const finalPrompt = clarified || aiBgPrompt;
     setAiBgLoading(true);
     try {
       const res = await fetch("/api/ad-editor/ai-edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "text_to_image", prompt: aiBgPrompt + " background, no text, full scene", projectId }),
+        body: JSON.stringify({ mode: "text_to_image", prompt: finalPrompt + " background, no text, full scene", projectId, modelId: selectedBgModel }),
       });
       const data = await res.json();
       if (data.outputUrl) {
@@ -585,12 +662,15 @@ function AdEditorInner() {
   // ── Ideogram Transparent PNG ──
   async function handleIdeogramTransparent() {
     if (!ideogramPrompt.trim()) return;
+    const clarified = await clarifyPromptIfNeeded(ideogramPrompt, "image");
+    if (clarified === null) return;
+    const finalPrompt = clarified || ideogramPrompt;
     setIdeogramLoading(true);
     try {
       const res = await fetch("/api/ad-editor/ideogram-transparent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: ideogramPrompt, projectId }),
+        body: JSON.stringify({ prompt: finalPrompt, projectId, modelId: selectedImageModel }),
       });
       const data = await res.json();
       if (data.outputUrl) {
@@ -654,6 +734,13 @@ function AdEditorInner() {
   // ── AI Edit ──
   async function handleAiEdit() {
     if (!aiPrompt.trim()) return;
+    // Only run clarification for text_to_image generate (vague prompts); edit modes already have an image as context
+    let promptToUse = aiPrompt;
+    if (aiMode === "text_to_image") {
+      const clarified = await clarifyPromptIfNeeded(aiPrompt, "image");
+      if (clarified === null) return;
+      promptToUse = clarified || aiPrompt;
+    }
     setAiLoading(true);
     setAiError("");
     try {
@@ -671,7 +758,7 @@ function AdEditorInner() {
       const res = await fetch("/api/ad-editor/ai-edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: aiMode, prompt: aiPrompt, imageBase64, imageMime, projectId }),
+        body: JSON.stringify({ mode: aiMode, prompt: promptToUse, imageBase64, imageMime, projectId, modelId: selectedImageModel }),
       });
       const data = await res.json();
       if (data.outputUrl) {
@@ -1039,8 +1126,40 @@ function AdEditorInner() {
     <div style={{ display: "flex", gap: 0, flex: 1, overflow: "hidden" }}>
 
       {/* ── LEFT PANEL — Tools ── */}
-      <div style={{ width: 240, flexShrink: 0, background: panelBg, borderRight: `1px solid ${panelBorder}`, overflowY: "auto", padding: "16px 14px" }}>
-        {/* Templates */}
+      <div style={{ width: 240, flexShrink: 0, background: panelBg, borderRight: `1px solid ${panelBorder}`, overflowY: "auto", padding: "0" }}>
+        {/* Tab bar — sticky */}
+        <div style={{ position: "sticky", top: 0, zIndex: 10, background: panelBg, borderBottom: `1px solid ${panelBorder}`, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", height: 36 }}>
+          {([
+            { id: "setup" as const,   icon: "📐", label: "Setup" },
+            { id: "ai" as const,      icon: "✨", label: "AI" },
+            { id: "content" as const, icon: "🎨", label: "Content" },
+            { id: "audio" as const,   icon: "🎙", label: "Audio" },
+          ]).map(t => (
+            <button
+              key={t.id}
+              onClick={() => setLeftTab(t.id)}
+              title={t.label}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                fontSize: 10, fontWeight: 700,
+                color: leftTab === t.id ? "#a080ff" : "#6060a0",
+                background: leftTab === t.id ? "rgba(124,92,252,0.12)" : "transparent",
+                borderBottom: leftTab === t.id ? "2px solid #7c5cfc" : "2px solid transparent",
+                borderTop: "none", borderLeft: "none", borderRight: "none",
+                cursor: "pointer",
+                padding: 0,
+                transition: "background 0.12s",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ padding: "16px 14px" }}>
+        {/* Templates — SETUP */}
+        {leftTab === "setup" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>Ad Templates</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1053,8 +1172,10 @@ function AdEditorInner() {
             ))}
           </div>
         </div>
+        )}
 
-        {/* Upload */}
+        {/* Upload — SETUP */}
+        {leftTab === "setup" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>Image</p>
           <button style={{ ...btnSm, width: "100%", marginBottom: 6 }} onClick={() => fileInputRef.current?.click()}>
@@ -1063,8 +1184,10 @@ function AdEditorInner() {
           <input ref={fileInputRef} type="file" accept="image/*" style={{ display: "none" }}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); }} />
         </div>
+        )}
 
-        {/* Crop */}
+        {/* Crop — SETUP */}
+        {leftTab === "setup" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>Crop / Size</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1081,8 +1204,10 @@ function AdEditorInner() {
             <input type="number" value={canvas.height} onChange={e => setCanvas(prev => ({ ...prev, height: Number(e.target.value) || 1080 }))} style={{ ...inputSm, width: 70 }} />
           </div>
         </div>
+        )}
 
-        {/* Background */}
+        {/* Background — SETUP */}
+        {leftTab === "setup" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>Background — pick a color</p>
           <p style={{ fontSize: 9, color: "#8080a0", marginBottom: 6 }}>
@@ -1154,8 +1279,10 @@ function AdEditorInner() {
             {enhancing ? "Enhancing..." : "Enhance Image (AI)"}
           </button>
         </div>
+        )}
 
-        {/* Text */}
+        {/* Text — CONTENT */}
+        {leftTab === "content" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>Text</p>
           <button style={{ ...btnSm, width: "100%", marginBottom: 4 }} onClick={() => addTextBlock("Product Name")}>+ Product Title</button>
@@ -1170,8 +1297,10 @@ function AdEditorInner() {
             </select>
           </div>
         </div>
+        )}
 
-        {/* WhatsApp */}
+        {/* WhatsApp — CONTENT */}
+        {leftTab === "content" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>WhatsApp / Contact</p>
           {WHATSAPP_PRESETS.map(p => (
@@ -1181,8 +1310,10 @@ function AdEditorInner() {
             </button>
           ))}
         </div>
+        )}
 
-        {/* CTA */}
+        {/* CTA — CONTENT */}
+        {leftTab === "content" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>CTA Stickers</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
@@ -1191,8 +1322,10 @@ function AdEditorInner() {
             ))}
           </div>
         </div>
+        )}
 
-        {/* AI Edit */}
+        {/* AI Edit — AI */}
+        {leftTab === "ai" && (
         <div style={{ marginBottom: 16 }}>
           <p style={sectionTitle}>AI Image Edit</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 6 }}>
@@ -1211,14 +1344,27 @@ function AdEditorInner() {
           <textarea value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} rows={2}
             placeholder={aiMode === "text_to_image" ? "Describe the image to generate..." : "e.g. remove background, make luxury, add premium lighting..."}
             style={{ ...inputSm, resize: "vertical", marginBottom: 6, fontSize: 11 }} />
+          {/* Model selector */}
+          <label style={{ fontSize: 9, color: "#6060a0", display: "block", marginBottom: 2 }}>Model</label>
+          <select value={selectedImageModel} onChange={e => setSelectedImageModel(e.target.value)}
+            style={{ width: "100%", fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid #2a2a40", background: "#1a1a2e", color: "#d4a843", marginBottom: 6, cursor: "pointer" }}>
+            {availableModels.filter(m => m.type === "image" || m.type === "image_edit").map(m => (
+              <option key={m.id} value={m.id}>{m.display_name} — ${m.cost_to_henry.toFixed(3)}</option>
+            ))}
+            {availableModels.filter(m => m.type === "image" || m.type === "image_edit").length === 0 && (
+              <option value={selectedImageModel}>{selectedImageModel}</option>
+            )}
+          </select>
           <button onClick={handleAiEdit} disabled={aiLoading || !aiPrompt.trim()}
             style={{ ...btnSm, width: "100%", background: aiLoading ? "#2a2a40" : "#7c5cfc", color: aiLoading ? "#6060a0" : "#fff", borderColor: "#7c5cfc" }}>
             {aiLoading ? "Processing..." : aiMode === "text_to_image" ? "Generate Image" : "Edit with AI"}
           </button>
           {aiError && <p style={{ fontSize: 10, color: "#f87171", marginTop: 4 }}>{aiError}</p>}
         </div>
+        )}
 
-        {/* ── AI Background ── */}
+        {/* ── AI Background ── AI */}
+        {leftTab === "ai" && (
         <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
           <p style={sectionTitle}>AI Background</p>
           <div style={{ display: "flex", gap: 3, marginBottom: 8 }}>
@@ -1234,6 +1380,17 @@ function AdEditorInner() {
               <textarea value={aiBgPrompt} onChange={e => setAiBgPrompt(e.target.value)} rows={2}
                 placeholder="Describe background scene… e.g. luxury city skyline at sunset"
                 style={{ ...inputSm, resize: "none", marginBottom: 6, fontSize: 11 }} />
+              {/* Model selector */}
+              <label style={{ fontSize: 9, color: "#6060a0", display: "block", marginBottom: 2 }}>Model</label>
+              <select value={selectedBgModel} onChange={e => setSelectedBgModel(e.target.value)}
+                style={{ width: "100%", fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid #2a2a40", background: "#1a1a2e", color: "#d4a843", marginBottom: 6, cursor: "pointer" }}>
+                {availableModels.filter(m => m.type === "image" || m.type === "image_edit").map(m => (
+                  <option key={m.id} value={m.id}>{m.display_name} — ${m.cost_to_henry.toFixed(3)}</option>
+                ))}
+                {availableModels.filter(m => m.type === "image" || m.type === "image_edit").length === 0 && (
+                  <option value={selectedBgModel}>{selectedBgModel}</option>
+                )}
+              </select>
               <button onClick={handleAiBg} disabled={aiBgLoading || !aiBgPrompt.trim()}
                 style={{ ...btnSm, width: "100%", background: aiBgLoading ? "#2a2a40" : "#10b981", color: "#000", borderColor: "#10b981", fontWeight: 700 }}>
                 {aiBgLoading ? "Generating…" : "Generate Background"}
@@ -1279,21 +1436,36 @@ function AdEditorInner() {
             Tip: To replace an image&apos;s sky/background with a new scene — import or generate a background above, then click <b>Apply Background to Image</b>.
           </p>
         </div>
+        )}
 
-        {/* ── Ideogram Transparent PNG ── */}
+        {/* ── Ideogram Transparent PNG ── AI */}
+        {leftTab === "ai" && (
         <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
           <p style={sectionTitle}>Transparent PNG (AI)</p>
           <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Generate an object or logo with no background</p>
           <textarea value={ideogramPrompt} onChange={e => setIdeogramPrompt(e.target.value)} rows={2}
             placeholder="e.g. luxury perfume bottle, gold and black, product photo"
             style={{ ...inputSm, resize: "none", marginBottom: 6, fontSize: 11 }} />
+          {/* Model selector */}
+          <label style={{ fontSize: 9, color: "#6060a0", display: "block", marginBottom: 2 }}>Model</label>
+          <select value={selectedImageModel} onChange={e => setSelectedImageModel(e.target.value)}
+            style={{ width: "100%", fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid #2a2a40", background: "#1a1a2e", color: "#d4a843", marginBottom: 6, cursor: "pointer" }}>
+            {availableModels.filter(m => m.type === "image" || m.type === "image_edit").map(m => (
+              <option key={m.id} value={m.id}>{m.display_name} — ${m.cost_to_henry.toFixed(3)}</option>
+            ))}
+            {availableModels.filter(m => m.type === "image" || m.type === "image_edit").length === 0 && (
+              <option value={selectedImageModel}>{selectedImageModel}</option>
+            )}
+          </select>
           <button onClick={handleIdeogramTransparent} disabled={ideogramLoading || !ideogramPrompt.trim()}
             style={{ ...btnSm, width: "100%", background: ideogramLoading ? "#2a2a40" : "rgba(168,85,247,0.15)", color: "#a855f7", borderColor: "#a855f740", fontWeight: 700 }}>
             {ideogramLoading ? "Generating…" : "Generate Transparent PNG"}
           </button>
         </div>
+        )}
 
-        {/* ── Layerize Text ── */}
+        {/* ── Layerize Text ── AI */}
+        {leftTab === "ai" && (
         <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
           <p style={sectionTitle}>Extract Text Layers (AI)</p>
           <p style={{ fontSize: 9, color: "#505070", marginBottom: 6 }}>Upload or use an existing image layer — AI separates text from background</p>
@@ -1324,8 +1496,10 @@ function AdEditorInner() {
             </div>
           )}
         </div>
+        )}
 
-        {/* ── Gemini TTS Voice-Over ── */}
+        {/* ── Gemini TTS Voice-Over ── AUDIO */}
+        {leftTab === "audio" && (
         <div style={{ marginBottom: 16, borderTop: "1px solid #1e1e30", paddingTop: 14 }}>
           <p style={sectionTitle}>Voice-Over (Gemini TTS)</p>
           <textarea value={ttsText} onChange={e => setTtsText(e.target.value)} rows={3}
@@ -1371,9 +1545,10 @@ function AdEditorInner() {
             </div>
           )}
         </div>
+        )}
 
-        {/* Version History */}
-        {versionHistory.length > 0 && (
+        {/* Version History — SETUP */}
+        {leftTab === "setup" && versionHistory.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <p style={sectionTitle}>Version History</p>
             <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
@@ -1388,7 +1563,8 @@ function AdEditorInner() {
           </div>
         )}
 
-        {/* Export */}
+        {/* Export — CONTENT */}
+        {leftTab === "content" && (
         <div>
           <p style={sectionTitle}>Export</p>
           <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
@@ -1420,6 +1596,8 @@ function AdEditorInner() {
               </button>
             ))}
           </div>
+        </div>
+        )}
         </div>
       </div>
 
@@ -1712,6 +1890,78 @@ function AdEditorInner() {
         )}
       </div>
     </div>
+
+    {/* ── Clarification modal ── */}
+    {clarifyOpen && (
+      <div style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000,
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+        onClick={() => { setClarifyOpen(false); if (clarifyContinue) clarifyContinue(clarifyOriginalPrompt); }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 10,
+            padding: 20, maxWidth: 460, width: "100%", boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+          }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#e0e0f0", marginBottom: 4 }}>
+            Let&apos;s make this prompt sharper
+          </p>
+          <p style={{ fontSize: 11, color: "#8080a0", marginBottom: 16, lineHeight: 1.5 }}>
+            Answer a couple of these to guide the AI. You can skip anything you don&apos;t care about.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            {clarifyQuestions.map((q, i) => (
+              <div key={i}>
+                <label style={{ fontSize: 11, color: "#a080ff", fontWeight: 600, display: "block", marginBottom: 4 }}>{q}</label>
+                <input
+                  value={clarifyAnswers[i] ?? ""}
+                  onChange={e => {
+                    const next = [...clarifyAnswers];
+                    next[i] = e.target.value;
+                    setClarifyAnswers(next);
+                  }}
+                  placeholder="Your answer (optional)…"
+                  style={{
+                    width: "100%", fontSize: 12, padding: "7px 10px", borderRadius: 6,
+                    border: "1px solid #2a2a40", background: "#1a1a2e", color: "#e0e0f0", outline: "none",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <button
+              onClick={() => {
+                setClarifyOpen(false);
+                if (clarifyContinue) clarifyContinue(clarifyOriginalPrompt);
+              }}
+              style={{
+                fontSize: 11, padding: "6px 14px", borderRadius: 6, border: "1px solid #2a2a40",
+                background: "transparent", color: "#a0a0c0", cursor: "pointer", fontWeight: 600,
+              }}>
+              Skip
+            </button>
+            <button
+              onClick={() => {
+                const filled = clarifyAnswers.map(a => a.trim()).filter(Boolean);
+                const refined = filled.length > 0
+                  ? `${clarifyOriginalPrompt} — ${filled.join(", ")}`
+                  : clarifyOriginalPrompt;
+                setClarifyOpen(false);
+                if (clarifyContinue) clarifyContinue(refined);
+              }}
+              style={{
+                fontSize: 11, padding: "6px 14px", borderRadius: 6, border: "1px solid #7c5cfc",
+                background: "#7c5cfc", color: "#fff", cursor: "pointer", fontWeight: 700,
+              }}>
+              Continue →
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 }
