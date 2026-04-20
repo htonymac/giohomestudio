@@ -65,14 +65,28 @@ const CROP_PRESETS: { id: CropPreset; label: string; ratio?: number }[] = [
 ];
 
 const BG_PRESETS = [
-  { id: "white", label: "White", color: "#FFFFFF" },
-  { id: "beige", label: "Luxury Beige", color: "#F5F0E8" },
-  { id: "black", label: "Black Premium", color: "#1A1A1A" },
-  { id: "grey", label: "Soft Grey", color: "#E8E8E8" },
-  { id: "charcoal", label: "Charcoal", color: "#333333" },
-  { id: "cream", label: "Cream", color: "#FFF8E7" },
-  { id: "promo_red", label: "Promo Red", color: "#DC2626" },
-  { id: "festive_gold", label: "Festive Gold", color: "#D4A843" },
+  { id: "white",        label: "White",          color: "#FFFFFF" },
+  { id: "black",        label: "Black",          color: "#000000" },
+  { id: "cream",        label: "Cream",          color: "#FFF8E7" },
+  { id: "beige",        label: "Beige",          color: "#F5F0E8" },
+  { id: "grey",         label: "Soft Grey",      color: "#E8E8E8" },
+  { id: "charcoal",     label: "Charcoal",       color: "#333333" },
+  { id: "red",          label: "Red",            color: "#DC2626" },
+  { id: "orange",       label: "Orange",         color: "#F97316" },
+  { id: "yellow",       label: "Yellow",         color: "#FACC15" },
+  { id: "gold",         label: "Gold",           color: "#D4A843" },
+  { id: "green",        label: "Green",          color: "#22C55E" },
+  { id: "teal",         label: "Teal",           color: "#14B8A6" },
+  { id: "sky",          label: "Sky Blue",       color: "#38BDF8" },
+  { id: "blue",         label: "Blue",           color: "#2563EB" },
+  { id: "navy",         label: "Navy",           color: "#1E3A8A" },
+  { id: "purple",       label: "Purple",         color: "#7C3AED" },
+  { id: "pink",         label: "Pink",           color: "#EC4899" },
+  { id: "rose",         label: "Rose",           color: "#F43F5E" },
+  { id: "pastel_pink",  label: "Pastel Pink",    color: "#FBCFE8" },
+  { id: "pastel_blue",  label: "Pastel Blue",    color: "#BFDBFE" },
+  { id: "pastel_green", label: "Pastel Green",   color: "#BBF7D0" },
+  { id: "pastel_yellow",label: "Pastel Yellow",  color: "#FEF08A" },
 ];
 
 const GRADIENT_PRESETS = [
@@ -1070,18 +1084,30 @@ function AdEditorInner() {
 
         {/* Background */}
         <div style={{ marginBottom: 16 }}>
-          <p style={sectionTitle}>Background</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}>
+          <p style={sectionTitle}>Background — pick a color</p>
+          <p style={{ fontSize: 9, color: "#8080a0", marginBottom: 6 }}>
+            Click any color to apply instantly. No AI, no generation — just solid color.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(8, 1fr)", gap: 4, marginBottom: 8 }}>
             {BG_PRESETS.map(p => (
-              <button key={p.id} onClick={() => setCanvas(prev => ({ ...prev, background: p.color }))}
+              <button key={p.id} onClick={() => { setBgGradient(null); setAiBgResult(null); setCanvas(prev => ({ ...prev, background: p.color })); }}
                 title={p.label}
-                style={{ width: 24, height: 24, borderRadius: 4, border: canvas.background === p.color ? "2px solid #7c5cfc" : "1px solid #2a2a40", background: p.color, cursor: "pointer" }} />
+                style={{
+                  aspectRatio: "1/1",
+                  borderRadius: 6,
+                  border: canvas.background === p.color ? "2px solid #7c5cfc" : p.color === "#FFFFFF" ? "1px solid #444" : "1px solid #2a2a40",
+                  background: p.color,
+                  cursor: "pointer",
+                  boxShadow: canvas.background === p.color ? "0 0 0 2px rgba(124,92,252,0.3)" : "none",
+                }} />
             ))}
           </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-            <input type="color" value={customBg} onChange={e => { setCustomBg(e.target.value); setCanvas(prev => ({ ...prev, background: e.target.value })); }}
-              style={{ width: 28, height: 28, border: "none", cursor: "pointer", borderRadius: 4 }} />
-            <span style={{ fontSize: 10, color: "#6060a0" }}>Custom</span>
+          <div style={{ display: "flex", gap: 6, alignItems: "center", padding: "6px 8px", background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 6 }}>
+            <input type="color" value={customBg}
+              onChange={e => { setCustomBg(e.target.value); setBgGradient(null); setAiBgResult(null); setCanvas(prev => ({ ...prev, background: e.target.value })); }}
+              style={{ width: 32, height: 28, border: "none", cursor: "pointer", borderRadius: 4, background: "none", padding: 0 }} />
+            <span style={{ fontSize: 11, color: "#c0c0e0", fontWeight: 600 }}>Pick any color</span>
+            <span style={{ fontSize: 9, color: "#606080", marginLeft: "auto", fontFamily: "monospace" }}>{customBg}</span>
           </div>
           <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
             {(["none", "matte", "gloss"] as const).map(f => (
