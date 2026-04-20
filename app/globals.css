@@ -1,11 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* Theme layer — loaded once here, scoped under :root[data-theme="…"] */
 @import "./styles/themes/base.css";
 @import "./styles/themes/classic.css";
 @import "./styles/themes/editorial.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 /* ══════════════════════════════════════════════════════════════
    GioHomeStudio — Signature Design System
