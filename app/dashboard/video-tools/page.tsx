@@ -2,10 +2,19 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { generateSegments, formatRange, type Segment } from "./segment-utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 type Tool = "trim" | "narrate" | "motion" | "bg_image" | "bg_video" | "object_remove";
+type ViewMode = "classic" | "timeline";
+
+interface AiSuggestion {
+  id: string;
+  segId: string;
+  text: string;
+  action: "bg_video" | "object_remove" | "narrate" | "motion";
+}
 
 interface VoiceOption {
   id: string;
@@ -453,6 +462,7 @@ function MotionTransferTool() {
 
 export default function VideoToolsPage() {
   const [activeTool, setActiveTool] = useState<Tool>("trim");
+  const [viewMode, setViewMode] = useState<ViewMode>("classic");
 
   const TOOLS: { id: Tool; label: string; icon: string; desc: string; provider?: string; cost?: string }[] = [
     { id: "trim",          label: "Trim Video",         icon: "✂",  desc: "Cut a clip to specific start and end times" },
@@ -464,9 +474,9 @@ export default function VideoToolsPage() {
   ];
 
   return (
-    <div style={{ maxWidth: 720 }}>
+    <div style={{ maxWidth: viewMode === "timeline" ? 1180 : 720, fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{ color: "#e0e0f8", fontWeight: 700, fontSize: 22, marginBottom: 6 }}>
           Video Tools
         </h1>
@@ -474,6 +484,33 @@ export default function VideoToolsPage() {
           Transform and enhance existing videos. Processed clips go to the Review Queue.
         </p>
       </div>
+
+      {/* View mode toggle */}
+      <div style={{ display: "inline-flex", marginBottom: 22, background: "#13131f", border: "1px solid #2a2a40", borderRadius: 10, padding: 4 }}>
+        {(["classic", "timeline"] as ViewMode[]).map(m => (
+          <button
+            key={m}
+            onClick={() => setViewMode(m)}
+            style={{
+              padding: "7px 14px",
+              borderRadius: 7,
+              border: "none",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              background: viewMode === m ? "#d4a843" : "transparent",
+              color: viewMode === m ? "#080810" : "#9090b0",
+              transition: "all 0.15s",
+            }}
+          >
+            {m === "classic" ? "Classic Tools" : "Timeline Mode"}
+          </button>
+        ))}
+      </div>
+
+      {viewMode === "timeline" && <TimelineEditor />}
 
       {/* Tool tabs */}
       <div style={{ display: "flex", gap: 6, marginBottom: 24, flexWrap: "wrap" }}>
@@ -749,6 +786,313 @@ function ObjectRemoveTool() {
       <button onClick={run} disabled={loading || !file || !prompt.trim()} style={{ background: loading || !file || !prompt.trim() ? "#2a2a40" : "#f59e0b", color: loading || !file || !prompt.trim() ? "#5a5a7a" : "#000", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: loading || !file || !prompt.trim() ? "not-allowed" : "pointer", alignSelf: "flex-start" }}>
         {loading ? "Removing object…" : "Remove Object"}
       </button>
+    </div>
+  );
+}
+
+// ── Timeline Editor (Phase 1) ────────────────────────────────────────────────
+
+function TimelineEditor() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string>("");
+  const [duration, setDuration] = useState(0);
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const [selectedSegId, setSelectedSegId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string>("");
+  const [error, setError] = useState<string>("");
+
+  // Clean blob URLs on unmount
+  useEffect(() => {
+    return () => { if (videoSrc && videoSrc.startsWith("blob:")) URL.revokeObjectURL(videoSrc); };
+  }, [videoSrc]);
+
+  async function handleImport(file: File) {
+    setError(""); setStatusMsg(""); setUploading(true);
+    // Local blob for preview
+    const blobUrl = URL.createObjectURL(file);
+    setVideoSrc(blobUrl);
+    setFileName(file.name);
+
+    // Fire upload for metadata in background (not blocking preview)
+    try {
+      const fd = new FormData();
+      fd.append("video", file);
+      const res = await fetch("/api/video-trimmer/upload", { method: "POST", body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setStatusMsg(`Uploaded: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
+        // Prefer server-probed duration if available
+        const d = data?.metadata?.duration;
+        if (typeof d === "number" && d > 0) {
+          setDuration(d);
+          const segs = generateSegments(d);
+          setSegments(segs);
+          setSelectedSegId(segs[0]?.id ?? null);
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data?.error ?? "Upload failed (preview still works).");
+      }
+    } catch {
+      setError("Network error uploading (preview still works).");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function handleVideoMetadata() {
+    if (!videoRef.current) return;
+    const d = videoRef.current.duration;
+    if (!Number.isFinite(d) || d <= 0) return;
+    if (duration > 0) return; // server already set it
+    setDuration(d);
+    const segs = generateSegments(d);
+    setSegments(segs);
+    setSelectedSegId(segs[0]?.id ?? null);
+  }
+
+  function selectSegment(seg: Segment) {
+    setSelectedSegId(seg.id);
+    if (videoRef.current) videoRef.current.currentTime = seg.start;
+  }
+
+  const selectedSeg = segments.find(s => s.id === selectedSegId) ?? null;
+
+  // Simulated AI suggestions (Phase 1 placeholder)
+  const suggestions: AiSuggestion[] = segments.length > 0
+    ? [
+        { id: "s1", segId: segments[0].id, text: `Scene 1 has noisy background — remove it?`, action: "bg_video" },
+        ...(segments[2] ? [{ id: "s2", segId: segments[2].id, text: `Scene 3 has redundant object — remove?`, action: "object_remove" as const }] : []),
+        ...(segments[1] ? [{ id: "s3", segId: segments[1].id, text: `Scene 2 could use narration overlay`, action: "narrate" as const }] : []),
+      ]
+    : [];
+
+  function applySuggestion(s: AiSuggestion) {
+    const seg = segments.find(x => x.id === s.segId);
+    if (!seg) return;
+    setSelectedSegId(seg.id);
+    setStatusMsg(`Apply "${s.action}" on ${formatRange(seg.start, seg.end)} — routed to tool (mock).`);
+  }
+
+  function runAction(action: "bg_video" | "object_remove" | "narrate" | "motion") {
+    if (!selectedSeg) return;
+    const map: Record<string, string> = {
+      bg_video: "/api/video/bg-remove",
+      object_remove: "/api/video/object-remove",
+      narrate: "/api/video-tools/narrate",
+      motion: "/api/video-tools/motion-transfer",
+    };
+    setStatusMsg(`Queued ${action} on ${formatRange(selectedSeg.start, selectedSeg.end)} → ${map[action]} (Phase 1 stub — full wiring in Phase 2).`);
+  }
+
+  // Gold-accented dark theme
+  const DARK_BG = "#080810";
+  const SURFACE = "#13131f";
+  const GOLD = "#d4a843";
+
+  return (
+    <div style={{ background: DARK_BG, border: `1px solid #1f1f2e`, borderRadius: 14, padding: 22, marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h2 style={{ color: "#e0e0f8", fontWeight: 700, fontSize: 16, marginBottom: 2, fontFamily: "'Space Grotesk', system-ui, sans-serif" }}>Timeline Editor <span style={{ color: GOLD, fontSize: 11, marginLeft: 8, fontWeight: 500 }}>Phase 1</span></h2>
+          <p style={{ color: "#5a5a7a", fontSize: 12 }}>Import a video to see scenes as segments you can edit individually.</p>
+        </div>
+        <div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="video/*"
+            style={{ display: "none" }}
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleImport(f); }}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{
+              background: uploading ? "#2a2a40" : GOLD,
+              color: uploading ? "#5a5a7a" : "#080810",
+              border: "none",
+              borderRadius: 8,
+              padding: "9px 18px",
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: uploading ? "not-allowed" : "pointer",
+              letterSpacing: "0.03em",
+            }}
+          >
+            {uploading ? "Uploading…" : videoSrc ? "Replace Video" : "Import Video"}
+          </button>
+        </div>
+      </div>
+
+      {!videoSrc && (
+        <div style={{ border: `2px dashed #2a2a40`, borderRadius: 10, padding: "48px 20px", textAlign: "center", color: "#5a5a7a", fontSize: 13 }}>
+          No video imported yet. Click <span style={{ color: GOLD, fontWeight: 600 }}>Import Video</span> above to begin.
+        </div>
+      )}
+
+      {videoSrc && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 240px", gap: 16 }}>
+          {/* Left column: preview + timeline + action panel */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+            {/* Video preview */}
+            <div style={{ background: "#000", borderRadius: 10, overflow: "hidden", border: "1px solid #1f1f2e" }}>
+              <video
+                ref={videoRef}
+                src={videoSrc}
+                controls
+                onLoadedMetadata={handleVideoMetadata}
+                style={{ width: "100%", height: 300, objectFit: "contain", background: "#000", display: "block" }}
+              />
+            </div>
+
+            {/* File info */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "#7070a0", fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>
+              <span style={{ color: GOLD }}>●</span>
+              <span>{fileName || "untitled"}</span>
+              {duration > 0 && <span>· {duration.toFixed(1)}s · {segments.length} scenes</span>}
+            </div>
+
+            {/* Horizontal timeline track */}
+            <div>
+              <div style={{ color: "#9090b0", fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+                Timeline
+              </div>
+              <div style={{ display: "flex", width: "100%", height: 62, background: SURFACE, border: "1px solid #2a2a40", borderRadius: 8, overflow: "hidden" }}>
+                {segments.map((seg, i) => {
+                  const widthPct = duration > 0 ? ((seg.end - seg.start) / duration) * 100 : 100 / segments.length;
+                  const isSel = seg.id === selectedSegId;
+                  return (
+                    <button
+                      key={seg.id}
+                      onClick={() => selectSegment(seg)}
+                      title={formatRange(seg.start, seg.end)}
+                      style={{
+                        flex: `0 0 ${widthPct}%`,
+                        position: "relative",
+                        background: isSel
+                          ? `linear-gradient(135deg, ${GOLD}, #b38a2f)`
+                          : i % 2 === 0 ? "#1a1a2a" : "#20202e",
+                        border: "none",
+                        borderRight: i < segments.length - 1 ? "1px solid #2a2a40" : "none",
+                        color: isSel ? "#080810" : "#7070a0",
+                        cursor: "pointer",
+                        fontSize: 11,
+                        fontWeight: isSel ? 700 : 500,
+                        padding: "6px 8px",
+                        textAlign: "left",
+                        overflow: "hidden",
+                        transition: "background 0.15s",
+                        fontFamily: "'JetBrains Mono', monospace",
+                      }}
+                    >
+                      <div style={{ fontSize: 10, opacity: 0.85 }}>Scene {i + 1}</div>
+                      <div style={{ fontSize: 10, marginTop: 2 }}>{formatRange(seg.start, seg.end)}</div>
+                    </button>
+                  );
+                })}
+                {segments.length === 0 && (
+                  <div style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "#5a5a7a", fontSize: 12 }}>
+                    Waiting for video metadata…
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Selected segment panel */}
+            {selectedSeg && (
+              <div style={{ background: SURFACE, border: `1px solid #2a2a40`, borderRadius: 10, padding: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div>
+                    <div style={{ color: "#9090b0", fontSize: 10, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>Selected Scene</div>
+                    <div style={{ color: GOLD, fontSize: 15, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>
+                      {formatRange(selectedSeg.start, selectedSeg.end)}
+                    </div>
+                  </div>
+                  <div style={{ color: "#5a5a7a", fontSize: 11 }}>
+                    Duration {(selectedSeg.end - selectedSeg.start).toFixed(1)}s
+                  </div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
+                  {[
+                    { icon: "🎨", label: "Change Background", action: "bg_video" as const },
+                    { icon: "❌", label: "Remove Object",     action: "object_remove" as const },
+                    { icon: "📝", label: "Add Text",          action: "narrate" as const },
+                    { icon: "🎬", label: "Motion Transfer",   action: "motion" as const },
+                  ].map(btn => (
+                    <button
+                      key={btn.action}
+                      onClick={() => runAction(btn.action)}
+                      style={{
+                        background: "#1a1a2a",
+                        border: "1px solid #2a2a40",
+                        borderRadius: 8,
+                        padding: "10px 12px",
+                        color: "#e0e0f8",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        transition: "all 0.15s",
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = GOLD; e.currentTarget.style.background = "#22222e"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "#2a2a40"; e.currentTarget.style.background = "#1a1a2a"; }}
+                    >
+                      <span style={{ marginRight: 6 }}>{btn.icon}</span>{btn.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {statusMsg && (
+              <div style={{ background: "#0a1a0a", border: "1px solid #2a3a2a", borderRadius: 8, padding: "10px 14px", color: "#86efac", fontSize: 12 }}>
+                {statusMsg}
+              </div>
+            )}
+            {error && (
+              <div style={{ background: "#1a0a0a", border: "1px solid #3a2020", borderRadius: 8, padding: "10px 14px", color: "#f87171", fontSize: 12 }}>
+                {error}
+              </div>
+            )}
+          </div>
+
+          {/* Right sidebar: AI suggestions */}
+          <div style={{ background: SURFACE, border: `1px solid #2a2a40`, borderRadius: 10, padding: 14, alignSelf: "flex-start" }}>
+            <div style={{ color: GOLD, fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              AI Suggestions
+            </div>
+            {suggestions.length === 0 && (
+              <p style={{ color: "#5a5a7a", fontSize: 11 }}>No suggestions yet — import a video.</p>
+            )}
+            {suggestions.map(s => (
+              <div key={s.id} style={{ background: "#1a1a2a", border: "1px solid #2a2a40", borderRadius: 8, padding: 10, marginBottom: 8 }}>
+                <p style={{ color: "#e0e0f8", fontSize: 12, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>{s.text}</p>
+                <p style={{ color: "#5a5a7a", fontSize: 10, fontStyle: "italic", marginBottom: 8 }}>— AI analysis placeholder</p>
+                <button
+                  onClick={() => applySuggestion(s)}
+                  style={{
+                    background: GOLD,
+                    color: "#080810",
+                    border: "none",
+                    borderRadius: 6,
+                    padding: "5px 12px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                    letterSpacing: "0.03em",
+                  }}
+                >
+                  Apply
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
