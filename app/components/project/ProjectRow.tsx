@@ -76,17 +76,8 @@ export function ProjectRow({ title, tag, date, thumbVariant, onReview, href }: P
           position: "relative",
           overflow: "hidden",
         }}
-      >
-        {/* Scanline */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "repeating-linear-gradient(0deg,rgba(0,0,0,0.14) 0px,rgba(0,0,0,0.14) 1px,transparent 1px,transparent 4px)",
-          }}
-        />
-      </div>
+      />
+
 
       {/* Text */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>

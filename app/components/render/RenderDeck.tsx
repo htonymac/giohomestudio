@@ -73,16 +73,7 @@ function FilmStrip() {
               position: "relative",
               overflow: "hidden",
             }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                backgroundImage:
-                  "repeating-linear-gradient(0deg,rgba(0,0,0,0.15) 0px,rgba(0,0,0,0.15) 1px,transparent 1px,transparent 3px)",
-              }}
-            />
-          </div>
+          />
         ))}
       </div>
 

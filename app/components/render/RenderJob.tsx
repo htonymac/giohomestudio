@@ -40,7 +40,7 @@ export function RenderJob({ title, engine, format, duration, pct, eta, thumbVari
         gap: 10,
       }}
     >
-      {/* Thumb placeholder (scanline style) */}
+      {/* Thumb placeholder */}
       <div
         style={{
           width: "100%",
@@ -52,16 +52,6 @@ export function RenderJob({ title, engine, format, duration, pct, eta, thumbVari
           flexShrink: 0,
         }}
       >
-        {/* Scanline overlay */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            backgroundImage:
-              "repeating-linear-gradient(0deg,rgba(0,0,0,0.18) 0px,rgba(0,0,0,0.18) 1px,transparent 1px,transparent 4px)",
-            pointerEvents: "none",
-          }}
-        />
         {/* Pct overlay */}
         <div
           style={{
