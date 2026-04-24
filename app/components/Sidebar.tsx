@@ -3,109 +3,111 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ButtonPrimary } from "./ui/ButtonPrimary";
+import {
+  Home, Film, Star, Monitor, Cpu, Music, Bolt, Users,
+  Folder, Grid, Clock, User, Plus, Settings, Mic,
+  Image, Wand, Check, ChevronRight, Bell, Wallet, Play,
+} from "./icons";
 
-// ── Navigation structure ──────────────────────────────────────────────────────
-const NAV = [
-  {
-    group: "Create",
-    icon: "✦",
-    color: "#7c5cfc",
-    items: [
-      { href: "/dashboard",                 label: "Dashboard",           icon: "✦" },
-      { href: "/dashboard/free-mode",       label: "Free Mode",           icon: "⚡" },
-      { href: "/dashboard/movie-creator",   label: "Movie & Series",      icon: "🎬" },
-      { href: "/dashboard/scene-forge",      label: "Scene Forge",         icon: "🎭" },
-      { href: "/dashboard/auto-creator",    label: "AI Content Creator",  icon: "🤖" },
-      { href: "/dashboard/music-video",     label: "Music & Music Video", icon: "🎶" },
-      { href: "/dashboard/short-video",     label: "Short Video",         icon: "⚡" },
-      { href: "/dashboard/viral-video",     label: "Viral Video",         icon: "🔥" },
-      { href: "/dashboard/ai-motion-video", label: "AI Motion Video",     icon: "🎭" },
-      { href: "/dashboard/commercial",      label: "Commercial",          icon: "📣" },
-      { href: "/dashboard/children-video",  label: "Children Video",      icon: "🧒" },
-    ],
-  },
-  {
-    group: "Planners",
-    icon: "🗂",
-    color: "#3b82f6",
-    items: [
-      { href: "/dashboard/hybrid-planner",      label: "Hybrid Planner",      icon: "🔀" },
-      { href: "/dashboard/movie-planner",       label: "Movie Planner",        icon: "🎥" },
-      { href: "/dashboard/series-wizard",       label: "Series Planner",       icon: "📺" },
-      { href: "/dashboard/music-video-planner", label: "Music Video Planner",  icon: "🎹" },
-      { href: "/dashboard/children-planner",    label: "Child Video Planner",  icon: "🎠" },
-      { href: "/dashboard/commercial-planner",  label: "Commercial Planner",   icon: "📋" },
-      { href: "/dashboard/story-bank",          label: "Story Bank",           icon: "📚" },
-    ],
-  },
-  {
-    group: "Tools",
-    icon: "🛠",
-    color: "#f59e0b",
-    items: [
-      { href: "/dashboard/collaborative-editor", label: "Collaborative Editor", icon: "🎬" },
-      { href: "/dashboard/video-finishing",      label: "Video Finishing",      icon: "🎯" },
-      { href: "/dashboard/video-editor",         label: "Video Editor",         icon: "🎞" },
-      { href: "/dashboard/ad-editor",            label: "Ad / Image Editor",    icon: "🖼" },
-      { href: "/dashboard/video-tools",          label: "Video Tools",          icon: "✂" },
-      { href: "/dashboard/video-trimmer",        label: "Video Trimmer",        icon: "✄" },
-      { href: "/dashboard/music-studio",         label: "Music & DJ",           icon: "🎵" },
-      { href: "/dashboard/sfx-library",          label: "SFX Library",          icon: "💥" },
-    ],
-  },
-  {
-    group: "Content",
-    icon: "📦",
-    color: "#10b981",
-    items: [
-      { href: "/dashboard/review",           label: "Review Queue",   icon: "◈", badge: true },
-      { href: "/dashboard/registry",         label: "All Content",    icon: "▤" },
-      { href: "/dashboard/assets",           label: "Asset Library",  icon: "📦" },
-      { href: "/dashboard/character-voices", label: "Characters",     icon: "🎭" },
-      { href: "/dashboard/templates",        label: "Templates",      icon: "🚀" },
-    ],
-  },
-  {
-    group: "Publish",
-    icon: "📤",
-    color: "#06b6d4",
-    items: [
-      { href: "/dashboard/publishing",        label: "Publishing",    icon: "📤" },
-      { href: "/dashboard/destination-pages", label: "Channel Pages", icon: "⊞" },
-      { href: "/dashboard/calendar",          label: "Calendar",      icon: "📅" },
-      { href: "/dashboard/analytics",         label: "Analytics",     icon: "📊" },
-      { href: "/dashboard/ab-testing",        label: "A/B Testing",   icon: "⚖" },
-    ],
-  },
-  {
-    group: "Settings",
-    icon: "⚙",
-    color: "#6b7280",
-    items: [
-      { href: "/dashboard/account",  label: "Account & Balance", icon: "🔑" },
-      { href: "/dashboard/budget",   label: "Budget & Credits",  icon: "💳" },
-      { href: "/dashboard/models",   label: "AI Models",         icon: "◆" },
-      { href: "/dashboard/settings", label: "Settings",          icon: "⚙" },
-    ],
-  },
+// v14 Sidebar — dark, solid, no blur, brand dot + wordmark, tint-cycling nav.
+
+// ── Nav definition — same routes/labels as v13, emoji replaced with SVG icons ──
+const NAV_ITEMS = [
+  // Create group
+  { href: "/dashboard",                 label: "Dashboard",           icon: Home,    tint: "c2" },
+  { href: "/dashboard/free-mode",       label: "Free Mode",           icon: Bolt,    tint: "c3" },
+  { href: "/dashboard/movie-creator",   label: "Movie & Series",      icon: Film,    tint: "c4" },
+  { href: "/dashboard/scene-forge",     label: "Scene Forge",         icon: Mic,     tint: "c5" },
+  { href: "/dashboard/auto-creator",    label: "AI Content Creator",  icon: Wand,    tint: "c6" },
+  { href: "/dashboard/music-video",     label: "Music & Music Video", icon: Music,   tint: "c7" },
+  { href: "/dashboard/short-video",     label: "Short Video",         icon: Play,    tint: "c8" },
+  { href: "/dashboard/viral-video",     label: "Viral Video",         icon: Star,    tint: "c9" },
+  { href: "/dashboard/ai-motion-video", label: "AI Motion Video",     icon: Film,    tint: "c10" },
+  { href: "/dashboard/commercial",      label: "Commercial",          icon: Monitor, tint: "c11" },
+  { href: "/dashboard/children-video",  label: "Children Video",      icon: Users,   tint: "c2" },
+  // Planners group
+  { href: "/dashboard/hybrid-planner",      label: "Hybrid Planner",     icon: Grid,   tint: "c3" },
+  { href: "/dashboard/movie-planner",       label: "Movie Planner",      icon: Film,   tint: "c4" },
+  { href: "/dashboard/series-wizard",       label: "Series Planner",     icon: Monitor,tint: "c5" },
+  { href: "/dashboard/music-video-planner", label: "Music Video Planner",icon: Music,  tint: "c6" },
+  { href: "/dashboard/children-planner",    label: "Child Video Planner",icon: Image,  tint: "c7" },
+  { href: "/dashboard/commercial-planner",  label: "Commercial Planner", icon: Cpu,    tint: "c8" },
+  { href: "/dashboard/story-bank",          label: "Story Bank",         icon: Folder, tint: "c9" },
+  // Tools group
+  { href: "/dashboard/collaborative-editor",label: "Collaborative Editor",icon: Film,  tint: "c10" },
+  { href: "/dashboard/video-finishing",     label: "Video Finishing",    icon: Check,  tint: "c11" },
+  { href: "/dashboard/video-editor",        label: "Video Editor",       icon: Film,   tint: "c2" },
+  { href: "/dashboard/ad-editor",           label: "Ad / Image Editor",  icon: Image,  tint: "c3" },
+  { href: "/dashboard/video-tools",         label: "Video Tools",        icon: Wand,   tint: "c4" },
+  { href: "/dashboard/video-trimmer",       label: "Video Trimmer",      icon: ChevronRight, tint: "c5" },
+  { href: "/dashboard/music-studio",        label: "Music & DJ",         icon: Music,  tint: "c6" },
+  { href: "/dashboard/sfx-library",         label: "SFX Library",        icon: Mic,    tint: "c7" },
+  // Content group
+  { href: "/dashboard/review",           label: "Review Queue",   icon: Bell,   tint: "c8", badge: true },
+  { href: "/dashboard/registry",         label: "All Content",    icon: Grid,   tint: "c9" },
+  { href: "/dashboard/assets",           label: "Asset Library",  icon: Folder, tint: "c10" },
+  { href: "/dashboard/character-voices", label: "Characters",     icon: User,   tint: "c11" },
+  { href: "/dashboard/templates",        label: "Templates",      icon: Star,   tint: "c2" },
+  // Publish group
+  { href: "/dashboard/publishing",        label: "Publishing",    icon: Play,   tint: "c3" },
+  { href: "/dashboard/destination-pages", label: "Channel Pages", icon: Monitor,tint: "c4" },
+  { href: "/dashboard/calendar",          label: "Calendar",      icon: Clock,  tint: "c5" },
+  { href: "/dashboard/analytics",         label: "Analytics",     icon: Cpu,    tint: "c6" },
+  { href: "/dashboard/ab-testing",        label: "A/B Testing",   icon: Wand,   tint: "c7" },
+  // Settings group
+  { href: "/dashboard/account",  label: "Account & Balance", icon: User,     tint: "c8" },
+  { href: "/dashboard/budget",   label: "Budget & Credits",  icon: Wallet,   tint: "c9" },
+  { href: "/dashboard/models",   label: "AI Models",         icon: Cpu,      tint: "c10" },
+  { href: "/dashboard/settings", label: "Settings",          icon: Settings, tint: "c11" },
 ];
+
+// Grouped for the accordion nav
+const NAV_GROUPS = [
+  { group: "Create",   items: NAV_ITEMS.slice(0, 11) },
+  { group: "Planners", items: NAV_ITEMS.slice(11, 18) },
+  { group: "Tools",    items: NAV_ITEMS.slice(18, 26) },
+  { group: "Content",  items: NAV_ITEMS.slice(26, 31) },
+  { group: "Publish",  items: NAV_ITEMS.slice(31, 36) },
+  { group: "Settings", items: NAV_ITEMS.slice(36) },
+];
+
+// Tile tint gradients
+const TINTS: Record<string, string> = {
+  c2:  "linear-gradient(135deg,#7cc4ff,#a78bfa)",
+  c3:  "linear-gradient(135deg,#d17bff,#ff7ab8)",
+  c4:  "linear-gradient(135deg,#7ae0c3,#7cc4ff)",
+  c5:  "linear-gradient(135deg,#ffb347,#ff7a45)",
+  c6:  "linear-gradient(135deg,#c9a9ff,#ff7ab8)",
+  c7:  "linear-gradient(135deg,#ff9a3c,#d17bff)",
+  c8:  "linear-gradient(135deg,#7ae0c3,#a78bfa)",
+  c9:  "linear-gradient(135deg,#7cc4ff,#c9a9ff)",
+  c10: "linear-gradient(135deg,#ffb347,#ff7ab8)",
+  c11: "linear-gradient(135deg,#a78bfa,#ff9a3c)",
+  active: "linear-gradient(135deg,#a78bfa,#ff9a3c)",
+};
 
 function LLMStatus() {
   const [label, setLabel] = useState("Checking…");
-  const [dot, setDot] = useState("#facc15");
+  const [dot, setDot] = useState("#7b7b80");
   useEffect(() => {
     fetch("/api/llm/status")
-      .then(r => r.json())
-      .then(d => {
-        if ((d.activeCount ?? 0) > 0) { setDot("#4ade80"); setLabel(d.willUse || "LLM ready"); }
-        else { setDot("#f87171"); setLabel("LLM offline"); }
+      .then((r) => r.json())
+      .then((d) => {
+        if ((d.activeCount ?? 0) > 0) {
+          setDot("#7ae0c3");
+          setLabel(d.willUse || "LLM ready");
+        } else {
+          setDot("#ff7a45");
+          setLabel("LLM offline");
+        }
       })
-      .catch(() => { setDot("#f87171"); setLabel("LLM offline"); });
+      .catch(() => { setDot("#ff7a45"); setLabel("LLM offline"); });
   }, []);
   return (
-    <div className="flex items-center gap-2 px-2 py-1">
-      <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse" style={{ background: dot }} />
-      <span style={{ fontSize: 10, color: "#5a5a7a" }}>{label}</span>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dot, flexShrink: 0 }} />
+      <span style={{ fontSize: 10, color: "#55555a", fontFamily: "'JetBrains Mono', monospace" }}>{label}</span>
     </div>
   );
 }
@@ -113,8 +115,8 @@ function LLMStatus() {
 export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
   const pathname = usePathname();
 
-  function activeGroup(): string {
-    for (const g of NAV) {
+  function activeGroupName() {
+    for (const g of NAV_GROUPS) {
       for (const item of g.items) {
         if (pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))) {
           return g.group;
@@ -124,7 +126,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
     return "Create";
   }
 
-  const [openGroup, setOpenGroup] = useState<string>(() => activeGroup());
+  const [openGroup, setOpenGroup] = useState<string>(() => activeGroupName());
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
@@ -133,12 +135,12 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
   }, []);
 
   useEffect(() => {
-    setOpenGroup(activeGroup());
+    setOpenGroup(activeGroupName());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const toggleCollapse = () => {
-    setCollapsed(prev => {
+    setCollapsed((prev) => {
       const next = !prev;
       localStorage.setItem("ghs_sidebar_collapsed", String(next));
       window.dispatchEvent(new CustomEvent("sidebar-toggle", { detail: { collapsed: next } }));
@@ -148,39 +150,57 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
 
   return (
     <aside
-      className="flex flex-col h-full"
       style={{
-        background: "var(--surface2)",
-        borderRight: "1px solid var(--border)",
-        position: "relative",
-        overflow: "hidden",
-        width: collapsed ? 56 : 220,
-        transition: "width 0.2s ease",
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        background: "#0b0b0d",
+        borderRight: "1px solid rgba(255,255,255,.06)",
+        width: collapsed ? 52 : 218,
+        transition: "width 0.2s cubic-bezier(.22,.61,.36,1)",
         flexShrink: 0,
+        overflow: "hidden",
+        position: "relative",
       }}
     >
-      {/* Logo */}
+      {/* Brand header */}
       <Link
         href="/"
         style={{
-          display: "flex", alignItems: "center",
+          display: "flex",
+          alignItems: "center",
           gap: collapsed ? 0 : 10,
-          padding: collapsed ? "16px 10px 12px" : "16px 14px 12px",
-          borderBottom: "1px solid var(--border)",
-          textDecoration: "none", cursor: "pointer",
+          padding: collapsed ? "14px 6px 12px" : "14px 14px 12px",
+          borderBottom: "1px solid rgba(255,255,255,.06)",
+          textDecoration: "none",
           justifyContent: collapsed ? "center" : "flex-start",
         }}
       >
+        {/* Brand dot — conic gradient, 9s spin */}
         <div
-          className="flex items-center justify-center font-bold text-white shrink-0"
-          style={{ width: 32, height: 32, borderRadius: 9, background: "linear-gradient(135deg, #8b5cf6 0%, #ec4899 48%, #f97316 100%)", fontSize: 15, boxShadow: "0 4px 16px rgba(236,72,153,0.45)" }}
+          className="is-spin-slow"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 11,
+            background: "conic-gradient(from 0deg,#a78bfa,#7cc4ff,#d17bff,#5b4fe0,#a78bfa)",
+            boxShadow: "0 0 0 2px rgba(167,139,250,.18), 0 8px 20px -6px rgba(91,79,224,.5)",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
-          G
+          <span style={{ fontWeight: 900, fontSize: 13, color: "#fff", fontFamily: "'Geist', sans-serif", lineHeight: 1 }}>G</span>
         </div>
         {!collapsed && (
           <div>
-            <p style={{ fontSize: 14, fontWeight: 800, color: "#e6eaf2", letterSpacing: "-0.3px", lineHeight: 1.2 }}>GioHomeStudio</p>
-            <p style={{ fontSize: 10, color: "#7c8fa8", fontWeight: 400, letterSpacing: "0.1px" }}>Content Studio</p>
+            <p style={{ fontSize: 13, fontWeight: 800, color: "#fff", letterSpacing: "-0.3px", lineHeight: 1.2, fontFamily: "'Geist', sans-serif" }}>
+              GioHomeStudio
+            </p>
+            <p style={{ fontSize: 10, color: "#55555a", fontWeight: 500, letterSpacing: "0.12em", fontFamily: "'JetBrains Mono', monospace", textTransform: "uppercase" }}>
+              Studio
+            </p>
           </div>
         )}
       </Link>
@@ -188,105 +208,225 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
       {/* Collapse toggle */}
       <button
         onClick={toggleCollapse}
-        style={{ position: "absolute", top: 20, right: collapsed ? 8 : -1, zIndex: 10, width: 20, height: 20, borderRadius: "50%", border: "1px solid var(--border)", background: "var(--surface2)", color: "var(--text3)", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
         title={collapsed ? "Expand" : "Collapse"}
+        style={{
+          position: "absolute",
+          top: 18,
+          right: collapsed ? 4 : -1,
+          zIndex: 10,
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          border: "1px solid rgba(255,255,255,.08)",
+          background: "#151518",
+          color: "#55555a",
+          fontSize: 9,
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transition: "color .15s",
+        }}
+        onMouseEnter={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#fff")}
+        onMouseLeave={(e) => ((e.currentTarget as HTMLButtonElement).style.color = "#55555a")}
       >
-        {collapsed ? "→" : "←"}
+        {collapsed ? "›" : "‹"}
       </button>
 
       {/* Nav groups */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: "8px 6px 4px" }}>
-        {NAV.map(group => {
+      <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 6px 4px" }}>
+        {NAV_GROUPS.map((group) => {
           const isOpen = !collapsed && openGroup === group.group;
           const hasActive = group.items.some(
-            item => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))
+            (item) =>
+              pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href))
           );
 
           return (
-            <div key={group.group} style={{ marginBottom: 3 }}>
-              {/* Group header */}
+            <div key={group.group} style={{ marginBottom: 2 }}>
+              {/* Group header button */}
               <button
-                onClick={() => { if (!collapsed) setOpenGroup(prev => prev === group.group ? "" : group.group); }}
-                title={group.group}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center",
-                  gap: collapsed ? 0 : 9,
-                  padding: collapsed ? "10px 0" : "9px 10px",
-                  borderRadius: 10, border: "none", cursor: "pointer",
-                  background: hasActive
-                    ? `linear-gradient(135deg, ${group.color}22, ${group.color}10)`
-                    : isOpen ? `${group.color}0d` : "transparent",
-                  justifyContent: collapsed ? "center" : "flex-start",
-                  transition: "all 0.15s",
-                  boxShadow: hasActive ? `inset 0 0 0 1px ${group.color}30` : "none",
+                onClick={() => {
+                  if (!collapsed) {
+                    setOpenGroup((prev) => (prev === group.group ? "" : group.group));
+                  }
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `linear-gradient(135deg, ${group.color}18, ${group.color}08)`; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = hasActive ? `linear-gradient(135deg, ${group.color}22, ${group.color}10)` : isOpen ? `${group.color}0d` : "transparent"; }}
+                title={collapsed ? group.group : undefined}
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: collapsed ? 0 : 8,
+                  padding: collapsed ? "9px 0" : "7px 8px",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  background: hasActive
+                    ? "rgba(167,139,250,.1)"
+                    : isOpen
+                    ? "rgba(167,139,250,.05)"
+                    : "transparent",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  transition: "background .15s",
+                }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = "rgba(167,139,250,.08)";
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLButtonElement).style.background = hasActive
+                    ? "rgba(167,139,250,.1)"
+                    : isOpen
+                    ? "rgba(167,139,250,.05)"
+                    : "transparent";
+                }}
               >
-                <span style={{
-                  fontSize: collapsed ? 18 : 16,
-                  width: collapsed ? 24 : 22, height: collapsed ? 24 : 22,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0, borderRadius: 6,
-                  background: hasActive ? `${group.color}25` : "transparent",
-                  filter: hasActive ? `drop-shadow(0 0 6px ${group.color}80)` : "none",
-                  transition: "all 0.15s",
-                }}>
-                  {group.icon}
-                </span>
                 {!collapsed && (
                   <>
-                    <span style={{
-                      flex: 1, fontSize: 12, fontWeight: 800,
-                      color: hasActive ? group.color : isOpen ? "#c0b8e8" : "#7a7a9a",
-                      textAlign: "left", letterSpacing: "0.5px",
-                      textShadow: hasActive ? `0 0 12px ${group.color}60` : "none",
-                      transition: "all 0.15s",
-                      textTransform: "uppercase",
-                    }}>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: hasActive ? "#a78bfa" : "#55555a",
+                        letterSpacing: "0.22em",
+                        textTransform: "uppercase",
+                        fontFamily: "'JetBrains Mono', monospace",
+                        textAlign: "left",
+                      }}
+                    >
                       {group.group}
                     </span>
-                    <span style={{
-                      fontSize: 10, color: hasActive ? group.color : "#505070",
-                      opacity: hasActive ? 0.9 : 0.5, marginRight: 2,
-                      display: "inline-block",
-                      transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
-                      transition: "transform 0.15s",
-                    }}>
+                    <span
+                      style={{
+                        fontSize: 10,
+                        color: "#55555a",
+                        display: "inline-block",
+                        transform: isOpen ? "rotate(90deg)" : "rotate(0deg)",
+                        transition: "transform .15s",
+                      }}
+                    >
                       ›
                     </span>
                   </>
                 )}
               </button>
 
-              {/* Items — only when open */}
+              {/* Nav items — when group open */}
               {isOpen && (
-                <div style={{ paddingLeft: 8, paddingBottom: 4 }}>
-                  {group.items.map(item => {
-                    const active = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                <div style={{ paddingLeft: 6, paddingBottom: 4 }}>
+                  {group.items.map((item) => {
+                    const active =
+                      pathname === item.href ||
+                      (item.href !== "/dashboard" && pathname.startsWith(item.href));
+                    const IconComp = item.icon;
+                    const tileBg = active ? TINTS.active : TINTS[item.tint] || TINTS.c2;
+
                     return (
                       <Link
                         key={item.href}
                         href={item.href}
-                        className="sidebar-link"
-                        onClick={e => { if (active) { e.preventDefault(); window.location.href = item.href; } }}
-                        style={{
-                          display: "flex", alignItems: "center", gap: 7,
-                          padding: "6px 10px", borderRadius: 7, marginBottom: 1,
-                          fontSize: 12, fontWeight: active ? 600 : 400,
-                          color: active ? "#e0dcff" : "#8888a8",
-                          background: active ? `${group.color}20` : "transparent",
-                          borderLeft: active ? `2px solid ${group.color}` : "2px solid transparent",
-                          textDecoration: "none",
-                          transition: "all 0.12s ease",
+                        onClick={(e) => {
+                          if (active) { e.preventDefault(); window.location.href = item.href; }
                         }}
-                        onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = `${group.color}10`; (e.currentTarget as HTMLElement).style.color = "#c0c0e0"; } }}
-                        onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "#8888a8"; } }}
+                        className="nav-item"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "6px 8px 6px 6px",
+                          borderRadius: 9,
+                          marginBottom: 1,
+                          color: active ? "#fff" : "#7b7b80",
+                          fontWeight: active ? 700 : 500,
+                          textDecoration: "none",
+                          fontSize: 12,
+                          position: "relative",
+                          transition: "transform .2s cubic-bezier(.22,.61,.36,1), background .2s, color .15s",
+                          background: active ? "rgba(167,139,250,.1)" : "transparent",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!active) {
+                            const el = e.currentTarget as HTMLAnchorElement;
+                            el.style.background = "rgba(167,139,250,.08)";
+                            el.style.color = "#fff";
+                            el.style.transform = "translateX(4px)";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!active) {
+                            const el = e.currentTarget as HTMLAnchorElement;
+                            el.style.background = "transparent";
+                            el.style.color = "#7b7b80";
+                            el.style.transform = "";
+                          }
+                        }}
                       >
-                        <span style={{ fontSize: 13, width: 16, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
-                        <span style={{ flex: 1 }}>{item.label}</span>
+                        {/* Active left bar */}
+                        {active && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              left: -10,
+                              top: 7,
+                              bottom: 7,
+                              width: 3,
+                              background: "linear-gradient(180deg,#a78bfa,#ff9a3c)",
+                              borderRadius: "0 3px 3px 0",
+                            }}
+                          />
+                        )}
+
+                        {/* Icon tile */}
+                        <span
+                          className="ic"
+                          style={{
+                            width: 26,
+                            height: 26,
+                            borderRadius: 8,
+                            display: "grid",
+                            placeItems: "center",
+                            color: "#fff",
+                            background: tileBg,
+                            boxShadow: "0 3px 8px -2px rgba(167,139,250,.5)",
+                            flexShrink: 0,
+                            transition: "transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .2s",
+                          }}
+                          onMouseEnter={(e) => {
+                            (e.currentTarget as HTMLSpanElement).style.transform = "rotate(-8deg) scale(1.12)";
+                            (e.currentTarget as HTMLSpanElement).style.boxShadow = "0 6px 14px -2px rgba(167,139,250,.6)";
+                          }}
+                          onMouseLeave={(e) => {
+                            (e.currentTarget as HTMLSpanElement).style.transform = "";
+                            (e.currentTarget as HTMLSpanElement).style.boxShadow = "0 3px 8px -2px rgba(167,139,250,.5)";
+                          }}
+                          onMouseDown={(e) => {
+                            (e.currentTarget as HTMLSpanElement).style.transform = "rotate(0deg) scale(.92)";
+                          }}
+                          onMouseUp={(e) => {
+                            (e.currentTarget as HTMLSpanElement).style.transform = "rotate(-8deg) scale(1.12)";
+                          }}
+                        >
+                          <IconComp size={13} />
+                        </span>
+
+                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.label}
+                        </span>
+
+                        {/* Review badge */}
                         {"badge" in item && item.badge && reviewCount ? (
-                          <span style={{ fontSize: 9, fontWeight: 700, background: "#ef4444", color: "white", padding: "1px 5px", borderRadius: 100 }}>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 700,
+                              background: "#ff7a45",
+                              color: "#fff",
+                              padding: "1px 5px",
+                              borderRadius: 999,
+                              fontFamily: "'JetBrains Mono', monospace",
+                            }}
+                          >
                             {reviewCount}
                           </span>
                         ) : null}
@@ -296,15 +436,38 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
                 </div>
               )}
 
-              {/* Collapsed: show active item icon only */}
+              {/* Collapsed: show active item tile only */}
               {collapsed && hasActive && (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 4 }}>
-                  {group.items.filter(item => pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href))).map(item => (
-                    <Link key={item.href} href={item.href} title={item.label}
-                      style={{ width: 36, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6, background: `${group.color}25`, textDecoration: "none", fontSize: 13 }}>
-                      {item.icon}
-                    </Link>
-                  ))}
+                  {group.items
+                    .filter(
+                      (item) =>
+                        pathname === item.href ||
+                        (item.href !== "/dashboard" && pathname.startsWith(item.href))
+                    )
+                    .map((item) => {
+                      const IconComp = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          title={item.label}
+                          style={{
+                            width: 34,
+                            height: 30,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            borderRadius: 8,
+                            background: TINTS.active,
+                            textDecoration: "none",
+                            color: "#fff",
+                          }}
+                        >
+                          <IconComp size={13} />
+                        </Link>
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -312,32 +475,88 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
         })}
       </nav>
 
-      {/* Footer */}
-      <div style={{ padding: collapsed ? "10px 4px" : "10px 8px", borderTop: "1px solid var(--border)", marginTop: "auto" }}>
+      {/* Bottom — wallet card */}
+      <div
+        style={{
+          padding: collapsed ? "10px 4px" : "10px 10px",
+          borderTop: "1px solid rgba(255,255,255,.06)",
+        }}
+      >
         {!collapsed ? (
-          <Link href="/dashboard/budget" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 10px", marginBottom: 6, background: "linear-gradient(135deg, rgba(0,229,195,0.08), rgba(124,92,252,0.08))", borderRadius: 10, border: "1px solid rgba(0,229,195,0.15)", textDecoration: "none" }}>
-            <span style={{ fontSize: 16 }}>💳</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "var(--text)" }}>$0.00</div>
-              <div style={{ fontSize: 9, color: "var(--text3)" }}>Credit Balance</div>
+          <div
+            style={{
+              background: "linear-gradient(135deg,rgba(167,139,250,.18),rgba(255,154,60,.12))",
+              border: "1px solid rgba(167,139,250,.35)",
+              borderRadius: 16,
+              padding: 14,
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: "#fff", fontFamily: "'Geist', sans-serif", letterSpacing: "-0.03em" }}>$0.00</div>
+                <div style={{ fontSize: 9, color: "#7b7b80", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.18em", textTransform: "uppercase", marginTop: 2 }}>Credit Balance</div>
+              </div>
+              <Wallet size={16} style={{ color: "#a78bfa" }} />
             </div>
-            <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 100, background: "rgba(0,229,195,0.15)", color: "var(--accent3, #00e5c3)", fontWeight: 700 }}>Top Up</span>
-          </Link>
+            <ButtonPrimary size="sm" style={{ width: "100%", justifyContent: "center" }}>
+              Top Up
+            </ButtonPrimary>
+          </div>
         ) : (
-          <Link href="/dashboard/budget" style={{ display: "flex", justifyContent: "center", padding: "8px 0", marginBottom: 4, textDecoration: "none" }} title="Credits">
-            <span style={{ fontSize: 16 }}>💳</span>
+          <Link
+            href="/dashboard/budget"
+            title="Credits"
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "8px 0",
+              marginBottom: 4,
+              textDecoration: "none",
+              color: "#7b7b80",
+            }}
+          >
+            <Wallet size={16} />
           </Link>
         )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: collapsed ? 0 : 8, padding: "6px 10px", borderRadius: 8, justifyContent: collapsed ? "center" : "flex-start" }}>
-          <div style={{ width: 26, height: 26, borderRadius: "50%", background: "linear-gradient(135deg, var(--accent), var(--accent2))", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, color: "white", flexShrink: 0 }}>H</div>
+        {/* User row */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: collapsed ? 0 : 8,
+            padding: "6px 4px",
+            borderRadius: 8,
+            justifyContent: collapsed ? "center" : "flex-start",
+          }}
+        >
+          <div
+            style={{
+              width: 26,
+              height: 26,
+              borderRadius: "50%",
+              background: "linear-gradient(135deg,#a78bfa,#ff9a3c)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "#fff",
+              flexShrink: 0,
+            }}
+          >
+            H
+          </div>
           {!collapsed && (
             <>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text)" }}>Henry</div>
-                <div style={{ fontSize: 9, color: "var(--accent3, #00e5c3)" }}>Creator</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>Henry</div>
+                <div style={{ fontSize: 9, color: "#a78bfa", fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.12em" }}>Creator</div>
               </div>
-              <Link href="/dashboard/settings" style={{ fontSize: 12, color: "var(--text3)", textDecoration: "none" }} title="Settings">⚙</Link>
+              <Link href="/dashboard/settings" style={{ color: "#55555a", textDecoration: "none", display: "flex" }} title="Settings">
+                <Settings size={14} />
+              </Link>
             </>
           )}
         </div>

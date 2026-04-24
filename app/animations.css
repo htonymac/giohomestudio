@@ -1,0 +1,61 @@
+/* GioHomeStudio — v14 animations
+   Import this file alongside your base stylesheet.
+   Source: GioHomeStudio Dashboard v14.html */
+
+:root{
+  --e-soft:   cubic-bezier(.22,.61,.36,1);
+  --e-bounce: cubic-bezier(.34,1.56,.64,1);
+}
+
+/* ── the hero gradient sweep (primary CTA + hero <em>) ── */
+@keyframes btnSweep{
+  0%   { background-position:   0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* ── brand-dot conic spin ── */
+@keyframes spin{ to{ transform: rotate(360deg); } }
+
+/* ── hero caret blink (after .h1 em) ── */
+@keyframes typeCursor{ 50%{ opacity: 0; } }
+
+/* ── page entrance: used on main > * children, staggered ── */
+@keyframes rise{
+  from{ opacity: 0; transform: translateY(18px); }
+  to  { opacity: 1; transform: none; }
+}
+@keyframes fadeIn{ from{opacity:0} to{opacity:1} }
+
+/* ── optional: shine wipe on cards on hover ── */
+@keyframes glint{
+  0%   { transform: translateX(-150%) skewX(-18deg); }
+  100% { transform: translateX( 250%) skewX(-18deg); }
+}
+
+/* ── helper classes ── */
+.is-rise        { animation: rise .6s var(--e-soft) both; }
+.is-fade        { animation: fadeIn .6s var(--e-soft) both; }
+.is-sweep       { animation: btnSweep 6s linear infinite;   background-size:300% 100%; }
+.is-spin-slow   { animation: spin 9s linear infinite; }
+
+/* stagger utilities (apply to siblings) */
+.stagger > *:nth-child(1){ animation-delay: .03s; }
+.stagger > *:nth-child(2){ animation-delay: .09s; }
+.stagger > *:nth-child(3){ animation-delay: .15s; }
+.stagger > *:nth-child(4){ animation-delay: .21s; }
+.stagger > *:nth-child(5){ animation-delay: .27s; }
+.stagger > *:nth-child(6){ animation-delay: .33s; }
+.stagger > *:nth-child(7){ animation-delay: .39s; }
+
+/* animate-rise + delay helpers (used by dashboard page) */
+.animate-rise { animation: rise .6s var(--e-soft) both; }
+.d-1{ animation-delay:.05s; }
+.d-2{ animation-delay:.11s; }
+.d-3{ animation-delay:.17s; }
+.d-4{ animation-delay:.23s; }
+.d-5{ animation-delay:.29s; }
+.d-6{ animation-delay:.35s; }
+.d-7{ animation-delay:.41s; }
+
+/* ── DO NOT add ambient loops: no floating blobs, no scanning lights,
+       no continuous shimmer on idle surfaces. Motion is tactile only. ── */
