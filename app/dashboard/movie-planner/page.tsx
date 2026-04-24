@@ -10,6 +10,10 @@ import SceneImagePanel from "../../components/SceneImagePanel";
 import CharacterPicker from "../../components/CharacterPicker";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
+import { ds } from "../../../lib/designSystem";
+import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
+import { HeroTitle } from "../../components/hero/HeroTitle";
+import * as Icon from "../../components/icons";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -126,14 +130,7 @@ const ROLES = [
 
 // ── Scene Intelligence display constants ─────────────────────────────────
 
-const SCENE_ENV_ICON: Record<string, string> = {
-  "city-street": "🏙", "open-market": "🛒", "indoor-market": "🏪",
-  "bush-forest": "🌿", "village": "🏘", "beach": "🏖",
-  "riverbank": "🌊", "church-mosque": "⛪", "hospital": "🏥",
-  "office": "💼", "indoor-room": "🏠", "forest-night": "🌲",
-  "night-street": "🌙", "rain-scene": "🌧", "rooftop": "🏢",
-  "car-interior": "🚗", "school": "🏫",
-};
+// SCENE_ENV_ICON removed — env type shown as text label (v14: no emoji)
 
 const SCENE_ENERGY_COLOR: Record<string, string> = {
   chaotic: "#ef4444", tense: "#eab308", dramatic: "#a855f7",
@@ -142,20 +139,20 @@ const SCENE_ENERGY_COLOR: Record<string, string> = {
 
 // ── Colors ───────────────────────────────────────────────────────────────
 
-const surface = "#0e1318";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const accent = "#7c5cfc";
-const s2 = "#080b10";
+const surface = ds.color.card;
+const border = ds.color.line;
+const muted = ds.color.mute;
+const accent = ds.color.lilac;
+const s2 = ds.color.paper;
 const green = "#22c55e";
-const gold = "#f59e0b";
+const gold = ds.color.gold;
 const red = "#ef4444";
-const blue = "#00d4ff";
+const blue = ds.color.sky;
 const purple = "#a855f7";
 
 const cardStyle: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 20, marginBottom: 12 };
-const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block" };
-const inputStyle: React.CSSProperties = { width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit" };
+const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block", fontFamily: ds.font.mono };
+const inputStyle: React.CSSProperties = { width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line2 ?? border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: ds.font.sans };
 const btnPrimary: React.CSSProperties = { padding: "12px 24px", borderRadius: 12, border: "none", background: accent, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" };
 const badgeStyle = (color: string): React.CSSProperties => ({ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${color}15`, color, fontWeight: 600, display: "inline-block" });
 const pillStyle = (selected: boolean, color?: string): React.CSSProperties => ({
@@ -214,15 +211,15 @@ const AID_IMAGE_MODELS = [
 type WorkshopTab = "design" | "story" | "characters" | "scenes" | "screenplay" | "audio" | "assembly" | "overview";
 
 // Design → Story → Cast → Scene Board → Screenplay → Audio → Assembly → Overview
-const WORKSHOP_TABS: { id: WorkshopTab; label: string; icon: string }[] = [
-  { id: "design",     label: "Design",        icon: "\u{1F3A8}" },
-  { id: "story",      label: "Story & Draft", icon: "\u{1F4DD}" },
-  { id: "characters", label: "Cast",          icon: "\u{1F464}" },
-  { id: "scenes",     label: "Scene Board",   icon: "\u{1F3AC}" },
-  { id: "screenplay", label: "Screenplay",    icon: "\u{1F4C4}" },
-  { id: "audio",      label: "Audio & Shots", icon: "\u{1F3B5}" },
-  { id: "assembly",   label: "Assembly",      icon: "\u{1F680}" },
-  { id: "overview",   label: "Overview",      icon: "\u{1F3E0}" },
+const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
+  { id: "design",     label: "Design" },
+  { id: "story",      label: "Story & Draft" },
+  { id: "characters", label: "Cast" },
+  { id: "scenes",     label: "Scene Board" },
+  { id: "screenplay", label: "Screenplay" },
+  { id: "audio",      label: "Audio & Shots" },
+  { id: "assembly",   label: "Assembly" },
+  { id: "overview",   label: "Overview" },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────
@@ -1419,38 +1416,26 @@ function MoviePlannerInner() {
   }
 
   return (
-    <div>
-      {/* ── Hero Banner ── */}
-      <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 20, minHeight: 140 }}>
-        <video autoPlay muted loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.12 }}
-          src="/api/media/demo/hybrid_movie_demo.mp4" />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(8,11,16,0.95), rgba(124,92,252,0.08))" }} />
-        <div style={{ position: "relative", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(124,92,252,0.1)", border: "1px solid rgba(124,92,252,0.2)", padding: "3px 12px", borderRadius: 100, fontSize: 9, fontWeight: 600, color: accent, letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 10 }}>
-              Production Workshop
-            </div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Movie & Series Planner</h1>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", maxWidth: 400 }}>
-              Your production control center. Plan, create, review, and assemble.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input value={title} onChange={e => setTitle(e.target.value)}
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none" }}
-              placeholder="Project Title" />
-            <button onClick={() => saveProject()} disabled={saving}
-              style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-              {saving ? "Saving..." : "Save"}
-            </button>
-            <button onClick={() => setShowContinue(!showContinue)}
-              style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-              Projects ({projectList.length})
-            </button>
-            {projectId && <span style={{ fontSize: 9, color: "#3d5060" }}>{projectId.slice(0, 8)}...</span>}
-          </div>
+    <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
+      <div style={{ padding: "24px 32px 0" }}>
+        <HeroTitle kicker="Production Workshop" title="Movie & Series" italic="Planner" sub="Plan, create, review, and assemble your production." />
+        {/* Project toolbar */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 16, marginBottom: 20 }}>
+          <input value={title} onChange={e => setTitle(e.target.value)}
+            style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 220, outline: "none", fontFamily: ds.font.sans }}
+            placeholder="Project Title" />
+          <button onClick={() => saveProject()} disabled={saving}
+            style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+            {saving ? "Saving..." : "Save"}
+          </button>
+          <button onClick={() => setShowContinue(!showContinue)}
+            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer", fontFamily: ds.font.mono }}>
+            Projects ({projectList.length})
+          </button>
+          {projectId && <span style={{ fontSize: 9, color: "#3d5060", fontFamily: ds.font.mono }}>{projectId.slice(0, 8)}...</span>}
         </div>
       </div>
+      <div style={{ padding: "0 32px" }}>
 
       {/* ── Continue / Load existing ── */}
       {showContinue && (
@@ -1475,24 +1460,27 @@ function MoviePlannerInner() {
       )}
 
       {/* ── Workshop Tab Bar ── */}
-      <div style={{ display: "flex", gap: 2, marginBottom: 20, background: s2, borderRadius: 14, padding: 4, border: `1px solid ${border}` }}>
+      <div style={{ display: "flex", gap: 0, marginBottom: 20, background: ds.color.card, borderRadius: 14, padding: "4px 4px", border: `1px solid ${ds.color.line}`, overflowX: "auto" }}>
         {WORKSHOP_TABS.map(tab => {
           const isActive = activeTab === tab.id;
           const hasContent = tab.id === "scenes" ? totalScenes > 0 : tab.id === "characters" ? savedCharacters.length > 0 : tab.id === "story" ? !!idea : tab.id === "assembly" ? assemblyReadiness > 50 : true;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               style={{
-                flex: 1, padding: "12px 6px", borderRadius: 10, border: "none",
-                background: isActive ? accent : "transparent",
-                color: isActive ? "#fff" : hasContent ? "#fff" : muted,
+                flex: 1, padding: "10px 8px", border: "none",
+                background: "transparent",
+                color: isActive ? "#fff" : hasContent ? "rgba(255,255,255,0.6)" : muted,
                 fontSize: 10, fontWeight: isActive ? 700 : 500,
-                cursor: "pointer", transition: "all 0.2s",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
+                cursor: "pointer", position: "relative",
+                fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em",
+                minWidth: 80,
               }}>
-              <span style={{ fontSize: 13 }}>{tab.icon}</span>
               {tab.label}
               {tab.id === "scenes" && totalScenes > 0 && !isActive && (
-                <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: `${accent}20`, color: accent }}>{totalScenes}</span>
+                <span style={{ marginLeft: 4, fontSize: 9, padding: "1px 5px", borderRadius: 8, background: `${accent}20`, color: accent }}>{totalScenes}</span>
+              )}
+              {isActive && (
+                <span style={{ position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc, #ff7a45)" }} />
               )}
             </button>
           );
@@ -1505,12 +1493,12 @@ function MoviePlannerInner() {
         const AID_MODELS = AID_VIDEO_MODELS;
         const IMAGE_MODELS_AID = AID_IMAGE_MODELS;
         type StyleKey = "all"|"2d"|"3d"|"cartoon"|"realistic";
-        const ADVISER: Record<StyleKey, { icon:string; title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
-          all:      { icon:"🤖", title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
-          "2d":     { icon:"✏️", title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion. Avoid Kling/Runway for 2D.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
-          "3d":     { icon:"🎲", title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead. Start with Kling 1.6 Direct for budget drafts.",                            cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
-          cartoon:  { icon:"🎨", title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                                                   cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
-          realistic:{ icon:"🎬", title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option. Kling 2.5 Direct ★ ($0.10) is best value.",                              cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
+        const ADVISER: Record<StyleKey, { title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
+          all:      { title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
+          "2d":     { title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion. Avoid Kling/Runway for 2D.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
+          "3d":     { title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead. Start with Kling 1.6 Direct for budget drafts.",                            cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
+          cartoon:  { title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                                                   cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
+          realistic:{ title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option. Kling 2.5 Direct ★ ($0.10) is best value.",                              cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
         };
         const adviser = ADVISER[aidStyle];
         const qualityScore = (m: typeof AID_MODELS[0]) => aidStyle === "all" ? (m.scores["2d"]+m.scores["3d"]+m.scores.cartoon+m.scores.realistic)/4 : m.scores[aidStyle as Exclude<StyleKey,"all">];
@@ -1531,12 +1519,12 @@ function MoviePlannerInner() {
               <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid #1e1a3a", flexShrink:0 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e2d9f3" }}>AI Model Selector</div>
-                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", fontSize:18, cursor:"pointer" }}>✕</button>
+                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", cursor:"pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width:18, height:18 }} /></button>
                 </div>
                 <div style={{ display:"flex", gap:0, borderRadius:10, overflow:"hidden", border:"1px solid #2a2456", width:"fit-content" }}>
                   {(["video","image"] as const).map(mode => (
                     <button key={mode} onClick={() => setAidMode(mode)} style={{ padding:"7px 24px", border:"none", cursor:"pointer", fontSize:11, fontWeight:800, background:aidMode===mode?(mode==="video"?"#7c3aed":"#0ea5e9"):"#12122a", color:aidMode===mode?"#fff":"#5a4f80", transition:"all 0.15s" }}>
-                      {mode==="video"?"🎬 VIDEO":"🖼 IMAGE"}
+                      {mode==="video"?"VIDEO":"IMAGE"}
                     </button>
                   ))}
                 </div>
@@ -1553,14 +1541,14 @@ function MoviePlannerInner() {
               {isVideo && (
                 <div style={{ padding:"8px 20px 0", display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
                   <span style={{ fontSize:8, color:"#3a3060", fontWeight:700, letterSpacing:0.5, marginRight:3 }}>SORT:</span>
-                  {([{key:"cheapest",label:"💰 Cheapest",col:"#22c55e"},{key:"quality",label:"⭐ Quality",col:"#c084fc"},{key:"expensive",label:"👑 Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
+                  {([{key:"cheapest",label:"Cheapest",col:"#22c55e"},{key:"quality",label:"Quality",col:"#c084fc"},{key:"expensive",label:"Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
                     <button key={opt.key} onClick={() => setAidSort(opt.key)} style={{ padding:"3px 10px", borderRadius:7, border:aidSort===opt.key?`1.5px solid ${opt.col}`:"1px solid #2a2456", background:aidSort===opt.key?`${opt.col}20`:"#12122a", color:aidSort===opt.key?opt.col:"#4a4070", fontSize:9, fontWeight:700, cursor:"pointer" }}>{opt.label}</button>
                   ))}
                 </div>
               )}
               {isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #2a1f5a", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.icon} {adviser.title}</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.title}</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>{adviser.msg}</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}>
@@ -1578,7 +1566,7 @@ function MoviePlannerInner() {
               )}
               {!isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #0ea5e940", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4 }}>🖼 Image Model Adviser</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon.Image style={{ width:12, height:12 }} /> Image Model Adviser</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>Pruna P Image ($0.005) and Flux Schnell ($0.003) cheapest for drafts. Flux Pro ($0.05) or Flux Pro Ultra ($0.06) for final quality. Ideogram v3 best for text/titles.</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}><div style={{ fontSize:8, color:"#22c55e", fontWeight:700, marginBottom:1 }}>CHEAPEST IMAGE</div><div style={{ fontSize:10, fontWeight:700, color:"#e2d9f3" }}>Flux Schnell</div><div style={{ fontSize:9, color:"#22c55e", fontWeight:700 }}>$0.003/image · FAL</div></div>
@@ -1609,11 +1597,11 @@ function MoviePlannerInner() {
                           <span style={{ fontSize:10, color:"#22c55e", fontWeight:700 }}>{m.price===0?"Runway credits":`$${m.price.toFixed(3)}`}</span>
                           <span style={{ fontSize:9, color:"#4a4070" }}>{m.res} · {m.maxSec}s</span>
                           {styleTag && <span style={{ fontSize:9, color:m.color, fontStyle:"italic" }}>{styleTag}</span>}
-                          {styleScore !== null && <span style={{ fontSize:9, color:"#5a4f80" }}>{"★".repeat(styleScore)}{"☆".repeat(5-styleScore)}</span>}
+                          {styleScore !== null && <span style={{ fontSize:9, color:"#5a4f80" }}>{styleScore}/5</span>}
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <Icon.Check style={{ width:14, height:14, color:m.color }} /> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -1640,7 +1628,7 @@ function MoviePlannerInner() {
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <Icon.Check style={{ width:14, height:14, color:m.color }} /> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -1669,19 +1657,18 @@ function MoviePlannerInner() {
       {planning && (
         <div style={{ ...cardStyle, padding: "48px 40px", marginBottom: 16 }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <p style={{ fontSize: 40, marginBottom: 12 }}>{"\u{1F3AC}"}</p>
+            <Icon.Film style={{ width: 40, height: 40, color: muted, marginBottom: 12 }} />
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 6 }}>Multi-AI Cinematic Expansion</h2>
             <p style={{ fontSize: 13, color: muted }}>3 AI systems are analyzing your idea simultaneously</p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 500, margin: "0 auto" }}>
             {[
-              { icon: "\u{1F9E0}", label: "AI Story Director", desc: "Expanding your idea into full cinematic scenes", color: accent },
-              { icon: "\u{1F527}", label: "AI Technical Director", desc: "Adding physical realism — SFX, ambience, spatial audio", color: blue },
-              { icon: "\u2705", label: "AI Quality Reviewer", desc: "Checking for logic gaps, pacing issues, continuity", color: green },
+              { label: "AI Story Director", desc: "Expanding your idea into full cinematic scenes", color: accent },
+              { label: "AI Technical Director", desc: "Adding physical realism — SFX, ambience, spatial audio", color: blue },
+              { label: "AI Quality Reviewer", desc: "Checking for logic gaps, pacing issues, continuity", color: green },
             ].map((ai, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 12, background: s2, border: `1px solid ${border}` }}>
-                <span style={{ fontSize: 22 }}>{ai.icon}</span>
-                <div style={{ flex: 1 }}>
+                                <div style={{ flex: 1 }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: ai.color }}>{ai.label}</p>
                   <p style={{ fontSize: 10, color: muted }}>{ai.desc}</p>
                 </div>
@@ -1826,24 +1813,24 @@ function MoviePlannerInner() {
           {/* Quick Links */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
             <button onClick={() => setActiveTab("scenes")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${blue}20` }}>
-              <span style={{ fontSize: 24 }}>{"\u{1F3AC}"}</span>
+              <Icon.Film style={{ width: 24, height: 24, color: blue, marginBottom: 6 }} />
               <p style={{ fontSize: 11, color: blue, fontWeight: 600, marginTop: 6 }}>Scene Board</p>
             </button>
             <a href="/dashboard/character-voices" style={{ textDecoration: "none" }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${purple}20` }}>
-                <span style={{ fontSize: 24 }}>{"\u{1F464}"}</span>
+                <Icon.User style={{ width: 24, height: 24, color: purple, marginBottom: 6 }} />
                 <p style={{ fontSize: 11, color: purple, fontWeight: 600, marginTop: 6 }}>Character Registry</p>
               </div>
             </a>
             <a href="/dashboard/collaborative-editor?from=movie-planner" style={{ textDecoration: "none" }}
               onClick={() => { try { localStorage.setItem("ghs_movie_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${accent}20` }}>
-                <span style={{ fontSize: 24 }}>{"\u270F\uFE0F"}</span>
+                <Icon.Wand style={{ width: 24, height: 24, color: accent, marginBottom: 6 }} />
                 <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 6 }}>Open Editor</p>
               </div>
             </a>
             <button onClick={() => setActiveTab("assembly")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${gold}20` }}>
-              <span style={{ fontSize: 24 }}>{"\u{1F680}"}</span>
+              <Icon.Bolt style={{ width: 24, height: 24, color: gold, marginBottom: 6 }} />
               <p style={{ fontSize: 11, color: gold, fontWeight: 600, marginTop: 6 }}>Assembly</p>
             </button>
           </div>
@@ -1876,15 +1863,15 @@ function MoviePlannerInner() {
             <div onClick={() => setActiveTab("design")}
               style={{ padding: "12px 16px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: `${gold}08`, border: `1px solid ${gold}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: gold }}>🎨 Set Design First</p>
+                <p style={{ fontSize: 12, fontWeight: 700, color: gold }}>Set Design First</p>
                 <p style={{ fontSize: 11, color: muted, marginTop: 2 }}>Genre, tone, format, and style feed the AI — without them the AI plans a generic movie, not your movie.</p>
               </div>
-              <span style={{ fontSize: 11, color: gold, whiteSpace: "nowrap", marginLeft: 16 }}>Go to Design →</span>
+              <span style={{ fontSize: 11, color: gold, whiteSpace: "nowrap", marginLeft: 16 }}>Go to Design</span>
             </div>
           )}
           {genre && (
             <div style={{ padding: "10px 16px", borderRadius: 10, marginBottom: 12, background: `${green}08`, border: `1px solid ${green}20`, display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: green }}>✅ Design set:</span>
+              <span style={{ fontSize: 11, color: green, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 12, height: 12 }} /> Design set:</span>
               <span style={{ fontSize: 11, color: muted }}>{genre}{tone ? ` · ${tone}` : ""}{setting ? ` · ${setting}` : ""}{format ? ` · ${FORMATS.find(f => f.id === format)?.label || format}` : ""}</span>
               <button onClick={() => setActiveTab("design")} style={{ marginLeft: "auto", padding: "3px 10px", borderRadius: 6, border: `1px solid ${green}30`, background: "transparent", color: green, fontSize: 10, cursor: "pointer" }}>Edit Design</button>
             </div>
@@ -1950,7 +1937,7 @@ function MoviePlannerInner() {
             <div style={{ display: "flex", gap: 10, marginBottom: 0, marginTop: 10 }}>
               <button onClick={() => expandStory()} disabled={!idea.trim() || expanding}
                 style={{ ...btnPrimary, flex: 1, background: !idea.trim() || expanding ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #16a34a)", cursor: !idea.trim() || expanding ? "not-allowed" : "pointer" }}>
-                {expanding ? "⏳ Expanding Story..." : "🧠 Expand with AI Intelligence"}
+                {expanding ? "Expanding Story..." : "Expand with AI Intelligence"}
               </button>
               <button onClick={() => {
                 if (!idea.trim()) return;
@@ -1958,7 +1945,7 @@ function MoviePlannerInner() {
                 generateMoviePlan();
               }} disabled={!idea.trim() || planning}
                 style={{ ...btnPrimary, flex: 1, background: !idea.trim() || planning ? "#2a2a40" : !genre ? gold : "#7c5cfc", cursor: !idea.trim() || planning ? "not-allowed" : "pointer" }}>
-                {planning ? "⏳ Planning..." : !genre ? "⚠️ Set Design First" : "🎬 Generate Movie Plan"}
+                {planning ? "Planning..." : !genre ? "Set Design First" : "Generate Movie Plan"}
               </button>
             </div>
             {expanding && <p style={{ fontSize: 10, color: accent, marginTop: 8, textAlign: "center" }}>Running 3-step pipeline: story expand → character extract → scene plan...</p>}
@@ -2158,12 +2145,12 @@ function MoviePlannerInner() {
                 <button onClick={() => { setActiveTab("story"); setLastAction("Design set — write your story"); }}
                   disabled={!genre}
                   style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: genre ? gold : "#2a2a40", color: "#000", fontSize: 14, fontWeight: 700, cursor: genre ? "pointer" : "not-allowed" }}>
-                  {genre ? "✅ Design Set → Write Story" : "Select a genre above first"}
+                  {genre ? "Design Set — Write Story" : "Select a genre above first"}
                 </button>
               ) : (
                 <button onClick={() => generateMoviePlan()} disabled={!idea.trim() || planning}
                   style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: (idea.trim() && !planning) ? accent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (idea.trim() && !planning) ? "pointer" : "not-allowed" }}>
-                  {planning ? "Generating Movie Plan..." : "🎬 Generate Movie Plan"}
+                  {planning ? "Generating Movie Plan..." : "Generate Movie Plan"}
                 </button>
               )}
               {idea.trim() && !planning && (
@@ -2216,9 +2203,9 @@ function MoviePlannerInner() {
                       {char.imageUrl ? (
                         <img src={char.imageUrl} alt={char.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
-                        <span style={{ fontSize: 32, opacity: 0.3 }}>{"\u{1F464}"}</span>
+                        <Icon.User style={{ width: 32, height: 32, color: muted, opacity: 0.3 }} />
                       )}
-                      {inCast && <div style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#000" }}>{"\u2713"}</div>}
+                      {inCast && <div style={{ position: "absolute", top: 6, right: 6, width: 22, height: 22, borderRadius: "50%", background: green, display: "flex", alignItems: "center", justifyContent: "center", color: "#000" }}><Icon.Check style={{ width: 12, height: 12 }} /></div>}
                       {char.characterId && <span style={{ position: "absolute", bottom: 4, left: 6, fontSize: 8, fontFamily: "monospace", color: purple, background: "rgba(0,0,0,0.7)", padding: "1px 5px", borderRadius: 4 }}>{char.characterId}</span>}
                     </div>
                     <div style={{ padding: "10px 12px" }}>
@@ -2287,7 +2274,7 @@ function MoviePlannerInner() {
                 onClick={runSceneIntelligence}
                 style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4ade8030", background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
               >
-                {runningIntelligence ? "⚡ Detecting..." : "🔊 Scene Intelligence"}
+                {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
               </button>
               {(() => {
                 const pendingCount = scenes.filter(s => {
@@ -2304,11 +2291,11 @@ function MoviePlannerInner() {
             </div>
           </div>
           {runningIntelligence && (
-            <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>⚡ Scene Intelligence running — detecting environments and ambient sounds...</p>
+            <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
           )}
           {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
             <p style={{ fontSize: 10, color: "#666", margin: "4px 0" }}>
-              🔊 {Object.keys(sceneIntelligence).length} scenes have sound environment data
+              {Object.keys(sceneIntelligence).length} scenes have sound environment data
             </p>
           )}
 
@@ -2319,11 +2306,11 @@ function MoviePlannerInner() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                     style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    🎬 Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                    Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
                   </button>
                   <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                     style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    🖼 Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                    Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
                   </button>
                 </div>
               </div>
@@ -2368,7 +2355,7 @@ function MoviePlannerInner() {
                         <img src={sceneImages[sceneId]} alt={scene.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <div style={{ textAlign: "center" }}>
-                          <span style={{ fontSize: 36, opacity: 0.2 }}>{"\u{1F5BC}"}</span>
+                          <Icon.Image style={{ width: 36, height: 36, color: muted, opacity: 0.2 }} />
                           <p style={{ fontSize: 9, color: muted, marginTop: 4 }}>No image yet</p>
                         </div>
                       )}
@@ -2431,22 +2418,20 @@ function MoviePlannerInner() {
                         const intel = sceneIntelligence[sceneId];
                         if (!intel) return null;
                         const energyColor = SCENE_ENERGY_COLOR[intel.energyLevel] || "#888";
-                        const icon = SCENE_ENV_ICON[intel.environmentType] || "📍";
-                        return (
+                                                return (
                           <div style={{ margin: "8px 0", padding: "6px 8px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff0a" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                              <span style={{ fontSize: 11 }}>{icon}</span>
-                              <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
+                                                            <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
                               <span style={{ fontSize: 8, color: "#666" }}>•</span>
                               <span style={{ fontSize: 8, color: "#666", textTransform: "capitalize" }}>{intel.timeOfDay}</span>
                               <span style={{ marginLeft: "auto", fontSize: 7, padding: "1px 5px", borderRadius: 4, background: `${energyColor}20`, color: energyColor, fontWeight: 700, textTransform: "uppercase" }}>{intel.energyLevel}</span>
                             </div>
                             <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                               {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
-                                <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>🔊 {sound}</span>
+                                <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>{sound}</span>
                               ))}
                               {intel.sfxEvents.length > 0 && (
-                                <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>⚡ {intel.sfxEvents[0]}</span>
+                                <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
                               )}
                             </div>
                           </div>
@@ -2461,11 +2446,11 @@ function MoviePlannerInner() {
                         </button>
                         <button onClick={() => makeSceneVideo(scene)} disabled={!hasImage || generatingSceneVideos.has(sceneId)}
                           style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "none", background: !hasImage ? "#1a1a2a" : generatingSceneVideos.has(sceneId) ? "#2a2a40" : `linear-gradient(135deg, ${purple}, #7c5cfc)`, color: !hasImage ? muted : "#fff", fontSize: 9, fontWeight: 700, cursor: !hasImage || generatingSceneVideos.has(sceneId) ? "not-allowed" : "pointer" }}>
-                          {generatingSceneVideos.has(sceneId) ? "..." : sceneVideos[sceneId] ? "New Video" : "🎬 Make Video"}
+                          {generatingSceneVideos.has(sceneId) ? "..." : sceneVideos[sceneId] ? "New Video" : "Make Video"}
                         </button>
                         <button onClick={() => updateScene(scene.scene, { status: scene.status === "approved" ? "planned" : "approved" })}
                           style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${green}30`, background: scene.status === "approved" ? `${green}15` : "transparent", color: green, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
-                          {scene.status === "approved" ? "\u2713" : "OK"}
+                          {scene.status === "approved" ? <Icon.Check style={{ width: 10, height: 10 }} /> : "OK"}
                         </button>
                         <button onClick={() => setExpandedSceneId(expandedSceneId === sceneId ? null : sceneId)}
                           style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${border}`, background: expandedSceneId === sceneId ? `${blue}10` : "transparent", color: expandedSceneId === sceneId ? blue : muted, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
@@ -2555,7 +2540,7 @@ function MoviePlannerInner() {
           {/* Setup / Generate */}
           {!screenplay && !generatingScreenplay && (
             <div style={{ ...cardStyle, borderColor: `${purple}20`, marginBottom: 16 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>📄 Screenplay</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Screenplay</p>
               <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a full formatted screenplay from your story, or paste your own script below and parse it into narrator/dialogue segments.</p>
               {!idea.trim() && !expandedStory ? (
                 <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -2573,7 +2558,7 @@ function MoviePlannerInner() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={generateScreenplay}
                       style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                      ✍️ Generate Screenplay
+                      Generate Screenplay
                     </button>
                     <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your screenplay here...\n\nFADE OUT.\n\nTHE END")}
                       style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
@@ -2588,7 +2573,7 @@ function MoviePlannerInner() {
           {/* Loading */}
           {generatingScreenplay && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div>
+              <Icon.Wand style={{ width: 36, height: 36, color: muted, marginBottom: 12 }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
               <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
             </div>
@@ -2625,7 +2610,7 @@ function MoviePlannerInner() {
               {/* Send result */}
               {sendToScenesResult && (
                 <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span>✅</span>
+                  <Icon.Check style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
                   <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
                   <button onClick={() => setActiveTab("audio")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Audio</button>
                 </div>
@@ -2724,7 +2709,7 @@ function MoviePlannerInner() {
               {(["freesound", "elevenlabs"] as const).map(t => (
                 <button key={t} onClick={() => setSoundTab(t)}
                   style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${soundTab === t ? blue : border}`, background: soundTab === t ? `${blue}10` : "transparent", color: soundTab === t ? blue : muted, fontSize: 10, cursor: "pointer" }}>
-                  {t === "freesound" ? "🌐 Freesound Library" : "🎵 AI Generate SFX"}
+                  {t === "freesound" ? "Freesound Library" : "AI Generate SFX"}
                 </button>
               ))}
             </div>
@@ -2793,11 +2778,11 @@ function MoviePlannerInner() {
 
           {/* ── Music Library ── */}
           <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>🎵 Background Music</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Icon.Music style={{ width: 14, height: 14, color: muted }} /> Background Music</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
               <button onClick={aiPickMusic} disabled={aiPickingMusic}
                 style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: aiPickingMusic ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: aiPickingMusic ? muted : "#000", fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
-                {aiPickingMusic ? "AI Picking…" : "🤖 AI Pick"}
+                {aiPickingMusic ? "AI Picking…" : "AI Pick"}
               </button>
               <button onClick={() => { setShowMusicPicker(p => !p); if (!showMusicPicker && musicLibrary.length === 0) loadMusicLibrary(); }}
                 style={{ padding: "8px 16px", borderRadius: 9, border: `1px solid ${purple}40`, background: `${purple}10`, color: purple, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -2811,7 +2796,7 @@ function MoviePlannerInner() {
             {aiMusicPickLog && <p style={{ fontSize: 10, color: aiMusicPickLog.startsWith("Selected:") ? accent : muted, marginBottom: 8 }}>{aiMusicPickLog}</p>}
             {selectedMusicUrl && (
               <div style={{ marginBottom: 10 }}>
-                <p style={{ fontSize: 10, color: green, marginBottom: 4 }}>✓ {selectedMusicName}</p>
+                <p style={{ fontSize: 10, color: green, marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 10, height: 10 }} /> {selectedMusicName}</p>
                 <audio controls src={selectedMusicUrl} style={{ width: "100%", height: 36 }} />
               </div>
             )}
@@ -2830,9 +2815,9 @@ function MoviePlannerInner() {
                   return (
                     <div key={track.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: isSelected ? `${purple}15` : s2, border: `1px solid ${isSelected ? purple : border}`, cursor: "pointer" }}
                       onClick={() => { setSelectedMusicUrl(mediaUrl); setSelectedMusicName(track.name); setShowMusicPicker(false); }}>
-                      <span style={{ fontSize: 14 }}>🎵</span>
+                      <Icon.Music style={{ width: 14, height: 14, color: muted, flexShrink: 0 }} />
                       <span style={{ fontSize: 11, flex: 1, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</span>
-                      {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700 }}>✓ Selected</span>}
+                      {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}><Icon.Check style={{ width: 10, height: 10 }} /> Selected</span>}
                     </div>
                   );
                 })}
@@ -2849,7 +2834,7 @@ function MoviePlannerInner() {
           ) : scenes.map(scene => {
             const sceneId = `SC${String(scene.scene).padStart(2, "0")}`;
             const isNarrationOpen = narrationScene === scene.scene;
-            const typeIcon = scene.generationMethod === "video" ? "\u{1F3AC}" : scene.generationMethod === "image" ? "\u{1F5BC}" : scene.generationMethod === "audio-only" ? "\u{1F50A}" : "\u{1F500}";
+            const typeIcon = scene.generationMethod === "video" ? "V" : scene.generationMethod === "image" ? "I" : scene.generationMethod === "audio-only" ? "A" : "H";
             return (
               <div key={scene.scene} style={{ ...cardStyle, borderColor: `${accent}20` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -2911,7 +2896,7 @@ function MoviePlannerInner() {
                   </button>
                   <button onClick={() => generateSceneNarration(scene)} disabled={!scene.dialogue?.trim()}
                     style={{ flex: 1, fontSize: 9, padding: "6px 10px", borderRadius: 6, border: `1px solid ${accent}30`, background: `${accent}06`, color: accent, cursor: !scene.dialogue?.trim() ? "not-allowed" : "pointer", fontWeight: 600, opacity: !scene.dialogue?.trim() ? 0.5 : 1 }}>
-                    🔊 Generate Audio
+                    Generate Audio
                   </button>
                 </div>
 
@@ -2954,7 +2939,7 @@ function MoviePlannerInner() {
             <div style={{ marginBottom: 12 }}>
               <button onClick={() => setShowCutsPanel(p => !p)}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: `1px solid ${gold}30`, background: showCutsPanel ? `${gold}10` : `${gold}06`, color: gold, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                <span style={{ fontSize: 16 }}>📂</span>
+                <Icon.Folder style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <span>Saved Cuts ({savedCuts.length})</span>
                 <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
                   {savedCuts.map(c => <span key={c.name} style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: `${gold}20`, color: gold }}>{c.name}</span>)}
@@ -2968,10 +2953,10 @@ function MoviePlannerInner() {
                       onClick={() => { setAssemblyName(c.name); setAssemblySelectedIds(c.sceneIds); if (c.videoUrl) setAssembledUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded cut: "${c.name}"`); }}
                       style={{ background: s2, borderRadius: 10, border: `2px solid ${assemblyName === c.name ? gold : border}`, padding: 10, cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 13 }}>{c.videoUrl ? "🎬" : "📋"}</span>
+                        {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
                         <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? gold : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
                         <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_movie_cuts", JSON.stringify(next)); } catch {} return next; }); }}
-                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
+                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, cursor: "pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                       </div>
                       <p style={{ fontSize: 9, color: muted }}>{c.sceneIds.length} scene{c.sceneIds.length !== 1 ? "s" : ""} · {new Date(c.savedAt).toLocaleDateString()}</p>
                     </div>
@@ -3002,7 +2987,7 @@ function MoviePlannerInner() {
                   setLastAction(`Cut "${assemblyName}" saved`);
                 }}
                 style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
-                💾 Save Cut
+                Save Cut
               </button>
             </div>
           </div>
@@ -3058,7 +3043,7 @@ function MoviePlannerInner() {
                     onClick={() => setAssemblySelectedIds(prev => isSelected ? prev.filter(id => id !== sceneId) : [...prev, sceneId])}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: isSelected ? `${green}06` : s2, marginBottom: 4, border: `1px solid ${isSelected ? `${green}25` : border}`, cursor: "pointer" }}>
                     <div style={{ width: 16, height: 16, borderRadius: 4, border: `2px solid ${isSelected ? green : muted}`, background: isSelected ? `${green}20` : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {isSelected && <span style={{ fontSize: 10, color: green }}>✓</span>}
+                      {isSelected && <Icon.Check style={{ width: 10, height: 10, color: green }} />}
                     </div>
                     {/* Thumbnail */}
                     {(hasImg || hasVid) && (
@@ -3088,7 +3073,7 @@ function MoviePlannerInner() {
             const status = assemblyProgress[scene.scene] || "queued";
             return (
               <div key={sceneId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: s2, marginBottom: 4, border: `1px solid ${border}` }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: status === "done" ? green : status === "processing" ? gold : muted }}>{status === "done" ? "✓" : status === "processing" ? "..." : "○"}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: status === "done" ? green : status === "processing" ? gold : muted }}>{status === "done" ? <Icon.Check style={{ width: 10, height: 10 }} /> : status === "processing" ? "..." : "○"}</span>
                 <p style={{ fontSize: 11, color: "#fff", flex: 1 }}>{sceneId}: {scene.title}</p>
                 <span style={{ fontSize: 10, color: muted }}>{status}</span>
               </div>
@@ -3129,6 +3114,7 @@ function MoviePlannerInner() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }

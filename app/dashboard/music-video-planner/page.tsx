@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
+import { ds } from "../../../lib/designSystem";
+import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
+import { HeroTitle } from "../../components/hero/HeroTitle";
+import * as Icon from "../../components/icons";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -57,14 +61,14 @@ const AID_IMAGE_MODELS = [
 // ═══════════════════════════════════════════════════════════════════════════
 
 const VIDEO_MODES = [
-  { id: "official", label: "Official Music Video", icon: "🎬", desc: "Full cinematic music video with AI scenes" },
-  { id: "lyric", label: "Lyric Video", icon: "📝", desc: "Timed lyrics with mood visuals" },
-  { id: "visualizer", label: "Visualizer", icon: "🌊", desc: "Waveform/motion background with branding" },
-  { id: "image-mv", label: "Image Music Video", icon: "📸", desc: "Your photos animated to music" },
-  { id: "performance", label: "AI Artist Performance", icon: "🕺", desc: "AI avatar performing your song" },
-  { id: "commercial", label: "Commercial Music Promo", icon: "📣", desc: "Product/brand music promo" },
-  { id: "dance", label: "Dance Mode", icon: "💃", desc: "Energetic rhythm-driven visuals" },
-  { id: "children", label: "Children Music Video", icon: "🧒", desc: "Safe, bright, educational" },
+  { id: "official",    label: "Official Music Video",    desc: "Full cinematic music video with AI scenes" },
+  { id: "lyric",       label: "Lyric Video",             desc: "Timed lyrics with mood visuals" },
+  { id: "visualizer",  label: "Visualizer",              desc: "Waveform/motion background with branding" },
+  { id: "image-mv",    label: "Image Music Video",       desc: "Your photos animated to music" },
+  { id: "performance", label: "AI Artist Performance",   desc: "AI avatar performing your song" },
+  { id: "commercial",  label: "Commercial Music Promo",  desc: "Product/brand music promo" },
+  { id: "dance",       label: "Dance Mode",              desc: "Energetic rhythm-driven visuals" },
+  { id: "children",    label: "Children Music Video",    desc: "Safe, bright, educational" },
 ];
 
 const VISUAL_STYLES = [
@@ -72,14 +76,7 @@ const VISUAL_STYLES = [
   "Fantasy", "Neon", "Worship Glow", "Dark Moody", "Energetic", "Minimalist",
 ];
 
-const SCENE_ENV_ICON: Record<string, string> = {
-  "city-street": "🏙", "open-market": "🛒", "indoor-market": "🏪",
-  "bush-forest": "🌿", "village": "🏘", "beach": "🏖",
-  "riverbank": "🌊", "church-mosque": "⛪", "hospital": "🏥",
-  "office": "💼", "indoor-room": "🏠", "forest-night": "🌲",
-  "night-street": "🌙", "rain-scene": "🌧", "rooftop": "🏢",
-  "car-interior": "🚗", "school": "🏫",
-};
+// SCENE_ENV_ICON removed — env type shown as text label (v14: no emoji)
 
 const SCENE_ENERGY_COLOR: Record<string, string> = {
   chaotic: "#ef4444", tense: "#eab308", dramatic: "#a855f7",
@@ -99,26 +96,27 @@ interface Scene {
   outputUrl?: string;
 }
 
-const surface = "#0e1318";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const accent = "#7c5cfc";
-const cardStyle: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 24 };
-const labelStyle: React.CSSProperties = { fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10, display: "block" };
-const inputStyle: React.CSSProperties = { width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit" };
+// ── v14 style helpers ──
+const surface = ds.color.card;
+const border = ds.color.line;
+const muted = ds.color.mute;
+const accent = ds.color.lilac;
+const cardStyle: React.CSSProperties = { background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 16, padding: 24 };
+const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: ds.color.mute, marginBottom: 8, display: "block", fontFamily: ds.font.mono };
+const inputStyle: React.CSSProperties = { width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line2}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: ds.font.sans };
 
 interface MvProject { id: string; title: string; videoMode: string | null; status: string; updatedAt: string }
 
 type MvTab = "overview" | "song" | "analysis" | "storyboard" | "screenplay" | "captions" | "audio" | "assembly";
-const MV_TABS: { id: MvTab; label: string; icon: string; step?: number }[] = [
-  { id: "overview",   label: "Overview",   icon: "🏠" },
-  { id: "song",       label: "Song Input", icon: "🎵", step: 1 },
-  { id: "analysis",   label: "Mode & AI",  icon: "🔬", step: 2 },
-  { id: "storyboard", label: "Storyboard", icon: "🎬", step: 3 },
-  { id: "screenplay", label: "Screenplay", icon: "📄", step: 4 },
-  { id: "captions",   label: "Captions",   icon: "📝", step: 5 },
-  { id: "audio",      label: "Audio",      icon: "🎤", step: 6 },
-  { id: "assembly",   label: "Assembly",   icon: "🚀", step: 7 },
+const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
+  { id: "overview",   label: "Overview" },
+  { id: "song",       label: "Song Input", step: 1 },
+  { id: "analysis",   label: "Mode & AI",  step: 2 },
+  { id: "storyboard", label: "Storyboard", step: 3 },
+  { id: "screenplay", label: "Screenplay", step: 4 },
+  { id: "captions",   label: "Captions",   step: 5 },
+  { id: "audio",      label: "Audio",      step: 6 },
+  { id: "assembly",   label: "Assembly",   step: 7 },
 ];
 
 export default function MusicVideoPlannerPage() {
@@ -710,7 +708,7 @@ export default function MusicVideoPlannerPage() {
       if (data.outputUrl) {
         setAssembledUrl(data.outputUrl);
         setAssemblyComplete(true);
-        setLastAction(`✅ Music video assembled! (${Math.round(data.duration || 0)}s)`);
+        setLastAction(`Music video assembled! (${Math.round(data.duration || 0)}s)`);
       } else {
         setLastAction(data.error || "Assembly failed — check server logs");
       }
@@ -904,26 +902,23 @@ export default function MusicVideoPlannerPage() {
   const sceneImageCount = Object.keys(sceneImages).length;
 
   return (
-    <div>
-      {/* Header */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(0,212,255,0.08)", border: "1px solid rgba(0,212,255,0.2)", padding: "5px 14px", borderRadius: 100, fontSize: 11, fontWeight: 500, color: "#00d4ff", letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 16 }}>
-          Music Video Planning
-        </div>
-        <h1 style={{ fontSize: 30, fontWeight: 800, color: "#fff", letterSpacing: "-1px", marginBottom: 8 }}>
-          Music Video Planner
-        </h1>
-        <p style={{ fontSize: 14, color: muted, lineHeight: 1.6 }}>
-          Import or create a song → AI analyzes it → choose visual mode → storyboard → preview → render.
-        </p>
+    <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
+      {/* ── Page Header ── */}
+      <div style={{ padding: "24px 32px 0" }}>
+        <HeroTitle
+          kicker="Music Video Studio"
+          title="Music Video"
+          italic="Planner"
+          sub="Import song → AI analyzes → storyboard → preview → render"
+        />
       </div>
 
-      {/* Project bar */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "8px 14px", background: surface, border: `1px solid ${border}`, borderRadius: 10 }}>
-        <span style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{songTitle || "New Project"}</span>
-        {lastAction && <span style={{ fontSize: 11, color: "#22c55e", marginLeft: 8 }}>{lastAction}</span>}
+      {/* ── Project toolbar ── */}
+      <div style={{ padding: "12px 32px 0", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as const }}>
+        <span style={{ fontSize: 12, color: ds.color.ink, fontWeight: 600 }}>{songTitle || "New Project"}</span>
+        {lastAction && <span style={{ fontSize: 11, color: ds.color.mint, marginLeft: 8 }}>{lastAction}</span>}
         <button onClick={() => saveProject()} disabled={saving}
-          style={{ marginLeft: "auto", fontSize: 11, padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", cursor: "pointer", fontWeight: 600 }}>
+          style={{ marginLeft: "auto", fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: `${ds.color.lilac}10`, color: ds.color.lilac, cursor: "pointer", fontWeight: 600 }}>
           {saving ? "Saving..." : "Save"}
         </button>
         <button onClick={() => setShowProjects(!showProjects)}
@@ -934,33 +929,42 @@ export default function MusicVideoPlannerPage() {
 
       {/* Recent projects */}
       {showProjects && (
-        <div style={{ ...cardStyle, marginBottom: 16, maxHeight: 200, overflowY: "auto" }}>
+        <div style={{ margin: "12px 32px 0", ...cardStyle, maxHeight: 200, overflowY: "auto" }}>
           {projectList.length === 0 && <p style={{ fontSize: 12, color: muted }}>No saved projects yet</p>}
           {projectList.map(p => (
             <div key={p.id} onClick={() => loadProject(p.id)}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, marginBottom: 3, background: projectId === p.id ? "rgba(0,212,255,0.06)" : "transparent", cursor: "pointer", border: `1px solid ${projectId === p.id ? "rgba(0,212,255,0.2)" : "transparent"}` }}>
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 12px", borderRadius: 8, marginBottom: 3, background: projectId === p.id ? `${ds.color.lilac}08` : "transparent", cursor: "pointer", border: `1px solid ${projectId === p.id ? `${ds.color.lilac}30` : "transparent"}` }}>
               <div>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{p.title}</span>
                 <span style={{ fontSize: 9, color: muted, marginLeft: 8 }}>{p.videoMode ?? ""} &middot; {p.status}</span>
               </div>
-              <span style={{ fontSize: 9, color: "#3d5060" }}>{new Date(p.updatedAt).toLocaleDateString()}</span>
+              <span style={{ fontSize: 9, color: muted }}>{new Date(p.updatedAt).toLocaleDateString()}</span>
             </div>
           ))}
         </div>
       )}
 
-      {/* Tab navigation */}
-      <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #1e2a35", marginBottom: 24, overflowX: "auto" }}>
+      {/* ── v14 Tab Bar ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${ds.color.line}`, background: ds.color.paper, overflowX: "auto", marginTop: 16, padding: "0 32px" }}>
         {MV_TABS.map(t => {
           const active = activeTab === t.id;
           return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "12px 14px", background: "none", border: "none", color: active ? "#ec4899" : "#5a7080", fontWeight: active ? 700 : 500, fontSize: 12, cursor: "pointer", borderBottom: active ? "2px solid #ec4899" : "2px solid transparent", whiteSpace: "nowrap", display: "flex", gap: 5, alignItems: "center" }}>
-              <span>{t.icon}</span><span>{t.label}</span>
-              {t.step && <span style={{ fontSize: 9, background: "#ec489922", color: "#ec4899", borderRadius: 10, padding: "1px 5px" }}>{t.step}</span>}
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              style={{
+                padding: "13px 18px", background: "none", border: "none",
+                color: active ? ds.color.ink : ds.color.mute,
+                fontWeight: 700, fontSize: 10, fontFamily: ds.font.mono, letterSpacing: "0.18em",
+                textTransform: "uppercase" as const, cursor: "pointer", position: "relative",
+                whiteSpace: "nowrap", transition: "color .18s",
+              }}>
+              {active && <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#a78bfa,#d17bff,#ff9a3c,#f5a623)", borderRadius: "2px 2px 0 0" }} />}
+              {t.label}
+              {t.step && <span style={{ marginLeft: 5, fontSize: 8, padding: "1px 5px", borderRadius: 10, background: `${ds.color.lilac}22`, color: ds.color.lilac }}>{t.step}</span>}
             </button>
           );
         })}
       </div>
+      <div style={{ padding: "0 32px" }}>
 
       {/* Overview tab */}
       {activeTab === "overview" && (
@@ -981,10 +985,10 @@ export default function MusicVideoPlannerPage() {
           <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 20 }}>
             <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 12 }}>Quick Actions</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-              <button onClick={() => setActiveTab("song")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>🎵 {songTitle ? "Edit Song" : "Add Song"}</button>
-              <button onClick={() => setActiveTab("analysis")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>🔬 {videoMode ? "Edit Mode" : "Choose Video Mode"}</button>
-              <button onClick={() => setActiveTab("storyboard")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>🎬 {storyboard.length > 0 ? `Storyboard (${storyboard.length} scenes)` : "Build Storyboard"}</button>
-              <button onClick={() => setActiveTab("assembly")} style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "#ec4899", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>🚀 Go to Assembly</button>
+              <button onClick={() => setActiveTab("song")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>{songTitle ? "Edit Song" : "Add Song"}</button>
+              <button onClick={() => setActiveTab("analysis")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>{videoMode ? "Edit Mode" : "Choose Video Mode"}</button>
+              <button onClick={() => setActiveTab("storyboard")} style={{ padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#fff", fontSize: 12, cursor: "pointer", textAlign: "left" as const }}>{storyboard.length > 0 ? `Storyboard (${storyboard.length} scenes)` : "Build Storyboard"}</button>
+              <button onClick={() => setActiveTab("assembly")} style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "#ec4899", color: "#fff", fontSize: 12, cursor: "pointer", fontWeight: 700 }}>Go to Assembly</button>
             </div>
           </div>
           <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 20 }}>
@@ -997,7 +1001,7 @@ export default function MusicVideoPlannerPage() {
               { label: "Scenes rendered", done: storyboard.some(s => s.status === "generated") },
             ].map((item, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "1px solid #1e2a35" }}>
-                <span style={{ color: item.done ? "#22c55e" : "#5a7080" }}>{item.done ? "✓" : "○"}</span>
+                <span style={{ color: item.done ? "#22c55e" : "#5a7080" }}>{item.done ? "OK" : "–"}</span>
                 <span style={{ fontSize: 12, color: item.done ? "#ddd" : "#5a7080" }}>{item.label}</span>
               </div>
             ))}
@@ -1010,7 +1014,7 @@ export default function MusicVideoPlannerPage() {
         <div>
           {!screenplay && !generatingScreenplay && (
             <div style={{ ...cardStyle, borderColor: "rgba(168,85,247,0.2)", marginBottom: 16 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>📄 Screenplay</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Screenplay</p>
               <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a formatted screenplay from your song and storyboard, or paste your own script and parse it into narrator/dialogue segments.</p>
               {!songTitle.trim() && !lyrics.trim() ? (
                 <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -1028,7 +1032,7 @@ export default function MusicVideoPlannerPage() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={generateScreenplay}
                       style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #a855f7, #7c3aed)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                      ✍️ Generate Screenplay
+                      Generate Screenplay
                     </button>
                     <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your screenplay here...\n\nFADE OUT.\n\nTHE END")}
                       style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
@@ -1042,7 +1046,7 @@ export default function MusicVideoPlannerPage() {
 
           {generatingScreenplay && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div>
+              
               <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
               <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
             </div>
@@ -1076,7 +1080,7 @@ export default function MusicVideoPlannerPage() {
 
               {sendToScenesResult && (
                 <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: "rgba(124,92,252,0.1)", border: "1px solid rgba(124,92,252,0.3)", display: "flex", alignItems: "center", gap: 10 }}>
-                  <span>✅</span>
+                  <Icon.Check style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
                   <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
                   <button onClick={() => setActiveTab("storyboard")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Storyboard</button>
                 </div>
@@ -1134,7 +1138,7 @@ export default function MusicVideoPlannerPage() {
       {/* Captions tab */}
       {activeTab === "captions" && (
         <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>📝 Captions & Lyrics</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Captions &amp; Lyrics</h2>
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Caption Display Mode</p>
             <div style={{ display: "flex", gap: 8 }}>
@@ -1170,7 +1174,7 @@ export default function MusicVideoPlannerPage() {
       {/* Audio tab */}
       {activeTab === "audio" && (
         <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>🎤 Audio & Narration</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}><Icon.Mic style={{ width: 18, height: 18 }} /> Audio &amp; Narration</h2>
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Narration Intro / Outro</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -1195,13 +1199,13 @@ export default function MusicVideoPlannerPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" as const }}>
               <button onClick={() => { setShowMusicPicker(p => !p); if (!showMusicPicker && musicLibrary.length === 0) loadMusicLibrary(); }}
                 style={{ padding: "7px 14px", borderRadius: 9, border: "1px solid rgba(124,92,252,0.4)", background: "rgba(124,92,252,0.1)", color: "#7c5cfc", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                {showMusicPicker ? "Close Library" : "🎵 Browse Music Library"}
+                {showMusicPicker ? "Close Library" : "Browse Music Library"}
               </button>
               <button onClick={aiPickMusic} disabled={aiPickingMusic}
                 style={{ padding: "7px 14px", borderRadius: 9, border: "none", background: aiPickingMusic ? "#2a2a40" : "linear-gradient(135deg, #f59e0b, #d97706)", color: "#000", fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
-                {aiPickingMusic ? "AI Picking…" : "🤖 AI Pick"}
+                {aiPickingMusic ? "AI Picking…" : "AI Pick"}
               </button>
-              {selectedMusicName && <span style={{ fontSize: 11, color: "#22c55e", alignSelf: "center" }}>✓ {selectedMusicName}</span>}
+              {selectedMusicName && <span style={{ fontSize: 11, color: "#22c55e", alignSelf: "center", display: "flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 11, height: 11 }} /> {selectedMusicName}</span>}
             </div>
             {aiMusicPickLog && <p style={{ fontSize: 10, color: aiMusicPickLog.startsWith("Selected:") ? "#22c55e" : muted, marginBottom: 8 }}>{aiMusicPickLog}</p>}
             {showMusicPicker && (
@@ -1215,7 +1219,7 @@ export default function MusicVideoPlannerPage() {
                     <div key={track.id} onClick={() => { setSelectedMusicUrl(mediaUrl); setSelectedMusicName(track.name); setShowMusicPicker(false); }}
                       style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: isSelected ? "rgba(124,92,252,0.15)" : "#0d1117", border: `1px solid ${isSelected ? "#7c5cfc" : border}`, cursor: "pointer" }}>
                       <span style={{ fontSize: 11, color: "#fff", flex: 1 }}>{track.name}</span>
-                      {isSelected && <span style={{ fontSize: 10, color: "#7c5cfc", fontWeight: 700 }}>✓</span>}
+                      {isSelected && <Icon.Check style={{ width: 10, height: 10, color: "#7c5cfc", flexShrink: 0 }} />}
                     </div>
                   );
                 })}
@@ -1230,7 +1234,7 @@ export default function MusicVideoPlannerPage() {
               {(["freesound", "elevenlabs"] as const).map(t => (
                 <button key={t} onClick={() => setSoundTab(t)}
                   style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${soundTab === t ? "#00d4ff" : border}`, background: soundTab === t ? "rgba(0,212,255,0.1)" : "transparent", color: soundTab === t ? "#00d4ff" : muted, fontSize: 10, cursor: "pointer" }}>
-                  {t === "freesound" ? "🌐 Freesound Library" : "🎵 AI Generate SFX"}
+                  {t === "freesound" ? "Freesound Library" : "AI Generate SFX"}
                 </button>
               ))}
             </div>
@@ -1300,7 +1304,7 @@ export default function MusicVideoPlannerPage() {
           {songSource === "upload" && (
             <div style={{ border: `2px dashed ${border}`, borderRadius: 16, padding: 40, textAlign: "center", cursor: "pointer", marginBottom: 20 }}
               onClick={() => document.getElementById("songUpload")?.click()}>
-              <p style={{ fontSize: 28, marginBottom: 8 }}>🎵</p>
+              <Icon.Music style={{ width: 28, height: 28, color: muted, marginBottom: 8 }} />
               <p style={{ fontSize: 14, color: muted }}>Upload MP3, WAV, or AAC</p>
               <input id="songUpload" type="file" accept="audio/*" style={{ display: "none" }}
                 onChange={e => { const f = e.target.files?.[0]; if (f) { setSongFile(f); setSongUrl(URL.createObjectURL(f)); setSongTitle(f.name.replace(/\.[^.]+$/, "")); } }} />
@@ -1337,7 +1341,7 @@ export default function MusicVideoPlannerPage() {
             <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>AI reads your song and lyrics and automatically builds storyboard scenes, extracts mood, and plans the visual narrative.</p>
             <button onClick={expandStory} disabled={expanding || (!songTitle.trim() && !lyrics.trim())}
               style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: expanding ? "#2a2a40" : "#00d4ff", color: "#000", fontSize: 12, fontWeight: 700, cursor: expanding ? "not-allowed" : "pointer" }}>
-              {expanding ? "AI Expanding..." : "🤖 Expand with AI Intelligence"}
+              {expanding ? "AI Expanding..." : "Expand with AI Intelligence"}
             </button>
             {lastAction.includes("AI") && <p style={{ fontSize: 10, color: muted, marginTop: 6 }}>{lastAction}</p>}
           </div>
@@ -1357,8 +1361,7 @@ export default function MusicVideoPlannerPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 24 }}>
             {VIDEO_MODES.map(m => (
               <button key={m.id} onClick={() => setVideoMode(m.id)}
-                style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${videoMode === m.id ? "#00d4ff" : border}`, background: videoMode === m.id ? "rgba(0,212,255,0.06)" : "transparent", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 22 }}>{m.icon}</span>
+                style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${videoMode === m.id ? ds.color.lilac : border}`, background: videoMode === m.id ? `${ds.color.lilac}08` : "transparent", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
                 <div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{m.label}</p>
                   <p style={{ fontSize: 10, color: muted }}>{m.desc}</p>
@@ -1559,12 +1562,12 @@ export default function MusicVideoPlannerPage() {
         const AID_MODELS = AID_VIDEO_MODELS;
         const IMAGE_MODELS_AID = AID_IMAGE_MODELS;
         type StyleKey = "all"|"2d"|"3d"|"cartoon"|"realistic";
-        const ADVISER: Record<StyleKey, { icon:string; title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
-          all:      { icon:"🤖", title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
-          "2d":     { icon:"✏️", title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
-          "3d":     { icon:"🎲", title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead.",                                                  cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
-          cartoon:  { icon:"🎨", title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                          cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
-          realistic:{ icon:"🎬", title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option.",                                               cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
+        const ADVISER: Record<StyleKey, { title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
+          all:      { title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
+          "2d":     { title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
+          "3d":     { title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead.",                                                  cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
+          cartoon:  { title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                          cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
+          realistic:{ title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option.",                                               cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
         };
         const adviser = ADVISER[aidStyle];
         const qualityScore = (m: typeof AID_MODELS[0]) => aidStyle === "all" ? (m.scores["2d"]+m.scores["3d"]+m.scores.cartoon+m.scores.realistic)/4 : m.scores[aidStyle as Exclude<StyleKey,"all">];
@@ -1585,12 +1588,12 @@ export default function MusicVideoPlannerPage() {
               <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid #1e1a3a", flexShrink:0 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e2d9f3" }}>AI Model Selector</div>
-                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", fontSize:18, cursor:"pointer" }}>✕</button>
+                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", cursor:"pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width:18, height:18 }} /></button>
                 </div>
                 <div style={{ display:"flex", gap:0, borderRadius:10, overflow:"hidden", border:"1px solid #2a2456", width:"fit-content" }}>
                   {(["video","image"] as const).map(mode => (
                     <button key={mode} onClick={() => setAidMode(mode)} style={{ padding:"7px 24px", border:"none", cursor:"pointer", fontSize:11, fontWeight:800, background:aidMode===mode?(mode==="video"?"#7c3aed":"#0ea5e9"):"#12122a", color:aidMode===mode?"#fff":"#5a4f80", transition:"all 0.15s" }}>
-                      {mode==="video"?"🎬 VIDEO":"🖼 IMAGE"}
+                      {mode==="video"?"VIDEO":"IMAGE"}
                     </button>
                   ))}
                 </div>
@@ -1607,14 +1610,14 @@ export default function MusicVideoPlannerPage() {
               {isVideo && (
                 <div style={{ padding:"8px 20px 0", display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
                   <span style={{ fontSize:8, color:"#3a3060", fontWeight:700, letterSpacing:0.5, marginRight:3 }}>SORT:</span>
-                  {([{key:"cheapest",label:"💰 Cheapest",col:"#22c55e"},{key:"quality",label:"⭐ Quality",col:"#c084fc"},{key:"expensive",label:"👑 Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
+                  {([{key:"cheapest",label:"Cheapest",col:"#22c55e"},{key:"quality",label:"Quality",col:"#c084fc"},{key:"expensive",label:"Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
                     <button key={opt.key} onClick={() => setAidSort(opt.key)} style={{ padding:"3px 10px", borderRadius:7, border:aidSort===opt.key?`1.5px solid ${opt.col}`:"1px solid #2a2456", background:aidSort===opt.key?`${opt.col}20`:"#12122a", color:aidSort===opt.key?opt.col:"#4a4070", fontSize:9, fontWeight:700, cursor:"pointer" }}>{opt.label}</button>
                   ))}
                 </div>
               )}
               {isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #2a1f5a", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.icon} {adviser.title}</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.title}</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>{adviser.msg}</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}>
@@ -1632,7 +1635,7 @@ export default function MusicVideoPlannerPage() {
               )}
               {!isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #0ea5e940", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4 }}>🖼 Image Model Adviser</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4, display:"flex", alignItems:"center", gap:5 }}><Icon.Image style={{ width:12, height:12 }} /> Image Model Adviser</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>Pruna P Image ($0.005) and Flux Schnell ($0.003) cheapest for drafts. Flux Pro ($0.05) or Flux Pro Ultra ($0.06) for final quality. Ideogram v3 best for text/titles.</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}><div style={{ fontSize:8, color:"#22c55e", fontWeight:700, marginBottom:1 }}>CHEAPEST IMAGE</div><div style={{ fontSize:10, fontWeight:700, color:"#e2d9f3" }}>Flux Schnell</div><div style={{ fontSize:9, color:"#22c55e", fontWeight:700 }}>$0.003/image · FAL</div></div>
@@ -1663,11 +1666,11 @@ export default function MusicVideoPlannerPage() {
                           <span style={{ fontSize:10, color:"#22c55e", fontWeight:700 }}>{m.price===0?"Runway credits":`$${m.price.toFixed(3)}`}</span>
                           <span style={{ fontSize:9, color:"#4a4070" }}>{m.res} · {m.maxSec}s</span>
                           {styleTag && <span style={{ fontSize:9, color:m.color, fontStyle:"italic" }}>{styleTag}</span>}
-                          {styleScore !== null && <span style={{ fontSize:9, color:"#5a4f80" }}>{"★".repeat(styleScore)}{"☆".repeat(5-styleScore)}</span>}
+                          {styleScore !== null && <span style={{ fontSize:9, color:"#5a4f80" }}>{styleScore}/5</span>}
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <Icon.Check style={{ width:14, height:14, color:m.color }} /> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -1694,7 +1697,7 @@ export default function MusicVideoPlannerPage() {
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <Icon.Check style={{ width:14, height:14, color:m.color }} /> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -1710,10 +1713,10 @@ export default function MusicVideoPlannerPage() {
         <div>
           {storyboard.length === 0 && (
             <div style={{ textAlign: "center", padding: 40 }}>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>🎬</div>
+              <Icon.Film style={{ width: 40, height: 40, color: muted, marginBottom: 12 }} />
               <p style={{ color: "#5a7080", marginBottom: 16 }}>No storyboard yet. Complete song & analysis first, then generate.</p>
               <button onClick={generateStoryboard} disabled={storyboardLoading || !analysis} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: analysis ? "#ec4899" : "#2a2a40", color: analysis ? "#fff" : "#5a7080", fontSize: 13, fontWeight: 700, cursor: analysis ? "pointer" : "not-allowed" }}>
-                {storyboardLoading ? "Building..." : "✨ Generate Storyboard"}
+                {storyboardLoading ? "Building..." : "Generate Storyboard"}
               </button>
             </div>
           )}
@@ -1727,26 +1730,26 @@ export default function MusicVideoPlannerPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
               <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(124,92,252,0.4)", background: "rgba(124,92,252,0.1)", color: "#7c5cfc", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                🎬 Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)", color: "#00d4ff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                🖼 Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button
                 disabled={runningIntelligence || storyboard.length === 0}
                 onClick={runSceneIntelligence}
                 style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4ade8030", background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
               >
-                {runningIntelligence ? "⚡ Detecting..." : "🔊 Scene Intelligence"}
+                {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
               </button>
             </div>
             {runningIntelligence && (
-              <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>⚡ Scene Intelligence running — detecting environments and ambient sounds...</p>
+              <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
             )}
             {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
               <p style={{ fontSize: 10, color: "#666", margin: "4px 0" }}>
-                🔊 {Object.keys(sceneIntelligence).length} scenes have sound environment data
+                {Object.keys(sceneIntelligence).length} scenes have sound environment data
               </p>
             )}
 
@@ -1790,22 +1793,20 @@ export default function MusicVideoPlannerPage() {
                       const intel = sceneIntelligence[String(s.scene)];
                       if (!intel) return null;
                       const energyColor = SCENE_ENERGY_COLOR[intel.energyLevel] || "#888";
-                      const icon = SCENE_ENV_ICON[intel.environmentType] || "📍";
-                      return (
+                                            return (
                         <div style={{ margin: "8px 0", padding: "6px 8px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff0a" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                            <span style={{ fontSize: 11 }}>{icon}</span>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
+                                                        <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
                             <span style={{ fontSize: 8, color: "#666" }}>•</span>
                             <span style={{ fontSize: 8, color: "#666", textTransform: "capitalize" }}>{intel.timeOfDay}</span>
                             <span style={{ marginLeft: "auto", fontSize: 7, padding: "1px 5px", borderRadius: 4, background: `${energyColor}20`, color: energyColor, fontWeight: 700, textTransform: "uppercase" }}>{intel.energyLevel}</span>
                           </div>
                           <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                             {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
-                              <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>🔊 {sound}</span>
+                              <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>{sound}</span>
                             ))}
                             {intel.sfxEvents.length > 0 && (
-                              <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>⚡ {intel.sfxEvents[0]}</span>
+                              <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
                             )}
                           </div>
                         </div>
@@ -1882,7 +1883,7 @@ export default function MusicVideoPlannerPage() {
             <div style={{ marginBottom: 12 }}>
               <button onClick={() => setShowCutsPanel(p => !p)}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: "1px solid rgba(245,158,11,0.3)", background: showCutsPanel ? "rgba(245,158,11,0.1)" : "rgba(245,158,11,0.06)", color: "#f59e0b", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                <span style={{ fontSize: 16 }}>📂</span>
+                <Icon.Folder style={{ width: 16, height: 16, flexShrink: 0 }} />
                 <span>Saved Cuts ({savedCuts.length})</span>
                 <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
                   {savedCuts.map(c => <span key={c.name} style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: "rgba(245,158,11,0.2)", color: "#f59e0b" }}>{c.name}</span>)}
@@ -1896,10 +1897,10 @@ export default function MusicVideoPlannerPage() {
                       onClick={() => { setAssemblyName(c.name); if (c.videoUrl) setAssembledUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded cut: "${c.name}"`); }}
                       style={{ background: "#080b10", borderRadius: 10, border: `2px solid ${assemblyName === c.name ? "#f59e0b" : border}`, padding: 10, cursor: "pointer" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: 13 }}>{c.videoUrl ? "🎬" : "📋"}</span>
+                        {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
                         <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? "#f59e0b" : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
                         <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_mv_cuts", JSON.stringify(next)); } catch {} return next; }); }}
-                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#ef4444", fontSize: 10, cursor: "pointer" }}>✕</button>
+                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                       </div>
                       <p style={{ fontSize: 9, color: muted }}>{c.sceneIds.length} scene{c.sceneIds.length !== 1 ? "s" : ""} · {new Date(c.savedAt).toLocaleDateString()}</p>
                     </div>
@@ -1931,7 +1932,7 @@ export default function MusicVideoPlannerPage() {
                   setLastAction(`Cut "${assemblyName}" saved`);
                 }}
                 style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "#f59e0b", color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
-                💾 Save Cut
+                Save Cut
               </button>
             </div>
           </div>
@@ -2010,7 +2011,7 @@ export default function MusicVideoPlannerPage() {
                   return (
                     <button key={id} onClick={() => setAssemblySelectedIds(prev => selected ? prev.filter(i => i !== id) : [...prev, id])}
                       style={{ padding: "4px 10px", borderRadius: 7, border: `1px solid ${selected ? "#00d4ff" : border}`, background: selected ? "rgba(0,212,255,0.12)" : "transparent", color: selected ? "#00d4ff" : muted, fontSize: 10, cursor: "pointer" }}>
-                      {s.scene} {s.section.slice(0, 8)} {hasContent ? "✓" : ""}
+                      {s.scene} {s.section.slice(0, 8)}
                     </button>
                   );
                 })}
@@ -2036,7 +2037,7 @@ export default function MusicVideoPlannerPage() {
               onClick={assembleMovie}
               disabled={assembling || storyboard.length === 0}
               style={{ width: "100%", padding: 14, borderRadius: 12, border: "none", background: assembling ? "#2a2a40" : "#00d4ff", color: "#000", fontSize: 15, fontWeight: 700, cursor: (assembling || storyboard.length === 0) ? "not-allowed" : "pointer", marginBottom: 8 }}>
-              {assembling ? "Assembling Music Video..." : assemblyComplete ? "Re-assemble Music Video" : `🚀 Assemble Music Video (${assemblySelectedIds.length || storyboard.length} scenes)`}
+              {assembling ? "Assembling Music Video..." : assemblyComplete ? "Re-assemble Music Video" : `Assemble Music Video (${assemblySelectedIds.length || storyboard.length} scenes)`}
             </button>
 
             {/* Legacy image-based assembly */}
@@ -2057,6 +2058,7 @@ export default function MusicVideoPlannerPage() {
           </>)}
         </div>
       )}
+      </div>
     </div>
   );
 }

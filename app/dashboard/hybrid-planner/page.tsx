@@ -8,6 +8,9 @@ import SceneImagePanel from "../../components/SceneImagePanel";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
+import { ds } from "../../../lib/designSystem";
+import { HeroTitle } from "../../components/hero/HeroTitle";
+import * as Icon from "../../components/icons";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -117,25 +120,25 @@ interface HybridScene {
 }
 
 const SCENE_TYPES = [
-  { id: "image-led", label: "Image", icon: "\u{1F5BC}", color: "#00d4ff", desc: "Still with narration", credits: 1 },
-  { id: "video-led", label: "Video", icon: "\u{1F3AC}", color: "#a855f7", desc: "Full motion", credits: 4 },
-  { id: "image-to-video", label: "Img\u2192Vid", icon: "\u2728", color: "#f59e0b", desc: "Subtle motion", credits: 2 },
-  { id: "audio-bridge", label: "Audio", icon: "\u{1F50A}", color: "#22c55e", desc: "Sound only", credits: 0 },
-  { id: "hybrid", label: "Hybrid", icon: "\u{1F500}", color: "#ec4899", desc: "Still\u2192Motion", credits: 2 },
+  { id: "image-led", label: "Image", color: "#00d4ff", desc: "Still with narration", credits: 1 },
+  { id: "video-led", label: "Video", color: "#a855f7", desc: "Full motion", credits: 4 },
+  { id: "image-to-video", label: "Img->Vid", color: "#f59e0b", desc: "Subtle motion", credits: 2 },
+  { id: "audio-bridge", label: "Audio", color: "#22c55e", desc: "Sound only", credits: 0 },
+  { id: "hybrid", label: "Hybrid", color: "#ec4899", desc: "Still->Motion", credits: 2 },
 ];
 
 const IMAGE_TREATMENTS = ["Static", "Slow Zoom In", "Slow Zoom Out", "Pan Left", "Pan Right", "Parallax", "Light Overlay"];
 
-// ── Colors ──
-const surface = "#0e1318";
-const s2 = "#080b10";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const accent = "#22c55e";
-const purple = "#a855f7";
-const gold = "#f59e0b";
+// ── Colors — v14 ds tokens ──
+const surface = ds.color.card;
+const s2 = ds.color.paper;
+const border = ds.color.line;
+const muted = ds.color.mute;
+const accent = ds.color.mint;
+const purple = ds.color.lilac;
+const gold = ds.color.gold;
 const red = "#ef4444";
-const blue = "#00d4ff";
+const blue = ds.color.sky;
 
 const cardStyle: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 20, marginBottom: 12 };
 const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block" };
@@ -147,29 +150,22 @@ type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "audio" | "a
 
 // Tabs ordered to match the production pipeline:
 // Story → Characters → Scene Board → Audio & Shots → Assembly → Screenplay → Overview → Trends
-const WORKSHOP_TABS: { id: WorkshopTab; label: string; icon: string; step?: number }[] = [
-  { id: "story",      label: "Story & Draft",  icon: "\u{1F4DD}", step: 1 },
-  { id: "characters", label: "Characters",      icon: "\u{1F464}", step: 2 },
-  { id: "scenes",     label: "Scene Board",     icon: "\u{1F3AC}", step: 3 },
-  { id: "audio",      label: "Audio & Shots",   icon: "\u{1F3B5}", step: 4 },
-  { id: "screenplay", label: "Screenplay",      icon: "\u{1F4C4}", step: 5 },
-  { id: "assembly",   label: "Assembly",        icon: "\u{1F680}", step: 6 },
-  { id: "overview",   label: "Overview",        icon: "\u{1F3E0}" },
-  { id: "trends",     label: "Trends",          icon: "\u{1F4C8}" },
+const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
+  { id: "story",      label: "Story & Draft",  step: 1 },
+  { id: "characters", label: "Characters",      step: 2 },
+  { id: "scenes",     label: "Scene Board",     step: 3 },
+  { id: "audio",      label: "Audio & Shots",   step: 4 },
+  { id: "screenplay", label: "Screenplay",      step: 5 },
+  { id: "assembly",   label: "Assembly",        step: 6 },
+  { id: "overview",   label: "Overview" },
+  { id: "trends",     label: "Trends" },
 ];
 
 function defaultAudioPlan(): AudioPlan {
   return { narrationIntensity: "medium", musicMood: "", musicIntensity: "medium", sfxList: [], ambienceList: [], transitionAudio: "" };
 }
 
-const SCENE_ENV_ICON: Record<string, string> = {
-  "city-street": "🏙", "open-market": "🛒", "indoor-market": "🏪",
-  "bush-forest": "🌿", "village": "🏘", "beach": "🏖",
-  "riverbank": "🌊", "church-mosque": "⛪", "hospital": "🏥",
-  "office": "💼", "indoor-room": "🏠", "forest-night": "🌲",
-  "night-street": "🌙", "rain-scene": "🌧", "rooftop": "🏢",
-  "car-interior": "🚗", "school": "🏫",
-};
+// SCENE_ENV_ICON removed — env type shown as text label (v14: no emoji)
 
 function normalizeImageUrl(url: string | null | undefined): string {
   if (!url) return "";
@@ -948,7 +944,7 @@ function HybridPlannerInner() {
         setSceneIntelligence({});
         setScenes(builtScenes);
         setProjectPhase("SCENES_READY");
-        setLastAction(`✓ ${extractedChars.length} characters · ${builtScenes.length} scenes ready — review below then go to Characters`);
+        setLastAction(`${extractedChars.length} characters · ${builtScenes.length} scenes ready — review below then go to Characters`);
 
         // Run scene intelligence (incubation stage) in background
         runSceneIntelligence(
@@ -959,7 +955,7 @@ function HybridPlannerInner() {
           storySummary
         );
       } else {
-        setLastAction(`✓ Story expanded · ${extractedChars.length} characters ready — scenes will be planned in Characters tab`);
+        setLastAction(`Story expanded · ${extractedChars.length} characters ready — scenes will be planned in Characters tab`);
       }
       setLoadingScenes(false);
       setActiveTab("story"); // Stay on Story tab so user sees the full review
@@ -1195,10 +1191,10 @@ function HybridPlannerInner() {
         ageAppearance: a.ageAppearance || "",
       };
       setInlinePreview(built);
-      setPhotoImportLog(`✓ "${displayName}" ready — click "Add to Cast" to confirm`);
+      setPhotoImportLog(`"${displayName}" ready — click "Add to Cast" to confirm`);
       setPhotoImportName("");
     } catch (err) {
-      setPhotoImportLog(`⚠ ${err instanceof Error ? err.message : "Import failed"}`);
+      setPhotoImportLog(`[!] ${err instanceof Error ? err.message : "Import failed"}`);
     }
     setImportingFromPhoto(false);
   }
@@ -1523,7 +1519,7 @@ function HybridPlannerInner() {
               }));
               setSceneVideos(prev => ({ ...prev, [scene.sceneId]: videoUrl }));
               updateScene(scene.scene, { status: "generated" as const });
-              setLastAction(`✅ Scene ${scene.scene} video ready — click ▶ to preview`);
+              setLastAction(`Scene ${scene.scene} video ready — click ▶ to preview`);
             } else if (evt.type === "error") {
               setSceneGenProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
               setUiError(`Video failed: ${evt.message as string}`);
@@ -1709,17 +1705,17 @@ function HybridPlannerInner() {
         const data = await res.json();
         if (data.ok && data.audioUrl) {
           newUrls[char.characterId] = data.audioUrl;
-          setCharVoiceLog(`✓ ${char.displayName} done`);
+          setCharVoiceLog(`${char.displayName} done`);
         } else {
-          setCharVoiceLog(`⚠ ${char.displayName}: ${data.error || "failed"}`);
+          setCharVoiceLog(`[!] ${char.displayName}: ${data.error || "failed"}`);
         }
       } catch (err) {
-        setCharVoiceLog(`⚠ ${char.displayName}: ${String(err)}`);
+        setCharVoiceLog(`[!] ${char.displayName}: ${String(err)}`);
       }
     }
     setCharacterAudioUrls(newUrls);
     const doneCount = Object.keys(newUrls).filter(id => !characterAudioUrls[id]).length + Object.keys(characterAudioUrls).length;
-    setCharVoiceLog(`✓ Actor voices ready — ${Object.keys(newUrls).length} character${Object.keys(newUrls).length !== 1 ? "s" : ""}`);
+    setCharVoiceLog(`Actor voices ready — ${Object.keys(newUrls).length} character${Object.keys(newUrls).length !== 1 ? "s" : ""}`);
     setGeneratingCharVoices(false);
   }
 
@@ -1785,18 +1781,18 @@ function HybridPlannerInner() {
             audioUrl: data.audioUrl,
             estimatedStartMs: Math.round(timings[seg.idx] * 1000),
           };
-          setCharVoiceLog(`✓ Line ${seg.idx + 1} done`);
+          setCharVoiceLog(`Line ${seg.idx + 1} done`);
         } else {
-          setCharVoiceLog(`⚠ Line ${seg.idx + 1}: ${data.error || "failed"}`);
+          setCharVoiceLog(`[!] Line ${seg.idx + 1}: ${data.error || "failed"}`);
         }
       } catch (err) {
-        setCharVoiceLog(`⚠ Line ${seg.idx + 1}: ${String(err)}`);
+        setCharVoiceLog(`[!] Line ${seg.idx + 1}: ${String(err)}`);
       }
     }
 
     setScriptSegments(updatedSegments);
     const doneCount = updatedSegments.filter(s => s.audioUrl).length;
-    setCharVoiceLog(`✓ Per-line audio ready — ${doneCount} clip${doneCount !== 1 ? "s" : ""}`);
+    setCharVoiceLog(`Per-line audio ready — ${doneCount} clip${doneCount !== 1 ? "s" : ""}`);
     setGeneratingCharVoices(false);
   }
 
@@ -2264,7 +2260,7 @@ function HybridPlannerInner() {
         }
         // ── AUTO-EARS: run faster-whisper transcription to confirm narration is audible ──
         try {
-          setLastAction("🎧 Ears check — probing audio in assembled video…");
+          setLastAction("Ears check — probing audio in assembled video…");
           const earRes = await fetch("/api/hybrid/check-audio", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ videoUrl: data.outputUrl }),
@@ -2272,19 +2268,19 @@ function HybridPlannerInner() {
           const earData = await earRes.json();
           const durStr = earData.duration ? ` (${Math.round(earData.duration)}s)` : "";
           if (!earData.ok) {
-            setLastAction(`⚠️ Ears: probe failed — ${earData.error || "unknown error"}. Video saved.`);
+            setLastAction(`[!] Ears: probe failed — ${earData.error || "unknown error"}. Video saved.`);
           } else if (!earData.hasAudio) {
-            setLastAction(`⚠️ Ears: NO AUDIO STREAM found${durStr}. Check assembly narration step.`);
+            setLastAction(`[!] Ears: NO AUDIO STREAM found${durStr}. Check assembly narration step.`);
             setUiError("Assembly complete but video has no audio stream. Regenerate narrator voice and reassemble.");
           } else if (earData.transcript && earData.transcript.trim().length > 10) {
-            setLastAction(`✅ Ears: heard narration${durStr} — "${earData.transcript.slice(0, 100)}"`);
+            setLastAction(`Ears: heard narration${durStr} — "${earData.transcript.slice(0, 100)}"`);
           } else if (earData.silent || !earData.transcript) {
             const whisperNote = earData.whisperError
               ? ` (Whisper: ${earData.whisperError.slice(0, 60)})`
               : " (Whisper returned nothing)";
-            setLastAction(`⚠️ Ears: audio stream exists${durStr} but transcript empty${whisperNote}`);
+            setLastAction(`[!] Ears: audio stream exists${durStr} but transcript empty${whisperNote}`);
           } else {
-            setLastAction(`✅ Assembly complete${durStr} — audio OK, codec: ${earData.audioCodec || "?"}`);
+            setLastAction(`Assembly complete${durStr} — audio OK, codec: ${earData.audioCodec || "?"}`);
           }
         } catch (earErr) {
           setLastAction(`Assembly complete — ears check failed: ${String(earErr).slice(0, 80)}`);
@@ -2386,7 +2382,7 @@ function HybridPlannerInner() {
     setScenes(updatedScenes);
 
     // ── Step 2: Auto-run parse-script so characters are split from narration ──
-    setSendToScenesResult(`✓ ${updated} scenes updated — now parsing script...`);
+    setSendToScenesResult(`${updated} scenes updated — now parsing script...`);
     try {
       const fullText = updatedScenes.map(s => s.narrationScript).filter(Boolean).join("\n\n");
       if (fullText.trim()) {
@@ -2412,9 +2408,9 @@ function HybridPlannerInner() {
           });
           setScriptSegments(enriched2);
           setStoryMode(parseData.storyMode || "mixed");
-          setSendToScenesResult(`✓ Screenplay sent to ${updated} scenes + script parsed (${parseData.segments?.length || 0} lines). Now go to Audio & Shots → AI Narrate to generate voices.`);
+          setSendToScenesResult(`Screenplay sent to ${updated} scenes + script parsed (${parseData.segments?.length || 0} lines). Now go to Audio & Shots → AI Narrate to generate voices.`);
         } else {
-          setSendToScenesResult(`✓ ${updated} scenes updated. Go to Audio & Shots to parse and narrate.`);
+          setSendToScenesResult(`${updated} scenes updated. Go to Audio & Shots to parse and narrate.`);
         }
       }
     } catch { /* best effort — parse can be done manually */ }
@@ -2614,7 +2610,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
       const providerLabel = data.provider === "ollama-vision" ? "Local (Ollama)" : data.provider === "claude-vision" ? "Claude" : data.provider === "gpt-vision" ? "GPT-4o" : data.provider || "AI";
       const confidence = a.confidence === "high" ? "high confidence" : a.confidence === "medium" ? "medium confidence" : "low confidence";
-      setLastAction(`✓ ${providerLabel} read the image (${confidence}) — visual fields filled in for ${charId}.`);
+      setLastAction(`${providerLabel} read the image (${confidence}) — visual fields filled in for ${charId}.`);
     } catch (err) {
       setLastAction(`AI Read Look error: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -2652,7 +2648,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (createRes.status === 201 || createRes.ok) {
         // Created fresh
         setSavedCharacter(char.characterId);
-        setLastAction(`✓ ${char.displayName} saved to Character Registry.`);
+        setLastAction(`${char.displayName} saved to Character Registry.`);
         setTimeout(() => setSavedCharacter(null), 3000);
         return;
       }
@@ -2663,7 +2659,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         if (!listRes.ok) {
           // Can't look up — but character IS already saved, treat as success
           setSavedCharacter(char.characterId);
-          setLastAction(`✓ ${char.displayName} is already in Character Registry.`);
+          setLastAction(`${char.displayName} is already in Character Registry.`);
           setTimeout(() => setSavedCharacter(null), 3000);
           return;
         }
@@ -2690,7 +2686,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           });
           if (patchRes.ok) {
             setSavedCharacter(char.characterId);
-            setLastAction(`✓ ${char.displayName} updated in Character Registry.`);
+            setLastAction(`${char.displayName} updated in Character Registry.`);
             setTimeout(() => setSavedCharacter(null), 3000);
           } else {
             const d = await patchRes.json().catch(() => ({}));
@@ -2699,7 +2695,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         } else {
           // Found 409 but couldn't find record — name likely slightly different case
           setSavedCharacter(char.characterId);
-          setLastAction(`✓ ${char.displayName} already exists in Character Registry.`);
+          setLastAction(`${char.displayName} already exists in Character Registry.`);
           setTimeout(() => setSavedCharacter(null), 3000);
         }
         return;
@@ -3204,7 +3200,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
   }
 
   return (
-    <div suppressHydrationWarning>
+    <div suppressHydrationWarning style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 32px 60px", fontFamily: ds.font.sans }}>
 
       {/* ── Quick Preview Modal — image or video lightbox ── */}
       {previewMedia && (
@@ -3220,8 +3216,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {previewMedia.title}
             </div>
             <button onClick={() => setPreviewMedia(null)}
-              style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              ✕
+              style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Icon.X style={{ width: 14, height: 14 }} />
             </button>
           </div>
           <p style={{ marginTop: 12, fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Click outside to close</p>
@@ -3299,29 +3295,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
         // ── Style adviser config ──
         type StyleKey = "all"|"2d"|"3d"|"cartoon"|"realistic";
-        const ADVISER: Record<StyleKey, { icon:string; title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
+        const ADVISER: Record<StyleKey, { title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
           all: {
-            icon:"🤖", title:"All Models",
+            title:"All Models",
             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier. Use Segmind for free drafts, MuAPI for budget production, FAL Kling for premium cinematic.",
             cheapestId:"segmind_pruna_video", bestId:"fal_kling_3_pro", bestLabel:"Top Overall",
           },
           "2d": {
-            icon:"✏️", title:"2D / Illustration Style",
+            title:"2D / Illustration Style",
             msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — it preserves clean outlines, flat colour fills, and smooth 2D motion. For budget 2D use Seedance 1.0 Pro at $0.04. Avoid Kling and Runway for 2D — they push toward photorealism.",
             cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D",
           },
           "3d": {
-            icon:"🎲", title:"3D / Cinematic Style",
+            title:"3D / Cinematic Style",
             msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead. Start with Kling 1.6 Direct ($0.045) for budget drafts. Kling 2.5 Pro Direct ($0.20) for final production. Seedance 2.0 1080p (MuAPI) is a cheaper alternative at $0.12.",
             cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std", bestLabel:"Best 3D Direct",
           },
           cartoon: {
-            icon:"🎨", title:"Cartoon / Animated Style",
+            title:"Cartoon / Animated Style",
             msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model at this price. Hailuo Pro is the best cartoon on FAL. For cheap cartoon drafts use Seedance 1.0 Pro at $0.04 on MuAPI — 4x cheaper than Hailuo Pro with similar stylized motion.",
             cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro", bestLabel:"Best Cartoon",
           },
           realistic: {
-            icon:"🎬", title:"Realistic / Photorealistic",
+            title:"Realistic / Photorealistic",
             msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option. Kling 2.5 Direct ★ ($0.10) is best value for realism. Runway Direct uses YOUR Runway credits and is near-photorealistic. Budget option: Kling 1.6 Direct at $0.045.",
             cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro", bestLabel:"Most Realistic",
           },
@@ -3383,7 +3379,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e2d9f3" }}>AI Model Selector</div>
                   <button type="button" onClick={() => setShowAidPicker(false)}
-                    style={{ background:"none", border:"none", color:"#666", fontSize:18, cursor:"pointer", lineHeight:1 }}>✕</button>
+                    style={{ background:"none", border:"none", color:"#666", cursor:"pointer", lineHeight:1, display:"flex", alignItems:"center" }}><Icon.X style={{ width:16, height:16 }} /></button>
                 </div>
                 {/* VIDEO / IMAGE toggle */}
                 <div style={{ display:"flex", gap:0, borderRadius:10, overflow:"hidden", border:"1px solid #2a2456", width:"fit-content" }}>
@@ -3395,7 +3391,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         color: aidMode === mode ? "#fff" : "#5a4f80",
                         transition:"all 0.15s",
                       }}>
-                      {mode === "video" ? "🎬 VIDEO" : "🖼 IMAGE"}
+                      {mode === "video" ? "VIDEO" : "IMAGE"}
                     </button>
                   ))}
                 </div>
@@ -3430,9 +3426,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ padding:"8px 20px 0", display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
                   <span style={{ fontSize:8, color:"#3a3060", fontWeight:700, letterSpacing:0.5, marginRight:3 }}>SORT:</span>
                   {([
-                    { key:"cheapest",  label:"💰 Cheapest",  col:"#22c55e" },
-                    { key:"quality",   label:"⭐ Quality",    col:"#c084fc" },
-                    { key:"expensive", label:"👑 Premium",    col:"#facc15" },
+                    { key:"cheapest",  label:"Cheapest",  col:"#22c55e" },
+                    { key:"quality",   label:"Quality",    col:"#c084fc" },
+                    { key:"expensive", label:"Premium",    col:"#facc15" },
                   ] as { key: "cheapest"|"quality"|"expensive"; label:string; col:string }[]).map(opt => (
                     <button key={opt.key} type="button" onClick={() => setAidSort(opt.key)}
                       style={{
@@ -3450,7 +3446,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {/* AI Adviser panel — video only */}
               {isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #2a1f5a", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.icon} {adviser.title}</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.title}</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>{adviser.msg}</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}>
@@ -3470,7 +3466,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {/* Image adviser panel */}
               {!isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #0ea5e940", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4 }}>🖼 Image Model Adviser</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#38bdf8", marginBottom:4 }}>Image Model Adviser</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>
                     Pruna P Image ($0.005) and Flux Schnell ($0.003) are the cheapest — good for quick drafts. For final quality use Flux Pro ($0.05) or Flux Pro Ultra ($0.06) for 2048px. Ideogram v3 is best when your scene has text or titles.
                   </div>
@@ -3523,7 +3519,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <div style={{ fontSize:12, color:m.color, fontWeight:700 }}>OK</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -3556,7 +3552,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </div>
                       </div>
                       <div style={{ textAlign:"right", marginLeft:8 }}>
-                        {isSelected ? <div style={{ fontSize:14, color:m.color }}>✓</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
+                        {isSelected ? <div style={{ fontSize:12, color:m.color, fontWeight:700 }}>OK</div> : <div style={{ fontSize:9, color:"#3a3060" }}>select</div>}
                       </div>
                     </div>
                   );
@@ -3573,7 +3569,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* Backdrop */}
           <div
             onClick={() => setImagePickerForCharId(null)}
-            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299, backdropFilter: "blur(4px)" }} />
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299, }} />
           {/* Panel */}
           <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 300, background: "#0f1117", border: "1px solid #ffffff18", borderRadius: 16, width: "min(680px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             {/* Header */}
@@ -3584,13 +3580,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   Pick an existing image for <strong style={{ color: "#0ea5e9" }}>{characters.find(c => c.characterId === imagePickerForCharId)?.displayName || imagePickerForCharId}</strong> — no generation needed
                 </p>
               </div>
-              <button onClick={() => setImagePickerForCharId(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 20, cursor: "pointer", padding: "0 4px" }}>✕</button>
+              <button onClick={() => setImagePickerForCharId(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer", padding: "0 4px", display: "flex", alignItems: "center" }}><Icon.X style={{ width: 16, height: 16 }} /></button>
             </div>
 
             {/* Upload from computer */}
             <div style={{ padding: "12px 20px", borderBottom: "1px solid #ffffff08", background: "#ffffff04" }}>
               <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#0ea5e9" }}>📁 Upload from computer</span>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#0ea5e9", display:"flex", alignItems:"center", gap:4 }}><Icon.Folder style={{ width:12, height:12 }} /> Upload from computer</span>
                 <input type="file" accept="image/*" style={{ display: "none" }}
                   onChange={async e => {
                     const file = e.target.files?.[0];
@@ -3648,22 +3644,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         </>
       )}
 
-      {/* ── Hero Banner ── */}
-      <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 20, minHeight: 140 }}>
-        <video autoPlay muted loop playsInline style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.12 }}
-          src="/api/media/demo/hybrid_movie_demo.mp4" />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(8,11,16,0.95), rgba(34,197,94,0.08))" }} />
-        <div style={{ position: "relative", padding: "28px 32px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(34,197,94,0.1)", border: "1px solid rgba(34,197,94,0.2)", padding: "3px 12px", borderRadius: 100, fontSize: 9, fontWeight: 600, color: accent, letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 10 }}>
-              Production Workshop
-            </div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: "#fff", marginBottom: 4 }}>Hybrid Planner</h1>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", maxWidth: 400 }}>
-              Your production control center. Plan, create, review, and assemble.
-            </p>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
+      {/* ── Hero Banner — v14 HeroTitle ── */}
+      <div style={{ padding: "24px 0 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+        <HeroTitle kicker="Production Workshop" title="Hybrid" italic="Planner" sub="Your production control center. Plan, create, review, and assemble." />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none" }}
               placeholder="Movie Title" />
@@ -3673,7 +3657,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ display: "flex", alignItems: "center", gap: 6, background: showStylePicker ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#fff" }}>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)" }}>Art Style:</span>
                 <span style={{ fontSize: 13 }}>
-                  {projectStyle === "3d-cinematic" ? "🎬" : projectStyle === "2d-cartoon" ? "🖌" : projectStyle === "anime" ? "✨" : projectStyle === "storybook" ? "📖" : "📷"}
+                  {projectStyle === "3d-cinematic" ? "3D" : projectStyle === "2d-cartoon" ? "2D" : projectStyle === "anime" ? "AN" : projectStyle === "storybook" ? "SB" : "RL"}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700 }}>
                   {projectStyle === "3d-cinematic" ? "3D Cinematic" : projectStyle === "2d-cartoon" ? "2D Cartoon" : projectStyle === "anime" ? "Anime" : projectStyle === "storybook" ? "Storybook" : "Realistic"}
@@ -3717,7 +3701,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </button>
             <button onClick={() => setShowProjectSwitcher(p => !p)}
               style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${gold}40`, background: showProjectSwitcher ? `${gold}15` : `${gold}08`, color: gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              📁 My Projects {projectList.length > 0 ? `(${projectList.length})` : ""}
+              My Projects {projectList.length > 0 ? `(${projectList.length})` : ""}
             </button>
             <button onClick={() => {
               setSaving(true);
@@ -3727,9 +3711,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               setTimeout(() => setSaving(false), 600);
             }}
               style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: accent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
-              {saving ? "Saved ✓" : "Save"}
+              {saving ? "Saved" : "Save"}
             </button>
-          </div>
         </div>
       </div>
 
@@ -3737,8 +3720,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       {showProjectSwitcher && (
         <div style={{ background: surface, border: `2px solid ${gold}30`, borderRadius: 16, padding: 16, marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: gold }}>📁 My Projects — Click a folder to open</p>
-            <button onClick={() => setShowProjectSwitcher(false)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>✕ Close</button>
+            <p style={{ fontSize: 14, fontWeight: 700, color: gold }}>My Projects — Click a folder to open</p>
+            <button onClick={() => setShowProjectSwitcher(false)} style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer", display:"flex", alignItems:"center", gap:4 }}><Icon.X style={{ width:10, height:10 }} /> Close</button>
           </div>
           {projectList.length === 0 ? (
             <p style={{ fontSize: 11, color: muted }}>No saved projects yet. Your current work will appear here automatically.</p>
@@ -3756,7 +3739,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <div style={{ height: 90, background: "#000", overflow: "hidden", position: "relative" }}>
                       {proj.thumbnail
                         ? <img src={proj.thumbnail} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32, opacity: 0.2 }}>📁</div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Folder style={{ width: 32, height: 32, opacity: 0.2 }} /></div>
                       }
                       {/* Status badge */}
                       <div style={{ position: "absolute", top: 6, right: 6, fontSize: 8, padding: "2px 8px", borderRadius: 8, background: isActive ? gold : "rgba(0,0,0,0.7)", color: isActive ? "#000" : "#fff", fontWeight: 800 }}>
@@ -3766,7 +3749,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     {/* Info */}
                     <div style={{ padding: "8px 10px" }}>
                       <p style={{ fontSize: 12, fontWeight: 700, color: isActive ? gold : "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 4 }}>
-                        📁 {proj.title || "Untitled"}
+                        {proj.title || "Untitled"}
                       </p>
                       <div style={{ display: "flex", gap: 5, marginBottom: 5, flexWrap: "wrap" }}>
                         <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 4, background: `${blue}15`, color: blue }}>{proj.sceneCount} scenes</span>
@@ -3799,7 +3782,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         }
                       }}
                         style={{ width: "100%", padding: "4px 8px", borderRadius: 6, border: `1px solid ${red}30`, background: "transparent", color: red, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
-                        🗑 Delete
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -3813,11 +3796,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       {/* ── Production Pipeline Progress Bar ── */}
       {(() => {
         const steps = [
-          { id: "story",      label: "Story",      icon: "📝", done: !!idea && !!expandedSummary },
-          { id: "characters", label: "Characters",  icon: "👤", done: characters.length > 0 },
-          { id: "scenes",     label: "Scenes",      icon: "🎬", done: scenes.length > 0 },
-          { id: "audio",      label: "Audio",       icon: "🔊", done: scenes.some(s => s.audioPlan?.musicMood) },
-          { id: "assembly",   label: "Assembly",    icon: "🚀", done: assemblyReadiness > 50 },
+          { id: "story",      label: "Story",      icon: "1", done: !!idea && !!expandedSummary },
+          { id: "characters", label: "Characters",  icon: "2", done: characters.length > 0 },
+          { id: "scenes",     label: "Scenes",      icon: "3", done: scenes.length > 0 },
+          { id: "audio",      label: "Audio",       icon: "4", done: scenes.some(s => s.audioPlan?.musicMood) },
+          { id: "assembly",   label: "Assembly",    icon: "5", done: assemblyReadiness > 50 },
         ];
         const currentStepIndex = steps.findIndex(s => !s.done);
         const activeStepIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
@@ -3835,7 +3818,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
                       background: isDone ? accent : isActive ? `${gold}20` : "#ffffff08",
                       border: `2px solid ${stepColor}`, fontSize: 13 }}>
-                      {isDone ? "✓" : step.icon}
+                      {isDone ? <Icon.Check style={{ width:12, height:12 }} /> : step.icon}
                     </div>
                     <span style={{ fontSize: 9, fontWeight: isActive ? 700 : 500, color: stepColor, whiteSpace: "nowrap" as const }}>{step.label}</span>
                   </button>
@@ -3849,26 +3832,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         );
       })()}
 
-      {/* ── Workshop Tab Bar ── */}
-      <div style={{ display: "flex", gap: 2, marginBottom: 20, background: s2, borderRadius: 14, padding: 4, border: `1px solid ${border}`, overflowX: "auto", WebkitOverflowScrolling: "touch" as "touch" }}>
+      {/* ── Workshop Tab Bar — v14 ── */}
+      <div style={{ display: "flex", gap: 0, background: ds.color.card, borderBottom: `1px solid ${ds.color.line}`, overflowX: "auto", marginBottom: 20 }}>
         {WORKSHOP_TABS.map(tab => {
           const isActive = activeTab === tab.id;
-          const hasContent = tab.id === "scenes" ? scenes.length > 0 : tab.id === "characters" ? characters.length > 0 : tab.id === "story" ? !!idea : tab.id === "assembly" ? assemblyReadiness > 50 : tab.id === "screenplay" ? !!screenplay : true;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               style={{
-                flexShrink: 0, padding: "10px 14px", borderRadius: 10, border: "none",
-                background: isActive ? accent : "transparent",
-                color: isActive ? "#000" : hasContent ? "#fff" : muted,
-                fontSize: 11, fontWeight: isActive ? 700 : 500,
-                cursor: "pointer", transition: "all 0.2s",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
-                whiteSpace: "nowrap",
+                padding: "12px 14px", background: "none", border: "none",
+                color: isActive ? "#fff" : muted,
+                fontWeight: isActive ? 700 : 500, fontSize: 10,
+                cursor: "pointer", whiteSpace: "nowrap",
+                position: "relative", fontFamily: ds.font.mono,
+                textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 80,
               }}>
-              <span style={{ fontSize: 13 }}>{tab.icon}</span>
               {tab.label}
+              {tab.step !== undefined && !isActive && (
+                <span style={{ marginLeft: 4, fontSize: 8, background: `${purple}22`, color: purple, borderRadius: 8, padding: "1px 5px" }}>{tab.step}</span>
+              )}
               {tab.id === "scenes" && scenes.length > 0 && !isActive && (
-                <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 10, background: `${accent}20`, color: accent }}>{scenes.length}</span>
+                <span style={{ marginLeft: 4, fontSize: 8, background: `${accent}22`, color: accent, borderRadius: 8, padding: "1px 5px" }}>{scenes.length}</span>
+              )}
+              {isActive && (
+                <span style={{ position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc, #ff7a45)" }} />
               )}
             </button>
           );
@@ -3887,7 +3873,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       {nextStepBanner && (
         <div style={{ background: `${nextStepBanner.color}08`, border: `1px solid ${nextStepBanner.color}25`, borderRadius: 12, padding: "10px 16px", marginBottom: 12, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 16 }}>{"\u{1F449}"}</span>
+            <Icon.ChevronRight style={{ width: 14, height: 14, color: accent }} />
             <p style={{ fontSize: 12, color: nextStepBanner.color, fontWeight: 600 }}>{nextStepBanner.message}</p>
           </div>
           {nextStepBanner.targetTab !== activeTab && (
@@ -3906,24 +3892,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         <div>
           {/* ── Production Pipeline Checklist ── */}
           <div style={{ ...cardStyle, borderColor: `${gold}20`, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 14, letterSpacing: 0.5 }}>🎬 Production Pipeline</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 14, letterSpacing: 0.5 }}>Production Pipeline</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
               {[
-                { step: 1, label: "Fix your name", sub: "Screenplay tab → Written by field", done: !!screenplayAuthor, tab: "screenplay" as WorkshopTab, icon: "✏️" },
-                { step: 2, label: "Write Screenplay", sub: "Screenplay tab → Write Screenplay button", done: !!screenplay, tab: "screenplay" as WorkshopTab, icon: "📄" },
-                { step: 3, label: "Send to Scenes + Parse", sub: "Screenplay tab → Send to Scenes → (auto-parses)", done: scriptSegments.length > 0, tab: "screenplay" as WorkshopTab, icon: "🔗" },
-                { step: 4, label: "Toggle Intro Card ON", sub: "Assembly tab → Intro & Outro section", done: introEnabled, tab: "assembly" as WorkshopTab, icon: "🎬" },
-                { step: 5, label: "Toggle Outro / Credits ON", sub: "Assembly tab → Intro & Outro section", done: outroEnabled, tab: "assembly" as WorkshopTab, icon: "🎞" },
-                { step: 6, label: "AI Narrate + Plan Audio", sub: "Audio & Shots tab → AI Narrate button", done: scriptSegments.length > 0 && storyMode !== "narration-only", tab: "audio" as WorkshopTab, icon: "🎙" },
-                { step: 7, label: "AI Pick Music", sub: "Assembly tab → Background Music → AI Pick", done: !!selectedMusicUrl, tab: "assembly" as WorkshopTab, icon: "🎵" },
-                { step: 8, label: "Assemble Movie", sub: "Assembly tab → Assemble My Scenes button", done: assemblyComplete, tab: "assembly" as WorkshopTab, icon: "🚀" },
+                { step: 1, label: "Fix your name", sub: "Screenplay tab -> Written by field", done: !!screenplayAuthor, tab: "screenplay" as WorkshopTab, icon: "1" },
+                { step: 2, label: "Write Screenplay", sub: "Screenplay tab -> Write Screenplay button", done: !!screenplay, tab: "screenplay" as WorkshopTab, icon: "2" },
+                { step: 3, label: "Send to Scenes + Parse", sub: "Screenplay tab -> Send to Scenes -> (auto-parses)", done: scriptSegments.length > 0, tab: "screenplay" as WorkshopTab, icon: "3" },
+                { step: 4, label: "Toggle Intro Card ON", sub: "Assembly tab -> Intro & Outro section", done: introEnabled, tab: "assembly" as WorkshopTab, icon: "4" },
+                { step: 5, label: "Toggle Outro / Credits ON", sub: "Assembly tab -> Intro & Outro section", done: outroEnabled, tab: "assembly" as WorkshopTab, icon: "5" },
+                { step: 6, label: "AI Narrate + Plan Audio", sub: "Audio & Shots tab -> AI Narrate button", done: scriptSegments.length > 0 && storyMode !== "narration-only", tab: "audio" as WorkshopTab, icon: "6" },
+                { step: 7, label: "AI Pick Music", sub: "Assembly tab -> Background Music -> AI Pick", done: !!selectedMusicUrl, tab: "assembly" as WorkshopTab, icon: "7" },
+                { step: 8, label: "Assemble Movie", sub: "Assembly tab -> Assemble My Scenes button", done: assemblyComplete, tab: "assembly" as WorkshopTab, icon: "8" },
               ].map(item => (
                 <div key={item.step}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, background: item.done ? `${accent}08` : s2, border: `1px solid ${item.done ? accent : border}`, cursor: "pointer", transition: "all 0.15s" }}
                   onClick={() => setActiveTab(item.tab)}>
                   <div style={{ width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: item.done ? accent : `${border}40`, flexShrink: 0 }}>
                     {item.done
-                      ? <span style={{ fontSize: 13, color: "#000" }}>✓</span>
+                      ? <Icon.Check style={{ width: 13, height: 13, color: "#000" }} />
                       : <span style={{ fontSize: 10, color: muted, fontWeight: 700 }}>{item.step}</span>}
                   </div>
                   <span style={{ fontSize: 14, flexShrink: 0 }}>{item.icon}</span>
@@ -3932,7 +3918,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <p style={{ fontSize: 9, color: muted }}>{item.sub}</p>
                   </div>
                   <span style={{ fontSize: 9, color: item.done ? accent : muted, flexShrink: 0 }}>
-                    {item.done ? "Done ✓" : "→ Go"}
+                    {item.done ? "Done" : "Go"}
                   </span>
                 </div>
               ))}
@@ -4025,24 +4011,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* Quick Links */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
             <button onClick={() => setActiveTab("scenes")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${blue}20` }}>
-              <span style={{ fontSize: 24 }}>{"\u{1F3AC}"}</span>
+              <Icon.Film style={{ width: 24, height: 24 }} />
               <p style={{ fontSize: 11, color: blue, fontWeight: 600, marginTop: 6 }}>Scene Board</p>
             </button>
             <a href="/dashboard/character-voices" style={{ textDecoration: "none" }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${purple}20` }}>
-                <span style={{ fontSize: 24 }}>{"\u{1F464}"}</span>
+                <Icon.User style={{ width: 24, height: 24 }} />
                 <p style={{ fontSize: 11, color: purple, fontWeight: 600, marginTop: 6 }}>Character Registry</p>
               </div>
             </a>
             <a href="/dashboard/collaborative-editor?from=hybrid-planner" style={{ textDecoration: "none" }}
               onClick={() => { try { localStorage.setItem("ghs_hybrid_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${accent}20` }}>
-                <span style={{ fontSize: 24 }}>{"\u{270F}\uFE0F"}</span>
+                <Icon.Wand style={{ width: 24, height: 24 }} />
                 <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 6 }}>Open Editor</p>
               </div>
             </a>
             <button onClick={() => setActiveTab("assembly")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${gold}20` }}>
-              <span style={{ fontSize: 24 }}>{"\u{1F680}"}</span>
+              <Icon.Bolt style={{ width: 24, height: 24 }} />
               <p style={{ fontSize: 11, color: gold, fontWeight: 600, marginTop: 6 }}>Assembly</p>
             </button>
           </div>
@@ -4187,15 +4173,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {/* ── Project Folder Summary Card ── */}
           <div style={{ ...cardStyle, borderColor: `${gold}25`, background: `${gold}04`, marginBottom: 12, display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 48, height: 48, borderRadius: 10, background: `${gold}15`, border: `1px solid ${gold}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>📁</div>
+            <div style={{ width: 48, height: 48, borderRadius: 10, background: `${gold}15`, border: `1px solid ${gold}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}><Icon.Folder style={{ width: 28, height: 28 }} /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{projectTitle}</p>
               <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 9, color: blue }}>🎬 {totalScenes} scenes</span>
-                <span style={{ fontSize: 9, color: purple }}>👤 {characters.length} characters</span>
-                {selectedMusicName && <span style={{ fontSize: 9, color: gold }}>🎵 {selectedMusicName}</span>}
+                <span style={{ fontSize: 9, color: blue }}>{totalScenes} scenes</span>
+                <span style={{ fontSize: 9, color: purple }}>{characters.length} characters</span>
+                {selectedMusicName && <span style={{ fontSize: 9, color: gold }}>{selectedMusicName}</span>}
                 <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${blue}15`, color: blue }}>{projectStyle}</span>
-                {savedCuts.length > 0 && <span style={{ fontSize: 9, color: gold }}>✂ {savedCuts.length} cut{savedCuts.length !== 1 ? "s" : ""}</span>}
+                {savedCuts.length > 0 && <span style={{ fontSize: 9, color: gold }}>{savedCuts.length} cut{savedCuts.length !== 1 ? "s" : ""}</span>}
               </div>
             </div>
             <button onClick={() => setShowProjectSwitcher(true)} style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${gold}30`, background: "transparent", color: gold, fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
@@ -4205,14 +4191,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>📁 {projectTitle} — Scene Board ({totalScenes} scenes)</h2>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>{projectTitle} — Scene Board ({totalScenes} scenes)</h2>
               {/* Intelligence status line */}
               {runningIntelligence && (
-                <p style={{ fontSize: 10, color: "#4ade80", marginTop: 3 }}>⚡ Scene Intelligence running — detecting environments and ambient sounds...</p>
+                <p style={{ fontSize: 10, color: "#4ade80", marginTop: 3 }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
               )}
               {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
                 <p style={{ fontSize: 10, color: muted, marginTop: 3 }}>
-                  🔊 {Object.keys(sceneIntelligence).length} scenes have sound environment data
+                  {Object.keys(sceneIntelligence).length} scenes have sound environment data
                   {" · "}{[...new Set(Object.values(sceneIntelligence).map(i => i.environmentType))].slice(0, 3).join(", ")}
                 </p>
               )}
@@ -4224,7 +4210,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   onClick={() => { if (confirm("Clear all scene images from this board? Files are NOT deleted.")) setSceneImages({}); }}
                   title="Remove all images from this scene board (does not delete files). Use if old images from another project are showing here."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  🗑 Clear Ghost Images
+                  Clear Ghost Images
                 </button>
               )}
               {/* Clear ghost videos — removes any cross-project contamination */}
@@ -4233,7 +4219,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   onClick={() => { if (confirm("Clear all scene videos from this board? Files are NOT deleted.")) { setSceneVideos({}); setSceneVideoVersions({}); } }}
                   title="Remove all videos from this scene board (does not delete files). Use if old videos from another project are showing here."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  🗑 Clear Ghost Videos
+                  Clear Ghost Videos
                 </button>
               )}
               {/* Clear ghost audio — narrator + music + SFX state */}
@@ -4251,7 +4237,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   }}
                   title="Remove narrator audio, music selection, and SFX from this session (does not delete files). Use if old audio from another project is leaking into assembly."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  🗑 Clear Ghost Audio
+                  Clear Ghost Audio
                 </button>
               )}
               {/* Manual re-run of scene intelligence */}
@@ -4264,7 +4250,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   )}
                   title="Re-analyse scene descriptions to detect environments and ambient sounds"
                   style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid #4ade8030`, background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}>
-                  {runningIntelligence ? "⚡ Detecting..." : "🔊 Scene Intelligence"}
+                  {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
                 </button>
               )}
               <button onClick={() => setSceneViewMode("grid")} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${sceneViewMode === "grid" ? accent : border}`, background: sceneViewMode === "grid" ? `${accent}10` : "transparent", color: sceneViewMode === "grid" ? accent : muted, fontSize: 10, cursor: "pointer" }}>Grid</button>
@@ -4330,7 +4316,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <img src={sceneImages[scene.sceneId]} alt={scene.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <div style={{ textAlign: "center" }}>
-                          <span style={{ fontSize: 36, opacity: 0.2 }}>{typeInfo?.icon || "\u{1F5BC}"}</span>
+                          <Icon.Image style={{ width: 36, height: 36, opacity: 0.2 }} />
                           <p style={{ fontSize: 9, color: muted, marginTop: 4 }}>No image yet</p>
                         </div>
                       )}
@@ -4347,7 +4333,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </div>
                       {/* Video indicator badge — top right, replaces type badge when video exists */}
                       <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
-                        {hasVideo && <span style={{ ...badgeStyle(purple), background: purple, color: "#fff" }}>🎬 Video</span>}
+                        {hasVideo && <span style={{ ...badgeStyle(purple), background: purple, color: "#fff" }}>Video</span>}
                         {!hasVideo && <span style={badgeStyle(typeInfo?.color || accent)}>{typeInfo?.label || scene.sceneType}</span>}
                       </div>
                       {/* Status badge */}
@@ -4379,7 +4365,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   background: isOpen ? `${tab.color}20` : tab.done ? `${tab.color}08` : "transparent",
                                   cursor: "pointer", transition: "background 0.15s",
                                 }}>
-                                <span style={{ fontSize: 10, color: tab.done ? tab.color : muted }}>{tab.done ? "✓" : "·"}</span>
+                                <span style={{ fontSize: 10, color: tab.done ? tab.color : muted }}>{tab.done ? <Icon.Check style={{ width:10, height:10 }} /> : "·"}</span>
                                 <span style={{ fontSize: 9, color: isOpen ? tab.color : tab.done ? tab.color : muted, fontWeight: isOpen || tab.done ? 700 : 400 }}>{tab.label}</span>
                               </button>
                             );
@@ -4398,11 +4384,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setPreviewMedia({ url: sceneImages[scene.sceneId], type: "image", title: `${scene.sceneId}: ${scene.title}` })}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
-                                👁 Full Preview
+                                Full Preview
                               </button>
                               <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
-                                {generatingSceneImage === scene.sceneId ? "Regenerating..." : "🔄 Regen"}
+                                {generatingSceneImage === scene.sceneId ? "Regenerating..." : "Regen"}
                               </button>
                             </div>
                           </>
@@ -4417,7 +4403,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             )}
                             <button onClick={() => makeSceneImage(scene)}
                               style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#00d4ff,#0084ff)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                              🖼 Generate Image
+                              Generate Image
                             </button>
                           </div>
                         )}
@@ -4431,13 +4417,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <div style={{ fontSize: 9, color: gold, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Music</div>
                           {selectedMusicUrl ? (
                             <div style={{ display: "flex", alignItems: "center", gap: 6, background: `${gold}12`, borderRadius: 6, padding: "4px 8px" }}>
-                              <span style={{ fontSize: 10 }}>🎵</span>
+                              <Icon.Music style={{ width: 10, height: 10 }} />
                               <span style={{ fontSize: 9, color: "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedMusicName || "Track selected"}</span>
                               <audio src={selectedMusicUrl} controls style={{ height: 22, width: 100 }} />
                             </div>
                           ) : scene.audioPlan?.musicMood ? (
                             <div style={{ fontSize: 9, color: gold, background: `${gold}10`, borderRadius: 6, padding: "4px 8px" }}>
-                              🎵 Mood: <strong>{scene.audioPlan.musicMood}</strong>
+                              Mood: <strong>{scene.audioPlan.musicMood}</strong>
                               {scene.audioPlan.musicIntensity && <span style={{ color: muted }}> · {scene.audioPlan.musicIntensity}</span>}
                               <div style={{ fontSize: 8, color: muted, marginTop: 2 }}>No track assigned — go to Audio tab to pick music</div>
                             </div>
@@ -4465,7 +4451,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           {scene.audioPlan?.sfxList?.length ? (
                             <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
                               {scene.audioPlan.sfxList.map((sfx, i) => (
-                                <span key={i} style={{ fontSize: 8, background: `${gold}18`, border: `1px solid ${gold}30`, borderRadius: 4, padding: "2px 6px", color: gold }}>🔊 {sfx}</span>
+                                <span key={i} style={{ fontSize: 8, background: `${gold}18`, border: `1px solid ${gold}30`, borderRadius: 4, padding: "2px 6px", color: gold }}>{sfx}</span>
                               ))}
                             </div>
                           ) : (
@@ -4478,7 +4464,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             <div style={{ fontSize: 9, color: gold, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Ambience</div>
                             <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
                               {scene.audioPlan.ambienceList.map((a, i) => (
-                                <span key={i} style={{ fontSize: 8, background: "#ffffff08", border: `1px solid ${border}`, borderRadius: 4, padding: "2px 6px", color: muted }}>🌿 {a}</span>
+                                <span key={i} style={{ fontSize: 8, background: "#ffffff08", border: `1px solid ${border}`, borderRadius: 4, padding: "2px 6px", color: muted }}>{a}</span>
                               ))}
                             </div>
                           </div>
@@ -4499,7 +4485,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               </button>
                               <button onClick={() => makeSceneVideo(scene, scene.motionDuration)} disabled={generatingSceneVideos.has(scene.sceneId)}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", background: generatingSceneVideos.has(scene.sceneId) ? "#2a2a40" : "linear-gradient(135deg,#a855f7,#7c3aed)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneVideos.has(scene.sceneId) ? "not-allowed" : "pointer" }}>
-                                {generatingSceneVideos.has(scene.sceneId) ? "Generating..." : "🎬 New Version"}
+                                {generatingSceneVideos.has(scene.sceneId) ? "Generating..." : "New Version"}
                               </button>
                             </div>
                             {videoVersionCount > 1 && (
@@ -4521,7 +4507,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                               <button onClick={() => makeSceneVideo(scene, scene.motionDuration)} disabled={!hasImage}
                                 style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: hasImage ? "linear-gradient(135deg,#a855f7,#7c3aed)" : "#2a2a40", color: hasImage ? "#fff" : muted, fontSize: 10, fontWeight: 700, cursor: hasImage ? "pointer" : "not-allowed" }}>
-                                🎬 Generate Video
+                                Generate Video
                               </button>
                               <button onClick={() => setShowAidPicker(true)}
                                 style={{ padding: "6px 10px", borderRadius: 8, border: "1.5px solid #7c3aed60", background: "#1a0f3a", color: "#c084fc", fontSize: 9, fontWeight: 800, cursor: "pointer" }}>
@@ -4549,12 +4535,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           : intel.energyLevel === "mysterious" ? "#6366f1"
                           : intel.energyLevel === "peaceful" ? accent
                           : muted;
-                        const icon = SCENE_ENV_ICON[intel.environmentType] || "📍";
+                        const envLabel = intel.environmentType.replace(/-/g, " ");
                         return (
                           <div style={{ marginBottom: 8, padding: "6px 8px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff0a" }}>
                             {/* Environment header */}
                             <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                              <span style={{ fontSize: 11 }}>{icon}</span>
                               <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" as const }}>{intel.environmentType.replace(/-/g, " ")}</span>
                               <span style={{ fontSize: 8, color: muted }}>•</span>
                               <span style={{ fontSize: 8, color: muted, textTransform: "capitalize" as const }}>{intel.timeOfDay}</span>
@@ -4568,12 +4553,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             <div style={{ display: "flex", gap: 3, flexWrap: "wrap" as const }}>
                               {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
                                 <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>
-                                  🔊 {sound}
+                                  {sound}
                                 </span>
                               ))}
                               {intel.sfxEvents.length > 0 && (
                                 <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: gold, border: `1px solid ${gold}30` }}>
-                                  ⚡ {intel.sfxEvents[0]}
+                                  {intel.sfxEvents[0]}
                                 </span>
                               )}
                             </div>
@@ -4695,19 +4680,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
                         <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
                           style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
-                          {generatingSceneImage === scene.sceneId ? "Generating..." : hasImage ? "🔄 Regen Image" : "🖼 Make Image"}
+                          {generatingSceneImage === scene.sceneId ? "Generating..." : hasImage ? "Regen Image" : "Make Image"}
                         </button>
                         {hasImage && (
                           <button onClick={() => setPreviewMedia({ url: sceneImages[scene.sceneId], type: "image", title: `${scene.sceneId}: ${scene.title}` })}
                             title="Preview image"
-                            style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>
-                            👁
-                          </button>
+                            style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, cursor: "pointer", flexShrink: 0 }}>Preview</button>
                         )}
                         <button onClick={() => openLibraryImport(scene.sceneId)}
                           title="Pick an image you already have from Asset Library"
                           style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${blue}50`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
-                          📥 Import
+                          Import
                         </button>
                       </div>
 
@@ -4722,7 +4705,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             color: !hasImage ? muted : "#fff", fontSize: 9, fontWeight: 700,
                             cursor: (generatingSceneVideos.has(scene.sceneId) || !hasImage) ? "not-allowed" : "pointer",
                             whiteSpace: "nowrap" as const }}>
-                          {generatingSceneVideos.has(scene.sceneId) ? "Making..." : hasVideo ? "🎬 New Video" : "🎬 Make Video"}
+                          {generatingSceneVideos.has(scene.sceneId) ? "Making..." : hasVideo ? "New Video" : "Make Video"}
                         </button>
                         {/* Small buttons — all same height via alignItems stretch */}
                         <div style={{ display: "flex", gap: 4, alignItems: "stretch", flexShrink: 0 }}>
@@ -4746,7 +4729,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           </a>
                           <button onClick={() => updateScene(scene.scene, { status: scene.status === "approved" ? "draft" : "approved" })}
                             style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${accent}30`, background: scene.status === "approved" ? `${accent}15` : "transparent", color: accent, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
-                            {scene.status === "approved" ? "✓ OK" : "OK"}
+                            {scene.status === "approved" ? "OK" : "OK"}
                           </button>
                           <button onClick={() => setExpandedSceneId(expandedSceneId === scene.sceneId ? null : scene.sceneId)}
                             style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${border}`, background: expandedSceneId === scene.sceneId ? `${blue}10` : "transparent", color: expandedSceneId === scene.sceneId ? blue : muted, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
@@ -4814,7 +4797,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ padding: "10px 18px", borderRadius: 10, border: "none",
                   background: buildingAllChars ? "#2a2a40" : `linear-gradient(135deg, ${purple}, #7c3aed)`,
                   color: "#fff", fontSize: 11, fontWeight: 700, cursor: buildingAllChars ? "not-allowed" : "pointer" }}>
-                {buildAllProgress || (buildingAllChars ? "Building..." : "🤖 Build Story Characters with AI")}
+                {buildAllProgress || (buildingAllChars ? "Building..." : "Build Story Characters with AI")}
               </button>
               {/* Add single character inline */}
               <div style={{ display: "flex", gap: 4 }}>
@@ -4877,7 +4860,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 e.preventDefault(); setPhotoDragOver(false);
                 const file = e.dataTransfer.files?.[0];
                 if (file && file.type.startsWith("image/")) importCharacterFromPhoto(file, photoImportName);
-                else setPhotoImportLog("⚠ Drop an image file (JPG, PNG, WebP)");
+                else setPhotoImportLog("[!] Drop an image file (JPG, PNG, WebP)");
               }}
               style={{
                 display: "grid",
@@ -4918,7 +4901,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   transition: "all 0.25s ease",
                   animation: importingFromPhoto ? "pulse 1.5s ease-in-out infinite" : "none",
                 }}>
-                  {importingFromPhoto ? "⏳" : photoDragOver ? "⬇" : "📸"}
+                  {importingFromPhoto ? "..." : photoDragOver ? "Drop" : "+"}
                 </div>
                 <span style={{
                   fontSize: 9, fontWeight: 700, color: photoDragOver ? accent : "#ffffff50",
@@ -4956,7 +4939,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     fontSize: 10, fontWeight: 800, cursor: importingFromPhoto ? "not-allowed" : "pointer",
                     whiteSpace: "nowrap" as const, flexShrink: 0, display: "flex", alignItems: "center", gap: 5,
                   }}>
-                    📂 {importingFromPhoto ? "Importing…" : "Choose Photo"}
+                    {importingFromPhoto ? "Importing..." : "Choose Photo"}
                     <input type="file" accept="image/*" style={{ display: "none" }} disabled={importingFromPhoto}
                       onChange={e => {
                         const file = e.target.files?.[0];
@@ -4970,8 +4953,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   {[
                     { step: "1", label: "Upload", done: importingFromPhoto || !!photoImportLog },
-                    { step: "2", label: "AI Reads", done: photoImportLog.includes("Reading") || photoImportLog.startsWith("✓") },
-                    { step: "3", label: "Build", done: photoImportLog.startsWith("✓") },
+                    { step: "2", label: "AI Reads", done: photoImportLog.includes("Reading") || photoImportLog.startsWith("") },
+                    { step: "3", label: "Build", done: photoImportLog.length > 0 && !photoImportLog.startsWith("[!") },
                   ].map(s => (
                     <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                       <div style={{
@@ -4979,7 +4962,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         display: "flex", alignItems: "center", justifyContent: "center",
                         background: s.done ? "#22c55e" : "#ffffff12",
                         color: s.done ? "#fff" : "#ffffff40",
-                      }}>{s.done ? "✓" : s.step}</div>
+                      }}>{s.done ? <Icon.Check style={{ width:8, height:8 }} /> : s.step}</div>
                       <span style={{ fontSize: 9, color: s.done ? "#22c55e" : "#ffffff30", fontWeight: 600 }}>{s.label}</span>
                       {s.step !== "3" && <div style={{ width: 12, height: 1, background: "#ffffff15" }} />}
                     </div>
@@ -4987,7 +4970,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   {photoImportLog && (
                     <span style={{
                       marginLeft: "auto", fontSize: 9, fontWeight: 700,
-                      color: photoImportLog.startsWith("✓") ? "#22c55e" : photoImportLog.startsWith("⚠") ? gold : accent,
+                      color: photoImportLog.startsWith("[!]") ? gold : photoImportLog.length > 20 ? "#22c55e" : accent,
                     }}>{photoImportLog}</span>
                   )}
                 </div>
@@ -5004,22 +4987,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <img src={inlinePreview.imageUrl} alt={inlinePreview.displayName}
                     style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", border: `2px solid ${accent}40`, flexShrink: 0 }} />
                 ) : (
-                  <span style={{ fontSize: 20 }}>👤</span>
+                  <Icon.User style={{ width: 20, height: 20 }} />
                 )}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>{inlinePreview.displayName}</p>
                     {inlinePreview.tags?.includes("photo-import") && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: accent, background: `${accent}18`, padding: "2px 6px", borderRadius: 4 }}>📸 FROM PHOTO</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, color: accent, background: `${accent}18`, padding: "2px 6px", borderRadius: 4 }}>FROM PHOTO</span>
                     )}
                   </div>
                   <p style={{ fontSize: 10, color: muted, margin: 0 }}>{inlinePreview.roleType} · {inlinePreview.gender} · {inlinePreview.ageRange} {inlinePreview.species ? `· ${inlinePreview.species}` : ""}</p>
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <button onClick={acceptInlineCharacter}
-                    style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
-                    ✓ Add to Cast
-                  </button>
+                    style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Add to Cast</button>
                   {!inlinePreview.tags?.includes("photo-import") && (
                     <button onClick={() => buildCharacterInline(inlinePreview.displayName)}
                       style={{ padding: "8px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
@@ -5027,7 +5008,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     </button>
                   )}
                   <button onClick={() => { setInlinePreview(null); setPhotoImportLog(""); }}
-                    style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 11, cursor: "pointer" }}>✕</button>
+                    style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 11, cursor: "pointer" }}><Icon.X style={{ width: 12, height: 12 }} /></button>
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
@@ -5041,7 +5022,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 ))}
               </div>
               <div style={{ padding: "8px 10px", borderRadius: 8, background: "#0a1a0a", border: `1px solid #4ade8030`, display: "flex", gap: 10, alignItems: "center" }}>
-                <span>🎙</span>
+                <Icon.Mic style={{ width: 14, height: 14 }} />
                 <p style={{ fontSize: 11, color: "#4ade80" }}>{inlinePreview.voiceType} · {inlinePreview.intonation} · {inlinePreview.speechStyle}</p>
               </div>
             </div>
@@ -5049,7 +5030,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {characters.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
-              <p style={{ fontSize: 28, marginBottom: 12 }}>👥</p>
+              <Icon.Users style={{ width: 28, height: 28, color: muted, marginBottom: 12 }} />
               <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 6 }}>No characters yet</p>
               <p style={{ fontSize: 12, color: muted, marginBottom: 20 }}>
                 {(expandedSummary || idea) ? "Your story is ready — click below to let AI build all characters automatically." : "Write your story first, then AI will detect and build all characters for you."}
@@ -5058,7 +5039,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {(expandedSummary || idea) && (
                   <button onClick={buildAllStoryCharacters} disabled={buildingAllChars}
                     style={{ ...btnPrimary, background: `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff" }}>
-                    {buildAllProgress || "🤖 Build Story Characters with AI"}
+                    {buildAllProgress || "Build Story Characters with AI"}
                   </button>
                 )}
                 <button onClick={() => setShowCharacterPicker(true)} style={{ ...btnPrimary, background: "transparent", border: `1px solid ${purple}40`, color: purple }}>
@@ -5089,7 +5070,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ position: "relative", width: 80, height: 80, borderRadius: 14, background: `linear-gradient(135deg, ${purple}30, ${blue}10)`, flexShrink: 0, overflow: "hidden", border: char.imageLocked ? `2px solid ${accent}` : `1px solid ${border}` }}>
                         {char.imageUrl
                           ? <img src={normalizeImageUrl(char.imageUrl)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>👤</div>
+                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.User style={{ width: 32, height: 32, color: muted }} /></div>
                         }
                         {char.imageLocked && (
                           <div style={{ position: "absolute", bottom: 2, right: 2, background: accent, borderRadius: 4, padding: "1px 4px", fontSize: 7, color: "#000", fontWeight: 800 }}>LOCKED</div>
@@ -5102,12 +5083,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{char.displayName}</p>
                           {char.imageLocked
-                            ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${accent}20`, color: accent, fontWeight: 700 }}>✓ Look Locked</span>
+                            ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${accent}20`, color: accent, fontWeight: 700 }}>Look Locked</span>
                             : hasVisual
-                            ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${purple}15`, color: purple, fontWeight: 600 }}>🤖 AI-described</span>
+                            ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${purple}15`, color: purple, fontWeight: 600 }}>AI-described</span>
                             : char.imageUrl
-                            ? <span onClick={() => analyzeCharacterImage(char.characterId, char.imageUrl!)} style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${gold}10`, color: gold, fontWeight: 600, cursor: "pointer" }} title="Click to have AI read this image">⚡ Click to AI-read image</span>
-                            : <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${gold}10`, color: gold, fontWeight: 600 }}>⚠ Upload image first</span>
+                            ? <span onClick={() => analyzeCharacterImage(char.characterId, char.imageUrl!)} style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${gold}10`, color: gold, fontWeight: 600, cursor: "pointer" }} title="Click to have AI read this image">Click to AI-read image</span>
+                            : <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${gold}10`, color: gold, fontWeight: 600 }}>Upload image first</span>
                           }
                           </div>
                           <button
@@ -5142,7 +5123,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <button
                         onClick={() => setEditingCharId(isEditing ? null : char.characterId)}
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? purple : border}`, background: isEditing ? `${purple}15` : "transparent", color: isEditing ? purple : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                        {isEditing ? "▲ Close Builder" : "✏ Define Appearance"}
+                        {isEditing ? "Close Builder" : "Define Appearance"}
                       </button>
                       <button
                         onClick={() => generateCharacterPortrait(char)}
@@ -5159,7 +5140,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             disabled={isAnalyzing}
                             title="AI reads the portrait image and auto-fills species, clothing, colors, and all appearance fields"
                             style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${purple}40`, background: isAnalyzing ? `${purple}20` : `${purple}08`, color: purple, fontSize: 10, fontWeight: 700, cursor: isAnalyzing ? "wait" : "pointer", opacity: isAnalyzing ? 0.8 : 1 }}>
-                            {isAnalyzing ? "⏳ Reading image..." : "🤖 AI Read Look"}
+                            {isAnalyzing ? "Reading image..." : "AI Read Look"}
                           </button>
                         );
                       })()}
@@ -5173,7 +5154,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             disabled={isSaving}
                             title="Save this character to the Character Registry so it can be used in future projects"
                             style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isSaved ? accent : "#e05c2040"}`, background: isSaved ? `${accent}18` : "#e05c2008", color: isSaved ? accent : "#e05c20", fontSize: 10, fontWeight: 700, cursor: isSaving ? "wait" : "pointer", opacity: isSaving ? 0.7 : 1 }}>
-                            {isSaving ? "💾 Saving..." : isSaved ? "✓ Saved!" : "💾 Save Character"}
+                            {isSaving ? "Saving..." : isSaved ? "Saved!" : "Save Character"}
                           </button>
                         );
                       })()}
@@ -5182,7 +5163,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={() => openImagePicker(char.characterId)}
                         title="Use an existing image from your asset library or another character — no need to generate a new one"
                         style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e908", color: "#0ea5e9", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                        📂 Import Image
+                        Import Image
                       </button>
                       {char.imageUrl && !char.imageLocked && (
                         <button
@@ -5191,7 +5172,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             setLastAction(`${char.displayName}'s look is LOCKED — all scenes will use this exact appearance`);
                           }}
                           style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          ✓ Lock this Look
+                          Lock this Look
                         </button>
                       )}
                       {char.imageLocked && (
@@ -5201,7 +5182,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             setLastAction(`${char.displayName}'s look unlocked — regenerate to try new looks`);
                           }}
                           style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                          🔓 Unlock
+                          Unlock
                         </button>
                       )}
                     </div>
@@ -5445,7 +5426,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
                 {lastUsedAiProvider && (
                   <p style={{ fontSize: 8, color: accent, marginTop: 3, fontWeight: 600 }}>
-                    ✓ Last: {lastUsedAiProvider}
+                    Last: {lastUsedAiProvider}
                   </p>
                 )}
               </div>
@@ -5464,7 +5445,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ ...cardStyle, borderColor: `${accent}25` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: accent }}>✓ Story Expanded</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: accent }}>Story Expanded</p>
                   {lastUsedAiProvider && (
                     <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>
                       Built by: <span style={{ color: "#0ea5e9", fontWeight: 700 }}>{lastUsedAiProvider}</span>
@@ -5506,8 +5487,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <span style={{ fontSize: 8, color: muted }}>{c.roleType}</span>
                         {c.species && <span style={{ fontSize: 8, color: gold }}>{c.species}</span>}
                         {c.voiceType
-                          ? <span style={{ fontSize: 8, color: accent }}>🎙 {c.voiceType}</span>
-                          : <span style={{ fontSize: 8, color: gold }}>⚠ needs AI build</span>}
+                          ? <span style={{ fontSize: 8, color: accent }}>{c.voiceType}</span>
+                          : <span style={{ fontSize: 8, color: gold }}>needs AI build</span>}
                       </div>
                     ))}
                   </div>
@@ -5524,7 +5505,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       return (
                         <div key={s.sceneId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "#ffffff05" }}>
                           <span style={{ fontSize: 9, fontFamily: "monospace", color: blue, minWidth: 32 }}>{s.sceneId}</span>
-                          <span style={{ fontSize: 9 }}>{typeInfo?.icon}</span>
                           <span style={{ fontSize: 11, color: "#fff", flex: 1 }}>{s.title}</span>
                           {s.mood && <span style={badgeStyle(purple)}>{s.mood}</span>}
                           {s.location && <span style={{ fontSize: 8, color: muted }}>{s.location}</span>}
@@ -5567,7 +5547,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <button onClick={parseScript} disabled={parsingScript}
                   style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
                     background: parsingScript ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0066aa)`, color: "#fff" }}>
-                  {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "🔄 Re-parse Script" : "📖 Parse Script"}
+                  {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-parse Script" : "Parse Script"}
                 </button>
               </div>
 
@@ -5579,7 +5559,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${storyMode === m ? blue : border}`,
                         background: storyMode === m ? `${blue}18` : "transparent",
                         color: storyMode === m ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                      {m === "narration-only" ? "🎙 Narrator Only" : m === "actors-only" ? "🎭 Actors Only" : "🎬 Mixed"}
+                      {m === "narration-only" ? "Narrator Only" : m === "actors-only" ? "Actors Only" : "Mixed"}
                     </button>
                   ))}
                 </div>
@@ -5595,7 +5575,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v ? accent : border}`,
                           background: narratorVoice === v ? `${accent}15` : "transparent",
                           color: narratorVoice === v ? accent : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                        {v === "piper" ? "🖥 Piper (Local)" : v === "elevenlabs" ? "🎙 ElevenLabs" : "🔇 None"}
+                        {v === "piper" ? "Piper (Local)" : v === "elevenlabs" ? "ElevenLabs" : "None"}
                       </button>
                     ))}
                   </div>
@@ -5634,13 +5614,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <div style={{ padding: "7px 12px", borderRadius: 8, background: `${blue}10`, border: `1px solid ${blue}25`, marginBottom: 8, fontSize: 10, color: blue }}>
                           {piperDownloading
                             ? "⬇ Downloading model from HuggingFace... (first time only, ~50–100MB)"
-                            : "🎙 Generating audio..."}
+                            : "Generating audio..."}
                         </div>
                       )}
                       <button onClick={generateNarrationPiper} disabled={generatingNarration}
                         style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
                           background: generatingNarration ? "#2a2a40" : accent, color: "#000" }}>
-                        {generatingNarration ? "Working..." : narratorAudioUrl ? "🔄 Regenerate Narration" : "🎙 Generate Narration Audio"}
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate Narration" : "Generate Narration Audio"}
                       </button>
                     </div>
                   )}
@@ -5690,26 +5670,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <div style={{ width: 32, height: 32, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: s2 }}>
                             {char.imageUrl
                               ? <img src={char.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>🎭</div>
+                              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.User style={{ width: 14, height: 14, color: muted }} /></div>
                             }
                           </div>
                           {/* Name + line count */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0 }}>{char.displayName}</p>
-                            <p style={{ fontSize: 9, color: muted, margin: 0 }}>{dialogueCount} dialogue line{dialogueCount !== 1 ? "s" : ""}{hasAudio ? " · ✓ Audio ready" : ""}</p>
+                            <p style={{ fontSize: 9, color: muted, margin: 0 }}>{dialogueCount} dialogue line{dialogueCount !== 1 ? "s" : ""}{hasAudio ? " · Audio ready" : ""}</p>
                           </div>
                           {/* Voice selector */}
                           <select
                             value={assigned}
                             onChange={e => setCharacterPiperVoices(prev => ({ ...prev, [char.characterId]: e.target.value }))}
                             style={{ ...inputStyle, fontSize: 10, padding: "5px 8px", minWidth: 160 }}>
-                            <option value="en_US-lessac-medium">🔵 Lessac (Neutral Male)</option>
-                            <option value="en_US-ryan-high">🟦 Ryan (Clear Male)</option>
-                            <option value="en_US-amy-medium">🔴 Amy (Female)</option>
-                            <option value="en_US-hfc_female-medium">🟣 HFC (Female)</option>
-                            <option value="en_GB-alan-medium">🟤 Alan (British Male)</option>
-                            <option value="en_GB-cori-high">🟠 Cori (British Female)</option>
-                            <option value="en_US-libritts-high">⚪ LibriTTS (Narration)</option>
+                            <option value="en_US-lessac-medium">Lessac (Neutral Male)</option>
+                            <option value="en_US-ryan-high">Ryan (Clear Male)</option>
+                            <option value="en_US-amy-medium">Amy (Female)</option>
+                            <option value="en_US-hfc_female-medium">HFC (Female)</option>
+                            <option value="en_GB-alan-medium">Alan (British Male)</option>
+                            <option value="en_GB-cori-high">Cori (British Female)</option>
+                            <option value="en_US-libritts-high">LibriTTS (Narration)</option>
                           </select>
                           {/* Play if generated */}
                           {hasAudio && (
@@ -5726,17 +5706,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       onClick={generatePerLineVoices}
                       disabled={generatingCharVoices || scriptSegments.length === 0}
                       style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: generatingCharVoices ? "#2a2a40" : `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingCharVoices ? "not-allowed" : "pointer" }}>
-                      {generatingCharVoices ? "Generating…" : scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) ? "🔄 Regen Per-Line Voices" : "🎭 Generate Per-Line Voices"}
+                      {generatingCharVoices ? "Generating..." : scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) ? "Regen Per-Line Voices" : "Generate Per-Line Voices"}
                     </button>
                     {scriptSegments.length === 0 && (
-                      <span style={{ fontSize: 10, color: gold }}>⚠ Parse your script first</span>
+                      <span style={{ fontSize: 10, color: gold }}>Parse your script first</span>
                     )}
                     {scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) && (
-                      <span style={{ fontSize: 10, color: "#22c55e" }}>✓ {scriptSegments.filter(s => s.type === "dialogue" && s.audioUrl).length} per-line clips ready</span>
+                      <span style={{ fontSize: 10, color: "#22c55e" }}>{scriptSegments.filter(s => s.type === "dialogue" && s.audioUrl).length} per-line clips ready</span>
                     )}
                   </div>
                   {charVoiceLog && (
-                    <p style={{ fontSize: 10, color: charVoiceLog.startsWith("✓") ? "#22c55e" : charVoiceLog.startsWith("⚠") ? gold : accent, marginTop: 8 }}>{charVoiceLog}</p>
+                    <p style={{ fontSize: 10, color: charVoiceLog.startsWith("[!]") ? gold : charVoiceLog.length > 5 ? "#22c55e" : accent, marginTop: 8 }}>{charVoiceLog}</p>
                   )}
                 </div>
               )}
@@ -5762,7 +5742,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <div style={{ flexShrink: 0, minWidth: 64 }}>
                             <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
                               background: `${charColor}20`, color: charColor }}>
-                              {isNarration ? "🎙 NARRATOR" : `🎭 ${seg.speaker.toUpperCase()}`}
+                              {isNarration ? "NARRATOR" : seg.speaker.toUpperCase()}
                             </span>
                             {charObj?.voiceType && (
                               <p style={{ fontSize: 7, color: muted, marginTop: 3 }}>{charObj.voiceType}</p>
@@ -5833,8 +5813,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <div key={`${c.characterId}_${ci}`} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px 4px 10px", borderRadius: 20, background: `${purple}12`, border: `1px solid ${purple}30` }}>
                       {c.imageUrl && <img src={c.imageUrl} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />}
                       <span style={{ fontSize: 10, fontWeight: 600, color: "#fff" }}>{c.displayName}</span>
-                      {c.voiceType && <span style={{ fontSize: 8, color: purple }}>🎙 {c.voiceType}</span>}
-                      {!c.voiceType && <span style={{ fontSize: 8, color: red }}>⚠ no voice</span>}
+                      {c.voiceType && <span style={{ fontSize: 8, color: purple }}>{c.voiceType}</span>}
+                      {!c.voiceType && <span style={{ fontSize: 8, color: red }}>no voice</span>}
                       <button onClick={() => setCharacters(prev => prev.filter(x => x.characterId !== c.characterId))}
                         title="Remove from cast"
                         style={{ background: "transparent", border: "none", color: muted, fontSize: 11, cursor: "pointer", padding: "0 2px", lineHeight: 1, marginLeft: 2 }}>×</button>
@@ -5869,7 +5849,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </button>
                       {manualCharInputs.length > 1 && (
                         <button onClick={() => setManualCharInputs(prev => prev.filter(p => p.id !== inp.id))}
-                          style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
+                          style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}><Icon.X style={{ width: 12, height: 12 }} /></button>
                       )}
                     </div>
                   ))}
@@ -5891,7 +5871,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </div>
                       <button onClick={detectCharactersFromStory} disabled={detectingChars}
                         style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: detectingChars ? "#2a2a40" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: detectingChars ? "not-allowed" : "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
-                        {detectingChars ? "Scanning..." : "🔍 Detect"}
+                        {detectingChars ? "Scanning..." : "Detect"}
                       </button>
                     </div>
                   ) : (
@@ -5905,7 +5885,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         return (
                           <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
-                              <p style={{ fontSize: 12, fontWeight: 700, color: alreadyAdded ? accent : "#fff" }}>{det.name} {alreadyAdded && "✓"}</p>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: alreadyAdded ? accent : "#fff" }}>{det.name} {alreadyAdded && "(added)"}</p>
                               {det.description && <p style={{ fontSize: 9, color: muted, marginTop: 2, lineHeight: 1.4 }}>{det.description.slice(0, 80)}</p>}
                             </div>
                             {!alreadyAdded && (
@@ -5937,22 +5917,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {inlinePreview && (
                 <div style={{ marginTop: 16, padding: 14, borderRadius: 12, background: `${purple}08`, border: `1px solid ${purple}30` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                    <span style={{ fontSize: 16 }}>👤</span>
+                    <Icon.User style={{ width: 16, height: 16 }} />
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{inlinePreview.displayName}</p>
                       <p style={{ fontSize: 10, color: muted }}>{inlinePreview.roleType} · {inlinePreview.gender} · {inlinePreview.ageRange}</p>
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={acceptInlineCharacter}
-                        style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 800, cursor: "pointer" }}>
-                        ✓ Add to Cast
-                      </button>
+                        style={{ padding: "7px 18px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 800, cursor: "pointer" }}>Add to Cast</button>
                       <button onClick={() => buildCharacterInline(inlinePreview.displayName)}
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
                         Rebuild
                       </button>
                       <button onClick={() => setInlinePreview(null)}
-                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
+                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}><Icon.X style={{ width: 12, height: 12 }} /></button>
                     </div>
                   </div>
                   {/* Profile details */}
@@ -5974,7 +5952,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   </div>
                   {/* Voice preview */}
                   <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: "#0a1a0a", border: `1px solid #4ade8030`, display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 14 }}>🎙</span>
+                    <Icon.Mic style={{ width: 14, height: 14 }} />
                     <div>
                       <p style={{ fontSize: 9, color: muted, fontWeight: 600, textTransform: "uppercase" as const }}>Voice Profile</p>
                       <p style={{ fontSize: 11, color: "#4ade80" }}>
@@ -6037,14 +6015,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>🔊 Sound Browser</h3>
+            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Sound Browser</h3>
 
             {/* Tab row */}
             <div style={{ display: "flex", gap: 4, background: "#ffffff06", borderRadius: 8, padding: 3, marginBottom: 14, width: "fit-content" }}>
               {([
-                { id: "freesound",  label: "🌐 Freesound Library" },
-                { id: "elevenlabs", label: "⚡ Generate AI SFX" },
-                { id: "upload",     label: "📁 Upload Custom" },
+                { id: "freesound",  label: "Freesound Library" },
+                { id: "elevenlabs", label: "Generate AI SFX" },
+                { id: "upload",     label: "Upload Custom" },
               ] as const).map(t => (
                 <button key={t.id} onClick={() => setSoundTab(t.id)}
                   style={{ padding: "6px 14px", borderRadius: 6, border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer",
@@ -6108,7 +6086,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           {/* Save */}
                           <button onClick={() => saveFreesound(sound)} disabled={fsSaved.has(sound.id) || fsSaving === sound.id}
                             style={{ flex: 1, padding: "5px 8px", borderRadius: 7, border: "none", background: fsSaved.has(sound.id) ? `${accent}20` : fsSaving === sound.id ? "#2a2a40" : accent, color: fsSaved.has(sound.id) ? accent : "#000", fontSize: 10, cursor: fsSaved.has(sound.id) || fsSaving === sound.id ? "not-allowed" : "pointer", fontWeight: 700 }}>
-                            {fsSaved.has(sound.id) ? "✓ Saved" : fsSaving === sound.id ? "Saving..." : "Save"}
+                            {fsSaved.has(sound.id) ? "Saved" : fsSaving === sound.id ? "Saving..." : "Save"}
                           </button>
                         </div>
                         {/* Hidden audio player — plays when preview active */}
@@ -6137,7 +6115,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     style={{ ...inputStyle, flex: 1, fontSize: 11 }} />
                   <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim()}
                     style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: sfxGenerating ? "#2a2a40" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: sfxGenerating ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                    {sfxGenerating ? "Generating..." : "⚡ Generate"}
+                    {sfxGenerating ? "Generating..." : "Generate"}
                   </button>
                 </div>
                 {/* Quick prompts */}
@@ -6151,7 +6129,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
                 {sfxGeneratedUrl && (
                   <div style={{ padding: "10px 12px", borderRadius: 10, background: `${accent}08`, border: `1px solid ${accent}25` }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: accent, marginBottom: 6 }}>✓ Generated — saved to SFX library</p>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: accent, marginBottom: 6 }}>Generated — saved to SFX library</p>
                     <audio src={sfxGeneratedUrl} controls style={{ width: "100%", height: 28 }} />
                   </div>
                 )}
@@ -6163,7 +6141,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <div>
                 <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Upload your own MP3, WAV, OGG or FLAC files. Max 20MB. Saved to your SFX library instantly.</p>
                 <label style={{ display: "block", padding: "24px", border: `2px dashed ${border}`, borderRadius: 12, textAlign: "center", cursor: "pointer", background: "#ffffff03" }}>
-                  <p style={{ fontSize: 13, color: muted, marginBottom: 6 }}>📁 Click to browse or drag & drop</p>
+                  <p style={{ fontSize: 13, color: muted, marginBottom: 6 }}>Click to browse or drag & drop</p>
                   <p style={{ fontSize: 10, color: muted }}>MP3 · WAV · OGG · FLAC · max 20MB</p>
                   <input type="file" accept=".mp3,.wav,.ogg,.flac" multiple style={{ display: "none" }}
                     onChange={async e => {
@@ -6196,7 +6174,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <div key={scene.sceneId} style={{ ...cardStyle, borderColor: `${typeInfo?.color || accent}20` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 16 }}>{typeInfo?.icon}</span>
                     <div>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{scene.sceneId}: {scene.title}</p>
                       <span style={badgeStyle(typeInfo?.color || accent)}>{typeInfo?.label}</span>
@@ -6258,7 +6235,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ marginBottom: 12 }}>
               <button onClick={() => setShowCutsPanel(p => !p)}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: `1px solid ${gold}30`, background: showCutsPanel ? `${gold}10` : `${gold}06`, color: gold, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                <span style={{ fontSize: 16 }}>📂</span>
+                <Icon.Folder style={{ width: 16, height: 16 }} />
                 <span>My Cuts ({savedCuts.length})</span>
                 <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
                   {savedCuts.map(c => (
@@ -6274,10 +6251,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <div key={c.name} style={{ background: s2, borderRadius: 10, border: `2px solid ${assemblyName === c.name ? gold : border}`, padding: 10, cursor: "pointer", transition: "all 0.15s" }}
                       onClick={() => { setAssemblyName(c.name); setSelectedSceneIds(c.sceneIds); setAssemblyOrder(c.order); if (c.videoUrl) setAssembledVideoUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded cut: "${c.name}"`); }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                        <span style={{ fontSize: 14 }}>{c.videoUrl ? "🎬" : "📋"}</span>
+                        <span style={{ fontSize: 14 }}>{c.videoUrl ? <Icon.Film style={{ width: 14, height: 14 }} /> : <Icon.Grid style={{ width: 14, height: 14 }} />}</span>
                         <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? gold : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
                         <button onClick={e => { e.stopPropagation(); if (confirm(`Delete cut "${c.name}"?`)) setSavedCuts(prev => prev.filter((_, i) => i !== ci)); }}
-                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
+                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, cursor: "pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                       </div>
                       <p style={{ fontSize: 9, color: muted, marginBottom: 4 }}>{c.sceneIds.length} scene{c.sceneIds.length !== 1 ? "s" : ""}</p>
                       {/* Scene thumbnails */}
@@ -6295,7 +6272,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       {/* Assembled video */}
                       {c.videoUrl && (
                         <div style={{ padding: "4px 8px", borderRadius: 6, background: `${accent}10`, border: `1px solid ${accent}20` }}>
-                          <p style={{ fontSize: 8, color: accent, fontWeight: 600 }}>🎬 Video assembled{c.assembledAt ? ` · ${new Date(c.assembledAt).toLocaleDateString()}` : ""}</p>
+                          <p style={{ fontSize: 8, color: accent, fontWeight: 600 }}>Video assembled{c.assembledAt ? ` · ${new Date(c.assembledAt).toLocaleDateString()}` : ""}</p>
                         </div>
                       )}
                       {assemblyName === c.name && <p style={{ fontSize: 8, color: gold, marginTop: 4, fontWeight: 600 }}>← Currently loaded</p>}
@@ -6311,7 +6288,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {archivedScenes.length > 0 && (
             <div style={{ background: `${gold}08`, border: `2px solid ${gold}30`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: gold, marginBottom: 10 }}>
-                📦 Library — {archivedScenes.length} scene{archivedScenes.length > 1 ? "s" : ""} waiting — click to bring back
+                Library — {archivedScenes.length} scene{archivedScenes.length > 1 ? "s" : ""} waiting — click to bring back
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {archivedScenes.map((a, idx) => (
@@ -6323,7 +6300,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       onMouseLeave={() => setHoverPreview(null)}>
                       {a.imageUrl
                         ? <img src={a.imageUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 18, opacity: 0.3 }}>🖼</span></div>
+                        : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Film style={{ width: 18, height: 18, opacity: 0.3, color: muted }} /></div>
                       }
                     </div>
                     {/* Info */}
@@ -6363,7 +6340,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                     <button onClick={() => openLibraryImport()}
                       style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                      📥 Import from Library
+                      Import from Library
                     </button>
                     <button onClick={() => setSelectedSceneIds(scenes.map(s => s.sceneId))}
                       style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}08`, color: accent, fontSize: 10, cursor: "pointer" }}>
@@ -6380,7 +6357,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {libraryInbox.length > 0 && (
                   <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 10, background: `${blue}08`, border: `1px solid ${blue}30` }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: blue }}>📨 {libraryInbox.length} image{libraryInbox.length > 1 ? "s" : ""} sent from Asset Library</span>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: blue }}>{libraryInbox.length} image{libraryInbox.length > 1 ? "s" : ""} sent from Asset Library</span>
                       <button onClick={() => setLibraryInbox([])} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>Dismiss</button>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -6468,8 +6445,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           onMouseEnter={e => { if (hasImg) setHoverPreview({ src: sceneImages[scene.sceneId], x: e.clientX, y: e.clientY }); }}
                           onMouseMove={e => { if (hasImg) setHoverPreview({ src: sceneImages[scene.sceneId], x: e.clientX, y: e.clientY }); }}
                           onMouseLeave={() => setHoverPreview(null)}>
-                          {hasImg ? <img src={sceneImages[scene.sceneId]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 12, opacity: 0.3 }}>{typeInfo?.icon}</span></div>}
-                          {hasVid && <div style={{ position: "absolute", bottom: 1, right: 2, fontSize: 8, background: "#000a", borderRadius: 2, padding: "0 2px", color: purple }}>🎬</div>}
+                          {hasImg ? <img src={sceneImages[scene.sceneId]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Image style={{ width: 12, height: 12, opacity: 0.3 }} /></div>}
+                          {hasVid && <div style={{ position: "absolute", bottom: 1, right: 2, fontSize: 8, background: "#000a", borderRadius: 2, padding: "1px 3px", color: "#fff" }}>VID</div>}
                         </div>
 
                         {/* Info */}
@@ -6477,7 +6454,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <p style={{ fontSize: 12, fontWeight: 600, color: isSelected ? "#fff" : muted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", margin: 0 }}>{scene.sceneId}: {scene.title}</p>
                           <div style={{ display: "flex", gap: 5, marginTop: 2, alignItems: "center" }}>
                             <span style={badgeStyle(typeInfo?.color || accent)}>{typeInfo?.label}</span>
-                            {scene.narrationScript && <span style={{ fontSize: 8, color: "#22c55e" }}>📝 Narration</span>}
+                            {scene.narrationScript && <span style={{ fontSize: 8, color: "#22c55e" }}>Narration</span>}
                           </div>
                           {reviewMode && isSelected && scene.narrationScript && (
                             <p style={{ fontSize: 9, color: muted, marginTop: 3, fontStyle: "italic", lineHeight: 1.4, maxWidth: 400 }}>
@@ -6490,9 +6467,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                           {hasImg && (
                             <button onClick={() => setPreviewMedia({ url: sceneImages[scene.sceneId], type: "image", title: `${scene.sceneId}: ${scene.title}` })}
-                              title="Preview image" style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${accent}30`, background: `${accent}10`, color: accent, fontSize: 10, cursor: "pointer" }}>
-                              👁
-                            </button>
+                              title="Preview image" style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${accent}30`, background: `${accent}10`, color: accent, fontSize: 10, cursor: "pointer" }}>Preview</button>
                           )}
                           {hasVid && (
                             <button onClick={() => setPreviewMedia({ url: sceneVideos[scene.sceneId], type: "video", title: `${scene.sceneId}: ${scene.title}` })}
@@ -6524,9 +6499,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               fontSize: 11, fontWeight: usingImage ? 700 : 500,
                               cursor: hasImg ? "pointer" : "not-allowed", transition: "all 0.15s", flexShrink: 0,
                             }}>
-                            <span style={{ fontSize: 14 }}>📷</span>
+                            <Icon.Image style={{ width: 14, height: 14 }} />
                             <span>Image</span>
-                            {usingImage && <span style={{ fontSize: 9, background: accent, color: "#000", borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>✓ SELECTED</span>}
+                            {usingImage && <span style={{ fontSize: 9, background: accent, color: "#000", borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>SELECTED</span>}
                             {!hasImg && <span style={{ fontSize: 9, color: "#333" }}>(none)</span>}
                           </button>
 
@@ -6544,9 +6519,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               fontSize: 11, fontWeight: usingVideo ? 700 : 500,
                               cursor: hasVid ? "pointer" : "not-allowed", transition: "all 0.15s", flexShrink: 0,
                             }}>
-                            <span style={{ fontSize: 14 }}>🎬</span>
+                            <Icon.Film style={{ width: 14, height: 14 }} />
                             <span>Video</span>
-                            {usingVideo && <span style={{ fontSize: 9, background: purple, color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>✓ SELECTED</span>}
+                            {usingVideo && <span style={{ fontSize: 9, background: purple, color: "#fff", borderRadius: 4, padding: "1px 5px", fontWeight: 800 }}>SELECTED</span>}
                             {!hasVid && <span style={{ fontSize: 9, color: "#333" }}>(none)</span>}
                           </button>
 
@@ -6624,18 +6599,18 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             // ── Helper: step status badge ──
             const stepDone = (ok: boolean) => (
               <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14, background: ok ? "#22c55e" : `${accent}18`, border: `2px solid ${ok ? "#22c55e" : accent}`, color: ok ? "#000" : accent }}>
-                {ok ? "✓" : null}
+                {ok ? <Icon.Check style={{ width:10, height:10 }} /> : null}
               </div>
             );
             const stepNum = (n: number, ok: boolean) => (
               <div style={{ width: 30, height: 30, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, background: ok ? "#22c55e" : `${accent}18`, border: `2px solid ${ok ? "#22c55e" : accent}`, color: ok ? "#000" : accent }}>
-                {ok ? "✓" : n}
+                {ok ? <Icon.Check style={{ width:10, height:10 }} /> : n}
               </div>
             );
             const stepConnector = (ok: boolean) => (
               <div style={{ width: 2, height: 18, background: ok ? "#22c55e50" : `${border}`, margin: "1px 0 1px 14px" }} />
             );
-            const stepBtn = (label: string, onClick: () => void, disabled = false, color = accent) => (
+            const stepBtn = (label: string, onClick: () => void, disabled = false, color: string = accent) => (
               <button onClick={onClick} disabled={disabled} style={{ padding: "8px 18px", borderRadius: 9, border: "none", background: disabled ? "#2a2a40" : `linear-gradient(135deg, ${color}, ${color}cc)`, color: disabled ? muted : "#fff", fontSize: 11, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer", flexShrink: 0, opacity: disabled ? 0.6 : 1 }}>
                 {label}
               </button>
@@ -6669,7 +6644,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {/* Pipeline Header */}
                 <div style={{ padding: "14px 18px", background: `${accent}08`, borderBottom: `1px solid ${border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 800, color: "#fff", margin: 0 }}>🎬 Production Pipeline</p>
+                    <p style={{ fontSize: 14, fontWeight: 800, color: "#fff", margin: 0 }}>Production Pipeline</p>
                     <p style={{ fontSize: 9, color: muted, margin: "2px 0 0" }}>9 steps. Follow the numbers. Green = done. Click a step to open it.</p>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
@@ -6681,7 +6656,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
 
                 {/* ── STEP 1: Write Official Screenplay ── */}
-                {stepHeader(1, done1, "📄", "Write Screenplay",
+                {stepHeader(1, done1, "1", "Write Screenplay",
                   done1 ? `Screenplay ready — by ${screenplayAuthor || "Unknown"}` : "Enter your name and write the official screenplay"
                 )}
                 {openPipelineStep === 1 && (
@@ -6708,21 +6683,21 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={generateScreenplay}
                         disabled={generatingScreenplay || !done2}
                         style={{ padding: "9px 20px", borderRadius: 9, border: "none", background: generatingScreenplay ? "#2a2a40" : `linear-gradient(135deg, ${purple}, #7c3aed)`, color: generatingScreenplay ? muted : "#fff", fontSize: 12, fontWeight: 700, cursor: (generatingScreenplay || !done2) ? "not-allowed" : "pointer", opacity: (!done2 && !generatingScreenplay) ? 0.5 : 1 }}>
-                        {generatingScreenplay ? "✍️ Writing…" : screenplay ? "🔄 Rewrite Screenplay" : "✍️ Write Screenplay"}
+                        {generatingScreenplay ? "Writing..." : screenplay ? "Rewrite Screenplay" : "Write Screenplay"}
                       </button>
                       {screenplay && (
                         <button
                           onClick={sendScreenplayToScenes}
                           disabled={sendingToScenes}
                           style={{ padding: "9px 20px", borderRadius: 9, border: "none", background: sendingToScenes ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #0088cc)`, color: sendingToScenes ? muted : "#fff", fontSize: 12, fontWeight: 700, cursor: sendingToScenes ? "not-allowed" : "pointer" }}>
-                          {sendingToScenes ? "Sending…" : "📤 Send to Scenes"}
+                          {sendingToScenes ? "Sending..." : "Send to Scenes"}
                         </button>
                       )}
                     </div>
 
-                    {!done2 && <p style={{ fontSize: 10, color: gold, marginBottom: 8 }}>⚠ Write your story in Step 2 first before generating screenplay.</p>}
+                    {!done2 && <p style={{ fontSize: 10, color: gold, marginBottom: 8 }}>Write your story in Step 2 first before generating screenplay.</p>}
                     {screenplayError && <p style={{ fontSize: 11, color: red, marginBottom: 8 }}>{screenplayError}</p>}
-                    {sendToScenesResult && <p style={{ fontSize: 10, color: sendToScenesResult.startsWith("✓") ? "#22c55e" : muted, marginBottom: 8 }}>{sendToScenesResult}</p>}
+                    {sendToScenesResult && <p style={{ fontSize: 10, color: "#22c55e", marginBottom: 8 }}>{sendToScenesResult}</p>}
 
                     {screenplay && (
                       <div style={{ marginTop: 8 }}>
@@ -6732,14 +6707,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </div>
                       </div>
                     )}
-                    {done1 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>✓ Screenplay ready — move to Step 3 to parse</p>}
+                    {done1 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Screenplay ready — move to Step 3 to parse</p>}
                   </div>
                 )}
 
                 {stepConnector(done1)}
 
                 {/* ── STEP 2: Story Source (mandatory) ── */}
-                {stepHeader(2, done2, "📖", "Story Source",
+                {stepHeader(2, done2, "2", "Story Source",
                   done2 ? `${(expandedSummary || fullScript || "").split(/\s+/).filter(Boolean).length} words ready` : "Write or paste your full story — required for everything"
                 )}
                 {openPipelineStep === 2 && (
@@ -6769,7 +6744,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           {(expandedSummary || fullScript || "").split(/\s+/).filter(Boolean).length} words
                         </span>
                       )}
-                      {done2 && <span style={{ fontSize: 10, color: "#22c55e", marginLeft: "auto" }}>✓ Story ready — go to Step 1 to write screenplay</span>}
+                      {done2 && <span style={{ fontSize: 10, color: "#22c55e", marginLeft: "auto" }}>Story ready — go to Step 1 to write screenplay</span>}
                     </div>
                   </div>
                 )}
@@ -6777,7 +6752,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {stepConnector(done2)}
 
                 {/* ── STEP 3: Parse Script ── */}
-                {stepHeader(3, done3, "🔍", "Parse Script",
+                {stepHeader(3, done3, "3", "Parse Script",
                   done3 ? `${scriptSegments.length} segments (${scriptSegments.filter(s => s.type === "narration").length} narrator · ${scriptSegments.filter(s => s.type === "dialogue").length} dialogue)`
                          : "Split screenplay into narrator lines and character dialogue"
                 )}
@@ -6786,7 +6761,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Parsing reads your screenplay and separates narrator text from character dialogue. Run this after Send to Scenes (Step 1) completes.</p>
                     {!done2 ? (
                       <div style={{ padding: "12px 16px", borderRadius: 10, background: `${gold}12`, border: `1px solid ${gold}40`, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <span style={{ fontSize: 18, flexShrink: 0 }}>⚠️</span>
+                        <Icon.Alert style={{ width: 18, height: 18, flexShrink: 0, color: gold }} />
                         <div>
                           <p style={{ fontSize: 11, fontWeight: 700, color: gold, margin: "0 0 3px" }}>Story required first</p>
                           <p style={{ fontSize: 10, color: "#aaa", margin: 0 }}>Complete Step 2 (Story Source) before parsing.</p>
@@ -6795,7 +6770,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     ) : (
                       <>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                          {stepBtn(parsingScript ? "Parsing…" : done3 ? "✓ Re-Parse" : "Parse Script", parseScript, parsingScript, accent)}
+                          {stepBtn(parsingScript ? "Parsing..." : done3 ? "Re-Parse" : "Parse Script", parseScript, parsingScript, accent)}
                           {done3 && (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                               <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, background: `${accent}18`, color: accent }}>{scriptSegments.filter(s => s.type === "narration").length} narrator lines</span>
@@ -6803,7 +6778,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             </div>
                           )}
                         </div>
-                        {done3 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>✓ Parsed — move to Step 4</p>}
+                        {done3 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Parsed — move to Step 4</p>}
                       </>
                     )}
                   </div>
@@ -6812,12 +6787,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {stepConnector(done2)}
 
                 {/* ── STEP 4: Actor Voices ── */}
-                {stepHeader(4, done4, "🎭", "Actor Voices", done4 ? `${Object.keys(characterAudioUrls).length}/${characters.length} actors voiced` : "Assign a voice to each character")}
+                {stepHeader(4, done4, "4", "Actor Voices", done4 ? `${Object.keys(characterAudioUrls).length}/${characters.length} actors voiced` : "Assign a voice to each character")}
                 {openPipelineStep === 4 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Assign a Piper voice to each character. GHS needs to know who says what before generating narration. Each character gets their own voice.</p>
                     {characters.length === 0 ? (
-                      <p style={{ fontSize: 11, color: gold }}>⚠ No characters yet. Add them in the Characters tab first.</p>
+                      <p style={{ fontSize: 11, color: gold }}>No characters yet. Add them in the Characters tab first.</p>
                     ) : (
                       <>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
@@ -6831,31 +6806,31 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 <select value={assigned} onChange={e => setCharacterPiperVoices(prev => ({ ...prev, [char.characterId]: e.target.value }))}
                                   style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "5px 8px" }}>
                                   <optgroup label="Male">
-                                    <option value="en_US-lessac-medium">🔵 Lessac</option>
-                                    <option value="en_US-ryan-high">🟦 Ryan (High)</option>
-                                    <option value="en_US-joe-medium">🟤 Joe (Deep)</option>
+                                    <option value="en_US-lessac-medium">Lessac</option>
+                                    <option value="en_US-ryan-high">Ryan (High)</option>
+                                    <option value="en_US-joe-medium">Joe (Deep)</option>
                                     <option value="en_US-danny-low">⬛ Danny (Low)</option>
                                     <option value="en_GB-alan-medium">🇬🇧 Alan (British)</option>
-                                    <option value="en_US-libritts-high">⚪ LibriTTS</option>
+                                    <option value="en_US-libritts-high">LibriTTS</option>
                                   </optgroup>
                                   <optgroup label="Female">
-                                    <option value="en_US-amy-medium">🔴 Amy</option>
-                                    <option value="en_US-hfc_female-medium">🟣 HFC</option>
+                                    <option value="en_US-amy-medium">Amy</option>
+                                    <option value="en_US-hfc_female-medium">HFC</option>
                                     <option value="en_GB-cori-high">🇬🇧 Cori (British)</option>
-                                    <option value="en_US-kristin-medium">🌸 Kristin</option>
+                                    <option value="en_US-kristin-medium">Kristin</option>
                                   </optgroup>
                                 </select>
                                 {hasAudio && <audio controls src={characterAudioUrls[char.characterId]} style={{ height: 24, width: 100 }} />}
-                                {hasAudio && <span style={{ fontSize: 10, color: "#22c55e" }}>✓</span>}
+                                {hasAudio && <Icon.Check style={{ width: 10, height: 10, color: "#22c55e" }} />}
                               </div>
                             );
                           })}
                         </div>
                         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          {stepBtn(generatingCharVoices ? "Generating voices…" : scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) ? "🔄 Regen Per-Line" : "🎭 Gen Per-Line Voices", generatePerLineVoices, generatingCharVoices, purple)}
-                          {charVoiceLog && <span style={{ fontSize: 10, color: charVoiceLog.startsWith("✓") ? "#22c55e" : muted }}>{charVoiceLog}</span>}
+                          {stepBtn(generatingCharVoices ? "Generating voices..." : scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) ? "Regen Voices" : "Gen Per-Line Voices", generatePerLineVoices, generatingCharVoices, purple)}
+                          {charVoiceLog && <span style={{ fontSize: 10, color: "#22c55e" }}>{charVoiceLog}</span>}
                         </div>
-                        {done4 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>✓ Per-line clips ready — move to Step 5 for narrator</p>}
+                        {done4 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Per-line clips ready — move to Step 5 for narrator</p>}
                       </>
                     )}
                   </div>
@@ -6864,7 +6839,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {stepConnector(done4)}
 
                 {/* ── STEP 5: Narrator Voice ── */}
-                {stepHeader(5, done5, "🎙", "Narrator Voice", done5 ? `Narrator audio ready (${Math.round(narratorAudioDuration / 1000)}s)` : "Generate narrator voice-over for scene narration")}
+                {stepHeader(5, done5, "5", "Narrator Voice", done5 ? `Narrator audio ready (${Math.round(narratorAudioDuration / 1000)}s)` : "Generate narrator voice-over for scene narration")}
                 {openPipelineStep === 5 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>The narrator reads your story between the scenes. Choose a voice and click Generate. Piper TTS is free and runs locally.</p>
@@ -6872,18 +6847,18 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <select value={narratorPiperModel} onChange={e => setNarratorPiperModel(e.target.value)}
                         style={{ ...inputStyle, fontSize: 11, padding: "7px 10px", flex: 1, minWidth: 180 }}>
                         <optgroup label="Male Voices">
-                          <option value="en_US-lessac-medium">🔵 Lessac — Neutral Male</option>
-                          <option value="en_US-ryan-high">🟦 Ryan — Clear Male (High)</option>
-                          <option value="en_US-joe-medium">🟤 Joe — Deep Male</option>
+                          <option value="en_US-lessac-medium">Lessac — Neutral Male</option>
+                          <option value="en_US-ryan-high">Ryan — Clear Male (High)</option>
+                          <option value="en_US-joe-medium">Joe — Deep Male</option>
                           <option value="en_US-danny-low">⬛ Danny — Low Male</option>
                           <option value="en_GB-alan-medium">🇬🇧 Alan — British Male</option>
-                          <option value="en_US-libritts-high">⚪ LibriTTS — Narration</option>
+                          <option value="en_US-libritts-high">LibriTTS — Narration</option>
                         </optgroup>
                         <optgroup label="Female Voices">
-                          <option value="en_US-amy-medium">🔴 Amy — Female</option>
-                          <option value="en_US-hfc_female-medium">🟣 HFC — Female</option>
+                          <option value="en_US-amy-medium">Amy — Female</option>
+                          <option value="en_US-hfc_female-medium">HFC — Female</option>
                           <option value="en_GB-cori-high">🇬🇧 Cori — British Female</option>
-                          <option value="en_US-kristin-medium">🌸 Kristin — Female</option>
+                          <option value="en_US-kristin-medium">Kristin — Female</option>
                         </optgroup>
                       </select>
                       <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 90 }}>
@@ -6892,24 +6867,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           onChange={e => setNarratorPiperSpeed(Number(e.target.value))}
                           style={{ ...inputStyle, fontSize: 11, padding: "6px 8px", width: 80 }} />
                       </div>
-                      {stepBtn(generatingNarration ? "Generating…" : done5 ? "🔄 Regenerate" : "Generate Narrator", generateNarrationPiper, generatingNarration || !done1, accent)}
+                      {stepBtn(generatingNarration ? "Generating..." : done5 ? "Regenerate" : "Generate Narrator", generateNarrationPiper, generatingNarration || !done1, accent)}
                     </div>
                     {done5 && <audio controls src={narratorAudioUrl!} style={{ width: "100%", height: 36 }} />}
-                    {done5 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>✓ Narrator ready — move to Step 6</p>}
+                    {done5 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Narrator ready — move to Step 6</p>}
                   </div>
                 )}
 
                 {stepConnector(done5)}
 
                 {/* ── STEP 6: Background Music ── */}
-                {stepHeader(6, done6, "🎵", "Background Music", done6 ? `Selected: ${selectedMusicName}` : "Choose or AI-pick a music track for your video")}
+                {stepHeader(6, done6, "6", "Background Music", done6 ? `Selected: ${selectedMusicName}` : "Choose or AI-pick a music track for your video")}
                 {openPipelineStep === 6 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Music plays under narration. AI Pick chooses the best track based on your story mood.</p>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
                       <button onClick={aiPickMusic} disabled={aiPickingMusic}
                         style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: aiPickingMusic ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: aiPickingMusic ? muted : "#000", fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
-                        {aiPickingMusic ? "AI Picking…" : "🤖 AI Pick"}
+                        {aiPickingMusic ? "AI Picking..." : "AI Pick"}
                       </button>
                       <button onClick={() => { setShowMusicPicker(p => !p); if (!showMusicPicker && musicLibrary.length === 0) loadMusicLibrary(); }}
                         style={{ padding: "8px 16px", borderRadius: 9, border: `1px solid ${purple}40`, background: `${purple}10`, color: purple, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -6944,15 +6919,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           return (
                             <div key={track.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: isSelected ? `${purple}15` : s2, border: `1px solid ${isSelected ? purple : border}`, cursor: "pointer" }}
                               onClick={() => { setSelectedMusicUrl(mediaUrl); setSelectedMusicName(track.name); setShowMusicPicker(false); }}>
-                              <span style={{ fontSize: 14 }}>🎵</span>
+                              <Icon.Music style={{ width: 14, height: 14 }} />
                               <span style={{ fontSize: 11, flex: 1, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</span>
-                              {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700 }}>✓ Selected</span>}
+                              {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700 }}>Selected</span>}
                             </div>
                           );
                         })}
                       </div>
                     )}
-                    {done6 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 6 }}>✓ Music selected — move to Step 7</p>}
+                    {done6 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 6 }}>Music selected — move to Step 7</p>}
                     {!done6 && <p style={{ fontSize: 10, color: muted, marginTop: 6 }}>Optional — you can assemble without music.</p>}
                   </div>
                 )}
@@ -6960,34 +6935,34 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {stepConnector(done6)}
 
                 {/* ── STEP 7: AI Audio Plan ── */}
-                {stepHeader(7, done7, "🎛", "AI Audio Plan", done7 ? "Audio planned — narration + music mood + SFX per scene" : "AI reads your scenes and plans narration, music mood, SFX")}
+                {stepHeader(7, done7, "7", "AI Audio Plan", done7 ? "Audio planned — narration + music mood + SFX per scene" : "AI reads your scenes and plans narration, music mood, SFX")}
                 {openPipelineStep === 7 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>AI scans every scene and writes a narration script, picks a music mood, and suggests SFX. This makes your video sound alive.</p>
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      {stepBtn(preparingNarration ? "AI is planning…" : done7 ? "✓ Re-run Plan" : "AI Plan Audio + SFX", aiPrepareAssembly, preparingNarration || selectedSceneIds.length === 0, "#a855f7")}
+                      {stepBtn(preparingNarration ? "AI is planning..." : done7 ? "Re-run Plan" : "AI Plan Audio + SFX", aiPrepareAssembly, preparingNarration || selectedSceneIds.length === 0, "#a855f7")}
                       {selectedSceneIds.length === 0 && <span style={{ fontSize: 10, color: gold }}>Select scenes below first</span>}
                     </div>
                     {preparingNarration && <p style={{ fontSize: 10, color: purple, marginTop: 8 }}>Reading story → writing narration per scene → planning music + SFX…</p>}
-                    {done7 && !preparingNarration && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>✓ Audio planned — move to Step 8</p>}
+                    {done7 && !preparingNarration && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Audio planned — move to Step 8</p>}
                   </div>
                 )}
 
                 {stepConnector(done7)}
 
                 {/* ── STEP 8: Settings ── */}
-                {stepHeader(8, done8, "⚙", "Settings", "Subtitle style, intro & outro cards")}
+                {stepHeader(8, done8, "8", "Settings", "Subtitle style, intro & outro cards")}
                 {openPipelineStep === 8 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Subtitle Style</p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 14 }}>
                       {([
-                        { key: "classic", icon: "🎬", label: "Classic" },
-                        { key: "cinema",  icon: "🎞",  label: "Cinema" },
-                        { key: "neon",    icon: "💫",  label: "Neon" },
-                        { key: "minimal", icon: "✨",  label: "Minimal" },
+                        { key: "classic", icon: "CL", label: "Classic" },
+                        { key: "cinema",  icon: "CI", label: "Cinema" },
+                        { key: "neon",    icon: "NE", label: "Neon" },
+                        { key: "minimal", icon: "MI", label: "Minimal" },
                         { key: "bold",    icon: "🅱",  label: "Bold" },
-                        { key: "none",    icon: "🔇",  label: "None" },
+                        { key: "none",    icon: "NO", label: "None" },
                       ] as const).map(opt => {
                         const isSel = subtitleStyle === opt.key;
                         return (
@@ -7003,7 +6978,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <div style={{ display: "flex", gap: 8 }}>
                       <div onClick={() => setIntroEnabled(p => !p)} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, background: introEnabled ? `${accent}08` : s2, border: `1px solid ${introEnabled ? accent : border}`, cursor: "pointer" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span>🎬</span>
+                          <Icon.Film style={{ width: 12, height: 12 }} />
                           <p style={{ fontSize: 11, fontWeight: 700, color: introEnabled ? accent : muted, margin: 0 }}>Intro Card</p>
                           <span style={{ marginLeft: "auto", fontSize: 10, color: introEnabled ? accent : muted }}>{introEnabled ? "ON" : "OFF"}</span>
                         </div>
@@ -7011,7 +6986,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </div>
                       <div onClick={() => setOutroEnabled(p => !p)} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, background: outroEnabled ? `${purple}08` : s2, border: `1px solid ${outroEnabled ? purple : border}`, cursor: "pointer" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <span>🎞</span>
+                          <Icon.Film style={{ width: 12, height: 12 }} />
                           <p style={{ fontSize: 11, fontWeight: 700, color: outroEnabled ? purple : muted, margin: 0 }}>Outro / Credits</p>
                           <span style={{ marginLeft: "auto", fontSize: 10, color: outroEnabled ? purple : muted }}>{outroEnabled ? "ON" : "OFF"}</span>
                         </div>
@@ -7033,14 +7008,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {stepConnector(true)}
 
                 {/* ── STEP 9: Assemble ── */}
-                {stepHeader(9, done9, "🚀", "Assemble Movie", done9 ? "Video ready — download or open in editor" : `Ready to build — ${selectedSceneIds.length} scene${selectedSceneIds.length !== 1 ? "s" : ""} selected`)}
+                {stepHeader(9, done9, "9", "Assemble Movie", done9 ? "Video ready — download or open in editor" : `Ready to build — ${selectedSceneIds.length} scene${selectedSceneIds.length !== 1 ? "s" : ""} selected`)}
                 {openPipelineStep === 9 && (
                   <div style={{ padding: "14px 18px" }}>
                     <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>All your scenes, narration, voices, music, and SFX will be combined into one finished video.</p>
                     {/* Mandatory step guard — need story (step 2) at minimum */}
                     {!done2 && (
                       <div style={{ padding: "14px 16px", borderRadius: 10, background: `${red}10`, border: `1px solid ${red}40`, marginBottom: 14, display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <span style={{ fontSize: 20, flexShrink: 0 }}>🔒</span>
+                        <Icon.Alert style={{ width: 20, height: 20, flexShrink: 0, color: muted }} />
                         <div>
                           <p style={{ fontSize: 12, fontWeight: 800, color: red, margin: "0 0 4px" }}>Story required before assembling</p>
                           <p style={{ fontSize: 10, color: "#aaa", margin: "0 0 8px" }}>Please complete <strong style={{ color: gold }}>Step 2 — Story Source</strong> first. Your story is the foundation of the video.</p>
@@ -7057,8 +7032,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         { label: "Scenes", value: selectedSceneIds.length, color: accent },
                         { label: "Est. Duration", value: `${scenes.filter(s => selectedSceneIds.includes(s.sceneId)).reduce((n, s) => n + (s.motionDuration || 5), 0)}s`, color: gold },
                         { label: "Actors", value: done4 ? `${Object.keys(characterAudioUrls).length} voices` : "Not yet", color: done4 ? "#22c55e" : muted },
-                        { label: "Narrator", value: done5 ? "✓ Ready" : "Not yet", color: done5 ? "#22c55e" : muted },
-                        { label: "Music", value: done6 ? selectedMusicName.slice(0, 12) || "✓" : "None", color: done6 ? "#22c55e" : muted },
+                        { label: "Narrator", value: done5 ? "Ready" : "Not yet", color: done5 ? "#22c55e" : muted },
+                        { label: "Music", value: done6 ? selectedMusicName.slice(0, 12) || "OK" : "None", color: done6 ? "#22c55e" : muted },
                       ].map(item => (
                         <div key={item.label} style={{ flex: 1, minWidth: 80, textAlign: "center", padding: "8px 10px", background: s2, borderRadius: 9, border: `1px solid ${border}` }}>
                           <p style={{ fontSize: 15, fontWeight: 800, color: item.color, margin: 0 }}>{item.value}</p>
@@ -7076,12 +7051,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 11, color: "#fff" }}>Narrator</span>
-                          <span style={{ fontSize: 11, color: narratorAudioUrl && storyMode !== "actors-only" ? "#22c55e" : muted }}>{narratorAudioUrl && storyMode !== "actors-only" ? "✓ Will play" : narratorAudioUrl ? "Skipped (Actor mode)" : "None"}</span>
+                          <span style={{ fontSize: 11, color: narratorAudioUrl && storyMode !== "actors-only" ? "#22c55e" : muted }}>{narratorAudioUrl && storyMode !== "actors-only" ? "Will play" : narratorAudioUrl ? "Skipped (Actor mode)" : "None"}</span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                           <span style={{ fontSize: 11, color: "#fff" }}>Character Voices</span>
                           <span style={{ fontSize: 11, color: Object.keys(characterAudioUrls).length > 0 && storyMode !== "narration-only" ? "#22c55e" : muted }}>
-                            {Object.keys(characterAudioUrls).length > 0 && storyMode !== "narration-only" ? `✓ ${Object.keys(characterAudioUrls).length} voice(s)` : Object.keys(characterAudioUrls).length > 0 ? "Skipped (Narration mode)" : "None"}
+                            {Object.keys(characterAudioUrls).length > 0 && storyMode !== "narration-only" ? `${Object.keys(characterAudioUrls).length} voice(s)` : Object.keys(characterAudioUrls).length > 0 ? "Skipped (Narration mode)" : "None"}
                           </span>
                         </div>
                       </div>
@@ -7089,7 +7064,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <button
                           onClick={() => { setNarratorAudioUrl(null); setNarratorAudioDuration(0); setCharacterAudioUrls({}); setScriptSegments([]); setShowScriptReview(false); setLastAction("Narration cleared — ready for fresh assembly"); }}
                           style={{ marginTop: 8, width: "100%", padding: "6px", borderRadius: 7, border: `1px solid ${red}50`, background: `${red}10`, color: red, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          🗑 Clear All Narration &amp; Voices (start fresh)
+                          Clear All Narration & Voices (start fresh)
                         </button>
                       )}
                     </div>
@@ -7105,22 +7080,22 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       }}
                       disabled={assembling || selectedSceneIds.length === 0 || !done2}
                       style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: (assembling || selectedSceneIds.length === 0 || !done2) ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #0088cc)`, color: (assembling || selectedSceneIds.length === 0 || !done2) ? muted : "#fff", fontSize: 15, fontWeight: 800, cursor: (assembling || selectedSceneIds.length === 0 || !done2) ? "not-allowed" : "pointer", marginBottom: 10 }}>
-                      {assembling ? "⟳ Assembling your movie… please wait" : !done2 ? "🔒 Complete Step 2 to unlock" : `🚀 Assemble My Movie (${selectedSceneIds.length} scenes)`}
+                      {assembling ? "Assembling your movie... please wait" : !done2 ? "Complete Step 2 to unlock" : `Assemble My Movie (${selectedSceneIds.length} scenes)`}
                     </button>
                     {/* Live status bar — shows during assembly and ears check */}
                     {(assembling || assemblyComplete) && lastAction && (
                       <div style={{
                         padding: "10px 14px", borderRadius: 10, marginBottom: 8,
-                        background: lastAction.startsWith("✅") ? "#0a2a0a" : lastAction.startsWith("⚠") ? "#2a1a00" : "#0d1020",
-                        border: `1px solid ${lastAction.startsWith("✅") ? "#22c55e40" : lastAction.startsWith("⚠") ? `${gold}40` : `${accent}30`}`,
+                        background: "#0d1020",
+                        border: `1px solid ${accent}30`,
                         display: "flex", alignItems: "center", gap: 8,
                       }}>
                         <span style={{ fontSize: 14 }}>
-                          {lastAction.startsWith("✅") ? "✅" : lastAction.startsWith("⚠") ? "⚠️" : lastAction.startsWith("🎧") ? "🎧" : "⟳"}
+                          "·"
                         </span>
                         <p style={{
                           fontSize: 11, fontWeight: 600, margin: 0,
-                          color: lastAction.startsWith("✅") ? "#22c55e" : lastAction.startsWith("⚠") ? gold : accent,
+                          color: accent,
                         }}>{lastAction}</p>
                       </div>
                     )}
@@ -7132,7 +7107,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           const status = assemblyProgress[scene.scene] || "queued";
                           return (
                             <div key={scene.sceneId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", borderRadius: 7, background: s2, border: `1px solid ${border}` }}>
-                              <span style={{ fontSize: 11, color: status === "done" ? "#22c55e" : status === "processing" ? gold : muted }}>{status === "done" ? "✓" : status === "processing" ? "⟳" : "○"}</span>
+                              <span style={{ fontSize: 11, color: status === "done" ? "#22c55e" : status === "processing" ? gold : muted }}>{status === "done" ? "Done" : status === "processing" ? "⟳" : "○"}</span>
                               <p style={{ fontSize: 11, color: "#fff", flex: 1 }}>{scene.sceneId}: {scene.title}</p>
                               <span style={{ fontSize: 9, color: muted }}>{status}</span>
                             </div>
@@ -7143,7 +7118,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     {/* Assembled video */}
                     {assembledVideoUrl && (
                       <div style={{ marginTop: 10 }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✓ Movie Ready!</p>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>Movie Ready!</p>
                         <video controls src={assembledVideoUrl} style={{ width: "100%", borderRadius: 12, background: "#000" }} />
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                           <a href={assembledVideoUrl} download style={{ flex: 1, textDecoration: "none" }}>
@@ -7176,7 +7151,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* ── Setup panel — only shown when no screenplay yet ── */}
           {!screenplay && !generatingScreenplay && (
             <div style={{ ...cardStyle, borderColor: `${purple}20`, marginBottom: 16 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>📄 Write the Official Screenplay</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Write the Official Screenplay</p>
 
               {!expandedSummary ? (
                 <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -7208,7 +7183,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* ── Loading ── */}
           {generatingScreenplay && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div>
+              <Icon.Wand style={{ width: 36, height: 36, marginBottom: 12, color: accent }} />
               <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
               <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
             </div>
@@ -7255,7 +7230,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {/* Send result message */}
               {sendToScenesResult && (
                 <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontSize: 14 }}>✅</span>
+                  <Icon.Check style={{ width: 14, height: 14, color: accent }} />
                   <div style={{ flex: 1 }}>
                     <p style={{ fontSize: 11, color: accent, lineHeight: 1.5 }}>{sendToScenesResult}</p>
                   </div>
@@ -7367,12 +7342,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* Trend categories */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             {[
-              { title: "Viral Angles", desc: "What content formats are getting the most engagement right now", icon: "\u{1F525}", color: "#ef4444" },
-              { title: "Audience Attention", desc: "Where audience focus is strongest — hooks, pacing, emotional beats", icon: "\u{1F440}", color: "#f59e0b" },
-              { title: "Trending Topics", desc: "Rising topics and keywords in your niche and region", icon: "\u{1F4C8}", color: accent },
-              { title: "Hook Suggestions", desc: "Opening patterns that capture attention in the first 3 seconds", icon: "\u{1F3A3}", color: blue },
-              { title: "Culture & Region", desc: "Local cultural signals, language trends, regional content style", icon: "\u{1F30D}", color: purple },
-              { title: "Content Format", desc: "Which format (reel, story, hybrid, tutorial) performs best now", icon: "\u{1F3AC}", color: "#ec4899" },
+              { title: "Viral Angles", desc: "What content formats are getting the most engagement right now", icon: "1", color: "#ef4444" },
+              { title: "Audience Attention", desc: "Where audience focus is strongest — hooks, pacing, emotional beats", icon: "2", color: accent },
+              { title: "Trending Topics", desc: "Rising topics and keywords in your niche and region", icon: "3", color: blue },
+              { title: "Hook Suggestions", desc: "Opening patterns that capture attention in the first 3 seconds", icon: "4", color: purple },
+              { title: "Culture & Region", desc: "Local cultural signals, language trends, regional content style", icon: "5", color: gold },
+              { title: "Content Format", desc: "Which format (reel, story, hybrid, tutorial) performs best now", icon: "6", color: "#ec4899" },
             ].map(t => (
               <div key={t.title} style={{ ...cardStyle, cursor: "pointer", borderColor: `${t.color}20` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
@@ -7398,13 +7373,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
       {/* ── Import Images from Library Modal ── */}
       {importLibraryOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.75)", }}
           onClick={() => { setImportLibraryOpen(false); setImportImageForSceneId(null); }}>
           <div style={{ width: "100%", maxWidth: 680, maxHeight: "80vh", display: "flex", flexDirection: "column", borderRadius: 18, background: surface, border: `1px solid ${blue}30`, boxShadow: "0 32px 80px rgba(0,0,0,0.8)", overflow: "hidden" }}
             onClick={e => e.stopPropagation()}>
             {/* Header */}
             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 16 }}>📥</span>
+              <Icon.Plus style={{ width: 16, height: 16 }} />
               <div style={{ flex: 1 }}>
                 <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Import Image from Asset Library</p>
                 <p style={{ fontSize: 10, color: muted }}>
@@ -7416,7 +7391,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <button onClick={() => { setLibraryImages([]); setLoadingLibraryImages(true); fetch("/api/assets?type=image").then(r => r.json()).then(d => { setLibraryImages(d.assets || []); setLoadingLibraryImages(false); }).catch(() => setLoadingLibraryImages(false)); }}
                 style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>Refresh</button>
               <button onClick={() => { setImportLibraryOpen(false); setImportImageForSceneId(null); }}
-                style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>✕ Close</button>
+                style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer", display:"flex", alignItems:"center", gap:4 }}><Icon.X style={{ width: 12, height: 12 }} /> Close</button>
             </div>
             {/* Body */}
             <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
@@ -7481,11 +7456,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             onClick={e => e.stopPropagation()}>
             <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 10, fontWeight: 600, letterSpacing: 0.5 }}>CHOOSE YOUR VIDEO ART STYLE — applies to all scene images</p>
             {[
-              { id: "3d-cinematic", icon: "🎬", name: "3D Cinematic", color: "#00d4ff", example: "Like: Toy Story, Moana, Kung Fu Panda", desc: "3D animated movie quality. Characters look like they're from a major animated film. Rich lighting and depth." },
-              { id: "2d-cartoon", icon: "🖌", name: "2D Cartoon", color: "#f59e0b", example: "Like: SpongeBob, The Simpsons, old Disney", desc: "Flat bold colors with thick outlines. Classic cartoon look. Fun and simple." },
-              { id: "anime", icon: "✨", name: "Anime", color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia", desc: "Japanese animation style. Big expressive eyes, clean lines, dynamic poses." },
-              { id: "storybook", icon: "📖", name: "Storybook", color: "#22c55e", example: "Like: children's picture books, Peppa Pig", desc: "Soft, warm and painterly. Looks like illustrations from a kids' book. Gentle and cozy." },
-              { id: "realistic", icon: "📷", name: "Realistic", color: "#ec4899", example: "Like: a real film or Netflix drama", desc: "Photorealistic — looks like an actual photograph or live-action movie scene." },
+              { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff", example: "Like: Toy Story, Moana, Kung Fu Panda", desc: "3D animated movie quality. Characters look like they're from a major animated film. Rich lighting and depth." },
+              { id: "2d-cartoon", icon: "2D", name: "2D Cartoon", color: "#f59e0b", example: "Like: SpongeBob, The Simpsons, old Disney", desc: "Flat bold colors with thick outlines. Classic cartoon look. Fun and simple." },
+              { id: "anime", icon: "AN", name: "Anime", color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia", desc: "Japanese animation style. Big expressive eyes, clean lines, dynamic poses." },
+              { id: "storybook", icon: "SB", name: "Storybook", color: "#22c55e", example: "Like: children's picture books, Peppa Pig", desc: "Soft, warm and painterly. Looks like illustrations from a kids' book. Gentle and cozy." },
+              { id: "realistic", icon: "RL", name: "Realistic", color: "#ec4899", example: "Like: a real film or Netflix drama", desc: "Photorealistic — looks like an actual photograph or live-action movie scene." },
             ].map(style => {
               const isSelected = projectStyle === style.id;
               return (
@@ -7531,7 +7506,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
       {/* ── Character Picker Modal ── */}
       {showCharacterPicker && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.6)" }}
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.6)" }}
           onClick={() => setShowCharacterPicker(false)}>
           <div style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflowY: "auto", borderRadius: 16, padding: 4 }}
             onClick={e => e.stopPropagation()}>
@@ -7551,7 +7526,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
       {/* ── Rename-on-import overlay ── one image, different name per movie ── */}
       {pendingImportChar && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(8px)", background: "rgba(0,0,0,0.7)" }}
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}
           onClick={() => setPendingImportChar(null)}>
           <div style={{ background: "#13131f", border: `1px solid ${accent}40`, borderRadius: 18, padding: 28, width: 340, boxShadow: `0 0 40px ${accent}20` }}
             onClick={e => e.stopPropagation()}>
@@ -7561,7 +7536,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <img src={pendingImportChar.imageUrl} alt={pendingImportChar.name}
                   style={{ width: 64, height: 64, borderRadius: 12, objectFit: "cover", border: `2px solid ${accent}40` }} />
               ) : (
-                <div style={{ width: 64, height: 64, borderRadius: 12, background: `${purple}30`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>👤</div>
+                <div style={{ width: 64, height: 64, borderRadius: 12, background: `${purple}30`, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.User style={{ width: 28, height: 28, color: purple }} /></div>
               )}
               <div>
                 <p style={{ fontSize: 11, color: muted, margin: 0, fontWeight: 600 }}>CHARACTER LIBRARY</p>
@@ -7649,7 +7624,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   setPendingImportChar(null);
                 }}
                 style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${accent}, #e6b800)`, color: "#000", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
-                ✓ Add to This Movie
+                Add to This Movie
               </button>
               <button onClick={() => setPendingImportChar(null)}
                 style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>

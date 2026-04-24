@@ -5,6 +5,11 @@ import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import AnimatedStickerPicker, { type StickerOverlay } from "../../components/AnimatedStickerPicker";
+import { ds } from "../../../lib/designSystem";
+import { Card } from "../../components/ui/Card";
+import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
+import { HeroTitle } from "../../components/hero/HeroTitle";
+import * as Icon from "../../components/icons";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Commercial Planner — PRODUCTION WORKSHOP
@@ -72,15 +77,15 @@ interface BriefData {
 
 type WorkshopTab = "overview" | "design" | "brief" | "cast" | "scenes" | "screenplay" | "audio" | "assembly";
 
-const WORKSHOP_TABS: { id: WorkshopTab; label: string; icon: string; step?: number }[] = [
-  { id: "overview",    label: "Overview",        icon: "🏠" },
-  { id: "design",      label: "Brand Design",    icon: "🎨", step: 0 },
-  { id: "brief",       label: "Campaign Brief",  icon: "📋", step: 1 },
-  { id: "cast",        label: "Cast & Talent",   icon: "🎭", step: 2 },
-  { id: "scenes",      label: "Script & Scenes", icon: "🎬", step: 3 },
-  { id: "screenplay",  label: "Screenplay",      icon: "📄", step: 4 },
-  { id: "audio",       label: "Audio & VO",      icon: "🎤", step: 5 },
-  { id: "assembly",  label: "Assembly",        icon: "🚀", step: 6 },
+const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
+  { id: "overview",    label: "Overview" },
+  { id: "design",      label: "Brand Design",    step: 0 },
+  { id: "brief",       label: "Campaign Brief",  step: 1 },
+  { id: "cast",        label: "Cast & Talent",   step: 2 },
+  { id: "scenes",      label: "Script & Scenes", step: 3 },
+  { id: "screenplay",  label: "Screenplay",      step: 4 },
+  { id: "audio",       label: "Audio & VO",      step: 5 },
+  { id: "assembly",    label: "Assembly",        step: 6 },
 ];
 
 const FORMATS = ["15s", "30s", "60s", "90s", "2min", "custom"];
@@ -148,22 +153,22 @@ const AID_IMAGE_MODELS = [
   { id:"fal_flux_pro_ultra",    name:"Flux Pro Ultra",       price:0.060, network:"FAL",     res:"2048px", color:"#f472b6", desc:"Highest resolution. Print quality." },
 ];
 
-// ── Style helpers ──
-const surface = "#0e1318";
-const s2 = "#080b10";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const accent = "#22c55e";
-const purple = "#a855f7";
-const gold = "#f59e0b";
+// ── v14 style helpers (mapped to ds tokens) ──
+const surface = ds.color.card;         // #151518
+const s2 = ds.color.paper;             // #0e0e10
+const border = ds.color.line;          // rgba(255,255,255,.06)
+const muted = ds.color.mute;           // #7b7b80
+const accent = ds.color.mint;          // #7ae0c3
+const purple = ds.color.lilac;         // #a78bfa
+const gold = ds.color.gold;            // #ffb347
 const red = "#ef4444";
-const blue = "#00d4ff";
-const orange = "#f97316";
+const blue = ds.color.sky;             // #7cc4ff
+const orange = ds.color.btnC;          // #ff9a3c
 
-const card: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 20, marginBottom: 12 };
-const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block" };
-const inp: React.CSSProperties = { width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit" };
-const btn = (col = accent): React.CSSProperties => ({ padding: "10px 20px", borderRadius: 10, border: "none", background: col, color: col === gold || col === accent ? "#000" : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" });
+const card: React.CSSProperties = { background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 16, padding: 20, marginBottom: 12 };
+const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: ds.color.mute, marginBottom: 8, display: "block", fontFamily: ds.font.mono };
+const inp: React.CSSProperties = { width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line2}`, borderRadius: 10, padding: "10px 12px", color: "#fff", fontSize: 14, outline: "none", fontFamily: ds.font.sans };
+const btn = (_col?: string): React.CSSProperties => ({ padding: "10px 18px", borderRadius: 12, border: "none", background: "linear-gradient(120deg,#a78bfa,#d17bff,#ff9a3c,#f5a623,#a78bfa)", backgroundSize: "300% 100%", animation: "btnSweep 6s linear infinite", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" });
 const badge = (col: string): React.CSSProperties => ({ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${col}22`, color: col, fontWeight: 700, display: "inline-block" });
 
 const SECTION_COLORS: Record<string, string> = {
@@ -843,13 +848,14 @@ function CommercialPlannerInner() {
 
   function TabBar() {
     return (
-      <div style={{ display: "flex", gap: 4, padding: "0 20px", borderBottom: `1px solid ${border}`, background: s2, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${ds.color.line}`, background: ds.color.paper, overflowX: "auto" }}>
         {WORKSHOP_TABS.map(t => {
           const active = activeTab === t.id;
           return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "14px 16px", background: "none", border: "none", color: active ? orange : muted, fontWeight: active ? 700 : 500, fontSize: 12, cursor: "pointer", borderBottom: active ? `2px solid ${orange}` : "2px solid transparent", whiteSpace: "nowrap", display: "flex", gap: 6, alignItems: "center" }}>
-              <span>{t.icon}</span><span>{t.label}</span>
-              {t.step != null && <span style={{ fontSize: 9, background: `${orange}22`, color: orange, borderRadius: 10, padding: "1px 6px" }}>{t.step}</span>}
+            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "13px 18px", background: "none", border: "none", color: active ? ds.color.ink : ds.color.mute, fontWeight: 700, fontSize: 10, fontFamily: ds.font.mono, letterSpacing: "0.18em", textTransform: "uppercase", cursor: "pointer", borderBottom: active ? "2px solid transparent" : "2px solid transparent", backgroundImage: active ? "none" : "none", position: "relative", whiteSpace: "nowrap", transition: "color .18s" }}>
+              {active && <span style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg,#a78bfa,#d17bff,#ff9a3c,#f5a623)", borderRadius: "2px 2px 0 0" }} />}
+              {t.label}
+              {t.step != null && <span style={{ marginLeft: 6, fontSize: 9, background: `${ds.color.lilac}22`, color: ds.color.lilac, borderRadius: 10, padding: "1px 6px", fontFamily: ds.font.mono }}>{t.step}</span>}
             </button>
           );
         })}
@@ -861,8 +867,8 @@ function CommercialPlannerInner() {
   function renderDesign() {
     return (
       <div style={{ padding: 24 }}>
-        <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>🎨 Brand Design</h2>
-        <p style={{ color: muted, fontSize: 12, margin: "0 0 20px" }}>Define the visual identity of this commercial. This guides AI script generation, scenes, and assembly.</p>
+        <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: "0 0 4px", letterSpacing: "-0.01em" }}>Brand Design</h2>
+        <p style={{ color: ds.color.mute, fontSize: 13, margin: "0 0 20px" }}>Define the visual identity. Guides AI script generation, scenes, and assembly.</p>
 
         <div style={card}>
           <span style={lbl}>Campaign Name</span>
@@ -939,9 +945,9 @@ function CommercialPlannerInner() {
         </div>
 
         <div style={{ ...card, display: "flex", gap: 12 }}>
-          <button style={btn(orange)} onClick={() => { setDesignComplete(true); setActiveTab("brief"); setLastAction("Brand design set — fill campaign brief"); }}>
-            ✅ Confirm Design → Campaign Brief
-          </button>
+          <ButtonPrimary size="sm" onClick={() => { setDesignComplete(true); setActiveTab("brief"); setLastAction("Brand design set — fill campaign brief"); }}>
+            Confirm Design — Campaign Brief
+          </ButtonPrimary>
         </div>
       </div>
     );
@@ -1006,18 +1012,18 @@ function CommercialPlannerInner() {
           <div style={{ ...card, borderColor: `${red}44` }}>
             <div style={lbl}>Warnings</div>
             {warnings.map((w, i) => (
-              <div key={i} style={{ fontSize: 12, color: "#ddd", padding: "6px 0", borderBottom: i < warnings.length - 1 ? `1px solid ${border}` : "none" }}>⚠ {w}</div>
+              <div key={i} style={{ fontSize: 12, color: ds.color.ink2, padding: "6px 0", borderBottom: i < warnings.length - 1 ? `1px solid ${ds.color.line}` : "none" }}>{w}</div>
             ))}
           </div>
         )}
 
         <div style={{ ...card, display: "flex", gap: 12, flexWrap: "wrap" }}>
-          <button style={btn(orange)} onClick={() => setActiveTab("design")}>🎨 Brand Design</button>
-          <button style={btn(purple)} onClick={() => setActiveTab("brief")}>📋 Fill Brief</button>
-          <button style={btn(accent)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "💾 Save"}</button>
-          <button style={btn(blue)} onClick={() => { applyTemplate(); setActiveTab("scenes"); }}>⚡ Apply Template</button>
-          <button style={btn("#555")} onClick={newProject}>New Campaign</button>
-          <span style={{ fontSize: 11, color: muted, marginLeft: "auto" }}>Last: {lastAction}</span>
+          <ButtonPrimary size="sm" onClick={() => setActiveTab("design")}>Brand Design</ButtonPrimary>
+          <ButtonPrimary size="sm" onClick={() => setActiveTab("brief")}>Campaign Brief</ButtonPrimary>
+          <ButtonPrimary size="sm" onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "Save"}</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => { applyTemplate(); setActiveTab("scenes"); }}>Apply Template</button>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={newProject}>New Campaign</button>
+          <span style={{ fontSize: 11, color: ds.color.mute, marginLeft: "auto" }}>Last: {lastAction}</span>
         </div>
       </div>
     );
@@ -1029,15 +1035,15 @@ function CommercialPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>📋 Campaign Brief</h2>
-            <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Define brand, product, audience, and commercial goals</p>
+            <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>Campaign Brief</h2>
+            <p style={{ color: ds.color.mute, fontSize: 13, margin: "4px 0 0" }}>Define brand, product, audience, and commercial goals</p>
           </div>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={card}>
-            <div style={lbl}>🏢 Brand & Product</div>
+            <div style={lbl}>Brand & Product</div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Brand Name</span><input style={inp} value={brief.brandName} onChange={e => setBrief(p => ({ ...p, brandName: e.target.value }))} placeholder="e.g. FreshBrew Coffee" /></div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Product / Service Name</span><input style={inp} value={brief.productName} onChange={e => setBrief(p => ({ ...p, productName: e.target.value }))} placeholder="e.g. FreshBrew Bold Blend" /></div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Tagline</span><input style={inp} value={brief.tagline} onChange={e => setBrief(p => ({ ...p, tagline: e.target.value }))} placeholder="e.g. Wake up to something bold" /></div>
@@ -1045,7 +1051,7 @@ function CommercialPlannerInner() {
           </div>
 
           <div style={card}>
-            <div style={lbl}>🎯 Campaign Objective</div>
+            <div style={lbl}>Campaign Objective</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div><span style={lbl}>Objective</span><select style={inp} value={brief.objective} onChange={e => setBrief(p => ({ ...p, objective: e.target.value as BriefData["objective"] }))}>{OBJECTIVES.map(o => <option key={o}>{o}</option>)}</select></div>
               <div><span style={lbl}>Brand Tone</span><select style={inp} value={brief.brandTone} onChange={e => setBrief(p => ({ ...p, brandTone: e.target.value as BriefData["brandTone"] }))}>{BRAND_TONES.map(t => <option key={t}>{t}</option>)}</select></div>
@@ -1057,7 +1063,7 @@ function CommercialPlannerInner() {
           </div>
 
           <div style={card}>
-            <div style={lbl}>📐 Format & Platform</div>
+            <div style={lbl}>Format & Platform</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               <div><span style={lbl}>Format</span><select style={inp} value={brief.format} onChange={e => setBrief(p => ({ ...p, format: e.target.value as BriefData["format"] }))}>{FORMATS.map(f => <option key={f}>{f}</option>)}</select></div>
               <div><span style={lbl}>Platform</span><select style={inp} value={brief.platform} onChange={e => setBrief(p => ({ ...p, platform: e.target.value }))}>{PLATFORMS.map(pl => <option key={pl}>{pl}</option>)}</select></div>
@@ -1071,15 +1077,15 @@ function CommercialPlannerInner() {
           <div style={{ fontWeight: 700, color: purple, marginBottom: 6, fontSize: 13 }}>Expand with AI Intelligence</div>
           <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>AI reads your brief and automatically generates script ideas, detects cast, and plans scene cards. Fill in Brand Name and Key Message first.</p>
           <button style={{ ...btn(purple), opacity: expanding ? 0.6 : 1 }} onClick={expandStory} disabled={expanding}>
-            {expanding ? "AI Expanding..." : "🤖 Expand with AI Intelligence"}
+            {expanding ? "AI Expanding..." : "Expand with AI Intelligence"}
           </button>
           {lastAction.includes("expansion") && <p style={{ fontSize: 11, color: accent, marginTop: 6 }}>{lastAction}</p>}
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save Brief</button>
-          <button style={btn(orange)} onClick={() => { applyTemplate(); setActiveTab("scenes"); }}>⚡ Apply {brief.format} Template → Scenes</button>
-          <button style={btn(purple)} onClick={() => setActiveTab("cast")}>Next: Cast →</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save Brief</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => { applyTemplate(); setActiveTab("scenes"); }}>Apply {brief.format} Template</button>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setActiveTab("cast")}>Cast →</button>
         </div>
       </div>
     );
@@ -1091,27 +1097,27 @@ function CommercialPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎭 Cast & Talent</h2>
-            <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Spokespeople, actors, voiceover artists, brand mascots</p>
+            <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>Cast & Talent</h2>
+            <p style={{ color: ds.color.mute, fontSize: 13, margin: "4px 0 0" }}>Spokespeople, actors, voiceover artists, brand mascots</p>
           </div>
-          <button style={btn(purple)} onClick={() => setShowCharPicker(true)}>📥 Import Character</button>
+          <ButtonPrimary size="sm" onClick={() => setShowCharPicker(true)}>Import Character</ButtonPrimary>
         </div>
 
         {cast.length === 0 && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>🎭</div>
-            <div style={{ color: muted, margin: "12px 0" }}>No talent yet. Import from Characters or add your brand spokesperson.</div>
-            <button style={btn(purple)} onClick={() => setShowCharPicker(true)}>Import Character</button>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: ds.grad.tile.c3, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Users size={22} color="#fff" /></div>
+            <div style={{ color: ds.color.mute, margin: "12px 0", fontSize: 13 }}>No talent yet. Import from Characters or add your brand spokesperson.</div>
+            <ButtonPrimary size="sm" onClick={() => setShowCharPicker(true)}>Import Character</ButtonPrimary>
           </div>
         )}
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
           {cast.map(ch => (
             <div key={ch.characterId} style={{ ...card, position: "relative" }}>
-              <button onClick={() => setCast(prev => prev.filter(c => c.characterId !== ch.characterId))} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: red, cursor: "pointer" }}>✕</button>
+              <button onClick={() => setCast(prev => prev.filter(c => c.characterId !== ch.characterId))} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: red, cursor: "pointer", display: "flex" }}><Icon.X size={14} /></button>
               <div style={{ display: "flex", gap: 12, marginBottom: 8 }}>
-                <div style={{ width: 48, height: 48, borderRadius: 10, background: `${purple}33`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {ch.imageUrl ? <img src={ch.imageUrl} alt={ch.displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 20 }}>🎭</span>}
+                <div style={{ width: 48, height: 48, borderRadius: 10, background: `${ds.color.lilac}33`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {ch.imageUrl ? <img src={ch.imageUrl} alt={ch.displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon.User size={20} color={ds.color.lilac} />}
                 </div>
                 <div>
                   <div style={{ color: "#fff", fontWeight: 700 }}>{ch.displayName}</div>
@@ -1128,8 +1134,8 @@ function CommercialPlannerInner() {
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
-          <button style={btn(blue)} onClick={() => setActiveTab("scenes")}>Next: Script & Scenes →</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setActiveTab("scenes")}>Script & Scenes →</button>
         </div>
 
         {showCharPicker && (
@@ -1162,37 +1168,37 @@ function CommercialPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎬 Script & Scenes</h2>
-            <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>
+            <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>Script & Scenes</h2>
+            <p style={{ color: ds.color.mute, fontSize: 13, margin: "4px 0 0" }}>
               {scenes.length} scenes · {totalDuration}s total · {brief.format} format
-              {commStickers.length > 0 && <span style={{ color: "#f97316", marginLeft: 6 }}>· ✨ {commStickers.length} sticker{commStickers.length !== 1 ? "s" : ""}</span>}
+              {commStickers.length > 0 && <span style={{ color: ds.color.btnC, marginLeft: 6 }}>· {commStickers.length} sticker{commStickers.length !== 1 ? "s" : ""}</span>}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button style={btn(orange)} onClick={applyTemplate}>⚡ Reset Template</button>
-            <button style={btn(accent)} onClick={() => setScenes(p => [...p, mkScene(p.length + 1, "cta")])}>+ Add Scene</button>
+            <button style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={applyTemplate}>Reset Template</button>
+            <button style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => setScenes(p => [...p, mkScene(p.length + 1, "cta")])}>+ Add Scene</button>
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
-            <button style={btn(blue)} onClick={generateAIScript} disabled={generatingScript || !brief.brandName}>
-              {generatingScript ? "Generating…" : "✨ AI Script"}
-            </button>
-            <button style={btn(purple)} onClick={extractCastFromScript} disabled={extractingCast}>
-              {extractingCast ? "Detecting…" : "🎭 Extract Cast"}
+            <ButtonPrimary size="sm" onClick={generateAIScript} disabled={generatingScript || !brief.brandName}>
+              {generatingScript ? "Generating…" : "AI Script"}
+            </ButtonPrimary>
+            <button style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={extractCastFromScript} disabled={extractingCast}>
+              {extractingCast ? "Detecting…" : "Extract Cast"}
             </button>
             <button
               disabled={runningIntelligence || scenes.length === 0}
               onClick={runSceneIntelligence}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4ade8030", background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
+              style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.mute, fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
             >
-              {runningIntelligence ? "⚡ Detecting..." : "🔊 Scene Intelligence"}
+              {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
             </button>
           </div>
         </div>
         {runningIntelligence && (
-          <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>⚡ Scene Intelligence running — detecting environments and ambient sounds...</p>
+          <p style={{ fontSize: 10, color: ds.color.mint, margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
         )}
         {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
-          <p style={{ fontSize: 10, color: "#666", margin: "4px 0" }}>
-            🔊 {Object.keys(sceneIntelligence).length} scenes have sound environment data
+          <p style={{ fontSize: 10, color: ds.color.mute, margin: "4px 0" }}>
+            {Object.keys(sceneIntelligence).length} scenes have sound environment data
           </p>
         )}
 
@@ -1201,12 +1207,12 @@ function CommercialPlannerInner() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <div style={{ flex: 1, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                🎬 Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, color: ds.color.ink2, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                Video: <span style={{ color: ds.color.ink }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                🖼 Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, color: ds.color.ink2, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                Image: <span style={{ color: ds.color.ink }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
             </div>
           </div>
@@ -1214,11 +1220,11 @@ function CommercialPlannerInner() {
 
         {scenes.length === 0 && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>🎬</div>
-            <div style={{ color: muted, margin: "12px 0" }}>No scenes yet. Apply a template based on your format ({brief.format}), or add scenes manually.</div>
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: ds.grad.tile.c7, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Film size={22} color="#fff" /></div>
+            <div style={{ color: ds.color.mute, margin: "12px 0", fontSize: 13 }}>No scenes yet. Apply a template based on your format ({brief.format}), or add scenes manually.</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <button style={btn(orange)} onClick={applyTemplate}>⚡ Apply {brief.format} Template</button>
-              <button style={btn(accent)} onClick={() => setScenes([mkScene(1, "hook")])}>+ Add Scene</button>
+              <ButtonPrimary size="sm" onClick={applyTemplate}>Apply {brief.format} Template</ButtonPrimary>
+              <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setScenes([mkScene(1, "hook")])}>+ Add Scene</button>
             </div>
           </div>
         )}
@@ -1259,10 +1265,10 @@ function CommercialPlannerInner() {
                         </div>
                         <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                           {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
-                            <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>🔊 {sound}</span>
+                            <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: `${ds.color.mint}15`, color: ds.color.mint, border: `1px solid ${ds.color.mint}30` }}>{sound}</span>
                           ))}
                           {intel.sfxEvents.length > 0 && (
-                            <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>⚡ {intel.sfxEvents[0]}</span>
+                            <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: `${ds.color.gold}15`, color: ds.color.gold, border: `1px solid ${ds.color.gold}30` }}>{intel.sfxEvents[0]}</span>
                           )}
                         </div>
                       </div>
@@ -1275,14 +1281,14 @@ function CommercialPlannerInner() {
                     </label>
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
-                    <button style={{ ...btn(blue), padding: "5px 10px", fontSize: 11 }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "🔄 Regen" : "🖼 Make Image"}</button>
-                    <button style={{ ...btn(purple), padding: "5px 10px", fontSize: 11 }} onClick={() => makeSceneVideo(sc)} disabled={!img || generatingSceneVideos.has(sc.sceneId)}>
-                      {generatingSceneVideos.has(sc.sceneId) ? "..." : sceneVideos[sc.sceneId] ? "🔄 New Video" : "🎬 Make Video"}
+                    <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "Regen Image" : "Make Image"}</button>
+                    <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => makeSceneVideo(sc)} disabled={!img || generatingSceneVideos.has(sc.sceneId)}>
+                      {generatingSceneVideos.has(sc.sceneId) ? "..." : sceneVideos[sc.sceneId] ? "New Video" : "Make Video"}
                     </button>
-                    <button style={{ ...btn("#334"), padding: "5px 10px", fontSize: 11 }} onClick={() => setExpandedSceneId(isExpanded ? null : sc.sceneId)}>✏️ {isExpanded ? "Close" : "Edit"}</button>
-                    {img && <button style={{ ...btn(accent), padding: "5px 10px", fontSize: 11 }} onClick={() => updateScene(sc.sceneId, { status: "approved" })}>✓</button>}
-                    {img && <button style={{ ...btn("#8b5cf6"), padding: "5px 10px", fontSize: 11 }} onClick={async () => { try { const r = await fetch("/api/layerize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: img, projectType: "commercial", projectId }) }); const d = await r.json(); if (d.ok) alert(`Text layers extracted. Design ID: ${d.designId}`); else alert(`Layerize failed: ${d.error}`); } catch(e) { alert(`Error: ${e}`); } }}>✏️ Edit Text</button>}
-                    <button style={{ ...btn(red), padding: "5px 10px", fontSize: 11 }} onClick={() => setScenes(p => p.filter(s => s.sceneId !== sc.sceneId))}>✕</button>
+                    <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => setExpandedSceneId(isExpanded ? null : sc.sceneId)}>{isExpanded ? "Close" : "Edit"}</button>
+                    {img && <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.mint}40`, background: `${ds.color.mint}10`, color: ds.color.mint, fontSize: 11, cursor: "pointer" }} onClick={() => updateScene(sc.sceneId, { status: "approved" })}>Approve</button>}
+                    {img && <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={async () => { try { const r = await fetch("/api/layerize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: img, projectType: "commercial", projectId }) }); const d = await r.json(); if (d.ok) alert(`Text layers extracted. Design ID: ${d.designId}`); else alert(`Layerize failed: ${d.error}`); } catch(e) { alert(`Error: ${e}`); } }}>Edit Text</button>}
+                    <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${red}40`, background: `${red}10`, color: red, fontSize: 11, cursor: "pointer" }} onClick={() => setScenes(p => p.filter(s => s.sceneId !== sc.sceneId))}>Remove</button>
                   </div>
                   {sceneGenProgress[sc.sceneId] && (
                     <div style={{ marginTop: 6 }}>
@@ -1336,8 +1342,8 @@ function CommercialPlannerInner() {
 
         {scenes.length > 0 && (
           <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-            <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
-            <button style={btn(gold)} onClick={() => setActiveTab("screenplay")}>Next: Screenplay →</button>
+            <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
+            <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setActiveTab("screenplay")}>Screenplay →</button>
           </div>
         )}
       </div>
@@ -1349,33 +1355,30 @@ function CommercialPlannerInner() {
     const hasSource = !!voiceoverText || !!brief.keyMessage || !!brief.brandName;
     return (
       <div style={{ padding: 24 }}>
-        <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>📄 Screenplay</h2>
-        <p style={{ color: muted, fontSize: 12, margin: "0 0 20px" }}>Generate a formatted screenplay from your campaign brief, or paste your own script and parse it into voiceover segments.</p>
+        <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: "0 0 4px", letterSpacing: "-0.01em" }}>Screenplay</h2>
+        <p style={{ color: ds.color.mute, fontSize: 13, margin: "0 0 20px" }}>Generate a formatted screenplay from your campaign brief, or paste your own script and parse it into voiceover segments.</p>
 
         {!screenplay && !generatingScreenplay && (
-          <div style={{ ...card, borderColor: `${purple}20`, marginBottom: 16 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>📄 Generate or Paste Screenplay</p>
-            <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a full commercial screenplay from your brief, or paste your own script below and parse it into voiceover segments.</p>
+          <div style={{ ...card, marginBottom: 16 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: ds.color.ink, marginBottom: 8 }}>Generate or Paste Screenplay</p>
+            <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 16 }}>Generate a full commercial screenplay from your brief, or paste your own script below and parse it into voiceover segments.</p>
             {!hasSource ? (
               <div style={{ textAlign: "center", padding: "16px 0" }}>
-                <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>Fill in your campaign brief first — go to Campaign Brief tab.</p>
-                <button onClick={() => setActiveTab("brief")} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: purple, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Go to Brief</button>
+                <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 12 }}>Fill in your campaign brief first.</p>
+                <ButtonPrimary size="sm" onClick={() => setActiveTab("brief")}>Go to Brief</ButtonPrimary>
               </div>
             ) : (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                  <span style={{ fontSize: 11, color: muted, flexShrink: 0 }}>Written by:</span>
+                  <span style={{ fontSize: 12, color: ds.color.mute, flexShrink: 0 }}>Written by:</span>
                   <input type="text" value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Your name"
-                    style={{ flex: 1, background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontWeight: 600, outline: "none", maxWidth: 280 }} />
+                    style={{ ...inp, maxWidth: 280 }} />
                 </div>
-                {screenplayError && <p style={{ fontSize: 11, color: red, marginBottom: 8 }}>{screenplayError}</p>}
+                {screenplayError && <p style={{ fontSize: 12, color: red, marginBottom: 8 }}>{screenplayError}</p>}
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={generateScreenplay}
-                    style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${orange}, #ea580c)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    ✍️ Generate Screenplay
-                  </button>
+                  <ButtonPrimary size="sm" onClick={generateScreenplay}>Generate Screenplay</ButtonPrimary>
                   <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your screenplay here...\n\nFADE OUT.\n\nTHE END")}
-                    style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
+                    style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: "transparent", color: ds.color.mute, fontSize: 12, cursor: "pointer" }}>
                     Paste My Own
                   </button>
                 </div>
@@ -1420,7 +1423,7 @@ function CommercialPlannerInner() {
 
             {sendToScenesResult && (
               <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                <span>✅</span>
+                <span style={{ display: "flex" }}><Icon.Check size={14} /></span>
                 <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
                 <button onClick={() => setActiveTab("audio")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Audio</button>
               </div>
@@ -1478,8 +1481,8 @@ function CommercialPlannerInner() {
         )}
 
         <div style={{ marginTop: 20, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
-          <button style={btn("#ec4899")} onClick={() => setActiveTab("audio")}>Next: Audio & VO →</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setActiveTab("audio")}>Audio & VO →</button>
         </div>
       </div>
     );
@@ -1490,13 +1493,13 @@ function CommercialPlannerInner() {
     return (
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎤 Audio & Voiceover</h2>
-          <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Music, voiceover style, jingle, SFX, and audio library</p>
+          <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>Audio & Voiceover</h2>
+          <p style={{ color: ds.color.mute, fontSize: 13, margin: "4px 0 0" }}>Music, voiceover style, jingle, SFX, and audio library</p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           <div style={card}>
-            <div style={lbl}>🎵 Background Music</div>
+            <div style={lbl}>Background Music</div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Music Style</span><select style={inp} value={musicChoice} onChange={e => setMusicChoice(e.target.value)}>{MUSIC_CHOICES.map(m => <option key={m}>{m}</option>)}</select></div>
             <div>
               <span style={lbl}>Music Volume: {musicVolume}%</span>
@@ -1507,11 +1510,11 @@ function CommercialPlannerInner() {
             <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" as const }}>
               <button onClick={() => { setShowMusicPicker(p => !p); if (!showMusicPicker && musicLibrary.length === 0) loadMusicLibrary(); }}
                 style={{ ...btn(purple), padding: "6px 14px", fontSize: 11 }}>
-                {showMusicPicker ? "Close Library" : "🎵 Browse Music Library"}
+                {showMusicPicker ? "Close Library" : "Browse Music Library"}
               </button>
               <button onClick={aiPickMusic} disabled={aiPickingMusic}
                 style={{ ...btn(gold), padding: "6px 14px", fontSize: 11, opacity: aiPickingMusic ? 0.6 : 1 }}>
-                {aiPickingMusic ? "AI Picking…" : "🤖 AI Pick Music"}
+                {aiPickingMusic ? "AI Picking…" : "AI Pick Music"}
               </button>
               {selectedMusicName && <span style={{ fontSize: 11, color: accent, alignSelf: "center" }}>✓ {selectedMusicName}</span>}
             </div>
@@ -1536,19 +1539,19 @@ function CommercialPlannerInner() {
           </div>
 
           <div style={card}>
-            <div style={lbl}>🎤 Voiceover</div>
+            <div style={lbl}>Voiceover</div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>VO Style</span><select style={inp} value={voiceoverStyle} onChange={e => setVoiceoverStyle(e.target.value)}>{VO_STYLES.map(v => <option key={v}>{v}</option>)}</select></div>
             <div><span style={lbl}>VO Direction Notes</span><textarea style={{ ...inp, resize: "vertical" }} rows={4} value={voiceoverNotes} onChange={e => setVoiceoverNotes(e.target.value)} placeholder="Speed, emphasis, language, accent notes for the voiceover artist or AI voice…" /></div>
           </div>
 
           {/* SFX Browser */}
           <div style={{ ...card, gridColumn: "1/-1" }}>
-            <div style={lbl}>🔊 Sound Effects</div>
+            <div style={lbl}>Sound Effects</div>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               {(["freesound", "elevenlabs"] as const).map(t => (
                 <button key={t} onClick={() => setSoundTab(t)}
                   style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${soundTab === t ? blue : border}`, background: soundTab === t ? `${blue}10` : "transparent", color: soundTab === t ? blue : muted, fontSize: 10, cursor: "pointer" }}>
-                  {t === "freesound" ? "🌐 Freesound Library" : "🎵 AI Generate SFX"}
+                  {t === "freesound" ? "Freesound Library" : "AI Generate SFX"}
                 </button>
               ))}
             </div>
@@ -1606,7 +1609,7 @@ function CommercialPlannerInner() {
           </div>
 
           <div style={{ ...card, gridColumn: "1/-1" }}>
-            <div style={lbl}>📋 VO Script Review</div>
+            <div style={lbl}>VO Script Review</div>
             {scenes.filter(s => s.voiceoverScript).map(sc => (
               <div key={sc.sceneId} style={{ padding: "10px 0", borderBottom: `1px solid ${border}` }}>
                 <span style={badge(SECTION_COLORS[sc.sceneSection] || muted)}>{sc.sceneSection}</span>
@@ -1620,8 +1623,8 @@ function CommercialPlannerInner() {
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
-          <button style={btn("#ec4899")} onClick={() => setActiveTab("assembly")}>Next: Assembly →</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={() => setActiveTab("assembly")}>Assembly →</button>
         </div>
       </div>
     );
@@ -1634,8 +1637,8 @@ function CommercialPlannerInner() {
     return (
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🚀 Assembly</h2>
-          <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Assemble the final {brief.format} commercial</p>
+          <h2 style={{ color: ds.color.ink, fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: "-0.01em" }}>Assembly</h2>
+          <p style={{ color: ds.color.mute, fontSize: 13, margin: "4px 0 0" }}>Assemble the final {brief.format} commercial</p>
         </div>
 
         {/* ── Saved Cuts panel ── */}
@@ -1643,7 +1646,7 @@ function CommercialPlannerInner() {
           <div style={{ marginBottom: 12 }}>
             <button onClick={() => setShowCutsPanel(p => !p)}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: `1px solid ${gold}30`, background: showCutsPanel ? `${gold}10` : `${gold}06`, color: gold, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              <span style={{ fontSize: 16 }}>📂</span>
+              <span style={{ display: "flex" }}><Icon.Folder size={16} /></span>
               <span>Saved Cuts ({savedCuts.length})</span>
               <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
                 {savedCuts.map(c => <span key={c.name} style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: `${gold}20`, color: gold }}>{c.name}</span>)}
@@ -1657,7 +1660,7 @@ function CommercialPlannerInner() {
                     onClick={() => { setAssemblyName(c.name); if (c.videoUrl) setAssembledUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded cut: "${c.name}"`); }}
                     style={{ background: s2, borderRadius: 10, border: `2px solid ${assemblyName === c.name ? gold : border}`, padding: 10, cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 13 }}>{c.videoUrl ? "🎬" : "📋"}</span>
+                      <span style={{ fontSize: 13, display: "flex", alignItems: "center" }}>{c.videoUrl ? <Icon.Film size={12} /> : <Icon.Settings size={12} />}</span>
                       <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? gold : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
                       <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_commercial_cuts", JSON.stringify(next)); } catch {} return next; }); }}
                         style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
@@ -1690,8 +1693,8 @@ function CommercialPlannerInner() {
                 });
                 setLastAction(`Cut "${assemblyName}" saved`);
               }}
-              style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
-              💾 Save Cut
+              style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: ds.color.gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
+              Save Cut
             </button>
           </div>
         </div>
@@ -1706,7 +1709,7 @@ function CommercialPlannerInner() {
             { check: scenes.some(s => s.voiceoverScript), label: "Voiceover scripts present" },
           ].map((item, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${border}` }}>
-              <span style={{ color: item.check ? accent : red, fontSize: 16 }}>{item.check ? "✓" : "✗"}</span>
+              <span style={{ color: item.check ? ds.color.mint : red, fontSize: 16, display: "flex" }}>{item.check ? <Icon.Check size={14} /> : <Icon.X size={14} />}</span>
               <span style={{ fontSize: 13, color: item.check ? "#ddd" : muted }}>{item.label}</span>
             </div>
           ))}
@@ -1727,7 +1730,7 @@ function CommercialPlannerInner() {
                 return (
                   <button key={s.sceneId} onClick={() => setAssemblySelectedIds(prev => selected ? prev.filter(id => id !== s.sceneId) : [...prev, s.sceneId])}
                     style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${selected ? orange : border}`, background: selected ? `${orange}20` : "transparent", color: selected ? orange : muted, fontSize: 11, cursor: "pointer" }}>
-                    {String(s.scene).padStart(2, "0")} {s.sceneSection} {hasContent ? "✓" : ""}
+                    {String(s.scene).padStart(2, "0")} {s.sceneSection} {hasContent ? " ✓" : ""}
                   </button>
                 );
               })}
@@ -1741,7 +1744,7 @@ function CommercialPlannerInner() {
             onClick={() => setShowStickerPanel(p => !p)}
             style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
           >
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316" }}>✨ Sticker Overlays {commStickers.length > 0 ? `(${commStickers.length})` : ""}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: ds.color.btnC }}>Sticker Overlays {commStickers.length > 0 ? `(${commStickers.length})` : ""}</span>
             <span style={{ fontSize: 11, color: muted }}>{showStickerPanel ? "▲ Close" : "▼ Open"}</span>
           </button>
           {showStickerPanel && (
@@ -1760,42 +1763,46 @@ function CommercialPlannerInner() {
             <div style={{ fontWeight: 700, color: "#fff", marginBottom: 4 }}>Final {brief.format} Commercial</div>
             <div style={{ fontSize: 12, color: muted }}>{brief.brandName} — {brief.productName} · {brief.platform} · {brief.aspectRatio} · Music: {musicChoice} · VO: {voiceoverStyle}{commStickers.length > 0 ? ` · ${commStickers.length} sticker(s)` : ""}</div>
           </div>
-          <button style={btn(assemblyReady ? orange : "#334")} disabled={!assemblyReady || assembling} onClick={assembleMovie}>
-            {assembling ? "Assembling…" : assemblyReady ? "🚀 Assemble Commercial" : "Need Images First"}
-          </button>
+          <ButtonPrimary size="sm" disabled={!assemblyReady || assembling} onClick={assembleMovie}>
+            {assembling ? "Assembling…" : assemblyReady ? "Assemble Commercial" : "Need Images First"}
+          </ButtonPrimary>
         </div>
 
         {assembledUrl && (
-          <div style={{ ...card, borderColor: `${accent}66`, textAlign: "center" }}>
-            <div style={lbl}>{assemblyComplete ? "✅ Commercial Ready" : "Processing..."}</div>
+          <div style={{ ...card, textAlign: "center" }}>
+            <div style={lbl}>{assemblyComplete ? "Commercial Ready" : "Processing..."}</div>
             <video controls src={assembledUrl} style={{ width: "100%", borderRadius: 12, marginBottom: 12 }} />
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-              <a href={assembledUrl} download style={btn(accent)}>⬇ Download</a>
-              <a href="/dashboard/commercial" style={{ ...btn(orange), textDecoration: "none" }}>Open in Commercial Editor</a>
+              <a href={assembledUrl} download style={{ padding: "8px 14px", borderRadius: 12, background: "linear-gradient(120deg,#a78bfa,#d17bff,#ff9a3c,#f5a623,#a78bfa)", backgroundSize: "300% 100%", animation: "btnSweep 6s linear infinite", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>Download</a>
+              <a href="/dashboard/commercial" style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, textDecoration: "none" }}>Open in Editor</a>
             </div>
           </div>
         )}
 
         <div style={{ marginTop: 16 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save Campaign</button>
+          <ButtonPrimary size="sm" onClick={saveProject}>Save Campaign</ButtonPrimary>
         </div>
       </div>
     );
   }
 
-  if (!mounted) return <div style={{ padding: 40, color: muted }}>Loading Commercial Workshop...</div>;
+  if (!mounted) return <div style={{ padding: 40, color: ds.color.mute, fontFamily: ds.font.sans }}>Loading...</div>;
 
   return (
-    <div style={{ background: s2, minHeight: "100vh", color: "#fff", fontFamily: "inherit" }}>
-      {/* Top bar */}
-      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 16, background: surface }}>
+    <div style={{ background: ds.color.paper, minHeight: "100vh", color: ds.color.ink, fontFamily: ds.font.sans }}>
+      {/* ── Page Header ── */}
+      <div style={{ padding: "24px 32px 0" }}>
+        <HeroTitle kicker="Commercial Workshop" title="Campaign" italic="Production" sub={`${brief.brandName || "No brand"} · ${brief.format} · ${brief.platform}`} />
+      </div>
+      {/* ── Project toolbar ── */}
+      <div style={{ padding: "16px 32px", display: "flex", alignItems: "center", gap: 12, borderBottom: `1px solid ${ds.color.line}` }}>
         <div style={{ flex: 1 }}>
-          <input style={{ ...inp, fontWeight: 700, fontSize: 16, border: "none", background: "transparent", padding: "4px 0" }} value={projectTitle} onChange={e => setProjectTitle(e.target.value)} placeholder="Campaign name…" />
-          <div style={{ fontSize: 11, color: muted, marginTop: 2 }}>{brief.brandName || "No brand"} · {brief.format} · {brief.platform} · {brief.aspectRatio}</div>
+          <input style={{ ...inp, fontWeight: 700, fontSize: 15, border: "none", background: "transparent", padding: "4px 0" }} value={projectTitle} onChange={e => setProjectTitle(e.target.value)} placeholder="Campaign name…" />
+          <div style={{ fontSize: 10, color: ds.color.mute, marginTop: 2, fontFamily: ds.font.mono, letterSpacing: "0.1em", textTransform: "uppercase" }}>{lastAction}</div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {projectList.length > 0 && (
-            <select style={{ ...inp, width: "auto", fontSize: 12 }} value={projectId || ""} onChange={e => {
+            <select style={{ ...inp, width: "auto", fontSize: 12, padding: "8px 12px" }} value={projectId || ""} onChange={e => {
               if (!e.target.value) return;
               const raw = localStorage.getItem(`ghs_comm_proj_${e.target.value}`);
               if (raw) {
@@ -1821,9 +1828,9 @@ function CommercialPlannerInner() {
               {projectList.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
           )}
-          <button style={btn(orange)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "💾 Save"}</button>
-          <button style={btn("#334")} onClick={newProject}>New</button>
-          <a href="/dashboard/commercial" style={{ ...btn("#334"), textDecoration: "none", fontSize: 12 }}>Open Editor →</a>
+          <ButtonPrimary size="sm" onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "Save"}</ButtonPrimary>
+          <button style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }} onClick={newProject}>New</button>
+          <a href="/dashboard/commercial" style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, textDecoration: "none" }}>Editor →</a>
         </div>
       </div>
 
@@ -1851,11 +1858,11 @@ function CommercialPlannerInner() {
         );
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.8)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-            <div style={{ background: surface, borderRadius: 20, width: "100%", maxWidth: 780, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", border: `1px solid ${border}` }}>
+            <div style={{ background: ds.color.card, borderRadius: 20, width: "100%", maxWidth: 780, maxHeight: "85vh", overflow: "hidden", display: "flex", flexDirection: "column", border: `1px solid ${ds.color.line2}` }}>
               <div style={{ padding: "20px 24px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 12 }}>
                 <div style={{ flex: 1 }}>
                   <h2 style={{ color: "#fff", fontSize: 16, fontWeight: 700, margin: 0 }}>
-                    {aidMode === "video" ? "🎬 Video Model" : "🖼 Image Model"} Picker
+                    {aidMode === "video" ? "Video Model" : "Image Model"} Picker
                   </h2>
                   <p style={{ color: muted, fontSize: 11, margin: "2px 0 0" }}>Choose your AI generation model for this commercial</p>
                 </div>
@@ -1863,12 +1870,12 @@ function CommercialPlannerInner() {
                   {(["video", "image"] as const).map(m => (
                     <button key={m} onClick={() => setAidMode(m)}
                       style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${aidMode === m ? orange : border}`, background: aidMode === m ? `${orange}20` : "transparent", color: aidMode === m ? orange : muted, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                      {m === "video" ? "🎬 Video" : "🖼 Image"}
+                      {m === "video" ? "Video" : "Image"}
                     </button>
                   ))}
                 </div>
                 <button onClick={() => setShowAidPicker(false)}
-                  style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: "#334", color: "#fff", fontSize: 12, cursor: "pointer" }}>✕ Close</button>
+                  style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 12, cursor: "pointer" }}>Close</button>
               </div>
               <div style={{ padding: "12px 24px", borderBottom: `1px solid ${border}`, display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", gap: 4 }}>
@@ -1883,7 +1890,7 @@ function CommercialPlannerInner() {
                   {(["cheapest", "quality", "expensive"] as const).map(s => (
                     <button key={s} onClick={() => setAidSort(s)}
                       style={{ padding: "5px 12px", borderRadius: 20, border: `1px solid ${aidSort === s ? accent : border}`, background: aidSort === s ? `${accent}20` : "transparent", color: aidSort === s ? accent : muted, fontSize: 10, cursor: "pointer" }}>
-                      {s === "cheapest" ? "💰 Cheapest" : s === "quality" ? "⭐ Quality" : "💎 Premium"}
+                      {s === "cheapest" ? "Cheapest" : s === "quality" ? "Quality" : "Premium"}
                     </button>
                   ))}
                 </div>

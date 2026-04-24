@@ -6,6 +6,9 @@ import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/
 import DurationPicker from "../../components/DurationPicker";
 import CharacterPicker from "../../components/CharacterPicker";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
+import { ds } from "../../../lib/designSystem";
+import { HeroTitle } from "../../components/hero/HeroTitle";
+import * as Icon from "../../components/icons";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Series Planner — PRODUCTION WORKSHOP
@@ -90,16 +93,16 @@ interface StoryBible {
 
 type WorkshopTab = "overview" | "design" | "bible" | "characters" | "episodes" | "scenes" | "screenplay" | "audio" | "assembly";
 
-const WORKSHOP_TABS: { id: WorkshopTab; label: string; icon: string; step?: number }[] = [
-  { id: "overview",    label: "Overview",      icon: "🏠" },
-  { id: "design",      label: "Series Design", icon: "🎨", step: 0 },
-  { id: "bible",       label: "Series Bible",  icon: "📖", step: 1 },
-  { id: "characters",  label: "Characters",    icon: "👥", step: 2 },
-  { id: "episodes",    label: "Episodes",      icon: "🎬", step: 3 },
-  { id: "scenes",      label: "Scene Board",   icon: "🖼", step: 4 },
-  { id: "screenplay",  label: "Screenplay",    icon: "📄", step: 5 },
-  { id: "audio",       label: "Audio & Music", icon: "🎵", step: 6 },
-  { id: "assembly",    label: "Assembly",      icon: "🚀", step: 7 },
+const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
+  { id: "overview",    label: "Overview" },
+  { id: "design",      label: "Series Design", step: 0 },
+  { id: "bible",       label: "Series Bible",  step: 1 },
+  { id: "characters",  label: "Characters",    step: 2 },
+  { id: "episodes",    label: "Episodes",      step: 3 },
+  { id: "scenes",      label: "Scene Board",   step: 4 },
+  { id: "screenplay",  label: "Screenplay",    step: 5 },
+  { id: "audio",       label: "Audio & Music", step: 6 },
+  { id: "assembly",    label: "Assembly",      step: 7 },
 ];
 
 const GENRES = ["Drama", "Comedy", "Action", "Horror", "Sci-Fi", "Fantasy", "Romance", "Thriller", "Documentary", "Educational", "Motivational", "Kids", "Afrobeat Story", "Crime", "Adventure"];
@@ -163,14 +166,7 @@ const AID_IMAGE_MODELS = [
 
 // ── Scene Intelligence display constants ─────────────────────────────────
 
-const SCENE_ENV_ICON: Record<string, string> = {
-  "city-street": "🏙", "open-market": "🛒", "indoor-market": "🏪",
-  "bush-forest": "🌿", "village": "🏘", "beach": "🏖",
-  "riverbank": "🌊", "church-mosque": "⛪", "hospital": "🏥",
-  "office": "💼", "indoor-room": "🏠", "forest-night": "🌲",
-  "night-street": "🌙", "rain-scene": "🌧", "rooftop": "🏢",
-  "car-interior": "🚗", "school": "🏫",
-};
+// SCENE_ENV_ICON removed — env type shown as text label (v14: no emoji)
 
 const SCENE_ENERGY_COLOR: Record<string, string> = {
   chaotic: "#ef4444", tense: "#eab308", dramatic: "#a855f7",
@@ -178,20 +174,20 @@ const SCENE_ENERGY_COLOR: Record<string, string> = {
 };
 
 // ── Style helpers ──
-const surface = "#0e1318";
-const s2 = "#080b10";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const accent = "#22c55e";
+const surface = ds.color.card;
+const s2 = ds.color.paper;
+const border = ds.color.line;
+const muted = ds.color.mute;
+const accent = ds.color.lilac;
 const purple = "#a855f7";
-const gold = "#f59e0b";
+const gold = ds.color.gold;
 const red = "#ef4444";
-const blue = "#00d4ff";
+const blue = ds.color.sky;
 
 const card: React.CSSProperties = { background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 20, marginBottom: 12 };
-const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block" };
-const inp: React.CSSProperties = { width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit" };
-const btn = (col = accent): React.CSSProperties => ({ padding: "10px 20px", borderRadius: 10, border: "none", background: col, color: col === gold || col === accent ? "#000" : "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" });
+const lbl: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: muted, marginBottom: 8, display: "block", fontFamily: ds.font.mono };
+const inp: React.CSSProperties = { width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: ds.font.sans };
+const btn = (col: string = accent): React.CSSProperties => ({ padding: "10px 20px", borderRadius: 10, border: "none", background: col, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" });
 const badge = (col: string): React.CSSProperties => ({ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${col}22`, color: col, fontWeight: 700, display: "inline-block" });
 
 function mkEpisode(n: number): SeriesEpisode {
@@ -1186,13 +1182,15 @@ function SeriesPlannerInner() {
 
   function TabBar() {
     return (
-      <div style={{ display: "flex", gap: 4, padding: "0 20px", borderBottom: `1px solid ${border}`, background: s2, overflowX: "auto" }}>
+      <div style={{ display: "flex", gap: 0, background: ds.color.card, borderBottom: `1px solid ${ds.color.line}`, overflowX: "auto" }}>
         {WORKSHOP_TABS.map(t => {
           const active = activeTab === t.id;
           return (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: "14px 16px", background: "none", border: "none", color: active ? accent : muted, fontWeight: active ? 700 : 500, fontSize: 12, cursor: "pointer", borderBottom: active ? `2px solid ${accent}` : "2px solid transparent", whiteSpace: "nowrap", display: "flex", gap: 6, alignItems: "center" }}>
-              <span>{t.icon}</span><span>{t.label}</span>
-              {t.step && <span style={{ fontSize: 9, background: `${accent}22`, color: accent, borderRadius: 10, padding: "1px 6px" }}>{t.step}</span>}
+            <button key={t.id} onClick={() => setActiveTab(t.id)}
+              style={{ padding: "12px 14px", background: "none", border: "none", color: active ? "#fff" : muted, fontWeight: active ? 700 : 500, fontSize: 10, cursor: "pointer", whiteSpace: "nowrap", position: "relative", fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 80 }}>
+              {t.label}
+              {t.step !== undefined && !active && <span style={{ marginLeft: 4, fontSize: 8, background: `${accent}22`, color: accent, borderRadius: 8, padding: "1px 5px" }}>{t.step}</span>}
+              {active && <span style={{ position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc, #ff7a45)" }} />}
             </button>
           );
         })}
@@ -1257,10 +1255,10 @@ function SeriesPlannerInner() {
 
         {warnings.length > 0 && (
           <div style={{ ...card, borderColor: `${red}44` }}>
-            <div style={lbl}>⚠️ Warnings & Blockers</div>
+            <div style={lbl}>Warnings & Blockers</div>
             {warnings.map((w, i) => (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: i < warnings.length - 1 ? `1px solid ${border}` : "none" }}>
-                <span style={{ color: red, fontSize: 13 }}>⚠</span>
+                <Icon.Alert style={{ width: 13, height: 13, color: red, flexShrink: 0 }} />
                 <span style={{ fontSize: 12, color: "#ddd" }}>{w}</span>
               </div>
             ))}
@@ -1268,9 +1266,9 @@ function SeriesPlannerInner() {
         )}
 
         <div style={{ ...card, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <button style={btn(accent)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "💾 Save Series"}</button>
-          <button style={btn(blue)} onClick={() => setActiveTab("design")}>📖 Write Bible</button>
-          <button style={btn(purple)} onClick={() => setActiveTab("characters")}>👥 Add Characters</button>
+          <button style={btn(accent)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "Save Series"}</button>
+          <button style={btn(blue)} onClick={() => setActiveTab("design")}>Write Bible</button>
+          <button style={btn(purple)} onClick={() => setActiveTab("characters")}>Add Characters</button>
           <button style={btn(gold)} onClick={() => { addEpisode(); }}>+ Add Episode</button>
           <button style={btn("#555")} onClick={newProject}>New Series</button>
           <span style={{ fontSize: 11, color: muted, marginLeft: "auto" }}>Last: {lastAction}</span>
@@ -1291,7 +1289,7 @@ function SeriesPlannerInner() {
 
     return (
       <div style={{ padding: 24 }}>
-        <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>🎨 Series Design</h2>
+        <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: "0 0 4px" }}>Series Design</h2>
         <p style={{ color: muted, fontSize: 12, margin: "0 0 20px" }}>Define the visual identity and format of your series. This feeds into your Bible, Characters, and Episodes.</p>
 
         <div style={card}>
@@ -1387,9 +1385,9 @@ function SeriesPlannerInner() {
 
         <div style={{ ...card, display: "flex", gap: 12 }}>
           <button style={btn(accent)} onClick={() => { setDesignComplete(true); setActiveTab("bible"); setLastAction("Design set — write your bible"); }}>
-            ✅ Confirm Design → Go to Bible
+            Confirm Design — Go to Bible
           </button>
-          <button style={btn("#555")} onClick={saveProject}>💾 Save</button>
+          <button style={btn("#555")} onClick={saveProject}>Save</button>
         </div>
       </div>
     );
@@ -1401,17 +1399,17 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>📖 Series Bible</h2>
+            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Series Bible</h2>
             <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Define your story universe — lore, world, rules, locations, timeline</p>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button style={btn(blue)} onClick={expandBible} disabled={expandingBible || !bible.worldDescription}>{expandingBible ? "Expanding…" : "✨ Expand Bible"}</button>
+            <button style={btn(blue)} onClick={expandBible} disabled={expandingBible || !bible.worldDescription}>{expandingBible ? "Expanding…" : "Expand Bible"}</button>
             <button style={{ ...btn(accent), background: expanding ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #16a34a)` }} onClick={expandStory} disabled={expanding || (!bible.worldDescription && !bible.lore)}>
-              {expanding ? "⏳ Building Plan..." : "🧠 Expand + Extract + Scenes"}
+              {expanding ? "Building Plan..." : "Expand + Extract + Scenes"}
             </button>
             {(bible.lore || bible.worldDescription) && (
               <button style={btn(purple)} onClick={extractAndBuildCharacters} disabled={extractingChars || buildingChars}>
-                {extractingChars ? "Extracting..." : buildingChars ? (buildCharProgress || "Building...") : "🎭 Extract Characters"}
+                {extractingChars ? "Extracting..." : buildingChars ? (buildCharProgress || "Building...") : "Extract Characters"}
               </button>
             )}
           </div>
@@ -1420,14 +1418,14 @@ function SeriesPlannerInner() {
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {[
-            { key: "worldDescription", label: "🌍 World Description", placeholder: "Describe the world, setting, era, universe of this series…", rows: 5 },
-            { key: "lore", label: "📜 Lore & History", placeholder: "Key history, mythology, backstory, foundational events…", rows: 5 },
-            { key: "locations", label: "📍 Key Locations", placeholder: "Important places, settings, environments that appear repeatedly…", rows: 4 },
+            { key: "worldDescription", label: "World Description", placeholder: "Describe the world, setting, era, universe of this series…", rows: 5 },
+            { key: "lore", label: "Lore & History", placeholder: "Key history, mythology, backstory, foundational events…", rows: 5 },
+            { key: "locations", label: "Key Locations", placeholder: "Important places, settings, environments that appear repeatedly…", rows: 4 },
             { key: "timeline", label: "⏰ Timeline", placeholder: "Chronological order of events, past/present/future…", rows: 4 },
-            { key: "rules", label: "📋 World Rules", placeholder: "Laws of physics, magic systems, societal rules, what is possible/impossible…", rows: 4 },
-            { key: "keyEvents", label: "🔑 Key Events", placeholder: "Major events that define the series arc…", rows: 4 },
-            { key: "tone", label: "🎭 Tone & Atmosphere", placeholder: "Dark, hopeful, comedic, epic, grounded, fantastical…", rows: 3 },
-            { key: "themes", label: "💡 Themes", placeholder: "Main themes: identity, power, love, survival, redemption…", rows: 3 },
+            { key: "rules", label: "World Rules", placeholder: "Laws of physics, magic systems, societal rules, what is possible/impossible…", rows: 4 },
+            { key: "keyEvents", label: "Key Events", placeholder: "Major events that define the series arc…", rows: 4 },
+            { key: "tone", label: "Tone & Atmosphere", placeholder: "Dark, hopeful, comedic, epic, grounded, fantastical…", rows: 3 },
+            { key: "themes", label: "Themes", placeholder: "Main themes: identity, power, love, survival, redemption…", rows: 3 },
           ].map(f => (
             <div key={f.key} style={card}>
               <span style={lbl}>{f.label}</span>
@@ -1437,7 +1435,7 @@ function SeriesPlannerInner() {
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save Bible</button>
+          <button style={btn(accent)} onClick={saveProject}>Save Bible</button>
           <button style={btn(purple)} onClick={() => setActiveTab("characters")}>Next: Characters →</button>
         </div>
       </div>
@@ -1450,17 +1448,17 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>👥 Series Characters</h2>
+            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Series Characters</h2>
             <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Recurring cast — shared across all episodes</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button style={btn(purple)} onClick={() => setShowCharPicker(true)}>📥 Import Character</button>
+            <button style={btn(purple)} onClick={() => setShowCharPicker(true)}>Import Character</button>
           </div>
         </div>
 
         {characters.length === 0 && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>👥</div>
+            <Icon.Users style={{ width: 40, height: 40, color: muted, marginBottom: 8 }} />
             <div style={{ color: muted, margin: "12px 0" }}>No characters yet. Import from your Characters library or add new ones.</div>
             <button style={btn(purple)} onClick={() => setShowCharPicker(true)}>Import Characters</button>
           </div>
@@ -1469,17 +1467,17 @@ function SeriesPlannerInner() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
           {characters.map(ch => (
             <div key={ch.characterId} style={{ ...card, position: "relative" }}>
-              <button onClick={() => setCharacters(prev => prev.filter(c => c.characterId !== ch.characterId))} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: red, cursor: "pointer", fontSize: 16 }}>✕</button>
+              <button onClick={() => setCharacters(prev => prev.filter(c => c.characterId !== ch.characterId))} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: red, cursor: "pointer", fontSize: 16 }}><Icon.X style={{ width: 10, height: 10 }} /></button>
               <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
                 <div style={{ width: 56, height: 56, borderRadius: 12, background: ch.imageUrl ? "transparent" : `${purple}33`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {ch.imageUrl ? <img src={ch.imageUrl} alt={ch.displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 24 }}>👤</span>}
+                  {ch.imageUrl ? <img src={ch.imageUrl} alt={ch.displayName} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon.User style={{ width: 24, height: 24, color: muted }} />}
                 </div>
                 <div>
                   <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{ch.displayName}</div>
                   <div style={{ color: muted, fontSize: 11, marginTop: 2 }}>{ch.roleType}</div>
                   <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    <span style={badge(ch.hasVoice ? accent : red)}>{ch.hasVoice ? "✓ Voice" : "No Voice"}</span>
-                    <span style={badge(ch.hasImage ? blue : "#888")}>{ch.hasImage ? "✓ Image" : "No Image"}</span>
+                    <span style={badge(ch.hasVoice ? accent : red)}>{ch.hasVoice ? "Voice" : "No Voice"}</span>
+                    <span style={badge(ch.hasImage ? blue : "#888")}>{ch.hasImage ? "Image" : "No Image"}</span>
                     {ch.voiceType && <span style={badge(purple)}>{ch.voiceType}</span>}
                   </div>
                 </div>
@@ -1494,14 +1492,14 @@ function SeriesPlannerInner() {
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
+          <button style={btn(accent)} onClick={saveProject}>Save</button>
           <button style={btn(gold)} onClick={() => setActiveTab("episodes")}>Next: Episodes →</button>
         </div>
 
         {showCharPicker && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowCharPicker(false)}>
             <div style={{ background: surface, borderRadius: 16, padding: 0, maxWidth: 680, width: "90%", maxHeight: "80vh", overflow: "auto", position: "relative" }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setShowCharPicker(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: muted, fontSize: 20, cursor: "pointer", zIndex: 1 }}>✕</button>
+              <button onClick={() => setShowCharPicker(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: muted, cursor: "pointer", zIndex: 1, display:"flex", alignItems:"center" }}><Icon.X style={{ width:18, height:18 }} /></button>
               <CharacterPicker
                 onSelect={(char: any) => {
                   setCharacters(prev => {
@@ -1527,7 +1525,7 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎬 Episodes</h2>
+            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Episodes</h2>
             <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>{episodes.length} episode{episodes.length !== 1 ? "s" : ""} planned — click to manage scenes</p>
           </div>
           <button style={btn(accent)} onClick={addEpisode}>+ Add Episode</button>
@@ -1535,7 +1533,7 @@ function SeriesPlannerInner() {
 
         {episodes.length === 0 && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>🎬</div>
+            <Icon.Film style={{ width: 40, height: 40, color: muted, marginBottom: 8 }} />
             <div style={{ color: muted, margin: "12px 0" }}>No episodes yet. Add your first episode to start planning scenes.</div>
             <button style={btn(accent)} onClick={addEpisode}>+ Add First Episode</button>
           </div>
@@ -1557,12 +1555,12 @@ function SeriesPlannerInner() {
                 <span style={badge(statusColors[ep.status] || muted)}>{ep.status}</span>
                 <span style={{ fontSize: 11, color: muted }}>{ep.scenes.length} scenes · {epImages} img</span>
                 <button style={{ ...btn(isActive ? accent : "#334"), padding: "8px 14px", fontSize: 11 }} onClick={() => { setActiveEpisodeId(ep.episodeId); setActiveTab("scenes"); }}>
-                  {isActive ? "Active ✓" : "Open"}
+                  {isActive ? "Active" : "Open"}
                 </button>
                 <button style={{ ...btn("#334"), padding: "8px 14px", fontSize: 11 }} onClick={() => setExpandingEpisode(isExpanded ? null : ep.episodeId)}>
                   {isExpanded ? "▲" : "▼"}
                 </button>
-                <button style={{ ...btn(red), padding: "8px 14px", fontSize: 11 }} onClick={() => deleteEpisode(ep.episodeId)}>✕</button>
+                <button style={{ ...btn(red), padding: "8px 14px", fontSize: 11 }} onClick={() => deleteEpisode(ep.episodeId)}><Icon.X style={{ width:12, height:12 }} /></button>
               </div>
 
               {isExpanded && (
@@ -1576,9 +1574,9 @@ function SeriesPlannerInner() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button style={btn(blue)} onClick={() => generateEpisodeScenes(ep.episodeId)} disabled={generatingEpisode === ep.episodeId || !ep.synopsis}>{generatingEpisode === ep.episodeId ? "Generating…" : "✨ Generate Scenes with AI"}</button>
-                    <button style={btn(accent)} onClick={() => { setActiveEpisodeId(ep.episodeId); setActiveTab("scenes"); }}>🎬 Go to Scene Board</button>
-                    {ep.scenes.length > 0 && <button style={btn(purple)} onClick={() => assembleEpisode(ep.episodeId)} disabled={assembling}>{assembling ? "Assembling…" : "🚀 Assemble Episode"}</button>}
+                    <button style={btn(blue)} onClick={() => generateEpisodeScenes(ep.episodeId)} disabled={generatingEpisode === ep.episodeId || !ep.synopsis}>{generatingEpisode === ep.episodeId ? "Generating…" : "Generate Scenes with AI"}</button>
+                    <button style={btn(accent)} onClick={() => { setActiveEpisodeId(ep.episodeId); setActiveTab("scenes"); }}>Go to Scene Board</button>
+                    {ep.scenes.length > 0 && <button style={btn(purple)} onClick={() => assembleEpisode(ep.episodeId)} disabled={assembling}>{assembling ? "Assembling…" : "Assemble Episode"}</button>}
                   </div>
                 </div>
               )}
@@ -1587,7 +1585,7 @@ function SeriesPlannerInner() {
         })}
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
+          <button style={btn(accent)} onClick={saveProject}>Save</button>
           <button style={btn(blue)} onClick={() => activeEpisodeId ? setActiveTab("scenes") : undefined} disabled={!activeEpisodeId}>Next: Scene Board →</button>
         </div>
       </div>
@@ -1601,7 +1599,7 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🖼 Scene Board</h2>
+            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Scene Board</h2>
             <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>{ep ? `${ep.title} — ${ep.scenes.length} scene${ep.scenes.length !== 1 ? "s" : ""}` : "Select an episode first"}</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1617,16 +1615,16 @@ function SeriesPlannerInner() {
               onClick={runSceneIntelligence}
               style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4ade8030", background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
             >
-              {runningIntelligence ? "⚡ Detecting..." : "🔊 Scene Intelligence"}
+              {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
             </button>
           </div>
         </div>
         {runningIntelligence && (
-          <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0 8px" }}>⚡ Scene Intelligence running — detecting environments and ambient sounds...</p>
+          <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0 8px" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
         )}
         {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
           <p style={{ fontSize: 10, color: "#666", margin: "4px 0 8px" }}>
-            🔊 {Object.keys(sceneIntelligence).length} scenes have sound environment data
+            {Object.keys(sceneIntelligence).length} scenes have sound environment data
           </p>
         )}
 
@@ -1635,18 +1633,18 @@ function SeriesPlannerInner() {
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
               style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              🎬 Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+              Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
             </button>
             <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
               style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-              🖼 Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+              Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
             </button>
           </div>
         </div>
 
         {!ep && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>🎬</div>
+            <Icon.Film style={{ width: 40, height: 40, color: muted, marginBottom: 8 }} />
             <div style={{ color: muted, margin: "12px 0" }}>No active episode. Go to Episodes tab to select or create one.</div>
             <button style={btn(gold)} onClick={() => setActiveTab("episodes")}>Go to Episodes</button>
           </div>
@@ -1654,7 +1652,7 @@ function SeriesPlannerInner() {
 
         {ep && ep.scenes.length === 0 && (
           <div style={{ ...card, textAlign: "center", padding: 40 }}>
-            <div style={{ fontSize: 40 }}>🖼</div>
+            <Icon.Image style={{ width: 40, height: 40, color: muted, marginBottom: 8 }} />
             <div style={{ color: muted, margin: "12px 0" }}>No scenes yet. Add scenes manually or generate them from the Episodes tab.</div>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button style={btn(accent)} onClick={addScene}>+ Add Scene</button>
@@ -1674,7 +1672,7 @@ function SeriesPlannerInner() {
             <div key={sc.sceneId} style={{ ...card, borderColor: vid ? `${purple}55` : img ? `${accent}44` : border }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ width: 120, height: 68, borderRadius: 10, background: img ? "transparent" : `${border}`, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                  {vid ? <video src={vid} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted loop autoPlay playsInline /> : img ? <img src={img} alt={sc.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: muted, fontSize: 24 }}>🖼</span>}
+                  {vid ? <video src={vid} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted loop autoPlay playsInline /> : img ? <img src={img} alt={sc.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon.Image style={{ width: 24, height: 24, color: muted }} />}
                   {vid && <span style={{ position: "absolute", top: 2, right: 2, fontSize: 8, background: purple, color: "#fff", borderRadius: 4, padding: "1px 4px" }}>VID</span>}
                 </div>
                 <div style={{ flex: 1 }}>
@@ -1690,22 +1688,20 @@ function SeriesPlannerInner() {
                     const intel = sceneIntelligence[sc.sceneId];
                     if (!intel) return null;
                     const energyColor = SCENE_ENERGY_COLOR[intel.energyLevel] || "#888";
-                    const icon = SCENE_ENV_ICON[intel.environmentType] || "📍";
-                    return (
+                                        return (
                       <div style={{ margin: "8px 0", padding: "6px 8px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff0a" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                          <span style={{ fontSize: 11 }}>{icon}</span>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
+                                                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
                           <span style={{ fontSize: 8, color: "#666" }}>•</span>
                           <span style={{ fontSize: 8, color: "#666", textTransform: "capitalize" }}>{intel.timeOfDay}</span>
                           <span style={{ marginLeft: "auto", fontSize: 7, padding: "1px 5px", borderRadius: 4, background: `${energyColor}20`, color: energyColor, fontWeight: 700, textTransform: "uppercase" }}>{intel.energyLevel}</span>
                         </div>
                         <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
                           {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
-                            <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>🔊 {sound}</span>
+                            <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>{sound}</span>
                           ))}
                           {intel.sfxEvents.length > 0 && (
-                            <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>⚡ {intel.sfxEvents[0]}</span>
+                            <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
                           )}
                         </div>
                       </div>
@@ -1723,11 +1719,11 @@ function SeriesPlannerInner() {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <button style={{ ...btn(blue), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "🔄 Regen Image" : "🖼 Make Image"}</button>
-                    {img && <button style={{ ...btn(isGenVideo ? "#2a2a40" : purple), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneVideo(sc)} disabled={isGenVideo}>{isGenVideo ? "⏳ Making Video..." : vid ? "🔄 Regen Video" : "🎬 Make Video"}</button>}
-                    <button style={{ ...btn("#334"), padding: "6px 12px", fontSize: 11 }} onClick={() => setExpandedSceneId(isExpanded ? null : sc.sceneId)}>✏️ {isExpanded ? "Close" : "Edit"}</button>
-                    {img && <button style={{ ...btn(accent), padding: "6px 12px", fontSize: 11 }} onClick={() => updateScene(sc.sceneId, { status: "approved" })}>✓ Approve</button>}
-                    <button style={{ ...btn(red), padding: "6px 12px", fontSize: 11 }} onClick={() => { if (ep) updateEpisode(ep.episodeId, { scenes: ep.scenes.filter(s => s.sceneId !== sc.sceneId) }); }}>✕</button>
+                    <button style={{ ...btn(blue), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "Regen Image" : "Make Image"}</button>
+                    {img && <button style={{ ...btn(isGenVideo ? "#2a2a40" : purple), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneVideo(sc)} disabled={isGenVideo}>{isGenVideo ? "Making Video..." : vid ? "Regen Video" : "Make Video"}</button>}
+                    <button style={{ ...btn("#334"), padding: "6px 12px", fontSize: 11 }} onClick={() => setExpandedSceneId(isExpanded ? null : sc.sceneId)}>{isExpanded ? "Close" : "Edit"}</button>
+                    {img && <button style={{ ...btn(accent), padding: "6px 12px", fontSize: 11 }} onClick={() => updateScene(sc.sceneId, { status: "approved" })}>Approve</button>}
+                    <button style={{ ...btn(red), padding: "6px 12px", fontSize: 11 }} onClick={() => { if (ep) updateEpisode(ep.episodeId, { scenes: ep.scenes.filter(s => s.sceneId !== sc.sceneId) }); }}><Icon.X style={{ width:12, height:12 }} /></button>
                   </div>
                   {vid && (
                     <div style={{ marginTop: 8 }}>
@@ -1767,7 +1763,7 @@ function SeriesPlannerInner() {
 
         {ep && ep.scenes.length > 0 && (
           <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-            <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
+            <button style={btn(accent)} onClick={saveProject}>Save</button>
             <button style={btn(purple)} onClick={() => setActiveTab("screenplay")}>Next: Screenplay →</button>
           </div>
         )}
@@ -1781,7 +1777,7 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         {!screenplay && !generatingScreenplay && (
           <div style={{ ...card, borderColor: `${purple}20`, marginBottom: 16 }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>📄 Screenplay</p>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Screenplay</p>
             <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a full formatted screenplay from your series bible, or paste your own script below and parse it into narrator/dialogue segments.</p>
             {!bible.worldDescription && !bible.lore ? (
               <div style={{ textAlign: "center", padding: "16px 0" }}>
@@ -1799,7 +1795,7 @@ function SeriesPlannerInner() {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button onClick={generateScreenplay}
                     style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    ✍️ Generate Screenplay
+                    Generate Screenplay
                   </button>
                   <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your screenplay here...\n\nFADE OUT.\n\nTHE END")}
                     style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
@@ -1813,7 +1809,7 @@ function SeriesPlannerInner() {
 
         {generatingScreenplay && (
           <div style={{ textAlign: "center", padding: "60px 20px" }}>
-            <div style={{ fontSize: 36, marginBottom: 12 }}>✍️</div>
+            <Icon.Wand style={{ width: 36, height: 36, color: muted, marginBottom: 12 }} />
             <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
             <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
           </div>
@@ -1847,7 +1843,7 @@ function SeriesPlannerInner() {
 
             {sendToScenesResult && (
               <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                <span>✅</span>
+                <Icon.Check style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
                 <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
                 <button onClick={() => setActiveTab("audio")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Audio</button>
               </div>
@@ -1909,14 +1905,14 @@ function SeriesPlannerInner() {
       <div style={{ padding: 24 }}>
         {errorMsg && (
           <div style={{ ...card, borderColor: `${red}40`, marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ color: red }}>⚠️</span>
+            <Icon.Alert style={{ width: 14, height: 14, color: red, flexShrink: 0 }} />
             <p style={{ fontSize: 11, color: red, flex: 1 }}>{errorMsg}</p>
-            <button onClick={() => setErrorMsg(null)} style={{ color: muted, background: "none", border: "none", cursor: "pointer", fontSize: 14 }}>✕</button>
+            <button onClick={() => setErrorMsg(null)} style={{ color: muted, background: "none", border: "none", cursor: "pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width:14, height:14 }} /></button>
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div>
-            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🎵 Audio & Music</h2>
+            <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0, display: "flex", alignItems: "center", gap: 8 }}><Icon.Music style={{ width: 18, height: 18, color: muted }} /> Audio & Music</h2>
             <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>FreeSound browser, ElevenLabs SFX, music library, per-scene narration</p>
           </div>
           <a href="/dashboard/sfx-library?selectMode=music&returnTo=series-wizard" style={{ textDecoration: "none" }}>
@@ -1933,7 +1929,7 @@ function SeriesPlannerInner() {
             {(["freesound", "elevenlabs"] as const).map(t => (
               <button key={t} onClick={() => setSoundTab(t)}
                 style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${soundTab === t ? blue : border}`, background: soundTab === t ? `${blue}10` : "transparent", color: soundTab === t ? blue : muted, fontSize: 10, cursor: "pointer" }}>
-                {t === "freesound" ? "🌐 Freesound Library" : "🎵 AI Generate SFX"}
+                {t === "freesound" ? "Freesound Library" : "AI Generate SFX"}
               </button>
             ))}
           </div>
@@ -2001,11 +1997,11 @@ function SeriesPlannerInner() {
 
         {/* ── Music Library ── */}
         <div style={{ ...card, marginBottom: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>🎵 Background Music</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Icon.Music style={{ width: 14, height: 14, color: muted }} /> Background Music</p>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
             <button onClick={aiPickMusic} disabled={aiPickingMusic}
               style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: aiPickingMusic ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: aiPickingMusic ? muted : "#000", fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
-              {aiPickingMusic ? "AI Picking…" : "🤖 AI Pick"}
+              {aiPickingMusic ? "AI Picking…" : "AI Pick"}
             </button>
             <button onClick={() => { setShowMusicPicker(p => !p); if (!showMusicPicker && musicLibrary.length === 0) loadMusicLibrary(); }}
               style={{ padding: "8px 16px", borderRadius: 9, border: `1px solid ${purple}40`, background: `${purple}10`, color: purple, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
@@ -2019,7 +2015,7 @@ function SeriesPlannerInner() {
           {aiMusicPickLog && <p style={{ fontSize: 10, color: aiMusicPickLog.startsWith("Selected:") ? accent : muted, marginBottom: 8 }}>{aiMusicPickLog}</p>}
           {selectedMusicUrl && (
             <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 10, color: accent, marginBottom: 4 }}>✓ {selectedMusicName}</p>
+              <p style={{ fontSize: 10, color: accent, marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 10, height: 10 }} /> {selectedMusicName}</p>
               <audio controls src={selectedMusicUrl} style={{ width: "100%", height: 36 }} />
             </div>
           )}
@@ -2038,9 +2034,9 @@ function SeriesPlannerInner() {
                 return (
                   <div key={track.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 8, background: isSelected ? `${purple}15` : s2, border: `1px solid ${isSelected ? purple : border}`, cursor: "pointer" }}
                     onClick={() => { setSelectedMusicUrl(mediaUrl); setSelectedMusicName(track.name); setShowMusicPicker(false); }}>
-                    <span style={{ fontSize: 14 }}>🎵</span>
+                    <Icon.Music style={{ width: 14, height: 14, color: muted, flexShrink: 0 }} />
                     <span style={{ fontSize: 11, flex: 1, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{track.name}</span>
-                    {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700 }}>✓ Selected</span>}
+                    {isSelected && <span style={{ fontSize: 10, color: purple, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}><Icon.Check style={{ width: 10, height: 10 }} /> Selected</span>}
                   </div>
                 );
               })}
@@ -2124,13 +2120,13 @@ function SeriesPlannerInner() {
                     </button>
                     <button onClick={() => generateSceneNarration(sc)} disabled={!sc.narrationScript?.trim()}
                       style={{ flex: 1, fontSize: 9, padding: "6px 10px", borderRadius: 6, border: `1px solid ${accent}30`, background: `${accent}06`, color: accent, cursor: !sc.narrationScript?.trim() ? "not-allowed" : "pointer", fontWeight: 600, opacity: !sc.narrationScript?.trim() ? 0.5 : 1 }}>
-                      🔊 Generate Audio
+                      Generate Audio
                     </button>
                   </div>
 
                   {sc.narrationAudioUrl && (
                     <div style={{ marginBottom: 6, padding: "6px 8px", background: `${accent}08`, borderRadius: 8, border: `1px solid ${accent}20` }}>
-                      <p style={{ fontSize: 9, color: accent, marginBottom: 4, fontWeight: 700 }}>🔊 Scene {sc.scene} Audio Ready</p>
+                      <p style={{ fontSize: 9, color: accent, marginBottom: 4, fontWeight: 700 }}>Scene {sc.scene} Audio Ready</p>
                       <audio controls src={sc.narrationAudioUrl} style={{ width: "100%", height: 28 }} />
                     </div>
                   )}
@@ -2146,7 +2142,7 @@ function SeriesPlannerInner() {
         )}
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save</button>
+          <button style={btn(accent)} onClick={saveProject}>Save</button>
           <button style={btn("#ec4899")} onClick={() => setActiveTab("assembly")}>Next: Assembly →</button>
         </div>
       </div>
@@ -2159,7 +2155,7 @@ function SeriesPlannerInner() {
     return (
       <div style={{ padding: 24 }}>
         <div style={{ marginBottom: 16 }}>
-          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>🚀 Assembly</h2>
+          <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>Assembly</h2>
           <p style={{ color: muted, fontSize: 12, margin: "4px 0 0" }}>Assemble individual episodes or the full season</p>
         </div>
 
@@ -2168,7 +2164,7 @@ function SeriesPlannerInner() {
           <div style={{ marginBottom: 12 }}>
             <button onClick={() => setShowCutsPanel(p => !p)}
               style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: `1px solid ${gold}30`, background: showCutsPanel ? `${gold}10` : `${gold}06`, color: gold, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              <span style={{ fontSize: 16 }}>📂</span>
+              <Icon.Folder style={{ width: 16, height: 16, flexShrink: 0 }} />
               <span>Saved Cuts ({savedCuts.length})</span>
               <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
                 {savedCuts.map(c => <span key={c.name} style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: `${gold}20`, color: gold }}>{c.name}</span>)}
@@ -2182,10 +2178,10 @@ function SeriesPlannerInner() {
                     onClick={() => { setAssemblyName(c.name); if (c.videoUrl) setAssembledUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded cut: "${c.name}"`); }}
                     style={{ background: s2, borderRadius: 10, border: `2px solid ${assemblyName === c.name ? gold : border}`, padding: 10, cursor: "pointer" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 13 }}>{c.videoUrl ? "🎬" : "📋"}</span>
+                      {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
                       <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? gold : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
                       <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_series_cuts", JSON.stringify(next)); } catch {} return next; }); }}
-                        style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, fontSize: 10, cursor: "pointer" }}>✕</button>
+                        style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, cursor: "pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                     </div>
                     <p style={{ fontSize: 9, color: muted }}>{new Date(c.savedAt).toLocaleDateString()}</p>
                   </div>
@@ -2217,7 +2213,7 @@ function SeriesPlannerInner() {
                 setLastAction(`Cut "${assemblyName}" saved`);
               }}
               style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
-              💾 Save Cut
+              Save Cut
             </button>
           </div>
         </div>
@@ -2247,7 +2243,7 @@ function SeriesPlannerInner() {
                 <div style={{ display: "flex", gap: 6 }}>
                   {ep.assembledVideoUrl && <a href={ep.assembledVideoUrl} target="_blank" rel="noreferrer" style={{ ...btn(accent), textDecoration: "none", fontSize: 11, padding: "8px 14px" }}>▶ View</a>}
                   <button style={{ ...btn(ready ? purple : "#334"), padding: "8px 14px", fontSize: 11 }} disabled={!ready || assembling} onClick={() => assembleMovie(ep.episodeId)}>
-                    {assembling ? "Assembling…" : ready ? "🚀 Assemble (Video)" : "Not Ready"}
+                    {assembling ? "Assembling…" : ready ? "Assemble (Video)" : "Not Ready"}
                   </button>
                   <button style={{ ...btn(ready ? blue : "#334"), padding: "8px 14px", fontSize: 11 }} disabled={!ready || assembling} onClick={() => assembleEpisode(ep.episodeId)}>
                     {assembling ? "..." : "Hybrid Assemble"}
@@ -2260,14 +2256,14 @@ function SeriesPlannerInner() {
 
         {assembledUrl && (
           <div style={{ ...card, borderColor: `${accent}66`, textAlign: "center" }}>
-            <div style={lbl}>✅ Latest Assembly</div>
+            <div style={lbl}>Latest Assembly</div>
             <video controls src={assembledUrl} style={{ width: "100%", borderRadius: 12, marginBottom: 12 }} />
             <a href={assembledUrl} download style={btn(accent)}>⬇ Download</a>
           </div>
         )}
 
         <div style={{ marginTop: 16 }}>
-          <button style={btn(accent)} onClick={saveProject}>💾 Save Series</button>
+          <button style={btn(accent)} onClick={saveProject}>Save Series</button>
         </div>
       </div>
     );
@@ -2276,14 +2272,12 @@ function SeriesPlannerInner() {
   if (!mounted) return <div style={{ padding: 40, color: muted }}>Loading Series Workshop...</div>;
 
   return (
-    <div style={{ background: s2, minHeight: "100vh", color: "#fff", fontFamily: "inherit" }}>
-      {/* Top bar */}
-      <div style={{ padding: "16px 24px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", gap: 16, background: surface }}>
-        <div style={{ flex: 1 }}>
-          <input style={{ ...inp, fontWeight: 700, fontSize: 16, border: "none", background: "transparent", padding: "4px 0" }} value={seriesTitle} onChange={e => setSeriesTitle(e.target.value)} />
-          <div style={{ fontSize: 11, color: muted, marginTop: 2 }}>{genre} · {platform} · {visualStyle} · {episodes.length} episodes</div>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
+    <div style={{ background: ds.color.paper, minHeight: "100vh", color: "#fff", fontFamily: ds.font.sans }}>
+      {/* Hero + toolbar */}
+      <div style={{ padding: "24px 32px 0" }}>
+        <HeroTitle kicker="Series Studio" title="Series" italic="Planner" sub="Plan your series episodes, characters, scenes, and assembly." />
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 16, marginBottom: 16 }}>
+          <input style={{ ...inp, fontWeight: 700, fontSize: 14, width: 240 }} value={seriesTitle} onChange={e => setSeriesTitle(e.target.value)} placeholder="Series Title" />
           {projectList.length > 0 && (
             <select style={{ ...inp, width: "auto", fontSize: 12 }} value={projectId || ""} onChange={e => {
               if (!e.target.value) return;
@@ -2293,8 +2287,9 @@ function SeriesPlannerInner() {
               {projectList.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
           )}
-          <button style={btn(accent)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "💾 Save"}</button>
-          <button style={btn("#334")} onClick={newProject}>New</button>
+          <button style={btn(accent)} onClick={saveProject} disabled={saving}>{saving ? "Saving…" : "Save"}</button>
+          <button style={{ ...btn(surface), border: `1px solid ${border}`, color: muted }} onClick={newProject}>New</button>
+          <span style={{ fontSize: 11, color: muted, marginLeft: 4, fontFamily: ds.font.mono }}>{genre} · {platform} · {episodes.length} ep</span>
         </div>
       </div>
 
@@ -2304,12 +2299,12 @@ function SeriesPlannerInner() {
       {showAidPicker && (() => {
         const AID_MODELS = AID_VIDEO_MODELS;
         type StyleKey = "all"|"2d"|"3d"|"cartoon"|"realistic";
-        const ADVISER: Record<StyleKey, { icon:string; title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
-          all:      { icon:"🤖", title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
-          "2d":     { icon:"✏️", title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion. Avoid Kling/Runway for 2D.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
-          "3d":     { icon:"🎲", title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead. Start with Kling 1.6 Direct for budget drafts.",                            cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
-          cartoon:  { icon:"🎨", title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                                                   cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
-          realistic:{ icon:"🎬", title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option. Kling 2.5 Direct ★ ($0.10) is best value.",                              cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
+        const ADVISER: Record<StyleKey, { title:string; msg:string; cheapestId:string; bestId:string; bestLabel:string }> = {
+          all:      { title:"All Models",             msg:"Showing all models sorted by price. MuAPI is 40–58% cheaper than FAL for the same quality tier.",                                                     cheapestId:"segmind_pruna_video",  bestId:"fal_kling_3_pro",        bestLabel:"Top Overall" },
+          "2d":     { title:"2D / Illustration Style", msg:"Seedance 2.0 (MuAPI) is the best model for 2D flat animation — clean outlines, flat colour fills, smooth motion. Avoid Kling/Runway for 2D.",       cheapestId:"muapi_seedance_v1_pro", bestId:"muapi_seedance_v2_1080p", bestLabel:"Best 2D" },
+          "3d":     { title:"3D / Cinematic Style",    msg:"Kling 2.5 Direct ★ is the best 3D model — direct API, no FAL overhead. Start with Kling 1.6 Direct for budget drafts.",                            cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_std",  bestLabel:"Best 3D Direct" },
+          cartoon:  { title:"Cartoon / Animated",      msg:"Seedance 2.0 (MuAPI) at $0.08 is the best cartoon model. Hailuo Pro is the best cartoon on FAL.",                                                   cheapestId:"muapi_seedance_v1_pro", bestId:"fal_hailuo_pro",          bestLabel:"Best Cartoon" },
+          realistic:{ title:"Realistic / Photorealistic",msg:"Kling 2.5 Pro Direct ★ ($0.20) is the most realistic direct API option. Kling 2.5 Direct ★ ($0.10) is best value.",                              cheapestId:"kling_direct_v1_5_std", bestId:"kling_direct_v2_5_pro",  bestLabel:"Most Realistic" },
         };
         const adviser = ADVISER[aidStyle];
         const qualityScore = (m: typeof AID_MODELS[0]) => aidStyle === "all" ? (m.scores["2d"]+m.scores["3d"]+m.scores.cartoon+m.scores.realistic)/4 : m.scores[aidStyle as Exclude<StyleKey,"all">];
@@ -2330,12 +2325,12 @@ function SeriesPlannerInner() {
               <div style={{ padding:"16px 20px 12px", borderBottom:"1px solid #1e1a3a", flexShrink:0 }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                   <div style={{ fontSize:14, fontWeight:700, color:"#e2d9f3" }}>AI Model Selector</div>
-                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", fontSize:18, cursor:"pointer" }}>✕</button>
+                  <button onClick={() => setShowAidPicker(false)} style={{ background:"none", border:"none", color:"#666", cursor:"pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width:18, height:18 }} /></button>
                 </div>
                 <div style={{ display:"flex", gap:0, borderRadius:10, overflow:"hidden", border:"1px solid #2a2456", width:"fit-content" }}>
                   {(["video","image"] as const).map(mode => (
                     <button key={mode} onClick={() => setAidMode(mode)} style={{ padding:"7px 24px", border:"none", cursor:"pointer", fontSize:11, fontWeight:800, background:aidMode===mode?(mode==="video"?"#7c3aed":"#0ea5e9"):"#12122a", color:aidMode===mode?"#fff":"#5a4f80", transition:"all 0.15s" }}>
-                      {mode==="video"?"🎬 VIDEO":"🖼 IMAGE"}
+                      {mode==="video"?"VIDEO":"IMAGE"}
                     </button>
                   ))}
                 </div>
@@ -2352,14 +2347,14 @@ function SeriesPlannerInner() {
               {isVideo && (
                 <div style={{ padding:"8px 20px 0", display:"flex", gap:5, alignItems:"center", flexShrink:0 }}>
                   <span style={{ fontSize:8, color:"#3a3060", fontWeight:700, letterSpacing:0.5, marginRight:3 }}>SORT:</span>
-                  {([{key:"cheapest",label:"💰 Cheapest",col:"#22c55e"},{key:"quality",label:"⭐ Quality",col:"#c084fc"},{key:"expensive",label:"👑 Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
+                  {([{key:"cheapest",label:"Cheapest",col:"#22c55e"},{key:"quality",label:"Quality",col:"#c084fc"},{key:"expensive",label:"Premium",col:"#facc15"}] as {key:"cheapest"|"quality"|"expensive";label:string;col:string}[]).map(opt => (
                     <button key={opt.key} onClick={() => setAidSort(opt.key)} style={{ padding:"3px 10px", borderRadius:7, border:aidSort===opt.key?`1.5px solid ${opt.col}`:"1px solid #2a2456", background:aidSort===opt.key?`${opt.col}20`:"#12122a", color:aidSort===opt.key?opt.col:"#4a4070", fontSize:9, fontWeight:700, cursor:"pointer" }}>{opt.label}</button>
                   ))}
                 </div>
               )}
               {isVideo && (
                 <div style={{ margin:"10px 20px 0", padding:"11px 14px", borderRadius:10, background:"#0a0820", border:"1px solid #2a1f5a", flexShrink:0 }}>
-                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.icon} {adviser.title}</div>
+                  <div style={{ fontSize:10, fontWeight:700, color:"#c084fc", marginBottom:4 }}>{adviser.title}</div>
                   <div style={{ fontSize:9, color:"#a08aba", lineHeight:1.6 }}>{adviser.msg}</div>
                   <div style={{ display:"flex", gap:8, marginTop:8 }}>
                     <div style={{ flex:1, background:"#1a1040", borderRadius:8, padding:"6px 10px", border:"1px solid #22c55e40" }}>
