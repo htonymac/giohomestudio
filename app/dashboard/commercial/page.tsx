@@ -2,6 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { ds } from "../../../lib/designSystem";
+import HeroTitle from "../../components/hero/HeroTitle";
+import ButtonPrimary from "../../components/ui/ButtonPrimary";
 import NarrationPanel from "../../components/NarrationPanel";
 import LayerizePanel, { type LayerizeResult } from "../../components/LayerizePanel";
 import NarrationControls, { type NarrationSettings as NarrationControlsSettings } from "../../components/NarrationControls";
@@ -97,39 +100,39 @@ const ASPECT_DIMS: Record<string, { w: number; h: number; label: string }> = {
 };
 
 const ENHANCEMENT_PRESETS = [
-  { id: "cinematic",    label: "🎬 Cinematic",   color: "#7c5cfc" },
-  { id: "hdr",          label: "⚡ HDR",          color: "#fc5c7d" },
-  { id: "natural",      label: "🌿 Natural",      color: "#5cf5c8" },
-  { id: "clean_social", label: "📱 Clean Social", color: "#fcb75c" },
-  { id: "warm_promo",   label: "🔥 Warm Promo",  color: "#fc7d5c" },
+  { id: "cinematic",    label: "Cinematic",   color: ds.color.lilac },
+  { id: "hdr",          label: "HDR",          color: ds.color.pink },
+  { id: "natural",      label: "Natural",      color: ds.color.mint },
+  { id: "clean_social", label: "Clean Social", color: ds.color.gold },
+  { id: "warm_promo",   label: "Warm Promo",  color: ds.color.coral },
 ];
 
 const MOTION_PRESETS = [
-  { id: "random",    label: "🎲 Random" },
-  { id: "auto",      label: "🔄 Cycle" },
-  { id: "zoom-in",   label: "🔍 Zoom In" },
-  { id: "zoom-out",  label: "🔎 Zoom Out" },
-  { id: "pan-left",  label: "⬅️ Pan L" },
-  { id: "pan-right", label: "➡️ Pan R" },
-  { id: "pan-up",    label: "⬆️ Pan Up" },
-  { id: "pan-down",  label: "⬇️ Pan Dn" },
-  { id: "none",      label: "⏸️ Static" },
+  { id: "random",    label: "Random" },
+  { id: "auto",      label: "Cycle" },
+  { id: "zoom-in",   label: "Zoom In" },
+  { id: "zoom-out",  label: "Zoom Out" },
+  { id: "pan-left",  label: "Pan L" },
+  { id: "pan-right", label: "Pan R" },
+  { id: "pan-up",    label: "Pan Up" },
+  { id: "pan-down",  label: "Pan Dn" },
+  { id: "none",      label: "Static" },
 ];
 
 const TRANSITION_TYPES = [
-  { id: "none",        label: "⏸️ None" },
-  { id: "fade",        label: "🌫️ Fade" },
-  { id: "slide-left",  label: "⬅️ Slide" },
-  { id: "slide-right", label: "➡️ Slide" },
-  { id: "zoom-in",     label: "🔍 Zoom" },
+  { id: "none",        label: "None" },
+  { id: "fade",        label: "Fade" },
+  { id: "slide-left",  label: "Slide L" },
+  { id: "slide-right", label: "Slide R" },
+  { id: "zoom-in",     label: "Zoom In" },
 ];
 
 const CAPTION_ANIMATIONS = [
-  { id: "fade-up",      label: "⬆️ Fade Up" },
-  { id: "fade",         label: "🌫️ Fade" },
-  { id: "fly-in-left",  label: "⬅️ Fly In" },
-  { id: "fly-in-right", label: "➡️ Fly In" },
-  { id: "none",         label: "⏸️ Static" },
+  { id: "fade-up",      label: "Fade Up" },
+  { id: "fade",         label: "Fade" },
+  { id: "fly-in-left",  label: "Fly In L" },
+  { id: "fly-in-right", label: "Fly In R" },
+  { id: "none",         label: "Static" },
 ];
 
 const FONT_FAMILIES = [
@@ -138,10 +141,10 @@ const FONT_FAMILIES = [
 
 // ── Shared style atoms ───────────────────────────────────────────────────────
 
-const inputCls = "w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm placeholder-[#3a3a55] focus:outline-none focus:border-[#7c5cfc]";
-const labelCls = "block text-xs text-[#6060a0] mb-1 font-medium";
-const sectionCls = "bg-[#12121e] border border-[#2a2a40] rounded-lg p-3 space-y-3";
-const sectionTitle = "text-xs font-semibold text-[#6060a0] uppercase tracking-widest";
+const inputCls = "w-full bg-[#1a1a1e] border border-[rgba(255,255,255,0.12)] rounded-lg px-3 py-2 text-white text-sm placeholder-[#55555a] focus:outline-none focus:border-[#a78bfa]";
+const labelCls = "block text-xs text-[#7b7b80] mb-1 font-medium";
+const sectionCls = "bg-[#151518] border border-[rgba(255,255,255,0.06)] rounded-lg p-3 space-y-3";
+const sectionTitle = "text-xs font-semibold text-[#7b7b80] uppercase tracking-widest";
 
 // ── Project List ─────────────────────────────────────────────────────────────
 
@@ -165,22 +168,8 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
 
   return (
     <div className="w-full">
-      {/* Hero with background video */}
-      <div className="relative rounded-2xl overflow-hidden mb-8" style={{ minHeight: 200 }}>
-        <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover opacity-20"
-          src="/api/media/intro/demo-commercial-oj.mp4" />
-        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg, rgba(8,11,16,0.92), rgba(255,107,53,0.1))" }} />
-        <div className="relative p-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium mb-4"
-            style={{ background: "rgba(255,107,53,0.1)", border: "1px solid rgba(255,107,53,0.25)", color: "#ff6b35", letterSpacing: 1.5, textTransform: "uppercase" }}>
-            Commercial Studio
-          </div>
-          <h1 className="text-3xl font-extrabold text-white mb-2" style={{ letterSpacing: "-0.5px" }}>Commercial Maker</h1>
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.55)", maxWidth: 500, lineHeight: 1.6 }}>
-            Create professional ad videos, product promos, and property showcases. Upload images, AI builds the slides, narration, music, and renders.
-          </p>
-        </div>
-      </div>
+      {/* Hero */}
+      <HeroTitle kicker="Commercial Studio" title="Commercial" italic="Maker" sub="Create professional ad videos, product promos, and property showcases. Upload images, AI builds the slides, narration, music, and renders." />
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-3">
@@ -216,8 +205,7 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
       {loading ? (
         <p className="text-[#5a7080] text-sm text-center py-12">Loading projects…</p>
       ) : projects.length === 0 ? (
-        <div className="rounded-2xl p-16 text-center" style={{ background: "#0e1318", border: "1px solid #1e2a35" }}>
-          <p className="text-4xl mb-4">📽️</p>
+        <div className="rounded-2xl p-16 text-center" style={{ background: ds.color.card, border: `1px solid ${ds.color.line}` }}>
           <p className="text-white text-base font-semibold mb-2">No commercial projects yet</p>
           <p className="text-xs mb-6" style={{ color: "#5a7080" }}>Mode 1: Build slide-by-slide &middot; Mode 2: Upload footage, AI does the rest</p>
           <button onClick={onNew} className="px-6 py-3 bg-[#ff6b35] hover:bg-[#ff8555] text-white text-sm font-bold rounded-xl transition-colors">
@@ -376,20 +364,20 @@ function NewProjectForm({ onCreated, onCancel }: { onCreated: (p: CommercialProj
   return (
     <div className="w-full max-w-lg mx-auto">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={onCancel} className="text-[#6060a0] hover:text-white transition-colors text-sm">← Back</button>
-        <h2 className="text-xl font-bold text-white">🎬 New Slide Ad Project</h2>
+        <button onClick={onCancel} className="text-[#6060a0] hover:text-white transition-colors text-sm">Back</button>
+        <h2 className="text-xl font-bold text-white">New Slide Ad Project</h2>
       </div>
       <div className={`${sectionCls}`}>
         <div>
-          <label className={labelCls}>📋 Project name *</label>
-          <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. 🏠 City Property Promo April" className={inputCls} />
+          <label className={labelCls}>Project name *</label>
+          <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} placeholder="e.g. City Property Promo April" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>🏷️ Brand / business name</label>
-          <input type="text" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="e.g. ✨ GioHomeStudio" className={inputCls} />
+          <label className={labelCls}>Brand / business name</label>
+          <input type="text" value={brandName} onChange={e => setBrandName(e.target.value)} placeholder="e.g. GioHomeStudio" className={inputCls} />
         </div>
         <div>
-          <label className={labelCls}>📐 Output format</label>
+          <label className={labelCls}>Output format</label>
           <div className="flex gap-2">
             {(["9:16", "16:9", "1:1"] as const).map(ar => (
               <button key={ar} type="button" onClick={() => setAspectRatio(ar)} className={`flex-1 py-2 rounded-lg text-xs font-medium border transition-colors ${
@@ -403,7 +391,7 @@ function NewProjectForm({ onCreated, onCancel }: { onCreated: (p: CommercialProj
         </div>
         {error && <p className="text-red-400 text-xs">{error}</p>}
         <button onClick={handleCreate} disabled={saving} className="w-full py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] disabled:bg-[#2a2a40] disabled:text-[#6060a0] text-white text-sm font-semibold rounded-xl transition-colors">
-          {saving ? "⏳ Creating…" : "🚀 Create Project"}
+          {saving ? "Creating..." : "Create Project"}
         </button>
       </div>
     </div>
@@ -535,7 +523,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
           <div>
             <button onClick={onBack} className="text-[#5a7080] hover:text-white transition-colors text-xs mb-3 block">← Back to projects</button>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-3xl">🤖</span>
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: ds.color.lilac }}>AI</span>
               <div>
                 <h2 className="text-2xl font-extrabold text-white" style={{ letterSpacing: "-0.5px" }}>AI Ad Creator</h2>
                 <p className="text-xs" style={{ color: "#a855f7" }}>Powered by multi-AI intelligence</p>
@@ -582,8 +570,8 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 
       {step === "upload" && (
         <div className={sectionCls}>
-          <p className={sectionTitle}>📸 Step 1 — Upload product images</p>
-          <p className="text-xs text-[#6060a0]">Upload product or promo images (JPG, PNG, WEBP). 🤖 AI will analyse them and pre-fill the details form. Works for any product or service.</p>
+          <p className={sectionTitle}>Step 1 — Upload product images</p>
+          <p className="text-xs text-[#6060a0]">Upload product or promo images (JPG, PNG, WEBP). AI will analyse them and pre-fill the details form. Works for any product or service.</p>
           <div
             className="border-2 border-dashed border-[#2a2a40] hover:border-[#7c5cfc]/50 rounded-xl p-10 text-center cursor-pointer transition-colors"
             onClick={() => fileInputRef.current?.click()}
@@ -592,7 +580,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               <p className="text-[#6060a0] text-sm">{analyzing ? "Analysing with AI…" : "Uploading…"}</p>
             ) : (
               <>
-                <p className="text-3xl mb-2">🖼️</p>
+                <p className="text-3xl mb-2">️</p>
                 <p className="text-white text-sm font-medium">Click to upload product images</p>
                 <p className="text-xs text-[#6060a0] mt-1">JPG · PNG · WEBP — multiple files supported</p>
               </>
@@ -606,21 +594,21 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         <div className="space-y-4">
           <div className={sectionCls}>
             <div className="flex items-center justify-between">
-              <p className={sectionTitle}>🛒 Step 2 — Product / ad details</p>
-              {analysis && <span className="text-[10px] text-[#7c5cfc] font-medium">🤖 AI pre-filled ✅</span>}
+              <p className={sectionTitle}>Step 2 — Product / ad details</p>
+              {analysis && <span className="text-[10px] text-[#7c5cfc] font-medium">AI pre-filled ✅</span>}
             </div>
-            <p className="text-xs text-[#6060a0]">🖼️ {savedFiles.length} image{savedFiles.length !== 1 ? "s" : ""} uploaded ✅ — correct any details below.</p>
+            <p className="text-xs text-[#6060a0]">️ {savedFiles.length} image{savedFiles.length !== 1 ? "s" : ""} uploaded ✅ — correct any details below.</p>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>🛒 Product / service type</label>
+                <label className={labelCls}>Product / service type</label>
                 <select value={form.productType} onChange={e => setF("productType", e.target.value)} className="w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c5cfc]">
                   <option value="">Select…</option>
                   {PRODUCT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </div>
               <div>
-                <label className={labelCls}>🎭 Ad tone</label>
+                <label className={labelCls}>Ad tone</label>
                 <select value={form.tone} onChange={e => setF("tone", e.target.value)} className="w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c5cfc]">
                   {["Luxury","Professional","Energetic","Friendly","Urgent"].map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -628,8 +616,8 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
             </div>
 
             <div>
-              <label className={labelCls}>🎯 Product / service name</label>
-              <input type="text" value={form.productName} onChange={e => setF("productName", e.target.value)} placeholder="e.g. 🎯 GioStudio Pro · 🍜 Chef's Special · 🏠 3BR Apartment" className={inputCls} />
+              <label className={labelCls}>Product / service name</label>
+              <input type="text" value={form.productName} onChange={e => setF("productName", e.target.value)} placeholder="e.g. GioStudio Pro · Chef's Special · 3BR Apartment" className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>⭐ Key features / benefits</label>
@@ -637,44 +625,44 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
                 value={form.features}
                 onChange={e => setF("features", e.target.value)}
                 rows={3}
-                placeholder={"🚚 Fast delivery\n✅ 30-day free trial\n💯 No hidden fees"}
+                placeholder={"Fast delivery\n✅ 30-day free trial\nNo hidden fees"}
                 className={inputCls}
                 style={{ resize: "vertical" }}
               />
-              <p className="text-[10px] text-[#404060] mt-1">💡 One per line or comma-separated — both work</p>
+              <p className="text-[10px] text-[#404060] mt-1">One per line or comma-separated — both work</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>💰 Price (optional)</label>
-                <input type="text" value={form.price} onChange={e => setF("price", e.target.value)} placeholder="e.g. 💰 ₦5,000 / $29/mo" className={inputCls} />
+                <label className={labelCls}>Price (optional)</label>
+                <input type="text" value={form.price} onChange={e => setF("price", e.target.value)} placeholder="e.g. ₦5,000 / $29/mo" className={inputCls} />
               </div>
               <div>
-                <label className={labelCls}>🔥 Special offer (optional)</label>
-                <input type="text" value={form.offer} onChange={e => setF("offer", e.target.value)} placeholder="e.g. 🔥 50% off this week!" className={inputCls} />
+                <label className={labelCls}>Special offer (optional)</label>
+                <input type="text" value={form.offer} onChange={e => setF("offer", e.target.value)} placeholder="e.g. 50% off this week!" className={inputCls} />
               </div>
             </div>
             <div>
-              <label className={labelCls}>🌐 Website (optional)</label>
-              <input type="text" value={form.website} onChange={e => setF("website", e.target.value)} placeholder="e.g. 🌐 giostudio.com" className={inputCls} />
+              <label className={labelCls}>Website (optional)</label>
+              <input type="text" value={form.website} onChange={e => setF("website", e.target.value)} placeholder="e.g. giostudio.com" className={inputCls} />
             </div>
           </div>
 
           <div className={sectionCls}>
-            <p className={sectionTitle}>🏷️ Brand & contact</p>
+            <p className={sectionTitle}>️ Brand & contact</p>
             <div>
-              <label className={labelCls}>🏢 Company / brand name *</label>
-              <input type="text" value={form.companyName} onChange={e => setF("companyName", e.target.value)} placeholder="e.g. 🏷️ GioHomeStudio" className={inputCls} />
+              <label className={labelCls}>Company / brand name *</label>
+              <input type="text" value={form.companyName} onChange={e => setF("companyName", e.target.value)} placeholder="e.g. ️ GioHomeStudio" className={inputCls} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>📲 Contact via</label>
+                <label className={labelCls}>Contact via</label>
                 <select value={form.contactMethod} onChange={e => setF("contactMethod", e.target.value)} className="w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c5cfc]">
                   {["whatsapp","call","telegram","email","website","DM"].map(m => <option key={m} value={m} className="capitalize">{m.charAt(0).toUpperCase() + m.slice(1)}</option>)}
                 </select>
               </div>
               <div>
-                <label className={labelCls}>📞 Contact detail</label>
-                <input type="text" value={form.contact} onChange={e => setF("contact", e.target.value)} placeholder="📞 +234 xxx / @handle / link" className={inputCls} />
+                <label className={labelCls}>Contact detail</label>
+                <input type="text" value={form.contact} onChange={e => setF("contact", e.target.value)} placeholder="+234 xxx / @handle / link" className={inputCls} />
               </div>
             </div>
             <div>
@@ -690,7 +678,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
           </div>
 
           <button onClick={handleGenerateScript} disabled={generating} className="w-full py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] disabled:bg-[#2a2a40] disabled:text-[#6060a0] text-white text-sm font-semibold rounded-xl transition-colors">
-            {generating ? "🧠 Generating script with AI…" : "🎤 Generate voiceover script →"}
+            {generating ? "Generating script with AI…" : "Generate voiceover script →"}
           </button>
         </div>
       )}
@@ -699,16 +687,16 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         <div className="space-y-4">
           <div className={sectionCls}>
             <div className="flex items-center justify-between">
-              <p className={sectionTitle}>🎤 Step 3 — Review voiceover script</p>
+              <p className={sectionTitle}>Step 3 — Review voiceover script</p>
               <button onClick={() => setStep("form")} className="text-xs text-[#6060a0] hover:text-white transition-colors">← Edit details</button>
             </div>
-            <p className="text-xs text-[#6060a0]">✏️ Edit the script before building. This will be 🎤 spoken by AI voiceover on the final video.</p>
+            <p className="text-xs text-[#6060a0]">✏️ Edit the script before building. This will be spoken by AI voiceover on the final video.</p>
             <textarea
               value={script}
               onChange={e => setScript(e.target.value)}
               rows={8}
               className={`${inputCls} resize-vertical font-sans`}
-              placeholder="🎤 Voiceover script will appear here…"
+              placeholder="Voiceover script will appear here…"
             />
             <div className="flex gap-2">
               <button
@@ -740,10 +728,10 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 
       {step === "render" && (
         <div className={sectionCls}>
-          <p className={sectionTitle}>🚀 Step 4 — Build the ad</p>
+          <p className={sectionTitle}>Step 4 — Build the ad</p>
           <div className="text-center py-6 space-y-3">
-            <p className="text-4xl">🎬</p>
-            <p className="text-white font-medium text-sm">🎯 Ready to build your ad!</p>
+            <p className="text-4xl"></p>
+            <p className="text-white font-medium text-sm">Ready to build your ad!</p>
             <p className="text-xs text-[#6060a0]">
               {savedFiles.length} image{savedFiles.length !== 1 ? "s" : ""} · {script.split(" ").length} words · {form.duration}s target
             </p>
@@ -751,14 +739,14 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               {script}
             </div>
             <p className="text-xs text-[#5050b0]">
-              🖼️ One slide per image · 📝 script attached · 🎨 add captions · then hit 🚀 Render — your ad is live!
+              ️ One slide per image · script attached · add captions · then hit Render — your ad is live!
             </p>
             <button
               onClick={handleBuildAd}
               disabled={building}
               className="w-full py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] disabled:bg-[#2a2a40] disabled:text-[#6060a0] text-white text-sm font-semibold rounded-xl transition-colors"
             >
-              {building ? "⏳ Building slides…" : "🎬 Build AI Ad →"}
+              {building ? "⏳ Building slides…" : "Build AI Ad →"}
             </button>
           </div>
         </div>
@@ -783,12 +771,12 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
   // Piper TTS voice selection
   const piperVoices = [
-    { id: "en_US-lessac-medium",   name: "👩 Lessac (US Female)" },
-    { id: "en_US-amy-medium",      name: "👩 Amy (US Female, Warm)" },
-    { id: "en_US-ryan-medium",     name: "👨 Ryan (US Male, Clear)" },
-    { id: "en_US-arctic-medium",   name: "👨 Arctic (US Male, Deep)" },
-    { id: "en_GB-alan-medium",     name: "👨 Alan (British Male)" },
-    { id: "en_GB-alba-medium",     name: "👩 Alba (British Female)" },
+    { id: "en_US-lessac-medium",   name: "Lessac (US Female)" },
+    { id: "en_US-amy-medium",      name: "Amy (US Female, Warm)" },
+    { id: "en_US-ryan-medium",     name: "Ryan (US Male, Clear)" },
+    { id: "en_US-arctic-medium",   name: "Arctic (US Male, Deep)" },
+    { id: "en_GB-alan-medium",     name: "Alan (British Male)" },
+    { id: "en_GB-alba-medium",     name: "Alba (British Female)" },
   ];
   const [selectedPiperVoice, setSelectedPiperVoice] = useState("en_US-lessac-medium");
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
@@ -1289,7 +1277,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             canRender ? "bg-[#7c5cfc] hover:bg-[#9070ff] text-white" : "bg-[#1a1a2e] text-[#404060] cursor-not-allowed"
           }`}
         >
-          {renderStatus === "rendering" ? "⏳ Rendering…" : "🚀 Render"}
+          {renderStatus === "rendering" ? "⏳ Rendering…" : "Render"}
         </button>
       </div>
 
@@ -1318,7 +1306,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
         }`}>
           {renderMsg}
           {renderStatus === "done" && project.contentItemId && (
-            <a href={`/dashboard/content/${project.contentItemId}`} className="ml-2 underline opacity-70">🎬 View in Review →</a>
+            <a href={`/dashboard/content/${project.contentItemId}`} className="ml-2 underline opacity-70">View in Review →</a>
           )}
         </div>
       )}
@@ -1344,7 +1332,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
       {/* Order suggestion banner */}
       {orderSuggestion && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-[#7c5cfc]/10 border border-[#7c5cfc]/30 text-xs text-[#b090ff] flex-shrink-0 flex items-start justify-between gap-2">
-          <span>💡 AI suggests: {orderSuggestion.reasoning}</span>
+          <span>AI suggests: {orderSuggestion.reasoning}</span>
           <div className="flex gap-2 shrink-0">
             <button onClick={applyOrderSuggestion} className="px-2 py-0.5 bg-[#7c5cfc]/30 hover:bg-[#7c5cfc]/50 rounded text-xs font-medium transition-colors">Apply</button>
             <button onClick={() => setOrderSuggestion(null)} className="text-[#6060a0] hover:text-white transition-colors">✕</button>
@@ -1366,7 +1354,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 title="Ask AI for best slide order"
                 className="text-[10px] text-[#7c5cfc] hover:text-[#9070ff] disabled:text-[#3a3a55] transition-colors font-medium"
               >
-                {suggestingOrder ? "🧠…" : "🤖 AI order"}
+                {suggestingOrder ? "…" : "AI order"}
               </button>
               <button
                 onClick={() => batchImportRef.current?.click()}
@@ -1453,14 +1441,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     {/* CTA badge indicator on last slide */}
                     {selectedSlide.slideOrder === project.slides.length && project.ctaMethod && project.ctaValue && (
                       <div className="absolute top-2 right-2">
-                        <span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded font-medium">📣 CTA</span>
+                        <span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded font-medium">CTA</span>
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-2 cursor-pointer w-full h-full items-center justify-center" onClick={() => fileRef.current?.click()}>
                     <div className="w-10 h-10 rounded-full bg-[#1a1a2e] border border-[#2a2a40] flex items-center justify-center text-[#6060a0] text-lg">+</div>
-                    <p className="text-xs text-[#6060a0]">📸 Click to upload image</p>
+                    <p className="text-xs text-[#6060a0]">Click to upload image</p>
                   </div>
                 )}
               </div>
@@ -1469,7 +1457,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
               <div className="flex items-center gap-2 flex-wrap justify-center">
                 <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-4 py-1.5 text-xs font-medium rounded-lg border border-[#2a2a40] text-[#6060a0] hover:border-[#7c5cfc]/50 hover:text-white transition-colors">
-                  {uploading ? "⏳ Uploading…" : selectedSlide.imagePath ? "🔄 Replace image" : "📸 Upload image"}
+                  {uploading ? "⏳ Uploading…" : selectedSlide.imagePath ? "Replace image" : "Upload image"}
                 </button>
                 <button
                   disabled={aiImageLoading || !selectedSlide.captionOriginal?.trim()}
@@ -1500,13 +1488,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 transition-colors"
                   title="Generate AI image from caption text"
                 >
-                  {aiImageLoading ? "🧠 Generating…" : "🧠 AI Generate"}
+                  {aiImageLoading ? "Generating…" : "AI Generate"}
                 </button>
                 <button
                   onClick={() => setAssetPickerOpen("image")}
                   className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 transition-colors"
                 >
-                  📦 Library
+                  Library
                 </button>
                 <button
                   disabled={aiImageLoading || !selectedSlide.captionOriginal?.trim()}
@@ -1565,7 +1553,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     className="px-3 py-1.5 text-xs font-medium rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/30 disabled:opacity-40 transition-colors"
                     title="Extract text layers — edit text without regenerating the image (Ideogram Layerize)"
                   >
-                    🔤 Edit Text Layers
+                    Edit Text Layers
                   </button>
                 )}
                 {selectedSlide.imagePath && (
@@ -1600,7 +1588,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       disabled={uploading}
                       className="px-3 py-1.5 text-xs font-medium rounded-lg border border-red-900/40 text-red-500/60 hover:text-red-400 hover:border-red-500/50 transition-colors"
                       title="Remove image"
-                    >🗑️ Clear</button>
+                    >️ Clear</button>
                     <button
                       disabled={readImageState?.loading}
                       onClick={async () => {
@@ -1617,9 +1605,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         }
                       }}
                       className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#7c5cfc]/40 text-[#b090ff] hover:bg-[#7c5cfc]/15 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      title="🤖 Analyze image and generate caption + narration"
+                      title="Analyze image and generate caption + narration"
                     >
-                      {readImageState?.loading && readImageState.slideId === selectedSlide.id ? "👁️ Reading…" : "👁️ Read Image"}
+                      {readImageState?.loading && readImageState.slideId === selectedSlide.id ? "️ Reading…" : "️ Read Image"}
                     </button>
                   </>
                 )}
@@ -1644,7 +1632,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     </>
                   ) : (
                     <>
-                      <p className="text-[10px] text-[#7c5cfc] font-semibold uppercase tracking-wider">🤖 AI image read</p>
+                      <p className="text-[10px] text-[#7c5cfc] font-semibold uppercase tracking-wider">AI image read</p>
                       {readImageState.caption && (
                         <div>
                           <p className="text-[10px] text-[#6060a0] mb-0.5">Caption</p>
@@ -1683,11 +1671,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </div>
               )}
 
-              <p className="text-[11px] text-[#404060] text-center">📐 {dims.label} · ⏱️ {selectedSlide.durationMs / 1000}s</p>
+              <p className="text-[11px] text-[#404060] text-center">{dims.label} · ⏱️ {selectedSlide.durationMs / 1000}s</p>
             </div>
           ) : (
             <div className="text-center">
-              <p className="text-[#6060a0] text-sm">👈 Select or add a slide to begin</p>
+              <p className="text-[#6060a0] text-sm">Select or add a slide to begin</p>
             </div>
           )}
         </div>
@@ -1709,13 +1697,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               {/* Slide header */}
               <div className="flex items-center justify-between">
                 <p className={sectionTitle}>Slide {selectedSlide.slideOrder}</p>
-                <button onClick={() => deleteSlide(selectedSlide.id)} className="text-xs text-red-500/60 hover:text-red-400 transition-colors">🗑️ Remove</button>
+                <button onClick={() => deleteSlide(selectedSlide.id)} className="text-xs text-red-500/60 hover:text-red-400 transition-colors">️ Remove</button>
               </div>
 
               {/* Caption */}
               <div className={sectionCls}>
                 <div className="flex items-center gap-1.5 justify-between">
-                  <p className={sectionTitle}>🏷️ Caption</p>
+                  <p className={sectionTitle}>️ Caption</p>
                   <div className="flex items-center gap-1">
                     <select
                       value={translateLang}
@@ -1768,14 +1756,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   value={selectedSlide.captionOriginal ?? ""}
                   onChange={e => patchSlide(selectedSlide.id, { captionOriginal: e.target.value })}
                   rows={3}
-                  placeholder="🏷️ Short punchy headline for this slide…"
+                  placeholder="️ Short punchy headline for this slide…"
                   className={inputCls}
                   style={{ resize: "vertical" }}
                 />
 
                 {/* Caption position */}
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[10px] text-[#6060a0] mr-1">📍 Position:</span>
+                  <span className="text-[10px] text-[#6060a0] mr-1">Position:</span>
                   {(["top", "center", "bottom"] as const).map(pos => (
                     <button key={pos} type="button"
                       onClick={() => patchSlideEnhancement(selectedSlide.id, { captionPosition: pos })}
@@ -1789,7 +1777,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
                 {/* Caption style preset */}
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[10px] text-[#6060a0] mr-1 flex-shrink-0">🎨 Style:</span>
+                  <span className="text-[10px] text-[#6060a0] mr-1 flex-shrink-0">Style:</span>
                   {(["realEstate", "luxury", "promo", "minimal"] as const).map(p => (
                     <button key={p} type="button"
                       onClick={() => patchSlideEnhancement(selectedSlide.id, { captionPreset: p })}
@@ -1797,7 +1785,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         (selectedSlide.enhancementSettings?.captionPreset ?? "realEstate") === p
                           ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10"
                           : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
-                      }`}>{p === "realEstate" ? "🏠 Real Est." : p === "luxury" ? "💎 Luxury" : p === "promo" ? "🔥 Promo" : "✦ Minimal"}</button>
+                      }`}>{p === "realEstate" ? "Real Est." : p === "luxury" ? "Luxury" : p === "promo" ? "Promo" : "✦ Minimal"}</button>
                   ))}
                 </div>
 
@@ -1824,7 +1812,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 )}
                 {translateState && !translateState.loading && translateState.slideId === selectedSlide.id && translateState.field === "caption" && translateState.translated && (
                   <div className="border border-blue-800/30 rounded-lg p-2.5 space-y-2 bg-blue-950/10">
-                    <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">🌐 Translation</p>
+                    <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">Translation</p>
                     <p className="text-xs text-white leading-snug">{translateState.translated}</p>
                     <div className="flex gap-2">
                       <button onClick={() => { patchSlide(selectedSlide.id, { captionOriginal: translateState.translated }); setTranslateState(null); }} className="flex-1 py-1 rounded-lg text-[11px] font-medium bg-blue-900/40 border border-blue-700/40 text-blue-400 hover:bg-blue-900/60 transition-colors">Use</button>
@@ -1839,9 +1827,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
               {/* Font controls */}
               <div className={sectionCls}>
-                <p className={sectionTitle}>🔤 Font</p>
+                <p className={sectionTitle}>Font</p>
                 <div>
-                  <label className={labelCls}>🔤 Font family</label>
+                  <label className={labelCls}>Font family</label>
                   <select
                     value={selectedSlide.enhancementSettings?.fontFamily ?? "Inter"}
                     onChange={e => patchSlideEnhancement(selectedSlide.id, { fontFamily: e.target.value })}
@@ -1852,7 +1840,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </div>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <label className={labelCls}>📏 Size: {selectedSlide.enhancementSettings?.fontSize ?? 12}px</label>
+                    <label className={labelCls}>Size: {selectedSlide.enhancementSettings?.fontSize ?? 12}px</label>
                     <input
                       type="range" min={8} max={48} step={1}
                       value={selectedSlide.enhancementSettings?.fontSize ?? 12}
@@ -1880,7 +1868,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               {/* Narration */}
               <div className={sectionCls}>
                 <div className="flex items-center gap-1.5 justify-between">
-                  <p className={sectionTitle}>🎤 Narration</p>
+                  <p className={sectionTitle}>Narration</p>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
@@ -1915,7 +1903,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   value={selectedSlide.narrationLine ?? ""}
                   onChange={e => patchSlide(selectedSlide.id, { narrationLine: e.target.value })}
                   rows={2}
-                  placeholder="🎤 What the narrator says during this slide…"
+                  placeholder="What the narrator says during this slide…"
                   className={inputCls}
                   style={{ resize: "vertical" }}
                 />
@@ -1942,7 +1930,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 )}
                 {translateState && !translateState.loading && translateState.slideId === selectedSlide.id && translateState.field === "narration" && translateState.translated && (
                   <div className="border border-blue-800/30 rounded-lg p-2.5 space-y-2 bg-blue-950/10">
-                    <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">🌐 Translation</p>
+                    <p className="text-[10px] text-blue-400 font-semibold uppercase tracking-wider">Translation</p>
                     <p className="text-xs text-white leading-snug">{translateState.translated}</p>
                     <div className="flex gap-2">
                       <button onClick={() => { patchSlide(selectedSlide.id, { narrationLine: translateState.translated }); setTranslateState(null); }} className="flex-1 py-1 rounded-lg text-[11px] font-medium bg-blue-900/40 border border-blue-700/40 text-blue-400 hover:bg-blue-900/60 transition-colors">Use</button>
@@ -1975,7 +1963,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   <div className="flex justify-between text-[10px] text-[#404060]"><span>1s</span><span>10s</span></div>
                 </div>
                 <div>
-                  <label className={labelCls}>📐 Orientation</label>
+                  <label className={labelCls}>Orientation</label>
                   <div className="flex gap-1.5">
                     {(["auto", "portrait", "landscape"] as const).map(o => (
                       <button key={o} onClick={() => patchSlideEnhancement(selectedSlide.id, { orientation: o })}
@@ -1987,7 +1975,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     ))}
                   </div>
                   {(selectedSlide.enhancementSettings?.orientation === "portrait") && (
-                    <p className="text-[10px] text-[#7c5cfc] mt-1">🖼️ Portrait: blur fill applied — no stretching</p>
+                    <p className="text-[10px] text-[#7c5cfc] mt-1">️ Portrait: blur fill applied — no stretching</p>
                   )}
                 </div>
               </div>
@@ -1995,7 +1983,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               {/* Enhancement */}
               <div className={sectionCls}>
                 <div className="flex items-center justify-between">
-                  <p className={sectionTitle}>🎨 Enhancement</p>
+                  <p className={sectionTitle}>Enhancement</p>
                   <button onClick={() => setShowSmartPro(v => !v)} className="text-[10px] text-[#7c5cfc] hover:text-[#9070ff] transition-colors">
                     {showSmartPro ? "Simple ▲" : "Smart Pro ▼"}
                   </button>
@@ -2043,7 +2031,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       </div>
                     ))}
                     <div>
-                      <label className="text-[10px] text-[#6060a0]">🌈 Tint</label>
+                      <label className="text-[10px] text-[#6060a0]">Tint</label>
                       <div className="flex gap-1.5 mt-1">
                         {["none","warm","cool","golden","blue"].map(t => (
                           <button key={t} onClick={() => patchSlideEnhancement(selectedSlide.id, { tint: t })}
@@ -2053,7 +2041,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] text-[#6060a0]">🎭 Tone</label>
+                      <label className="text-[10px] text-[#6060a0]">Tone</label>
                       <div className="flex gap-1.5 mt-1">
                         {["cinematic","warm","cool","vintage"].map(t => (
                           <button key={t} onClick={() => patchSlideEnhancement(selectedSlide.id, { tone: t })}
@@ -2068,11 +2056,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
               {/* Motion & Caption Animation */}
               <div className={sectionCls}>
-                <p className={sectionTitle}>🎬 Motion & Animation</p>
+                <p className={sectionTitle}>Motion & Animation</p>
 
                 {/* Image motion */}
                 <div>
-                  <label className={labelCls}>🖼️ Image Motion (Ken Burns)</label>
+                  <label className={labelCls}>️ Image Motion (Ken Burns)</label>
                   <div className="grid grid-cols-4 gap-1">
                     {MOTION_PRESETS.map(mp => (
                       <button key={mp.id} type="button"
@@ -2107,7 +2095,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 {/* Font size scale */}
                 <div>
                   <label className={labelCls}>
-                    🔡 Caption size: {Math.round((selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7) * 100)}%
+                    Caption size: {Math.round((selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7) * 100)}%
                   </label>
                   <input
                     type="range" min={0.3} max={1.5} step={0.05}
@@ -2121,7 +2109,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 {/* Show narration as subtitle */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-xs text-white font-medium">📝 Show narration on screen</p>
+                    <p className="text-xs text-white font-medium">Show narration on screen</p>
                     <p className="text-[10px] text-[#6060a0]">Displays narration line as subtitle text</p>
                   </div>
                   <button
@@ -2148,19 +2136,19 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             </>
           ) : (
             <div className="text-center py-8">
-              <p className="text-xs text-[#404060]">👆 Select a slide to edit</p>
+              <p className="text-xs text-[#404060]">Select a slide to edit</p>
             </div>
           )}
 
           {/* ── Character ── */}
           <div className={sectionCls}>
-            <p className={sectionTitle}>🎭 Character</p>
+            <p className={sectionTitle}>Character</p>
             {assignedCharacter ? (
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0d0d1a", border: "1px solid #1e2a35", borderRadius: 10, padding: "8px 10px" }}>
                 {assignedCharacter.imageUrl ? (
                   <img src={assignedCharacter.imageUrl} alt={assignedCharacter.name} style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", border: "1px solid #1e2a35" }} />
                 ) : (
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e2a35", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}>🎭</div>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: "#1e2a35", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16 }}></div>
                 )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 12, fontWeight: 600, color: "#dde4f0", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{assignedCharacter.name}</p>
@@ -2204,25 +2192,25 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             <p className={sectionTitle}>⚙️ Project</p>
 
             <div>
-              <label className={labelCls}>🏷️ Brand name</label>
-              <input type="text" value={project.brandName ?? ""} onChange={async e => patchProject({ brandName: e.target.value || null })} placeholder="🏷️ Your brand name" className={inputCls} />
+              <label className={labelCls}>️ Brand name</label>
+              <input type="text" value={project.brandName ?? ""} onChange={async e => patchProject({ brandName: e.target.value || null })} placeholder="️ Your brand name" className={inputCls} />
             </div>
 
             {/* Global enhancement level */}
             <div>
-              <label className={labelCls}>🎨 Global enhancement: {project.enhancementLevel ?? 50}</label>
+              <label className={labelCls}>Global enhancement: {project.enhancementLevel ?? 50}</label>
               <input
                 type="range" min={1} max={100} step={1}
                 value={project.enhancementLevel ?? 50}
                 onChange={e => patchProject({ enhancementLevel: Number(e.target.value) })}
                 className="w-full accent-[#7c5cfc]"
               />
-              <p className="text-[10px] text-[#404060] mt-0.5">🎨 Applied to all slides — override per-slide for fine control</p>
+              <p className="text-[10px] text-[#404060] mt-0.5">Applied to all slides — override per-slide for fine control</p>
             </div>
 
             {/* Music selection */}
             <div>
-              <label className={labelCls}>🎵 Background music</label>
+              <label className={labelCls}>Background music</label>
               {project.musicPath ? (
                 <div className="flex items-center gap-2 mt-1">
                   <div className="flex-1 min-w-0 bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-xs text-[#b090ff] truncate">
@@ -2252,14 +2240,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     onClick={openMusicLibrary}
                     className="flex-1 py-2 rounded-lg border border-[#3a3a60] text-[#6060a0] hover:border-[#7c5cfc] hover:text-[#b090ff] text-xs transition-colors"
                   >
-                    📚 Stock
+                    Stock
                   </button>
                   <button
                     type="button"
                     onClick={() => setAssetPickerOpen("music")}
                     className="flex-1 py-2 rounded-lg border border-[#7c5cfc]/30 text-[#b090ff] hover:bg-[#7c5cfc]/10 text-xs transition-colors"
                   >
-                    📦 Saved
+                    Saved
                   </button>
                 </div>
               )}
@@ -2279,14 +2267,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               {showMusicLibrary && (
                 <div className="mt-2 border border-[#2a2a40] rounded-lg bg-[#0d0d1a] p-2.5 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-semibold text-[#7c5cfc] uppercase tracking-wider">🎵 Stock library</p>
+                    <p className="text-[10px] font-semibold text-[#7c5cfc] uppercase tracking-wider">Stock library</p>
                     <button onClick={() => setShowMusicLibrary(false)} className="text-[#6060a0] hover:text-white text-xs">✕</button>
                   </div>
 
                   {musicLibraryLoading ? (
                     <p className="text-[10px] text-[#6060a0]">Loading…</p>
                   ) : musicLibrary.length === 0 ? (
-                    <p className="text-[10px] text-[#6060a0]">🎵 No stock tracks yet — download some below ⬇️</p>
+                    <p className="text-[10px] text-[#6060a0]">No stock tracks yet — download some below ⬇️</p>
                   ) : (
                     <div className="max-h-40 overflow-y-auto space-y-1">
                       {musicLibrary.map(t => (
@@ -2304,14 +2292,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
                   {/* Download from Pixabay */}
                   <div className="border-t border-[#2a2a40] pt-2 space-y-1.5">
-                    <p className="text-[10px] text-[#6060a0]">🔍 Search Pixabay (PIXABAY_API_KEY) or paste a direct .mp3 URL 🎵:</p>
+                    <p className="text-[10px] text-[#6060a0]">Search Pixabay (PIXABAY_API_KEY) or paste a direct .mp3 URL :</p>
                     <div className="flex gap-1.5">
                       <input
                         type="text"
                         value={musicDownloadQuery}
                         onChange={e => setMusicDownloadQuery(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") handleMusicDownload(musicDownloadQuery); }}
-                        placeholder="🎵 e.g. cinematic epic  or  https://…/track.mp3"
+                        placeholder="e.g. cinematic epic  or  https://…/track.mp3"
                         className="flex-1 min-w-0 bg-[#12121e] border border-[#2a2a40] rounded px-2 py-1 text-white text-[11px] placeholder-[#3a3a55] focus:outline-none focus:border-[#7c5cfc]"
                       />
                       <button
@@ -2327,13 +2315,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               )}
 
               <p className="text-[10px] text-[#404060] mt-0.5">
-                {project.musicPath ? `🎵 ${project.musicSource === "uploaded" ? "Custom" : "Library"} track — mixed with narration at the volume below` : "🎵 No music selected — system will auto-generate background music"}
+                {project.musicPath ? `${project.musicSource === "uploaded" ? "Custom" : "Library"} track — mixed with narration at the volume below` : "No music selected — system will auto-generate background music"}
               </p>
             </div>
 
             {/* Music volume */}
             <div>
-              <label className={labelCls}>🎵 Music volume: {Math.round(project.musicVolume * 100)}%</label>
+              <label className={labelCls}>Music volume: {Math.round(project.musicVolume * 100)}%</label>
               <input
                 type="range" min={0} max={1} step={0.05}
                 value={project.musicVolume}
@@ -2344,7 +2332,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
             {/* Narration volume */}
             <div>
-              <label className={labelCls}>🎤 Narration volume: {Math.round(project.narrationVolume * 100)}%</label>
+              <label className={labelCls}>Narration volume: {Math.round(project.narrationVolume * 100)}%</label>
               <input
                 type="range" min={0} max={2} step={0.05}
                 value={project.narrationVolume}
@@ -2388,14 +2376,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
             {/* Render Quality */}
             <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
-              <p className="text-[11px] text-white font-semibold">🎞️ Video Quality</p>
+              <p className="text-[11px] text-white font-semibold">️ Video Quality</p>
               <p className="text-[10px] text-[#6060a0]">Higher quality = sharper image, longer render time, larger file.</p>
               <div className="grid grid-cols-4 gap-1">
                 {[
                   { id: "draft",    label: "⚡ Draft",    note: "Fast preview" },
-                  { id: "standard", label: "📺 Standard", note: "Good balance" },
-                  { id: "high",     label: "🎯 High",     note: "Sharp + crisp" },
-                  { id: "cinema",   label: "🎬 Cinema",   note: "Max quality" },
+                  { id: "standard", label: "Standard", note: "Good balance" },
+                  { id: "high",     label: "High",     note: "Sharp + crisp" },
+                  { id: "cinema",   label: "Cinema",   note: "Max quality" },
                 ].map(q => (
                   <button key={q.id} type="button"
                     onClick={() => patchProject({ renderQuality: q.id })}
@@ -2412,19 +2400,19 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               </div>
               <div className="text-[10px] text-[#404060] space-y-0.5">
                 <p>⚡ Draft — CRF 26, fast encode</p>
-                <p>📺 Standard — CRF 20, medium (default)</p>
-                <p>🎯 High — CRF 16, slow + sharpening</p>
-                <p>🎬 Cinema — CRF 12, slow + strong sharpening</p>
+                <p>Standard — CRF 20, medium (default)</p>
+                <p>High — CRF 16, slow + sharpening</p>
+                <p>Cinema — CRF 12, slow + strong sharpening</p>
               </div>
             </div>
 
             {/* Global Caption Position */}
             <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
-              <p className="text-[11px] text-white font-semibold">📍 Caption Position — All Slides</p>
+              <p className="text-[11px] text-white font-semibold">Caption Position — All Slides</p>
               <p className="text-[10px] text-[#6060a0]">Sets caption position on every slide at once. Overrides per-slide setting.</p>
               <div className="flex gap-1.5">
                 {[
-                  { id: null,       label: "🔀 Per-slide" },
+                  { id: null,       label: "Per-slide" },
                   { id: "top",      label: "⬆️ Top" },
                   { id: "center",   label: "⏺️ Center" },
                   { id: "bottom",   label: "⬇️ Bottom" },
@@ -2443,7 +2431,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
             {/* Slide Transitions */}
             <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
-              <p className="text-[11px] text-white font-semibold">🎬 Slide Transitions</p>
+              <p className="text-[11px] text-white font-semibold">Slide Transitions</p>
               <p className="text-[10px] text-[#6060a0]">Effect between slides when rendering. Motion effects are controlled per-slide above.</p>
               <div className="grid grid-cols-5 gap-1">
                 {TRANSITION_TYPES.map(t => (
@@ -2473,11 +2461,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
             {/* Caption AI limits */}
             <div className="border border-[#2a2a40] rounded-lg p-3 space-y-2 bg-[#0a0a18]">
-              <p className="text-[11px] text-white font-semibold">🤖 Caption AI limits</p>
-              <p className="text-[10px] text-[#6060a0]">AI generates captions up to these limits. 🎤 Narration is always unlimited.</p>
+              <p className="text-[11px] text-white font-semibold">Caption AI limits</p>
+              <p className="text-[10px] text-[#6060a0]">AI generates captions up to these limits. Narration is always unlimited.</p>
               <div className="flex gap-2">
                 <div className="flex-1">
-                  <label className={labelCls}>🔢 Max words</label>
+                  <label className={labelCls}>Max words</label>
                   <input
                     type="number" min={1} max={50}
                     value={project.captionMaxWords ?? 8}
@@ -2486,7 +2474,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   />
                 </div>
                 <div className="flex-1">
-                  <label className={labelCls}>🔡 Max chars (optional)</label>
+                  <label className={labelCls}>Max chars (optional)</label>
                   <input
                     type="number" min={5} max={300}
                     value={project.captionMaxChars ?? ""}
@@ -2500,7 +2488,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
             {/* CTA */}
             <div>
-              <label className={labelCls}>📣 CTA method</label>
+              <label className={labelCls}>CTA method</label>
               <select value={project.ctaMethod ?? ""} onChange={async e => patchProject({ ctaMethod: e.target.value || null })}
                 className="w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c5cfc]">
                 <option value="">None</option>
@@ -2513,12 +2501,12 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             {project.ctaMethod && (
               <>
                 <div>
-                  <label className={labelCls}>📞 Primary contact</label>
-                  <input type="text" value={project.ctaValue ?? ""} onChange={async e => patchProject({ ctaValue: e.target.value || null })} placeholder="📞 +234 xxx xxxx / @handle" className={inputCls} />
+                  <label className={labelCls}>Primary contact</label>
+                  <input type="text" value={project.ctaValue ?? ""} onChange={async e => patchProject({ ctaValue: e.target.value || null })} placeholder="+234 xxx xxxx / @handle" className={inputCls} />
                 </div>
                 <div>
-                  <label className={labelCls}>📱 Secondary contact (optional)</label>
-                  <input type="text" value={project.ctaValueSecondary ?? ""} onChange={async e => patchProject({ ctaValueSecondary: e.target.value || null })} placeholder="📞 +234 xxx xxxx" className={inputCls} />
+                  <label className={labelCls}>Secondary contact (optional)</label>
+                  <input type="text" value={project.ctaValueSecondary ?? ""} onChange={async e => patchProject({ ctaValueSecondary: e.target.value || null })} placeholder="+234 xxx xxxx" className={inputCls} />
                 </div>
               </>
             )}
@@ -2527,7 +2515,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           {/* Narration script preview + enhance button */}
           <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-[#b090ff]">🎤 Narration script</p>
+              <p className="text-xs font-semibold text-[#b090ff]">Narration script</p>
               <button
                 type="button"
                 disabled={enhancingNarration || project.slides.length === 0}
@@ -2569,7 +2557,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
           {/* Piper TTS local voice picker */}
           <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
-            <p className="text-xs font-semibold text-[#b090ff] mb-2">🔊 Local Voice (Piper TTS — free)</p>
+            <p className="text-xs font-semibold text-[#b090ff] mb-2">Local Voice (Piper TTS — free)</p>
             <p className="text-[10px] text-[#6060a0] mb-3">Select a voice for narration. Works offline, no API key needed. Falls back here when ElevenLabs is unavailable.</p>
             <div className="grid grid-cols-2 gap-2 mb-3">
               {piperVoices.map(v => (
@@ -2637,9 +2625,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             />
           ) : (
             <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
-              <p style={{ fontSize: 13, fontWeight: 600, color: "#4a4a6a", margin: 0 }}>🖊️ Text & Image Overlays</p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: "#4a4a6a", margin: 0 }}>️ Text & Image Overlays</p>
               <p style={{ fontSize: 11, color: "#3a3a55", marginTop: 4 }}>
-                {renderStatus === "rendering" ? "⏳ Overlay available after render completes…" : "🚀 Render the project first to unlock overlays."}
+                {renderStatus === "rendering" ? "⏳ Overlay available after render completes…" : "Render the project first to unlock overlays."}
               </p>
             </div>
           )}
@@ -2653,9 +2641,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           <div className="text-center text-[11px] text-[#404060] pb-2">
             {readyCount === project.slides.length && project.slides.length > 0
               ? <span className="text-green-500">✅ All {project.slides.length} slides ready to render!</span>
-              : <span>🖼️ {readyCount} of {project.slides.length} slides ready</span>
+              : <span>️ {readyCount} of {project.slides.length} slides ready</span>
             }
-            {readyCount === 0 && <p>📸 Upload at least one image to render</p>}
+            {readyCount === 0 && <p>Upload at least one image to render</p>}
           </div>
         </div>
       </div>
@@ -2702,7 +2690,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
       {/* Character Picker Modal */}
       {showCharacterPicker && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.6)" }}
+          style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.82)" }}
           onClick={e => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}
         >
           <div style={{ width: "100%", maxWidth: 640, maxHeight: "80vh", overflow: "auto", borderRadius: 16, border: "1px solid #1e2a35", background: "#0b0e18", padding: 20, position: "relative" }}>
@@ -2954,7 +2942,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
       <button onClick={onBack} style={{ fontSize: 11, color: "#5a7080", background: "none", border: "none", cursor: "pointer", marginBottom: 16 }}>← Back to Commercial</button>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-        <span style={{ fontSize: 28 }}>🎬</span>
+        <span style={{ fontSize: 28 }}></span>
         <div>
           <h2 style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>AI Video Commercial</h2>
           <p style={{ fontSize: 12, color: "#5a7080" }}>Upload your product image → AI generates a video commercial</p>
@@ -2988,7 +2976,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
               </div>
             ) : (
               <div>
-                <span style={{ fontSize: 36, display: "block", marginBottom: 8 }}>📸</span>
+                <span style={{ fontSize: 36, display: "block", marginBottom: 8 }}></span>
                 <p style={{ fontSize: 14, color: "#fff", fontWeight: 600 }}>Upload Product Image</p>
                 <p style={{ fontSize: 11, color: "#5a7080" }}>JPG, PNG, WebP — clear product photo works best</p>
               </div>
@@ -3075,14 +3063,14 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
               <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 10 }}>Lock this product image as the master packshot. AI will generate scenes that maintain this exact look.</p>
               <button onClick={() => setIdentityLocked(true)}
                 style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: "#f59e0b", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                🔒 Lock Product Identity
+                Lock Product Identity
               </button>
             </div>
           )}
 
           {identityLocked && (
             <div style={{ padding: 10, borderRadius: 10, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.05)", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ color: "#22c55e", fontWeight: 700 }}>🔒</span>
+              <span style={{ color: "#22c55e", fontWeight: 700 }}></span>
               <span style={{ fontSize: 11, color: "#22c55e" }}>Product identity locked — AI will maintain this look</span>
               <button onClick={() => setIdentityLocked(false)} style={{ marginLeft: "auto", fontSize: 9, color: "#5a7080", background: "none", border: "none", cursor: "pointer" }}>Unlock</button>
             </div>
@@ -3342,7 +3330,7 @@ function CommercialPageInner() {
         <button className="relative overflow-hidden p-5 rounded-2xl text-left transition-all"
           style={{ background: "linear-gradient(135deg, rgba(255,107,53,0.08), rgba(255,107,53,0.02))", border: "2px solid rgba(255,107,53,0.3)" }}>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🖼️</span>
+            <span className="text-2xl">️</span>
             <div>
               <p className="text-white font-bold text-sm">Slide Ad Builder</p>
               <p className="text-[10px]" style={{ color: "#ff6b35" }}>Currently viewing</p>
@@ -3355,7 +3343,7 @@ function CommercialPageInner() {
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(168,85,247,0.4)"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2a35"; }}>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🤖</span>
+            <span className="text-2xl"></span>
             <div>
               <p className="text-white font-bold text-sm">AI Ad Creator</p>
               <p className="text-[10px]" style={{ color: "#a855f7" }}>Upload footage → AI does the rest</p>
@@ -3368,7 +3356,7 @@ function CommercialPageInner() {
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.4)"; }}
           onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#1e2a35"; }}>
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">🎬</span>
+            <span className="text-2xl"></span>
             <div>
               <p className="text-white font-bold text-sm">AI Video Commercial</p>
               <p className="text-[10px]" style={{ color: "#22c55e" }}>Product photo → AI video ad</p>

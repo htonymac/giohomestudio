@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content";
 import OverlayPanel from "../../../components/OverlayPanel";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
+import { ds } from "../../../../lib/designSystem";
 
 // ── Provider badge ───────────────────────────────────────────
 type ProviderTier = "real" | "mock" | "stock" | "fallback";
@@ -775,7 +776,7 @@ export default function ContentDetailPage() {
                   }}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-green-900/30 border border-green-700/40 text-green-400 hover:bg-green-900/50 text-xs font-medium transition-colors"
                 >
-                  📱 WhatsApp
+                  WhatsApp
                 </button>
                 <button
                   onClick={async () => {
@@ -791,7 +792,7 @@ export default function ContentDetailPage() {
                   }}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-blue-900/30 border border-blue-700/40 text-sky-200 hover:bg-blue-900/50 text-xs font-medium transition-colors"
                 >
-                  📨 Telegram
+                  Telegram
                 </button>
                 <button
                   onClick={() => {
@@ -808,7 +809,7 @@ export default function ContentDetailPage() {
                   }}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:text-white text-xs font-medium transition-colors"
                 >
-                  🔗 Share Link
+                  Share Link
                 </button>
               </div>
             </div>
@@ -840,11 +841,11 @@ export default function ContentDetailPage() {
                     btn.className = btn.className.replace("bg-[#7c5cfc]", "bg-red-900");
                   }
                 } catch { btn.textContent = "Network error"; }
-                setTimeout(() => { btn.disabled = false; btn.textContent = "🧠 Generate Image from Prompt"; btn.className = btn.className.replace(/bg-(green-700|red-900)/, "bg-[#7c5cfc]"); }, 4000);
+                setTimeout(() => { btn.disabled = false; btn.textContent = "Generate Image from Prompt"; btn.className = btn.className.replace(/bg-(green-700|red-900)/, "bg-[#7c5cfc]"); }, 4000);
               }}
               className="w-full py-2 rounded-lg bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-xs font-medium transition-colors disabled:opacity-50"
             >
-              🧠 Generate Image from Prompt
+              Generate Image from Prompt
             </button>
           </div>
 
@@ -969,7 +970,7 @@ export default function ContentDetailPage() {
                   href="/dashboard/music-studio"
                   className="text-xs bg-[#7c5cfc]/15 text-[#b090ff] border border-[#7c5cfc]/30 px-3 py-1.5 rounded-lg transition-colors hover:bg-[#7c5cfc]/25"
                 >
-                  🎵 Music Studio
+                  Music Studio
                 </a>
                 <input
                   ref={musicFileRef}
@@ -1265,8 +1266,8 @@ export default function ContentDetailPage() {
               narration: "text-gray-300", flashback: "text-indigo-400",
             };
             const TONE_EMOJI: Record<string, string> = {
-              tense: "😬", sorrowful: "😢", triumphant: "🏆", fearful: "😨",
-              joyful: "😊", angry: "😡", neutral: "😐",
+              tense: "tense", sorrowful: "sorrowful", triumphant: "triumphant", fearful: "fearful",
+              joyful: "joyful", angry: "angry", neutral: "neutral",
             };
             const STYLE_DESCRIPTION: Record<string, string> = {
               whisper: "Soft, intimate — close-mic feel",
@@ -1417,7 +1418,7 @@ export default function ContentDetailPage() {
                         }}
                       >
                         {beat.type === "sfx" ? `♪ ${beat.sfxEvent ?? "sfx"}` :
-                         beat.type === "dialogue" ? `💬 ${beat.speakerName ?? "dialogue"}` :
+                         beat.type === "dialogue" ? `[${beat.speakerName ?? "dialogue"}]` :
                          beat.type === "silence" ? "…" :
                          `${beat.type} ${Math.round(beat.startMs / 1000)}s`}
                       </div>
@@ -1711,11 +1712,11 @@ function PublishPanel({ contentItemId, title }: { contentItemId: string; title: 
   }
 
   const PLATFORM_ICONS: Record<string, string> = {
-    telegram: "📨",
-    youtube:  "▶️",
-    facebook: "📘",
-    instagram: "📸",
-    tiktok:   "🎵",
+    telegram: "TG",
+    youtube:  "YT",
+    facebook: "FB",
+    instagram: "IG",
+    tiktok:   "TK",
   };
 
   return (
@@ -1742,7 +1743,7 @@ function PublishPanel({ contentItemId, title }: { contentItemId: string; title: 
                 : "bg-gray-900 border border-gray-800 text-gray-600 cursor-not-allowed"
             } ${publishing === p.platform ? "opacity-50" : ""}`}
           >
-            <span className="text-base">{PLATFORM_ICONS[p.platform] ?? "📤"}</span>
+            <span className="text-xs font-mono">{PLATFORM_ICONS[p.platform] ?? "OUT"}</span>
             <span className="capitalize">{p.platform}</span>
             {!p.configured && <span className="text-[9px] text-gray-700 ml-auto">Not connected</span>}
             {publishing === p.platform && <span className="ml-auto text-[9px] text-gray-300">Publishing...</span>}

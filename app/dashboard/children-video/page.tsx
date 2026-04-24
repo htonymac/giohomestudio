@@ -4,6 +4,10 @@ import { useState, useEffect } from "react";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
+import { ds } from "../../../lib/designSystem";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { Card } from "../../components/ui/Card";
+import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Children Video — Dedicated child-safe content creation
@@ -69,48 +73,48 @@ interface ContentTypeItem {
 
 const CONTENT_BY_AGE: Record<string, ContentTypeItem[]> = {
   toddler: [
-    { id: "letters-sounds", label: "Letters & Sounds", icon: "🔤", desc: "Single letter recognition, initial sounds, A-B-C songs", curriculum: "EYFS Communication" },
-    { id: "numbers-counting", label: "Numbers 1-5", icon: "🔢", desc: "Count 1-5, one-to-one, more vs less", curriculum: "EYFS Mathematics" },
-    { id: "colours-shapes", label: "Colours & Shapes", icon: "🌈", desc: "Primary colours, circle, square, triangle", curriculum: "EYFS Mathematics" },
-    { id: "animals-nature", label: "Animals & Nature", icon: "🐾", desc: "Animal names, sounds, simple habitats", curriculum: "EYFS Understanding World" },
-    { id: "my-world", label: "My World", icon: "👶", desc: "Family, body parts, food, daily routines, happy/sad", curriculum: "EYFS Personal Development" },
-    { id: "music-movement", label: "Music & Movement", icon: "🎵", desc: "Action songs, clapping rhythms, dance-along", curriculum: "EYFS Expressive Arts" },
+    { id: "letters-sounds", label: "Letters & Sounds", icon: "", desc: "Single letter recognition, initial sounds, A-B-C songs", curriculum: "EYFS Communication" },
+    { id: "numbers-counting", label: "Numbers 1-5", icon: "", desc: "Count 1-5, one-to-one, more vs less", curriculum: "EYFS Mathematics" },
+    { id: "colours-shapes", label: "Colours & Shapes", icon: "", desc: "Primary colours, circle, square, triangle", curriculum: "EYFS Mathematics" },
+    { id: "animals-nature", label: "Animals & Nature", icon: "", desc: "Animal names, sounds, simple habitats", curriculum: "EYFS Understanding World" },
+    { id: "my-world", label: "My World", icon: "", desc: "Family, body parts, food, daily routines, happy/sad", curriculum: "EYFS Personal Development" },
+    { id: "music-movement", label: "Music & Movement", icon: "", desc: "Action songs, clapping rhythms, dance-along", curriculum: "EYFS Expressive Arts" },
   ],
   preschool: [
-    { id: "phonics", label: "Phonics & Reading", icon: "🗣", desc: "Letter-sound matching, CVC blending (cat/sat/pin), sight words, rhyming", curriculum: "EYFS Literacy, Common Core RF.K" },
-    { id: "early-maths", label: "Numbers & Maths", icon: "🔢", desc: "Counting to 20, number writing, simple addition, shapes, patterns", curriculum: "EYFS Maths, Common Core K" },
-    { id: "stories", label: "Stories & Tales", icon: "📖", desc: "Simple beginning-middle-end stories, character feelings, retelling", curriculum: "EYFS Literacy" },
-    { id: "science-discovery", label: "Science & Discovery", icon: "🔬", desc: "Seasons, weather, plants growing, animals, senses, materials", curriculum: "EYFS Understanding World" },
-    { id: "my-community", label: "My Community", icon: "🏥", desc: "Helpers (doctor, teacher, firefighter), places, transport, rules", curriculum: "EYFS Understanding World" },
-    { id: "creative-play", label: "Creative Expression", icon: "🎨", desc: "Drawing, painting, building, imaginative play prompts", curriculum: "EYFS Expressive Arts" },
-    { id: "social-emotional", label: "Social & Emotional", icon: "🤝", desc: "Sharing, turn-taking, empathy, managing feelings, friendship", curriculum: "EYFS Personal Development" },
-    { id: "cultural-awareness", label: "Cultural Awareness", icon: "🌍", desc: "Festivals, foods, languages, families around the world", curriculum: "EYFS Understanding World" },
+    { id: "phonics", label: "Phonics & Reading", icon: "", desc: "Letter-sound matching, CVC blending (cat/sat/pin), sight words, rhyming", curriculum: "EYFS Literacy, Common Core RF.K" },
+    { id: "early-maths", label: "Numbers & Maths", icon: "", desc: "Counting to 20, number writing, simple addition, shapes, patterns", curriculum: "EYFS Maths, Common Core K" },
+    { id: "stories", label: "Stories & Tales", icon: "", desc: "Simple beginning-middle-end stories, character feelings, retelling", curriculum: "EYFS Literacy" },
+    { id: "science-discovery", label: "Science & Discovery", icon: "", desc: "Seasons, weather, plants growing, animals, senses, materials", curriculum: "EYFS Understanding World" },
+    { id: "my-community", label: "My Community", icon: "", desc: "Helpers (doctor, teacher, firefighter), places, transport, rules", curriculum: "EYFS Understanding World" },
+    { id: "creative-play", label: "Creative Expression", icon: "", desc: "Drawing, painting, building, imaginative play prompts", curriculum: "EYFS Expressive Arts" },
+    { id: "social-emotional", label: "Social & Emotional", icon: "", desc: "Sharing, turn-taking, empathy, managing feelings, friendship", curriculum: "EYFS Personal Development" },
+    { id: "cultural-awareness", label: "Cultural Awareness", icon: "", desc: "Festivals, foods, languages, families around the world", curriculum: "EYFS Understanding World" },
   ],
   early: [
-    { id: "reading-writing", label: "Reading & Writing", icon: "📝", desc: "Phonics progression, fluency, comprehension, creative writing, grammar", curriculum: "UK KS1-2, Common Core RL.1-3" },
-    { id: "mathematics", label: "Mathematics", icon: "🔢", desc: "Operations to 1000, times tables, fractions, measurement, time, money", curriculum: "Common Core Math 1-3" },
-    { id: "science", label: "Science", icon: "🧪", desc: "Life science, physical science, earth science, simple experiments", curriculum: "NGSS, UK Science KS1-2" },
-    { id: "history-people", label: "History & People", icon: "🏛", desc: "Significant figures, past events, timelines, primary sources", curriculum: "UK History KS1-2" },
-    { id: "geography", label: "Geography & Nature", icon: "🗺", desc: "Maps, continents, habitats, weather systems, conservation", curriculum: "UK Geography KS1-2" },
-    { id: "computing-logic", label: "Computing & Logic", icon: "💻", desc: "Algorithms, coding basics, debugging, digital literacy", curriculum: "UK Computing KS1-2" },
-    { id: "arts-music", label: "Arts & Music", icon: "🎭", desc: "Techniques, artists, instruments, composition, performance", curriculum: "UK Arts & Music KS1-2" },
-    { id: "stories-literature", label: "Stories & Books", icon: "📚", desc: "Chapter books, genres, author study, book discussions, series", curriculum: "Common Core RL.2-3" },
-    { id: "health-wellbeing", label: "Health & Wellbeing", icon: "💪", desc: "Nutrition, exercise, hygiene, feelings, friendships, safety", curriculum: "UK PSHE" },
-    { id: "projects-making", label: "Projects & Making", icon: "🛠", desc: "Design challenges, research mini-projects, presentations", curriculum: "Montessori 6-9" },
+    { id: "reading-writing", label: "Reading & Writing", icon: "", desc: "Phonics progression, fluency, comprehension, creative writing, grammar", curriculum: "UK KS1-2, Common Core RL.1-3" },
+    { id: "mathematics", label: "Mathematics", icon: "", desc: "Operations to 1000, times tables, fractions, measurement, time, money", curriculum: "Common Core Math 1-3" },
+    { id: "science", label: "Science", icon: "", desc: "Life science, physical science, earth science, simple experiments", curriculum: "NGSS, UK Science KS1-2" },
+    { id: "history-people", label: "History & People", icon: "", desc: "Significant figures, past events, timelines, primary sources", curriculum: "UK History KS1-2" },
+    { id: "geography", label: "Geography & Nature", icon: "", desc: "Maps, continents, habitats, weather systems, conservation", curriculum: "UK Geography KS1-2" },
+    { id: "computing-logic", label: "Computing & Logic", icon: "", desc: "Algorithms, coding basics, debugging, digital literacy", curriculum: "UK Computing KS1-2" },
+    { id: "arts-music", label: "Arts & Music", icon: "", desc: "Techniques, artists, instruments, composition, performance", curriculum: "UK Arts & Music KS1-2" },
+    { id: "stories-literature", label: "Stories & Books", icon: "", desc: "Chapter books, genres, author study, book discussions, series", curriculum: "Common Core RL.2-3" },
+    { id: "health-wellbeing", label: "Health & Wellbeing", icon: "", desc: "Nutrition, exercise, hygiene, feelings, friendships, safety", curriculum: "UK PSHE" },
+    { id: "projects-making", label: "Projects & Making", icon: "", desc: "Design challenges, research mini-projects, presentations", curriculum: "Montessori 6-9" },
   ],
   older: [
     { id: "language-arts", label: "Language Arts", icon: "✍️", desc: "Advanced reading, analytical writing, poetry, journalism, debate", curriculum: "Common Core ELA 3-6" },
-    { id: "advanced-maths", label: "Mathematics", icon: "📐", desc: "Fractions/decimals/percentages, algebra basics, geometry, statistics", curriculum: "Common Core Math 3-6" },
+    { id: "advanced-maths", label: "Mathematics", icon: "", desc: "Fractions/decimals/percentages, algebra basics, geometry, statistics", curriculum: "Common Core Math 3-6" },
     { id: "science-engineering", label: "Science & Engineering", icon: "⚗️", desc: "Classification, forces, electricity, space, evolution, design challenges", curriculum: "UK KS2 Science, NGSS" },
-    { id: "history-civilisations", label: "History & Civilisations", icon: "🏺", desc: "Ancient worlds (Egypt, Greece, Rome, Benin), historical analysis, sources", curriculum: "UK KS2 History" },
-    { id: "geography-global", label: "Geography & Global Issues", icon: "🌐", desc: "Climate, trade, population, natural disasters, sustainability", curriculum: "UK KS2 Geography" },
-    { id: "coding-python", label: "Computing & Coding", icon: "🖥", desc: "Scratch/Python, game design, web basics, data, digital citizenship", curriculum: "UK Computing KS2" },
-    { id: "creative-writing", label: "Creative Writing", icon: "📝", desc: "Short stories, scripts, poetry, fan fiction, world-building", curriculum: "Common Core W.3-6" },
-    { id: "visual-arts", label: "Visual Arts & Design", icon: "🎨", desc: "Digital art, animation, graphic novels, perspective, mixed media", curriculum: "UK Art & Design KS2" },
-    { id: "music-performance", label: "Music & Performance", icon: "🎤", desc: "Composition, notation, instruments, songwriting, drama", curriculum: "UK Music KS2" },
-    { id: "research-thinking", label: "Research & Thinking", icon: "🔍", desc: "Multi-source research, fact-checking, presentations, debate", curriculum: "Montessori 9-12" },
-    { id: "social-emotional-adv", label: "Social & Emotional", icon: "🧠", desc: "Identity, empathy, conflict resolution, mental health literacy", curriculum: "UK PSHE KS2" },
-    { id: "world-cultures", label: "World Cultures & Languages", icon: "🌏", desc: "Global traditions, basic second language, cultural exchange", curriculum: "UK RE/MFL KS2" },
+    { id: "history-civilisations", label: "History & Civilisations", icon: "", desc: "Ancient worlds (Egypt, Greece, Rome, Benin), historical analysis, sources", curriculum: "UK KS2 History" },
+    { id: "geography-global", label: "Geography & Global Issues", icon: "", desc: "Climate, trade, population, natural disasters, sustainability", curriculum: "UK KS2 Geography" },
+    { id: "coding-python", label: "Computing & Coding", icon: "", desc: "Scratch/Python, game design, web basics, data, digital citizenship", curriculum: "UK Computing KS2" },
+    { id: "creative-writing", label: "Creative Writing", icon: "", desc: "Short stories, scripts, poetry, fan fiction, world-building", curriculum: "Common Core W.3-6" },
+    { id: "visual-arts", label: "Visual Arts & Design", icon: "", desc: "Digital art, animation, graphic novels, perspective, mixed media", curriculum: "UK Art & Design KS2" },
+    { id: "music-performance", label: "Music & Performance", icon: "", desc: "Composition, notation, instruments, songwriting, drama", curriculum: "UK Music KS2" },
+    { id: "research-thinking", label: "Research & Thinking", icon: "", desc: "Multi-source research, fact-checking, presentations, debate", curriculum: "Montessori 9-12" },
+    { id: "social-emotional-adv", label: "Social & Emotional", icon: "", desc: "Identity, empathy, conflict resolution, mental health literacy", curriculum: "UK PSHE KS2" },
+    { id: "world-cultures", label: "World Cultures & Languages", icon: "", desc: "Global traditions, basic second language, cultural exchange", curriculum: "UK RE/MFL KS2" },
   ],
 };
 
@@ -362,11 +366,11 @@ const LANGUAGES = [
   { code: "it", label: "Italian", flag: "🇮🇹" },
 ];
 
-const surface = "#0e1318";
-const border = "#1e2a35";
-const muted = "#5a7080";
-const childAccent = "#a855f7";
-const childSafe = "#22c55e";
+const surface = ds.color.card;
+const border = ds.color.line2;
+const muted = ds.color.mute;
+const childAccent = ds.color.lilac;
+const childSafe = ds.color.mint;
 
 interface SavedCharacter {
   id: string;
@@ -448,26 +452,24 @@ export default function ChildrenVideoPage() {
   };
 
   return (
-    <div>
-      {/* Hero with child-safe branding */}
-      <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 28, minHeight: 200 }}>
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(168,85,247,0.08), rgba(236,72,153,0.06), rgba(8,11,16,0.95))" }} />
-        <div style={{ position: "absolute", right: 40, top: "50%", transform: "translateY(-50%)", fontSize: 80, opacity: 0.1 }}>🎠</div>
-        <div style={{ position: "relative", padding: "44px 40px" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(168,85,247,0.1)", border: "1px solid rgba(168,85,247,0.25)", padding: "5px 14px", borderRadius: 100, fontSize: 11, fontWeight: 500, color: childAccent, letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 16 }}>
-            <span style={{ width: 6, height: 6, background: childSafe, borderRadius: "50%" }} />
-            Child-Safe Mode
-          </div>
-          <h1 style={{ fontSize: 30, fontWeight: 800, color: "#fff", marginBottom: 8 }}>AI Children Video</h1>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", maxWidth: 500, lineHeight: 1.6 }}>
-            Create safe, curriculum-backed educational content for children. Content adapts to age group — toddlers see different options than older kids. AI ensures every frame is child-appropriate.
-          </p>
-          <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
-            <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 8, background: "rgba(34,197,94,0.1)", color: childSafe, border: "1px solid rgba(34,197,94,0.2)" }}>2-Stage Review</span>
-            <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 8, background: "rgba(168,85,247,0.1)", color: childAccent, border: "1px solid rgba(168,85,247,0.2)" }}>Multi-Language</span>
-            <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 8, background: "rgba(245,158,11,0.1)", color: "#f59e0b", border: "1px solid rgba(245,158,11,0.2)" }}>Curriculum Standards</span>
-            <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 8, background: "rgba(59,130,246,0.1)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.2)" }}>EYFS / Common Core / IB</span>
-          </div>
+    <div style={{ fontFamily: ds.font.sans }}>
+      {/* Hero */}
+      <div style={{ marginBottom: 28 }}>
+        <HeroTitle
+          kicker="Child-Safe Mode"
+          title="AI Children"
+          italic="Video"
+          sub="Curriculum-backed educational content. Content adapts per age group — toddlers see different options than older kids. AI ensures every frame is child-appropriate."
+        />
+        <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+          {[
+            { label: "2-Stage Review", color: childSafe },
+            { label: "Multi-Language", color: childAccent },
+            { label: "Curriculum Standards", color: ds.color.gold },
+            { label: "EYFS / Common Core / IB", color: ds.color.sky },
+          ].map(b => (
+            <span key={b.label} style={{ fontSize: 9, padding: "3px 10px", borderRadius: 8, background: `${b.color}12`, color: b.color, border: `1px solid ${b.color}33`, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.12em" }}>{b.label}</span>
+          ))}
         </div>
       </div>
 
@@ -480,7 +482,7 @@ export default function ChildrenVideoPage() {
               style={{ background: surface, border: `1px solid ${border}`, borderRadius: 20, padding: 28, cursor: "pointer", textAlign: "left", transition: "all 0.3s" }}
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(168,85,247,0.4)"; (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = border; (e.currentTarget as HTMLButtonElement).style.transform = "none"; }}>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(168,85,247,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}>🎬</div>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(168,85,247,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}></div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Children Video</h3>
               <p style={{ fontSize: 13, color: muted, lineHeight: 1.6, marginBottom: 12 }}>
                 Animated, active content with motion. ABC videos, phonics with movement, counting animations, mini children movies, nursery content with characters.
@@ -494,7 +496,7 @@ export default function ChildrenVideoPage() {
               onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.5)"; (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-3px)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(34,197,94,0.25)"; (e.currentTarget as HTMLButtonElement).style.transform = "none"; }}>
               <span style={{ position: "absolute", top: -1, right: 20, background: childSafe, color: "#000", fontSize: 9, fontWeight: 800, padding: "3px 12px", borderRadius: "0 0 8px 8px" }}>RECOMMENDED</span>
-              <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(34,197,94,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}>📖</div>
+              <div style={{ width: 52, height: 52, borderRadius: 14, background: "rgba(34,197,94,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, marginBottom: 14 }}></div>
               <h3 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Children Hybrid</h3>
               <p style={{ fontSize: 13, color: muted, lineHeight: 1.6, marginBottom: 12 }}>
                 Storybook-style with read-along. Image + narration + text highlighting. Best for reading, poems, stories, bedtime. Lower cost, high educational value.
@@ -583,7 +585,7 @@ export default function ChildrenVideoPage() {
 
           <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 28, marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <span style={{ fontSize: 24 }}>{branch === "video" ? "🎬" : "📖"}</span>
+              <span style={{ fontSize: 24 }}>{branch === "video" ? "" : ""}</span>
               <div>
                 <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Children {branch === "video" ? "Video" : "Hybrid"}</h2>
                 <p style={{ fontSize: 11, color: muted }}>{branch === "video" ? "Animated, active learning content" : "Read-along storybook with text highlighting"}</p>
@@ -630,7 +632,7 @@ export default function ChildrenVideoPage() {
               <div style={{ marginBottom: 16 }}>
                 <button onClick={() => setShowSuggestions(!showSuggestions)}
                   style={{ fontSize: 11, color: "#3b82f6", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, marginBottom: showSuggestions ? 8 : 0 }}>
-                  <span style={{ fontSize: 14 }}>💡</span>
+                  <span style={{ fontSize: 14 }}></span>
                   {showSuggestions ? "Hide suggestions" : `You have ${pastProjects.length} past children projects — Continue or try something new?`}
                 </button>
                 {showSuggestions && (
@@ -731,7 +733,7 @@ export default function ChildrenVideoPage() {
                         {characters.map(ch => (
                           <button key={ch.id} onClick={() => toggleCharacter(ch.id)}
                             style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${selectedCharacters.includes(ch.id) ? childAccent : border}`, background: selectedCharacters.includes(ch.id) ? `${childAccent}10` : "transparent", cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
-                            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}>👤</span>
+                            <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(168,85,247,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14 }}></span>
                             <div style={{ textAlign: "left" }}>
                               <p style={{ fontSize: 11, fontWeight: 600, color: selectedCharacters.includes(ch.id) ? childAccent : "#fff" }}>{ch.name}</p>
                               {ch.role && <p style={{ fontSize: 8, color: muted }}>{ch.role}</p>}
@@ -819,7 +821,7 @@ export default function ChildrenVideoPage() {
             {/* Safety notice */}
             <div style={{ background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.15)", borderRadius: 12, padding: 14, marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <span style={{ fontSize: 14 }}>🛡</span>
+                <span style={{ fontSize: 14 }}></span>
                 <p style={{ fontSize: 12, fontWeight: 600, color: childSafe }}>Child Safety Active</p>
               </div>
               <p style={{ fontSize: 10, color: muted, lineHeight: 1.6 }}>

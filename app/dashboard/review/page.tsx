@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ContentItem } from "@/types/content";
+import { ds } from "../../../lib/designSystem";
+import HeroTitle from "../../components/hero/HeroTitle";
 
 // ── Voice option (from /api/voices) ──────────────────────────
 interface VoiceOption {
@@ -636,7 +638,6 @@ function ReviewCard({
             className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-700 rounded-lg px-3 py-2 transition-colors"
           >
             <span className="flex items-center gap-2">
-              <span>🎚</span>
               <span>Volume mix — narration & music</span>
             </span>
             <span>{showMixPanel ? "▲" : "▼"}</span>
@@ -676,7 +677,7 @@ function ReviewCard({
                 </button>
                 {mixMsg && (
                   <span className={`text-xs ${mixMsg.ok ? "text-green-400" : "text-red-400"}`}>
-                    {mixMsg.ok ? "✓ " : "✗ "}{mixMsg.text}
+                    {mixMsg.ok ? "" : ""}{mixMsg.text}
                   </span>
                 )}
               </div>
@@ -691,7 +692,6 @@ function ReviewCard({
             className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-700 rounded-lg px-3 py-2 transition-colors"
           >
             <span className="flex items-center gap-2">
-              <span>🎙</span>
               <span>Voice — narration, speed, language</span>
               {item.voiceProvider && (
                 <span className="text-gray-700 font-mono">({item.voiceProvider})</span>
@@ -833,7 +833,7 @@ function ReviewCard({
                 />
                 {regenMsg && (
                   <span className={`text-xs ${regenMsg.ok ? "text-green-400" : "text-red-400"}`}>
-                    {regenMsg.ok ? "✓ " : "✗ "}{regenMsg.text}
+                    {regenMsg.text}
                   </span>
                 )}
               </div>
@@ -848,7 +848,6 @@ function ReviewCard({
             className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-700 rounded-lg px-3 py-2 transition-colors"
           >
             <span className="flex items-center gap-2">
-              <span>🎵</span>
               <span>Music — change, upload, or replace</span>
               {musicSourceMeta && (
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${musicSourceMeta.color}`}>
@@ -940,7 +939,7 @@ function ReviewCard({
                 />
                 {musicMsg && (
                   <span className={`text-xs ${musicMsg.ok ? "text-green-400" : "text-red-400"}`}>
-                    {musicMsg.ok ? "✓ " : "✗ "}{musicMsg.text}
+                    {musicMsg.text}
                   </span>
                 )}
               </div>
@@ -956,7 +955,6 @@ function ReviewCard({
               className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-700 rounded-lg px-3 py-2 transition-colors"
             >
               <span className="flex items-center gap-2">
-                <span>🔊</span>
                 <span>SFX / Environment</span>
                 {sfxEvents.length > 0 && (
                   <span className="bg-sky-950/70 text-sky-400 border border-sky-900/50 text-[10px] px-1.5 py-0.5 rounded font-mono">
@@ -1004,7 +1002,7 @@ function ReviewCard({
                       </button>
                       {sfxMsg && (
                         <span className={`text-xs ${sfxMsg.ok ? "text-green-400" : "text-red-400"}`}>
-                          {sfxMsg.ok ? "✓ " : "✗ "}{sfxMsg.text}
+                          {sfxMsg.text}
                         </span>
                       )}
                     </div>
@@ -1032,7 +1030,6 @@ function ReviewCard({
               className="w-full flex items-center justify-between text-xs text-gray-500 hover:text-gray-300 border border-gray-800 hover:border-gray-700 rounded-lg px-3 py-2 transition-colors"
             >
               <span className="flex items-center gap-2">
-                <span>👥</span>
                 <span>Multi-voice dialogue</span>
                 <span className="text-[10px] bg-violet-950/60 text-violet-400 border border-violet-900/50 px-1.5 py-0.5 rounded font-mono">
                   {speakerCount} speaker{speakerCount !== 1 ? "s" : ""}
@@ -1143,7 +1140,7 @@ function ReviewCard({
               className="px-3 bg-gray-800 hover:bg-red-900/60 disabled:opacity-50 text-gray-500 hover:text-red-400 py-2 rounded-lg text-sm transition-colors"
               title="Delete permanently"
             >
-              🗑
+              Del
             </button>
           </div>
         )}
@@ -1238,22 +1235,14 @@ export default function ReviewPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">📋 Review Queue</h1>
-          <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>
-            Approve before publishing to social platforms
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={fetchQueue} className="btn btn-ghost btn-sm">↻ Refresh</button>
-        </div>
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 8 }}>
+        <HeroTitle kicker="Content Pipeline" title="Review" italic="Queue" />
+        <button onClick={fetchQueue} className="btn btn-ghost btn-sm" style={{ marginBottom: 4 }}>Refresh</button>
       </div>
 
       {/* Warning bar */}
       {!loading && items.length > 0 && (
         <div className="alert alert-warning mb-4">
-          <span>⚠️</span>
           <span>{items.length} item{items.length !== 1 ? "s" : ""} waiting for your review. Nothing publishes without your approval.</span>
         </div>
       )}
@@ -1271,7 +1260,7 @@ export default function ReviewPage() {
               }`}
             >
               <span>
-                {action === "approved" ? "✓ Approved" : "✗ Rejected"} —{" "}
+                {action === "approved" ? "Approved" : "Rejected"} —{" "}
                 <span className="font-mono text-xs">{id.slice(0, 8)}...</span>
               </span>
               <button
@@ -1290,7 +1279,7 @@ export default function ReviewPage() {
         <div style={{ background: "rgba(239,68,68,0.04)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 14, padding: "16px 20px", marginBottom: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
             <div>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>⚠ {stuckItems.length} stuck pipeline item{stuckItems.length > 1 ? "s" : ""}</p>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#ef4444" }}>{stuckItems.length} stuck pipeline item{stuckItems.length > 1 ? "s" : ""}</p>
               <p style={{ fontSize: 10, color: "#5a7080", marginTop: 2 }}>These started 30+ min ago and never finished — usually a server restart or timeout. Retry or dismiss.</p>
             </div>
             <button

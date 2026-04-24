@@ -3,6 +3,10 @@
 import { useState, useRef } from "react";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
 import DurationPicker from "../../components/DurationPicker";
+import { ds } from "../../../lib/designSystem";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { Card } from "../../components/ui/Card";
+import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Music & Video Studio — Hub Page
@@ -110,7 +114,7 @@ const MUSIC_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "image-to-music", icon: "🖼️", title: "Image to Music", tag: "Visual AI", color: "orange",
+    id: "image-to-music", icon: "️", title: "Image to Music", tag: "Visual AI", color: "orange",
     description: "Upload a photo. GHS reads the mood, colours, and scene — then creates a song that matches the image.",
     generateLabel: "Generate Music from Image", generateAction: "music",
     fields: [
@@ -121,7 +125,7 @@ const MUSIC_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "voice-to-music", icon: "🎙️", title: "Voice to Music", tag: "Voice AI", color: "purple",
+    id: "voice-to-music", icon: "️", title: "Voice to Music", tag: "Voice AI", color: "purple",
     description: "Record or upload your voice humming, singing, or speaking. GHS turns it into a full produced song.",
     generateLabel: "Generate Song from My Voice", generateAction: "music",
     fields: [
@@ -132,7 +136,7 @@ const MUSIC_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "image-voice-to-music", icon: "🎨", title: "Image + Voice to Music", tag: "Combined", color: "gold",
+    id: "image-voice-to-music", icon: "", title: "Image + Voice to Music", tag: "Combined", color: "gold",
     description: "Combine a photo with your voice. The image sets the visual mood, your voice sets the emotional tone.",
     generateLabel: "Combine & Generate", generateAction: "music",
     fields: [
@@ -143,7 +147,7 @@ const MUSIC_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "image-animation", icon: "🎭", title: "Music with Animation", tag: "Animated", color: "pink",
+    id: "image-animation", icon: "", title: "Music with Animation", tag: "Animated", color: "pink",
     description: "Upload an image and music. GHS animates the image to move with the beat — dancing, pulsing, breathing.",
     generateLabel: "Animate & Generate", generateAction: "music",
     fields: [
@@ -154,7 +158,7 @@ const MUSIC_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "audio-to-video", icon: "🎵", title: "Audio to Video", tag: "Auto-visual", color: "green",
+    id: "audio-to-video", icon: "", title: "Audio to Video", tag: "Auto-visual", color: "green",
     description: "Upload your existing audio or song. GHS generates a matching visual video to go with it automatically.",
     generateLabel: "Generate Video for My Song", generateAction: "video",
     fields: [
@@ -168,7 +172,7 @@ const MUSIC_MODES: ModeConfig[] = [
 
 const CHILDREN_MODES: ModeConfig[] = [
   {
-    id: "children-abc", icon: "🔤", title: "ABC Alphabet Song", tag: "Learning", color: "purple",
+    id: "children-abc", icon: "", title: "ABC Alphabet Song", tag: "Learning", color: "purple",
     description: "Fun educational alphabet song with colourful animation.",
     generateLabel: "Create ABC Song", generateAction: "music",
     fields: [
@@ -180,7 +184,7 @@ const CHILDREN_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "children-numbers", icon: "🔢", title: "Numbers & Counting", tag: "Learning", color: "gold",
+    id: "children-numbers", icon: "", title: "Numbers & Counting", tag: "Learning", color: "gold",
     description: "Counting songs for kids — 1 to 10, 1 to 100.",
     generateLabel: "Create Numbers Song", generateAction: "music",
     fields: [
@@ -190,7 +194,7 @@ const CHILDREN_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "children-animals", icon: "🐾", title: "Animal Sounds", tag: "Learning", color: "green",
+    id: "children-animals", icon: "", title: "Animal Sounds", tag: "Learning", color: "green",
     description: "Learn animal names and sounds through music.",
     generateLabel: "Create Animal Song", generateAction: "music",
     fields: [
@@ -199,7 +203,7 @@ const CHILDREN_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "children-colours", icon: "🌈", title: "Colours Song", tag: "Learning", color: "pink",
+    id: "children-colours", icon: "", title: "Colours Song", tag: "Learning", color: "pink",
     description: "Learn all colours through a catchy song.",
     generateLabel: "Create Colours Song", generateAction: "music",
     fields: [
@@ -208,7 +212,7 @@ const CHILDREN_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "children-nursery", icon: "🌙", title: "Nursery Rhyme", tag: "Creative", color: "cyan",
+    id: "children-nursery", icon: "", title: "Nursery Rhyme", tag: "Creative", color: "cyan",
     description: "Custom nursery rhymes for bedtime and playtime.",
     generateLabel: "Create Nursery Rhyme", generateAction: "music",
     fields: [
@@ -231,7 +235,7 @@ const CHILDREN_MODES: ModeConfig[] = [
 
 const VIDEO_MODES: ModeConfig[] = [
   {
-    id: "full-music-video", icon: "🎬", title: "Full Music Video", tag: "Full pipeline", color: "cyan",
+    id: "full-music-video", icon: "", title: "Full Music Video", tag: "Full pipeline", color: "cyan",
     description: "Type a concept. GHS writes the song, generates all scenes, syncs cuts to the beat, and produces a complete video.",
     generateLabel: "Start Full Music Video Pipeline", generateAction: "video",
     fields: [
@@ -245,7 +249,7 @@ const VIDEO_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "bring-your-song", icon: "🎤", title: "Bring Your Own Song", tag: "Your music", color: "orange",
+    id: "bring-your-song", icon: "", title: "Bring Your Own Song", tag: "Your music", color: "orange",
     description: "Already have a track? Upload your audio. GHS generates a full visual video to match your music automatically.",
     generateLabel: "Generate Video for My Track", generateAction: "video",
     fields: [
@@ -256,7 +260,7 @@ const VIDEO_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "image-music-video", icon: "📸", title: "Image Music Video", tag: "Personal", color: "gold",
+    id: "image-music-video", icon: "", title: "Image Music Video", tag: "Personal", color: "gold",
     description: "Upload your own photos. GHS animates them into a music video — your memories, your story, your song.",
     generateLabel: "Create My Image Music Video", generateAction: "video",
     fields: [
@@ -266,7 +270,7 @@ const VIDEO_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "ai-performance", icon: "🕺", title: "AI Artist Performance", tag: "Avatar", color: "purple",
+    id: "ai-performance", icon: "", title: "AI Artist Performance", tag: "Avatar", color: "purple",
     description: "Generate an AI avatar artist performing your song. Choose look, style, stage, background, and movement.",
     generateLabel: "Generate AI Performance Video", generateAction: "video",
     fields: [
@@ -277,7 +281,7 @@ const VIDEO_MODES: ModeConfig[] = [
     ],
   },
   {
-    id: "lyric-video", icon: "📝", title: "Lyric Video", tag: "Lyric sync", color: "green",
+    id: "lyric-video", icon: "", title: "Lyric Video", tag: "Lyric sync", color: "green",
     description: "Upload a song. GHS generates a stylised lyric video with animated text synced to every word of your track.",
     generateLabel: "Create Lyric Video", generateAction: "video",
     fields: [
@@ -301,12 +305,12 @@ const VIDEO_MODES: ModeConfig[] = [
 
 // ── Styles ───────────────────────────────────────────────────────────────
 
-const surface = "#0e1318";
-const surface2 = "#151c24";
-const border = "#1e2a35";
-const border2 = "#263240";
-const muted = "#5a7080";
-const accent = "#7c5cfc";
+const surface = ds.color.card;
+const surface2 = ds.color.alert;
+const border = ds.color.line;
+const border2 = ds.color.line2;
+const muted = ds.color.mute;
+const accent = ds.color.lilac;
 
 // ── Page Component ───────────────────────────────────────────────────────
 
@@ -448,15 +452,12 @@ export default function MusicVideoStudioPage() {
 
       {/* ── Hero ── */}
       <div style={{ marginBottom: 40 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(124,92,252,0.08)", border: "1px solid rgba(124,92,252,0.2)", padding: "5px 14px", borderRadius: 100, fontSize: 11, fontWeight: 500, color: accent, letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 20 }}>
-          <span style={{ width: 6, height: 6, background: accent, borderRadius: "50%" }} /> AI Studio
-        </div>
-        <h1 style={{ fontSize: 36, fontWeight: 800, color: "#fff", letterSpacing: "-1.5px", lineHeight: 1.1, marginBottom: 12 }}>
-          Create anything.<br /><span style={{ color: accent }}>Music. Video. Magic.</span>
-        </h1>
-        <p style={{ fontSize: 15, color: muted, maxWidth: 560, lineHeight: 1.7 }}>
-          Turn your images, text, or voice into full music videos, animated songs, and AI content — in minutes.
-        </p>
+        <HeroTitle
+          kicker="AI Studio"
+          title="Music. Video."
+          italic="Magic."
+          sub="Turn your images, text, or voice into full music videos, animated songs, and AI content — in minutes."
+        />
       </div>
 
       {/* ── Tab switcher ── */}
@@ -495,7 +496,7 @@ export default function MusicVideoStudioPage() {
             border: "1px solid rgba(168,85,247,0.15)", borderRadius: 24, padding: 36, marginBottom: 48,
             position: "relative", overflow: "hidden",
           }}>
-            <div style={{ position: "absolute", right: 36, top: "50%", transform: "translateY(-50%)", fontSize: 80, opacity: 0.12 }}>🎠</div>
+            <div style={{ position: "absolute", right: 36, top: "50%", transform: "translateY(-50%)", fontSize: 80, opacity: 0.12 }}></div>
             <SectionLabel text="For children" />
             <h2 style={{ fontSize: 22, fontWeight: 800, color: "#fff", marginBottom: 8, letterSpacing: "-0.5px" }}>
               Children&apos;s Music Studio
@@ -531,12 +532,12 @@ export default function MusicVideoStudioPage() {
           {/* Feature highlights */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 40 }}>
             {[
-              { icon: "🎬", title: "Beat-Synced Cuts", desc: "Every video cut lands on a beat. Automatic. Professional." },
-              { icon: "🎵", title: "Full Song Generation", desc: "GHS writes and produces a complete song — lyrics, vocals, beat." },
-              { icon: "🗺️", title: "Scene Planning", desc: "AI maps each section of your song to a matching visual scene." },
-              { icon: "📝", title: "Lyric Overlay", desc: "Words appear on screen exactly as they are sung." },
-              { icon: "🌍", title: "Global Genres", desc: "Pop, R&B, Afrobeats, Amapiano, Gospel, Jazz, EDM and more." },
-              { icon: "📱", title: "Platform Cuts", desc: "Auto-generates YouTube, Reels, and TikTok versions." },
+              { icon: "", title: "Beat-Synced Cuts", desc: "Every video cut lands on a beat. Automatic. Professional." },
+              { icon: "", title: "Full Song Generation", desc: "GHS writes and produces a complete song — lyrics, vocals, beat." },
+              { icon: "️", title: "Scene Planning", desc: "AI maps each section of your song to a matching visual scene." },
+              { icon: "", title: "Lyric Overlay", desc: "Words appear on screen exactly as they are sung." },
+              { icon: "", title: "Global Genres", desc: "Pop, R&B, Afrobeats, Amapiano, Gospel, Jazz, EDM and more." },
+              { icon: "", title: "Platform Cuts", desc: "Auto-generates YouTube, Reels, and TikTok versions." },
             ].map(f => (
               <div key={f.title} style={{ background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: 16, display: "flex", alignItems: "flex-start", gap: 12 }}>
                 <span style={{ fontSize: 20, flexShrink: 0 }}>{f.icon}</span>
@@ -561,7 +562,7 @@ export default function MusicVideoStudioPage() {
       {editMode && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "flex-end" }}>
           {/* Backdrop */}
-          <div onClick={closeEdit} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }} />
+          <div onClick={closeEdit} style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.82)" }} />
 
           {/* Panel */}
           <div style={{

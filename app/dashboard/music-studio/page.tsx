@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import SFXPicker from "../../components/SFXPicker";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
+import { ds } from "../../../lib/designSystem";
+import HeroTitle from "../../components/hero/HeroTitle";
+import ButtonPrimary from "../../components/ui/ButtonPrimary";
 
 interface StockTrack {
   filename: string;
@@ -107,24 +110,37 @@ export default function MusicStudioPage() {
 
   const MOODS = [...new Set(tracks.map(t => t.mood))];
 
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    padding: "8px 16px",
+    borderRadius: ds.radius.sm,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    fontFamily: ds.font.mono,
+    cursor: "pointer",
+    border: "none",
+    background: "transparent",
+    color: active ? ds.color.ink : ds.color.mute,
+    borderBottom: active ? `2px solid ${ds.color.lilac}` : "2px solid transparent",
+    transition: "all .18s",
+  });
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">🎵 Music & Audio Studio</h1>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Generate, browse, trim, and mix audio for your content</p>
-      </div>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+      <HeroTitle kicker="Audio Studio" title="Music &" italic="Sound" />
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6">
+      <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${ds.color.line}` }}>
         {[
-          { id: "generate" as const, label: "AI Generate", icon: "🎵" },
-          { id: "library" as const, label: "Stock Library", icon: "📚" },
-          { id: "sfx" as const, label: "Sound Effects", icon: "💥" },
-          { id: "dj" as const, label: "DJ Tools", icon: "🎧" },
-          { id: "upload" as const, label: "Upload", icon: "⬆️" },
+          { id: "generate" as const, label: "AI Generate" },
+          { id: "library" as const, label: "Stock Library" },
+          { id: "sfx" as const, label: "Sound FX" },
+          { id: "dj" as const, label: "DJ Tools" },
+          { id: "upload" as const, label: "Upload" },
         ].map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === t.id ? "bg-[#7c5cfc] text-white" : "bg-[#1a1a2e] text-[#6060a0] hover:text-white"}`}>
-            {t.icon} {t.label}
+          <button key={t.id} onClick={() => setTab(t.id)} style={tabStyle(tab === t.id)}>
+            {t.label}
           </button>
         ))}
       </div>
@@ -140,108 +156,105 @@ export default function MusicStudioPage() {
           {/* AI LLM tier + Music engine selector */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div>
-              <p style={{ fontSize: 10, color: "#6060a0", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>AI Intelligence</p>
+              <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>AI Intelligence</p>
               <AITierSelector value={aiTier} onChange={setAiTier} compact />
             </div>
             <div>
-              <p style={{ fontSize: 10, color: "#6060a0", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Music Engine</p>
+              <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Music Engine</p>
               <div style={{ display: "flex", gap: 6 }}>
                 {[
-                  { id: "standard" as const, label: "MiniMax", color: "#22c55e" },
-                  { id: "premium" as const, label: "Suno V5", color: "#f5c518" },
+                  { id: "standard" as const, label: "MiniMax", color: ds.color.mint },
+                  { id: "premium" as const, label: "Suno V5", color: ds.color.gold },
                 ].map(t => (
                   <button key={t.id} onClick={() => setGenTier(t.id)} style={{
-                    flex: 1, padding: "8px 10px", borderRadius: 10, border: `1px solid ${genTier === t.id ? t.color + "60" : "#2a2a40"}`,
-                    background: genTier === t.id ? t.color + "15" : "#12121e",
-                    color: genTier === t.id ? t.color : "#888", fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    flex: 1, padding: "8px 10px", borderRadius: ds.radius.sm, border: `1px solid ${genTier === t.id ? t.color + "60" : ds.color.line2}`,
+                    background: genTier === t.id ? t.color + "20" : ds.color.card,
+                    color: genTier === t.id ? t.color : ds.color.mute, fontSize: 11, fontWeight: 700, cursor: "pointer",
                   }}>{t.label}</button>
                 ))}
               </div>
             </div>
           </div>
 
-          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
-            <div>
-              <h2 className="text-base font-semibold text-white mb-0.5">AI Music Generator</h2>
-              <p className="text-[10px] text-[#6060a0]">Describe the vibe — AI composes an original track for your content.</p>
+          <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 20 }}>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>AI Music Generator</h2>
+              <p style={{ fontSize: 10, color: ds.color.mute }}>Describe the vibe — AI composes an original track for your content.</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Genre</label>
-                <select value={genGenre} onChange={e => setGenGenre(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2">
+                <label style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Genre</label>
+                <select value={genGenre} onChange={e => setGenGenre(e.target.value)} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.sm, padding: "6px 10px" }}>
                   <option value="">Auto-detect</option>
                   {["Afrobeats", "Afropop", "Afro Gospel", "Highlife", "Pop", "Hip-Hop", "R&B", "Gospel", "Jazz", "Classical", "Electronic", "Ambient", "Cinematic", "Drill", "Reggae", "Dancehall", "Trap", "Soul", "Country", "Rock"].map(g => <option key={g}>{g}</option>)}
                 </select>
               </div>
               <div>
-                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Mood</label>
-                <select value={genMood} onChange={e => setGenMood(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2">
+                <label style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Mood</label>
+                <select value={genMood} onChange={e => setGenMood(e.target.value)} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.sm, padding: "6px 10px" }}>
                   <option value="">Auto-detect</option>
                   {["Upbeat", "Calm", "Emotional", "Epic", "Dramatic", "Romantic", "Dark", "Joyful", "Suspenseful", "Motivational", "Worshipful", "Festive", "Melancholic", "Energetic", "Peaceful"].map(m => <option key={m}>{m}</option>)}
                 </select>
               </div>
             </div>
 
-            <div>
-              <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Describe the track</label>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Describe the track</label>
               <textarea value={genPrompt} onChange={e => setGenPrompt(e.target.value)}
                 placeholder="e.g. Afrobeats party anthem, heavy bass, 60 seconds, perfect for real estate reel..."
-                rows={3} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c5cfc] resize-none" />
+                rows={3} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 13, borderRadius: ds.radius.sm, padding: "10px 14px", resize: "none", outline: "none", boxSizing: "border-box" }} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">Duration: {genDuration}s</label>
-                <input type="range" min={10} max={240} step={5} value={genDuration} onChange={e => setGenDuration(Number(e.target.value))} className="w-full accent-[#7c5cfc]" />
-                <div className="flex justify-between text-[9px] text-[#6060a0]"><span>10s</span><span>240s</span></div>
+                <label style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Duration: {genDuration}s</label>
+                <input type="range" min={10} max={240} step={5} value={genDuration} onChange={e => setGenDuration(Number(e.target.value))} style={{ width: "100%", accentColor: ds.color.lilac }} />
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 9, color: ds.color.mute }}><span>10s</span><span>240s</span></div>
               </div>
-              <div className="flex flex-col gap-2 pt-1">
-                <label className="flex items-center gap-2 text-xs text-[#6060a0] cursor-pointer">
-                  <input type="checkbox" checked={genInstrumental} onChange={e => setGenInstrumental(e.target.checked)} className="accent-[#7c5cfc]" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: ds.color.mute, cursor: "pointer" }}>
+                  <input type="checkbox" checked={genInstrumental} onChange={e => setGenInstrumental(e.target.checked)} style={{ accentColor: ds.color.lilac }} />
                   Instrumental only (no vocals)
                 </label>
                 {genTier === "premium" && (
                   <input value={genTitle} onChange={e => setGenTitle(e.target.value)} placeholder="Song title (optional)"
-                    className="bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#7c5cfc]" />
+                    style={{ background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.sm, padding: "6px 10px", outline: "none" }} />
                 )}
               </div>
             </div>
 
             {genTier === "premium" && (
-              <div>
-                <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Lyrics (optional — for vocal songs)</label>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Lyrics (optional — for vocal songs)</label>
                 <textarea value={genLyrics} onChange={e => setGenLyrics(e.target.value)}
                   placeholder="Paste your lyrics here — Suno will sing them..."
-                  rows={4} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-4 py-3 focus:outline-none focus:border-[#7c5cfc] resize-none" />
+                  rows={4} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.sm, padding: "10px 14px", resize: "none", outline: "none", boxSizing: "border-box" }} />
               </div>
             )}
 
-            <div className="flex gap-3 items-center">
-              <button disabled={generating || !genPrompt.trim()} onClick={handleGenerate}
-                className="px-6 py-2.5 text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
-                style={{ background: generating ? "#2a2a40" : "#7c5cfc", color: "#fff" }}>
-                {generating ? "Composing…" : `Generate ${genTier === "premium" ? "(Suno V5)" : "(MiniMax)"}`}
-              </button>
-              {generating && <span className="text-xs text-[#6060a0] animate-pulse">{genTier === "premium" ? "Suno V5 takes ~90 seconds…" : "MiniMax composing…"}</span>}
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <ButtonPrimary disabled={generating || !genPrompt.trim()} onClick={handleGenerate} size="md">
+                {generating ? "Composing..." : `Generate ${genTier === "premium" ? "(Suno V5)" : "(MiniMax)"}`}
+              </ButtonPrimary>
+              {generating && <span style={{ fontSize: 11, color: ds.color.mute }}>{genTier === "premium" ? "Suno V5 takes ~90 seconds..." : "MiniMax composing..."}</span>}
             </div>
 
             {genResult && (
-              <div className={`p-4 rounded-xl text-xs ${genResult.error ? "bg-red-950/40 border border-red-900/40" : "bg-green-950/40 border border-green-900/40"}`}>
+              <div style={{ marginTop: 12, padding: 14, borderRadius: ds.radius.sm, border: `1px solid ${genResult.error ? "rgba(239,68,68,0.3)" : "rgba(74,222,128,0.2)"}`, background: genResult.error ? "rgba(239,68,68,0.06)" : "rgba(74,222,128,0.06)", fontSize: 11 }}>
                 {genResult.error ? (
-                  <p className="text-red-400">{genResult.error}</p>
+                  <p style={{ color: "#f87171" }}>{genResult.error}</p>
                 ) : (
                   <>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-green-400 font-semibold">✓ Track generated</p>
-                      <span className="text-[9px] bg-[#1a1a2e] px-2 py-0.5 rounded text-[#7c5cfc]">{genResult.provider}</span>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <p style={{ color: ds.color.mint, fontWeight: 700 }}>Track generated</p>
+                      <span style={{ fontSize: 9, background: ds.color.alert, padding: "2px 6px", borderRadius: 4, color: ds.color.lilac }}>{genResult.provider}</span>
                     </div>
-                    <p className="text-[#6060a0] mb-2">{genResult.musicPath?.split(/[\\/]/).pop()}</p>
+                    <p style={{ color: ds.color.mute, marginBottom: 8 }}>{genResult.musicPath?.split(/[\\/]/).pop()}</p>
                     {genResult.musicPath && (
                       <button onClick={() => playTrack(genResult.musicPath!)}
-                        className="px-4 py-1.5 rounded-lg text-white text-xs font-semibold"
-                        style={{ background: playing === genResult.musicPath ? "#374151" : "#7c5cfc" }}>
-                        {playing === genResult.musicPath ? "⏸ Stop" : "▶ Play"}
+                        style={{ padding: "6px 14px", borderRadius: ds.radius.sm, color: ds.color.ink, fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", background: playing === genResult.musicPath ? ds.color.mute2 : ds.color.lilac }}>
+                        {playing === genResult.musicPath ? "Stop" : "Play"}
                       </button>
                     )}
                   </>
@@ -252,19 +265,19 @@ export default function MusicStudioPage() {
 
           {/* History */}
           {genHistory.length > 0 && (
-            <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-4">
-              <p className="text-[10px] text-[#6060a0] uppercase tracking-wider mb-3">This session ({genHistory.length} generated)</p>
-              <div className="space-y-2">
+            <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 16 }}>
+              <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>This session ({genHistory.length} generated)</p>
+              <div>
                 {genHistory.map((h, i) => (
-                  <div key={i} className="flex items-center gap-3 py-2 border-b border-[#2a2a40] last:border-0">
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, paddingBlock: 8, borderBottom: `1px solid ${ds.color.line}` }}>
                     <button onClick={() => playTrack(h.musicPath)}
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs flex-shrink-0"
-                      style={{ background: playing === h.musicPath ? "#7c5cfc" : "#1e1e30" }}>
-                      {playing === h.musicPath ? "⏸" : "▶"}
+                      style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, flexShrink: 0, border: "none", cursor: "pointer",
+                        background: playing === h.musicPath ? ds.color.lilac : ds.color.alert, color: ds.color.ink }}>
+                      {playing === h.musicPath ? "II" : ">"}
                     </button>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-white truncate">{h.prompt.slice(0, 60)}</p>
-                      <p className="text-[9px] text-[#6060a0]">{h.provider} · {h.tier}</p>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, color: ds.color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.prompt.slice(0, 60)}</p>
+                      <p style={{ fontSize: 9, color: ds.color.mute }}>{h.provider} · {h.tier}</p>
                     </div>
                   </div>
                 ))}
@@ -276,27 +289,27 @@ export default function MusicStudioPage() {
 
       {/* Stock Library Tab */}
       {tab === "library" && (
-        <div className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
-            <span className="text-xs text-[#6060a0] py-1">Filter:</span>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: ds.color.mute }}>Filter:</span>
             {MOODS.map(m => (
-              <button key={m} className="text-[10px] bg-[#1a1a2e] text-[#6060a0] hover:text-white px-2.5 py-1 rounded border border-[#2a2a40] transition-colors capitalize">
+              <button key={m} style={{ fontSize: 10, background: ds.color.alert, color: ds.color.mute, padding: "4px 10px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, cursor: "pointer", textTransform: "capitalize" }}>
                 {m}
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 8 }}>
             {tracks.map(t => (
-              <div key={t.filename} className="bg-[#12121e] border border-[#2a2a40] rounded-lg p-3 flex items-center gap-3 hover:border-[#7c5cfc]/40 transition-colors">
+              <div key={t.filename} style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   onClick={() => playTrack(`storage/music/stock/${t.filename}`)}
-                  className="w-8 h-8 flex items-center justify-center rounded-full bg-[#7c5cfc]/20 text-[#b090ff] hover:bg-[#7c5cfc]/30 text-sm flex-shrink-0"
+                  style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: `${ds.color.lilac}25`, color: ds.color.lilac, border: "none", cursor: "pointer", flexShrink: 0, fontSize: 12 }}
                 >
-                  {playing === `storage/music/stock/${t.filename}` ? "⏸" : "▶"}
+                  {playing === `storage/music/stock/${t.filename}` ? "II" : ">"}
                 </button>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-white font-medium truncate">{t.label}</p>
-                  <p className="text-[9px] text-[#6060a0] capitalize">{t.mood}</p>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</p>
+                  <p style={{ fontSize: 9, color: ds.color.mute, textTransform: "capitalize" }}>{t.mood}</p>
                 </div>
               </div>
             ))}
@@ -306,40 +319,36 @@ export default function MusicStudioPage() {
 
       {/* SFX Tab */}
       {tab === "sfx" && (
-        <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-6 space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white mb-1">Sound Effects</h2>
-            <p className="text-xs text-[#6060a0]">Describe the sound you need — AI finds or generates it.</p>
+        <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 24 }}>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>Sound Effects</h2>
+            <p style={{ fontSize: 11, color: ds.color.mute }}>Describe the sound you need — AI finds or generates it.</p>
           </div>
-          <div className="flex gap-2">
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
             <input
               value={sfxPrompt}
               onChange={e => setSfxPrompt(e.target.value)}
               placeholder="e.g. crowd applause, door slam, car horn, rain..."
-              className="flex-1 bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-4 py-2.5 focus:outline-none focus:border-indigo-600"
+              style={{ flex: 1, background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 13, borderRadius: ds.radius.sm, padding: "8px 14px", outline: "none" }}
             />
-            <button
-              disabled={sfxGenerating || !sfxPrompt.trim()}
-              onClick={handleSfxGenerate}
-              className="px-5 py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
-            >
+            <ButtonPrimary disabled={sfxGenerating || !sfxPrompt.trim()} onClick={handleSfxGenerate} size="md">
               {sfxGenerating ? "..." : "Find SFX"}
-            </button>
+            </ButtonPrimary>
           </div>
           {sfxResult && (
-            <div className={`p-3 rounded-lg text-xs ${sfxResult.error ? "bg-orange-950/40 text-orange-400" : "bg-green-950/40 text-green-400"}`}>
+            <div style={{ padding: "10px 12px", borderRadius: ds.radius.xs, fontSize: 11, marginBottom: 16, background: sfxResult.error ? "rgba(239,68,68,0.06)" : "rgba(74,222,128,0.06)", color: sfxResult.error ? "#f87171" : ds.color.mint, border: `1px solid ${sfxResult.error ? "rgba(239,68,68,0.2)" : "rgba(74,222,128,0.2)"}` }}>
               {sfxResult.error ?? `Found: ${sfxResult.matched}`}
               {sfxResult.sfxPath && (
-                <button onClick={() => playTrack(sfxResult.sfxPath!)} className="ml-3 text-[#7c5cfc] underline">
-                  {playing === sfxResult.sfxPath ? "⏸ Stop" : "▶ Preview"}
+                <button onClick={() => playTrack(sfxResult.sfxPath!)} style={{ marginLeft: 12, color: ds.color.lilac, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 11 }}>
+                  {playing === sfxResult.sfxPath ? "Stop" : "Preview"}
                 </button>
               )}
             </div>
           )}
 
-          {/* Full SFX Library — browse, preview, use */}
-          <div className="pt-4 border-t border-[#2a2a40]">
-            <p className="text-xs font-semibold text-[#b090ff] mb-3">Full SFX Library ({48} effects — click to preview)</p>
+          {/* Full SFX Library */}
+          <div style={{ paddingTop: 16, borderTop: `1px solid ${ds.color.line}` }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, marginBottom: 12 }}>Full SFX Library (48 effects — click to preview)</p>
             <SFXPicker onSelect={(event, path) => { playTrack(path); }} />
           </div>
         </div>
@@ -347,17 +356,17 @@ export default function MusicStudioPage() {
 
       {/* DJ Tools Tab */}
       {tab === "dj" && (
-        <div className="space-y-4">
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Trimmer */}
-          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white mb-1">Audio Trimmer & Editor</h2>
-              <p className="text-xs text-[#6060a0]">Set start/end points, add fades, adjust volume, loop sections.</p>
+          <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 20 }}>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>Audio Trimmer & Editor</h2>
+              <p style={{ fontSize: 11, color: ds.color.mute }}>Set start/end points, add fades, adjust volume, loop sections.</p>
             </div>
 
-            <div>
-              <label className="text-[10px] text-[#6060a0] uppercase tracking-wider block mb-1">Select track</label>
-              <select value={djTrack} onChange={e => setDjTrack(e.target.value)} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2">
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 4 }}>Select track</label>
+              <select value={djTrack} onChange={e => setDjTrack(e.target.value)} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 12, borderRadius: ds.radius.sm, padding: "8px 10px" }}>
                 <option value="">Choose a stock track...</option>
                 {tracks.map(t => (
                   <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label} ({t.mood})</option>
@@ -365,43 +374,38 @@ export default function MusicStudioPage() {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">Start (sec)</label>
-                <input type="number" min={0} step={0.1} value={djStart} onChange={e => setDjStart(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">End (sec)</label>
-                <input type="number" min={0.1} step={0.1} value={djEnd} onChange={e => setDjEnd(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">Fade In (sec)</label>
-                <input type="number" min={0} max={5} step={0.1} value={djFadeIn} onChange={e => setDjFadeIn(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
-              </div>
-              <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">Fade Out (sec)</label>
-                <input type="number" min={0} max={5} step={0.1} value={djFadeOut} onChange={e => setDjFadeOut(Number(e.target.value))} className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
-              </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 12 }}>
+              {[
+                { label: "Start (sec)", value: djStart, set: setDjStart, min: 0 },
+                { label: "End (sec)", value: djEnd, set: setDjEnd, min: 0.1 },
+                { label: "Fade In (sec)", value: djFadeIn, set: setDjFadeIn, min: 0 },
+                { label: "Fade Out (sec)", value: djFadeOut, set: setDjFadeOut, min: 0 },
+              ].map(f => (
+                <div key={f.label}>
+                  <label style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>{f.label}</label>
+                  <input type="number" min={f.min} step={0.1} value={f.value} onChange={e => f.set(Number(e.target.value))} style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 12, borderRadius: ds.radius.xs, padding: "6px 8px", boxSizing: "border-box" }} />
+                </div>
+              ))}
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
               <div>
-                <label className="text-[10px] text-[#6060a0] block mb-1">Volume: {(djVolume * 100).toFixed(0)}%</label>
-                <input type="range" min={0} max={2} step={0.05} value={djVolume} onChange={e => setDjVolume(Number(e.target.value))} className="w-full accent-[#7c5cfc]" />
+                <label style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Volume: {(djVolume * 100).toFixed(0)}%</label>
+                <input type="range" min={0} max={2} step={0.05} value={djVolume} onChange={e => setDjVolume(Number(e.target.value))} style={{ width: "100%", accentColor: ds.color.lilac }} />
               </div>
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-[#6060a0]">
-                  <input type="checkbox" checked={djLoop} onChange={e => setDjLoop(e.target.checked)} className="accent-[#7c5cfc]" />
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: ds.color.mute }}>
+                  <input type="checkbox" checked={djLoop} onChange={e => setDjLoop(e.target.checked)} style={{ accentColor: ds.color.lilac }} />
                   Loop
                 </label>
                 {djLoop && (
-                  <input type="number" min={2} max={10} value={djLoopCount} onChange={e => setDjLoopCount(Number(e.target.value))} className="w-16 bg-gray-900 border border-gray-700 text-white text-xs rounded px-2 py-1" />
+                  <input type="number" min={2} max={10} value={djLoopCount} onChange={e => setDjLoopCount(Number(e.target.value))} style={{ width: 56, background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.xs, padding: "4px 8px" }} />
                 )}
               </div>
             </div>
 
-            <div className="flex gap-2">
-              <button
+            <div style={{ display: "flex", gap: 8 }}>
+              <ButtonPrimary
                 disabled={!djTrack || djProcessing}
                 onClick={async () => {
                   setDjProcessing(true);
@@ -410,38 +414,29 @@ export default function MusicStudioPage() {
                     const res = await fetch("/api/music/trim", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        inputPath: djTrack,
-                        startSec: djStart,
-                        endSec: djEnd,
-                        fadeInSec: djFadeIn,
-                        fadeOutSec: djFadeOut,
-                        volume: djVolume,
-                        loop: djLoop,
-                        loopCount: djLoopCount,
-                      }),
+                      body: JSON.stringify({ inputPath: djTrack, startSec: djStart, endSec: djEnd, fadeInSec: djFadeIn, fadeOutSec: djFadeOut, volume: djVolume, loop: djLoop, loopCount: djLoopCount }),
                     });
                     setDjResult(await res.json());
                   } catch { setDjResult({ error: "Network error" }); }
                   setDjProcessing(false);
                 }}
-                className="px-6 py-2.5 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40"
+                size="md"
               >
                 {djProcessing ? "Processing..." : "Trim & Export"}
-              </button>
+              </ButtonPrimary>
               {djTrack && (
-                <button onClick={() => playTrack(djTrack)} className="px-4 py-2.5 bg-gray-800 text-gray-300 hover:text-white rounded-xl text-sm transition-colors">
-                  {playing === djTrack ? "⏸ Stop" : "▶ Preview"}
+                <button onClick={() => playTrack(djTrack)} style={{ padding: "8px 16px", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink2, borderRadius: ds.radius.sm, fontSize: 13, cursor: "pointer" }}>
+                  {playing === djTrack ? "Stop" : "Preview"}
                 </button>
               )}
             </div>
 
             {djResult && (
-              <div className={`p-3 rounded-lg text-xs ${djResult.error ? "bg-red-950/40 text-red-400" : "bg-green-950/40 text-green-400"}`}>
+              <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: ds.radius.xs, fontSize: 11, background: djResult.error ? "rgba(239,68,68,0.06)" : "rgba(74,222,128,0.06)", color: djResult.error ? "#f87171" : ds.color.mint, border: `1px solid ${djResult.error ? "rgba(239,68,68,0.2)" : "rgba(74,222,128,0.2)"}` }}>
                 {djResult.error ?? `Exported: ${djResult.outputPath}`}
                 {djResult.outputPath && (
-                  <button onClick={() => playTrack(djResult.outputPath!)} className="ml-3 text-[#7c5cfc] underline">
-                    {playing === djResult.outputPath ? "⏸ Stop" : "▶ Preview result"}
+                  <button onClick={() => playTrack(djResult.outputPath!)} style={{ marginLeft: 12, color: ds.color.lilac, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", fontSize: 11 }}>
+                    {playing === djResult.outputPath ? "Stop" : "Preview result"}
                   </button>
                 )}
               </div>
@@ -449,10 +444,10 @@ export default function MusicStudioPage() {
           </div>
 
           {/* Waveform & Beat Visualizer */}
-          <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold text-white mb-1">Waveform & Beat Visualizer</h2>
-              <p className="text-xs text-[#6060a0]">Visual waveform with beat detection — select a track above to visualize.</p>
+          <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 20 }}>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>Waveform & Beat Visualizer</h2>
+              <p style={{ fontSize: 11, color: ds.color.mute }}>Visual waveform with beat detection — select a track above to visualize.</p>
             </div>
             <WaveformVisualizer trackPath={djTrack} playing={playing} />
           </div>
@@ -464,27 +459,27 @@ export default function MusicStudioPage() {
 
       {/* Upload Tab */}
       {tab === "upload" && (
-        <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Upload Your Own Music</h2>
+        <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 24 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 16 }}>Upload Your Own Music</h2>
 
-          <div className="border-2 border-dashed border-[#3a3a60] rounded-xl p-8 text-center hover:border-[#7c5cfc] transition-colors cursor-pointer">
-            <p className="text-[#6060a0] text-sm mb-2">Drag & drop audio files here</p>
-            <p className="text-[#404060] text-xs">Supports MP3, WAV, AAC</p>
+          <div style={{ border: `2px dashed ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 32, textAlign: "center", cursor: "pointer", marginBottom: 16 }}>
+            <p style={{ color: ds.color.mute, fontSize: 13, marginBottom: 6 }}>Drag & drop audio files here</p>
+            <p style={{ color: ds.color.mute2, fontSize: 11 }}>Supports MP3, WAV, AAC</p>
           </div>
 
           {/* Legal disclaimer */}
-          <div className="bg-[#0a0a18] border border-[#1a1a2e] rounded-lg p-4">
-            <p className="text-[10px] font-semibold text-orange-400 uppercase tracking-wider mb-2">Music & Audio Upload Policy</p>
-            <div className="text-[9px] text-[#8080b0] space-y-1.5 leading-relaxed">
+          <div style={{ background: ds.color.wallet, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: 16 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: ds.color.coral, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Music & Audio Upload Policy</p>
+            <div style={{ fontSize: 9, color: ds.color.mute2, lineHeight: 1.6 }}>
               <p>By uploading audio to GioHomeStudio, you confirm that:</p>
-              <p className="text-green-400/70">✅ You own the rights to this music, OR</p>
-              <p className="text-green-400/70">✅ You have a valid license to use it commercially, OR</p>
-              <p className="text-green-400/70">✅ The music is royalty-free or in the public domain</p>
-              <p className="mt-2">GioHomeStudio does not allow:</p>
-              <p className="text-red-400/70">❌ Copyrighted songs from Spotify, Apple Music, YouTube, or any commercial platform</p>
-              <p className="text-red-400/70">❌ Music owned by record labels or publishers without a valid sync and master license</p>
-              <p className="text-red-400/70">❌ Any audio you do not have rights to use commercially</p>
-              <p className="mt-2 text-[#6060a0]">
+              <p style={{ color: `${ds.color.mint}aa` }}>You own the rights to this music, OR</p>
+              <p style={{ color: `${ds.color.mint}aa` }}>You have a valid license to use it commercially, OR</p>
+              <p style={{ color: `${ds.color.mint}aa` }}>The music is royalty-free or in the public domain</p>
+              <p style={{ marginTop: 8 }}>GioHomeStudio does not allow:</p>
+              <p style={{ color: "rgba(248,113,113,0.7)" }}>Copyrighted songs from Spotify, Apple Music, YouTube, or any commercial platform</p>
+              <p style={{ color: "rgba(248,113,113,0.7)" }}>Music owned by record labels or publishers without a valid sync and master license</p>
+              <p style={{ color: "rgba(248,113,113,0.7)" }}>Any audio you do not have rights to use commercially</p>
+              <p style={{ marginTop: 8, color: ds.color.mute }}>
                 GioHomeStudio is not responsible for copyright violations resulting from music uploaded by users. Users are solely responsible for ensuring they have the necessary rights to all audio they upload and use on this platform.
               </p>
             </div>
@@ -641,16 +636,16 @@ function WaveformVisualizer({ trackPath, playing }: { trackPath: string; playing
 
   if (!trackPath) {
     return (
-      <div className="h-32 flex items-center justify-center border border-dashed border-[#2a2a40] rounded-lg">
-        <p className="text-xs text-[#404060]">Select a track above to see its waveform</p>
+      <div style={{ height: 128, display: "flex", alignItems: "center", justifyContent: "center", border: `1px dashed ${ds.color.line2}`, borderRadius: ds.radius.sm }}>
+        <p style={{ fontSize: 11, color: ds.color.mute2 }}>Select a track above to see its waveform</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="h-32 flex items-center justify-center bg-[#0a0a18] rounded-lg">
-        <p className="text-xs text-[#6060a0]">Analyzing waveform...</p>
+      <div style={{ height: 128, display: "flex", alignItems: "center", justifyContent: "center", background: ds.color.wallet, borderRadius: ds.radius.sm }}>
+        <p style={{ fontSize: 11, color: ds.color.mute }}>Analyzing waveform...</p>
       </div>
     );
   }
@@ -661,24 +656,23 @@ function WaveformVisualizer({ trackPath, playing }: { trackPath: string; playing
         ref={canvasRef}
         width={800}
         height={120}
-        className="w-full rounded-lg"
-        style={{ background: "#0a0a18", border: "1px solid #1a1a2e" }}
+        style={{ width: "100%", borderRadius: ds.radius.xs, background: ds.color.wallet, border: `1px solid ${ds.color.line}` }}
       />
       {beats.length > 0 && (
-        <div className="flex items-center gap-3 mt-2">
-          <span className="text-[10px] text-[#6060a0]">{beats.length} beats detected</span>
-          <span className="text-[10px] text-[#404060]">|</span>
-          <span className="text-[10px] text-[#6060a0]">~{duration > 0 ? Math.round(beats.length / (duration / 60)) : 0} BPM</span>
-          <span className="text-[10px] text-[#404060]">|</span>
-          <span className="text-[10px] text-[#6060a0]">{duration.toFixed(1)}s duration</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+          <span style={{ fontSize: 10, color: ds.color.mute }}>{beats.length} beats detected</span>
+          <span style={{ fontSize: 10, color: ds.color.mute2 }}>|</span>
+          <span style={{ fontSize: 10, color: ds.color.mute }}>~{duration > 0 ? Math.round(beats.length / (duration / 60)) : 0} BPM</span>
+          <span style={{ fontSize: 10, color: ds.color.mute2 }}>|</span>
+          <span style={{ fontSize: 10, color: ds.color.mute }}>{duration.toFixed(1)}s duration</span>
           {/* Beat pattern indicator */}
-          <div className="flex gap-0.5 ml-auto">
+          <div style={{ display: "flex", gap: 2, marginLeft: "auto" }}>
             {beats.slice(0, 32).map((_, i) => (
               <div
                 key={i}
-                className="w-1.5 h-3 rounded-sm"
                 style={{
-                  background: i % 4 === 0 ? "#7c5cfc" : i % 2 === 0 ? "#5c3cdc80" : "#3a2a8060",
+                  width: 5, height: 12, borderRadius: 2,
+                  background: i % 4 === 0 ? ds.color.lilac : i % 2 === 0 ? `${ds.color.lilac}50` : `${ds.color.lilac}25`,
                 }}
               />
             ))}
@@ -736,73 +730,72 @@ function LiveMixer({ tracks }: { tracks: { filename: string; label: string; mood
   }
 
   return (
-    <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5">
-      <div className="flex items-center justify-between mb-3">
+    <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <div>
-          <h2 className="text-lg font-semibold text-white mb-0.5">Sound Layering (Mini DJ)</h2>
-          <p className="text-xs text-[#6060a0]">Mix up to 3 tracks — hear changes live as you adjust volume and layers.</p>
+          <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>Sound Layering (Mini DJ)</h2>
+          <p style={{ fontSize: 11, color: ds.color.mute }}>Mix up to 3 tracks — hear changes live as you adjust volume and layers.</p>
         </div>
-        <div className="flex gap-2">
-          <button onClick={togglePlay} className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${isPlaying ? "bg-orange-600 hover:bg-orange-500 text-white" : "bg-[#7c5cfc] hover:bg-[#9070ff] text-white"}`}>
-            {isPlaying ? "⏸ Pause" : "▶ Preview Mix"}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={togglePlay} style={{ padding: "8px 14px", borderRadius: ds.radius.sm, fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", background: isPlaying ? ds.color.coral : ds.color.lilac, color: ds.color.ink }}>
+            {isPlaying ? "Pause" : "Preview Mix"}
           </button>
-          {isPlaying && <button onClick={stopAll} className="px-3 py-2 rounded-lg text-sm bg-gray-800 text-gray-300 hover:text-white">⏹ Stop</button>}
+          {isPlaying && <button onClick={stopAll} style={{ padding: "8px 12px", borderRadius: ds.radius.sm, fontSize: 13, background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink2, cursor: "pointer" }}>Stop</button>}
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
         {LABELS.map((label, i) => (
-          <div key={i} className="bg-[#0a0a18] border border-[#1a1a2e] rounded-lg p-3">
-            <p className="text-[10px] text-[#7c5cfc] font-semibold mb-2">{label}</p>
+          <div key={i} style={{ background: ds.color.wallet, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: 12 }}>
+            <p style={{ fontSize: 10, color: ds.color.lilac, fontWeight: 700, marginBottom: 8 }}>{label}</p>
             <select value={layers[i].track} onChange={e => pickTrack(i, e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 text-gray-400 text-[10px] rounded px-2 py-1.5 mb-2">
+              style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.mute, fontSize: 10, borderRadius: ds.radius.xs, padding: "5px 6px", marginBottom: 8 }}>
               <option value="">Select track...</option>
               {tracks.map(t => <option key={t.filename} value={`storage/music/stock/${t.filename}`}>{t.label} ({t.mood})</option>)}
             </select>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] text-[#404060] w-6">Vol</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 9, color: ds.color.mute2, width: 20 }}>Vol</span>
                 <input type="range" min={0} max={2} step={0.05} value={layers[i].volume}
                   onChange={e => { const v = Number(e.target.value); updateMix(i, { volume: v }); if (layers[i].audio) layers[i].audio!.volume = Math.min(1, v); }}
-                  className="flex-1 accent-[#7c5cfc] h-1" />
-                <span className="text-[8px] text-[#404060] w-8 text-right">{Math.round(layers[i].volume * 100)}%</span>
+                  style={{ flex: 1, accentColor: ds.color.lilac, height: 4 }} />
+                <span style={{ fontSize: 8, color: ds.color.mute2, width: 28, textAlign: "right" }}>{Math.round(layers[i].volume * 100)}%</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] text-[#404060] w-6">Pan</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontSize: 9, color: ds.color.mute2, width: 20 }}>Pan</span>
                 <input type="range" min={-1} max={1} step={0.1} value={layers[i].pan} onChange={e => updateMix(i, { pan: Number(e.target.value) })}
-                  className="flex-1 accent-[#7c5cfc] h-1" />
-                <span className="text-[8px] text-[#404060] w-8 text-right">{layers[i].pan === 0 ? "C" : layers[i].pan < 0 ? `L${Math.abs(Math.round(layers[i].pan * 100))}` : `R${Math.round(layers[i].pan * 100)}`}</span>
+                  style={{ flex: 1, accentColor: ds.color.lilac, height: 4 }} />
+                <span style={{ fontSize: 8, color: ds.color.mute2, width: 28, textAlign: "right" }}>{layers[i].pan === 0 ? "C" : layers[i].pan < 0 ? `L${Math.abs(Math.round(layers[i].pan * 100))}` : `R${Math.round(layers[i].pan * 100)}`}</span>
               </div>
             </div>
             {layers[i].track && (
-              <div className="mt-2 flex gap-2">
-                <button onClick={() => { if (layers[i].audio) { if (layers[i].audio!.paused) layers[i].audio!.play(); else layers[i].audio!.pause(); } }} className="text-[9px] text-[#7c5cfc] hover:text-white">Solo</button>
-                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = 0; }} className="text-[9px] text-[#f87171] hover:text-white">Mute</button>
-                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = Math.min(1, layers[i].volume); }} className="text-[9px] text-[#4ade80] hover:text-white">Unmute</button>
+              <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+                <button onClick={() => { if (layers[i].audio) { if (layers[i].audio!.paused) layers[i].audio!.play(); else layers[i].audio!.pause(); } }} style={{ fontSize: 9, color: ds.color.lilac, background: "none", border: "none", cursor: "pointer" }}>Solo</button>
+                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = 0; }} style={{ fontSize: 9, color: "#f87171", background: "none", border: "none", cursor: "pointer" }}>Mute</button>
+                <button onClick={() => { if (layers[i].audio) layers[i].audio!.volume = Math.min(1, layers[i].volume); }} style={{ fontSize: 9, color: ds.color.mint, background: "none", border: "none", cursor: "pointer" }}>Unmute</button>
               </div>
             )}
           </div>
         ))}
       </div>
-      <div className="mt-3 pt-3 border-t border-[#2a2a40]">
-        <p className="text-[10px] text-[#6060a0] font-semibold mb-2">Master EQ (applied on export)</p>
-        <div className="grid grid-cols-3 gap-3">
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${ds.color.line}` }}>
+        <p style={{ fontSize: 10, color: ds.color.mute, fontWeight: 700, marginBottom: 8 }}>Master EQ (applied on export)</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
           {[{ l: "Bass (100Hz)", v: bass, s: setBass }, { l: "Mid (1kHz)", v: mid, s: setMid }, { l: "Treble (8kHz)", v: treble, s: setTreble }].map(eq => (
-            <div key={eq.l} className="flex items-center gap-2">
-              <span className="text-[9px] text-[#404060] w-16">{eq.l}</span>
-              <input type="range" min={-10} max={10} step={1} value={eq.v} onChange={e => eq.s(Number(e.target.value))} className="flex-1 accent-[#7c5cfc] h-1" />
-              <span className="text-[8px] text-[#404060] w-6 text-right">{eq.v > 0 ? "+" : ""}{eq.v}</span>
+            <div key={eq.l} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 9, color: ds.color.mute2, width: 56 }}>{eq.l}</span>
+              <input type="range" min={-10} max={10} step={1} value={eq.v} onChange={e => eq.s(Number(e.target.value))} style={{ flex: 1, accentColor: ds.color.lilac, height: 4 }} />
+              <span style={{ fontSize: 8, color: ds.color.mute2, width: 20, textAlign: "right" }}>{eq.v > 0 ? "+" : ""}{eq.v}</span>
             </div>
           ))}
         </div>
       </div>
-      <div className="flex gap-2 mt-3">
-        <button onClick={doExport} disabled={mixExporting || layers.every(l => !l.track)}
-          className="px-6 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-40">
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <ButtonPrimary onClick={doExport} disabled={mixExporting || layers.every(l => !l.track)} size="md">
           {mixExporting ? "Mixing..." : "Mix & Export"}
-        </button>
+        </ButtonPrimary>
       </div>
       {mixResult && (
-        <div className={`mt-2 p-3 rounded-lg text-xs ${mixResult.error ? "bg-red-950/40 text-red-400" : "bg-green-950/40 text-green-400"}`}>
+        <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: ds.radius.xs, fontSize: 11, background: mixResult.error ? "rgba(239,68,68,0.06)" : "rgba(74,222,128,0.06)", color: mixResult.error ? "#f87171" : ds.color.mint, border: `1px solid ${mixResult.error ? "rgba(239,68,68,0.2)" : "rgba(74,222,128,0.2)"}` }}>
           {mixResult.error ?? `Mixed: ${mixResult.outputPath}`}
         </div>
       )}
