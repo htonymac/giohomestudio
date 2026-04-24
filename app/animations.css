@@ -32,6 +32,29 @@
   100% { transform: translateX( 250%) skewX(-18deg); }
 }
 
+/* ── sparkline dashed march (stat hover) ── */
+@keyframes dash{
+  to{ stroke-dashoffset: -18; }
+}
+
+/* ── subtle value float (stat hover) ── */
+@keyframes float-y{
+  0%,100%{ transform: translateY(0); }
+  50%    { transform: translateY(-2px); }
+}
+
+/* ── render-queue LIVE pill pulse (only when active jobs) ── */
+@keyframes livePulse{
+  0%,100%{ transform: scale(1);   opacity: 1;   }
+  50%    { transform: scale(1.25); opacity: .55; }
+}
+
+/* ── indeterminate progress shimmer for Rendering tile ── */
+@keyframes renderShimmer{
+  0%  { transform: translateX(-100%); }
+  100%{ transform: translateX(100%);  }
+}
+
 /* ── helper classes ── */
 .is-rise        { animation: rise .6s var(--e-soft) both; }
 .is-fade        { animation: fadeIn .6s var(--e-soft) both; }

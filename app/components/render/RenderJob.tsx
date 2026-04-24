@@ -2,15 +2,11 @@
 
 import { ds } from "../../../lib/designSystem";
 
-// RenderJob — individual job card in the RenderDeck grid.
-// Progress bar + scanline-style thumb + animated %.
-// thumbVariant drives the gradient on the placeholder thumb.
+// RenderJob — v15 render card.
+// 96x54 thumbnail (poster frame or dark tile with first-letter initial + accent overlay),
+// title + status pill + ETA. Animated progress bar at bottom of thumb when Rendering.
 
-const THUMB_GRADS: Record<1 | 2 | 3, string> = {
-  1: "linear-gradient(135deg,#a78bfa,#d17bff)",
-  2: "linear-gradient(135deg,#7ae0c3,#7cc4ff)",
-  3: "linear-gradient(135deg,#ff9a3c,#ffb347)",
-};
+type Status = "Rendering" | "Queued" | "Done";
 
 type Props = {
   id: string;
@@ -20,13 +16,64 @@ type Props = {
   duration: string;
   pct: number;
   eta: string;
-  frame?: string;
-  thumbVariant: 1 | 2 | 3;
+  frame?: string; // optional poster URL
+  status?: Status;
+  thumbVariant?: 1 | 2 | 3;
 };
 
-export function RenderJob({ title, engine, format, duration, pct, eta, thumbVariant }: Props) {
-  const thumbGrad = THUMB_GRADS[thumbVariant];
+const ENGINE_ACCENT: Record<Props["engine"], string> = {
+  Kling:  "#a78bfa", // lilac
+  Runway: "#7cc4ff", // sky
+  FAL:    "#7ae0c3", // mint
+  Suno:   "#ffb347", // gold
+};
+
+function deriveStatus(pct: number, override?: Status): Status {
+  if (override) return override;
+  if (pct >= 100) return "Done";
+  if (pct <= 0)   return "Queued";
+  return "Rendering";
+}
+
+function StatusPill({ status, pct, accent }: { status: Status; pct: number; accent: string }) {
+  const label =
+    status === "Rendering" ? `Rendering ${Math.round(pct)}%` :
+    status === "Queued"    ? "Queued" :
+                             "Done";
+  const color =
+    status === "Rendering" ? accent :
+    status === "Done"      ? "#7ae0c3" :
+                             ds.color.mute;
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        padding: "2px 8px",
+        borderRadius: 999,
+        background: "#151518",
+        border: `1px solid ${color}30`,
+        color,
+        fontFamily: ds.font.mono,
+        fontSize: 9,
+        fontWeight: 700,
+        letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{ width: 5, height: 5, borderRadius: "50%", background: color }} />
+      {label}
+    </span>
+  );
+}
+
+export function RenderJob({ title, engine, format, duration, pct, eta, frame, status }: Props) {
   const clampedPct = Math.min(100, Math.max(0, pct));
+  const resolvedStatus = deriveStatus(clampedPct, status);
+  const accent = ENGINE_ACCENT[engine];
+  const initial = (title || "?").trim().charAt(0).toUpperCase() || "?";
 
   return (
     <div
@@ -34,105 +81,119 @@ export function RenderJob({ title, engine, format, duration, pct, eta, thumbVari
         background: "rgba(255,255,255,0.025)",
         border: `1px solid ${ds.color.line}`,
         borderRadius: ds.radius.sm,
-        padding: 12,
+        padding: 10,
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 8,
       }}
     >
-      {/* Thumb placeholder */}
+      {/* 96x54 thumbnail */}
       <div
         style={{
-          width: "100%",
-          aspectRatio: "16/9",
-          borderRadius: 8,
-          background: thumbGrad,
+          width: 96,
+          height: 54,
+          borderRadius: 6,
+          background: frame ? "#0b0b0d" : ds.color.card,
           position: "relative",
           overflow: "hidden",
           flexShrink: 0,
         }}
       >
-        {/* Pct overlay */}
-        <div
-          style={{
-            position: "absolute",
-            bottom: 6,
-            right: 8,
-            fontFamily: ds.font.mono,
-            fontSize: 11,
-            fontWeight: 700,
-            color: "#fff",
-            textShadow: "0 1px 4px rgba(0,0,0,.7)",
-            letterSpacing: "0.08em",
-          }}
-        >
-          {clampedPct}%
-        </div>
-      </div>
+        {frame ? (
+          // actual poster frame
+          <img
+            src={frame}
+            alt=""
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <>
+            {/* faint accent gradient overlay */}
+            <span
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: `linear-gradient(135deg, ${accent}22, ${accent}08 60%, transparent)`,
+                pointerEvents: "none",
+              }}
+            />
+            {/* first-letter initial */}
+            <span
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "grid",
+                placeItems: "center",
+                fontFamily: ds.font.sans,
+                fontSize: 22,
+                fontWeight: 900,
+                color: accent,
+                letterSpacing: "-0.03em",
+                textShadow: "0 1px 4px rgba(0,0,0,.4)",
+              }}
+            >
+              {initial}
+            </span>
+          </>
+        )}
 
-      {/* Title + meta */}
-      <div>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: ds.color.ink,
-            fontFamily: ds.font.sans,
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            marginBottom: 3,
-          }}
-        >
-          {title}
-        </div>
-        <div
-          style={{
-            fontFamily: ds.font.mono,
-            fontSize: 10,
-            color: ds.color.mute,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-          }}
-        >
-          {engine} · {format} · {duration}
-        </div>
-      </div>
-
-      {/* Progress bar */}
-      <div>
-        <div
-          style={{
-            height: 3,
-            borderRadius: 99,
-            background: "rgba(255,255,255,.08)",
-            overflow: "hidden",
-          }}
-        >
+        {/* Progress bar along bottom — only when Rendering */}
+        {resolvedStatus === "Rendering" && (
           <div
             style={{
-              width: `${clampedPct}%`,
-              height: "100%",
-              background: "linear-gradient(90deg,var(--btn-a),var(--btn-c))",
-              borderRadius: 99,
-              transition: "width .4s var(--e-soft)",
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: 3,
+              background: "rgba(0,0,0,.5)",
+              overflow: "hidden",
             }}
-          />
-        </div>
-        <div
+          >
+            <div
+              style={{
+                width: `${clampedPct}%`,
+                height: "100%",
+                background: `linear-gradient(90deg, ${accent}, #ff9a3c)`,
+                transition: "width .4s var(--e-soft)",
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Title (13px, #fff) */}
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 700,
+          color: ds.color.ink,
+          fontFamily: ds.font.sans,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+          lineHeight: 1.25,
+        }}
+        title={title}
+      >
+        {title}
+      </div>
+
+      {/* Status pill + ETA */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <StatusPill status={resolvedStatus} pct={clampedPct} accent={accent} />
+        <span
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: 5,
             fontFamily: ds.font.mono,
             fontSize: 9,
             color: ds.color.mute,
-            letterSpacing: "0.1em",
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
           }}
         >
-          <span>{clampedPct}% complete</span>
-          <span>ETA {eta}</span>
-        </div>
+          {resolvedStatus === "Rendering" ? `ETA ${eta}` : `${engine} · ${format} · ${duration}`}
+        </span>
       </div>
     </div>
   );

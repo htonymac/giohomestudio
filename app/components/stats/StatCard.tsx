@@ -34,13 +34,14 @@ function Sparkline({ data, color }: { data: number[]; color: string }) {
 
   return (
     <svg
+      className="spark"
       width={W}
       height={H}
       viewBox={`0 0 ${W} ${H}`}
       fill="none"
       style={{ flexShrink: 0 }}
     >
-      <path d={d} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.7} />
+      <path d={d} stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.8} />
       {/* last dot */}
       <circle cx={xs[xs.length - 1].toFixed(1)} cy={ys[ys.length - 1].toFixed(1)} r="2.5" fill={color} opacity={0.9} />
     </svg>
@@ -109,6 +110,7 @@ export function StatCard({ variant, label, value, delta, sub }: Props) {
   return (
     <div
       ref={ref}
+      className="stat"
       style={{
         background: ds.color.card,
         border: `1px solid ${ds.color.line}`,
@@ -154,6 +156,7 @@ export function StatCard({ variant, label, value, delta, sub }: Props) {
       {/* Value row: big number + sparkline */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 8 }}>
         <span
+          className="val"
           style={{
             fontFamily: ds.font.sans,
             fontSize: 30,

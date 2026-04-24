@@ -258,6 +258,34 @@ audio { height: 32px; border-radius: 8px; }
   align-items: center;
   gap: 5px;
 }
+/* Pulsing dot only when there is active work */
+.pill-live.pulse > span:first-child {
+  animation: livePulse 1.2s ease-in-out infinite;
+}
+
+/* ── StatCard hover ──────────────────────────────────────────────────
+   Using the individual `translate` property so it does not collide with
+   `transform` set by the .animate-rise page-entrance animation. */
+.stat {
+  transition:
+    translate .2s var(--e-soft),
+    box-shadow .2s var(--e-soft),
+    border-color .2s var(--e-soft);
+}
+.stat .val   { display: inline-block; transition: translate .2s var(--e-soft); }
+.stat .spark path { transition: stroke-dasharray .2s var(--e-soft); }
+.stat:hover {
+  translate: 0 -3px;
+  border-color: rgba(167,139,250,.35) !important;
+  box-shadow: 0 8px 20px -6px rgba(167,139,250,.35) !important;
+}
+.stat:hover .val {
+  animation: float-y 2.4s ease-in-out infinite;
+}
+.stat:hover .spark path {
+  stroke-dasharray: 6 3;
+  animation: dash 1.2s linear infinite;
+}
 
 /* ── Alerts ───────────────────────────────────────────────────────── */
 .alert {

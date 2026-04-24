@@ -1,102 +1,109 @@
 "use client";
 
+import Link from "next/link";
 import { ds } from "../../../lib/designSystem";
 import { Card } from "../ui/Card";
-import { PillLive } from "../ui/PillLive";
 import { RenderJob } from "./RenderJob";
+import { Plus } from "../icons";
 import type { ComponentProps } from "react";
 
-// RenderDeck — card containing render queue header + 3-col job grid + FilmStrip marquee.
-// Shows empty state if jobs=[].
-// No ambient loops except PillLive dot (handled in PillLive) and CTA sweep.
+// v15 RenderDeck — header with conditional-pulse LIVE pill, grid of real job cards,
+// or a single dashed empty-state card with "Start a generation" CTA.
+// No decorative filmstrip marquee.
 
 type RenderJobType = ComponentProps<typeof RenderJob>;
 
 type Props = {
   jobs: RenderJobType[];
   className?: string;
+  onStart?: () => void;
+  startHref?: string;
 };
 
-// FilmStrip marquee at the bottom (decorative, static frames)
-function FilmStrip() {
-  const frames = Array.from({ length: 8 }, (_, i) => i);
-  const GRADS = [
-    "linear-gradient(135deg,#a78bfa,#d17bff)",
-    "linear-gradient(135deg,#7ae0c3,#7cc4ff)",
-    "linear-gradient(135deg,#ff9a3c,#ffb347)",
-    "linear-gradient(135deg,#d17bff,#ff7ab8)",
-    "linear-gradient(135deg,#7cc4ff,#a78bfa)",
-    "linear-gradient(135deg,#ffb347,#ff7a45)",
-    "linear-gradient(135deg,#a78bfa,#ff9a3c)",
-    "linear-gradient(135deg,#7ae0c3,#a78bfa)",
-  ];
-
+function LivePill({ active }: { active: boolean }) {
+  const color = active ? "#7ae0c3" : ds.color.mute2;
   return (
-    <div
+    <span
+      className={active ? "pill-live pulse" : "pill-live"}
       style={{
-        marginTop: 16,
-        display: "flex",
-        gap: 4,
-        overflow: "hidden",
-        borderRadius: 6,
-        background: "#0b0b0d",
-        padding: "6px 8px",
+        display: "inline-flex",
         alignItems: "center",
+        gap: 5,
+        padding: "3px 10px",
+        borderRadius: 999,
+        background: ds.color.card,
+        border: `1px solid ${color}35`,
+        color: active ? "#fff" : ds.color.mute,
+        fontFamily: ds.font.mono,
+        fontSize: 10,
+        fontWeight: 700,
+        letterSpacing: "0.2em",
+        textTransform: "uppercase",
       }}
     >
-      {/* Film perforations left */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 2,
-              background: "rgba(255,255,255,0.1)",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Frames */}
-      <div style={{ display: "flex", gap: 3, flex: 1, overflow: "hidden" }}>
-        {frames.map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 48,
-              height: 36,
-              borderRadius: 4,
-              background: GRADS[i % GRADS.length],
-              flexShrink: 0,
-              position: "relative",
-              overflow: "hidden",
-            }}
-          />
-        ))}
-      </div>
-
-      {/* Film perforations right */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-        {[0, 1, 2].map((i) => (
-          <div
-            key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 2,
-              background: "rgba(255,255,255,0.1)",
-            }}
-          />
-        ))}
-      </div>
-    </div>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, flexShrink: 0 }} />
+      Live
+    </span>
   );
 }
 
-export function RenderDeck({ jobs, className }: Props) {
-  const activeJobs = jobs.slice(0, 3); // max 3 visible
+function EmptyState({ href, onStart }: { href?: string; onStart?: () => void }) {
+  const content = (
+    <div
+      style={{
+        border: `1.5px dashed ${ds.color.line2}`,
+        borderRadius: ds.radius.md,
+        padding: "28px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 14,
+        color: ds.color.mute,
+        fontFamily: ds.font.sans,
+        fontSize: 13,
+        cursor: (href || onStart) ? "pointer" : "default",
+        transition: "border-color .2s var(--e-soft), background .2s var(--e-soft)",
+      }}
+      onMouseEnter={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(167,139,250,.45)";
+        (e.currentTarget as HTMLElement).style.background = "rgba(167,139,250,.04)";
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.12)";
+        (e.currentTarget as HTMLElement).style.background = "transparent";
+      }}
+    >
+      <span
+        style={{
+          width: 40, height: 40, borderRadius: 10,
+          display: "grid", placeItems: "center",
+          background: "linear-gradient(135deg,#a78bfa,#ff9a3c)",
+          color: "#fff", flexShrink: 0,
+        }}
+      >
+        <Plus size={18} />
+      </span>
+      <span>
+        <span style={{ display: "block", color: ds.color.ink, fontWeight: 700, marginBottom: 2 }}>
+          No active renders
+        </span>
+        <span>Start a generation to see progress here.</span>
+      </span>
+    </div>
+  );
+
+  if (href)  return <Link href={href} style={{ textDecoration: "none" }}>{content}</Link>;
+  if (onStart) return <button onClick={onStart} style={{ all: "unset", width: "100%" }}>{content}</button>;
+  return content;
+}
+
+export function RenderDeck({ jobs, className, onStart, startHref = "/dashboard/free-mode" }: Props) {
+  const activeJobs = jobs.slice(0, 6);
+  const hasActive = activeJobs.some(j => {
+    const pct = Math.min(100, Math.max(0, j.pct));
+    const st = j.status ?? (pct >= 100 ? "Done" : pct <= 0 ? "Queued" : "Rendering");
+    return st === "Rendering";
+  });
 
   return (
     <Card className={className} padding={20} radius={18}>
@@ -122,7 +129,7 @@ export function RenderDeck({ jobs, className }: Props) {
           >
             Render Queue
           </span>
-          <PillLive label="Live" />
+          <LivePill active={hasActive} />
         </div>
 
         {jobs.length > 0 && (
@@ -135,7 +142,7 @@ export function RenderDeck({ jobs, className }: Props) {
               textTransform: "uppercase",
             }}
           >
-            {jobs.length} job{jobs.length !== 1 ? "s" : ""} queued
+            {jobs.length} job{jobs.length !== 1 ? "s" : ""}
           </span>
         )}
       </div>
@@ -145,7 +152,7 @@ export function RenderDeck({ jobs, className }: Props) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(3,1fr)",
+            gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))",
             gap: 12,
           }}
         >
@@ -154,21 +161,8 @@ export function RenderDeck({ jobs, className }: Props) {
           ))}
         </div>
       ) : (
-        <div
-          style={{
-            padding: "32px 0",
-            textAlign: "center",
-            color: ds.color.mute,
-            fontFamily: ds.font.sans,
-            fontSize: 13,
-          }}
-        >
-          No active renders. Start a generation to see progress here.
-        </div>
+        <EmptyState href={onStart ? undefined : startHref} onStart={onStart} />
       )}
-
-      {/* FilmStrip */}
-      <FilmStrip />
     </Card>
   );
 }
