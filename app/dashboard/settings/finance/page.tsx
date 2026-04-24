@@ -1,24 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ds } from "../../../../lib/designSystem";
 
-// ── Design tokens (Dark Studio Precision) ─────────────────────────────
-const BG = "#080810";
-const SURFACE = "#13131f";
-const SURFACE2 = "#18182a";
-const SURFACE3 = "#1e1e30";
-const BORDER = "rgba(255,255,255,0.06)";
-const BORDER2 = "rgba(255,255,255,0.10)";
-const TEXT = "#e8e8f4";
-const TEXT2 = "#8888aa";
-const TEXT3 = "#44445a";
-const GOLD = "#d4a843";
-const GOLD_SOFT = "rgba(212,168,67,0.08)";
-const GOLD_GLOW = "rgba(212,168,67,0.15)";
-const BLUE = "#3b82f6";
-const GREEN = "#22d18a";
-const RED = "#ff5757";
-const PURPLE = "#8b5cf6";
+// ── v14 design tokens ──────────────────────────────────────────────────
+const BG      = ds.color.paper;
+const SURFACE  = ds.color.card;
+const SURFACE2 = ds.color.alert;
+const SURFACE3 = "#1e1e22";
+const BORDER   = ds.color.line;
+const BORDER2  = ds.color.line2;
+const TEXT     = ds.color.ink;
+const TEXT2    = ds.color.ink2;
+const TEXT3    = ds.color.mute;
+const GOLD     = ds.color.gold;
+const GOLD_SOFT  = `${ds.color.gold}10`;
+const GOLD_GLOW  = `${ds.color.gold}22`;
+const BLUE     = ds.color.sky;
+const GREEN    = ds.color.mint;
+const RED      = ds.color.coral;
+const PURPLE   = ds.color.lilac;
 
 // ── Credit math ─────────────────────────────────────────────────────
 function credits(dollars: number) {
@@ -180,78 +181,74 @@ export default function FinancePage() {
   // ── Render ───────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: BG, color: TEXT2, padding: 40, fontFamily: "'Space Grotesk', sans-serif" }}>
-        Loading finance data…
+      <div style={{ minHeight: "60vh", background: BG, color: TEXT2, padding: 40, fontFamily: ds.font.sans }}>
+        Loading finance data...
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: TEXT, fontFamily: "'Space Grotesk', -apple-system, sans-serif" }}>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        .mono { font-family: 'JetBrains Mono', monospace; }
-      `}</style>
+    <div style={{ background: BG, color: TEXT, fontFamily: ds.font.sans }}>
 
       {/* Toast */}
       {toast && (
         <div style={{
           position: "fixed", top: 20, right: 20, zIndex: 100,
-          background: toast.type === "ok" ? GREEN : RED, color: "#080810",
-          padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600,
+          background: toast.type === "ok" ? GREEN : RED, color: BG,
+          padding: "10px 20px", borderRadius: ds.radius.sm, fontSize: 13, fontWeight: 600,
         }}>
           {toast.msg}
         </div>
       )}
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "28px 32px" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
 
         {/* ── HEADER ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24 }}>
           <div>
-            <p className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", color: GOLD, textTransform: "uppercase", marginBottom: 6 }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", color: GOLD, textTransform: "uppercase", marginBottom: 6, fontFamily: ds.font.mono }}>
               SETTINGS · FINANCE & GROWTH
             </p>
-            <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: "-0.01em" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: "-0.01em", margin: 0 }}>
               GHS Financial Control Room
             </h1>
             <p style={{ fontSize: 13, color: TEXT2, marginTop: 6 }}>
               Hybrid pricing · 1 credit = $0.001 · Phase 1 (visibility only, no billing yet)
             </p>
           </div>
-          <div className="mono" style={{ fontSize: 11, color: TEXT3 }}>
+          <div style={{ fontSize: 11, color: TEXT3, fontFamily: ds.font.mono }}>
             {models.length} models · {tiers.length} tiers · {providers.length} providers
           </div>
         </div>
 
-        {/* ── SECTION E: LIVE CREDIT BALANCE (Phase 2) ── */}
+        {/* ── SECTION E: LIVE CREDIT BALANCE ── */}
         <section style={{ marginBottom: 20 }}>
-          <SectionHeader title="Live Credit Balance" icon="🪙" sub="Phase 2 — local credit ledger. No real billing yet." />
+          <SectionHeader title="Live Credit Balance" sub="Phase 2 — local credit ledger. No real billing yet." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
 
             {/* Balance card */}
             <div style={{
-              background: GOLD_SOFT, border: `1px solid ${GOLD}`, borderRadius: 12, padding: "22px 24px",
+              background: GOLD_SOFT, border: `1px solid ${GOLD}`, borderRadius: ds.radius.md, padding: "22px 24px",
               position: "relative", overflow: "hidden",
             }}>
               <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: GOLD_GLOW, borderRadius: "50%", filter: "blur(40px)" }} />
-              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: GOLD, textTransform: "uppercase", marginBottom: 10 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: GOLD, textTransform: "uppercase", marginBottom: 10, fontFamily: ds.font.mono }}>
                 Default User · {balance?.tier ?? "FREE"}
               </p>
-              <p className="mono" style={{ fontSize: 36, fontWeight: 700, color: GOLD, lineHeight: 1, marginBottom: 4 }}>
+              <p style={{ fontSize: 36, fontWeight: 700, color: GOLD, lineHeight: 1, marginBottom: 4, fontFamily: ds.font.mono }}>
                 {balance ? balance.balance.toLocaleString() : "—"}
               </p>
               <p style={{ fontSize: 11, color: TEXT2, marginBottom: 2 }}>
                 credits available · ≈ ${balance ? (balance.balance * 0.001).toFixed(2) : "0.00"}
               </p>
-              <p className="mono" style={{ fontSize: 9, color: TEXT3, marginTop: 8, overflow: "hidden", textOverflow: "ellipsis" }}>
+              <p style={{ fontSize: 9, color: TEXT3, marginTop: 8, overflow: "hidden", textOverflow: "ellipsis", fontFamily: ds.font.mono }}>
                 userId: {balance?.userId ?? "—"}
               </p>
             </div>
 
             {/* Recent transactions list */}
-            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 18 }}>
-              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 12 }}>
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, padding: 18 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 12, fontFamily: ds.font.mono }}>
                 Recent Transactions (last 10)
               </p>
               {recentTxns.length === 0 ? (
@@ -272,7 +269,7 @@ export default function FinancePage() {
 
         {/* ── SECTION B: CURRENT SPEND ── */}
         <section style={{ marginBottom: 20 }}>
-          <SectionHeader title="Current Spend" icon="💰" />
+          <SectionHeader title="Current Spend" />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             <StatCard
               label="Henry API Spend (total)"
@@ -303,7 +300,7 @@ export default function FinancePage() {
 
         {/* ── SECTION C: TIERS ── */}
         <section style={{ marginBottom: 20 }}>
-          <SectionHeader title="Pricing Tiers" icon="🎟" sub="Edit monthly price and included credits. Model access is set per tier." />
+          <SectionHeader title="Pricing Tiers" sub="Edit monthly price and included credits. Model access is set per tier." />
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
             {tiers.map(tier => (
               <TierCard key={tier.id} tier={tier} models={models} onSave={saveTier} />
@@ -313,11 +310,11 @@ export default function FinancePage() {
 
         {/* ── SECTION A: PROVIDER TABLE ── */}
         <section style={{ marginBottom: 20 }}>
-          <SectionHeader title="Provider Dashboard" icon="🗂" sub={`${filteredModels.length} of ${models.length} models`} />
+          <SectionHeader title="Provider Dashboard" sub={`${filteredModels.length} of ${models.length} models`} />
 
           {/* Filters */}
-          <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <label style={{ fontSize: 11, color: TEXT3, fontFamily: "'JetBrains Mono'", textTransform: "uppercase", letterSpacing: "0.1em" }}>Filter:</label>
+          <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, padding: "12px 16px", marginBottom: 10, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <label style={{ fontSize: 11, color: TEXT3, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.1em" }}>Filter:</label>
             <select value={filterProvider} onChange={e => setFilterProvider(e.target.value)} style={selectStyle}>
               <option value="">All providers</option>
               {providers.map(p => <option key={p} value={p}>{p}</option>)}
@@ -335,7 +332,7 @@ export default function FinancePage() {
           </div>
 
           {/* Table */}
-          <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, overflow: "hidden" }}>
+          <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, overflow: "hidden" }}>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
@@ -352,11 +349,11 @@ export default function FinancePage() {
                     return (
                       <tr key={m.id} style={{ borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
                         <td style={tdStyle}>
-                          <span className="mono" style={{ fontSize: 10, color: TEXT2 }}>{m.provider_name}</span>
+                          <span style={{ fontSize: 10, color: TEXT2, fontFamily: ds.font.mono }}>{m.provider_name}</span>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ fontWeight: 500, color: TEXT }}>{m.display_name}</div>
-                          <div className="mono" style={{ fontSize: 9, color: TEXT3 }}>{m.id}</div>
+                          <div style={{ fontSize: 9, color: TEXT3, fontFamily: ds.font.mono }}>{m.id}</div>
                         </td>
                         <td style={tdStyle}>
                           <TypeBadge type={m.type} />
@@ -372,7 +369,7 @@ export default function FinancePage() {
                           />
                         </td>
                         <td style={tdStyle}>
-                          <span className="mono" style={{ fontSize: 11, color: TEXT3 }}>{mk}x</span>
+                          <span style={{ fontSize: 11, color: TEXT3, fontFamily: ds.font.mono }}>{mk}x</span>
                         </td>
                         <td style={tdStyle}>
                           <EditableCell
@@ -383,7 +380,7 @@ export default function FinancePage() {
                           />
                         </td>
                         <td style={tdStyle}>
-                          <span className="mono" style={{ fontSize: 12, fontWeight: 700, color: GOLD }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: GOLD, fontFamily: ds.font.mono }}>
                             {credits(m.price_to_user)}
                           </span>
                         </td>
@@ -401,18 +398,18 @@ export default function FinancePage() {
 
         {/* ── SECTION D: GROWTH ── */}
         <section style={{ marginBottom: 40 }}>
-          <SectionHeader title="Growth Tracker" icon="📈" sub="Once billing is live, these will become real-time." />
+          <SectionHeader title="Growth Tracker" sub="Once billing is live, these will become real-time." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
 
-            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20 }}>
-              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 14 }}>
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, padding: 20 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 14, fontFamily: ds.font.mono }}>
                 Users per tier
               </p>
               {tiers.map(t => (
                 <div key={t.id} style={{ marginBottom: 10 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 3 }}>
                     <span style={{ color: t.color, fontWeight: 600 }}>{t.name}</span>
-                    <span className="mono" style={{ color: TEXT3 }}>0 users · $0 MRR</span>
+                    <span style={{ color: TEXT3, fontFamily: ds.font.mono }}>0 users · $0 MRR</span>
                   </div>
                   <div style={{ height: 4, background: SURFACE3, borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: "0%", background: t.color, opacity: 0.6 }} />
@@ -422,8 +419,8 @@ export default function FinancePage() {
               <p style={{ fontSize: 10, color: TEXT3, marginTop: 12, fontStyle: "italic" }}>Waiting on Phase 3 billing to populate.</p>
             </div>
 
-            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: 20 }}>
-              <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 14 }}>
+            <div style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, padding: 20 }}>
+              <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 14, fontFamily: ds.font.mono }}>
                 Top 10 most-used providers
               </p>
               {topModels.length === 0 ? (
@@ -431,8 +428,11 @@ export default function FinancePage() {
               ) : (
                 topModels.map(([name, s], i) => (
                   <div key={name} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 11, padding: "6px 0", borderBottom: `1px solid rgba(255,255,255,0.03)` }}>
-                    <span><span style={{ color: TEXT3, marginRight: 8 }} className="mono">{String(i + 1).padStart(2, "0")}</span>{name}</span>
-                    <span className="mono" style={{ color: GOLD }}>{s.count} calls · ${s.estimatedCost.toFixed(2)}</span>
+                    <span>
+                      <span style={{ color: TEXT3, marginRight: 8, fontFamily: ds.font.mono }}>{String(i + 1).padStart(2, "0")}</span>
+                      {name}
+                    </span>
+                    <span style={{ color: GOLD, fontFamily: ds.font.mono }}>{s.count} calls · ${s.estimatedCost.toFixed(2)}</span>
                   </div>
                 ))
               )}
@@ -441,7 +441,7 @@ export default function FinancePage() {
           </div>
         </section>
 
-        <div style={{ textAlign: "center", fontSize: 10, color: TEXT3, padding: "20px 0", borderTop: `1px solid ${BORDER}` }} className="mono">
+        <div style={{ textAlign: "center", fontSize: 10, color: TEXT3, padding: "20px 0", borderTop: `1px solid ${BORDER}`, fontFamily: ds.font.mono }}>
           PHASE 1 / 5 · VISIBILITY COMPLETE · NEXT: CREDIT TRACKING + COST PREVIEW
         </div>
       </div>
@@ -451,11 +451,10 @@ export default function FinancePage() {
 
 // ── Sub-components ──────────────────────────────────────────────────
 
-function SectionHeader({ title, icon, sub }: { title: string; icon: string; sub?: string }) {
+function SectionHeader({ title, sub }: { title: string; sub?: string }) {
   return (
     <div style={{ marginBottom: 10, display: "flex", alignItems: "baseline", gap: 10 }}>
-      <span style={{ fontSize: 16 }}>{icon}</span>
-      <h2 style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>{title}</h2>
+      <h2 style={{ fontSize: 16, fontWeight: 700, color: TEXT, margin: 0 }}>{title}</h2>
       {sub && <span style={{ fontSize: 11, color: TEXT3 }}>· {sub}</span>}
     </div>
   );
@@ -464,14 +463,14 @@ function SectionHeader({ title, icon, sub }: { title: string; icon: string; sub?
 function StatCard({ label, value, sub, accent }: { label: string; value: string; sub: string; accent: string }) {
   return (
     <div style={{
-      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 12, padding: "18px 20px",
+      background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: ds.radius.md, padding: "18px 20px",
       position: "relative", overflow: "hidden",
     }}>
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${accent}, transparent)` }} />
-      <p className="mono" style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 10 }}>
+      <p style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", color: TEXT3, textTransform: "uppercase", marginBottom: 10, fontFamily: ds.font.mono }}>
         {label}
       </p>
-      <p className="mono" style={{ fontSize: 24, fontWeight: 700, color: accent, lineHeight: 1 }}>{value}</p>
+      <p style={{ fontSize: 24, fontWeight: 700, color: accent, lineHeight: 1, fontFamily: ds.font.mono }}>{value}</p>
       <p style={{ fontSize: 10, color: TEXT3, marginTop: 6 }}>{sub}</p>
     </div>
   );
@@ -489,19 +488,19 @@ function TierCard({ tier, models, onSave }: { tier: Tier; models: Model[]; onSav
     <div style={{
       background: isPrimary ? GOLD_SOFT : SURFACE,
       border: `1px solid ${isPrimary ? GOLD : BORDER}`,
-      borderRadius: 12, padding: 18, position: "relative",
+      borderRadius: ds.radius.md, padding: 18, position: "relative",
     }}>
       {isPrimary && (
-        <span className="mono" style={{ position: "absolute", top: -9, right: 14, background: GOLD, color: "#080810", fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: 999, letterSpacing: "0.1em" }}>
+        <span style={{ position: "absolute", top: -9, right: 14, background: GOLD, color: BG, fontSize: 8, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill, letterSpacing: "0.1em", fontFamily: ds.font.mono }}>
           MOST POPULAR
         </span>
       )}
       <p style={{ fontSize: 18, fontWeight: 700, color: accent, marginBottom: 2 }}>{tier.name}</p>
-      <p className="mono" style={{ fontSize: 10, color: TEXT3, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em" }}>{tier.id}</p>
+      <p style={{ fontSize: 10, color: TEXT3, marginBottom: 14, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: ds.font.mono }}>{tier.id}</p>
 
       <label style={labelStyle}>Monthly price (USD)</label>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
-        <span className="mono" style={{ color: TEXT3, fontSize: 14 }}>$</span>
+        <span style={{ color: TEXT3, fontSize: 14, fontFamily: ds.font.mono }}>$</span>
         <input
           type="number" value={draft.monthlyPrice} min={0}
           onChange={e => setDraft({ ...draft, monthlyPrice: parseFloat(e.target.value) || 0 })}
@@ -516,7 +515,7 @@ function TierCard({ tier, models, onSave }: { tier: Tier; models: Model[]; onSav
           onChange={e => setDraft({ ...draft, monthlyCredits: parseInt(e.target.value) || 0 })}
           style={inputStyle}
         />
-        <p className="mono" style={{ fontSize: 9, color: TEXT3, marginTop: 3 }}>
+        <p style={{ fontSize: 9, color: TEXT3, marginTop: 3, fontFamily: ds.font.mono }}>
           ≈ ${(draft.monthlyCredits * 0.001).toFixed(2)} value
         </p>
       </div>
@@ -535,7 +534,7 @@ function TierCard({ tier, models, onSave }: { tier: Tier; models: Model[]; onSav
                   setDraft({ ...draft, enabledModels: e.target.checked ? [...draft.enabledModels, m.id] : draft.enabledModels.filter(x => x !== m.id) });
                 }} style={{ accentColor: accent, flexShrink: 0 }} />
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.display_name}</span>
-                <span className="mono" style={{ marginLeft: "auto", color: TEXT3, fontSize: 8 }}>{credits(m.price_to_user)}c</span>
+                <span style={{ marginLeft: "auto", color: TEXT3, fontSize: 8, fontFamily: ds.font.mono }}>{credits(m.price_to_user)}c</span>
               </label>
             );
           })}
@@ -545,7 +544,7 @@ function TierCard({ tier, models, onSave }: { tier: Tier; models: Model[]; onSav
       <button
         onClick={() => onSave(draft)}
         disabled={JSON.stringify(draft) === JSON.stringify(tier)}
-        style={{ ...buttonStyle, background: accent, color: "#080810", fontWeight: 700, width: "100%" }}
+        style={{ ...buttonStyle, background: accent, color: BG, fontWeight: 700, width: "100%" }}
       >
         Save {tier.name}
       </button>
@@ -568,10 +567,13 @@ function EditableCell({ value, onSave, prefix, hint }: { value: number; onSave: 
           if (!isNaN(v) && v !== value) onSave(v);
           setEditing(false);
         }}
-        onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); if (e.key === "Escape") { setDraft(String(value)); setEditing(false); } }}
+        onKeyDown={e => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          if (e.key === "Escape") { setDraft(String(value)); setEditing(false); }
+        }}
         style={{
           width: 75, background: SURFACE2, border: `1px solid ${GOLD}`, borderRadius: 4,
-          color: TEXT, padding: "3px 6px", fontSize: 11, fontFamily: "'JetBrains Mono'", outline: "none",
+          color: TEXT, padding: "3px 6px", fontSize: 11, fontFamily: ds.font.mono, outline: "none",
         }}
       />
     );
@@ -582,7 +584,7 @@ function EditableCell({ value, onSave, prefix, hint }: { value: number; onSave: 
       onClick={() => setEditing(true)}
       title={hint ? `Click to edit · ${hint}` : "Click to edit"}
       style={{
-        cursor: "pointer", fontFamily: "'JetBrains Mono'", fontSize: 11, color: TEXT,
+        cursor: "pointer", fontFamily: ds.font.mono, fontSize: 11, color: TEXT,
         borderBottom: `1px dashed ${TEXT3}`, padding: "1px 3px",
       }}
     >
@@ -599,17 +601,18 @@ function TypeBadge({ type }: { type: string }) {
   };
   const c = map[type] ?? { color: TEXT3, label: type };
   return (
-    <span className="mono" style={{
+    <span style={{
       display: "inline-block", fontSize: 9, fontWeight: 700, color: c.color,
       background: `${c.color}18`, border: `1px solid ${c.color}30`,
-      padding: "2px 8px", borderRadius: 999, letterSpacing: "0.05em",
+      padding: "2px 8px", borderRadius: ds.radius.pill, letterSpacing: "0.05em",
+      fontFamily: ds.font.mono,
     }}>{c.label}</span>
   );
 }
 
 function QualityBadge({ tier }: { tier: string }) {
   return (
-    <span className="mono" style={{ fontSize: 9, color: TEXT3, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+    <span style={{ fontSize: 9, color: TEXT3, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: ds.font.mono }}>
       {tier}
     </span>
   );
@@ -622,7 +625,7 @@ function TxnRow({ txn }: { txn: CreditTxn }) {
     txn.type === "reserve" ? GOLD : TEXT3;
   const sign =
     txn.type === "deposit" || txn.type === "bonus" || txn.type === "refund" ? "+" :
-    txn.type === "deduct" || txn.type === "reserve" ? "−" : "";
+    txn.type === "deduct" || txn.type === "reserve" ? "-" : "";
   const when = new Date(txn.createdAt);
   const timeLabel = `${when.toLocaleDateString()} ${when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
 
@@ -631,17 +634,18 @@ function TxnRow({ txn }: { txn: CreditTxn }) {
       display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 10, alignItems: "center",
       padding: "6px 10px", background: SURFACE2, borderRadius: 6, fontSize: 11,
     }}>
-      <span className="mono" style={{
+      <span style={{
         fontSize: 8, fontWeight: 700, color: typeColor,
         background: `${typeColor}18`, border: `1px solid ${typeColor}30`,
-        padding: "2px 6px", borderRadius: 999, letterSpacing: "0.05em", textTransform: "uppercase",
+        padding: "2px 6px", borderRadius: ds.radius.pill, letterSpacing: "0.05em",
+        textTransform: "uppercase", fontFamily: ds.font.mono,
       }}>{txn.type}</span>
       <span style={{ color: TEXT, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {txn.reason}
-        {txn.modelUsed && <span className="mono" style={{ color: TEXT3, marginLeft: 6, fontSize: 9 }}>· {txn.modelUsed}</span>}
+        {txn.modelUsed && <span style={{ color: TEXT3, marginLeft: 6, fontSize: 9, fontFamily: ds.font.mono }}>· {txn.modelUsed}</span>}
       </span>
-      <span className="mono" style={{ color: typeColor, fontWeight: 700 }}>{sign}{txn.amount}c</span>
-      <span className="mono" style={{ color: TEXT3, fontSize: 9 }}>{timeLabel}</span>
+      <span style={{ color: typeColor, fontWeight: 700, fontFamily: ds.font.mono }}>{sign}{txn.amount}c</span>
+      <span style={{ color: TEXT3, fontSize: 9, fontFamily: ds.font.mono }}>{timeLabel}</span>
     </div>
   );
 }
@@ -652,7 +656,7 @@ function StatusDot({ active, overridden }: { active: boolean; overridden?: boole
   return (
     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
       <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}` }} />
-      <span className="mono" style={{ fontSize: 9, color: TEXT3 }}>{label}</span>
+      <span style={{ fontSize: 9, color: TEXT3, fontFamily: ds.font.mono }}>{label}</span>
     </span>
   );
 }
@@ -661,7 +665,7 @@ function StatusDot({ active, overridden }: { active: boolean; overridden?: boole
 const thStyle: React.CSSProperties = {
   padding: "10px 14px", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
   textTransform: "uppercase", color: TEXT3, textAlign: "left",
-  borderBottom: `1px solid ${BORDER}`, fontFamily: "'JetBrains Mono'",
+  borderBottom: `1px solid ${BORDER}`, fontFamily: ds.font.mono,
 };
 
 const tdStyle: React.CSSProperties = {
@@ -670,22 +674,22 @@ const tdStyle: React.CSSProperties = {
 
 const selectStyle: React.CSSProperties = {
   background: SURFACE2, border: `1px solid ${BORDER2}`, color: TEXT,
-  padding: "5px 10px", borderRadius: 6, fontSize: 11, outline: "none",
-  fontFamily: "'Space Grotesk'",
+  padding: "5px 10px", borderRadius: ds.radius.xs, fontSize: 11, outline: "none",
+  fontFamily: ds.font.sans,
 };
 
 const labelStyle: React.CSSProperties = {
   display: "block", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
-  color: TEXT3, textTransform: "uppercase", marginBottom: 4, fontFamily: "'JetBrains Mono'",
+  color: TEXT3, textTransform: "uppercase", marginBottom: 4, fontFamily: ds.font.mono,
 };
 
 const inputStyle: React.CSSProperties = {
   width: "100%", background: SURFACE2, border: `1px solid ${BORDER2}`, color: TEXT,
-  padding: "6px 10px", borderRadius: 6, fontSize: 13, outline: "none",
-  fontFamily: "'JetBrains Mono'",
+  padding: "6px 10px", borderRadius: ds.radius.xs, fontSize: 13, outline: "none",
+  fontFamily: ds.font.mono,
 };
 
 const buttonStyle: React.CSSProperties = {
-  border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 11,
-  fontFamily: "'Space Grotesk'", cursor: "pointer", fontWeight: 600,
+  border: "none", borderRadius: ds.radius.xs, padding: "8px 14px", fontSize: 11,
+  fontFamily: ds.font.sans, cursor: "pointer", fontWeight: 600,
 };

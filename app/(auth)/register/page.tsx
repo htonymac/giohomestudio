@@ -2,14 +2,40 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import { ds } from "../../../lib/designSystem";
+import ButtonPrimary from "../../components/ui/ButtonPrimary";
+
+// ── Input style ────────────────────────────────────────────────────────────────
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "10px 12px",
+  borderRadius: ds.radius.xs,
+  border: `1px solid ${ds.color.line2}`,
+  background: ds.color.wallet,
+  color: ds.color.ink,
+  fontSize: 13,
+  fontFamily: ds.font.sans,
+  outline: "none",
+  boxSizing: "border-box",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 11,
+  color: ds.color.mute,
+  display: "block",
+  marginBottom: 4,
+  fontFamily: ds.font.mono,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+};
 
 export default function RegisterPage() {
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [name, setName]           = useState("");
+  const [email, setEmail]         = useState("");
+  const [password, setPassword]   = useState("");
   const [agreedTerms, setAgreedTerms] = useState(false);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [error, setError]         = useState("");
+  const [loading, setLoading]     = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -45,36 +71,72 @@ export default function RegisterPage() {
   }
 
   return (
-    <div style={{ width: "100%", maxWidth: 400, padding: 24 }}>
-      {/* Logo */}
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        background: ds.color.paper,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: ds.font.sans,
+        padding: "24px 16px",
+      }}
+    >
+      {/* Brand mark */}
+      <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div
+          className="brand-dot"
+          style={{ margin: "0 auto 14px" }}
+        />
+        <div
+          style={{
+            fontSize: 22,
+            fontWeight: 800,
+            color: ds.color.ink,
+            letterSpacing: "-0.03em",
+            lineHeight: 1,
+          }}
+        >
           GioHomeStudio
-        </h1>
-        <p style={{ fontSize: 13, color: "#6060a0", marginTop: 4 }}>
+        </div>
+        <div
+          style={{
+            fontSize: 12,
+            color: ds.color.mute,
+            marginTop: 5,
+            fontFamily: ds.font.mono,
+          }}
+        >
           Create your account
-        </p>
+        </div>
       </div>
 
-      {/* Card */}
-      <div style={{
-        background: "#0e0e1a",
-        border: "1px solid #1e1e30",
-        borderRadius: 16,
-        padding: "32px 28px",
-      }}>
-        {/* Google Sign Up */}
+      {/* Auth card */}
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 420,
+          background: ds.color.card,
+          border: `1px solid ${ds.color.line}`,
+          borderRadius: ds.radius.lg,
+          padding: "32px 28px",
+        }}
+      >
+        {/* Google sign-up */}
         <button
+          type="button"
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
           style={{
             width: "100%",
-            padding: "12px 16px",
-            borderRadius: 10,
-            border: "1px solid #2a2a40",
-            background: "#1a1a2e",
-            color: "#e0e0f0",
-            fontSize: 14,
+            padding: "11px 16px",
+            borderRadius: ds.radius.sm,
+            border: `1px solid ${ds.color.line2}`,
+            background: ds.color.wallet,
+            color: ds.color.ink2,
+            fontSize: 13,
             fontWeight: 600,
+            fontFamily: ds.font.sans,
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
@@ -83,7 +145,7 @@ export default function RegisterPage() {
             marginBottom: 20,
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24">
+          <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
@@ -94,100 +156,136 @@ export default function RegisterPage() {
 
         {/* Divider */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-          <div style={{ flex: 1, height: 1, background: "#1e1e30" }} />
-          <span style={{ fontSize: 11, color: "#404060" }}>or</span>
-          <div style={{ flex: 1, height: 1, background: "#1e1e30" }} />
+          <div style={{ flex: 1, height: 1, background: ds.color.line }} />
+          <span style={{ fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.mono }}>or</span>
+          <div style={{ flex: 1, height: 1, background: ds.color.line }} />
         </div>
 
-        {/* Email Form */}
+        {/* Registration form */}
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, color: "#6060a0", display: "block", marginBottom: 4 }}>Name</label>
+            <label style={labelStyle} htmlFor="reg-name">Name</label>
             <input
+              id="reg-name"
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
-              style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                border: "1px solid #2a2a40", background: "#1a1a2e", color: "#e0e0f0", fontSize: 13, outline: "none",
-              }}
+              style={inputStyle}
               placeholder="Your name"
             />
           </div>
           <div style={{ marginBottom: 12 }}>
-            <label style={{ fontSize: 11, color: "#6060a0", display: "block", marginBottom: 4 }}>Email</label>
+            <label style={labelStyle} htmlFor="reg-email">Email</label>
             <input
+              id="reg-email"
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
-              style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                border: "1px solid #2a2a40", background: "#1a1a2e", color: "#e0e0f0", fontSize: 13, outline: "none",
-              }}
+              style={inputStyle}
               placeholder="you@example.com"
             />
           </div>
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, color: "#6060a0", display: "block", marginBottom: 4 }}>Password</label>
+            <label style={labelStyle} htmlFor="reg-password">Password</label>
             <input
+              id="reg-password"
               type="password"
               value={password}
               onChange={e => setPassword(e.target.value)}
               required
               minLength={6}
-              style={{
-                width: "100%", padding: "10px 12px", borderRadius: 8,
-                border: "1px solid #2a2a40", background: "#1a1a2e", color: "#e0e0f0", fontSize: 13, outline: "none",
-              }}
+              style={inputStyle}
               placeholder="At least 6 characters"
             />
           </div>
 
-          {/* Terms checkbox — simple, not scary */}
-          <label style={{
-            display: "flex", alignItems: "flex-start", gap: 8,
-            fontSize: 12, color: "#8080b0", cursor: "pointer",
-            marginBottom: 16, lineHeight: 1.5,
-          }}>
+          {/* Terms checkbox */}
+          <label
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 8,
+              fontSize: 12,
+              color: ds.color.mute,
+              cursor: "pointer",
+              marginBottom: 16,
+              lineHeight: 1.6,
+              fontFamily: ds.font.sans,
+            }}
+          >
             <input
               type="checkbox"
               checked={agreedTerms}
               onChange={e => setAgreedTerms(e.target.checked)}
-              style={{ marginTop: 3, accentColor: "#7c5cfc" }}
+              style={{ marginTop: 3, accentColor: ds.color.lilac }}
             />
             <span>
               I agree to the{" "}
-              <a href="/terms" target="_blank" style={{ color: "#7c5cfc", textDecoration: "none" }}>Terms of Use</a>
+              <a
+                href="/terms"
+                target="_blank"
+                style={{ color: ds.color.lilac, textDecoration: "none" }}
+              >
+                Terms of Use
+              </a>
               {" "}and{" "}
-              <a href="/privacy" target="_blank" style={{ color: "#7c5cfc", textDecoration: "none" }}>Privacy Policy</a>.
-              I understand I am responsible for content I approve and publish.
+              <a
+                href="/privacy"
+                target="_blank"
+                style={{ color: ds.color.lilac, textDecoration: "none" }}
+              >
+                Privacy Policy
+              </a>
+              . I understand I am responsible for content I approve and publish.
             </span>
           </label>
 
           {error && (
-            <p style={{ fontSize: 12, color: "#f87171", marginBottom: 12, textAlign: "center" }}>{error}</p>
+            <p
+              style={{
+                fontSize: 12,
+                color: "#f87171",
+                marginBottom: 14,
+                textAlign: "center",
+                fontFamily: ds.font.sans,
+              }}
+            >
+              {error}
+            </p>
           )}
 
-          <button
+          <ButtonPrimary
             type="submit"
             disabled={loading || !agreedTerms}
-            style={{
-              width: "100%", padding: "12px 16px", borderRadius: 10, border: "none",
-              background: loading || !agreedTerms ? "#2a2a40" : "#7c5cfc",
-              color: loading || !agreedTerms ? "#6060a0" : "#fff",
-              fontSize: 14, fontWeight: 600,
-              cursor: loading || !agreedTerms ? "not-allowed" : "pointer",
-            }}
+            size="md"
+            style={{ width: "100%", justifyContent: "center" }}
           >
             {loading ? "Creating account..." : "Create Account"}
-          </button>
+          </ButtonPrimary>
         </form>
 
         {/* Login link */}
-        <p style={{ fontSize: 12, color: "#6060a0", textAlign: "center", marginTop: 20 }}>
+        <p
+          style={{
+            fontSize: 12,
+            color: ds.color.mute,
+            textAlign: "center",
+            marginTop: 20,
+            fontFamily: ds.font.sans,
+          }}
+        >
           Already have an account?{" "}
-          <a href="/login" style={{ color: "#7c5cfc", textDecoration: "none", fontWeight: 600 }}>Sign in</a>
+          <a
+            href="/login"
+            style={{
+              color: ds.color.lilac,
+              textDecoration: "none",
+              fontWeight: 600,
+            }}
+          >
+            Sign in
+          </a>
         </p>
       </div>
     </div>

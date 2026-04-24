@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { ds } from "../../../lib/designSystem";
+import Card from "../../components/ui/Card";
 
 // ── Types ──────────────────────────────────────────
 interface UpdateEntry {
@@ -16,26 +18,26 @@ interface UpdateEntry {
 
 // ── Status / Priority config ────────────────────────
 const STATUS_CONFIG = {
-  done:        { label: "Done",         color: "#4ade80", bg: "#1a2a1a" },
-  in_progress: { label: "In Progress",  color: "#60a5fa", bg: "#1a1a2e" },
-  planned:     { label: "Planned",      color: "#facc15", bg: "#2a2010" },
-  suggested:   { label: "AI Suggests",  color: "#c084fc", bg: "#1e1a2e" },
-  postponed:   { label: "Postponed",    color: "#5a5a7a", bg: "#141420" },
+  done:        { label: "Done",        color: ds.color.mint,    bg: `${ds.color.mint}14`    },
+  in_progress: { label: "In Progress", color: ds.color.sky,     bg: `${ds.color.sky}14`     },
+  planned:     { label: "Planned",     color: ds.color.gold,    bg: `${ds.color.gold}14`    },
+  suggested:   { label: "AI Suggests", color: ds.color.lilac,   bg: `${ds.color.lilac}14`   },
+  postponed:   { label: "Postponed",   color: ds.color.mute,    bg: `${ds.color.mute}14`    },
 };
 const PRIORITY_CONFIG = {
-  critical: { label: "Critical", color: "#f87171" },
-  high:     { label: "High",     color: "#fb923c" },
-  medium:   { label: "Medium",   color: "#facc15" },
-  low:      { label: "Low",      color: "#5a5a7a" },
+  critical: { label: "Critical", color: ds.color.coral  },
+  high:     { label: "High",     color: ds.color.btnC   },
+  medium:   { label: "Medium",   color: ds.color.gold   },
+  low:      { label: "Low",      color: ds.color.mute   },
 };
 const CATEGORY_CONFIG = {
-  sfx:          { label: "SFX Library",   icon: "♪", color: "#60a5fa" },
-  voice:        { label: "Voice System",  icon: "◉", color: "#f472b6" },
-  pipeline:     { label: "Pipeline",      icon: "⚙", color: "#fb923c" },
-  ui:           { label: "UI / UX",       icon: "◈", color: "#4ade80" },
-  commercial:   { label: "Commercial",    icon: "◐", color: "#c084fc" },
-  architecture: { label: "Architecture",  icon: "⬡", color: "#34d399" },
-  ai:           { label: "AI / Supervisor",icon: "✦", color: "#facc15" },
+  sfx:          { label: "SFX Library",    abbr: "SFX", color: ds.color.sky    },
+  voice:        { label: "Voice System",   abbr: "VOI", color: ds.color.pink   },
+  pipeline:     { label: "Pipeline",       abbr: "PIP", color: ds.color.coral  },
+  ui:           { label: "UI / UX",        abbr: "UI",  color: ds.color.mint   },
+  commercial:   { label: "Commercial",     abbr: "COM", color: ds.color.lilac  },
+  architecture: { label: "Architecture",   abbr: "ARC", color: ds.color.mint   },
+  ai:           { label: "AI / Supervisor",abbr: "AI",  color: ds.color.gold   },
 };
 
 // ── Updates data ────────────────────────────────────
@@ -62,7 +64,7 @@ const UPDATES: UpdateEntry[] = [
   {
     id: "sfx-source-notes",
     title: "SFX Source Notes — Per-file metadata sidecar",
-    description: "storage/sfx/sources.json sidecar stores source site, URL, attribution note, import note, safeForAutoMode flag, quality rating per event. GET/PATCH via /api/sfx/source-notes. Expandable ✎ panel on every SFX card.",
+    description: "storage/sfx/sources.json sidecar stores source site, URL, attribution note, import note, safeForAutoMode flag, quality rating per event. GET/PATCH via /api/sfx/source-notes. Expandable panel on every SFX card.",
     status: "done", category: "sfx", priority: "high", source: "update_file",
   },
   {
@@ -92,7 +94,7 @@ const UPDATES: UpdateEntry[] = [
   {
     id: "multi-voice-pipeline",
     title: "Multi-Voice Pipeline",
-    description: "Per-speaker ElevenLabs audio generation → FFmpeg concat → single voice track. Dialogue parser supports SPEAKER: \"text\" format.",
+    description: "Per-speaker ElevenLabs audio generation + FFmpeg concat + single voice track. Dialogue parser supports SPEAKER: \"text\" format.",
     status: "done", category: "pipeline", priority: "critical", source: "built",
   },
   {
@@ -104,7 +106,7 @@ const UPDATES: UpdateEntry[] = [
   {
     id: "sfx-mixing",
     title: "SFX Auto-Mixing in FFmpeg",
-    description: "SFX events resolved from script → mixed at 30% volume beneath narration + music using amix filter.",
+    description: "SFX events resolved from script and mixed at 30% volume beneath narration + music using amix filter.",
     status: "done", category: "pipeline", priority: "high", source: "built",
   },
   {
@@ -259,114 +261,102 @@ export default function StudioUpdatesPage() {
     return true;
   });
 
-  const donCount    = UPDATES.filter(u => u.status === "done").length;
-  const totalCount  = UPDATES.length;
+  const donCount     = UPDATES.filter(u => u.status === "done").length;
+  const totalCount   = UPDATES.length;
   const plannedCount = UPDATES.filter(u => u.status === "planned").length;
   const suggestCount = UPDATES.filter(u => u.status === "suggested").length;
 
+  function filterChip(active: boolean, color?: string): React.CSSProperties {
+    return {
+      background: active ? (color ? `${color}18` : `${ds.color.lilac}18`) : ds.color.card,
+      border: `1px solid ${active ? (color ?? ds.color.lilac) + "44" : ds.color.line}`,
+      color: active ? (color ?? ds.color.lilac) : ds.color.mute,
+      borderRadius: ds.radius.xs, padding: "4px 12px", fontSize: 11, cursor: "pointer",
+      textTransform: "capitalize" as const, fontFamily: ds.font.sans, fontWeight: 600,
+    };
+  }
+
   return (
     <div style={{ maxWidth: 920 }}>
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between mb-6">
+
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <div>
-          <h1 className="text-white font-bold" style={{ fontSize: 24 }}>Studio Updates</h1>
-          <p style={{ fontSize: 13, color: "#5a5a7a", marginTop: 4 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: ds.font.mono, marginBottom: 4 }}>
+            Roadmap
+          </p>
+          <h1 style={{ fontSize: 28, fontWeight: 900, color: ds.color.ink, letterSpacing: "-0.03em", margin: 0 }}>Studio Updates</h1>
+          <p style={{ fontSize: 13, color: ds.color.mute, marginTop: 4 }}>
             Live roadmap — what is built, what is coming, and Claude Code suggestions.
           </p>
         </div>
         <div style={{ display: "flex", gap: 12 }}>
           {[
-            { label: "Built", value: donCount, color: "#4ade80" },
-            { label: "Planned", value: plannedCount, color: "#facc15" },
-            { label: "AI Suggests", value: suggestCount, color: "#c084fc" },
+            { label: "Built",      value: donCount,     color: ds.color.mint  },
+            { label: "Planned",    value: plannedCount, color: ds.color.gold  },
+            { label: "AI Suggests",value: suggestCount, color: ds.color.lilac },
           ].map(s => (
-            <div key={s.label} style={{ background: "#0f0f1a", border: "1px solid #1e1e38", borderRadius: 8, padding: "10px 16px", textAlign: "center" }}>
-              <p style={{ color: s.color, fontSize: 22, fontWeight: 800 }}>{s.value}</p>
-              <p style={{ color: "#3a3a5a", fontSize: 10 }}>{s.label}</p>
-            </div>
+            <Card key={s.label} padding="10px 16px" radius={ds.radius.sm} style={{ textAlign: "center", minWidth: 72 }}>
+              <p style={{ color: s.color, fontSize: 22, fontWeight: 800, margin: 0, fontFamily: ds.font.mono }}>{s.value}</p>
+              <p style={{ color: ds.color.mute2, fontSize: 10, margin: 0 }}>{s.label}</p>
+            </Card>
           ))}
         </div>
       </div>
 
-      {/* ── Progress bar ── */}
-      <div style={{ background: "#0f0f1a", border: "1px solid #1e1e38", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
-        <div className="flex justify-between mb-2">
-          <span style={{ color: "#4a4a6a", fontSize: 12 }}>Overall progress</span>
-          <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 600 }}>{Math.round((donCount / totalCount) * 100)}%</span>
+      {/* Progress bar */}
+      <Card padding="12px 16px" radius={ds.radius.sm} style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+          <span style={{ color: ds.color.mute, fontSize: 12 }}>Overall progress</span>
+          <span style={{ color: ds.color.mint, fontSize: 12, fontWeight: 600, fontFamily: ds.font.mono }}>{Math.round((donCount / totalCount) * 100)}%</span>
         </div>
-        <div style={{ background: "#141420", borderRadius: 4, height: 6, overflow: "hidden" }}>
-          <div style={{ background: "linear-gradient(90deg, #4ade80, #60a5fa)", height: "100%", width: `${(donCount / totalCount) * 100}%`, borderRadius: 4, transition: "width 0.5s ease" }} />
+        <div style={{ background: ds.color.alert, borderRadius: ds.radius.xs, height: 6, overflow: "hidden" }}>
+          <div style={{ background: `linear-gradient(90deg, ${ds.color.mint}, ${ds.color.sky})`, height: "100%", width: `${(donCount / totalCount) * 100}%`, borderRadius: ds.radius.xs, transition: "width 0.5s ease" }} />
         </div>
-        <p style={{ color: "#2a2a4a", fontSize: 11, marginTop: 8 }}>
+        <p style={{ color: ds.color.mute2, fontSize: 11, marginTop: 8 }}>
           {donCount} of {totalCount} update items completed · {plannedCount} in plan · {suggestCount} suggestions from Claude Code
         </p>
-      </div>
+      </Card>
 
-      {/* ── Filters ── */}
+      {/* Filters */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
         <div style={{ display: "flex", gap: 5 }}>
           {["all", "done", "planned", "suggested", "postponed"].map(s => {
             const cfg = s === "all" ? null : STATUS_CONFIG[s as keyof typeof STATUS_CONFIG];
             return (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                style={{
-                  background: statusFilter === s ? (cfg?.bg ?? "#1a1a2e") : "#0f0f1a",
-                  border: `1px solid ${statusFilter === s ? (cfg?.color ?? "#7c5cfc") + "44" : "#1e1e38"}`,
-                  color: statusFilter === s ? (cfg?.color ?? "#7c5cfc") : "#4a4a6a",
-                  borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer",
-                  textTransform: "capitalize",
-                }}
-              >
+              <button key={s} onClick={() => setStatusFilter(s)} style={filterChip(statusFilter === s, cfg?.color)}>
                 {s === "all" ? "All Status" : cfg?.label ?? s}
               </button>
             );
           })}
         </div>
-        <div style={{ width: 1, background: "#1e1e38" }} />
+        <div style={{ width: 1, background: ds.color.line, margin: "0 2px" }} />
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-          <button
-            onClick={() => setCategoryFilter("all")}
-            style={{
-              background: categoryFilter === "all" ? "#1a1a2e" : "#0f0f1a",
-              border: `1px solid ${categoryFilter === "all" ? "#7c5cfc44" : "#1e1e38"}`,
-              color: categoryFilter === "all" ? "#7c5cfc" : "#4a4a6a",
-              borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer",
-            }}
-          >All Categories</button>
+          <button onClick={() => setCategoryFilter("all")} style={filterChip(categoryFilter === "all")}>All</button>
           {Object.entries(CATEGORY_CONFIG).map(([k, cfg]) => (
-            <button
-              key={k}
-              onClick={() => setCategoryFilter(k)}
-              style={{
-                background: categoryFilter === k ? `${cfg.color}15` : "#0f0f1a",
-                border: `1px solid ${categoryFilter === k ? cfg.color + "44" : "#1e1e38"}`,
-                color: categoryFilter === k ? cfg.color : "#4a4a6a",
-                borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer",
-              }}
-            >
-              {cfg.icon} {cfg.label}
+            <button key={k} onClick={() => setCategoryFilter(k)} style={filterChip(categoryFilter === k, cfg.color)}>
+              <span style={{ fontFamily: ds.font.mono, fontSize: 9, marginRight: 4 }}>{cfg.abbr}</span>
+              {cfg.label}
             </button>
           ))}
         </div>
       </div>
 
-      {/* ── Update list ── */}
+      {/* Update list */}
       <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
         {filtered.map(u => {
-          const statusCfg = STATUS_CONFIG[u.status];
-          const priCfg = PRIORITY_CONFIG[u.priority];
-          const catCfg = CATEGORY_CONFIG[u.category];
-          const expanded = expandedId === u.id;
+          const statusCfg  = STATUS_CONFIG[u.status];
+          const priCfg     = PRIORITY_CONFIG[u.priority];
+          const catCfg     = CATEGORY_CONFIG[u.category];
+          const expanded   = expandedId === u.id;
 
           return (
             <div
               key={u.id}
               style={{
-                background: u.status === "done" ? "#0d130d" : u.status === "suggested" ? "#100f1a" : "#0f0f1a",
-                border: `1px solid ${expanded ? statusCfg.color + "44" : "#1a1a2a"}`,
-                borderRadius: 10,
+                background: u.status === "done" ? `${ds.color.mint}06` : u.status === "suggested" ? `${ds.color.lilac}08` : ds.color.card,
+                border: `1px solid ${expanded ? statusCfg.color + "44" : ds.color.line}`,
+                borderRadius: ds.radius.sm,
                 overflow: "hidden",
                 transition: "border-color 0.2s ease",
               }}
@@ -379,41 +369,41 @@ export default function StudioUpdatesPage() {
                   {/* Status badge */}
                   <span style={{
                     background: statusCfg.bg, color: statusCfg.color, fontSize: 10,
-                    borderRadius: 4, padding: "2px 7px", border: `1px solid ${statusCfg.color}33`,
-                    flexShrink: 0, fontWeight: 600,
+                    borderRadius: ds.radius.xs, padding: "2px 7px", border: `1px solid ${statusCfg.color}33`,
+                    flexShrink: 0, fontWeight: 700, fontFamily: ds.font.mono,
                   }}>{statusCfg.label}</span>
 
                   {/* Category */}
-                  <span style={{ color: catCfg.color, fontSize: 11, flexShrink: 0 }}>
-                    {catCfg.icon} {catCfg.label}
+                  <span style={{ color: catCfg.color, fontSize: 10, flexShrink: 0, fontFamily: ds.font.mono }}>
+                    {catCfg.abbr}
                   </span>
 
                   {/* Title */}
-                  <span style={{ color: u.status === "done" ? "#c0c0d0" : "#e0e0f0", fontSize: 13, fontWeight: u.status === "done" ? 400 : 500, flex: 1 }}>
+                  <span style={{ color: u.status === "done" ? ds.color.ink2 : ds.color.ink, fontSize: 13, fontWeight: u.status === "done" ? 400 : 600, flex: 1 }}>
                     {u.title}
                   </span>
 
                   {/* Priority */}
-                  <span style={{ color: priCfg.color, fontSize: 10, flexShrink: 0 }}>{priCfg.label}</span>
+                  <span style={{ color: priCfg.color, fontSize: 10, flexShrink: 0, fontFamily: ds.font.mono }}>{priCfg.label}</span>
 
                   {/* Source */}
                   {u.source === "ai_suggestion" && (
-                    <span style={{ background: "#1e1a2e", color: "#c084fc", fontSize: 10, borderRadius: 4, padding: "1px 6px", border: "1px solid #c084fc33" }}>
+                    <span style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, fontSize: 10, borderRadius: ds.radius.xs, padding: "1px 6px", border: `1px solid ${ds.color.lilac}33`, fontFamily: ds.font.mono }}>
                       AI
                     </span>
                   )}
 
-                  <span style={{ color: "#2a2a4a", fontSize: 11 }}>{expanded ? "▲" : "▼"}</span>
+                  <span style={{ color: ds.color.mute2, fontSize: 11 }}>{expanded ? "^" : "v"}</span>
                 </div>
               </button>
 
               {expanded && (
-                <div style={{ padding: "4px 18px 16px", borderTop: "1px solid #1a1a2a" }}>
-                  <p style={{ color: "#7070a0", fontSize: 12, lineHeight: 1.6, marginBottom: u.notes ? 10 : 0 }}>
+                <div style={{ padding: "4px 18px 16px", borderTop: `1px solid ${ds.color.line}` }}>
+                  <p style={{ color: ds.color.mute, fontSize: 12, lineHeight: 1.6, marginBottom: u.notes ? 10 : 0 }}>
                     {u.description}
                   </p>
                   {u.notes && (
-                    <p style={{ color: "#4a4a6a", fontSize: 11, background: "#0d0d18", borderRadius: 6, padding: "8px 12px", marginTop: 8 }}>
+                    <p style={{ color: ds.color.mute2, fontSize: 11, background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", marginTop: 8 }}>
                       Note: {u.notes}
                     </p>
                   )}
@@ -425,7 +415,7 @@ export default function StudioUpdatesPage() {
       </div>
 
       {filtered.length === 0 && (
-        <p style={{ color: "#2a2a4a", fontSize: 13, textAlign: "center", padding: "40px 0" }}>No items match current filter.</p>
+        <p style={{ color: ds.color.mute2, fontSize: 13, textAlign: "center", padding: "40px 0" }}>No items match current filter.</p>
       )}
     </div>
   );

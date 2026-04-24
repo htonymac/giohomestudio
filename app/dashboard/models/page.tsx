@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ds } from "../../../lib/designSystem";
+import ButtonPrimary from "../../components/ui/ButtonPrimary";
+import Card from "../../components/ui/Card";
 
 interface Model {
   id: string;
@@ -26,22 +29,22 @@ interface Model {
   sort_usage_count: number;
 }
 
-const TIER_BADGE: Record<string, { label: string; color: string }> = {
-  budget:              { label: "Budget",           color: "bg-green-900/40 text-green-400" },
-  budget_fast:         { label: "Budget Fast",      color: "bg-green-900/40 text-green-400" },
-  moderate:            { label: "Balanced",         color: "bg-blue-900/40 text-blue-400" },
-  moderate_premium:    { label: "Balanced+",        color: "bg-blue-900/40 text-blue-400" },
-  premium:             { label: "Premium",          color: "bg-purple-900/40 text-purple-400" },
-  premium_plus:        { label: "Premium+",         color: "bg-purple-900/40 text-purple-400" },
-  budget_video:        { label: "Budget Video",     color: "bg-green-900/40 text-green-400" },
-  moderate_video:      { label: "Balanced Video",   color: "bg-blue-900/40 text-blue-400" },
-  premium_video:       { label: "Premium Video",    color: "bg-purple-900/40 text-purple-400" },
-  premium_video_plus:  { label: "Premium+ Video",   color: "bg-purple-900/40 text-purple-400" },
-  ultra_premium_video: { label: "Ultra Premium",    color: "bg-amber-900/40 text-amber-400" },
+const TIER_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  budget:              { label: "Budget",         color: ds.color.mint,    bg: `${ds.color.mint}18`    },
+  budget_fast:         { label: "Budget Fast",    color: ds.color.mint,    bg: `${ds.color.mint}18`    },
+  moderate:            { label: "Balanced",       color: ds.color.sky,     bg: `${ds.color.sky}18`     },
+  moderate_premium:    { label: "Balanced+",      color: ds.color.sky,     bg: `${ds.color.sky}18`     },
+  premium:             { label: "Premium",        color: ds.color.lilac,   bg: `${ds.color.lilac}18`   },
+  premium_plus:        { label: "Premium+",       color: ds.color.lilac,   bg: `${ds.color.lilac}18`   },
+  budget_video:        { label: "Budget Video",   color: ds.color.mint,    bg: `${ds.color.mint}18`    },
+  moderate_video:      { label: "Balanced Video", color: ds.color.sky,     bg: `${ds.color.sky}18`     },
+  premium_video:       { label: "Premium Video",  color: ds.color.lilac,   bg: `${ds.color.lilac}18`   },
+  premium_video_plus:  { label: "Premium+ Video", color: ds.color.lilac,   bg: `${ds.color.lilac}18`   },
+  ultra_premium_video: { label: "Ultra Premium",  color: ds.color.gold,    bg: `${ds.color.gold}18`    },
 };
 
 const SORT_OPTIONS = [
-  { id: "price",    label: "Price (low first)",    key: "sort_price_rank",    dir: "asc" as const },
+  { id: "price",    label: "Price (low first)",    key: "sort_price_rank",    dir: "asc"  as const },
   { id: "quality",  label: "Quality (best first)", key: "sort_quality_rank",  dir: "desc" as const },
   { id: "trending", label: "Trending",             key: "sort_trending_score", dir: "desc" as const },
   { id: "used",     label: "Most Used",            key: "sort_usage_count",   dir: "desc" as const },
@@ -102,93 +105,139 @@ export default function ModelsPage() {
 
   const tiers = [...new Set(filtered.map(m => m.quality_tier))];
 
-  if (loading) return <p className="text-[#6060a0] text-center py-12">Loading models...</p>;
+  if (loading) return <p style={{ color: ds.color.mute, textAlign: "center", padding: "48px 0", fontFamily: ds.font.sans }}>Loading models...</p>;
+
+  // Tab pill style
+  function tabStyle(active: boolean): React.CSSProperties {
+    return {
+      padding: "8px 16px", borderRadius: ds.radius.sm, fontSize: 13, fontWeight: 600,
+      fontFamily: ds.font.sans, cursor: "pointer", border: "none",
+      background: active ? ds.color.lilac : ds.color.card,
+      color: active ? "#fff" : ds.color.mute,
+      transition: "all .15s",
+    };
+  }
+
+  // Sort/filter chip style
+  function chipStyle(active: boolean): React.CSSProperties {
+    return {
+      padding: "4px 10px", borderRadius: ds.radius.xs, fontSize: 10, fontWeight: 600,
+      fontFamily: ds.font.mono, cursor: "pointer", border: `1px solid ${active ? ds.color.lilac + "60" : ds.color.line2}`,
+      background: active ? `${ds.color.lilac}18` : ds.color.card,
+      color: active ? ds.color.lilac : ds.color.mute,
+      transition: "all .15s",
+    };
+  }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-white">🤖 AI Models</h1>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Select a model, see trending options, and generate directly</p>
+    <div style={{ maxWidth: 900, margin: "0 auto" }}>
+
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: ds.font.mono, marginBottom: 4 }}>
+          AI Studio
+        </p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: ds.color.ink, letterSpacing: "-0.03em", margin: "0 0 4px" }}>
+          AI Models
+        </h1>
+        <p style={{ fontSize: 13, color: ds.color.ink2 }}>Select a model, see trending options, and generate directly</p>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
-        <button onClick={() => setTab("image")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "image" ? "bg-[#7c5cfc] text-white" : "bg-[#1a1a2e] text-[#6060a0] hover:text-white"}`}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button onClick={() => setTab("image")} style={tabStyle(tab === "image")}>
           Image Models ({models.filter(m => m.type === "image" || m.type === "image_edit").length})
         </button>
-        <button onClick={() => setTab("video")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${tab === "video" ? "bg-[#7c5cfc] text-white" : "bg-[#1a1a2e] text-[#6060a0] hover:text-white"}`}>
+        <button onClick={() => setTab("video")} style={tabStyle(tab === "video")}>
           Video Models ({models.filter(m => m.type === "video").length})
         </button>
       </div>
 
       {/* Sort + Filter */}
-      <div className="flex gap-2 mb-4 items-center">
-        <span className="text-[10px] text-[#6060a0]">Sort:</span>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Sort:</span>
         {SORT_OPTIONS.map(s => (
-          <button key={s.id} onClick={() => setSort(s.id)} className={`px-2.5 py-1 rounded text-[10px] transition-colors ${sort === s.id ? "bg-[#7c5cfc]/20 text-[#b090ff] border border-[#7c5cfc]/40" : "bg-[#1a1a2e] text-[#6060a0] border border-[#2a2a40]"}`}>
+          <button key={s.id} onClick={() => setSort(s.id)} style={chipStyle(sort === s.id)}>
             {s.label}
           </button>
         ))}
-        <span className="text-[#2a2a40] mx-1">|</span>
-        <span className="text-[10px] text-[#6060a0]">Tier:</span>
-        <button onClick={() => setTierFilter("")} className={`px-2 py-1 rounded text-[10px] ${!tierFilter ? "bg-[#7c5cfc]/20 text-[#b090ff]" : "bg-[#1a1a2e] text-[#6060a0]"}`}>All</button>
+        <span style={{ width: 1, height: 16, background: ds.color.line2, margin: "0 4px" }} />
+        <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Tier:</span>
+        <button onClick={() => setTierFilter("")} style={chipStyle(!tierFilter)}>All</button>
         {tiers.map(t => (
-          <button key={t} onClick={() => setTierFilter(t === tierFilter ? "" : t)} className={`px-2 py-1 rounded text-[10px] ${t === tierFilter ? "bg-[#7c5cfc]/20 text-[#b090ff]" : "bg-[#1a1a2e] text-[#6060a0]"}`}>
+          <button key={t} onClick={() => setTierFilter(t === tierFilter ? "" : t)} style={chipStyle(t === tierFilter)}>
             {TIER_BADGE[t]?.label ?? t}
           </button>
         ))}
       </div>
 
       {/* Model cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
         {filtered.map(m => {
-          const tier = TIER_BADGE[m.quality_tier] ?? { label: m.quality_tier, color: "bg-gray-800 text-gray-400" };
+          const tier = TIER_BADGE[m.quality_tier] ?? { label: m.quality_tier, color: ds.color.mute, bg: ds.color.alert };
           const isDefault = (tab === "image" && defaults.image === m.id) || (tab === "video" && defaults.video === m.id);
           return (
-            <div key={m.id} className={`bg-[#12121e] border rounded-xl p-4 transition-colors ${m.is_active ? "border-[#2a2a40] hover:border-[#7c5cfc]/40" : "border-[#1a1a2e] opacity-50"}`}>
-              <div className="flex items-start justify-between mb-2">
+            <Card
+              key={m.id}
+              padding="14px 16px"
+              radius={ds.radius.md}
+              style={{
+                opacity: m.is_active ? 1 : 0.5,
+                border: `1px solid ${m.is_active ? ds.color.line2 : ds.color.line}`,
+                transition: "border-color .15s",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 8 }}>
                 <div>
-                  <h3 className="text-sm font-semibold text-white">{m.display_name}</h3>
-                  <p className="text-[10px] text-[#6060a0]">{m.model_manufacturer} via {m.provider_name}</p>
+                  <h3 style={{ fontSize: 13, fontWeight: 600, color: ds.color.ink, margin: 0 }}>{m.display_name}</h3>
+                  <p style={{ fontSize: 10, color: ds.color.mute, margin: "2px 0 0" }}>{m.model_manufacturer} via {m.provider_name}</p>
                 </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${tier.color}`}>{tier.label}</span>
-                  {isDefault && <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#7c5cfc]/20 text-[#b090ff] font-medium">Default</span>}
-                  {m.is_recommended_default && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-900/30 text-amber-400 font-medium">Recommended</span>}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: ds.radius.xs, background: tier.bg, color: tier.color, fontFamily: ds.font.mono }}>{tier.label}</span>
+                  {isDefault && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: ds.radius.xs, background: `${ds.color.lilac}18`, color: ds.color.lilac, fontFamily: ds.font.mono }}>Default</span>}
+                  {m.is_recommended_default && <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: ds.radius.xs, background: `${ds.color.gold}18`, color: ds.color.gold, fontFamily: ds.font.mono }}>Recommended</span>}
                 </div>
               </div>
 
-              <p className="text-[10px] text-[#8080b0] mb-2">{m.best_for}</p>
+              <p style={{ fontSize: 10, color: ds.color.ink2, marginBottom: 8, lineHeight: 1.5 }}>{m.best_for}</p>
 
-              <div className="flex flex-wrap gap-1 mb-2">
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
                 {m.tags.slice(0, 4).map(t => (
-                  <span key={t} className="text-[8px] bg-[#1a1a2e] text-[#6060a0] px-1.5 py-0.5 rounded">{t}</span>
+                  <span key={t} style={{ fontSize: 8, background: ds.color.alert, color: ds.color.mute, padding: "2px 6px", borderRadius: ds.radius.xs }}>{t}</span>
                 ))}
               </div>
 
-              <div className="grid grid-cols-3 gap-2 text-[10px] text-[#6060a0] mb-3">
-                <div><span className="text-[#404060]">Cost:</span> <span className="text-white">${m.cost_to_henry}</span></div>
-                <div><span className="text-[#404060]">Res:</span> <span className="text-white">{m.resolution}</span></div>
-                <div><span className="text-[#404060]">Speed:</span> <span className="text-white">~{m.avg_generation_seconds}s</span></div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 4, fontSize: 10, color: ds.color.mute, marginBottom: 12 }}>
+                <div><span style={{ color: ds.color.mute2 }}>Cost:</span> <span style={{ color: ds.color.ink, fontFamily: ds.font.mono }}>${m.cost_to_henry}</span></div>
+                <div><span style={{ color: ds.color.mute2 }}>Res:</span> <span style={{ color: ds.color.ink }}>{m.resolution}</span></div>
+                <div><span style={{ color: ds.color.mute2 }}>Speed:</span> <span style={{ color: ds.color.ink }}>~{m.avg_generation_seconds}s</span></div>
               </div>
 
               {!m.is_active && m.notes && (
-                <p className="text-[9px] text-orange-400/70 mb-2">{m.notes}</p>
+                <p style={{ fontSize: 9, color: ds.color.coral, marginBottom: 8 }}>{m.notes}</p>
               )}
 
               {m.is_active && (
-                <div className="flex gap-1.5">
+                <div style={{ display: "flex", gap: 6 }}>
                   <a
                     href={`/dashboard/collaborative-editor?mode=${m.type === "video" ? "text_to_video" : "text_to_video"}&provider=${m.provider_name}`}
-                    className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold text-center transition-colors"
-                    style={{ background: "var(--accent, #6c63ff)", color: "white" }}
+                    style={{
+                      flex: 1, padding: "6px 10px", borderRadius: ds.radius.xs, fontSize: 10,
+                      fontWeight: 700, textAlign: "center", textDecoration: "none",
+                      background: ds.grad.hero, backgroundSize: ds.grad.heroSize,
+                      animation: "btnSweep 6s linear infinite", color: "#fff",
+                    }}
                   >
-                    Use in Studio →
+                    Use in Studio
                   </a>
                   <button
                     disabled={generating === m.id}
                     onClick={() => testGenerate(m.id, m.type)}
-                    className="py-1.5 px-3 rounded-lg text-[10px] font-medium bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 transition-colors"
+                    style={{
+                      padding: "6px 12px", borderRadius: ds.radius.xs, fontSize: 10, fontWeight: 600,
+                      background: `${ds.color.lilac}18`, color: ds.color.lilac, border: "none", cursor: "pointer",
+                      opacity: generating === m.id ? 0.4 : 1, fontFamily: ds.font.sans,
+                    }}
                   >
                     {generating === m.id ? "..." : "Test"}
                   </button>
@@ -196,17 +245,21 @@ export default function ModelsPage() {
               )}
 
               {genResult?.model === m.id && (
-                <div className={`mt-2 p-2 rounded text-[10px] ${genResult.status === "success" ? "bg-green-950/40 text-green-400" : "bg-red-950/40 text-red-400"}`}>
+                <div style={{
+                  marginTop: 8, padding: 8, borderRadius: ds.radius.xs, fontSize: 10,
+                  background: genResult.status === "success" ? `${ds.color.mint}18` : `${ds.color.coral}18`,
+                  color: genResult.status === "success" ? ds.color.mint : ds.color.coral,
+                }}>
                   {genResult.status === "success" ? `Generated! ${genResult.url ? "Saved to storage" : ""}` : `Failed: ${genResult.error}`}
                 </div>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>
 
       {filtered.length === 0 && (
-        <p className="text-center text-[#404060] py-12">No models match current filters</p>
+        <p style={{ textAlign: "center", color: ds.color.mute2, padding: "48px 0", fontFamily: ds.font.sans }}>No models match current filters</p>
       )}
     </div>
   );

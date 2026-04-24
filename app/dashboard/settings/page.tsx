@@ -1,6 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ds } from "../../../lib/designSystem";
+import ButtonPrimary from "../../components/ui/ButtonPrimary";
+import Card from "../../components/ui/Card";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -38,10 +41,39 @@ interface SettingsData {
 
 // ── Shared style atoms ───────────────────────────────────────────────────────
 
-const inputCls = "w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm placeholder-[#3a3a55] focus:outline-none focus:border-[#7c5cfc] font-mono";
-const selectCls = "w-full bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#7c5cfc]";
-const labelCls = "block text-xs text-[#6060a0] mb-1 font-medium";
-const sectionCls = "bg-[#12121e] border border-[#2a2a40] rounded-xl p-4 space-y-4";
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: ds.color.card,
+  border: `1px solid ${ds.color.line}`,
+  borderRadius: ds.radius.sm,
+  padding: "10px 12px",
+  color: ds.color.ink,
+  fontSize: 14,
+  fontFamily: ds.font.sans,
+  outline: "none",
+};
+
+const selectStyle: React.CSSProperties = {
+  width: "100%",
+  background: ds.color.card,
+  border: `1px solid ${ds.color.line}`,
+  borderRadius: ds.radius.sm,
+  padding: "10px 12px",
+  color: ds.color.ink,
+  fontSize: 14,
+  fontFamily: ds.font.sans,
+  outline: "none",
+};
+
+const labelStyle: React.CSSProperties = {
+  display: "block",
+  fontSize: 11,
+  color: ds.color.mute,
+  marginBottom: 4,
+  fontFamily: ds.font.mono,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+};
 
 const PROVIDERS = [
   {
@@ -52,7 +84,7 @@ const PROVIDERS = [
     hint: "Get from console.anthropic.com",
     note: "Your Claude.ai Pro/Max subscription does NOT include API access. You need a separate key from the Anthropic console.",
     badge: "Recommended",
-    badgeColor: "bg-[#7c5cfc]/20 text-[#b090ff] border-[#7c5cfc]/40",
+    badgeColor: { bg: `${ds.color.lilac}18`, text: ds.color.lilac, border: `${ds.color.lilac}40` },
     maskedField: "anthropic" as const,
   },
   {
@@ -63,7 +95,7 @@ const PROVIDERS = [
     hint: "Get from platform.openai.com",
     note: null,
     badge: "Secondary",
-    badgeColor: "bg-green-900/20 text-green-400 border-green-800/40",
+    badgeColor: { bg: `${ds.color.mint}18`, text: ds.color.mint, border: `${ds.color.mint}40` },
     maskedField: "openai" as const,
   },
   {
@@ -74,7 +106,7 @@ const PROVIDERS = [
     hint: "Get from console.x.ai",
     note: null,
     badge: "Secondary",
-    badgeColor: "bg-green-900/20 text-green-400 border-green-800/40",
+    badgeColor: { bg: `${ds.color.mint}18`, text: ds.color.mint, border: `${ds.color.mint}40` },
     maskedField: "grok" as const,
   },
 ];
@@ -92,7 +124,15 @@ const ROLE_DEFS: { key: keyof RoleAssignments; label: string; description: strin
 
 function StatusDot({ ok }: { ok: boolean }) {
   return (
-    <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${ok ? "bg-green-500" : "bg-[#3a3a55]"}`} />
+    <span style={{
+      display: "inline-block",
+      width: 8,
+      height: 8,
+      borderRadius: "50%",
+      flexShrink: 0,
+      background: ok ? ds.color.mint : ds.color.mute2,
+      boxShadow: ok ? `0 0 6px ${ds.color.mint}88` : "none",
+    }} />
   );
 }
 
@@ -117,7 +157,6 @@ export default function SettingsPage() {
     RUNWAY_API_KEY:     "",
   });
 
-
   const [roles, setRoles] = useState<RoleAssignments>({
     fast:       "phi3:latest",
     quality:    "qwen2.5:14b",
@@ -127,7 +166,6 @@ export default function SettingsPage() {
     vision:     "llava:latest",
   });
 
-  // Single map for show/hide toggles across all key inputs (LLM + service keys)
   const [showKey, setShowKey] = useState<Record<string, boolean>>({});
 
   async function refreshSettings() {
@@ -138,7 +176,6 @@ export default function SettingsPage() {
     if (data.roleAssignments) setRoles(data.roleAssignments);
   }
 
-  // Load current status on mount
   useEffect(() => {
     fetch("/api/settings/llm")
       .then(r => r.json())
@@ -172,18 +209,15 @@ export default function SettingsPage() {
     setSaved(false);
     try {
       const payload: Record<string, string> = {};
-      // Only send non-empty API key values (empty = keep existing / fall back to env)
       for (const [k, v] of Object.entries(keys)) {
         if (v !== "") payload[k] = v;
       }
-      // Always send role assignments (even if unchanged, they are idempotent)
       payload["OLLAMA_MODEL_FAST"]       = roles.fast;
       payload["OLLAMA_MODEL_QUALITY"]    = roles.quality;
       payload["OLLAMA_MODEL_CREATIVE"]   = roles.creative;
       payload["OLLAMA_MODEL_ASSISTANT"]  = roles.assistant;
       payload["OLLAMA_MODEL_SUPERVISOR"] = roles.supervisor;
       payload["OLLAMA_MODEL_VISION"]     = roles.vision;
-      // Service keys: only include if non-empty
       if (keys.ELEVENLABS_API_KEY) payload["ELEVENLABS_API_KEY"] = keys.ELEVENLABS_API_KEY;
       if (keys.KLING_ACCESS_KEY)   payload["KLING_ACCESS_KEY"]   = keys.KLING_ACCESS_KEY;
       if (keys.KLING_SECRET_KEY)   payload["KLING_SECRET_KEY"]   = keys.KLING_SECRET_KEY;
@@ -230,7 +264,6 @@ export default function SettingsPage() {
     ? Object.values(current.status).filter(v => v === "configured").length
     : 0;
 
-  // Which provider will actually be used
   const willUse = current?.forced
     || (current?.status.claude === "configured" ? "claude"
       : current?.status.openai === "configured" ? "openai"
@@ -239,171 +272,187 @@ export default function SettingsPage() {
 
   const ollamaOnline = current ? current.ollamaModels.length > 0 : false;
 
+  // ── Section header helper ────────────────────────────────────────────────
+  function SectionLabel({ children }: { children: React.ReactNode }) {
+    return (
+      <h2 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink, marginBottom: 12, fontFamily: ds.font.mono, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+        {children}
+      </h2>
+    );
+  }
+
   return (
-    <div className="w-full max-w-2xl mx-auto p-1 space-y-6">
+    <div style={{ width: "100%", maxWidth: 700, margin: "0 auto", padding: 4, display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">⚙️ Settings</h1>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: ds.font.mono, marginBottom: 4 }}>
+          AI Studio
+        </p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: ds.color.ink, letterSpacing: "-0.03em", margin: 0 }}>
+          Settings
+        </h1>
+        <p style={{ fontSize: 13, color: ds.color.ink2, marginTop: 4 }}>
           Configure AI providers, publishing connections, and service keys
         </p>
       </div>
 
       {/* Info banner */}
-      <div className="bg-[#0d1a2e] border border-[#2a4060] rounded-xl px-4 py-3">
-        <p className="text-xs text-[#70a0d0] leading-relaxed">
-          <span className="font-semibold text-[#90c0e8]">ℹ You do NOT need to edit .env for LLM settings.</span>{" "}
-          Everything configured here is saved to <code className="text-[#9090c0]">storage/llm-settings.json</code> and takes effect immediately — no restart needed.
+      <Card padding="12px 16px" radius={ds.radius.md} style={{ borderColor: `${ds.color.lilac}30` }}>
+        <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.6, margin: 0 }}>
+          <span style={{ fontWeight: 600, color: ds.color.ink }}>No .env editing needed for LLM settings.</span>{" "}
+          Everything configured here is saved to{" "}
+          <code style={{ fontFamily: ds.font.mono, color: ds.color.mute, fontSize: 11 }}>storage/llm-settings.json</code>{" "}
+          and takes effect immediately — no restart needed.
         </p>
-      </div>
+      </Card>
 
       {/* Status bar */}
-      <div className={`${sectionCls} !space-y-0`}>
-        <div className="flex items-center justify-between">
+      <Card padding="16px 18px" radius={ds.radius.md}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <p className="text-sm font-semibold text-white">Provider status</p>
-            <p className="text-xs text-[#6060a0] mt-0.5">
-              {loading ? "Loading…" : activeCount === 0 ? "No providers configured — LLM functions will fail" : `${activeCount} provider${activeCount !== 1 ? "s" : ""} configured · Active: ${willUse}`}
+            <p style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink, margin: 0 }}>Provider status</p>
+            <p style={{ fontSize: 12, color: ds.color.mute, marginTop: 2 }}>
+              {loading ? "Loading..." : activeCount === 0
+                ? "No providers configured — LLM functions will fail"
+                : `${activeCount} provider${activeCount !== 1 ? "s" : ""} configured · Active: ${willUse}`}
             </p>
           </div>
           {!loading && (
-            <span className={`text-xs font-medium px-3 py-1 rounded-full border ${activeCount > 0 ? "bg-green-900/20 text-green-400 border-green-800/40" : "bg-red-900/20 text-red-400 border-red-800/40"}`}>
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: ds.radius.pill,
+              fontFamily: ds.font.mono, letterSpacing: "0.1em", textTransform: "uppercase",
+              background: activeCount > 0 ? `${ds.color.mint}18` : `${ds.color.coral}18`,
+              color: activeCount > 0 ? ds.color.mint : ds.color.coral,
+              border: `1px solid ${activeCount > 0 ? ds.color.mint : ds.color.coral}40`,
+            }}>
               {activeCount > 0 ? "Ready" : "Not configured"}
             </span>
           )}
         </div>
 
         {current && (
-          <div className="flex gap-4 pt-3 mt-3 border-t border-[#1a1a2e]">
+          <div style={{ display: "flex", gap: 16, paddingTop: 12, marginTop: 12, borderTop: `1px solid ${ds.color.line}` }}>
             {[
-              { label: "Claude",        ok: current.status.claude === "configured", masked: current.maskedKeys.anthropic },
-              { label: "GPT",           ok: current.status.openai === "configured", masked: current.maskedKeys.openai },
-              { label: "Grok",          ok: current.status.grok   === "configured", masked: current.maskedKeys.grok },
-              { label: "Ollama (local)", ok: ollamaOnline,                          masked: current.ollamaUrl },
+              { label: "Claude",         ok: current.status.claude === "configured", masked: current.maskedKeys.anthropic },
+              { label: "GPT",            ok: current.status.openai === "configured", masked: current.maskedKeys.openai },
+              { label: "Grok",           ok: current.status.grok   === "configured", masked: current.maskedKeys.grok },
+              { label: "Ollama (local)", ok: ollamaOnline,                           masked: current.ollamaUrl },
             ].map(p => (
-              <div key={p.label} className="flex items-center gap-1.5">
+              <div key={p.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <StatusDot ok={p.ok} />
-                <span className="text-xs text-[#6060a0]">{p.label}</span>
-                {p.ok && p.masked && <span className="text-[10px] text-[#404060] font-mono">{p.masked}</span>}
+                <span style={{ fontSize: 11, color: ds.color.mute }}>{p.label}</span>
+                {p.ok && p.masked && <span style={{ fontSize: 10, color: ds.color.mute2, fontFamily: ds.font.mono }}>{p.masked}</span>}
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
 
       {/* ── Section A: Cloud API Keys ── */}
       <div>
-        <h2 className="text-base font-semibold text-white mb-3">Section A — Cloud API Keys</h2>
+        <SectionLabel>Section A — Cloud API Keys</SectionLabel>
 
         {PROVIDERS.map(provider => {
           const isSet = current?.status[provider.id] === "configured";
           const masked = current?.maskedKeys[provider.maskedField];
           return (
-            <div key={provider.id} className={`${sectionCls} mb-4`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <Card key={provider.id} padding="16px 18px" radius={ds.radius.md} style={{ marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <StatusDot ok={isSet} />
-                  <span className="text-sm font-semibold text-white">{provider.name}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${provider.badgeColor}`}>
+                  <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>{provider.name}</span>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill,
+                    fontFamily: ds.font.mono, letterSpacing: "0.08em",
+                    background: provider.badgeColor.bg, color: provider.badgeColor.text, border: `1px solid ${provider.badgeColor.border}`,
+                  }}>
                     {provider.badge}
                   </span>
                 </div>
                 {isSet && (
-                  <button
-                    onClick={() => handleClear(provider.key)}
-                    className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors"
-                  >
+                  <button onClick={() => handleClear(provider.key)}
+                    style={{ fontSize: 11, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>
                     Clear
                   </button>
                 )}
               </div>
 
-              <div>
-                <label className={labelCls}>API Key</label>
-                <div className="relative">
+              <div style={{ marginBottom: provider.note ? 12 : 0 }}>
+                <label style={labelStyle}>API Key</label>
+                <div style={{ position: "relative" }}>
                   <input
                     type={showKey[provider.key] ? "text" : "password"}
                     value={keys[provider.key]}
                     onChange={e => setKey(provider.key, e.target.value)}
                     placeholder={isSet ? masked : provider.placeholder}
-                    className={inputCls}
+                    style={{ ...inputStyle, paddingRight: 48, fontFamily: ds.font.mono }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowKey(prev => ({ ...prev, [provider.key]: !prev[provider.key] }))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#4040600] hover:text-[#9090c0] transition-colors px-1"
+                    style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: ds.color.mute, background: "none", border: "none", cursor: "pointer" }}
                   >
                     {showKey[provider.key] ? "hide" : "show"}
                   </button>
                 </div>
-                <p className="text-[11px] text-[#4040600] mt-1">{provider.hint}</p>
+                <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>{provider.hint}</p>
               </div>
 
               {provider.note && (
-                <div className="bg-yellow-950/20 border border-yellow-800/30 rounded-lg px-3 py-2">
-                  <p className="text-[11px] text-yellow-400/80 leading-relaxed">{provider.note}</p>
+                <div style={{ background: `${ds.color.gold}0a`, border: `1px solid ${ds.color.gold}25`, borderRadius: ds.radius.sm, padding: "8px 12px" }}>
+                  <p style={{ fontSize: 11, color: ds.color.gold, lineHeight: 1.6, margin: 0 }}>{provider.note}</p>
                 </div>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>
 
       {/* ── Section B: Ollama Local Models ── */}
       <div>
-        <h2 className="text-base font-semibold text-white mb-3">Section B — Ollama Local Models</h2>
+        <SectionLabel>Section B — Ollama Local Models</SectionLabel>
 
-        <div className={sectionCls}>
-          {/* Ollama status */}
-          <div className="flex items-center gap-2">
+        <Card padding="16px 18px" radius={ds.radius.md}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
             <StatusDot ok={ollamaOnline} />
-            <span className="text-sm font-semibold text-white">Ollama</span>
+            <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>Ollama</span>
             {loading ? (
-              <span className="text-xs text-[#6060a0]">Checking…</span>
+              <span style={{ fontSize: 12, color: ds.color.mute }}>Checking...</span>
             ) : ollamaOnline ? (
-              <span className="text-xs text-green-400">{current?.ollamaModels.length} model{current?.ollamaModels.length !== 1 ? "s" : ""} detected</span>
+              <span style={{ fontSize: 12, color: ds.color.mint }}>{current?.ollamaModels.length} model{current?.ollamaModels.length !== 1 ? "s" : ""} detected</span>
             ) : (
-              <span className="text-xs text-[#a06060]">Ollama offline — start it to see models</span>
+              <span style={{ fontSize: 12, color: ds.color.coral }}>Ollama offline — start it to see models</span>
             )}
           </div>
 
-          {/* Detected models list */}
           {ollamaOnline && current && current.ollamaModels.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
               {current.ollamaModels.map(m => (
-                <span key={m} className="text-[11px] bg-[#1a1a2e] border border-[#2a2a40] text-[#9090c0] px-2 py-0.5 rounded font-mono">
+                <span key={m} style={{ fontSize: 11, background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.mute, padding: "2px 8px", borderRadius: ds.radius.xs, fontFamily: ds.font.mono }}>
                   {m}
                 </span>
               ))}
             </div>
           )}
 
-          {/* Role assignment dropdowns */}
-          <div className="space-y-3 pt-1">
-            <p className="text-xs text-[#6060a0] font-medium">Assign Ollama models to roles:</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <p style={{ fontSize: 11, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.1em" }}>Assign Ollama models to roles:</p>
             {ROLE_DEFS.map(role => {
               const modelOptions = ollamaOnline && current
                 ? current.ollamaModels
                 : [roles[role.key]].filter(Boolean);
-
-              // Ensure current value always appears as an option
               const allOptions = Array.from(new Set([roles[role.key], role.defaultModel, ...modelOptions])).filter(Boolean);
 
               return (
                 <div key={role.key}>
-                  <label className={labelCls}>
-                    {role.label} <span className="text-[#3a3a55] font-normal">— {role.description}</span>
+                  <label style={labelStyle}>
+                    {role.label}{" "}
+                    <span style={{ color: ds.color.mute2, fontWeight: 400 }}>— {role.description}</span>
                   </label>
                   {ollamaOnline && current && current.ollamaModels.length > 0 ? (
-                    <select
-                      value={roles[role.key]}
-                      onChange={e => setRole(role.key, e.target.value)}
-                      className={selectCls}
-                    >
-                      {allOptions.map(m => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
+                    <select value={roles[role.key]} onChange={e => setRole(role.key, e.target.value)} style={selectStyle}>
+                      {allOptions.map(m => <option key={m} value={m}>{m}</option>)}
                     </select>
                   ) : (
                     <input
@@ -411,34 +460,37 @@ export default function SettingsPage() {
                       value={roles[role.key]}
                       onChange={e => setRole(role.key, e.target.value)}
                       placeholder={role.defaultModel}
-                      className={inputCls}
+                      style={{ ...inputStyle, fontFamily: ds.font.mono }}
                     />
                   )}
                 </div>
               );
             })}
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* ── Provider force selector ── */}
-      <div className={sectionCls}>
+      <Card padding="16px 18px" radius={ds.radius.md}>
+        <p style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink, marginBottom: 4 }}>Force a specific provider</p>
+        <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 14 }}>
+          By default, GioHomeStudio tries Claude → GPT → Grok → Ollama in that order. Override here to always use one provider.
+        </p>
         <div>
-          <p className="text-sm font-semibold text-white">Force a specific provider</p>
-          <p className="text-xs text-[#6060a0] mt-0.5">By default, GioHomeStudio tries Claude → GPT → Grok → Ollama in that order. Override here to always use one provider.</p>
-        </div>
-        <div>
-          <label className={labelCls}>Always use</label>
-          <div className="flex gap-2 flex-wrap">
+          <label style={labelStyle}>Always use</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {(["", "claude", "openai", "grok", "ollama"] as const).map(v => (
               <button
                 key={v || "auto"}
                 onClick={() => setKey("LLM_PROVIDER", v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                  keys.LLM_PROVIDER === v
-                    ? "bg-[#7c5cfc]/20 border-[#7c5cfc] text-[#b090ff]"
-                    : "bg-[#0d0d1a] border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70] hover:text-white"
-                }`}
+                style={{
+                  padding: "6px 14px", borderRadius: ds.radius.sm, fontSize: 12, fontWeight: 600,
+                  fontFamily: ds.font.sans, cursor: "pointer",
+                  background: keys.LLM_PROVIDER === v ? `${ds.color.lilac}18` : ds.color.card,
+                  border: `1px solid ${keys.LLM_PROVIDER === v ? ds.color.lilac : ds.color.line2}`,
+                  color: keys.LLM_PROVIDER === v ? ds.color.lilac : ds.color.mute,
+                  transition: "all .15s",
+                }}
               >
                 {v === "" ? "Auto (recommended)" : v.charAt(0).toUpperCase() + v.slice(1)}
               </button>
@@ -446,186 +498,172 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <div>
-          <label className={labelCls}>Ollama base URL</label>
+        <div style={{ marginTop: 14 }}>
+          <label style={labelStyle}>Ollama base URL</label>
           <input
             type="text"
             value={keys.OLLAMA_BASE_URL}
             onChange={e => setKey("OLLAMA_BASE_URL", e.target.value)}
             placeholder="http://localhost:11434"
-            className={inputCls}
+            style={{ ...inputStyle, fontFamily: ds.font.mono }}
           />
-          <p className="text-[11px] text-[#4040600] mt-1">Only needed if Ollama is running on a different port or machine</p>
+          <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>Only needed if Ollama is running on a different port or machine</p>
         </div>
-      </div>
+      </Card>
 
       {/* ── Section C: Media Service Keys ── */}
       <div>
-        <h2 className="text-base font-semibold text-white mb-3">Section C — Media Service Keys</h2>
-        <p className="text-xs text-[#6060a0] mb-4">Voice generation, AI video, and music. Keys saved here override <code className="text-[#9090c0]">.env</code> values.</p>
+        <SectionLabel>Section C — Media Service Keys</SectionLabel>
+        <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 14 }}>
+          Voice generation, AI video, and music. Keys saved here override{" "}
+          <code style={{ fontFamily: ds.font.mono, color: ds.color.mute2 }}>.env</code> values.
+        </p>
 
         {/* ElevenLabs */}
-        <div className={`${sectionCls} mb-4`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <Card padding="16px 18px" radius={ds.radius.md} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <StatusDot ok={current?.serviceStatus?.elevenlabs === "configured"} />
-              <span className="text-sm font-semibold text-white">ElevenLabs</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-[#7c5cfc]/20 text-[#b090ff] border-[#7c5cfc]/40">Voice</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>ElevenLabs</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill, fontFamily: ds.font.mono, background: `${ds.color.lilac}18`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}40` }}>Voice</span>
             </div>
             {current?.serviceStatus?.elevenlabs === "configured" && (
-              <button onClick={() => handleClear("ELEVENLABS_API_KEY")} className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors">Clear</button>
+              <button onClick={() => handleClear("ELEVENLABS_API_KEY")} style={{ fontSize: 11, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Clear</button>
             )}
           </div>
-          <div>
-            <label className={labelCls}>API Key</label>
-            <div className="relative">
-              <input
-                type={showKey["ELEVENLABS_API_KEY"] ? "text" : "password"}
-                value={keys.ELEVENLABS_API_KEY}
-                onChange={e => { setKeys(p => ({ ...p, ELEVENLABS_API_KEY: e.target.value })); setSaved(false); }}
-                placeholder={current?.serviceStatus?.elevenlabs === "configured" ? current.maskedKeys.elevenlabs : "sk_…"}
-                className={inputCls}
-              />
-              <button type="button" onClick={() => setShowKey(p => ({ ...p, ELEVENLABS_API_KEY: !p.ELEVENLABS_API_KEY }))} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#4040600] hover:text-[#9090c0] transition-colors px-1">
-                {showKey["ELEVENLABS_API_KEY"] ? "hide" : "show"}
-              </button>
-            </div>
-            <p className="text-[11px] text-[#4040600] mt-1">Get from elevenlabs.io → Profile → API Keys</p>
+          <label style={labelStyle}>API Key</label>
+          <div style={{ position: "relative" }}>
+            <input
+              type={showKey["ELEVENLABS_API_KEY"] ? "text" : "password"}
+              value={keys.ELEVENLABS_API_KEY}
+              onChange={e => { setKeys(p => ({ ...p, ELEVENLABS_API_KEY: e.target.value })); setSaved(false); }}
+              placeholder={current?.serviceStatus?.elevenlabs === "configured" ? current.maskedKeys.elevenlabs : "sk_..."}
+              style={{ ...inputStyle, paddingRight: 48, fontFamily: ds.font.mono }}
+            />
+            <button type="button" onClick={() => setShowKey(p => ({ ...p, ELEVENLABS_API_KEY: !p.ELEVENLABS_API_KEY }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: ds.color.mute, background: "none", border: "none", cursor: "pointer" }}>
+              {showKey["ELEVENLABS_API_KEY"] ? "hide" : "show"}
+            </button>
           </div>
-        </div>
+          <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>Get from elevenlabs.io → Profile → API Keys</p>
+        </Card>
 
         {/* Kling AI */}
-        <div className={`${sectionCls} mb-4`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <Card padding="16px 18px" radius={ds.radius.md} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <StatusDot ok={current?.serviceStatus?.kling === "configured"} />
-              <span className="text-sm font-semibold text-white">Kling AI</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-blue-900/20 text-blue-400 border-blue-800/40">Video</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>Kling AI</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill, fontFamily: ds.font.mono, background: `${ds.color.sky}18`, color: ds.color.sky, border: `1px solid ${ds.color.sky}40` }}>Video</span>
             </div>
             {current?.serviceStatus?.kling === "configured" && (
-              <button onClick={() => handleClearMultiple(["KLING_ACCESS_KEY", "KLING_SECRET_KEY"])} className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors">Clear</button>
+              <button onClick={() => handleClearMultiple(["KLING_ACCESS_KEY", "KLING_SECRET_KEY"])} style={{ fontSize: 11, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Clear</button>
             )}
           </div>
-          <div>
-            <label className={labelCls}>Access Key</label>
-            <div className="relative">
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>Access Key</label>
+            <div style={{ position: "relative" }}>
               <input
                 type={showKey["KLING_ACCESS_KEY"] ? "text" : "password"}
                 value={keys.KLING_ACCESS_KEY}
                 onChange={e => { setKeys(p => ({ ...p, KLING_ACCESS_KEY: e.target.value })); setSaved(false); }}
                 placeholder={current?.serviceStatus?.kling === "configured" ? current.maskedKeys.kling : "Kling Access Key"}
-                className={inputCls}
+                style={{ ...inputStyle, paddingRight: 48, fontFamily: ds.font.mono }}
               />
-              <button type="button" onClick={() => setShowKey(p => ({ ...p, KLING_ACCESS_KEY: !p.KLING_ACCESS_KEY }))} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#4040600] hover:text-[#9090c0] transition-colors px-1">
+              <button type="button" onClick={() => setShowKey(p => ({ ...p, KLING_ACCESS_KEY: !p.KLING_ACCESS_KEY }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: ds.color.mute, background: "none", border: "none", cursor: "pointer" }}>
                 {showKey["KLING_ACCESS_KEY"] ? "hide" : "show"}
               </button>
             </div>
           </div>
           <div>
-            <label className={labelCls}>Secret Key</label>
-            <div className="relative">
+            <label style={labelStyle}>Secret Key</label>
+            <div style={{ position: "relative" }}>
               <input
                 type={showKey["KLING_SECRET_KEY"] ? "text" : "password"}
                 value={keys.KLING_SECRET_KEY}
                 onChange={e => { setKeys(p => ({ ...p, KLING_SECRET_KEY: e.target.value })); setSaved(false); }}
                 placeholder="Kling Secret Key"
-                className={inputCls}
+                style={{ ...inputStyle, paddingRight: 48, fontFamily: ds.font.mono }}
               />
-              <button type="button" onClick={() => setShowKey(p => ({ ...p, KLING_SECRET_KEY: !p.KLING_SECRET_KEY }))} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#4040600] hover:text-[#9090c0] transition-colors px-1">
+              <button type="button" onClick={() => setShowKey(p => ({ ...p, KLING_SECRET_KEY: !p.KLING_SECRET_KEY }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: ds.color.mute, background: "none", border: "none", cursor: "pointer" }}>
                 {showKey["KLING_SECRET_KEY"] ? "hide" : "show"}
               </button>
             </div>
-            <p className="text-[11px] text-[#4040600] mt-1">Get from klingai.com → Developer Settings</p>
+            <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>Get from klingai.com → Developer Settings</p>
           </div>
-        </div>
+        </Card>
 
         {/* Runway */}
-        <div className={`${sectionCls} mb-4`}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+        <Card padding="16px 18px" radius={ds.radius.md} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <StatusDot ok={current?.serviceStatus?.runway === "configured"} />
-              <span className="text-sm font-semibold text-white">Runway</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full border font-medium bg-blue-900/20 text-blue-400 border-blue-800/40">Video</span>
+              <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>Runway</span>
+              <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill, fontFamily: ds.font.mono, background: `${ds.color.sky}18`, color: ds.color.sky, border: `1px solid ${ds.color.sky}40` }}>Video</span>
             </div>
             {current?.serviceStatus?.runway === "configured" && (
-              <button onClick={() => handleClear("RUNWAY_API_KEY")} className="text-[11px] text-red-500/60 hover:text-red-400 transition-colors">Clear</button>
+              <button onClick={() => handleClear("RUNWAY_API_KEY")} style={{ fontSize: 11, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Clear</button>
             )}
           </div>
-          <div>
-            <label className={labelCls}>API Key</label>
-            <div className="relative">
-              <input
-                type={showKey["RUNWAY_API_KEY"] ? "text" : "password"}
-                value={keys.RUNWAY_API_KEY}
-                onChange={e => { setKeys(p => ({ ...p, RUNWAY_API_KEY: e.target.value })); setSaved(false); }}
-                placeholder={current?.serviceStatus?.runway === "configured" ? current.maskedKeys.runway : "key_…"}
-                className={inputCls}
-              />
-              <button type="button" onClick={() => setShowKey(p => ({ ...p, RUNWAY_API_KEY: !p.RUNWAY_API_KEY }))} className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#4040600] hover:text-[#9090c0] transition-colors px-1">
-                {showKey["RUNWAY_API_KEY"] ? "hide" : "show"}
-              </button>
-            </div>
-            <p className="text-[11px] text-[#4040600] mt-1">Get from app.runwayml.com → Account → API Keys</p>
+          <label style={labelStyle}>API Key</label>
+          <div style={{ position: "relative" }}>
+            <input
+              type={showKey["RUNWAY_API_KEY"] ? "text" : "password"}
+              value={keys.RUNWAY_API_KEY}
+              onChange={e => { setKeys(p => ({ ...p, RUNWAY_API_KEY: e.target.value })); setSaved(false); }}
+              placeholder={current?.serviceStatus?.runway === "configured" ? current.maskedKeys.runway : "key_..."}
+              style={{ ...inputStyle, paddingRight: 48, fontFamily: ds.font.mono }}
+            />
+            <button type="button" onClick={() => setShowKey(p => ({ ...p, RUNWAY_API_KEY: !p.RUNWAY_API_KEY }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", fontSize: 10, color: ds.color.mute, background: "none", border: "none", cursor: "pointer" }}>
+              {showKey["RUNWAY_API_KEY"] ? "hide" : "show"}
+            </button>
           </div>
-        </div>
+          <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>Get from app.runwayml.com → Account → API Keys</p>
+        </Card>
       </div>
 
       {/* ── Section D: Generation & Publishing ── */}
       <div>
-        <h2 className="text-base font-semibold text-white mb-3">Section D — Generation & Publishing</h2>
-        <p className="text-xs text-[#6060a0] mb-4">Image/video generation providers and social media publishing connections.</p>
+        <SectionLabel>Section D — Generation & Publishing</SectionLabel>
+        <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 14 }}>Image/video generation providers and social media publishing connections.</p>
 
-        {/* Provider connection cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, marginBottom: 14 }}>
           {[
-            { name: "Segmind", badge: "Image + Video", env: "SEGMIND_API_KEY", color: "bg-green-900/20 text-green-400", link: "segmind.com", note: "$0.005/image, $0.005/clip" },
-            { name: "fal.ai", badge: "Image + Video", env: "FAL_KEY", color: "bg-purple-900/20 text-purple-400", link: "fal.ai/dashboard", note: "Kling, Flux, Ideogram, Runway via fal" },
-            { name: "Fish Audio", badge: "Voice", env: "FISH_AUDIO_API_KEY", color: "bg-blue-900/20 text-blue-400", link: "fish.audio", note: "80% cheaper than ElevenLabs" },
-            { name: "Cartesia", badge: "Voice", env: "CARTESIA_API_KEY", color: "bg-indigo-900/20 text-indigo-400", link: "cartesia.ai", note: "Ultra-low latency TTS" },
-            { name: "Piper TTS", badge: "Voice (Local)", env: null, color: "bg-green-900/20 text-green-400", link: null, note: "Free local TTS — always available" },
-            { name: "Suno AI", badge: "Music Gen", env: "SUNO_API_KEY", color: "bg-pink-900/20 text-pink-400", link: "suno.com", note: "AI music generation — user owns commercial rights" },
-            { name: "Mubert", badge: "Music Gen", env: "MUBERT_API_KEY", color: "bg-pink-900/20 text-pink-400", link: "mubert.com", note: "AI music library + generation" },
-            { name: "ElevenLabs SFX", badge: "Sound Effects", env: "ELEVENLABS_API_KEY", color: "bg-orange-900/20 text-orange-400", link: "elevenlabs.io", note: "AI sound effect generation (~100 credits/effect)" },
+            { name: "Segmind",         badge: "Image + Video",  color: ds.color.mint,    link: "segmind.com",       note: "$0.005/image, $0.005/clip" },
+            { name: "fal.ai",          badge: "Image + Video",  color: ds.color.lilac,   link: "fal.ai/dashboard",  note: "Kling, Flux, Ideogram, Runway via fal" },
+            { name: "Fish Audio",      badge: "Voice",          color: ds.color.sky,     link: "fish.audio",        note: "80% cheaper than ElevenLabs" },
+            { name: "Cartesia",        badge: "Voice",          color: ds.color.blue,    link: "cartesia.ai",       note: "Ultra-low latency TTS" },
+            { name: "Piper TTS",       badge: "Voice (Local)",  color: ds.color.mint,    link: null,                note: "Free local TTS — always available" },
+            { name: "Suno AI",         badge: "Music Gen",      color: ds.color.pink,    link: "suno.com",          note: "AI music generation — user owns commercial rights" },
+            { name: "Mubert",          badge: "Music Gen",      color: ds.color.pink,    link: "mubert.com",        note: "AI music library + generation" },
+            { name: "ElevenLabs SFX",  badge: "Sound Effects",  color: ds.color.coral,   link: "elevenlabs.io",     note: "AI sound effect generation (~100 credits/effect)" },
           ].map(p => (
-            <div key={p.name} className={`${sectionCls} !p-3`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <StatusDot ok={p.env ? !!process.env[p.env] : true} />
-                  <span className="text-sm font-semibold text-white">{p.name}</span>
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full border font-medium ${p.color}`}>{p.badge}</span>
-                </div>
+            <Card key={p.name} padding="12px 14px" radius={ds.radius.sm}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>{p.name}</span>
+                <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: ds.radius.pill, fontFamily: ds.font.mono, background: `${p.color}18`, color: p.color, border: `1px solid ${p.color}30` }}>{p.badge}</span>
               </div>
-              <p className="text-[10px] text-[#6060a0]">{p.note}</p>
-              {p.env && <p className="text-[9px] text-[#404060] font-mono">Set {p.env} in .env</p>}
-              {p.link && <a href={`https://${p.link}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#7c5cfc] hover:underline">{p.link} →</a>}
-            </div>
+              <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 4 }}>{p.note}</p>
+              {p.link && <a href={`https://${p.link}`} target="_blank" rel="noopener noreferrer" style={{ fontSize: 10, color: ds.color.lilac }}>{p.link} →</a>}
+            </Card>
           ))}
         </div>
 
-        {/* Publishing connections */}
-        <p className="text-xs text-[#6060a0] font-medium mb-2">Publishing Connections</p>
+        <p style={{ fontSize: 11, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Publishing Connections</p>
 
-        {/* Telegram — editable */}
-        <div className={`${sectionCls} mb-3`}>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-base">📨</span>
-            <span className="text-sm font-semibold text-white">Telegram</span>
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-green-900/20 text-green-400 border border-green-800/40 font-medium">Ready</span>
+        {/* Telegram */}
+        <Card padding="16px 18px" radius={ds.radius.md} style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+            <span style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>Telegram</span>
+            <span style={{ fontSize: 9, fontWeight: 700, padding: "2px 8px", borderRadius: ds.radius.pill, fontFamily: ds.font.mono, background: `${ds.color.mint}18`, color: ds.color.mint, border: `1px solid ${ds.color.mint}40` }}>Ready</span>
           </div>
-          <div className="space-y-2">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             <div>
-              <label className={labelCls}>Bot Token</label>
-              <input
-                type="password"
-                defaultValue=""
-                placeholder="Set TELEGRAM_BOT_TOKEN in .env"
-                className={inputCls}
-                disabled
-              />
-              <p className="text-[9px] text-[#404060] mt-0.5">Bot token is set in .env file — cannot be changed from UI for security</p>
+              <label style={labelStyle}>Bot Token</label>
+              <input type="password" defaultValue="" placeholder="Set TELEGRAM_BOT_TOKEN in .env" style={{ ...inputStyle, fontFamily: ds.font.mono }} disabled />
+              <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 3 }}>Bot token is set in .env file — cannot be changed from UI for security</p>
             </div>
             <div>
-              <label className={labelCls}>Channel / Chat ID</label>
+              <label style={labelStyle}>Channel / Chat ID</label>
               <input
                 type="text"
                 defaultValue=""
@@ -639,62 +677,62 @@ export default function SettingsPage() {
                     body: JSON.stringify({ TELEGRAM_CHAT_ID: val }),
                   });
                 }}
-                className={inputCls}
+                style={inputStyle}
               />
-              <p className="text-[9px] text-[#404060] mt-0.5">
-                For a <strong>channel</strong>: use @channelname (e.g. @diolux_ads)<br/>
-                For <strong>personal chat</strong>: use your numeric ID (e.g. 5811210934)<br/>
-                Videos published via "Share → Telegram" go here
+              <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 3, lineHeight: 1.6 }}>
+                For a <strong>channel</strong>: use @channelname (e.g. @diolux_ads)<br />
+                For <strong>personal chat</strong>: use your numeric ID (e.g. 5811210934)
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Other platforms */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
           {[
-            { name: "YouTube", icon: "▶️", status: "Needs OAuth", action: "/api/publish/youtube/auth", color: "text-orange-400" },
-            { name: "Facebook", icon: "📘", status: "Needs OAuth", action: "/api/publish/facebook/auth", color: "text-orange-400" },
-            { name: "Instagram", icon: "📸", status: "Via Facebook", action: null, color: "text-[#6060a0]" },
-            { name: "TikTok", icon: "🎵", status: "Needs OAuth", action: "/api/publish/tiktok/auth", color: "text-orange-400" },
+            { name: "YouTube",   abbr: "YT", status: "Needs OAuth",  action: "/api/publish/youtube/auth",  color: ds.color.coral },
+            { name: "Facebook",  abbr: "FB", status: "Needs OAuth",  action: "/api/publish/facebook/auth", color: ds.color.coral },
+            { name: "Instagram", abbr: "IG", status: "Via Facebook",  action: null,                         color: ds.color.mute },
+            { name: "TikTok",    abbr: "TK", status: "Needs OAuth",  action: "/api/publish/tiktok/auth",   color: ds.color.coral },
           ].map(p => (
-            <div key={p.name} className="bg-[#12121e] border border-[#2a2a40] rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">{p.icon}</span>
+            <Card key={p.name} padding="12px 14px" radius={ds.radius.sm} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: ds.radius.xs, background: ds.color.alert, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: ds.font.mono, fontSize: 11, fontWeight: 700, color: ds.color.mute }}>
+                  {p.abbr}
+                </div>
                 <div>
-                  <p className="text-xs text-white font-medium">{p.name}</p>
-                  <p className={`text-[10px] ${p.color}`}>{p.status}</p>
+                  <p style={{ fontSize: 13, color: ds.color.ink, fontWeight: 600, margin: 0 }}>{p.name}</p>
+                  <p style={{ fontSize: 10, color: p.color, margin: 0 }}>{p.status}</p>
                 </div>
               </div>
               {p.action && (
-                <a href={p.action} className="text-[10px] px-3 py-1.5 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 transition-colors font-medium">
+                <a href={p.action} style={{ fontSize: 10, padding: "5px 12px", borderRadius: ds.radius.sm, background: `${ds.color.lilac}15`, color: ds.color.lilac, textDecoration: "none", fontWeight: 600 }}>
                   Connect
                 </a>
               )}
-            </div>
+            </Card>
           ))}
         </div>
       </div>
 
-      {/* Save */}
+      {/* Save feedback */}
       {error && (
-        <div className="px-4 py-2 bg-red-950/30 border border-red-800/40 rounded-lg text-xs text-red-400">{error}</div>
+        <div style={{ padding: "10px 14px", background: `${ds.color.coral}18`, border: `1px solid ${ds.color.coral}40`, borderRadius: ds.radius.sm, fontSize: 12, color: ds.color.coral }}>
+          {error}
+        </div>
       )}
       {saved && (
-        <div className="px-4 py-2 bg-green-950/30 border border-green-800/40 rounded-lg text-xs text-green-400">
+        <div style={{ padding: "10px 14px", background: `${ds.color.mint}18`, border: `1px solid ${ds.color.mint}40`, borderRadius: ds.radius.sm, fontSize: 12, color: ds.color.mint }}>
           Settings saved. LLM calls will use the new configuration immediately (no restart needed).
         </div>
       )}
-      <button
-        onClick={handleSave}
-        disabled={saving}
-        className="w-full py-3 bg-[#7c5cfc] hover:bg-[#9070ff] disabled:bg-[#2a2a40] disabled:text-[#6060a0] text-white text-sm font-semibold rounded-xl transition-colors"
-      >
-        {saving ? "Saving…" : "Save settings"}
-      </button>
 
-      <p className="text-center text-[11px] text-[#3a3a55] pb-2">
-        Keys are stored in <code>storage/llm-settings.json</code> on this machine only. They are not logged, committed, or sent anywhere except the respective AI provider.
+      <ButtonPrimary onClick={handleSave} disabled={saving} size="lg" style={{ width: "100%" }}>
+        {saving ? "Saving..." : "Save Settings"}
+      </ButtonPrimary>
+
+      <p style={{ textAlign: "center", fontSize: 11, color: ds.color.mute2, paddingBottom: 8 }}>
+        Keys are stored in <code style={{ fontFamily: ds.font.mono }}>storage/llm-settings.json</code> on this machine only. Not logged, not committed, not sent anywhere except the respective AI provider.
       </p>
     </div>
   );

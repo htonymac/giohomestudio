@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ds } from "../../../../lib/designSystem";
+import Card from "../../../components/ui/Card";
+import ButtonPrimary from "../../../components/ui/ButtonPrimary";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -11,9 +14,6 @@ interface ThemeDef {
   name: string;
   tagline: string;
   badge: string;
-  /** Token snapshot used by the mini preview below — kept literal so the
-   *  thumbnail is an accurate, self-contained swatch of the theme even
-   *  before the user activates it. */
   preview: {
     bg: string;
     surface: string;
@@ -84,7 +84,7 @@ function readStoredTheme(): ThemeId {
   return "classic";
 }
 
-// ── Mini thumbnail (shows bg + card + button in the theme's own tokens) ──────
+// ── Mini thumbnail ───────────────────────────────────────────────────────────
 
 function ThemeThumbnail({ preview }: { preview: ThemeDef["preview"] }) {
   const editorialMesh = preview.bg === "#18161d";
@@ -94,14 +94,14 @@ function ThemeThumbnail({ preview }: { preview: ThemeDef["preview"] }) {
       style={{
         position: "relative",
         height: 200,
-        borderRadius: 14,
+        borderRadius: ds.radius.md,
         background: preview.bg,
         border: `1px solid ${preview.border}`,
         overflow: "hidden",
         fontFamily: preview.fontDisplay,
       }}
     >
-      {/* Editorial-only: hint of the mesh blobs, very subtle */}
+      {/* Editorial-only: subtle hint blobs — kept for thumbnail accuracy only */}
       {editorialMesh && (
         <>
           <div style={{ position: "absolute", top: -40, left: -30, width: 180, height: 180, borderRadius: "50%", background: "#c7b8ec", opacity: 0.18, filter: "blur(40px)" }} />
@@ -109,74 +109,34 @@ function ThemeThumbnail({ preview }: { preview: ThemeDef["preview"] }) {
         </>
       )}
       {/* Faux top label */}
-      <div
-        style={{
-          position: "absolute",
-          top: 12,
-          left: 14,
-          fontFamily: preview.fontMono,
-          fontSize: 9,
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-          color: preview.text2,
-        }}
-      >
+      <div style={{ position: "absolute", top: 12, left: 14, fontFamily: preview.fontMono, fontSize: 9, letterSpacing: "0.22em", textTransform: "uppercase", color: preview.text2 }}>
         DASHBOARD · PREVIEW
       </div>
       {/* Sample card */}
-      <div
-        style={{
-          position: "absolute",
-          top: 40,
-          left: 14,
-          right: 14,
-          bottom: 14,
-          background: preview.surface,
-          border: `1px solid ${preview.border}`,
-          borderRadius: 12,
-          padding: 14,
-          display: "flex",
-          flexDirection: "column",
-          gap: 10,
-          backdropFilter: editorialMesh ? "blur(10px)" : undefined,
-        }}
-      >
+      <div style={{
+        position: "absolute", top: 40, left: 14, right: 14, bottom: 14,
+        background: preview.surface, border: `1px solid ${preview.border}`,
+        borderRadius: 12, padding: 14,
+        display: "flex", flexDirection: "column", gap: 10,
+      }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: preview.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-          Good morning,
-          <br />
+          Good morning,<br />
           <span style={{ color: preview.accent }}>Henry.</span>
         </div>
         <div style={{ fontSize: 11, color: preview.text2, lineHeight: 1.45 }}>
           4 videos awaiting review · 2 scheduled posts today.
         </div>
         <div style={{ marginTop: "auto", display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            type="button"
-            style={{
-              padding: "6px 12px",
-              borderRadius: 999,
-              background: preview.accent,
-              color: preview.bg,
-              border: "none",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              fontFamily: preview.fontDisplay,
-              cursor: "default",
-            }}
-          >
+          <button type="button" style={{
+            padding: "6px 12px", borderRadius: 999,
+            background: preview.accent, color: preview.bg,
+            border: "none", fontSize: 10, fontWeight: 700,
+            letterSpacing: "0.08em", textTransform: "uppercase",
+            fontFamily: preview.fontDisplay, cursor: "default",
+          }}>
             Preview
           </button>
-          <span
-            style={{
-              fontFamily: preview.fontMono,
-              fontSize: 9,
-              color: preview.text2,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-            }}
-          >
+          <span style={{ fontFamily: preview.fontMono, fontSize: 9, color: preview.text2, letterSpacing: "0.14em", textTransform: "uppercase" }}>
             sample · not live
           </span>
         </div>
@@ -194,7 +154,6 @@ export default function AppearancePage() {
   useEffect(() => {
     const stored = readStoredTheme();
     setActive(stored);
-    // Also force-apply in case the pre-paint script was blocked
     setTheme(stored);
     setMounted(true);
   }, []);
@@ -205,138 +164,95 @@ export default function AppearancePage() {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto p-1 space-y-6">
+    <div style={{ width: "100%", maxWidth: 860, margin: "0 auto", padding: 4, display: "flex", flexDirection: "column", gap: 20 }}>
+
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold" style={{ color: "var(--text)" }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, letterSpacing: "0.18em", textTransform: "uppercase", fontFamily: ds.font.mono, marginBottom: 4 }}>
+          Dashboard
+        </p>
+        <h1 style={{ fontSize: 28, fontWeight: 900, color: ds.color.ink, letterSpacing: "-0.03em", margin: 0 }}>
           Appearance
         </h1>
-        <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>
+        <p style={{ fontSize: 13, color: ds.color.ink2, marginTop: 4 }}>
           Choose the visual theme GioHomeStudio uses across the dashboard. Your choice is saved to this device.
         </p>
       </div>
 
       {/* Info banner */}
-      <div
-        style={{
-          background: "rgba(123,97,255,0.06)",
-          border: "1px solid rgba(123,97,255,0.20)",
-          borderRadius: 12,
-          padding: "12px 16px",
-        }}
-      >
-        <p className="text-xs leading-relaxed" style={{ color: "var(--text2)" }}>
-          <span style={{ fontWeight: 600, color: "var(--text)" }}>Phase A preview.</span>{" "}
+      <Card padding="12px 16px" radius={ds.radius.md} style={{ borderColor: `${ds.color.lilac}30` }}>
+        <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.6, margin: 0 }}>
+          <span style={{ fontWeight: 600, color: ds.color.ink }}>Phase A preview.</span>{" "}
           Theme plumbing is live; page-by-page migration lands in later phases. For now,
           switching themes only affects pages that reference the shared design tokens.
         </p>
-      </div>
+      </Card>
 
       {/* Theme grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 16 }}>
         {THEMES.map((t) => {
           const isActive = mounted && active === t.id;
           return (
-            <div
+            <Card
               key={t.id}
+              padding={18}
+              radius={ds.radius.lg}
               style={{
                 position: "relative",
-                background: "var(--surface2, #18182a)",
-                border: isActive
-                  ? "2px solid #d4a843"
-                  : "1px solid var(--border, rgba(255,255,255,0.08))",
-                borderRadius: 16,
-                padding: 18,
-                transition: "border-color 0.2s, box-shadow 0.2s, transform 0.2s",
-                boxShadow: isActive
-                  ? "0 0 0 4px rgba(212,168,67,0.12), 0 8px 24px rgba(0,0,0,0.4)"
-                  : "0 2px 8px rgba(0,0,0,0.2)",
+                border: isActive ? `2px solid ${ds.color.lilac}` : `1px solid ${ds.color.line}`,
+                boxShadow: isActive ? ds.shadow.lift : "none",
+                transition: "border-color 0.2s, box-shadow 0.2s",
               }}
             >
               {/* Active badge */}
               {isActive && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: 14,
-                    right: 14,
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                    background: "#d4a843",
-                    color: "#080810",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.08em",
-                    textTransform: "uppercase",
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}
-                >
+                <span style={{
+                  position: "absolute", top: 14, right: 14,
+                  padding: "3px 10px", borderRadius: ds.radius.pill,
+                  background: ds.grad.hero, backgroundSize: ds.grad.heroSize,
+                  animation: "btnSweep 6s linear infinite",
+                  color: "#fff", fontSize: 10, fontWeight: 700,
+                  letterSpacing: "0.08em", textTransform: "uppercase",
+                  fontFamily: ds.font.mono,
+                }}>
                   Active
                 </span>
               )}
 
-              {/* Thumbnail */}
               <ThemeThumbnail preview={t.preview} />
 
-              {/* Name + tagline */}
               <div style={{ marginTop: 16, display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                <h2 style={{ fontSize: 18, fontWeight: 700, color: "var(--text)", letterSpacing: "-0.01em" }}>
+                <h2 style={{ fontSize: 18, fontWeight: 700, color: ds.color.ink, letterSpacing: "-0.01em", margin: 0 }}>
                   {t.name}
                 </h2>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.12em",
-                    textTransform: "uppercase",
-                    padding: "2px 8px",
-                    borderRadius: 999,
-                    background: "rgba(123,97,255,0.15)",
-                    color: "#a89bff",
-                    border: "1px solid rgba(123,97,255,0.25)",
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}
-                >
+                <span style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                  padding: "2px 8px", borderRadius: ds.radius.pill,
+                  background: `${ds.color.lilac}18`, color: ds.color.lilac,
+                  border: `1px solid ${ds.color.lilac}30`,
+                  fontFamily: ds.font.mono,
+                }}>
                   {t.badge}
                 </span>
               </div>
-              <p style={{ marginTop: 4, fontSize: 12, color: "var(--text2)" }}>{t.tagline}</p>
+              <p style={{ marginTop: 4, fontSize: 12, color: ds.color.ink2 }}>{t.tagline}</p>
 
-              {/* Activate button */}
-              <button
-                type="button"
+              <ButtonPrimary
                 onClick={() => handleActivate(t.id)}
                 disabled={isActive}
-                style={{
-                  marginTop: 14,
-                  width: "100%",
-                  padding: "10px 16px",
-                  borderRadius: 10,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  border: "none",
-                  cursor: isActive ? "default" : "pointer",
-                  fontFamily: "'Space Grotesk', system-ui, sans-serif",
-                  background: isActive
-                    ? "rgba(255,255,255,0.04)"
-                    : "linear-gradient(135deg, #7b61ff, #9580ff)",
-                  color: isActive ? "var(--text2)" : "#fff",
-                  boxShadow: isActive ? "none" : "0 6px 18px rgba(123,97,255,0.28)",
-                  transition: "all 0.15s ease",
-                }}
+                style={{ marginTop: 14, width: "100%" }}
               >
                 {isActive ? "Currently active" : "Activate"}
-              </button>
-            </div>
+              </ButtonPrimary>
+            </Card>
           );
         })}
       </div>
 
-      {/* Footnote */}
-      <p className="text-center text-[11px]" style={{ color: "var(--text3, #3a3a55)" }}>
-        Theme choice is stored in <code style={{ fontFamily: "'JetBrains Mono', monospace" }}>localStorage.ghs_theme</code> on this device.
-        Account-level theme sync will land with billing.
+      <p style={{ textAlign: "center", fontSize: 11, color: ds.color.mute2, paddingBottom: 8 }}>
+        Theme choice is stored in{" "}
+        <code style={{ fontFamily: ds.font.mono }}>localStorage.ghs_theme</code>{" "}
+        on this device. Account-level theme sync will land with billing.
       </p>
     </div>
   );
