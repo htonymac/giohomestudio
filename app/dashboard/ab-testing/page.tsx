@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { ds } from "../../../lib/designSystem";
 
 interface ABVariant {
   id: string;
   label: string;
   title: string | null;
   caption: string | null;
-  hashtags: string | null;
   views: number;
   clicks: number;
   engagement: number;
@@ -25,6 +26,19 @@ interface ABTest {
   createdAt: string;
   variants: ABVariant[];
 }
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: ds.color.paper,
+  border: `1px solid ${ds.color.line}`,
+  borderRadius: ds.radius.sm,
+  padding: "10px 12px",
+  color: ds.color.ink,
+  fontSize: 13,
+  outline: "none",
+  fontFamily: ds.font.sans,
+  boxSizing: "border-box",
+};
 
 export default function ABTestingPage() {
   const [tests, setTests] = useState<ABTest[]>([]);
@@ -76,105 +90,182 @@ export default function ABTestingPage() {
     load();
   }
 
+  const cardStyle: React.CSSProperties = {
+    background: ds.color.card,
+    border: `1px solid ${ds.color.line}`,
+    borderRadius: ds.radius.lg,
+    padding: 20,
+  };
+
+  const statusColor = (status: string) => {
+    if (status === "completed") return ds.color.mint;
+    if (status === "paused") return ds.color.gold;
+    return ds.color.sky;
+  };
+
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-white">A/B Testing</h1>
-          <p className="text-sm text-[#6060a0] mt-0.5">Test different titles, captions, and thumbnails to find what works best</p>
-        </div>
-        <button onClick={() => setShowCreate(true)} className="px-4 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm font-semibold rounded-xl transition-colors">
+    <div style={{ maxWidth: 900, margin: "0 auto", fontFamily: ds.font.sans }}>
+
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <HeroTitle
+          kicker="Optimization"
+          title="A/B"
+          italic="Testing"
+          sub="Test different titles, captions, and thumbnails to find what performs best."
+        />
+        <button
+          onClick={() => setShowCreate(true)}
+          style={{
+            marginTop: 24, padding: "10px 18px", borderRadius: ds.radius.md, border: "none", cursor: "pointer",
+            background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
+            color: "#fff", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap",
+          }}>
           + New Test
         </button>
       </div>
 
       {/* Create form */}
       {showCreate && (
-        <div className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5 mb-6 space-y-4">
-          <h2 className="text-sm font-semibold text-white">Create A/B Test</h2>
-          <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Test name (e.g. Homepage reel — title test)" className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2" />
-          <input value={form.contentItemId} onChange={e => setForm(f => ({ ...f, contentItemId: e.target.value }))} placeholder="Content Item ID (from registry)" className="w-full bg-gray-900 border border-gray-700 text-white text-sm rounded-lg px-3 py-2 font-mono" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <p className="text-xs text-[#7c5cfc] font-semibold">Variant A</p>
-              <input value={form.variantA.title} onChange={e => setForm(f => ({ ...f, variantA: { ...f.variantA, title: e.target.value } }))} placeholder="Title A" className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2" />
-              <textarea value={form.variantA.caption} onChange={e => setForm(f => ({ ...f, variantA: { ...f.variantA, caption: e.target.value } }))} placeholder="Caption A" rows={2} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 resize-none" />
+        <div style={{ ...cardStyle, marginBottom: 24 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: ds.color.ink, marginBottom: 16 }}>Create A/B Test</h2>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            <input
+              value={form.name}
+              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+              placeholder="Test name (e.g. Homepage reel — title test)"
+              style={inputStyle}
+            />
+            <input
+              value={form.contentItemId}
+              onChange={e => setForm(f => ({ ...f, contentItemId: e.target.value }))}
+              placeholder="Content Item ID (from registry)"
+              style={{ ...inputStyle, fontFamily: ds.font.mono }}
+            />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, fontFamily: ds.font.mono, letterSpacing: "0.1em", textTransform: "uppercase" }}>Variant A</p>
+                <input
+                  value={form.variantA.title}
+                  onChange={e => setForm(f => ({ ...f, variantA: { ...f.variantA, title: e.target.value } }))}
+                  placeholder="Title A"
+                  style={inputStyle}
+                />
+                <textarea
+                  value={form.variantA.caption}
+                  onChange={e => setForm(f => ({ ...f, variantA: { ...f.variantA, caption: e.target.value } }))}
+                  placeholder="Caption A"
+                  rows={2}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.gold, fontFamily: ds.font.mono, letterSpacing: "0.1em", textTransform: "uppercase" }}>Variant B</p>
+                <input
+                  value={form.variantB.title}
+                  onChange={e => setForm(f => ({ ...f, variantB: { ...f.variantB, title: e.target.value } }))}
+                  placeholder="Title B"
+                  style={inputStyle}
+                />
+                <textarea
+                  value={form.variantB.caption}
+                  onChange={e => setForm(f => ({ ...f, variantB: { ...f.variantB, caption: e.target.value } }))}
+                  placeholder="Caption B"
+                  rows={2}
+                  style={{ ...inputStyle, resize: "vertical" }}
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              <p className="text-xs text-orange-400 font-semibold">Variant B</p>
-              <input value={form.variantB.title} onChange={e => setForm(f => ({ ...f, variantB: { ...f.variantB, title: e.target.value } }))} placeholder="Title B" className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2" />
-              <textarea value={form.variantB.caption} onChange={e => setForm(f => ({ ...f, variantB: { ...f.variantB, caption: e.target.value } }))} placeholder="Caption B" rows={2} className="w-full bg-gray-900 border border-gray-700 text-white text-xs rounded-lg px-3 py-2 resize-none" />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleCreate}
+                style={{ padding: "10px 18px", borderRadius: ds.radius.sm, border: "none", background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                Create Test
+              </button>
+              <button
+                onClick={() => setShowCreate(false)}
+                style={{ padding: "10px 18px", borderRadius: ds.radius.sm, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 13, cursor: "pointer" }}>
+                Cancel
+              </button>
             </div>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={handleCreate} className="px-4 py-2 bg-[#7c5cfc] hover:bg-[#9070ff] text-white text-sm rounded-lg">Create Test</button>
-            <button onClick={() => setShowCreate(false)} className="px-4 py-2 border border-[#2a2a40] text-[#6060a0] text-sm rounded-lg">Cancel</button>
           </div>
         </div>
       )}
 
-      {loading && <p className="text-[#6060a0] text-center py-8">Loading...</p>}
+      {loading && <p style={{ color: ds.color.mute, textAlign: "center", padding: "32px 0" }}>Loading...</p>}
 
       {!loading && tests.length === 0 && (
-        <div className="text-center py-16 border border-dashed border-[#2a2a40] rounded-xl">
-          <p className="text-[#6060a0]">No A/B tests yet. Create one to start testing.</p>
+        <div style={{ textAlign: "center", padding: "64px 0", border: `1px dashed ${ds.color.line2}`, borderRadius: ds.radius.lg }}>
+          <p style={{ color: ds.color.mute }}>No A/B tests yet. Create one to start testing.</p>
         </div>
       )}
 
       {/* Test list */}
-      <div className="space-y-4">
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {tests.map(test => (
-          <div key={test.id} className="bg-[#12121e] border border-[#2a2a40] rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
+          <div key={test.id} style={cardStyle}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
               <div>
-                <h3 className="text-sm font-semibold text-white">{test.name}</h3>
-                <p className="text-[10px] text-[#6060a0] mt-0.5">
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: ds.color.ink, marginBottom: 2 }}>{test.name}</h3>
+                <p style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>
                   {test.status === "completed" ? "Completed" : test.status === "paused" ? "Paused" : "Active"}
                   {" · "}{test.variants.length} variants · Created {new Date(test.createdAt).toLocaleDateString()}
                 </p>
               </div>
-              <div className="flex gap-2">
-                <span className={`text-[9px] px-2 py-0.5 rounded-full font-medium ${
-                  test.status === "completed" ? "bg-green-900/40 text-green-400" :
-                  test.status === "paused" ? "bg-yellow-900/40 text-yellow-400" :
-                  "bg-blue-900/40 text-blue-400"
-                }`}>{test.status}</span>
-                <button onClick={() => handleDelete(test.id)} className="text-[10px] text-red-400/50 hover:text-red-400">Delete</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{
+                  fontSize: 9, padding: "3px 10px", borderRadius: 100, fontWeight: 700,
+                  background: `${statusColor(test.status)}18`, color: statusColor(test.status),
+                  border: `1px solid ${statusColor(test.status)}30`, fontFamily: ds.font.mono, textTransform: "uppercase",
+                }}>{test.status}</span>
+                <button
+                  onClick={() => handleDelete(test.id)}
+                  style={{ fontSize: 10, color: "#ef444480", background: "transparent", border: "none", cursor: "pointer", padding: "4px 8px" }}>
+                  Delete
+                </button>
               </div>
             </div>
 
-            {/* Variants comparison */}
-            <div className="grid grid-cols-2 gap-3">
+            {/* Variants */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {test.variants.map(v => {
                 const totalVariantViews = Math.max(1, test.variants.reduce((a, x) => a + x.views, 0));
                 const viewShare = ((v.views / totalVariantViews) * 100).toFixed(0);
+                const varColor = v.label === "A" ? ds.color.lilac : ds.color.gold;
                 return (
-                  <div key={v.id} className={`rounded-lg p-3 border ${v.isWinner ? "border-green-700/50 bg-green-950/20" : "border-[#1a1a2e] bg-[#0a0a18]"}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`text-xs font-bold ${v.label === "A" ? "text-[#7c5cfc]" : "text-orange-400"}`}>Variant {v.label}</span>
-                      {v.isWinner && <span className="text-[9px] bg-green-900/40 text-green-400 px-1.5 py-0.5 rounded">Winner</span>}
+                  <div key={v.id} style={{
+                    borderRadius: ds.radius.sm, padding: 14,
+                    border: `1px solid ${v.isWinner ? "rgba(122,224,195,0.4)" : ds.color.line}`,
+                    background: v.isWinner ? "rgba(122,224,195,0.06)" : ds.color.paper,
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: varColor, fontFamily: ds.font.mono }}>Variant {v.label}</span>
+                      {v.isWinner && (
+                        <span style={{ fontSize: 9, background: "rgba(122,224,195,0.15)", color: ds.color.mint, padding: "2px 8px", borderRadius: 6, fontWeight: 700 }}>Winner</span>
+                      )}
                     </div>
-                    {v.title && <p className="text-xs text-white mb-1 font-medium">{v.title}</p>}
-                    {v.caption && <p className="text-[10px] text-[#8080b0] mb-2 line-clamp-2">{v.caption}</p>}
-                    <div className="grid grid-cols-3 gap-2 text-center">
+                    {v.title && <p style={{ fontSize: 12, color: ds.color.ink, marginBottom: 4, fontWeight: 500 }}>{v.title}</p>}
+                    {v.caption && <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 10, lineHeight: 1.5 }}>{v.caption}</p>}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, textAlign: "center", marginBottom: 10 }}>
                       <div>
-                        <p className="text-lg font-bold text-white">{v.views}</p>
-                        <p className="text-[9px] text-[#6060a0]">Views</p>
+                        <p style={{ fontSize: 18, fontWeight: 900, color: ds.color.ink, fontFamily: ds.font.sans }}>{v.views}</p>
+                        <p style={{ fontSize: 9, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase" }}>Views</p>
                       </div>
                       <div>
-                        <p className="text-lg font-bold text-white">{v.clicks}</p>
-                        <p className="text-[9px] text-[#6060a0]">Clicks</p>
+                        <p style={{ fontSize: 18, fontWeight: 900, color: ds.color.ink }}>{v.clicks}</p>
+                        <p style={{ fontSize: 9, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase" }}>Clicks</p>
                       </div>
                       <div>
-                        <p className="text-lg font-bold text-white">{v.engagement.toFixed(1)}%</p>
-                        <p className="text-[9px] text-[#6060a0]">Engagement</p>
+                        <p style={{ fontSize: 18, fontWeight: 900, color: ds.color.ink }}>{v.engagement.toFixed(1)}%</p>
+                        <p style={{ fontSize: 9, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase" }}>Engage</p>
                       </div>
                     </div>
-                    <div className="mt-2 w-full h-1.5 bg-[#1a1a2e] rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${v.label === "A" ? "bg-[#7c5cfc]" : "bg-orange-400"}`} style={{ width: `${viewShare}%` }} />
+                    <div style={{ width: "100%", height: 4, background: ds.color.line, borderRadius: 2, overflow: "hidden", marginBottom: 10 }}>
+                      <div style={{ height: "100%", borderRadius: 2, background: varColor, width: `${viewShare}%` }} />
                     </div>
                     {test.status === "active" && !v.isWinner && (
-                      <button onClick={() => declareWinner(test.id, v.id)} className="mt-2 w-full py-1 rounded text-[10px] bg-green-900/30 text-green-400 hover:bg-green-900/50 transition-colors">
+                      <button
+                        onClick={() => declareWinner(test.id, v.id)}
+                        style={{ width: "100%", padding: "6px 0", borderRadius: 6, fontSize: 10, background: "rgba(122,224,195,0.1)", color: ds.color.mint, border: `1px solid rgba(122,224,195,0.3)`, cursor: "pointer", fontWeight: 600 }}>
                         Declare Winner
                       </button>
                     )}

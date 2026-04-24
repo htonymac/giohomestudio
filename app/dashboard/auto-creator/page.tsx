@@ -3,6 +3,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import exifr from "exifr";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { ds } from "../../../lib/designSystem";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,7 +29,7 @@ interface MediaItem {
 interface DetectedActivity {
   label: string;
   confidence: string;
-  icon: string;
+  icon?: string;
 }
 
 interface Suggestion {
@@ -59,12 +61,12 @@ interface Draft {
 // ── Platform config ──────────────────────────────────────────────────────────
 
 const PLATFORMS = [
-  { id: "instagram",  label: "Instagram",  icon: "📷", color: "#E1306C", formats: ["Reel", "Post", "Story", "Carousel"], bestRatio: "9:16" },
-  { id: "tiktok",     label: "TikTok",     icon: "🎵", color: "#00F2EA", formats: ["Short Video", "Photo Post"], bestRatio: "9:16" },
-  { id: "youtube",    label: "YouTube",    icon: "📺", color: "#FF0000", formats: ["Shorts", "Video", "Thumbnail"], bestRatio: "16:9" },
-  { id: "facebook",   label: "Facebook",   icon: "📘", color: "#1877F2", formats: ["Reel", "Post", "Story"], bestRatio: "1:1" },
-  { id: "threads",    label: "Threads",    icon: "🧵", color: "#000000", formats: ["Text + Image", "Carousel"], bestRatio: "1:1" },
-  { id: "whatsapp",   label: "WhatsApp Status", icon: "💬", color: "#25D366", formats: ["Status Image", "Status Video"], bestRatio: "9:16" },
+  { id: "instagram",  label: "Instagram", color: "#E1306C", formats: ["Reel", "Post", "Story", "Carousel"], bestRatio: "9:16" },
+  { id: "tiktok",     label: "TikTok", color: "#00F2EA", formats: ["Short Video", "Photo Post"], bestRatio: "9:16" },
+  { id: "youtube",    label: "YouTube", color: "#FF0000", formats: ["Shorts", "Video", "Thumbnail"], bestRatio: "16:9" },
+  { id: "facebook",   label: "Facebook", color: "#1877F2", formats: ["Reel", "Post", "Story"], bestRatio: "1:1" },
+  { id: "threads",    label: "Threads", color: "#000000", formats: ["Text + Image", "Carousel"], bestRatio: "1:1" },
+  { id: "whatsapp",   label: "WhatsApp Status", color: "#25D366", formats: ["Status Image", "Status Video"], bestRatio: "9:16" },
 ];
 
 const STYLE_COLORS: Record<string, string> = {
@@ -75,14 +77,14 @@ const STYLE_COLORS: Record<string, string> = {
 
 // ── Shared styles ────────────────────────────────────────────────────────────
 
-const panelBg = "#0e0e1a";
-const border = "#1e1e30";
-const accent = "#7c5cfc";
+const panelBg = ds.color.card;
+const border = ds.color.line;
+const accent = ds.color.lilac;
 
-const cardStyle: React.CSSProperties = { background: panelBg, border: `1px solid ${border}`, borderRadius: 14, padding: 24 };
-const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: "#6060a0", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 };
-const btnPrimary: React.CSSProperties = { padding: "14px 28px", borderRadius: 12, border: "none", background: accent, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" };
-const btnSm: React.CSSProperties = { fontSize: 12, padding: "8px 14px", borderRadius: 8, border: `1px solid #2a2a40`, background: "#1a1a2e", color: "#a080ff", cursor: "pointer", fontWeight: 600 };
+const cardStyle: React.CSSProperties = { background: panelBg, border: `1px solid ${border}`, borderRadius: ds.radius.md, padding: 24 };
+const sectionLabel: React.CSSProperties = { fontSize: 11, fontWeight: 700, color: ds.color.mute, textTransform: "uppercase", letterSpacing: "0.18em", marginBottom: 10, fontFamily: ds.font.mono };
+const btnPrimary: React.CSSProperties = { padding: "14px 28px", borderRadius: 12, border: "none", background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" };
+const btnSm: React.CSSProperties = { fontSize: 12, padding: "8px 14px", borderRadius: 8, border: `1px solid ${ds.color.line}`, background: ds.color.paper, color: ds.color.lilac, cursor: "pointer", fontWeight: 600 };
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
@@ -373,25 +375,25 @@ export default function AIContentCreatorPage() {
       // Add EXIF-based activities
       const exifActivities: DetectedActivity[] = [];
       const withDates = media.filter(m => m.exif?.dateTaken);
-      if (withDates.length > 0) exifActivities.push({ label: `Photos from ${withDates[0].exif!.dateTaken}`, confidence: "high", icon: "📅" });
+      if (withDates.length > 0) exifActivities.push({ label: `Photos from ${withDates[0].exif!.dateTaken}`, confidence: "high" });
       const withLocation = media.filter(m => m.exif?.location);
-      if (withLocation.length > 0) exifActivities.push({ label: `Location: ${withLocation[0].exif!.location}`, confidence: "high", icon: "📍" });
+      if (withLocation.length > 0) exifActivities.push({ label: `Location: ${withLocation[0].exif!.location}`, confidence: "high" });
       const withCamera = media.filter(m => m.exif?.camera);
-      if (withCamera.length > 0) exifActivities.push({ label: `Shot on ${withCamera[0].exif!.camera}`, confidence: "high", icon: "📷" });
+      if (withCamera.length > 0) exifActivities.push({ label: `Shot on ${withCamera[0].exif!.camera}`, confidence: "high" });
       const hasVideos = media.some(m => m.type === "video");
-      if (hasVideos) exifActivities.push({ label: `${media.filter(m => m.type === "video").length} video clip(s)`, confidence: "high", icon: "🎥" });
+      if (hasVideos) exifActivities.push({ label: `${media.filter(m => m.type === "video").length} video clip(s)`, confidence: "high" });
 
       // Merge vision AI activities + EXIF activities
       const allActivities = [...(analyzeData.activities ?? []), ...exifActivities];
       if (allActivities.length === 0) {
-        allActivities.push({ label: `${media.length} files ready for content`, confidence: "high", icon: "✨" });
+        allActivities.push({ label: `${media.length} files ready for content`, confidence: "high" });
       }
       setDetectedActivities(allActivities);
     } catch (err) {
       console.error("[analyze] Error:", err);
       setDetectedActivities([
-        { label: "Media uploaded successfully", confidence: "high", icon: "✅" },
-        { label: "Ready for content suggestions", confidence: "high", icon: "💡" },
+        { label: "Media uploaded successfully", confidence: "high" },
+        { label: "Ready for content suggestions", confidence: "high" },
       ]);
     }
 
@@ -601,42 +603,32 @@ export default function AIContentCreatorPage() {
   return (
     <div>
 
-      {/* ── Hero with background video ── */}
-      <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", marginBottom: 28, minHeight: 200 }}>
-        <video autoPlay muted loop playsInline
-          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.2 }}
-          src="/api/media/intro/demo-short-reel.mp4" />
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(8,8,24,0.92), rgba(124,92,252,0.12))" }} />
-        <div style={{ position: "relative", padding: "40px 36px" }}>
-          <p style={{ fontSize: 14, color: accent, fontWeight: 600, marginBottom: 6 }}>Hi Boss!</p>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginBottom: 8, letterSpacing: "-0.02em" }}>
-            AI Content Creator
-          </h1>
-          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, maxWidth: 500 }}>
-            Turn your daily media into scroll-stopping content. Pick a platform, upload your photos or videos, and AI handles the rest — captions, hashtags, voice scripts, music.
-          </p>
-        </div>
-      </div>
+      <HeroTitle
+        kicker="AI Studio"
+        title="Auto"
+        italic="Creator"
+        sub="Turn your daily media into scroll-stopping content. Pick a platform, upload your photos or videos, and AI handles the rest — captions, hashtags, voice scripts, music."
+      />
 
       {/* ── Progress bar ── */}
       <div style={{ display: "flex", gap: 4, marginBottom: 28 }}>
         {[
-          { n: 1, label: "Platform", color: accent },
-          { n: 2, label: "Media", color: accent },
-          { n: 3, label: "Analysis", color: accent },
-          { n: 4, label: "Ideas", color: accent },
-          { n: 5, label: "Script", color: accent },
-          { n: 6, label: "Build", color: "#a855f7" },
-          { n: 7, label: "Polish", color: "#00d4ff" },
-          { n: 8, label: "Export", color: "#22c55e" },
+          { n: 1, label: "Platform" },
+          { n: 2, label: "Media" },
+          { n: 3, label: "Analysis" },
+          { n: 4, label: "Ideas" },
+          { n: 5, label: "Script" },
+          { n: 6, label: "Build" },
+          { n: 7, label: "Polish" },
+          { n: 8, label: "Export" },
         ].map(s => (
           <div key={s.n} style={{ flex: 1 }}>
             <div style={{
               height: 4, borderRadius: 2, marginBottom: 6,
-              background: step >= s.n ? s.color : "#1e1e30",
+              background: step >= s.n ? ds.color.lilac : ds.color.line,
               transition: "background 0.3s",
             }} />
-            <p style={{ fontSize: 9, color: step >= s.n ? s.color : "#404060", fontWeight: step === s.n ? 700 : 400, textAlign: "center" }}>
+            <p style={{ fontSize: 9, color: step >= s.n ? ds.color.lilac : ds.color.mute2, fontWeight: step === s.n ? 700 : 400, textAlign: "center", fontFamily: ds.font.mono }}>
               {s.label}
             </p>
           </div>
@@ -651,8 +643,8 @@ export default function AIContentCreatorPage() {
           background: "rgba(124,92,252,0.08)", border: "1px solid rgba(124,92,252,0.2)",
         }}>
           <div>
-            <p style={{ fontSize: 13, color: "#e0e0f0", fontWeight: 600 }}>You left off mid-session</p>
-            <p style={{ fontSize: 11, color: "#6060a0" }}>Pick up where you stopped? Your media and progress are saved.</p>
+            <p style={{ fontSize: 13, color: ds.color.ink, fontWeight: 600 }}>You left off mid-session</p>
+            <p style={{ fontSize: 11, color: ds.color.mute }}>Pick up where you stopped? Your media and progress are saved.</p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={resumeSession} style={{ ...btnSm, background: accent, color: "#fff", borderColor: accent }}>
@@ -686,7 +678,7 @@ export default function AIContentCreatorPage() {
       {step === 1 && (
         <div style={cardStyle}>
           <p style={sectionLabel}>Where do you need content?</p>
-          <p style={{ fontSize: 12, color: "#6060a0", marginBottom: 20 }}>
+          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 20 }}>
             Select the platform so AI can optimize format, size, and caption style.
           </p>
 
@@ -697,17 +689,16 @@ export default function AIContentCreatorPage() {
                   padding: "24px 16px", borderRadius: 16, border: `2px solid ${selectedPlatform === p.id ? p.color : "transparent"}`,
                   background: selectedPlatform === p.id
                     ? `linear-gradient(135deg, ${p.color}18, ${p.color}08)`
-                    : "linear-gradient(135deg, #141424, #1a1a2e)",
+                    : "linear-gradient(135deg, ds.color.paper, ds.color.paper)",
                   cursor: "pointer", textAlign: "center", transition: "all 0.3s",
                   boxShadow: selectedPlatform === p.id ? `0 4px 20px ${p.color}20` : "none",
                 }}
                 onMouseEnter={e => { if (selectedPlatform !== p.id) (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.transform = "none"; }}>
-                <span style={{ fontSize: 32, display: "block", marginBottom: 8 }}>{p.icon}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: selectedPlatform === p.id ? p.color : "#e0e0f0", display: "block" }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: selectedPlatform === p.id ? p.color : ds.color.ink, display: "block", marginBottom: 4 }}>
                   {p.label}
                 </span>
-                <span style={{ fontSize: 10, color: selectedPlatform === p.id ? `${p.color}aa` : "#404060", display: "block", marginTop: 4 }}>
+                <span style={{ fontSize: 10, color: selectedPlatform === p.id ? `${p.color}aa` : ds.color.mute2, display: "block", marginTop: 4 }}>
                   {p.formats.length} formats
                 </span>
               </button>
@@ -723,8 +714,8 @@ export default function AIContentCreatorPage() {
                   <button key={f} onClick={() => setSelectedFormat(f)}
                     style={{
                       ...btnSm, fontSize: 13, padding: "10px 18px",
-                      background: selectedFormat === f ? `${platform.color}20` : "#1a1a2e",
-                      borderColor: selectedFormat === f ? platform.color : "#2a2a40",
+                      background: selectedFormat === f ? `${platform.color}20` : ds.color.paper,
+                      borderColor: selectedFormat === f ? platform.color : ds.color.line2,
                       color: selectedFormat === f ? platform.color : "#a0a0c0",
                     }}>
                     {f}
@@ -760,8 +751,8 @@ export default function AIContentCreatorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
               <p style={sectionLabel}>Upload your media</p>
-              <p style={{ fontSize: 12, color: "#6060a0" }}>
-                {platform?.icon} {selectedFormat} for {platform?.label} &middot; Best ratio: {platform?.bestRatio}
+              <p style={{ fontSize: 12, color: ds.color.mute }}>
+                {selectedFormat} for {platform?.label} &middot; Best ratio: {platform?.bestRatio}
               </p>
             </div>
             <button onClick={() => setStep(1)} style={{ ...btnSm, fontSize: 10 }}>Change Platform</button>
@@ -773,16 +764,16 @@ export default function AIContentCreatorPage() {
             onDragOver={e => e.preventDefault()}
             onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) requestFiles(e.dataTransfer.files); }}
             style={{
-              border: "2px dashed #2a2a40", borderRadius: 14, padding: "48px 20px",
+              border: "2px dashed ds.color.line2", borderRadius: 14, padding: "48px 20px",
               textAlign: "center", cursor: "pointer", marginBottom: 20,
               background: "rgba(124,92,252,0.03)", transition: "border-color 0.2s",
             }}
           >
-            <p style={{ fontSize: 36, marginBottom: 10 }}>📸</p>
-            <p style={{ fontSize: 14, color: "#e0e0f0", fontWeight: 600 }}>
+            <p style={{ fontSize: 36, marginBottom: 10 }}></p>
+            <p style={{ fontSize: 14, color: ds.color.ink, fontWeight: 600 }}>
               Drop your images or videos here
             </p>
-            <p style={{ fontSize: 11, color: "#404060", marginTop: 6 }}>
+            <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 6 }}>
               Photos from your outing, product shots, event clips — whatever you did today
             </p>
           </div>
@@ -794,11 +785,11 @@ export default function AIContentCreatorPage() {
             <a href="/dashboard/assets" target="_blank" rel="noopener noreferrer"
               style={{
                 flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                padding: "10px 14px", borderRadius: 10, border: "1px solid #2a2a40",
-                background: "#1a1a2e", color: "#60a5fa", fontSize: 11, fontWeight: 600,
+                padding: "10px 14px", borderRadius: 10, border: "1px solid ds.color.line2",
+                background: ds.color.paper, color: "#60a5fa", fontSize: 11, fontWeight: 600,
                 textDecoration: "none", cursor: "pointer",
               }}>
-              📁 Browse Asset Library
+              Browse Asset Library
             </a>
             <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer"
               style={{
@@ -807,7 +798,7 @@ export default function AIContentCreatorPage() {
                 background: "#a855f708", color: "#a855f7", fontSize: 11, fontWeight: 600,
                 textDecoration: "none", cursor: "pointer",
               }}>
-              👤 Import Character
+              Import Character
             </a>
           </div>
 
@@ -817,7 +808,7 @@ export default function AIContentCreatorPage() {
               <p style={{ ...sectionLabel, marginTop: 16 }}>Uploaded ({media.length})</p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginBottom: 20 }}>
                 {media.map(m => (
-                  <div key={m.id} style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${border}`, aspectRatio: "1", background: "#0a0a18" }}>
+                  <div key={m.id} style={{ position: "relative", borderRadius: 10, overflow: "hidden", border: `1px solid ${border}`, aspectRatio: "1", background: ds.color.paper }}>
                     {m.type === "image" ? (
                       <img src={m.url} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
@@ -833,7 +824,7 @@ export default function AIContentCreatorPage() {
                       </span>
                       {m.exif?.dateTaken && <span style={{ fontSize: 8, color: "#505070", display: "block" }}>{m.exif.dateTaken}</span>}
                       {m.exif?.camera && <span style={{ fontSize: 8, color: "#505070", display: "block" }}>{m.exif.camera}</span>}
-                      {m.exif?.location && <span style={{ fontSize: 8, color: "#3b82f6", display: "block" }}>📍 {m.exif.location}</span>}
+                      {m.exif?.location && <span style={{ fontSize: 8, color: "#3b82f6", display: "block" }}>{m.exif.location}</span>}
                     </div>
                   </div>
                 ))}
@@ -848,7 +839,7 @@ export default function AIContentCreatorPage() {
             style={{
               ...btnPrimary,
               opacity: media.length === 0 ? 0.4 : 1,
-              background: analyzing ? "#2a2a40" : accent,
+              background: analyzing ? ds.color.line2 : accent,
             }}
           >
             {analyzing ? "AI is analyzing your media..." : `Analyze ${media.length} file${media.length !== 1 ? "s" : ""} with AI`}
@@ -862,7 +853,7 @@ export default function AIContentCreatorPage() {
       {step === 3 && (
         <div style={cardStyle}>
           <p style={sectionLabel}>AI Activity Detection</p>
-          <p style={{ fontSize: 12, color: "#6060a0", marginBottom: 20 }}>
+          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 20 }}>
             Here&apos;s what AI detected from your media today:
           </p>
 
@@ -872,11 +863,11 @@ export default function AIContentCreatorPage() {
               <div key={i} style={{
                 display: "flex", alignItems: "center", gap: 12,
                 padding: "14px 16px", borderRadius: 10,
-                background: "#1a1a2e", border: `1px solid ${border}`,
+                background: ds.color.paper, border: `1px solid ${border}`,
               }}>
-                <span style={{ fontSize: 22 }}>{a.icon}</span>
+                
                 <div style={{ flex: 1 }}>
-                  <p style={{ fontSize: 13, color: "#e0e0f0", fontWeight: 600 }}>{a.label}</p>
+                  <p style={{ fontSize: 13, color: ds.color.ink, fontWeight: 600 }}>{a.label}</p>
                 </div>
                 <span style={{
                   fontSize: 9, padding: "3px 10px", borderRadius: 20,
@@ -910,7 +901,7 @@ export default function AIContentCreatorPage() {
             <button
               onClick={() => getSuggestions()}
               disabled={suggestionsLoading}
-              style={{ ...btnPrimary, flex: 2, background: suggestionsLoading ? "#2a2a40" : accent }}
+              style={{ ...btnPrimary, flex: 2, background: suggestionsLoading ? ds.color.line2 : accent }}
             >
               {suggestionsLoading ? "AI is creating ideas..." : "Show Me Content Ideas"}
             </button>
@@ -926,7 +917,7 @@ export default function AIContentCreatorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
               <p style={sectionLabel}>Content Ideas for {platform?.label}</p>
-              <p style={{ fontSize: 10, color: "#404060" }}>
+              <p style={{ fontSize: 10, color: ds.color.mute2 }}>
                 {selectedFormat} &middot; {media.length} media files &middot; {sugProvider && `AI: ${sugProvider}`}
               </p>
             </div>
@@ -954,11 +945,11 @@ export default function AIContentCreatorPage() {
                     }}>
                       {s.style}
                     </span>
-                    <span style={{ fontSize: 9, color: "#404060" }}>{s.type}</span>
+                    <span style={{ fontSize: 9, color: ds.color.mute2 }}>{s.type}</span>
                   </div>
                   <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{s.title}</h3>
                   <p style={{ fontSize: 11, color: "#8080b0", lineHeight: 1.6, marginBottom: 10 }}>{s.description}</p>
-                  <p style={{ fontSize: 10, color: "#6060a0", fontStyle: "italic", marginBottom: 12, lineHeight: 1.5 }}>
+                  <p style={{ fontSize: 10, color: ds.color.mute, fontStyle: "italic", marginBottom: 12, lineHeight: 1.5 }}>
                     &ldquo;{s.caption_preview}&rdquo;
                   </p>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -969,7 +960,7 @@ export default function AIContentCreatorPage() {
                     disabled={draftLoading && selectedSuggestion?.id === s.id}
                     style={{
                       ...btnPrimary, marginTop: 12, fontSize: 12, padding: "10px 16px",
-                      background: draftLoading && selectedSuggestion?.id === s.id ? "#2a2a40" : accent,
+                      background: draftLoading && selectedSuggestion?.id === s.id ? ds.color.line2 : accent,
                     }}>
                     {draftLoading && selectedSuggestion?.id === s.id ? "Creating draft..." : "Create Draft"}
                   </button>
@@ -999,33 +990,33 @@ export default function AIContentCreatorPage() {
             </h2>
 
             {/* Caption — editable */}
-            <div style={{ background: "#1a1a2e", borderRadius: 12, padding: 18, marginBottom: 14 }}>
+            <div style={{ background: ds.color.paper, borderRadius: 12, padding: 18, marginBottom: 14 }}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Caption (editable)</p>
               <textarea
                 value={draft.caption}
                 onChange={e => updateDraft({ caption: e.target.value })}
                 rows={4}
-                style={{ width: "100%", fontSize: 13, color: "#e0e0f0", lineHeight: 1.8, background: "transparent", border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 12px", resize: "vertical", outline: "none", fontFamily: "inherit" }}
+                style={{ width: "100%", fontSize: 13, color: ds.color.ink, lineHeight: 1.8, background: "transparent", border: "1px solid ds.color.line2", borderRadius: 8, padding: "10px 12px", resize: "vertical", outline: "none", fontFamily: "inherit" }}
               />
               <div style={{ marginTop: 10 }}>
                 <p style={{ fontSize: 9, color: "#505070", marginBottom: 4 }}>Hashtags (edit below)</p>
                 <input
                   value={draft.hashtags.map(h => `#${h}`).join(" ")}
                   onChange={e => updateDraft({ hashtags: e.target.value.split(/\s+/).map(t => t.replace(/^#/, "")).filter(Boolean) })}
-                  style={{ width: "100%", fontSize: 11, color: accent, background: "transparent", border: "1px solid #2a2a40", borderRadius: 6, padding: "6px 10px", outline: "none" }}
+                  style={{ width: "100%", fontSize: 11, color: accent, background: "transparent", border: "1px solid ds.color.line2", borderRadius: 6, padding: "6px 10px", outline: "none" }}
                 />
               </div>
             </div>
 
             {/* Voice script — editable */}
-            <div style={{ background: "#1a1a2e", borderRadius: 12, padding: 18, marginBottom: 14 }}>
+            <div style={{ background: ds.color.paper, borderRadius: 12, padding: 18, marginBottom: 14 }}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Voice Narration Script (editable)</p>
               <textarea
                 value={draft.voice_script}
                 onChange={e => updateDraft({ voice_script: e.target.value })}
                 rows={3}
                 placeholder="Add narration script here..."
-                style={{ width: "100%", fontSize: 12, color: "#a0a0c0", lineHeight: 1.8, fontStyle: "italic", background: "transparent", border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 12px", resize: "vertical", outline: "none", fontFamily: "inherit" }}
+                style={{ width: "100%", fontSize: 12, color: "#a0a0c0", lineHeight: 1.8, fontStyle: "italic", background: "transparent", border: "1px solid ds.color.line2", borderRadius: 8, padding: "10px 12px", resize: "vertical", outline: "none", fontFamily: "inherit" }}
               />
             </div>
 
@@ -1033,27 +1024,27 @@ export default function AIContentCreatorPage() {
             {draft.platform_tips && (
               <div style={{ background: "rgba(124,92,252,0.06)", border: `1px solid rgba(124,92,252,0.15)`, borderRadius: 10, padding: "10px 14px", marginBottom: 14 }}>
                 <p style={{ fontSize: 11, color: accent }}>
-                  {platform?.icon} {draft.platform_tips}
+                  {draft.platform_tips}
                 </p>
               </div>
             )}
 
             {/* Voice narration picker with recording */}
-            <div style={{ background: "#1a1a2e", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div style={{ background: ds.color.paper, borderRadius: 12, padding: 16, marginBottom: 14 }}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Voice Narration</p>
               <div style={{ display: "flex", gap: 6, marginBottom: voiceMode === "record" ? 12 : 0 }}>
                 {([
-                  { id: "none" as const, label: "No Narration", icon: "🔇" },
-                  { id: "ai" as const, label: "AI Voice", icon: "🤖" },
-                  { id: "record" as const, label: "My Voice", icon: "🎙" },
+                  { id: "none" as const, label: "No Narration" },
+                  { id: "ai" as const, label: "AI Voice" },
+                  { id: "record" as const, label: "My Voice" },
                 ]).map(v => (
                   <button key={v.id} onClick={() => {
                     setVoiceMode(v.id);
                     if (v.id === "none") updateDraft({ voice_script: "" });
                     else if (v.id === "ai" && !draft.voice_script) updateDraft({ voice_script: "Add narration text above" });
                   }}
-                    style={{ flex: 1, padding: "10px 10px", borderRadius: 8, border: `1px solid ${voiceMode === v.id ? accent : "#2a2a40"}`, background: voiceMode === v.id ? `${accent}10` : "transparent", color: voiceMode === v.id ? accent : "#6060a0", fontSize: 11, cursor: "pointer", fontWeight: 500, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <span style={{ fontSize: 16 }}>{v.icon}</span>
+                    style={{ flex: 1, padding: "10px 10px", borderRadius: 8, border: `1px solid ${voiceMode === v.id ? accent : ds.color.line2}`, background: voiceMode === v.id ? `${accent}10` : "transparent", color: voiceMode === v.id ? accent : ds.color.mute, fontSize: 11, cursor: "pointer", fontWeight: 500, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    
                     {v.label}
                   </button>
                 ))}
@@ -1061,7 +1052,7 @@ export default function AIContentCreatorPage() {
 
               {/* Voice recording interface */}
               {voiceMode === "record" && (
-                <div style={{ background: "#141424", borderRadius: 10, padding: 14, border: "1px solid #2a2a40" }}>
+                <div style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                     <button
                       onClick={async () => {
@@ -1094,13 +1085,13 @@ export default function AIContentCreatorPage() {
                         fontSize: 18, color: "#fff",
                         animation: recording ? "pulse-rec 1s infinite" : "none",
                       }}>
-                      {recording ? "⏹" : "🎙"}
+                      {recording ? "⏹" : ""}
                     </button>
                     <div>
                       <p style={{ fontSize: 12, color: recording ? "#ef4444" : "#fff", fontWeight: 600 }}>
                         {recording ? "Recording... tap to stop" : "Tap to record your voice"}
                       </p>
-                      <p style={{ fontSize: 10, color: "#6060a0" }}>Read the narration script above into your microphone</p>
+                      <p style={{ fontSize: 10, color: ds.color.mute }}>Read the narration script above into your microphone</p>
                     </div>
                   </div>
 
@@ -1109,7 +1100,7 @@ export default function AIContentCreatorPage() {
                       <audio src={voiceRecordingUrl} controls style={{ width: "100%", height: 36 }} />
                       <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
                         <button onClick={() => setVoiceRecordingUrl(null)}
-                          style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid #2a2a40", background: "transparent", color: "#ef4444", cursor: "pointer" }}>
+                          style={{ fontSize: 10, padding: "4px 10px", borderRadius: 6, border: "1px solid ds.color.line2", background: "transparent", color: "#ef4444", cursor: "pointer" }}>
                           Re-record
                         </button>
                         <button
@@ -1121,10 +1112,10 @@ export default function AIContentCreatorPage() {
                   )}
 
                   {/* Upload voice file option */}
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #2a2a40" }}>
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid ds.color.line2" }}>
                     <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                      <span style={{ fontSize: 10, color: "#6060a0" }}>Or upload a voice file:</span>
-                      <input type="file" accept="audio/*" style={{ fontSize: 10, color: "#6060a0" }}
+                      <span style={{ fontSize: 10, color: ds.color.mute }}>Or upload a voice file:</span>
+                      <input type="file" accept="audio/*" style={{ fontSize: 10, color: ds.color.mute }}
                         onChange={e => {
                           const f = e.target.files?.[0];
                           if (f) setVoiceRecordingUrl(URL.createObjectURL(f));
@@ -1137,12 +1128,12 @@ export default function AIContentCreatorPage() {
             <style>{`@keyframes pulse-rec { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 12px rgba(239,68,68,0); } }`}</style>
 
             {/* Music selection */}
-            <div style={{ background: "#1a1a2e", borderRadius: 12, padding: 16, marginBottom: 14 }}>
+            <div style={{ background: ds.color.paper, borderRadius: 12, padding: 16, marginBottom: 14 }}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Music</p>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {["Afrobeats", "Pop", "Gospel", "Cinematic", "Calm", "Upbeat", "No Music"].map(m => (
                   <button key={m} onClick={() => updateDraft({ music_mood: m === "No Music" ? "" : m })}
-                    style={{ padding: "6px 12px", borderRadius: 20, border: `1px solid ${draft.music_mood === m ? accent : "#2a2a40"}`, background: draft.music_mood === m ? `${accent}15` : "transparent", color: draft.music_mood === m ? accent : "#6060a0", fontSize: 10, cursor: "pointer" }}>
+                    style={{ padding: "6px 12px", borderRadius: 20, border: `1px solid ${draft.music_mood === m ? accent : ds.color.line2}`, background: draft.music_mood === m ? `${accent}15` : "transparent", color: draft.music_mood === m ? accent : ds.color.mute, fontSize: 10, cursor: "pointer" }}>
                     {m}
                   </button>
                 ))}
@@ -1174,10 +1165,10 @@ export default function AIContentCreatorPage() {
             <div style={cardStyle}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Platform</p>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 22 }}>{platform?.icon}</span>
+                <span style={{ fontSize: 22 }}></span>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{platform?.label}</p>
-                  <p style={{ fontSize: 10, color: "#6060a0" }}>{selectedFormat} &middot; {draft.aspect_ratio}</p>
+                  <p style={{ fontSize: 10, color: ds.color.mute }}>{selectedFormat} &middot; {draft.aspect_ratio}</p>
                 </div>
               </div>
             </div>
@@ -1193,8 +1184,8 @@ export default function AIContentCreatorPage() {
 
             <div style={cardStyle}>
               <p style={{ ...sectionLabel, fontSize: 9 }}>Music</p>
-              <p style={{ fontSize: 13, color: "#e0e0f0" }}>{draft.music_mood}</p>
-              <p style={{ fontSize: 11, color: "#6060a0" }}>{draft.music_genre}</p>
+              <p style={{ fontSize: 13, color: ds.color.ink }}>{draft.music_mood}</p>
+              <p style={{ fontSize: 11, color: ds.color.mute }}>{draft.music_genre}</p>
             </div>
 
             <div style={{ ...cardStyle, borderColor: "rgba(245,158,11,0.2)" }}>
@@ -1207,7 +1198,7 @@ export default function AIContentCreatorPage() {
                 <span style={{ fontSize: 10, color: "#22c55e" }}>Your balance</span>
                 <span style={{ fontSize: 14, fontWeight: 700, color: "#22c55e" }}>50 credits</span>
               </div>
-              <p style={{ fontSize: 9, color: "#404060" }}>Credits charged only after you approve generation</p>
+              <p style={{ fontSize: 9, color: ds.color.mute2 }}>Credits charged only after you approve generation</p>
               <a href="/dashboard/budget" style={{ fontSize: 9, color: accent, textDecoration: "none", display: "block", marginTop: 4 }}>
                 Top up credits →
               </a>
@@ -1237,7 +1228,7 @@ export default function AIContentCreatorPage() {
                           </button>
                         )}
                         <button onClick={() => enhanceImage(m)} disabled={enhancingId === m.id}
-                          style={{ fontSize: 8, padding: "2px 5px", borderRadius: 4, border: "none", background: enhancingId === m.id ? "#2a2a40" : "rgba(16,185,129,0.8)", color: "#fff", cursor: "pointer" }}>
+                          style={{ fontSize: 8, padding: "2px 5px", borderRadius: 4, border: "none", background: enhancingId === m.id ? ds.color.line2 : "rgba(16,185,129,0.8)", color: "#fff", cursor: "pointer" }}>
                           {enhancingId === m.id ? "..." : m.name.startsWith("enhanced_") ? "Re-enhance" : "Enhance"}
                         </button>
                       </div>
@@ -1245,7 +1236,7 @@ export default function AIContentCreatorPage() {
                   </div>
                 ))}
               </div>
-              {media.length > 4 && <p style={{ fontSize: 9, color: "#404060", marginTop: 4 }}>+{media.length - 4} more</p>}
+              {media.length > 4 && <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 4 }}>+{media.length - 4} more</p>}
             </div>
           </div>
         </div>
@@ -1260,7 +1251,7 @@ export default function AIContentCreatorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <p style={{ ...sectionLabel, color: "#a855f7" }}>Step 6 — Video Production</p>
-              <p style={{ fontSize: 12, color: "#6060a0" }}>Assemble your video from the draft</p>
+              <p style={{ fontSize: 12, color: ds.color.mute }}>Assemble your video from the draft</p>
             </div>
             <button onClick={() => setStep(5)} style={btnSm}>Back to Script</button>
           </div>
@@ -1268,7 +1259,7 @@ export default function AIContentCreatorPage() {
           {/* 1. Narration Generation */}
           <div style={{ ...cardStyle, borderColor: "#a855f720" }}>
             <p style={sectionLabel}>Narration</p>
-            <p style={{ fontSize: 11, color: "#6060a0", marginBottom: 12 }}>
+            <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 12 }}>
               Generate AI narration from your voice script ({draft.voice_script.length} chars)
             </p>
             {!narrationAudioUrl ? (
@@ -1294,7 +1285,7 @@ export default function AIContentCreatorPage() {
                   setGeneratingNarration(false);
                 }}
                 disabled={generatingNarration || !draft.voice_script}
-                style={{ ...btnPrimary, background: generatingNarration ? "#2a2a40" : "#a855f7" }}
+                style={{ ...btnPrimary, background: generatingNarration ? ds.color.line2 : "#a855f7" }}
               >
                 {generatingNarration ? "Generating narration..." : "Generate AI Narration"}
               </button>
@@ -1312,10 +1303,10 @@ export default function AIContentCreatorPage() {
           {media.some(m => m.type === "image") && (
             <div style={{ ...cardStyle, borderColor: "rgba(236,72,153,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <p style={sectionLabel}>🎭 Talking Head (Lip-Sync)</p>
+                <p style={sectionLabel}>Talking Head (Lip-Sync)</p>
                 <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: "rgba(236,72,153,0.12)", color: "#ec4899", fontWeight: 600 }}>FAL Hedra</span>
               </div>
-              <p style={{ fontSize: 11, color: "#6060a0", marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 12 }}>
                 Select your portrait — AI lip-syncs it to your narration audio. This is the magic chain differentiator.
               </p>
 
@@ -1325,7 +1316,7 @@ export default function AIContentCreatorPage() {
                   <div key={m.id} onClick={() => setPortraitForLipSync(m.id)}
                     style={{
                       width: 80, height: 80, borderRadius: 10, overflow: "hidden", flexShrink: 0, cursor: "pointer",
-                      border: `2px solid ${portraitForLipSync === m.id ? "#ec4899" : "#2a2a40"}`,
+                      border: `2px solid ${portraitForLipSync === m.id ? "#ec4899" : ds.color.line2}`,
                       boxShadow: portraitForLipSync === m.id ? "0 0 12px rgba(236,72,153,0.4)" : "none",
                       transition: "all 0.2s",
                     }}>
@@ -1366,19 +1357,19 @@ export default function AIContentCreatorPage() {
                   }}
                   style={{
                     ...btnPrimary, fontSize: 13,
-                    background: (generatingTalkingHead || !portraitForLipSync || !narrationAudioUrl) ? "#2a2a40" : "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
+                    background: (generatingTalkingHead || !portraitForLipSync || !narrationAudioUrl) ? ds.color.line2 : "linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%)",
                     opacity: (!portraitForLipSync || !narrationAudioUrl) && !generatingTalkingHead ? 0.5 : 1,
                   }}>
                   {generatingTalkingHead ? "Generating lip-sync... (2-4 min)" :
-                   !narrationAudioUrl ? "⚠️ Generate narration first (section above)" :
+                   !narrationAudioUrl ? "️ Generate narration first (section above)" :
                    !portraitForLipSync ? "Select a portrait above first" :
-                   "🎭 Generate Talking Head Video"}
+                   "Generate Talking Head Video"}
                 </button>
               ) : (
                 <div>
                   <video src={talkingHeadUrl} controls style={{ width: "100%", maxHeight: 280, borderRadius: 10, marginBottom: 10, display: "block" }} />
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>✅ Added as Scene 1 in assembly</span>
+                    <span style={{ fontSize: 10, color: "#22c55e", fontWeight: 600 }}>Added as Scene 1 in assembly</span>
                     <button onClick={() => { setTalkingHeadUrl(null); setPortraitForLipSync(null); }} style={{ ...btnSm, fontSize: 9, marginLeft: "auto" }}>
                       Regenerate
                     </button>
@@ -1393,7 +1384,7 @@ export default function AIContentCreatorPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div>
                 <p style={sectionLabel}>Media Assembly</p>
-                <p style={{ fontSize: 11, color: "#6060a0" }}>
+                <p style={{ fontSize: 11, color: ds.color.mute }}>
                   Drag to reorder, or use arrows. {mediaOrder.length} clip{mediaOrder.length !== 1 ? "s" : ""}.
                 </p>
               </div>
@@ -1410,7 +1401,7 @@ export default function AIContentCreatorPage() {
                   }}
                   style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #a855f730", background: "#a855f708", color: "#a855f7", fontSize: 11, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
                 >
-                  🔀 Shuffle
+                  Shuffle
                 </button>
               )}
             </div>
@@ -1425,10 +1416,10 @@ export default function AIContentCreatorPage() {
                     onDragStart={e => { e.dataTransfer.setData("text/plain", id); e.currentTarget.style.opacity = "0.5"; }}
                     onDragEnd={e => { e.currentTarget.style.opacity = "1"; }}
                     onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = "#a855f7"; }}
-                    onDragLeave={e => { e.currentTarget.style.borderColor = "#2a2a40"; }}
+                    onDragLeave={e => { e.currentTarget.style.borderColor = ds.color.line2; }}
                     onDrop={e => {
                       e.preventDefault();
-                      e.currentTarget.style.borderColor = "#2a2a40";
+                      e.currentTarget.style.borderColor = ds.color.line2;
                       const dragId = e.dataTransfer.getData("text/plain");
                       if (dragId && dragId !== id) {
                         const newOrder = [...mediaOrder];
@@ -1444,7 +1435,7 @@ export default function AIContentCreatorPage() {
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       padding: "10px 14px", borderRadius: 10,
-                      background: "#1a1a2e", border: `1px solid #2a2a40`,
+                      background: ds.color.paper, border: `1px solid ds.color.line2`,
                       cursor: "grab", transition: "border-color 0.15s",
                     }}>
                     {/* Drag handle + reorder buttons */}
@@ -1457,7 +1448,7 @@ export default function AIContentCreatorPage() {
                           setMediaOrder(newOrder);
                         }}
                         disabled={idx === 0}
-                        style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a40", background: "transparent", color: idx === 0 ? "#2a2a40" : "#a0a0c0", cursor: idx === 0 ? "default" : "pointer" }}>
+                        style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid ds.color.line2", background: "transparent", color: idx === 0 ? ds.color.line2 : "#a0a0c0", cursor: idx === 0 ? "default" : "pointer" }}>
                         ▲
                       </button>
                       <button
@@ -1468,13 +1459,13 @@ export default function AIContentCreatorPage() {
                           setMediaOrder(newOrder);
                         }}
                         disabled={idx === mediaOrder.length - 1}
-                        style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid #2a2a40", background: "transparent", color: idx === mediaOrder.length - 1 ? "#2a2a40" : "#a0a0c0", cursor: idx === mediaOrder.length - 1 ? "default" : "pointer" }}>
+                        style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid ds.color.line2", background: "transparent", color: idx === mediaOrder.length - 1 ? ds.color.line2 : "#a0a0c0", cursor: idx === mediaOrder.length - 1 ? "default" : "pointer" }}>
                         ▼
                       </button>
                     </div>
 
                     {/* Thumbnail */}
-                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: "hidden", flexShrink: 0, border: `1px solid #2a2a40` }}>
+                    <div style={{ width: 56, height: 56, borderRadius: 8, overflow: "hidden", flexShrink: 0, border: `1px solid ds.color.line2` }}>
                       {m.type === "image" ? (
                         <img src={m.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
@@ -1484,8 +1475,8 @@ export default function AIContentCreatorPage() {
 
                     {/* Info */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 12, color: "#e0e0f0", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</p>
-                      <p style={{ fontSize: 10, color: "#6060a0" }}>{m.type === "video" ? "Video clip" : "Image"}</p>
+                      <p style={{ fontSize: 12, color: ds.color.ink, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</p>
+                      <p style={{ fontSize: 10, color: ds.color.mute }}>{m.type === "video" ? "Video clip" : "Image"}</p>
                     </div>
 
                     {/* Trim controls */}
@@ -1495,13 +1486,13 @@ export default function AIContentCreatorPage() {
                           <label style={{ fontSize: 8, color: "#505070", display: "block" }}>Start (s)</label>
                           <input type="number" min={0} step={0.1} value={trim.start}
                             onChange={e => setTrimSettings(prev => ({ ...prev, [id]: { ...trim, start: parseFloat(e.target.value) || 0 } }))}
-                            style={{ width: 50, fontSize: 11, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                            style={{ width: 50, fontSize: 11, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                         </div>
                         <div>
                           <label style={{ fontSize: 8, color: "#505070", display: "block" }}>End (s)</label>
                           <input type="number" min={0} step={0.1} value={trim.end}
                             onChange={e => setTrimSettings(prev => ({ ...prev, [id]: { ...trim, end: parseFloat(e.target.value) || 0 } }))}
-                            style={{ width: 50, fontSize: 11, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                            style={{ width: 50, fontSize: 11, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                         </div>
                       </div>
                     )}
@@ -1523,7 +1514,7 @@ export default function AIContentCreatorPage() {
             <p style={sectionLabel}>Text Overlays</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {textOverlays.map((overlay, idx) => (
-                <div key={idx} style={{ background: "#1a1a2e", borderRadius: 10, padding: 14, border: "1px solid #2a2a40" }}>
+                <div key={idx} style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                     <p style={{ fontSize: 10, color: "#a855f7", fontWeight: 600 }}>Overlay {idx + 1}</p>
                     <button onClick={() => setTextOverlays(prev => prev.filter((_, i) => i !== idx))}
@@ -1538,14 +1529,14 @@ export default function AIContentCreatorPage() {
                       setTextOverlays(updated);
                     }}
                     rows={2}
-                    style={{ width: "100%", fontSize: 12, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 6, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }} />
+                    style={{ width: "100%", fontSize: 12, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 6, padding: "8px 10px", outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }} />
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {/* Position */}
                     <div>
                       <label style={{ fontSize: 8, color: "#505070", display: "block", marginBottom: 4 }}>Position</label>
                       <select value={overlay.position}
                         onChange={e => { const updated = [...textOverlays]; updated[idx] = { ...overlay, position: e.target.value }; setTextOverlays(updated); }}
-                        style={{ fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }}>
+                        style={{ fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }}>
                         <option value="top">Top</option>
                         <option value="center">Center</option>
                         <option value="bottom">Bottom</option>
@@ -1558,14 +1549,14 @@ export default function AIContentCreatorPage() {
                       <label style={{ fontSize: 8, color: "#505070", display: "block", marginBottom: 4 }}>Size</label>
                       <input type="number" min={10} max={72} value={overlay.fontSize}
                         onChange={e => { const updated = [...textOverlays]; updated[idx] = { ...overlay, fontSize: parseInt(e.target.value) || 16 }; setTextOverlays(updated); }}
-                        style={{ width: 50, fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                        style={{ width: 50, fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                     </div>
                     {/* Animation */}
                     <div>
                       <label style={{ fontSize: 8, color: "#505070", display: "block", marginBottom: 4 }}>Animation</label>
                       <select value={overlay.animation}
                         onChange={e => { const updated = [...textOverlays]; updated[idx] = { ...overlay, animation: e.target.value }; setTextOverlays(updated); }}
-                        style={{ fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }}>
+                        style={{ fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }}>
                         <option value="fade">Fade</option>
                         <option value="typewriter">Typewriter</option>
                         <option value="slide_up">Slide Up</option>
@@ -1577,13 +1568,13 @@ export default function AIContentCreatorPage() {
                       <label style={{ fontSize: 8, color: "#505070", display: "block", marginBottom: 4 }}>In (s)</label>
                       <input type="number" min={0} step={0.5} value={overlay.inTime}
                         onChange={e => { const updated = [...textOverlays]; updated[idx] = { ...overlay, inTime: parseFloat(e.target.value) || 0 }; setTextOverlays(updated); }}
-                        style={{ width: 50, fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                        style={{ width: 50, fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                     </div>
                     <div>
                       <label style={{ fontSize: 8, color: "#505070", display: "block", marginBottom: 4 }}>Out (s)</label>
                       <input type="number" min={0} step={0.5} value={overlay.outTime}
                         onChange={e => { const updated = [...textOverlays]; updated[idx] = { ...overlay, outTime: parseFloat(e.target.value) || 0 }; setTextOverlays(updated); }}
-                        style={{ width: 50, fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                        style={{ width: 50, fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                     </div>
                   </div>
                 </div>
@@ -1600,8 +1591,8 @@ export default function AIContentCreatorPage() {
             <p style={sectionLabel}>Intro & Outro</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               {/* Intro */}
-              <div style={{ background: "#1a1a2e", borderRadius: 10, padding: 14, border: "1px solid #2a2a40" }}>
-                <p style={{ fontSize: 11, color: "#e0e0f0", fontWeight: 600, marginBottom: 8 }}>Intro</p>
+              <div style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2" }}>
+                <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, marginBottom: 8 }}>Intro</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                   {[
                     { id: "fade_from_black", label: "Fade from Black" },
@@ -1609,7 +1600,7 @@ export default function AIContentCreatorPage() {
                     { id: "logo_reveal", label: "Logo Reveal" },
                   ].map(t => (
                     <button key={t.id} onClick={() => setIntroType(introType === t.id ? null : t.id)}
-                      style={{ ...btnSm, fontSize: 10, background: introType === t.id ? "#a855f715" : "transparent", borderColor: introType === t.id ? "#a855f7" : "#2a2a40", color: introType === t.id ? "#a855f7" : "#6060a0" }}>
+                      style={{ ...btnSm, fontSize: 10, background: introType === t.id ? "#a855f715" : "transparent", borderColor: introType === t.id ? "#a855f7" : ds.color.line2, color: introType === t.id ? "#a855f7" : ds.color.mute }}>
                       {t.label}
                     </button>
                   ))}
@@ -1619,13 +1610,13 @@ export default function AIContentCreatorPage() {
                     <label style={{ fontSize: 9, color: "#505070" }}>Duration (s): </label>
                     <input type="number" min={1} max={10} value={introDuration}
                       onChange={e => setIntroDuration(parseInt(e.target.value) || 3)}
-                      style={{ width: 50, fontSize: 11, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                      style={{ width: 50, fontSize: 11, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                   </div>
                 )}
               </div>
               {/* Outro */}
-              <div style={{ background: "#1a1a2e", borderRadius: 10, padding: 14, border: "1px solid #2a2a40" }}>
-                <p style={{ fontSize: 11, color: "#e0e0f0", fontWeight: 600, marginBottom: 8 }}>Outro</p>
+              <div style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2" }}>
+                <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, marginBottom: 8 }}>Outro</p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                   {[
                     { id: "cta_card", label: "CTA Card" },
@@ -1633,7 +1624,7 @@ export default function AIContentCreatorPage() {
                     { id: "logo", label: "Logo" },
                   ].map(t => (
                     <button key={t.id} onClick={() => setOutroType(outroType === t.id ? null : t.id)}
-                      style={{ ...btnSm, fontSize: 10, background: outroType === t.id ? "#a855f715" : "transparent", borderColor: outroType === t.id ? "#a855f7" : "#2a2a40", color: outroType === t.id ? "#a855f7" : "#6060a0" }}>
+                      style={{ ...btnSm, fontSize: 10, background: outroType === t.id ? "#a855f715" : "transparent", borderColor: outroType === t.id ? "#a855f7" : ds.color.line2, color: outroType === t.id ? "#a855f7" : ds.color.mute }}>
                       {t.label}
                     </button>
                   ))}
@@ -1643,7 +1634,7 @@ export default function AIContentCreatorPage() {
                     <label style={{ fontSize: 9, color: "#505070" }}>Duration (s): </label>
                     <input type="number" min={1} max={10} value={outroDuration}
                       onChange={e => setOutroDuration(parseInt(e.target.value) || 3)}
-                      style={{ width: 50, fontSize: 11, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                      style={{ width: 50, fontSize: 11, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                   </div>
                 )}
               </div>
@@ -1653,7 +1644,7 @@ export default function AIContentCreatorPage() {
           {/* 5. Music Selection */}
           <div style={{ ...cardStyle, borderColor: "#a855f720" }}>
             <p style={sectionLabel}>Background Music</p>
-            <p style={{ fontSize: 11, color: "#6060a0", marginBottom: 10 }}>
+            <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 10 }}>
               Mood: {draft.music_mood || "Not set"} &middot; Genre: {draft.music_genre || "Auto"}
             </p>
             {!musicUrl ? (
@@ -1683,7 +1674,7 @@ export default function AIContentCreatorPage() {
                     setGeneratingMusic(false);
                   }}
                   disabled={generatingMusic}
-                  style={{ ...btnPrimary, background: generatingMusic ? "#2a2a40" : "#a855f7" }}
+                  style={{ ...btnPrimary, background: generatingMusic ? ds.color.line2 : "#a855f7" }}
                 >
                   {generatingMusic ? "Generating music..." : "Generate Background Music"}
                 </button>
@@ -1692,10 +1683,10 @@ export default function AIContentCreatorPage() {
                 <div style={{ display: "flex", gap: 8 }}>
                   <label style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                    padding: "10px 14px", borderRadius: 10, border: "1px solid #2a2a40",
-                    background: "#1a1a2e", color: "#e0e0f0", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    padding: "10px 14px", borderRadius: 10, border: "1px solid ds.color.line2",
+                    background: ds.color.paper, color: ds.color.ink, fontSize: 12, fontWeight: 600, cursor: "pointer",
                   }}>
-                    <span>📁</span> Upload Music File
+                    <span></span> Upload Music File
                     <input type="file" accept="audio/*" style={{ display: "none" }}
                       onChange={async (e) => {
                         const file = e.target.files?.[0];
@@ -1729,7 +1720,7 @@ export default function AIContentCreatorPage() {
                       background: "#a855f708", color: "#a855f7", fontSize: 12, fontWeight: 600,
                       textDecoration: "none", cursor: "pointer",
                     }}>
-                    <span>🎵</span> Browse Music Library
+                    <span></span> Browse Music Library
                   </a>
                 </div>
 
@@ -1746,8 +1737,8 @@ export default function AIContentCreatorPage() {
                   </button>
                   <label style={{
                     flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-                    padding: "6px 10px", borderRadius: 6, border: "1px solid #2a2a40",
-                    background: "transparent", color: "#6060a0", fontSize: 10, cursor: "pointer",
+                    padding: "6px 10px", borderRadius: 6, border: "1px solid ds.color.line2",
+                    background: "transparent", color: ds.color.mute, fontSize: 10, cursor: "pointer",
                   }}>
                     Replace (Upload)
                     <input type="file" accept="audio/*" style={{ display: "none" }}
@@ -1777,25 +1768,25 @@ export default function AIContentCreatorPage() {
             <p style={sectionLabel}>Sound Effects</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
               {[
-                { event: "whoosh", icon: "💨", label: "Whoosh" },
-                { event: "impact", icon: "💥", label: "Impact" },
-                { event: "notification", icon: "🔔", label: "Notification" },
-                { event: "transition", icon: "✨", label: "Transition" },
+                { event: "whoosh", label: "Whoosh" },
+                { event: "impact", label: "Impact" },
+                { event: "notification", label: "Notification" },
+                { event: "transition", label: "Transition" },
                 { event: "sparkle", icon: "⭐", label: "Sparkle" },
-                { event: "applause", icon: "👏", label: "Applause" },
+                { event: "applause", label: "Applause" },
               ].map(sfx => (
                 <button key={sfx.event}
                   onClick={() => setSfxList(prev => [...prev, { event: sfx.event, time: 0 }])}
                   style={{ ...btnSm, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span>{sfx.icon}</span> {sfx.label}
+                  {sfx.label}
                 </button>
               ))}
             </div>
             {sfxList.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {sfxList.map((sfx, idx) => (
-                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: "#1a1a2e", border: "1px solid #2a2a40" }}>
-                    <span style={{ fontSize: 12, color: "#e0e0f0", flex: 1 }}>{sfx.event}</span>
+                  <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 6, background: ds.color.paper, border: "1px solid ds.color.line2" }}>
+                    <span style={{ fontSize: 12, color: ds.color.ink, flex: 1 }}>{sfx.event}</span>
                     <label style={{ fontSize: 9, color: "#505070" }}>at</label>
                     <input type="number" min={0} step={0.5} value={sfx.time}
                       onChange={e => {
@@ -1803,7 +1794,7 @@ export default function AIContentCreatorPage() {
                         updated[idx] = { ...sfx, time: parseFloat(e.target.value) || 0 };
                         setSfxList(updated);
                       }}
-                      style={{ width: 50, fontSize: 10, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
+                      style={{ width: 50, fontSize: 10, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "4px 6px", outline: "none" }} />
                     <label style={{ fontSize: 9, color: "#505070" }}>s</label>
                     <button onClick={() => setSfxList(prev => prev.filter((_, i) => i !== idx))}
                       style={{ fontSize: 10, padding: "2px 6px", borderRadius: 4, border: "1px solid rgba(239,68,68,0.3)", background: "transparent", color: "#f87171", cursor: "pointer" }}>
@@ -1938,7 +1929,7 @@ export default function AIContentCreatorPage() {
               setBuildingVideo(false);
             }}
             disabled={buildingVideo || mediaOrder.length === 0}
-            style={{ ...btnPrimary, background: (buildingVideo || mediaOrder.length === 0) ? "#2a2a40" : "#a855f7", fontSize: 16, padding: "18px 28px" }}
+            style={{ ...btnPrimary, background: (buildingVideo || mediaOrder.length === 0) ? ds.color.line2 : "#a855f7", fontSize: 16, padding: "18px 28px" }}
           >
             {buildingVideo ? "Building video..." : `Build Video (${mediaOrder.length} clips)`}
           </button>
@@ -1955,7 +1946,7 @@ export default function AIContentCreatorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <p style={{ ...sectionLabel, color: "#00d4ff" }}>Step 7 — Preview & Polish</p>
-              <p style={{ fontSize: 12, color: "#6060a0" }}>Review your assembled video and fine-tune</p>
+              <p style={{ fontSize: 12, color: ds.color.mute }}>Review your assembled video and fine-tune</p>
             </div>
             <button onClick={() => setStep(6)} style={btnSm}>Back to Build</button>
           </div>
@@ -1972,30 +1963,30 @@ export default function AIContentCreatorPage() {
                 />
               </div>
             ) : (
-              <div style={{ padding: 32, textAlign: "center", background: "#0e0e1a", borderRadius: 12, marginBottom: 16 }}>
-                <p style={{ fontSize: 16, marginBottom: 8 }}>🎬</p>
-                <p style={{ fontSize: 13, color: "#e0e0f0", fontWeight: 600, marginBottom: 4 }}>No video built yet</p>
-                <p style={{ fontSize: 11, color: "#6060a0", marginBottom: 12 }}>Go back to Build step to create your video</p>
+              <div style={{ padding: 32, textAlign: "center", background: ds.color.card, borderRadius: 12, marginBottom: 16 }}>
+                <p style={{ fontSize: 16, marginBottom: 8 }}></p>
+                <p style={{ fontSize: 13, color: ds.color.ink, fontWeight: 600, marginBottom: 4 }}>No video built yet</p>
+                <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 12 }}>Go back to Build step to create your video</p>
                 <button onClick={() => setStep(6)} style={{ ...btnPrimary, background: "#a855f7" }}>Back to Build</button>
               </div>
             )}
 
             {/* Re-trim controls */}
             {showRetrim && (
-              <div style={{ background: "#1a1a2e", borderRadius: 10, padding: 14, border: "1px solid #2a2a40", marginBottom: 12 }}>
+              <div style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2", marginBottom: 12 }}>
                 <p style={{ fontSize: 11, color: "#00d4ff", fontWeight: 600, marginBottom: 8 }}>Trim Video</p>
                 <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                   <div>
                     <label style={{ fontSize: 9, color: "#505070", display: "block", marginBottom: 4 }}>Start (s)</label>
                     <input type="number" min={0} step={0.5} value={retrimStart}
                       onChange={e => setRetrimStart(parseFloat(e.target.value) || 0)}
-                      style={{ width: 70, fontSize: 12, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "6px 8px", outline: "none" }} />
+                      style={{ width: 70, fontSize: 12, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "6px 8px", outline: "none" }} />
                   </div>
                   <div>
                     <label style={{ fontSize: 9, color: "#505070", display: "block", marginBottom: 4 }}>End (s)</label>
                     <input type="number" min={0} step={0.5} value={retrimEnd}
                       onChange={e => setRetrimEnd(parseFloat(e.target.value) || 0)}
-                      style={{ width: 70, fontSize: 12, color: "#e0e0f0", background: "#0e0e1a", border: "1px solid #2a2a40", borderRadius: 4, padding: "6px 8px", outline: "none" }} />
+                      style={{ width: 70, fontSize: 12, color: ds.color.ink, background: ds.color.card, border: "1px solid ds.color.line2", borderRadius: 4, padding: "6px 8px", outline: "none" }} />
                   </div>
                 </div>
               </div>
@@ -2012,7 +2003,7 @@ export default function AIContentCreatorPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <label style={{ fontSize: 11, color: "#e0e0f0" }}>Narration Volume</label>
+                  <label style={{ fontSize: 11, color: ds.color.ink }}>Narration Volume</label>
                   <span style={{ fontSize: 11, color: "#00d4ff" }}>{narrationVolume}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={narrationVolume}
@@ -2021,7 +2012,7 @@ export default function AIContentCreatorPage() {
               </div>
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <label style={{ fontSize: 11, color: "#e0e0f0" }}>Music Volume</label>
+                  <label style={{ fontSize: 11, color: ds.color.ink }}>Music Volume</label>
                   <span style={{ fontSize: 11, color: "#00d4ff" }}>{musicVolume}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={musicVolume}
@@ -2036,17 +2027,17 @@ export default function AIContentCreatorPage() {
             <p style={sectionLabel}>Render Quality</p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
               {([
-                { id: "draft" as const, label: "Draft", desc: "Fast preview", icon: "⚡" },
-                { id: "standard" as const, label: "Standard", desc: "Balanced quality", icon: "📺" },
-                { id: "premium" as const, label: "Premium", desc: "Best quality", icon: "💎" },
+                { id: "draft" as const, label: "Draft", desc: "Fast preview" },
+                { id: "standard" as const, label: "Standard", desc: "Balanced quality" },
+                { id: "premium" as const, label: "Premium", desc: "Best quality" },
               ]).map(q => (
                 <button key={q.id} onClick={() => setQualityTier(q.id)}
                   style={{
-                    padding: "14px 10px", borderRadius: 10, border: `1px solid ${qualityTier === q.id ? "#00d4ff" : "#2a2a40"}`,
+                    padding: "14px 10px", borderRadius: 10, border: `1px solid ${qualityTier === q.id ? "#00d4ff" : ds.color.line2}`,
                     background: qualityTier === q.id ? "#00d4ff10" : "transparent", cursor: "pointer", textAlign: "center",
                   }}>
-                  <span style={{ fontSize: 20, display: "block", marginBottom: 4 }}>{q.icon}</span>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: qualityTier === q.id ? "#00d4ff" : "#e0e0f0" }}>{q.label}</p>
+                  
+                  <p style={{ fontSize: 12, fontWeight: 700, color: qualityTier === q.id ? "#00d4ff" : ds.color.ink }}>{q.label}</p>
                   <p style={{ fontSize: 9, color: "#505070" }}>{q.desc}</p>
                 </button>
               ))}
@@ -2057,10 +2048,10 @@ export default function AIContentCreatorPage() {
           {assembledVideoUrl && (
             <div style={{ ...cardStyle, borderColor: "rgba(234,179,8,0.2)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <p style={sectionLabel}>📝 Text on Screen (Auto-Captions)</p>
+                <p style={sectionLabel}>Text on Screen (Auto-Captions)</p>
                 <span style={{ fontSize: 9, color: "#eab308", padding: "3px 8px", borderRadius: 20, background: "rgba(234,179,8,0.1)", fontWeight: 600 }}>Whisper AI</span>
               </div>
-              <p style={{ fontSize: 11, color: "#6060a0", marginBottom: 12 }}>
+              <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 12 }}>
                 Auto-transcribe your video and burn bold word-by-word captions — CapCut / TikTok style.
               </p>
 
@@ -2076,8 +2067,8 @@ export default function AIContentCreatorPage() {
                   <button key={s.id} onClick={() => setCaptionStyle(s.id)}
                     style={{
                       ...btnSm, fontSize: 10,
-                      borderColor: captionStyle === s.id ? s.color : "#2a2a40",
-                      color: captionStyle === s.id ? s.color : "#6060a0",
+                      borderColor: captionStyle === s.id ? s.color : ds.color.line2,
+                      color: captionStyle === s.id ? s.color : ds.color.mute,
                       background: captionStyle === s.id ? `${s.color}12` : "transparent",
                     }}>
                     {s.label}
@@ -2091,7 +2082,7 @@ export default function AIContentCreatorPage() {
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => { setAssembledVideoUrl(captionedVideoUrl); setCaptionedVideoUrl(null); }}
                       style={{ ...btnSm, fontSize: 10, flex: 1, textAlign: "center", color: "#22c55e", borderColor: "rgba(34,197,94,0.3)" }}>
-                      ✅ Use as Final Video
+                      Use as Final Video
                     </button>
                     <button onClick={() => setCaptionedVideoUrl(null)} style={{ ...btnSm, fontSize: 10 }}>
                       Redo
@@ -2127,8 +2118,8 @@ export default function AIContentCreatorPage() {
                     }
                     setBurningCaptions(false);
                   }}
-                  style={{ ...btnPrimary, background: burningCaptions ? "#2a2a40" : "#eab308", color: "#000", fontWeight: 800 }}>
-                  {burningCaptions ? "Transcribing + burning captions..." : "🔥 Burn Captions onto Video"}
+                  style={{ ...btnPrimary, background: burningCaptions ? ds.color.line2 : "#eab308", color: "#000", fontWeight: 800 }}>
+                  {burningCaptions ? "Transcribing + burning captions..." : "Burn Captions onto Video"}
                 </button>
               )}
             </div>
@@ -2201,7 +2192,7 @@ export default function AIContentCreatorPage() {
               setBuildingVideo(false);
             }}
             disabled={buildingVideo}
-            style={{ ...btnPrimary, background: buildingVideo ? "#2a2a40" : "#00d4ff", color: "#000", fontWeight: 800 }}
+            style={{ ...btnPrimary, background: buildingVideo ? ds.color.line2 : "#00d4ff", color: "#000", fontWeight: 800 }}
           >
             {buildingVideo ? "Rebuilding..." : "Rebuild with Adjustments"}
           </button>
@@ -2223,7 +2214,7 @@ export default function AIContentCreatorPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <p style={{ ...sectionLabel, color: "#22c55e" }}>Step 8 — Export & Publish</p>
-              <p style={{ fontSize: 12, color: "#6060a0" }}>Download, save, or send your content for review</p>
+              <p style={{ fontSize: 12, color: ds.color.mute }}>Download, save, or send your content for review</p>
             </div>
             <button onClick={() => setStep(7)} style={btnSm}>Back to Preview</button>
           </div>
@@ -2235,7 +2226,7 @@ export default function AIContentCreatorPage() {
               <video src={assembledVideoUrl} controls
                 style={{ width: "100%", maxHeight: 320, borderRadius: 10, display: "block", marginBottom: 12 }} />
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: "#e0e0f0", flex: 1 }}>{draft.title}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: ds.color.ink, flex: 1 }}>{draft.title}</span>
                 <span style={{ fontSize: 10, color: "#22c55e", padding: "3px 10px", borderRadius: 20, background: "rgba(34,197,94,0.12)", fontWeight: 600 }}>
                   Ready
                 </span>
@@ -2250,7 +2241,7 @@ export default function AIContentCreatorPage() {
               padding: "10px 14px", borderRadius: 8,
               background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)",
             }}>
-              <span style={{ fontSize: 14 }}>✅</span>
+              <span style={{ fontSize: 14 }}></span>
               <p style={{ fontSize: 11, color: "#22c55e", fontWeight: 600 }}>Saved to Asset Library & All Content</p>
             </div>
           )}
@@ -2284,28 +2275,28 @@ export default function AIContentCreatorPage() {
                 color: savedToLibrary ? "#22c55e" : "#fff",
                 opacity: savedToLibrary ? 0.7 : 1,
               }}>
-              {savingToLibrary ? "Saving..." : savedToLibrary ? "✅ Saved to Library" : "💾 Render to Library"}
+              {savingToLibrary ? "Saving..." : savedToLibrary ? "Saved to Library" : "Render to Library"}
             </button>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={sendToReview}
               style={{ ...btnPrimary, flex: 1, background: "rgba(34,197,94,0.12)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}>
-              📋 Send to Review
+              Send to Review
             </button>
-            <button disabled style={{ ...btnPrimary, flex: 1, opacity: 0.4, background: "#1a1a2e", color: "#6060a0", border: "1px solid #2a2a40" }}>
-              📱 Post on Social (Coming Soon)
+            <button disabled style={{ ...btnPrimary, flex: 1, opacity: 0.4, background: ds.color.paper, color: ds.color.mute, border: "1px solid ds.color.line2" }}>
+              Post on Social (Coming Soon)
             </button>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setStep(6)}
               style={{ ...btnSm, flex: 1, textAlign: "center" }}>
-              🔄 Regenerate (Back to Build)
+              Regenerate (Back to Build)
             </button>
             <button onClick={() => setStep(5)}
               style={{ ...btnSm, flex: 1, textAlign: "center" }}>
-              📝 Back to Script
+              Back to Script
             </button>
           </div>
         </div>
@@ -2319,18 +2310,18 @@ export default function AIContentCreatorPage() {
           background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)",
         }} onClick={() => { setShowRightsDialog(false); setPendingFiles(null); }}>
           <div style={{
-            background: "#141420", border: "1px solid #2a2a40", borderRadius: 16,
+            background: "#141420", border: "1px solid ds.color.line2", borderRadius: 16,
             padding: 28, maxWidth: 520, width: "90%", maxHeight: "80vh", overflowY: "auto",
           }} onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <span style={{ fontSize: 24 }}>🛡</span>
+              <span style={{ fontSize: 24 }}></span>
               <h3 style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Content Rights Agreement</h3>
             </div>
 
             <div style={{ fontSize: 12, color: "#a0a0c0", lineHeight: 1.7, marginBottom: 16 }}>
               <p style={{ marginBottom: 10 }}>Before importing content into GioHomeStudio, please confirm:</p>
-              <div style={{ background: "#1a1a2e", borderRadius: 10, padding: 14, border: "1px solid #2a2a40", marginBottom: 10 }}>
-                <p style={{ fontWeight: 600, color: "#e0e0f0", marginBottom: 6 }}>I confirm that:</p>
+              <div style={{ background: ds.color.paper, borderRadius: 10, padding: 14, border: "1px solid ds.color.line2", marginBottom: 10 }}>
+                <p style={{ fontWeight: 600, color: ds.color.ink, marginBottom: 6 }}>I confirm that:</p>
                 <ul style={{ paddingLeft: 18, margin: 0 }}>
                   <li style={{ marginBottom: 4 }}>I own or have permission to use this content</li>
                   <li style={{ marginBottom: 4 }}>This content does not infringe on anyone&apos;s copyright</li>
@@ -2346,7 +2337,7 @@ export default function AIContentCreatorPage() {
 
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => { setShowRightsDialog(false); setPendingFiles(null); }}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 10, border: "1px solid #2a2a40", background: "transparent", color: "#7070a0", fontSize: 12, cursor: "pointer" }}>
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 10, border: "1px solid ds.color.line2", background: "transparent", color: "#7070a0", fontSize: 12, cursor: "pointer" }}>
                 Cancel
               </button>
               <button onClick={confirmRightsAndProceed}

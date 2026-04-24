@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
+import { ds } from "../../../../lib/designSystem";
 
 interface ReferenceImage {
   url: string;
@@ -36,13 +37,13 @@ const ANGLE_SLOTS: { angle: string; label: string; hint: string }[] = [
 ];
 
 const ROLE_BADGE_COLOR: Record<string, string> = {
-  protagonist:  "#7c5cfc",
+  protagonist:  ds.color.lilac,
   antagonist:   "#f87171",
-  narrator:     "#60a5fa",
-  supporting:   "#9090b0",
-  elder:        "#facc15",
-  child:        "#4ade80",
-  comic_relief: "#fb923c",
+  narrator:     ds.color.sky,
+  supporting:   ds.color.mute,
+  elder:        ds.color.gold,
+  child:        ds.color.mint,
+  comic_relief: ds.color.coral,
 };
 
 export default function CharacterImagesPage() {
@@ -53,15 +54,13 @@ export default function CharacterImagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Upload state
   const [uploading, setUploading] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // AI generation state
   const [aiPrompt, setAiPrompt] = useState("");
-  const [generating, setGenerating] = useState<string | null>(null); // angle being generated
+  const [generating, setGenerating] = useState<string | null>(null);
   const [genError, setGenError] = useState("");
 
   async function load() {
@@ -71,7 +70,6 @@ export default function CharacterImagesPage() {
       if (!res.ok) { setError("Character not found."); return; }
       const data = await res.json();
       setCharacter(data.voice);
-      // Only seed aiPrompt on first load — don't overwrite if user has already typed something
       if (data.voice.visualDescription && !aiPrompt) {
         setAiPrompt(data.voice.visualDescription);
       }
@@ -91,11 +89,7 @@ export default function CharacterImagesPage() {
     fd.append("angle", angle);
     try {
       const res = await fetch(`/api/character-voices/${id}/upload-reference`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const d = await res.json();
-        setError(d.error ?? "Upload failed.");
-        return;
-      }
+      if (!res.ok) { const d = await res.json(); setError(d.error ?? "Upload failed."); return; }
       const data = await res.json();
       setCharacter(data.voice);
       setError("");
@@ -109,11 +103,7 @@ export default function CharacterImagesPage() {
   async function deleteImage(angle: string) {
     setDeleting(angle);
     try {
-      await fetch(`/api/character-voices/${id}/upload-reference`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ angle }),
-      });
+      await fetch(`/api/character-voices/${id}/upload-reference`, { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ angle }) });
       await load();
     } finally {
       setDeleting(null);
@@ -121,23 +111,16 @@ export default function CharacterImagesPage() {
   }
 
   async function generateImage(angle: string) {
-    if (!aiPrompt.trim()) {
-      setGenError("Enter a visual description before generating.");
-      return;
-    }
+    if (!aiPrompt.trim()) { setGenError("Enter a visual description before generating."); return; }
     setGenerating(angle);
     setGenError("");
     try {
       const res = await fetch(`/api/character-voices/${id}/generate-images`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ angle, prompt: aiPrompt.trim() }),
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ angle, prompt: aiPrompt.trim() }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setGenError(data.error ?? "Generation failed.");
-        return;
-      }
+      if (!res.ok) { setGenError(data.error ?? "Generation failed."); return; }
       setCharacter(data.voice);
     } catch {
       setGenError("Generation failed. Is ComfyUI running at port 8188?");
@@ -155,7 +138,7 @@ export default function CharacterImagesPage() {
   if (loading) {
     return (
       <div style={{ maxWidth: 820, paddingTop: 16 }}>
-        <p style={{ color: "#5a5a7a", fontSize: 13 }}>Loading…</p>
+        <p style={{ color: ds.color.mute, fontSize: 13, fontFamily: ds.font.mono }}>Loading…</p>
       </div>
     );
   }
@@ -164,24 +147,28 @@ export default function CharacterImagesPage() {
     return (
       <div style={{ maxWidth: 820, paddingTop: 16 }}>
         <p style={{ color: "#f87171", fontSize: 13 }}>{error || "Character not found."}</p>
-        <a href="/dashboard/character-voices" style={{ color: "#7c5cfc", fontSize: 13 }}>← Back to Characters</a>
+        <a href="/dashboard/character-voices" style={{ color: ds.color.lilac, fontSize: 13 }}>Back to Characters</a>
       </div>
     );
   }
 
   const refImages: ReferenceImage[] = Array.isArray(character.referenceImages) ? character.referenceImages : [];
-  const roleColor = character.role ? (ROLE_BADGE_COLOR[character.role] ?? "#9090b0") : null;
+  const roleColor = character.role ? (ROLE_BADGE_COLOR[character.role] ?? ds.color.mute) : null;
   const loadedCount = refImages.length;
   const isGeneratingAny = generating !== null;
 
+  const btnSm: React.CSSProperties = {
+    fontSize: 11, padding: "6px 12px", borderRadius: ds.radius.xs,
+    border: `1px solid ${ds.color.line2}`,
+    background: ds.color.card, color: ds.color.mute,
+    cursor: "pointer", fontFamily: ds.font.sans,
+  };
+
   return (
-    <div style={{ maxWidth: 820 }}>
+    <div style={{ maxWidth: 820, fontFamily: ds.font.sans }}>
 
       {/* Back link */}
-      <a
-        href="/dashboard/character-voices"
-        style={{ fontSize: 12, color: "#5a5a7a", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 20 }}
-      >
+      <a href="/dashboard/character-voices" style={{ fontSize: 12, color: ds.color.mute, textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4, marginBottom: 20 }}>
         ← All Characters
       </a>
 
@@ -189,75 +176,68 @@ export default function CharacterImagesPage() {
       <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 28 }}>
         <div style={{ flexShrink: 0 }}>
           {character.imageUrl ? (
-            <img
-              src={character.imageUrl}
-              alt={character.name}
-              style={{ width: 72, height: 72, borderRadius: 12, objectFit: "cover", border: "1px solid #2a2a40" }}
-            />
+            <img src={character.imageUrl} alt={character.name}
+              style={{ width: 72, height: 72, borderRadius: ds.radius.md, objectFit: "cover", border: `1px solid ${ds.color.line2}` }} />
           ) : (
-            <div style={{ width: 72, height: 72, borderRadius: 12, background: "#1a1a2e", border: "1px solid #2a2a40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28 }}>
-              {character.isNarrator ? "🎙" : "👤"}
+            <div style={{ width: 72, height: 72, borderRadius: ds.radius.md, background: ds.color.card, border: `1px solid ${ds.color.line2}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <span style={{ fontSize: 28, color: ds.color.mute }}>{character.isNarrator ? "N" : "C"}</span>
             </div>
           )}
         </div>
 
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 5 }}>
-            <h1 style={{ color: "#fff", fontWeight: 700, fontSize: 22, margin: 0 }}>{character.name}</h1>
+            <h1 style={{ color: ds.color.ink, fontWeight: 700, fontSize: 22, margin: 0 }}>{character.name}</h1>
             {character.isNarrator && (
-              <span style={{ background: "#7c5cfc22", color: "#7c5cfc", fontSize: 10, borderRadius: 4, padding: "2px 7px", border: "1px solid #7c5cfc44" }}>NARRATOR</span>
+              <span style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, fontSize: 10, borderRadius: ds.radius.xs, padding: "2px 7px", border: `1px solid ${ds.color.lilac}33`, fontFamily: ds.font.mono }}>NARRATOR</span>
             )}
             {character.role && roleColor && (
-              <span style={{ background: `${roleColor}18`, color: roleColor, fontSize: 11, borderRadius: 4, padding: "2px 8px", border: `1px solid ${roleColor}33` }}>
+              <span style={{ background: `${roleColor}18`, color: roleColor, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 8px", border: `1px solid ${roleColor}33` }}>
                 {character.role.replaceAll("_", " ")}
               </span>
             )}
             {character.defaultSpeechStyle && (
-              <span style={{ background: "#1a2a3a", color: "#60a5fa", fontSize: 11, borderRadius: 4, padding: "2px 8px", border: "1px solid #2a3a5a" }}>
+              <span style={{ background: `${ds.color.sky}12`, color: ds.color.sky, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 8px", border: `1px solid ${ds.color.sky}30` }}>
                 {character.defaultSpeechStyle}
               </span>
             )}
           </div>
           {character.visualDescription && (
-            <p style={{ fontSize: 12, color: "#6070a0", fontStyle: "italic", marginBottom: 4 }}>{character.visualDescription}</p>
+            <p style={{ fontSize: 12, color: ds.color.mute, fontStyle: "italic", marginBottom: 4 }}>{character.visualDescription}</p>
           )}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {[character.gender, character.toneClass, character.accent, character.voiceName].filter(Boolean).map(tag => (
-              <span key={tag} style={{ background: "#2a2a40", color: "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 7px" }}>{tag}</span>
+              <span key={tag} style={{ background: ds.color.alert, color: ds.color.mute, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>{tag}</span>
             ))}
           </div>
         </div>
 
-        <a
-          href="/dashboard/character-voices"
-          style={{ background: "#2a2a40", color: "#9090b0", fontSize: 12, borderRadius: 7, padding: "6px 14px", textDecoration: "none", flexShrink: 0 }}
-        >
+        <a href="/dashboard/character-voices"
+          style={{ background: ds.color.card, color: ds.color.mute, fontSize: 12, borderRadius: ds.radius.sm, padding: "6px 14px", textDecoration: "none", flexShrink: 0, border: `1px solid ${ds.color.line2}` }}>
           Edit profile
         </a>
       </div>
 
       {/* Errors */}
       {error && (
-        <div style={{ background: "#2a1a1a", border: "1px solid #f87171", borderRadius: 8, padding: 10, marginBottom: 16, color: "#f87171", fontSize: 12 }}>
+        <div style={{ background: "#2a1a1a", border: "1px solid #f87171", borderRadius: ds.radius.sm, padding: 10, marginBottom: 16, color: "#f87171", fontSize: 12 }}>
           {error}
         </div>
       )}
 
-      {/* ── AI Generation panel ──────────────────────────────────────── */}
-      <div style={{ background: "#0d0d1f", border: "1px solid #2a1a5a", borderRadius: 12, padding: "16px 18px", marginBottom: 24 }}>
+      {/* AI Generation panel */}
+      <div style={{ background: ds.color.card, border: `1px solid ${ds.color.lilac}30`, borderRadius: ds.radius.md, padding: "16px 18px", marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ fontSize: 15 }}>✦</span>
-          <p style={{ color: "#a080ff", fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: ds.color.lilac, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em" }}>
             Generate with Flux.1
-          </p>
-          <span style={{ fontSize: 10, background: "#1a1030", color: "#6040b0", borderRadius: 4, padding: "1px 7px", border: "1px solid #2a1a5a" }}>
+          </span>
+          <span style={{ fontSize: 10, background: `${ds.color.lilac}12`, color: ds.color.mute2, borderRadius: ds.radius.xs, padding: "1px 7px", border: `1px solid ${ds.color.line2}`, fontFamily: ds.font.mono }}>
             ComfyUI · localhost:8188
           </span>
         </div>
 
-        <p style={{ fontSize: 11, color: "#4a4a7a", marginBottom: 10, lineHeight: 1.5 }}>
-          Describe the character visually. Each angle slot gets its own camera direction added automatically.
-          Generation takes ~30–60s per image.
+        <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 10, lineHeight: 1.5 }}>
+          Describe the character visually. Each angle slot gets its own camera direction added automatically. Generation takes ~30–60s per image.
         </p>
 
         <textarea
@@ -266,41 +246,42 @@ export default function CharacterImagesPage() {
           placeholder="e.g. Woman in her 30s, natural curly hair, wearing a red blouse, warm brown eyes, confident expression"
           rows={3}
           style={{
-            width: "100%", background: "#12102a", border: "1px solid #2a1a5a",
-            borderRadius: 8, padding: "10px 12px", color: "#d0c0ff",
+            width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line2}`,
+            borderRadius: ds.radius.sm, padding: "10px 12px", color: ds.color.ink,
             fontSize: 12, resize: "vertical", outline: "none",
-            fontFamily: "inherit", lineHeight: 1.5, boxSizing: "border-box",
+            fontFamily: ds.font.sans, lineHeight: 1.5, boxSizing: "border-box",
           }}
         />
 
-        {genError && (
-          <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>{genError}</p>
-        )}
+        {genError && <p style={{ color: "#f87171", fontSize: 11, marginTop: 6 }}>{genError}</p>}
 
         {isGeneratingAny && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: "50%", background: "#7c5cfc",
-              animation: "pulse 1.2s ease-in-out infinite",
-            }} />
-            <p style={{ color: "#7c5cfc", fontSize: 11, margin: 0 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: ds.color.lilac }} />
+            <p style={{ color: ds.color.lilac, fontSize: 11, margin: 0 }}>
               Generating {ANGLE_SLOTS.find(s => s.angle === generating)?.label ?? generating}… this may take up to 60s
             </p>
           </div>
         )}
       </div>
 
-      {/* ── Reference images grid ────────────────────────────────────── */}
+      {/* Reference images grid */}
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-          <p style={{ color: "#7070a0", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+          <p style={{ color: ds.color.mute, fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: ds.font.mono, margin: 0 }}>
             Reference Images
           </p>
-          <span style={{ fontSize: 10, background: loadedCount > 0 ? "#7c5cfc22" : "#1a1a2e", color: loadedCount > 0 ? "#7c5cfc" : "#3a3a5a", borderRadius: 4, padding: "1px 7px", border: `1px solid ${loadedCount > 0 ? "#7c5cfc44" : "#2a2a40"}` }}>
+          <span style={{
+            fontSize: 10, background: loadedCount > 0 ? `${ds.color.lilac}18` : ds.color.alert,
+            color: loadedCount > 0 ? ds.color.lilac : ds.color.mute2,
+            borderRadius: ds.radius.xs, padding: "1px 7px",
+            border: `1px solid ${loadedCount > 0 ? `${ds.color.lilac}33` : ds.color.line2}`,
+            fontFamily: ds.font.mono,
+          }}>
             {loadedCount} / {ANGLE_SLOTS.length} uploaded
           </span>
         </div>
-        <p style={{ fontSize: 11, color: "#3a3a5a", marginBottom: 16, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 11, color: ds.color.mute2, marginBottom: 16, lineHeight: 1.5 }}>
           Used as character reference for Runway, Kling, and Veo to maintain consistent casting across scenes.
           Upload manually or generate with Flux.1 above.
         </p>
@@ -318,41 +299,27 @@ export default function CharacterImagesPage() {
                 key={slot.angle}
                 onDragOver={e => { e.preventDefault(); setDragOver(slot.angle); }}
                 onDragLeave={() => setDragOver(null)}
-                onDrop={e => {
-                  e.preventDefault();
-                  setDragOver(null);
-                  handleFiles(slot.angle, e.dataTransfer.files);
-                }}
+                onDrop={e => { e.preventDefault(); setDragOver(null); handleFiles(slot.angle, e.dataTransfer.files); }}
                 style={{
-                  background:   isDragOver ? "#1a1a3e" : existing ? "#0d130d" : "#0f0f1a",
-                  border:       `1px solid ${isDragOver ? "#7c5cfc" : existing ? "#1a3a1a" : "#1e1e38"}`,
-                  borderRadius: 12,
+                  background:   isDragOver ? `${ds.color.lilac}18` : existing ? `${ds.color.mint}08` : ds.color.card,
+                  border:       `1px solid ${isDragOver ? ds.color.lilac : existing ? `${ds.color.mint}30` : ds.color.line2}`,
+                  borderRadius: ds.radius.md,
                   overflow:     "hidden",
                   transition:   "border-color 0.15s, background 0.15s",
                 }}
               >
                 {/* Image area */}
-                <div style={{ position: "relative", height: 148, background: "#12121a", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={{ position: "relative", height: 148, background: ds.color.paper, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {existing ? (
                     <>
-                      <img
-                        src={existing.url}
-                        alt={slot.label}
-                        style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
-                      />
+                      <img src={existing.url} alt={slot.label} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       <button
                         onClick={() => deleteImage(slot.angle)}
                         disabled={isDeleting}
-                        style={{
-                          position: "absolute", top: 6, right: 6,
-                          background: "rgba(0,0,0,0.7)", border: "1px solid #f87171",
-                          borderRadius: 5, padding: "2px 7px", fontSize: 10,
-                          color: "#f87171", cursor: "pointer", opacity: isDeleting ? 0.5 : 1,
-                        }}
-                      >
+                        style={{ position: "absolute", top: 6, right: 6, background: "rgba(0,0,0,0.7)", border: "1px solid #f87171", borderRadius: ds.radius.xs, padding: "2px 7px", fontSize: 10, color: "#f87171", cursor: "pointer", opacity: isDeleting ? 0.5 : 1 }}>
                         {isDeleting ? "…" : "✕"}
                       </button>
-                      <span style={{ position: "absolute", bottom: 6, left: 6, background: "rgba(74,222,128,0.9)", color: "#0a1a0a", fontSize: 9, borderRadius: 3, padding: "1px 5px", fontWeight: 700 }}>
+                      <span style={{ position: "absolute", bottom: 6, left: 6, background: `${ds.color.mint}e0`, color: ds.color.paper, fontSize: 9, borderRadius: 3, padding: "1px 5px", fontWeight: 700, fontFamily: ds.font.mono }}>
                         LOADED
                       </span>
                     </>
@@ -360,18 +327,13 @@ export default function CharacterImagesPage() {
                     <div style={{ textAlign: "center", padding: 12 }}>
                       {isUploading || isGenerating ? (
                         <div>
-                          <p style={{ color: "#7c5cfc", fontSize: 11, marginBottom: 4 }}>
+                          <p style={{ color: ds.color.lilac, fontSize: 11, marginBottom: 4 }}>
                             {isGenerating ? "Generating…" : "Uploading…"}
                           </p>
-                          {isGenerating && (
-                            <p style={{ color: "#4a3a7a", fontSize: 9 }}>Flux.1 running</p>
-                          )}
+                          {isGenerating && <p style={{ color: ds.color.mute2, fontSize: 9 }}>Flux.1 running</p>}
                         </div>
                       ) : (
-                        <>
-                          <p style={{ fontSize: 24, marginBottom: 6 }}>📷</p>
-                          <p style={{ fontSize: 10, color: "#3a3a5a", lineHeight: 1.4 }}>{slot.hint}</p>
-                        </>
+                        <p style={{ fontSize: 10, color: ds.color.mute2, lineHeight: 1.4 }}>{slot.hint}</p>
                       )}
                     </div>
                   )}
@@ -379,46 +341,42 @@ export default function CharacterImagesPage() {
 
                 {/* Slot label + action buttons */}
                 <div style={{ padding: "8px 10px" }}>
-                  <span style={{ fontSize: 11, color: existing ? "#4ade80" : "#5a5a7a", fontWeight: 600, display: "block", marginBottom: 6 }}>
+                  <span style={{ fontSize: 11, color: existing ? ds.color.mint : ds.color.mute2, fontWeight: 600, display: "block", marginBottom: 6 }}>
                     {slot.label}
                   </span>
                   <div style={{ display: "flex", gap: 4 }}>
-                    {/* Upload button */}
                     <label style={{
                       flex: 1, textAlign: "center",
-                      fontSize: 10, background: "#1a1a2e", border: "1px solid #2a2a40",
-                      borderRadius: 5, padding: "4px 6px", color: "#7070a0",
+                      fontSize: 10, background: ds.color.paper, border: `1px solid ${ds.color.line2}`,
+                      borderRadius: ds.radius.xs, padding: "4px 6px", color: ds.color.mute,
                       cursor: isUploading ? "wait" : "pointer",
                       opacity: isUploading || isGenerating ? 0.5 : 1,
                     }}>
                       {existing ? "Replace" : "Upload"}
                       <input
                         ref={el => { fileInputRefs.current[slot.angle] = el; }}
-                        type="file"
-                        accept="image/*"
-                        style={{ display: "none" }}
+                        type="file" accept="image/*" style={{ display: "none" }}
                         disabled={isUploading || isGenerating}
                         onChange={e => handleFiles(slot.angle, e.target.files)}
                       />
                     </label>
 
-                    {/* Generate button */}
                     <button
                       onClick={() => generateImage(slot.angle)}
                       disabled={isGeneratingAny || isUploading}
                       title={aiPrompt.trim() ? `Generate ${slot.label} with Flux.1` : "Enter a visual description first"}
                       style={{
-                        flex: 1,
-                        fontSize: 10, background: isGenerating ? "#1a0a3a" : "#160d30",
-                        border: `1px solid ${isGenerating ? "#7c5cfc" : "#2a1a5a"}`,
-                        borderRadius: 5, padding: "4px 6px",
-                        color: isGenerating ? "#7c5cfc" : "#5040a0",
+                        flex: 1, fontSize: 10,
+                        background: isGenerating ? `${ds.color.lilac}20` : ds.color.paper,
+                        border: `1px solid ${isGenerating ? ds.color.lilac : ds.color.line2}`,
+                        borderRadius: ds.radius.xs, padding: "4px 6px",
+                        color: isGenerating ? ds.color.lilac : ds.color.mute2,
                         cursor: isGeneratingAny || isUploading ? "not-allowed" : "pointer",
                         opacity: isGeneratingAny && !isGenerating ? 0.4 : 1,
                         transition: "border-color 0.15s, color 0.15s",
-                      }}
-                    >
-                      {isGenerating ? "…" : "✦ Gen"}
+                        fontFamily: ds.font.mono,
+                      }}>
+                      {isGenerating ? "…" : "Gen"}
                     </button>
                   </div>
                 </div>
@@ -429,8 +387,8 @@ export default function CharacterImagesPage() {
       </div>
 
       {/* Generation readiness summary */}
-      <div style={{ background: "#0f0f1a", border: "1px solid #1e1e38", borderRadius: 10, padding: "14px 18px" }}>
-        <p style={{ fontSize: 12, color: "#5a5a7a", marginBottom: 8, fontWeight: 600 }}>Generation readiness</p>
+      <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: "14px 18px" }}>
+        <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8, fontWeight: 600, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em" }}>Generation readiness</p>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {[
             { provider: "Kling",  needed: ["front"], bonus: ["three_quarter_left", "three_quarter_right"] },
@@ -441,11 +399,11 @@ export default function CharacterImagesPage() {
             const hasBonus = bonus.some(a => refImages.some(r => r.angle === a));
             return (
               <div key={provider} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: hasAll ? "#4ade80" : "#3a3a5a" }} />
-                <span style={{ fontSize: 11, color: hasAll ? "#c0e0c0" : "#3a3a5a" }}>
+                <span style={{ width: 7, height: 7, borderRadius: "50%", flexShrink: 0, background: hasAll ? ds.color.mint : ds.color.mute2, display: "inline-block" }} />
+                <span style={{ fontSize: 11, color: hasAll ? ds.color.ink2 : ds.color.mute2, fontFamily: ds.font.mono }}>
                   {provider}
-                  {hasAll && hasBonus && <span style={{ color: "#7c5cfc", marginLeft: 4 }}>+ bonus angles</span>}
-                  {!hasAll && <span style={{ color: "#3a3a5a" }}> — needs front face</span>}
+                  {hasAll && hasBonus && <span style={{ color: ds.color.lilac, marginLeft: 4 }}>+ bonus angles</span>}
+                  {!hasAll && <span style={{ color: ds.color.mute2 }}> — needs front face</span>}
                 </span>
               </div>
             );
@@ -453,36 +411,23 @@ export default function CharacterImagesPage() {
         </div>
       </div>
 
-      {/* ── Use This Character ─────────────────────── */}
-      <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: 16, background: "#0a0a18", marginTop: 16 }}>
-        <p style={{ fontSize: 12, fontWeight: 600, color: "#b090ff", marginBottom: 12 }}>Use This Character</p>
+      {/* Use This Character */}
+      <div style={{ border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 16, background: ds.color.card, marginTop: 16 }}>
+        <p style={{ fontSize: 12, fontWeight: 600, color: ds.color.lilac, marginBottom: 12, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em" }}>Use This Character</p>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          <a
-            href={`/dashboard/collaborative-editor?mode=image_to_video&characterId=${character.id}`}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#7c5cfc", color: "white", fontSize: 12, fontWeight: 600, textDecoration: "none" }}
-          >
-            🎭 Image → Video
-          </a>
-          <a
-            href={`/dashboard/collaborative-editor?mode=text_to_video&characterId=${character.id}`}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
-          >
-            🎬 Text → Video
-          </a>
-          <a
-            href={`/dashboard/collaborative-editor?mode=text_to_audio&characterId=${character.id}`}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
-          >
-            🎙 Text → Audio
-          </a>
-          <a
-            href={`/dashboard/commercial`}
-            style={{ padding: "8px 16px", borderRadius: 8, background: "#1a1a2e", border: "1px solid #2a2a40", color: "#b090ff", fontSize: 12, fontWeight: 500, textDecoration: "none" }}
-          >
-            📣 Use in Commercial
-          </a>
+          {[
+            { href: `/dashboard/collaborative-editor?mode=image_to_video&characterId=${character.id}`, label: "Image → Video", style: { background: ds.color.lilac } },
+            { href: `/dashboard/collaborative-editor?mode=text_to_video&characterId=${character.id}`,  label: "Text → Video",  style: { background: ds.color.card, border: `1px solid ${ds.color.line2}`, color: ds.color.lilac } },
+            { href: `/dashboard/collaborative-editor?mode=text_to_audio&characterId=${character.id}`, label: "Text → Audio",  style: { background: ds.color.card, border: `1px solid ${ds.color.line2}`, color: ds.color.lilac } },
+            { href: "/dashboard/commercial",                                                          label: "Use in Commercial", style: { background: ds.color.card, border: `1px solid ${ds.color.line2}`, color: ds.color.lilac } },
+          ].map(({ href, label, style }) => (
+            <a key={href} href={href}
+              style={{ padding: "8px 16px", borderRadius: ds.radius.sm, color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: ds.font.sans, ...style }}>
+              {label}
+            </a>
+          ))}
         </div>
-        <p style={{ fontSize: 9, color: "#404060", marginTop: 8 }}>
+        <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 8, fontFamily: ds.font.mono }}>
           Opens Studio with this character pre-selected. Voice, style, and image will be applied automatically.
         </p>
       </div>
@@ -492,11 +437,9 @@ export default function CharacterImagesPage() {
         <button
           onClick={async () => {
             await fetch("/api/assets", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
+              method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
-                type: "actor",
-                name: character.name,
+                type: "actor", name: character.name,
                 description: `${character.role ?? ""} — ${character.visualDescription ?? ""}`.trim(),
                 filePath: character.imageUrl,
                 tags: ["actor", character.gender ?? "", character.accent ?? ""].filter(Boolean),
@@ -505,12 +448,10 @@ export default function CharacterImagesPage() {
             });
             alert("Saved to Asset Library!");
           }}
-          style={{ marginTop: 8, padding: "8px 16px", borderRadius: 8, background: "#0a2a10", border: "1px solid #2a5a2a", color: "#4ade80", fontSize: 11, cursor: "pointer", width: "100%" }}
-        >
-          📦 Save to Asset Library
+          style={{ marginTop: 8, padding: "8px 16px", borderRadius: ds.radius.sm, background: `${ds.color.mint}10`, border: `1px solid ${ds.color.mint}30`, color: ds.color.mint, fontSize: 11, cursor: "pointer", width: "100%", fontFamily: ds.font.sans }}>
+          Save to Asset Library
         </button>
       )}
-
     </div>
   );
 }

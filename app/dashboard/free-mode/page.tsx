@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DurationPicker from "../../components/DurationPicker";
+import { ds } from "../../../lib/designSystem";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type OutputMode =
@@ -42,9 +43,9 @@ interface EnhanceResult {
   note:       string | null;
 }
 
-const AI_MODELS: { id: AIModel; label: string; badge: string; badgeColor: string; desc: string; icon: string }[] = [
-  { id: "haiku",    label: "GHS Pro 1", badge: "PRO 1", badgeColor: "#3b82f6", desc: "Fast AI — speed optimised, great for most tasks",  icon: "⚡" },
-  { id: "gpt_mini", label: "GHS Pro 2", badge: "PRO 2", badgeColor: "#06b6d4", desc: "Smart AI — more creative and varied output",        icon: "✦" },
+const AI_MODELS: { id: AIModel; label: string; badge: string; badgeColor: string; desc: string; icon?: string }[] = [
+  { id: "haiku",    label: "GHS Pro 1", badge: "PRO 1", badgeColor: "#3b82f6", desc: "Fast AI — speed optimised, great for most tasks" },
+  { id: "gpt_mini", label: "GHS Pro 2", badge: "PRO 2", badgeColor: "#06b6d4", desc: "Smart AI — more creative and varied output" },
 ];
 
 const MODEL_IDS: Record<AIModel, string> = {
@@ -71,21 +72,21 @@ const C = {
 };
 
 // ── Mode catalogue ─────────────────────────────────────────────────────────────
-const MODES: { id: OutputMode; icon: string; label: string; tag: string; desc: string; uploadType?: "image"|"video"; badge?: string }[] = [
-  { id: "text_to_video",  icon: "✦", label: "Text → Video",  tag: "POPULAR",   desc: "Type any idea. AI writes script, generates visuals, adds voice & music." },
+const MODES: { id: OutputMode; icon?: string; label: string; tag: string; desc: string; uploadType?: "image"|"video"; badge?: string }[] = [
+  { id: "text_to_video", label: "Text → Video",  tag: "POPULAR",   desc: "Type any idea. AI writes script, generates visuals, adds voice & music." },
   { id: "text_to_image",  icon: "◈", label: "Text → Image",  tag: "INSTANT",   desc: "Describe what you see. AI renders a high-quality image." },
   { id: "image_to_video", icon: "▷", label: "Image → Video", tag: "ANIMATE",   desc: "Upload a photo. AI brings it to life with smooth motion.", uploadType: "image" },
   { id: "ai_motion",      icon: "⬡", label: "AI Motion",     tag: "CHARACTER", desc: "Place your character into motion. Image → Video, motion transfer.", badge: "NEW" },
   { id: "images_audio",   icon: "◧", label: "Slideshow",     tag: "EASY",      desc: "Upload photos, add narration — AI builds a polished video with music." },
   { id: "text_to_audio",  icon: "◉", label: "Audio Only",    tag: "VOICE",     desc: "Script → professional voiceover + background music. No video." },
-  { id: "hybrid",         icon: "⚡", label: "Hybrid",        tag: "SMART",     desc: "AI mixes video clips and animated images. Best quality per dollar." },
+  { id: "hybrid", label: "Hybrid",        tag: "SMART",     desc: "AI mixes video clips and animated images. Best quality per dollar." },
   { id: "video_to_video", icon: "↺", label: "Video → Video", tag: "TRANSFORM", desc: "Upload a video, restyle it with AI — new look, same motion.", uploadType: "video" },
 ];
 
-const MOTION_SUB: { id: MotionSubMode; icon: string; title: string; color: string }[] = [
-  { id: "image-to-video",   icon: "🖼",     title: "Image → Video",         color: C.cyan   },
-  { id: "image-plus-video", icon: "🖼+🎬", title: "Image + Video → Video", color: C.purple },
-  { id: "video-to-video",   icon: "🎬",     title: "Video → Video",         color: C.accent },
+const MOTION_SUB: { id: MotionSubMode; icon?: string; title: string; color: string }[] = [
+  { id: "image-to-video",     title: "Image → Video",         color: ds.color.sky   },
+  { id: "image-plus-video", icon: "+", title: "Image + Video → Video", color: ds.color.lilac },
+  { id: "video-to-video",     title: "Video → Video",         color: ds.color.sky },
 ];
 
 const ASPECTS   = [{ v: "9:16", l: "9:16", s: "Reels" }, { v: "16:9", l: "16:9", s: "YouTube" }, { v: "1:1", l: "1:1", s: "Square" }];
@@ -99,7 +100,7 @@ const LANGUAGES = [
 const STYLES = ["— Any —","Cinematic","Animated","Realistic","Documentary","Fantasy","Sci-fi","Horror","Comedy","Romance","Action","Nature","Urban"];
 
 function modeLabel(m: OutputMode): string { return MODES.find(x => x.id === m)?.label ?? m; }
-function modeIcon(m: OutputMode):  string { return MODES.find(x => x.id === m)?.icon ?? "✦"; }
+function modeIcon(m: OutputMode):  string { return MODES.find(x => x.id === m)?.icon ?? ""; }
 function timeAgo(ts: number): string {
   const s = Math.floor((Date.now() - ts) / 1000);
   if (s < 60)    return "just now";
@@ -108,12 +109,12 @@ function timeAgo(ts: number): string {
   return new Date(ts).toLocaleDateString();
 }
 
-function Pill({ active, onClick, children, color = C.accent }: { active: boolean; onClick: () => void; children: React.ReactNode; color?: string }) {
+function Pill({ active, onClick, children, color = ds.color.sky }: { active: boolean; onClick: () => void; children: React.ReactNode; color?: string }) {
   return (
     <button onClick={onClick} style={{
-      padding: "6px 13px", borderRadius: 8, border: `1px solid ${active ? color + "60" : C.border}`,
+      padding: "6px 13px", borderRadius: 8, border: `1px solid ${active ? color + "60" : ds.color.line}`,
       background: active ? `${color}18` : "transparent",
-      color: active ? color : C.sub, fontSize: 12, fontWeight: 700,
+      color: active ? color : ds.color.mute, fontSize: 12, fontWeight: 700,
       cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.15s",
     }}>{children}</button>
   );
@@ -136,38 +137,38 @@ function ConfirmModal({
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 500,
-      background: "rgba(0,0,0,0.72)", backdropFilter: "blur(8px)",
+      background: "rgba(0,0,0,0.72)",
       display: "flex", alignItems: "center", justifyContent: "center",
       padding: 24,
     }}>
       <div style={{
         width: "100%", maxWidth: 560, borderRadius: 20,
-        background: C.surface, border: `1px solid ${isLow ? C.amber + "60" : C.border}`,
+        background: ds.color.card, border: `1px solid ${isLow ? ds.color.gold + "60" : ds.color.line}`,
         boxShadow: `0 24px 80px rgba(0,0,0,0.6)`,
         overflow: "hidden",
         animation: "fadeSlideUp 0.2s ease",
       }}>
         {/* Header */}
         <div style={{
-          padding: "18px 24px", borderBottom: `1px solid ${C.border}`,
+          padding: "18px 24px", borderBottom: `1px solid ${ds.color.line}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: isLow ? `${C.amber}08` : `${C.accent}06`,
+          background: isLow ? `${ds.color.gold}08` : `${ds.color.sky}06`,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
-              background: isLow ? `${C.amber}20` : `${C.accent}18`,
-              border: `1px solid ${isLow ? C.amber + "40" : C.accent + "30"}`,
+              background: isLow ? `${ds.color.gold}20` : `${ds.color.sky}18`,
+              border: `1px solid ${isLow ? ds.color.gold + "40" : ds.color.sky + "30"}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 17,
             }}>
-              {isLow ? "⚠" : isMed ? "◈" : "✦"}
+              {isLow ? "" : isMed ? "◈" : ""}
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: ds.color.ink }}>
                 {isLow ? "AI wasn't sure — please review" : "Confirm your generation"}
               </div>
-              <div style={{ fontSize: 11, color: C.sub, marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: ds.color.mute, marginTop: 2 }}>
                 {isLow ? "Confidence: low — your prompt may be unclear" :
                  isMed ? "Confidence: medium — some assumptions were made" :
                  "Confidence: high — AI understood your intent"}
@@ -176,9 +177,9 @@ function ConfirmModal({
           </div>
           <span style={{
             padding: "4px 10px", borderRadius: 6, fontSize: 10, fontWeight: 800, letterSpacing: 0.8,
-            background: isLow ? `${C.amber}20` : isMed ? `${C.cyan}18` : `${C.green}15`,
-            color: isLow ? C.amber : isMed ? C.cyan : C.green,
-            border: `1px solid ${isLow ? C.amber + "40" : isMed ? C.cyan + "40" : C.green + "35"}`,
+            background: isLow ? `${ds.color.gold}20` : isMed ? `${ds.color.sky}18` : `${ds.color.mint}15`,
+            color: isLow ? ds.color.gold : isMed ? ds.color.sky : ds.color.mint,
+            border: `1px solid ${isLow ? ds.color.gold + "40" : isMed ? ds.color.sky + "40" : ds.color.mint + "35"}`,
           }}>
             {enhance.confidence.toUpperCase()}
           </span>
@@ -187,13 +188,13 @@ function ConfirmModal({
         <div style={{ padding: "20px 24px" }}>
           {/* Original prompt */}
           <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>
               Your prompt
             </div>
             <div style={{
               padding: "10px 14px", borderRadius: 10,
-              background: C.surf2, border: `1px solid ${C.border}`,
-              fontSize: 13, color: C.sub, lineHeight: 1.6,
+              background: ds.color.alert, border: `1px solid ${ds.color.line}`,
+              fontSize: 13, color: ds.color.mute, lineHeight: 1.6,
             }}>
               {rawPrompt}
             </div>
@@ -201,11 +202,11 @@ function ConfirmModal({
 
           {/* Enhanced prompt */}
           <div style={{ marginBottom: isLow ? 14 : 20 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6, display: "flex", alignItems: "center", gap: 8 }}>
               AI-enhanced prompt
               <button onClick={() => setEditMode(!editMode)} style={{
                 padding: "2px 8px", borderRadius: 5, fontSize: 9, fontWeight: 700,
-                background: `${C.cyan}15`, border: `1px solid ${C.cyan}35`, color: C.cyan, cursor: "pointer",
+                background: `${ds.color.sky}15`, border: `1px solid ${ds.color.sky}35`, color: ds.color.sky, cursor: "pointer",
               }}>{editMode ? "Done editing" : "Edit"}</button>
             </div>
             {editMode ? (
@@ -215,17 +216,17 @@ function ConfirmModal({
                 rows={4}
                 style={{
                   width: "100%", boxSizing: "border-box",
-                  background: C.surf2, border: `1.5px solid ${C.cyan}50`,
-                  borderRadius: 10, color: C.text, fontSize: 13, padding: "10px 14px",
+                  background: ds.color.alert, border: `1.5px solid ${ds.color.sky}50`,
+                  borderRadius: 10, color: ds.color.ink, fontSize: 13, padding: "10px 14px",
                   resize: "vertical", outline: "none", lineHeight: 1.6, fontFamily: "inherit",
                 }}
               />
             ) : (
               <div style={{
                 padding: "10px 14px", borderRadius: 10,
-                background: isLow ? `${C.amber}06` : `${C.accent}06`,
-                border: `1px solid ${isLow ? C.amber + "30" : C.accent + "25"}`,
-                fontSize: 13, color: C.text, lineHeight: 1.7,
+                background: isLow ? `${ds.color.gold}06` : `${ds.color.sky}06`,
+                border: `1px solid ${isLow ? ds.color.gold + "30" : ds.color.sky + "25"}`,
+                fontSize: 13, color: ds.color.ink, lineHeight: 1.7,
               }}>
                 {editedPrompt}
               </div>
@@ -236,10 +237,10 @@ function ConfirmModal({
           {enhance.note && (
             <div style={{
               marginBottom: 16, padding: "10px 14px", borderRadius: 10,
-              background: `${C.amber}08`, border: `1px solid ${C.amber}30`,
-              fontSize: 12, color: C.amber, lineHeight: 1.6,
+              background: `${ds.color.gold}08`, border: `1px solid ${ds.color.gold}30`,
+              fontSize: 12, color: ds.color.gold, lineHeight: 1.6,
             }}>
-              ⚠ {enhance.note}
+              {enhance.note}
             </div>
           )}
 
@@ -247,18 +248,18 @@ function ConfirmModal({
           <div style={{ display: "flex", gap: 10 }}>
             <button onClick={onEdit} style={{
               flex: 1, padding: "12px 20px", borderRadius: 12,
-              border: `1px solid ${C.border}`, background: "transparent",
-              color: C.sub, fontSize: 14, fontWeight: 700, cursor: "pointer",
+              border: `1px solid ${ds.color.line}`, background: "transparent",
+              color: ds.color.mute, fontSize: 14, fontWeight: 700, cursor: "pointer",
             }}>← Edit Prompt</button>
             <button onClick={() => onConfirm(editedPrompt)} style={{
               flex: 2, padding: "12px 20px", borderRadius: 12, border: "none",
               background: isLow
-                ? `linear-gradient(135deg, ${C.amber}, #f97316)`
-                : `linear-gradient(135deg, ${C.accent}, ${C.accentB})`,
+                ? `linear-gradient(135deg, ${ds.color.gold}, #f97316)`
+                : `linear-gradient(135deg, ${ds.color.sky}, ${ds.color.lilac})`,
               color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer",
-              boxShadow: `0 4px 20px ${isLow ? C.amber : C.accent}40`,
+              boxShadow: `0 4px 20px ${isLow ? ds.color.gold : ds.color.sky}40`,
             }}>
-              {isLow ? "Generate Anyway →" : "✦ Generate →"}
+              {isLow ? "Generate Anyway →" : "Generate →"}
             </button>
           </div>
         </div>
@@ -277,8 +278,8 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
   return (
     <div style={{
       padding: "18px 20px", borderRadius: 16, marginBottom: 12,
-      background: C.surface, border: `1px solid ${
-        isGenerating ? C.accent + "40" : isDone ? C.border : isError ? C.red + "30" : C.border
+      background: ds.color.card, border: `1px solid ${
+        isGenerating ? ds.color.sky + "40" : isDone ? ds.color.line : isError ? "#ef4444" + "30" : ds.color.line
       }`,
       position: "relative", animation: "fadeSlideUp 0.35s ease",
     }}>
@@ -286,45 +287,45 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 34, height: 34, borderRadius: 9,
-            background: isGenerating ? `${C.accent}18` : isDone ? `${C.green}14` : `${C.red}14`,
-            border: `1px solid ${isGenerating ? C.accent + "40" : isDone ? C.green + "30" : C.red + "30"}`,
+            background: isGenerating ? `${ds.color.sky}18` : isDone ? `${ds.color.mint}14` : `${"#ef4444"}14`,
+            border: `1px solid ${isGenerating ? ds.color.sky + "40" : isDone ? ds.color.mint + "30" : "#ef4444" + "30"}`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 14, color: isGenerating ? C.accent : isDone ? C.green : C.red,
+            fontSize: 14, color: isGenerating ? ds.color.sky : isDone ? ds.color.mint : "#ef4444",
           }}>
-            {isGenerating ? "⏳" : isDone ? "✓" : "⚠"}
+            {isGenerating ? "⏳" : isDone ? "" : ""}
           </div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{modeLabel(item.mode)}</div>
-            <div style={{ fontSize: 10, color: C.sub }}>{timeAgo(item.timestamp)}</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: ds.color.ink }}>{modeLabel(item.mode)}</div>
+            <div style={{ fontSize: 10, color: ds.color.mute }}>{timeAgo(item.timestamp)}</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
           {!isGenerating && (
             <button onClick={onReuse} style={{
-              padding: "4px 11px", borderRadius: 7, border: `1px solid ${C.border}`,
-              background: "transparent", color: C.sub, fontSize: 11, fontWeight: 600, cursor: "pointer",
+              padding: "4px 11px", borderRadius: 7, border: `1px solid ${ds.color.line}`,
+              background: "transparent", color: ds.color.mute, fontSize: 11, fontWeight: 600, cursor: "pointer",
             }}>↺ Reuse</button>
           )}
           <button onClick={onDelete} style={{
-            padding: "4px 9px", borderRadius: 7, border: `1px solid ${C.border}`,
-            background: "transparent", color: C.muted, fontSize: 11, cursor: "pointer",
-          }}>✕</button>
+            padding: "4px 9px", borderRadius: 7, border: `1px solid ${ds.color.line}`,
+            background: "transparent", color: ds.color.mute2, fontSize: 11, cursor: "pointer",
+          }}></button>
         </div>
       </div>
 
       {/* Show enhanced prompt if different */}
       {item.enhancedPrompt && item.enhancedPrompt !== item.rawPrompt ? (
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 10, color: C.muted, marginBottom: 4, fontWeight: 600 }}>ENHANCED</div>
+          <div style={{ fontSize: 10, color: ds.color.mute2, marginBottom: 4, fontWeight: 600 }}>ENHANCED</div>
           <p style={{
-            margin: 0, fontSize: 13, lineHeight: 1.6, color: C.text,
+            margin: 0, fontSize: 13, lineHeight: 1.6, color: ds.color.ink,
             display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden",
           }}>{item.enhancedPrompt}</p>
         </div>
       ) : (
         <p style={{
           margin: "0 0 12px", fontSize: 13, lineHeight: 1.6,
-          color: item.rawPrompt === "(image animation)" ? C.sub : C.text,
+          color: item.rawPrompt === "(image animation)" ? ds.color.mute : ds.color.ink,
           fontStyle: item.rawPrompt === "(image animation)" ? "italic" : "normal",
           display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" as const, overflow: "hidden",
         }}>
@@ -337,10 +338,10 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
         <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
           {item.refImagePaths.slice(0, 4).map((p, i) => (
             <img key={i} src={`/api/media/file?path=${encodeURIComponent(p)}`} alt=""
-              style={{ width: 44, height: 44, borderRadius: 7, objectFit: "cover", border: `1px solid ${C.purple}40` }} />
+              style={{ width: 44, height: 44, borderRadius: 7, objectFit: "cover", border: `1px solid ${ds.color.lilac}40` }} />
           ))}
           {item.refImagePaths.length > 4 && (
-            <div style={{ width: 44, height: 44, borderRadius: 7, background: C.surf2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: C.sub, fontWeight: 700 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 7, background: ds.color.alert, border: `1px solid ${ds.color.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: ds.color.mute, fontWeight: 700 }}>
               +{item.refImagePaths.length - 4}
             </div>
           )}
@@ -361,42 +362,42 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
           item.style ? item.style : null,
         ].filter(Boolean).map((tag, i) => (
           <span key={i} style={{ padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-            background: C.surf2, color: C.muted, border: `1px solid ${C.border}` }}>{tag}</span>
+            background: ds.color.alert, color: ds.color.mute2, border: `1px solid ${ds.color.line}` }}>{tag}</span>
         ))}
         {item.uploadedPaths.length > 0 && (
           <span style={{ padding: "2px 8px", borderRadius: 5, fontSize: 10, fontWeight: 700,
-            background: `${C.green}12`, color: C.green, border: `1px solid ${C.green}30` }}>
-            📎 {item.uploadedPaths.length} file{item.uploadedPaths.length > 1 ? "s" : ""}
+            background: `${ds.color.mint}12`, color: ds.color.mint, border: `1px solid ${ds.color.mint}30` }}>
+            {item.uploadedPaths.length} file{item.uploadedPaths.length > 1 ? "s" : ""}
           </span>
         )}
       </div>
 
       {/* Status */}
       {isGenerating && (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: `${C.accent}0a`, border: `1px solid ${C.accent}25` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: `${ds.color.sky}0a`, border: `1px solid ${ds.color.sky}25` }}>
           <span style={{ fontSize: 13, animation: "spin 1.2s linear infinite", display: "inline-block" }}>⏳</span>
-          <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>Generating… AI is working on this</span>
+          <span style={{ fontSize: 12, color: ds.color.sky, fontWeight: 600 }}>Generating… AI is working on this</span>
         </div>
       )}
       {isDone && item.resultType === "image" && item.resultUrl && (
         <div>
-          <img src={item.resultUrl} alt="Generated" style={{ width: "100%", maxHeight: 300, objectFit: "contain", borderRadius: 10, border: `1px solid ${C.border}` }} />
+          <img src={item.resultUrl} alt="Generated" style={{ width: "100%", maxHeight: 300, objectFit: "contain", borderRadius: 10, border: `1px solid ${ds.color.line}` }} />
           <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <a href={item.resultUrl} download style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: `${C.accent}18`, border: `1px solid ${C.accent}40`, color: C.accent, textDecoration: "none" }}>⬇ Download</a>
-            <a href="/dashboard/assets" style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.sub, textDecoration: "none" }}>📦 Asset Library</a>
+            <a href={item.resultUrl} download style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: `${ds.color.sky}18`, border: `1px solid ${ds.color.sky}40`, color: ds.color.sky, textDecoration: "none" }}>⬇ Download</a>
+            <a href="/dashboard/assets" style={{ padding: "7px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, background: "transparent", border: `1px solid ${ds.color.line}`, color: ds.color.mute, textDecoration: "none" }}>Asset Library</a>
           </div>
         </div>
       )}
       {isDone && item.resultType === "job" && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: `${C.green}0a`, border: `1px solid ${C.green}25` }}>
-          <span style={{ fontSize: 15 }}>✅</span>
-          <span style={{ fontSize: 12, color: C.green, fontWeight: 600 }}>Sent to pipeline</span>
-          <a href="/dashboard/review" style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 7, fontSize: 11, fontWeight: 700, background: `${C.accent}18`, border: `1px solid ${C.accent}40`, color: C.accent, textDecoration: "none" }}>Review Queue →</a>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: `${ds.color.mint}0a`, border: `1px solid ${ds.color.mint}25` }}>
+          <span style={{ fontSize: 15 }}></span>
+          <span style={{ fontSize: 12, color: ds.color.mint, fontWeight: 600 }}>Sent to pipeline</span>
+          <a href="/dashboard/review" style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 7, fontSize: 11, fontWeight: 700, background: `${ds.color.sky}18`, border: `1px solid ${ds.color.sky}40`, color: ds.color.sky, textDecoration: "none" }}>Review Queue →</a>
         </div>
       )}
       {isError && (
-        <div style={{ padding: "10px 14px", borderRadius: 10, background: `${C.red}0a`, border: `1px solid ${C.red}25` }}>
-          <span style={{ fontSize: 12, color: C.red, fontWeight: 600 }}>⚠ {item.errorMsg ?? "Generation failed"}</span>
+        <div style={{ padding: "10px 14px", borderRadius: 10, background: `${"#ef4444"}0a`, border: `1px solid ${"#ef4444"}25` }}>
+          <span style={{ fontSize: 12, color: "#ef4444", fontWeight: 600 }}>{item.errorMsg ?? "Generation failed"}</span>
         </div>
       )}
     </div>
@@ -762,27 +763,20 @@ function FreeModeInner() {
     "What transformation should AI apply to your video?";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: C.bg, color: C.text, fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: ds.color.paper, color: ds.color.ink, fontFamily: "ds.font.sans" }}>
 
-      {/* Ambient glow */}
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0,
-        background: `
-          radial-gradient(ellipse 70% 50% at 15% 0%,   rgba(59,130,246,0.10) 0%, transparent 55%),
-          radial-gradient(ellipse 55% 40% at 85% 100%, rgba(99,102,241,0.07)  0%, transparent 55%),
-          radial-gradient(ellipse 40% 30% at 50% 45%,  rgba(59,130,246,0.04) 0%, transparent 50%)
-        `,
-      }} />
+      
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0.03,
-        backgroundImage: `linear-gradient(${C.border} 1px, transparent 1px), linear-gradient(90deg, ${C.border} 1px, transparent 1px)`,
+        backgroundImage: `linear-gradient(${ds.color.line} 1px, transparent 1px), linear-gradient(90deg, ${ds.color.line} 1px, transparent 1px)`,
         backgroundSize: "48px 48px",
       }} />
 
       {/* ── Header ── */}
       <div style={{
         position: "relative", zIndex: 10, flexShrink: 0,
-        borderBottom: `1px solid ${C.border}`, padding: "12px 24px",
+        borderBottom: `1px solid ${ds.color.line}`, padding: "12px 24px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: `${C.surface}e0`, backdropFilter: "blur(12px)",
+        background: ds.color.card,
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
@@ -791,10 +785,10 @@ function FreeModeInner() {
             display: "flex", alignItems: "center", justifyContent: "center",
             fontSize: 15, fontWeight: 900, color: "#fff",
             boxShadow: "0 4px 16px rgba(236,72,153,0.40)",
-          }}>✦</div>
+          }}></div>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: C.text, letterSpacing: -0.4 }}>Free Mode</div>
-            <div style={{ fontSize: 10, color: C.sub, letterSpacing: 0.8 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: ds.color.ink, letterSpacing: -0.4 }}>Free Mode</div>
+            <div style={{ fontSize: 10, color: ds.color.mute, letterSpacing: 0.8 }}>
               {!histLoaded ? "Loading history…" :
                history.length > 0 ? `${history.length} generation${history.length > 1 ? "s" : ""}` : "Quick AI generation"}
             </div>
@@ -809,11 +803,11 @@ function FreeModeInner() {
               setHistory([]);
             }} style={{
               padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600,
-              border: `1px solid ${C.border}`, color: C.muted, background: "transparent", cursor: "pointer",
+              border: `1px solid ${ds.color.line}`, color: ds.color.mute2, background: "transparent", cursor: "pointer",
             }}>Clear history</button>
           )}
-          <a href="/dashboard/hybrid-planner" style={{ padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: "none", border: `1px solid ${C.border}`, color: C.sub, background: "transparent" }}>⚡ Hybrid</a>
-          <a href="/dashboard/review" style={{ padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: "none", background: `${C.accent}18`, border: `1px solid ${C.accent}40`, color: C.accent }}>◈ Review Queue</a>
+          <a href="/dashboard/hybrid-planner" style={{ padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: "none", border: `1px solid ${ds.color.line}`, color: ds.color.mute, background: "transparent" }}>Hybrid</a>
+          <a href="/dashboard/review" style={{ padding: "6px 13px", borderRadius: 8, fontSize: 12, fontWeight: 600, textDecoration: "none", background: `${ds.color.sky}18`, border: `1px solid ${ds.color.sky}40`, color: ds.color.sky }}>◈ Review Queue</a>
         </div>
       </div>
 
@@ -826,18 +820,10 @@ function FreeModeInner() {
         {history.length === 0 && histLoaded && (
           <div style={{ textAlign: "center", padding: "60px 32px 40px", maxWidth: 560, margin: "0 auto" }}>
             <div style={{ position: "relative", display: "inline-block", marginBottom: 28 }}>
-              <div style={{
-                width: 80, height: 80, borderRadius: 22,
-                background: `linear-gradient(135deg, ${C.accent}30, ${C.accentB}20)`,
-                border: `1px solid ${C.accent}35`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 36, margin: "0 auto",
-                boxShadow: `0 0 40px ${C.accent}20, 0 0 80px ${C.accent}10`,
-              }}>✦</div>
-              <div style={{ position: "absolute", inset: -8, borderRadius: 28, background: `radial-gradient(circle, ${C.accent}12 0%, transparent 70%)`, animation: "pulseGlow 3s ease-in-out infinite" }} />
+              <div style={{ position: "absolute", inset: -8, borderRadius: 28, background: `radial-gradient(circle, ${ds.color.sky}12 0%, transparent 70%)`, animation: "pulseGlow 3s ease-in-out infinite" }} />
             </div>
-            <h2 style={{ fontSize: 24, fontWeight: 900, color: C.text, marginBottom: 10, letterSpacing: -0.6 }}>What would you like to create?</h2>
-            <p style={{ fontSize: 14, color: C.sub, lineHeight: 1.75, marginBottom: 32 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 900, color: ds.color.ink, marginBottom: 10, letterSpacing: -0.6 }}>What would you like to create?</h2>
+            <p style={{ fontSize: 14, color: ds.color.mute, lineHeight: 1.75, marginBottom: 32 }}>
               Type any idea below — video, image, audio, or slideshow.<br />
               AI enhances your prompt automatically. Every generation is saved permanently.
             </p>
@@ -845,11 +831,11 @@ function FreeModeInner() {
               {["A sunset over mountains, cinematic", "A futuristic city at night", "A product showcase, clean studio", "A nature documentary scene"].map(s => (
                 <button key={s} onClick={() => setPrompt(s)} style={{
                   padding: "8px 16px", borderRadius: 20, fontSize: 12, fontWeight: 600,
-                  border: `1px solid ${C.border}`, background: C.surface, color: C.sub, cursor: "pointer",
+                  border: `1px solid ${ds.color.line}`, background: ds.color.card, color: ds.color.mute, cursor: "pointer",
                 }}>{s}</button>
               ))}
             </div>
-            <p style={{ fontSize: 11, color: C.muted }}>✦ AI enhances your prompt, then you confirm before generating</p>
+            <p style={{ fontSize: 11, color: ds.color.mute2 }}>AI enhances your prompt, then you confirm before generating</p>
           </div>
         )}
 
@@ -859,7 +845,7 @@ function FreeModeInner() {
 
         {anyGenerating && (
           <div style={{ textAlign: "center", padding: "8px 0", marginBottom: 8 }}>
-            <span style={{ fontSize: 11, color: C.accent, fontWeight: 600, letterSpacing: 0.5 }}>● AI is working…</span>
+            <span style={{ fontSize: 11, color: ds.color.sky, fontWeight: 600, letterSpacing: 0.5 }}>● AI is working…</span>
           </div>
         )}
       </div>
@@ -867,8 +853,8 @@ function FreeModeInner() {
       {/* ── Input panel (sticky bottom) ── */}
       <div style={{
         position: "relative", zIndex: 10, flexShrink: 0,
-        borderTop: `1px solid ${C.border}`,
-        background: `${C.surface}f0`, backdropFilter: "blur(16px)",
+        borderTop: `1px solid ${ds.color.line}`,
+        background: ds.color.card,
         padding: "16px 24px 20px",
       }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
@@ -879,17 +865,17 @@ function FreeModeInner() {
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowModes(!showModes)} style={{
                 display: "flex", alignItems: "center", gap: 8,
-                background: C.surf2, border: `1px solid ${C.border}`, borderRadius: 10,
-                padding: "7px 14px", cursor: "pointer", color: C.text,
+                background: ds.color.alert, border: `1px solid ${ds.color.line}`, borderRadius: 10,
+                padding: "7px 14px", cursor: "pointer", color: ds.color.ink,
               }}>
                 <span style={{ fontSize: 14 }}>{modeIcon(mode)}</span>
                 <span style={{ fontSize: 12, fontWeight: 700 }}>{modeLabel(mode)}</span>
-                <span style={{ fontSize: 9, color: C.sub, marginLeft: 2 }}>{showModes ? "▲" : "▼"}</span>
+                <span style={{ fontSize: 9, color: ds.color.mute, marginLeft: 2 }}>{showModes ? "▲" : "▼"}</span>
               </button>
               {showModes && (
                 <div style={{
                   position: "absolute", bottom: "100%", left: 0,
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 14,
+                  background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 14,
                   padding: 12, marginBottom: 4,
                   display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6,
                   width: 480, zIndex: 20,
@@ -901,17 +887,17 @@ function FreeModeInner() {
                       <button key={m.id} onClick={() => switchMode(m.id)} style={{
                         display: "flex", alignItems: "center", gap: 10,
                         padding: "10px 14px", borderRadius: 10, cursor: "pointer",
-                        border: `1px solid ${active ? C.accent + "60" : C.border}`,
-                        background: active ? `${C.accent}0e` : "transparent",
+                        border: `1px solid ${active ? ds.color.sky + "60" : ds.color.line}`,
+                        background: active ? `${ds.color.sky}0e` : "transparent",
                         textAlign: "left",
                       }}>
-                        <span style={{ fontSize: 16, color: active ? C.accent : C.sub }}>{m.icon}</span>
+                        <span style={{ fontSize: 16, color: active ? ds.color.sky : ds.color.mute }}>{m.icon}</span>
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: active ? C.text : "#c0c0d8" }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: active ? ds.color.ink : "#c0c0d8" }}>
                             {m.label}
-                            {m.badge && <span style={{ marginLeft: 6, fontSize: 8, background: `${C.accent}25`, color: C.accent, padding: "1px 5px", borderRadius: 4, fontWeight: 800 }}>{m.badge}</span>}
+                            {m.badge && <span style={{ marginLeft: 6, fontSize: 8, background: `${ds.color.sky}25`, color: ds.color.sky, padding: "1px 5px", borderRadius: 4, fontWeight: 800 }}>{m.badge}</span>}
                           </div>
-                          <div style={{ fontSize: 10, color: C.sub }}>{m.tag}</div>
+                          <div style={{ fontSize: 10, color: ds.color.mute }}>{m.tag}</div>
                         </div>
                       </button>
                     );
@@ -928,9 +914,9 @@ function FreeModeInner() {
               {MOTION_SUB.map(sm => (
                 <button key={sm.id} onClick={() => setMotionSub(sm.id)} style={{
                   padding: "7px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: "pointer",
-                  border: `1px solid ${motionSub === sm.id ? sm.color + "60" : C.border}`,
+                  border: `1px solid ${motionSub === sm.id ? sm.color + "60" : ds.color.line}`,
                   background: motionSub === sm.id ? `${sm.color}12` : "transparent",
-                  color: motionSub === sm.id ? sm.color : C.sub,
+                  color: motionSub === sm.id ? sm.color : ds.color.mute,
                 }}>{sm.icon} {sm.title}</button>
               ))}
             </div>
@@ -947,29 +933,29 @@ function FreeModeInner() {
                   onDrop={e => { e.preventDefault(); if (e.dataTransfer.files) handlePrimaryUpload(e.dataTransfer.files); }}
                   style={{
                     flex: 1, minWidth: 160,
-                    border: `2px dashed ${uploadedFiles.length > 0 ? C.green : C.border}`,
+                    border: `2px dashed ${uploadedFiles.length > 0 ? ds.color.mint : ds.color.line}`,
                     borderRadius: 12, padding: "10px 16px", cursor: "pointer",
-                    background: uploadedFiles.length > 0 ? `${C.green}08` : "transparent",
+                    background: uploadedFiles.length > 0 ? `${ds.color.mint}08` : "transparent",
                     textAlign: "center", transition: "all 0.2s",
                   }}>
                   {uploadedFiles.length > 0 ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                       {uploadedFiles.slice(0, 3).map((f, i) => (
-                        <div key={i} style={{ fontSize: 11, color: C.green, fontWeight: 600 }}>
+                        <div key={i} style={{ fontSize: 11, color: ds.color.mint, fontWeight: 600 }}>
                           {f.name.slice(0, 14)}…
                         </div>
                       ))}
-                      {uploadedFiles.length > 3 && <span style={{ fontSize: 11, color: C.sub }}>+{uploadedFiles.length - 3} more</span>}
+                      {uploadedFiles.length > 3 && <span style={{ fontSize: 11, color: ds.color.mute }}>+{uploadedFiles.length - 3} more</span>}
                       <button onClick={e => { e.stopPropagation(); setUploadedFiles([]); setUploadedPaths([]); }}
-                        style={{ background: "none", border: "none", color: C.red, fontSize: 11, cursor: "pointer" }}>✕ Clear</button>
+                        style={{ background: "none", border: "none", color: "#ef4444", fontSize: 11, cursor: "pointer" }}>Clear</button>
                     </div>
                   ) : (
                     <>
-                      <span style={{ fontSize: 18 }}>{uploading ? "⏳" : "📸"}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.sub, marginLeft: 8 }}>
+                      <span style={{ fontSize: 18 }}>{uploading ? "⏳" : ""}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: ds.color.mute, marginLeft: 8 }}>
                         {uploading ? "Uploading…" : mode === "video_to_video" ? "Upload Video" : "Upload Image(s)"}
                       </span>
-                      <div style={{ fontSize: 10, color: C.muted, marginTop: 3 }}>Click or drag • multiple files OK</div>
+                      <div style={{ fontSize: 10, color: ds.color.mute2, marginTop: 3 }}>Click or drag • multiple files OK</div>
                     </>
                   )}
                   <input ref={fileRef} type="file"
@@ -987,18 +973,18 @@ function FreeModeInner() {
                   onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) handleRefVideoUpload(f); }}
                   style={{
                     flex: 1, minWidth: 160,
-                    border: `2px dashed ${refVideoFile ? C.cyan : C.border}`,
+                    border: `2px dashed ${refVideoFile ? ds.color.sky : ds.color.line}`,
                     borderRadius: 12, padding: "12px 16px", cursor: "pointer",
-                    background: refVideoFile ? `${C.cyan}08` : "transparent",
+                    background: refVideoFile ? `${ds.color.sky}08` : "transparent",
                     textAlign: "center",
                   }}>
-                  <span style={{ fontSize: 18 }}>{refVideoFile ? "✅" : "🎬"}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: refVideoFile ? C.cyan : C.sub, marginLeft: 8 }}>
+                  <span style={{ fontSize: 18 }}>{refVideoFile ? "" : ""}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: refVideoFile ? ds.color.sky : ds.color.mute, marginLeft: 8 }}>
                     {refVideoFile ? refVideoFile.name.slice(0, 20) + "…" : "Reference Video"}
                   </span>
                   {refVideoFile && (
                     <button onClick={e => { e.stopPropagation(); setRefVideoFile(null); setRefVideoPath(""); }}
-                      style={{ marginLeft: 8, background: "none", border: "none", color: C.red, fontSize: 11, cursor: "pointer" }}>✕</button>
+                      style={{ marginLeft: 8, background: "none", border: "none", color: "#ef4444", fontSize: 11, cursor: "pointer" }}></button>
                   )}
                   <input ref={refVidRef} type="file" accept="video/*" style={{ display: "none" }}
                     onChange={e => { const f = e.target.files?.[0]; if (f) handleRefVideoUpload(f); e.target.value = ""; }} />
@@ -1012,17 +998,17 @@ function FreeModeInner() {
                   onDrop={e => { e.preventDefault(); if (e.dataTransfer.files) handleSlideUpload(e.dataTransfer.files); }}
                   style={{
                     flex: 1, minWidth: 160,
-                    border: `2px dashed ${slideFiles.length > 0 ? C.green : C.border}`,
+                    border: `2px dashed ${slideFiles.length > 0 ? ds.color.mint : ds.color.line}`,
                     borderRadius: 12, padding: "12px 16px", cursor: "pointer", textAlign: "center",
-                    background: slideFiles.length > 0 ? `${C.green}08` : "transparent",
+                    background: slideFiles.length > 0 ? `${ds.color.mint}08` : "transparent",
                   }}>
-                  <span style={{ fontSize: 18 }}>📸</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: slideFiles.length > 0 ? C.green : C.sub, marginLeft: 8 }}>
+                  <span style={{ fontSize: 18 }}></span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: slideFiles.length > 0 ? ds.color.mint : ds.color.mute, marginLeft: 8 }}>
                     {slideFiles.length > 0 ? `${slideFiles.length} photo${slideFiles.length > 1 ? "s" : ""}` : "Upload Photos"}
                   </span>
                   {slideFiles.length > 0 && (
                     <button onClick={e => { e.stopPropagation(); setSlideFiles([]); setSlidePaths([]); }}
-                      style={{ marginLeft: 8, background: "none", border: "none", color: C.red, fontSize: 11, cursor: "pointer" }}>✕</button>
+                      style={{ marginLeft: 8, background: "none", border: "none", color: "#ef4444", fontSize: 11, cursor: "pointer" }}></button>
                   )}
                   <input ref={slideRef} type="file" accept="image/*" multiple style={{ display: "none" }}
                     onChange={e => { if (e.target.files) handleSlideUpload(e.target.files); e.target.value = ""; }} />
@@ -1035,12 +1021,12 @@ function FreeModeInner() {
           {refImageFiles.length > 0 && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
               {refImageFiles.map((f, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${C.purple}15`, border: `1px solid ${C.purple}35`, borderRadius: 20, padding: "4px 10px" }}>
-                  <span style={{ fontSize: 10, color: C.purple, fontWeight: 600 }}>🖼 {f.name.slice(0, 18)}{f.name.length > 18 ? "…" : ""}</span>
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, background: `${ds.color.lilac}15`, border: `1px solid ${ds.color.lilac}35`, borderRadius: 20, padding: "4px 10px" }}>
+                  <span style={{ fontSize: 10, color: ds.color.lilac, fontWeight: 600 }}>{f.name.slice(0, 18)}{f.name.length > 18 ? "…" : ""}</span>
                   <button onClick={() => {
                     setRefImageFiles(prev => prev.filter((_, j) => j !== i));
                     setRefImagePaths(prev => prev.filter((_, j) => j !== i));
-                  }} style={{ background: "none", border: "none", color: C.muted, fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>✕</button>
+                  }} style={{ background: "none", border: "none", color: ds.color.mute2, fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}></button>
                 </div>
               ))}
             </div>
@@ -1054,13 +1040,13 @@ function FreeModeInner() {
               title="Attach reference images to guide the AI"
               style={{
                 position: "absolute", bottom: 10, left: 10, zIndex: 2,
-                width: 30, height: 30, borderRadius: "50%", border: `1.5px solid ${C.border}`,
-                background: C.surf2, color: "#fff", fontSize: 18, lineHeight: "28px",
+                width: 30, height: 30, borderRadius: "50%", border: `1.5px solid ${ds.color.line}`,
+                background: ds.color.alert, color: "#fff", fontSize: 18, lineHeight: "28px",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", fontWeight: 300, transition: "border-color 0.2s, background 0.2s",
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.accent; (e.currentTarget as HTMLButtonElement).style.background = `${C.accent}18`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = C.border; (e.currentTarget as HTMLButtonElement).style.background = C.surf2; }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ds.color.sky; (e.currentTarget as HTMLButtonElement).style.background = `${ds.color.sky}18`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = ds.color.line; (e.currentTarget as HTMLButtonElement).style.background = ds.color.alert; }}
             >+</button>
             <input ref={refImgRef} type="file" accept="image/*" multiple style={{ display: "none" }}
               onChange={e => { if (e.target.files) handleRefImgUpload(e.target.files); e.target.value = ""; }} />
@@ -1074,13 +1060,13 @@ function FreeModeInner() {
               rows={3}
               style={{
                 width: "100%", boxSizing: "border-box",
-                background: C.surf2, border: `1.5px solid ${C.border}`, borderRadius: 14,
-                color: C.text, fontSize: 14, padding: "14px 18px 44px 50px",
+                background: ds.color.alert, border: `1.5px solid ${ds.color.line}`, borderRadius: 14,
+                color: ds.color.ink, fontSize: 14, padding: "14px 18px 44px 50px",
                 resize: "none", outline: "none", lineHeight: 1.7, fontFamily: "inherit",
                 transition: "border-color 0.2s",
               }}
-              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = C.accent + "80"; }}
-              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = C.border; }}
+              onFocus={e => { (e.target as HTMLTextAreaElement).style.borderColor = ds.color.sky + "80"; }}
+              onBlur={e => { (e.target as HTMLTextAreaElement).style.borderColor = ds.color.line; }}
             />
             <button
               onClick={handleGenerate}
@@ -1088,15 +1074,15 @@ function FreeModeInner() {
               style={{
                 position: "absolute", bottom: 10, right: 10,
                 padding: "9px 22px", borderRadius: 9, border: "none",
-                background: !canGenerate ? C.surf2
+                background: !canGenerate ? ds.color.alert
                   : "linear-gradient(135deg, #8b5cf6 0%, #ec4899 48%, #f97316 100%)",
-                color: !canGenerate ? C.sub : "#fff",
+                color: !canGenerate ? ds.color.mute : "#fff",
                 fontSize: 13, fontWeight: 700, cursor: !canGenerate ? "not-allowed" : "pointer",
                 boxShadow: !canGenerate ? "none" : "0 4px 24px rgba(236,72,153,0.50)",
                 animation: canGenerate && !enhancing && !isSubmitting ? "shimmerGrad 3s ease-in-out infinite" : "none",
                 overflow: "hidden",
               }}>
-              {enhancing ? "✦ Enhancing…" : isSubmitting ? "Sending…" : "✦ Generate"}
+              {enhancing ? "Enhancing…" : isSubmitting ? "Sending…" : "Generate"}
             </button>
           </div>
 
@@ -1108,13 +1094,13 @@ function FreeModeInner() {
                   options={DURATIONS.map(d => ({ label: d.l, seconds: d.v }))}
                   value={DURATIONS.find(d => d.v === duration)?.l}
                   onChange={(_, secs) => setDuration(secs)}
-                  accentColor={C.accent}
+                  accentColor={ds.color.sky}
                 />
               </div>
             )}
 
             {/* AI model — right next to duration */}
-            <div style={{ display: "flex", background: C.surf2, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+            <div style={{ display: "flex", background: ds.color.alert, border: `1px solid ${ds.color.line}`, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
               {AI_MODELS.map(m => {
                 const active = aiModel === m.id;
                 return (
@@ -1122,9 +1108,9 @@ function FreeModeInner() {
                     display: "flex", alignItems: "center", gap: 5,
                     padding: "5px 11px", border: "none",
                     background: active ? `${m.badgeColor}18` : "transparent",
-                    color: active ? m.badgeColor : C.sub,
+                    color: active ? m.badgeColor : ds.color.mute,
                     fontSize: 11, fontWeight: 700, cursor: "pointer",
-                    borderRight: m.id === "haiku" ? `1px solid ${C.border}` : "none",
+                    borderRight: m.id === "haiku" ? `1px solid ${ds.color.line}` : "none",
                     transition: "all 0.15s",
                   }}>
                     <span>{m.icon}</span>
@@ -1134,49 +1120,49 @@ function FreeModeInner() {
               })}
             </div>
             {mode !== "text_to_audio" && (
-              <div style={{ display: "flex", background: C.surf2, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ display: "flex", background: ds.color.alert, border: `1px solid ${ds.color.line}`, borderRadius: 8, overflow: "hidden" }}>
                 {ASPECTS.map(a => (
                   <button key={a.v} onClick={() => setAspect(a.v as "9:16"|"16:9"|"1:1")} title={a.s} style={{
                     padding: "5px 11px", border: "none",
-                    background: aspect === a.v ? `${C.accent}20` : "transparent",
-                    color: aspect === a.v ? C.accent : C.sub, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    background: aspect === a.v ? `${ds.color.sky}20` : "transparent",
+                    color: aspect === a.v ? ds.color.sky : ds.color.mute, fontSize: 11, fontWeight: 700, cursor: "pointer",
                   }}>{a.l}</button>
                 ))}
               </div>
             )}
             {mode !== "text_to_image" && mode !== "text_to_audio" && (
-              <div style={{ display: "flex", background: C.surf2, border: `1px solid ${C.border}`, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ display: "flex", background: ds.color.alert, border: `1px solid ${ds.color.line}`, borderRadius: 8, overflow: "hidden" }}>
                 {[{ id: "voice_music", l: "V+M" }, { id: "voice_only", l: "Voice" }, { id: "music_only", l: "Music" }, { id: "none", l: "Silent" }].map(a => (
                   <button key={a.id} onClick={() => setAudioMode(a.id as typeof audioMode)} style={{
                     padding: "5px 10px", border: "none",
-                    background: audioMode === a.id ? `${C.accent}20` : "transparent",
-                    color: audioMode === a.id ? C.accent : C.sub, fontSize: 11, fontWeight: 600, cursor: "pointer",
+                    background: audioMode === a.id ? `${ds.color.sky}20` : "transparent",
+                    color: audioMode === a.id ? ds.color.sky : ds.color.mute, fontSize: 11, fontWeight: 600, cursor: "pointer",
                   }}>{a.l}</button>
                 ))}
               </div>
             )}
             <button onClick={() => setShowAdv(!showAdv)} style={{
-              padding: "5px 11px", borderRadius: 8, border: `1px solid ${C.border}`,
-              background: showAdv ? `${C.accent}12` : "transparent",
-              color: showAdv ? C.accent : C.muted, fontSize: 11, cursor: "pointer", fontWeight: 600,
-            }}>⚙ Adv</button>
+              padding: "5px 11px", borderRadius: 8, border: `1px solid ${ds.color.line}`,
+              background: showAdv ? `${ds.color.sky}12` : "transparent",
+              color: showAdv ? ds.color.sky : ds.color.mute2, fontSize: 11, cursor: "pointer", fontWeight: 600,
+            }}>Adv</button>
           </div>
 
           {showAdv && (
             <div style={{
-              marginTop: 10, padding: "14px 16px", background: C.surf2,
-              border: `1px solid ${C.border}`, borderRadius: 12,
+              marginTop: 10, padding: "14px 16px", background: ds.color.alert,
+              border: `1px solid ${ds.color.line}`, borderRadius: 12,
               display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12,
             }}>
               <div>
-                <label style={{ fontSize: 9, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Language</label>
-                <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 7, padding: "7px 9px", fontSize: 12 }}>
+                <label style={{ fontSize: 9, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Language</label>
+                <select value={language} onChange={e => setLanguage(e.target.value)} style={{ width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line}`, color: ds.color.ink, borderRadius: 7, padding: "7px 9px", fontSize: 12 }}>
                   {LANGUAGES.map(l => <option key={l.v} value={l.v}>{l.l}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 9, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Visual Style</label>
-                <select value={style} onChange={e => setStyle(e.target.value)} style={{ width: "100%", background: C.bg, border: `1px solid ${C.border}`, color: C.text, borderRadius: 7, padding: "7px 9px", fontSize: 12 }}>
+                <label style={{ fontSize: 9, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Visual Style</label>
+                <select value={style} onChange={e => setStyle(e.target.value)} style={{ width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line}`, color: ds.color.ink, borderRadius: 7, padding: "7px 9px", fontSize: 12 }}>
                   {STYLES.map(s => <option key={s} value={s === "— Any —" ? "" : s}>{s}</option>)}
                 </select>
               </div>

@@ -6,16 +6,18 @@ import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { ds } from "../../../lib/designSystem";
 
-// Viral Video Creator — with content type → model selection → music → generate
+// Viral Video Creator — content type → model selection → music → generate
 
 const CONTENT_TYPES = [
-  { id: "human", label: "Human / Real", icon: "🧑", desc: "Real-looking human scenes", color: "#00d4ff" },
-  { id: "animation", label: "Animation", icon: "🎨", desc: "Animated cartoon style", color: "#a855f7" },
-  { id: "3d", label: "3D Render", icon: "🧊", desc: "3D rendered visuals", color: "#f59e0b" },
-  { id: "cinematic", label: "Cinematic", icon: "🎬", desc: "Movie-quality footage", color: "#ef4444" },
-  { id: "dance", label: "Dance / Motion", icon: "💃", desc: "Dance and performance", color: "#ec4899" },
-  { id: "product", label: "Product Showcase", icon: "🛍", desc: "Product-focused visuals", color: "#22c55e" },
+  { id: "human",     label: "Human / Real",      desc: "Real-looking human scenes",  color: ds.color.sky     },
+  { id: "animation", label: "Animation",          desc: "Animated cartoon style",     color: ds.color.lilac   },
+  { id: "3d",        label: "3D Render",          desc: "3D rendered visuals",        color: ds.color.gold    },
+  { id: "cinematic", label: "Cinematic",          desc: "Movie-quality footage",      color: ds.color.coral   },
+  { id: "dance",     label: "Dance / Motion",     desc: "Dance and performance",      color: ds.color.pink    },
+  { id: "product",   label: "Product Showcase",   desc: "Product-focused visuals",    color: ds.color.mint    },
 ];
 
 const MODEL_MAP: Record<string, Array<{ id: string; name: string; provider: string; best: string }>> = {
@@ -28,17 +30,25 @@ const MODEL_MAP: Record<string, Array<{ id: string; name: string; provider: stri
 };
 
 const MUSIC_OPTIONS = [
-  { id: "generate", label: "Generate AI Music", icon: "🎵" },
-  { id: "upload", label: "Upload My Music", icon: "📁" },
-  { id: "none", label: "No Music", icon: "🔇" },
+  { id: "generate", label: "Generate AI Music" },
+  { id: "upload",   label: "Upload My Music"   },
+  { id: "none",     label: "No Music"           },
 ];
 
-const surface = "#0e1318";
-const border = "#1e2a35";
-const muted = "#5a7080";
-
 const SESSION_KEY = "ghs_viral_session";
-const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+const SESSION_TTL = 24 * 60 * 60 * 1000;
+
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: ds.color.paper,
+  border: `1px solid ${ds.color.line}`,
+  borderRadius: ds.radius.sm,
+  padding: "10px 12px",
+  color: ds.color.ink,
+  fontSize: 14,
+  outline: "none",
+  fontFamily: ds.font.sans,
+};
 
 export default function ViralVideoPage() {
   const router = useRouter();
@@ -62,13 +72,12 @@ export default function ViralVideoPage() {
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showResume, setShowResume] = useState(false);
-
-  const models = MODEL_MAP[contentType] ?? [];
-  const noMusic = musicChoice === "none";
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // ── Session save: persist to localStorage on every change ──
+  const models = MODEL_MAP[contentType] ?? [];
+  const noMusic = musicChoice === "none";
+
   const saveSession = useCallback(() => {
     if (!prompt && !contentType) return;
     try {
@@ -81,7 +90,6 @@ export default function ViralVideoPage() {
 
   useEffect(() => { saveSession(); }, [saveSession]);
 
-  // ── Session restore: check on mount ──
   useEffect(() => {
     try {
       const raw = localStorage.getItem(SESSION_KEY);
@@ -180,169 +188,177 @@ export default function ViralVideoPage() {
     setGenerating(false);
   }
 
+  const cardStyle: React.CSSProperties = {
+    background: ds.color.card,
+    border: `1px solid ${ds.color.line}`,
+    borderRadius: ds.radius.lg,
+    padding: 24,
+  };
+
   return (
-    <div>
-      {/* Header with sample strip */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", padding: "5px 14px", borderRadius: 100, fontSize: 11, fontWeight: 500, color: "#ef4444", letterSpacing: 1.5, textTransform: "uppercase" as const, marginBottom: 16 }}>
-          Go Viral
-        </div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: "#fff", marginBottom: 8 }}>Viral Video Creator</h1>
-        <p style={{ fontSize: 14, color: muted, marginBottom: 24 }}>Create attention-grabbing content designed to go viral. Pick a style, choose your AI model, add music.</p>
+    <div style={{ fontFamily: ds.font.sans }}>
 
-        {/* Sample videos strip */}
-        <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8 }}>
-          {[
-            { title: "Wolf Running", src: "/api/media/intro/hero-brave.mp4", badge: "Cinematic" },
-            { title: "Commercial OJ", src: "/api/media/intro/demo-commercial-oj.mp4", badge: "Product" },
-            { title: "Property Tour", src: "/api/media/intro/demo-property.mp4", badge: "Real Estate" },
-            { title: "Short Reel", src: "/api/media/intro/demo-short-reel.mp4", badge: "Viral" },
-          ].map(v => (
-            <div key={v.title} style={{ flexShrink: 0, width: 160, borderRadius: 12, overflow: "hidden", border: `1px solid ${border}`, background: surface, cursor: "pointer", position: "relative" }}>
-              <video src={v.src} muted loop style={{ width: "100%", height: 100, objectFit: "cover" }}
-                onMouseEnter={e => (e.target as HTMLVideoElement).play()}
-                onMouseLeave={e => { const v = e.target as HTMLVideoElement; v.pause(); v.currentTime = 0; }} />
-              <span style={{ position: "absolute", top: 6, left: 6, fontSize: 8, padding: "2px 6px", borderRadius: 10, background: "rgba(239,68,68,0.8)", color: "#fff", fontWeight: 600 }}>{v.badge}</span>
-              <div style={{ padding: "8px 10px" }}>
-                <p style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>{v.title}</p>
-              </div>
+      <HeroTitle
+        kicker="Go Viral"
+        title="Viral Video"
+        italic="Creator"
+        sub="Create attention-grabbing content designed to go viral. Pick a style, choose your AI model, add music."
+      />
+
+      {/* Sample videos strip */}
+      <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 8, marginBottom: 28 }}>
+        {[
+          { title: "Wolf Running", src: "/api/media/intro/hero-brave.mp4", badge: "Cinematic" },
+          { title: "Commercial OJ", src: "/api/media/intro/demo-commercial-oj.mp4", badge: "Product" },
+          { title: "Property Tour", src: "/api/media/intro/demo-property.mp4", badge: "Real Estate" },
+          { title: "Short Reel", src: "/api/media/intro/demo-short-reel.mp4", badge: "Viral" },
+        ].map(v => (
+          <div key={v.title} style={{ flexShrink: 0, width: 160, borderRadius: ds.radius.md, overflow: "hidden", border: `1px solid ${ds.color.line}`, background: ds.color.card, cursor: "pointer", position: "relative" }}>
+            <video src={v.src} muted loop style={{ width: "100%", height: 100, objectFit: "cover" }}
+              onMouseEnter={e => (e.target as HTMLVideoElement).play()}
+              onMouseLeave={e => { const vid = e.target as HTMLVideoElement; vid.pause(); vid.currentTime = 0; }} />
+            <span style={{ position: "absolute", top: 6, left: 6, fontSize: 8, padding: "2px 6px", borderRadius: 10, background: `rgba(255,122,69,0.8)`, color: "#fff", fontWeight: 600 }}>{v.badge}</span>
+            <div style={{ padding: "8px 10px" }}>
+              <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600 }}>{v.title}</p>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Session recovery banner */}
-      {showResume && (
-        <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)", borderRadius: 14, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div>
-            <p style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b" }}>You have an unfinished viral video</p>
-            <p style={{ fontSize: 10, color: muted }}>Resume where you left off or start fresh.</p>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={resumeSession} style={{ padding: "8px 18px", borderRadius: 10, background: "#f59e0b", color: "#000", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Resume</button>
-            <button onClick={startFresh} style={{ padding: "8px 18px", borderRadius: 10, background: "transparent", color: muted, fontSize: 12, border: `1px solid ${border}`, cursor: "pointer" }}>Start Fresh</button>
-          </div>
-        </div>
-      )}
-
-      {/* Progress */}
-      <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
-        {[{ n: 1, l: "Content & Prompt" }, { n: 2, l: "AI Model" }, { n: 3, l: "Music & Generate" }].map(s => (
-          <div key={s.n} style={{ flex: 1 }}>
-            <div style={{ height: 4, borderRadius: 2, marginBottom: 6, background: step >= s.n ? "#ef4444" : "#1e2a35" }} />
-            <p style={{ fontSize: 9, color: step >= s.n ? "#ef4444" : "#3d5060", fontWeight: step === s.n ? 700 : 400, textAlign: "center" }}>{s.l}</p>
           </div>
         ))}
       </div>
 
-      {/* ═══ STEP 1: Content Type + Prompt ═══ */}
+      {/* Session recovery */}
+      {showResume && (
+        <div style={{ background: "rgba(167,139,250,0.06)", border: `1px solid rgba(167,139,250,0.2)`, borderRadius: ds.radius.md, padding: "14px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 600, color: ds.color.lilac }}>You have an unfinished viral video</p>
+            <p style={{ fontSize: 10, color: ds.color.mute }}>Resume where you left off or start fresh.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={resumeSession} style={{ padding: "8px 18px", borderRadius: ds.radius.sm, background: ds.color.lilac, color: "#fff", fontSize: 12, fontWeight: 700, border: "none", cursor: "pointer" }}>Resume</button>
+            <button onClick={startFresh} style={{ padding: "8px 18px", borderRadius: ds.radius.sm, background: "transparent", color: ds.color.mute, fontSize: 12, border: `1px solid ${ds.color.line}`, cursor: "pointer" }}>Start Fresh</button>
+          </div>
+        </div>
+      )}
+
+      {/* Step progress */}
+      <div style={{ display: "flex", gap: 4, marginBottom: 24 }}>
+        {[{ n: 1, l: "Content & Prompt" }, { n: 2, l: "AI Model" }, { n: 3, l: "Music & Generate" }].map(s => (
+          <div key={s.n} style={{ flex: 1 }}>
+            <div style={{ height: 4, borderRadius: 2, marginBottom: 6, background: step >= s.n ? ds.color.coral : ds.color.line }} />
+            <p style={{ fontSize: 9, color: step >= s.n ? ds.color.coral : ds.color.mute2, fontWeight: step === s.n ? 700 : 400, textAlign: "center", fontFamily: ds.font.mono }}>{s.l}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* STEP 1: Content Type + Prompt */}
       {step === 1 && (
-        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 24 }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 12 }}>
+        <div style={cardStyle}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 12, fontFamily: ds.font.mono }}>
             What type of content?
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 24 }}>
             {CONTENT_TYPES.map(t => (
               <button key={t.id} onClick={() => setContentType(t.id)}
-                style={{ padding: "16px 14px", borderRadius: 12, border: `1px solid ${contentType === t.id ? t.color : border}`, background: contentType === t.id ? `${t.color}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <span style={{ fontSize: 24, display: "block", marginBottom: 6 }}>{t.icon}</span>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{t.label}</p>
-                <p style={{ fontSize: 10, color: muted }}>{t.desc}</p>
+                style={{ padding: "16px 14px", borderRadius: ds.radius.md, border: `1px solid ${contentType === t.id ? t.color : ds.color.line}`, background: contentType === t.id ? `${t.color}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: ds.color.ink }}>{t.label}</p>
+                <p style={{ fontSize: 10, color: ds.color.mute }}>{t.desc}</p>
               </button>
             ))}
           </div>
 
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Your idea</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 10, fontFamily: ds.font.mono }}>Your idea</p>
           <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
             placeholder="e.g. 'POV: You just discovered the best street food spot at 2am — cinematic, funny, relatable'"
-            style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 16 }} />
+            style={{ ...inputStyle, resize: "vertical", marginBottom: 16 }} />
 
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Viral Style</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 10, fontFamily: ds.font.mono }}>Viral Style</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             {["POV Story", "Before/After", "Did You Know?", "Reaction", "Tutorial", "Challenge", "Trend Ride", "Funny Skit", "Motivational", "Behind The Scenes"].map(s => (
               <button key={s} onClick={() => setViralStyle(s)}
-                style={{ padding: "8px 16px", borderRadius: 100, border: `1px solid ${viralStyle === s ? "#ef4444" : border}`, background: viralStyle === s ? "rgba(239,68,68,0.1)" : "transparent", color: viralStyle === s ? "#ef4444" : muted, fontSize: 12, cursor: "pointer" }}>
+                style={{ padding: "8px 16px", borderRadius: 100, border: `1px solid ${viralStyle === s ? ds.color.coral : ds.color.line}`, background: viralStyle === s ? "rgba(255,122,69,0.1)" : "transparent", color: viralStyle === s ? ds.color.coral : ds.color.mute, fontSize: 12, cursor: "pointer" }}>
                 {s}
               </button>
             ))}
           </div>
 
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Platform</p>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 10, fontFamily: ds.font.mono }}>Platform</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 }}>
             {["TikTok", "Instagram Reels", "YouTube Shorts", "All Platforms"].map(p => (
               <button key={p} onClick={() => setPlatform(p)}
-                style={{ padding: "8px 16px", borderRadius: 100, border: `1px solid ${platform === p ? "#ef4444" : border}`, background: platform === p ? "rgba(239,68,68,0.1)" : "transparent", color: platform === p ? "#ef4444" : muted, fontSize: 12, cursor: "pointer" }}>
+                style={{ padding: "8px 16px", borderRadius: 100, border: `1px solid ${platform === p ? ds.color.coral : ds.color.line}`, background: platform === p ? "rgba(255,122,69,0.1)" : "transparent", color: platform === p ? ds.color.coral : ds.color.mute, fontSize: 12, cursor: "pointer" }}>
                 {p}
               </button>
             ))}
           </div>
 
           <button onClick={() => setStep(2)} disabled={!contentType || !prompt.trim()}
-            style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (contentType && prompt.trim()) ? "#ef4444" : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (contentType && prompt.trim()) ? "pointer" : "not-allowed" }}>
+            style={{ width: "100%", padding: 16, borderRadius: ds.radius.md, border: "none",
+              background: (contentType && prompt.trim())
+                ? `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`
+                : ds.color.card,
+              color: (contentType && prompt.trim()) ? "#fff" : ds.color.mute,
+              fontSize: 16, fontWeight: 700, cursor: (contentType && prompt.trim()) ? "pointer" : "not-allowed" }}>
             Next — Choose AI Model
           </button>
         </div>
       )}
 
-      {/* ═══ STEP 2: AI Model Selection (filtered by content type) ═══ */}
+      {/* STEP 2: AI Model Selection */}
       {step === 2 && (
-        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 24 }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 6 }}>
+        <div style={cardStyle}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 6, fontFamily: ds.font.mono }}>
             Best AI Models for {CONTENT_TYPES.find(t => t.id === contentType)?.label}
           </p>
-          <p style={{ fontSize: 12, color: muted, marginBottom: 20 }}>AI pre-selected the best models for your content type. Pick one.</p>
+          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 20 }}>AI pre-selected the best models for your content type. Pick one.</p>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {models.map((m, i) => (
               <button key={m.id} onClick={() => setSelectedModel(m.id)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderRadius: 12, border: `1px solid ${selectedModel === m.id ? "#ef4444" : border}`, background: selectedModel === m.id ? "rgba(239,68,68,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderRadius: ds.radius.md, border: `1px solid ${selectedModel === m.id ? ds.color.coral : ds.color.line}`, background: selectedModel === m.id ? "rgba(255,122,69,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedModel === m.id ? "#ef4444" : "#3d5060"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {selectedModel === m.id && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#ef4444" }} />}
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedModel === m.id ? ds.color.coral : ds.color.mute2}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {selectedModel === m.id && <div style={{ width: 8, height: 8, borderRadius: "50%", background: ds.color.coral }} />}
                   </div>
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>{m.provider} / {m.name}</p>
-                    <p style={{ fontSize: 11, color: muted }}>{m.best}</p>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>{m.provider} / {m.name}</p>
+                    <p style={{ fontSize: 11, color: ds.color.mute }}>{m.best}</p>
                   </div>
                 </div>
-                {i === 0 && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontWeight: 600 }}>Recommended</span>}
+                {i === 0 && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(122,224,195,0.12)", color: ds.color.mint, fontWeight: 600 }}>Recommended</span>}
               </button>
             ))}
           </div>
 
-          {/* ── Character Section ── */}
+          {/* Character Section */}
           <div style={{ marginBottom: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>
-              Character
-            </p>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 10, fontFamily: ds.font.mono }}>Character</p>
             {!assignedCharacter ? (
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={() => router.push("/dashboard/character-voices")}
-                  style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#22c55e", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  style={{ padding: "10px 18px", borderRadius: ds.radius.sm, border: "none", background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   Create Character
                 </button>
                 <button onClick={() => setShowCharacterPicker(true)}
-                  style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "#a855f7", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  style={{ padding: "10px 18px", borderRadius: ds.radius.sm, border: `1px solid rgba(167,139,250,0.3)`, background: "rgba(167,139,250,0.08)", color: ds.color.lilac, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                   Assign Character
                 </button>
               </div>
             ) : (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, border: `1px solid #a855f730`, background: "rgba(168,85,247,0.06)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: ds.radius.md, border: `1px solid rgba(167,139,250,0.2)`, background: "rgba(167,139,250,0.06)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 32, height: 32, borderRadius: 8, overflow: "hidden", background: "linear-gradient(135deg, #a855f730, #a855f710)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: 8, overflow: "hidden", background: "rgba(167,139,250,0.2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                     {assignedCharacter.imageUrl ? (
                       <img src={assignedCharacter.imageUrl} alt={assignedCharacter.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <span style={{ fontSize: 14 }}>{assignedCharacter.gender === "female" || assignedCharacter.gender === "girl" ? "👩" : "👨"}</span>
+                      <span style={{ fontSize: 14, color: ds.color.lilac }}>C</span>
                     )}
                   </div>
                   <div>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{assignedCharacter.name}</p>
-                    {assignedCharacter.characterId && <p style={{ fontSize: 9, fontFamily: "monospace", color: "#a855f7" }}>{assignedCharacter.characterId}</p>}
+                    <p style={{ fontSize: 12, fontWeight: 600, color: ds.color.ink }}>{assignedCharacter.name}</p>
+                    {assignedCharacter.characterId && <p style={{ fontSize: 9, fontFamily: ds.font.mono, color: ds.color.lilac }}>{assignedCharacter.characterId}</p>}
                   </div>
                 </div>
                 <button onClick={() => setShowCharacterPicker(true)}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 11, cursor: "pointer" }}>
                   Switch
                 </button>
               </div>
@@ -350,28 +366,31 @@ export default function ViralVideoPage() {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>Back</button>
+            <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: ds.radius.md, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 14, cursor: "pointer" }}>Back</button>
             <button onClick={() => setStep(3)} disabled={!selectedModel}
-              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: selectedModel ? "#ef4444" : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: selectedModel ? "pointer" : "not-allowed" }}>
-              Next — Music & Generate
+              style={{ flex: 1, padding: 16, borderRadius: ds.radius.md, border: "none",
+                background: selectedModel
+                  ? `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`
+                  : ds.color.card,
+                color: selectedModel ? "#fff" : ds.color.mute, fontSize: 16, fontWeight: 700, cursor: selectedModel ? "pointer" : "not-allowed" }}>
+              Next — Music &amp; Generate
             </button>
           </div>
         </div>
       )}
 
-      {/* ═══ STEP 3: Music + Generate ═══ */}
+      {/* STEP 3: Music + Generate */}
       {step === 3 && (
-        <div style={{ background: surface, border: `1px solid ${border}`, borderRadius: 16, padding: 24 }}>
-          <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 12 }}>
+        <div style={cardStyle}>
+          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 12, fontFamily: ds.font.mono }}>
             Music for your video
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 20 }}>
             {MUSIC_OPTIONS.map(m => (
               <button key={m.id} onClick={() => setMusicChoice(m.id)}
-                style={{ padding: "16px 14px", borderRadius: 12, border: `1px solid ${musicChoice === m.id ? "#f59e0b" : border}`, background: musicChoice === m.id ? "rgba(245,158,11,0.06)" : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <span style={{ fontSize: 22, display: "block", marginBottom: 6 }}>{m.icon}</span>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{m.label}</p>
+                style={{ padding: "16px 14px", borderRadius: ds.radius.md, border: `1px solid ${musicChoice === m.id ? ds.color.gold : ds.color.line}`, background: musicChoice === m.id ? "rgba(255,179,71,0.06)" : "transparent", cursor: "pointer", textAlign: "center" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: ds.color.ink }}>{m.label}</p>
               </button>
             ))}
           </div>
@@ -380,69 +399,71 @@ export default function ViralVideoPage() {
             <div style={{ marginBottom: 20 }}>
               <input value={musicPrompt} onChange={e => setMusicPrompt(e.target.value)}
                 placeholder="Describe the music: e.g. 'upbeat afrobeats, 30 seconds, energetic'"
-                style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 13, outline: "none" }} />
+                style={{ width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: "10px 12px", color: ds.color.ink, fontSize: 13, outline: "none", fontFamily: ds.font.sans }} />
             </div>
           )}
 
           {noMusic && (
-            <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)", marginBottom: 20 }}>
-              <p style={{ fontSize: 11, color: "#f59e0b" }}>No music will be added to this video. You can add music later in the Video Editor.</p>
+            <div style={{ padding: "10px 14px", borderRadius: ds.radius.sm, background: "rgba(255,179,71,0.06)", border: `1px solid rgba(255,179,71,0.15)`, marginBottom: 20 }}>
+              <p style={{ fontSize: 11, color: ds.color.gold }}>No music will be added to this video. You can add music later in the Video Editor.</p>
             </div>
           )}
 
-          {/* Summary + AI tier side by side */}
+          {/* Summary + AI tier */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 12, marginBottom: 20, alignItems: "start" }}>
-            <div style={{ background: "#080b10", borderRadius: 12, padding: 16 }}>
-              <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Summary</p>
+            <div style={{ background: ds.color.paper, borderRadius: ds.radius.md, padding: 16 }}>
+              <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>Summary</p>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                <p style={{ fontSize: 11, color: muted }}>Type: <span style={{ color: "#fff" }}>{CONTENT_TYPES.find(t => t.id === contentType)?.label}</span></p>
-                <p style={{ fontSize: 11, color: muted }}>Model: <span style={{ color: "#fff" }}>{models.find(m => m.id === selectedModel)?.name}</span></p>
-                <p style={{ fontSize: 11, color: muted }}>Style: <span style={{ color: "#fff" }}>{viralStyle || "—"}</span></p>
-                <p style={{ fontSize: 11, color: muted }}>Music: <span style={{ color: "#fff" }}>{musicChoice === "none" ? "None" : musicChoice === "generate" ? "AI Generated" : "Upload"}</span></p>
+                <p style={{ fontSize: 11, color: ds.color.mute }}>Type: <span style={{ color: ds.color.ink }}>{CONTENT_TYPES.find(t => t.id === contentType)?.label}</span></p>
+                <p style={{ fontSize: 11, color: ds.color.mute }}>Model: <span style={{ color: ds.color.ink }}>{models.find(m => m.id === selectedModel)?.name}</span></p>
+                <p style={{ fontSize: 11, color: ds.color.mute }}>Style: <span style={{ color: ds.color.ink }}>{viralStyle || "—"}</span></p>
+                <p style={{ fontSize: 11, color: ds.color.mute }}>Music: <span style={{ color: ds.color.ink }}>{musicChoice === "none" ? "None" : musicChoice === "generate" ? "AI Generated" : "Upload"}</span></p>
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div>
-                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>AI Model</p>
+                <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>AI Model</p>
                 <AITierSelector value={aiTier} onChange={setAiTier} compact />
               </div>
               <div>
-                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Duration</p>
-                <DurationPicker preset="video" value={duration} onChange={(label: string) => setDuration(label)} label="" accentColor="#ef4444" compact />
+                <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>Duration</p>
+                <DurationPicker preset="video" value={duration} onChange={(label: string) => setDuration(label)} label="" accentColor={ds.color.coral} compact />
               </div>
               <div>
-                <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Image Model</p>
+                <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>Image Model</p>
                 <ModelPicker videoModel={selectedModel || "muapi_seedance_v2"} imageModel={imageModel}
                   onVideoChange={() => {}} onImageChange={setImageModel}
-                  accentColor="#ef4444" compact />
+                  accentColor={ds.color.coral} compact />
               </div>
             </div>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setStep(2)} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer" }}>Back</button>
+            <button onClick={() => setStep(2)} style={{ padding: "14px 24px", borderRadius: ds.radius.md, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 14, cursor: "pointer" }}>Back</button>
             <button onClick={handleGenerate} disabled={generating || !musicChoice}
-              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: generating ? "#2a2a40" : "#ef4444", color: "#fff", fontSize: 16, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
-              {generating ? "Generating..." : "🔥 Generate Viral Video"}
+              style={{ flex: 1, padding: 16, borderRadius: ds.radius.md, border: "none",
+                background: (generating || !musicChoice)
+                  ? ds.color.card
+                  : `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
+                color: (generating || !musicChoice) ? ds.color.mute : "#fff", fontSize: 16, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
+              {generating ? "Generating..." : "Generate Viral Video"}
             </button>
           </div>
 
-          {/* Error */}
           {errorMsg && (
-            <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
+            <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: ds.radius.sm, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
               {errorMsg}
             </div>
           )}
 
-          {/* Result */}
           {resultUrl && (
-            <div style={{ marginTop: 20, borderRadius: 14, overflow: "hidden", border: `1px solid ${border}` }}>
+            <div style={{ marginTop: 20, borderRadius: ds.radius.md, overflow: "hidden", border: `1px solid ${ds.color.line}` }}>
               <video src={resultUrl} controls style={{ width: "100%", maxHeight: 400 }} />
-              <div style={{ padding: "12px 16px", background: "#080b10", display: "flex", gap: 8 }}>
-                <a href={resultUrl} download style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: 10, background: "#22c55e", color: "#000", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
+              <div style={{ padding: "12px 16px", background: ds.color.paper, display: "flex", gap: 8 }}>
+                <a href={resultUrl} download style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: ds.radius.sm, background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none" }}>
                   Download
                 </a>
-                <a href="/dashboard/assets" style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: 10, border: `1px solid ${border}`, color: muted, fontSize: 13, textDecoration: "none" }}>
+                <a href="/dashboard/assets" style={{ flex: 1, textAlign: "center", padding: "10px 16px", borderRadius: ds.radius.sm, border: `1px solid ${ds.color.line}`, color: ds.color.mute, fontSize: 13, textDecoration: "none" }}>
                   Asset Library
                 </a>
               </div>
@@ -451,15 +472,15 @@ export default function ViralVideoPage() {
         </div>
       )}
 
-      {/* ═══ Character Picker Modal ═══ */}
+      {/* Character Picker Modal */}
       {showCharacterPicker && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", backdropFilter: "blur(6px)", background: "rgba(0,0,0,0.6)" }}
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.7)" }}
           onClick={(e) => { if (e.target === e.currentTarget) setShowCharacterPicker(false); }}>
-          <div style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflow: "auto", borderRadius: 16, border: `1px solid ${border}`, background: surface, padding: 20, boxShadow: "0 16px 64px rgba(0,0,0,0.5)" }}>
+          <div style={{ width: "100%", maxWidth: 480, maxHeight: "80vh", overflow: "auto", borderRadius: ds.radius.lg, border: `1px solid ${ds.color.line}`, background: ds.color.card, padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <p style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Pick a Character</p>
+              <p style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink }}>Pick a Character</p>
               <button onClick={() => setShowCharacterPicker(false)}
-                style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 ✕
               </button>
             </div>

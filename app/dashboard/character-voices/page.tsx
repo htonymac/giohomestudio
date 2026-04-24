@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { generateCharacterId } from "@/lib/character-id";
+import HeroTitle from "../../components/hero/HeroTitle";
+import { ds } from "../../../lib/designSystem";
 
 interface ReferenceImage {
   url: string;
@@ -227,7 +229,7 @@ function Select({
     <select
       value={value}
       onChange={e => onChange(e.target.value)}
-      style={{ background: "#1a1a2e", color: "#ccc", border: "1px solid #2a2a40", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%" }}
+      style={{ background: ds.color.card, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "6px 8px", fontSize: 13, width: "100%", fontFamily: ds.font.sans }}
     >
       <option value="">{placeholder}</option>
       {options.map(o => <option key={o} value={o}>{o}</option>)}
@@ -298,12 +300,12 @@ function VoiceForm({
     } catch { setPreviewing(false); }
   }
 
-  const inputStyle = { background: "#12121a", color: "#fff", border: "1px solid #2a2a40", borderRadius: 6, padding: "6px 10px", fontSize: 13, width: "100%" };
-  const labelStyle = { fontSize: 11, color: "#7070a0", display: "block", marginBottom: 4 } as const;
-  const selectStyle = { background: "#1a1a2e", color: "#ccc", border: "1px solid #2a2a40", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%" };
+  const inputStyle = { background: ds.color.paper, color: ds.color.ink, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "6px 10px", fontSize: 13, width: "100%", fontFamily: ds.font.sans };
+  const labelStyle = { fontSize: 11, color: ds.color.mute, display: "block", marginBottom: 4, fontFamily: ds.font.mono, textTransform: "uppercase" as const, letterSpacing: "0.08em" };
+  const selectStyle = { background: ds.color.card, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "6px 8px", fontSize: 13, width: "100%", fontFamily: ds.font.sans };
 
   return (
-    <div style={{ background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 10, padding: 20, marginBottom: 16 }}>
+    <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 20, marginBottom: 16 }}>
 
       {/* ── Row 1: Name + Narrator ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
@@ -537,13 +539,13 @@ function VoiceForm({
         <button
           onClick={() => onSave(form)}
           disabled={saving || !form.name}
-          style={{ background: "#7c5cfc", color: "#fff", border: "none", borderRadius: 7, padding: "8px 20px", fontSize: 13, cursor: "pointer", opacity: saving ? 0.6 : 1 }}
+          style={{ background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, backgroundSize: "300% 100%", color: "#fff", border: "none", borderRadius: ds.radius.sm, padding: "8px 20px", fontSize: 13, cursor: "pointer", opacity: saving || !form.name ? 0.5 : 1, fontFamily: ds.font.sans }}
         >
           {saving ? "Saving…" : "Save Character"}
         </button>
         <button
           onClick={onCancel}
-          style={{ background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 7, padding: "8px 16px", fontSize: 13, cursor: "pointer" }}
+          style={{ background: ds.color.alert, color: ds.color.mute, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "8px 16px", fontSize: 13, cursor: "pointer", fontFamily: ds.font.sans }}
         >
           Cancel
         </button>
@@ -554,13 +556,13 @@ function VoiceForm({
 
 // ── Character card ────────────────────────────────────────────
 const ROLE_BADGE_COLOR: Record<string, string> = {
-  protagonist:  "#7c5cfc",
+  protagonist:  ds.color.lilac,
   antagonist:   "#f87171",
-  narrator:     "#60a5fa",
-  supporting:   "#9090b0",
-  elder:        "#facc15",
-  child:        "#4ade80",
-  comic_relief: "#fb923c",
+  narrator:     ds.color.sky,
+  supporting:   ds.color.mute,
+  elder:        ds.color.gold,
+  child:        ds.color.mint,
+  comic_relief: ds.color.coral,
 };
 
 function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview }: {
@@ -587,9 +589,9 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
 
   return (
     <div style={{
-      background: "#1a1a2e",
-      border: "1px solid #2a2a40",
-      borderRadius: 10,
+      background: ds.color.card,
+      border: `1px solid ${ds.color.line2}`,
+      borderRadius: ds.radius.md,
       overflow: "hidden",
     }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 14, padding: "14px 18px" }}>
@@ -604,8 +606,8 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
               style={{ width: 52, height: 52, borderRadius: 8, objectFit: "cover", border: "1px solid #2a2a40" }}
             />
           ) : (
-            <div style={{ width: 52, height: 52, borderRadius: 8, background: "#12121a", border: "1px solid #2a2a40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#3a3a5a" }}>
-              {v.isNarrator ? "🎙" : "👤"}
+            <div style={{ width: 52, height: 52, borderRadius: ds.radius.sm, background: ds.color.paper, border: `1px solid ${ds.color.line2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: ds.color.mute2, fontFamily: ds.font.mono, fontWeight: 700 }}>
+              {v.isNarrator ? "N" : "C"}
             </div>
           )}
         </div>
@@ -613,14 +615,14 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
         {/* Identity column */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
-            <span style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>{v.name}</span>
+            <span style={{ color: ds.color.ink, fontWeight: 700, fontSize: 14 }}>{v.name}</span>
             {v.characterId && (
-              <span style={{ fontFamily: "monospace", fontSize: 9, color: "#a855f7", background: "rgba(168,85,247,0.1)", padding: "1px 6px", borderRadius: 4, border: "1px solid rgba(168,85,247,0.2)" }}>
+              <span style={{ fontFamily: ds.font.mono, fontSize: 9, color: ds.color.magenta, background: `${ds.color.magenta}12`, padding: "1px 6px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.magenta}30` }}>
                 {v.characterId}
               </span>
             )}
             {v.isNarrator && (
-              <span style={{ background: "#7c5cfc22", color: "#7c5cfc", fontSize: 10, borderRadius: 4, padding: "1px 6px", border: "1px solid #7c5cfc44" }}>
+              <span style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, fontSize: 10, borderRadius: ds.radius.xs, padding: "1px 6px", border: `1px solid ${ds.color.lilac}44`, fontFamily: ds.font.mono }}>
                 NARRATOR
               </span>
             )}
@@ -646,66 +648,64 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
           {/* Tags + voice */}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
             {[v.gender, v.toneClass, v.accent].filter(Boolean).map(tag => (
-              <span key={tag} style={{ background: "#2a2a40", color: "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 7px" }}>
+              <span key={tag} style={{ background: ds.color.alert, color: ds.color.mute, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>
                 {tag}
               </span>
             ))}
             {v.language && (
-              <span style={{ background: "#2a2a40", color: "#9090b0", fontSize: 11, borderRadius: 4, padding: "2px 7px" }}>
+              <span style={{ background: ds.color.alert, color: ds.color.mute, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>
                 {LANGUAGE_OPTIONS.find(l => l.value === v.language)?.label ?? v.language}
               </span>
             )}
             {v.voiceName && (
-              <span style={{ background: "#1a2a1a", color: "#4ade80", fontSize: 11, borderRadius: 4, padding: "2px 7px", border: "1px solid #2a4a2a" }}>
+              <span style={{ background: `${ds.color.mint}10`, color: ds.color.mint, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", border: `1px solid ${ds.color.mint}30`, fontFamily: ds.font.mono }}>
                 {v.voiceName}
               </span>
             )}
             {!v.voiceId && (
-              <span style={{ background: "#2a2a1a", color: "#facc15", fontSize: 11, borderRadius: 4, padding: "2px 7px" }}>
+              <span style={{ background: `${ds.color.gold}10`, color: ds.color.gold, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>
                 no voice ID
               </span>
             )}
           </div>
 
           {v.notes && (
-            <p style={{ fontSize: 11, color: "#4a4a6a", marginTop: 4 }}>{v.notes}</p>
+            <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 4 }}>{v.notes}</p>
           )}
         </div>
 
         {/* Actions */}
-        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
           {v.imageUrl && (
             <a
               href={`/dashboard/collaborative-editor?mode=image_to_video&characterId=${v.id}`}
-              style={{ background: "var(--accent, #6c63ff)", color: "white", border: "none", borderRadius: 6, padding: "5px 14px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+              style={{ background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`, backgroundSize: "300% 100%", color: "white", border: "none", borderRadius: ds.radius.xs, padding: "5px 14px", fontSize: 12, fontWeight: 600, textDecoration: "none", display: "flex", alignItems: "center", gap: 4, fontFamily: ds.font.sans }}
             >
-              🎬 Use in Studio
+              Use in Studio
             </a>
           )}
           <a
             href={`/dashboard/character-voices/${v.id}`}
-            style={{ background: "#1a1a2e", color: "#7c5cfc", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 4 }}
+            style={{ background: ds.color.paper, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}33`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, textDecoration: "none", display: "flex", alignItems: "center", gap: 4, fontFamily: ds.font.sans }}
             title="Manage reference photos for this character"
           >
-            📷 Images
+            Images
           </a>
-          {/* Quick send buttons */}
-          <a href={`/dashboard/movie-planner?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
-            Movie
-          </a>
-          <a href={`/dashboard/hybrid-planner?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
-            Hybrid
-          </a>
-          <a href={`/dashboard/collaborative-editor?characterId=${v.id}`} style={{ background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
-            Editor
-          </a>
-          {/* Preview + more destinations */}
+          {[
+            { href: `/dashboard/movie-planner?characterId=${v.id}`, label: "Movie" },
+            { href: `/dashboard/hybrid-planner?characterId=${v.id}`, label: "Hybrid" },
+            { href: `/dashboard/collaborative-editor?characterId=${v.id}`, label: "Editor" },
+          ].map(({ href, label }) => (
+            <a key={href} href={href} style={{ background: `${ds.color.mint}10`, color: ds.color.mint, border: `1px solid ${ds.color.mint}30`, borderRadius: ds.radius.xs, padding: "5px 10px", fontSize: 11, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap", fontFamily: ds.font.sans }}>
+              {label}
+            </a>
+          ))}
           {onPreview && (
             <button
               onClick={() => onPreview(v)}
-              style={{ background: "#1a1a2e", color: "#a855f7", border: "1px solid #3a2a5a", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" }}
+              style={{ background: ds.color.paper, color: ds.color.magenta, border: `1px solid ${ds.color.magenta}33`, borderRadius: ds.radius.xs, padding: "5px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", fontFamily: ds.font.sans }}
             >
-              Preview + Send...
+              Preview + Send
             </button>
           )}
           <button
@@ -713,7 +713,6 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
               try {
                 const res = await fetch(`/api/character/export?id=${v.id}`);
                 if (!res.ok) { alert("Export failed"); return; }
-                // API returns ZIP file directly
                 const blob = await res.blob();
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement("a");
@@ -725,19 +724,19 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
                 URL.revokeObjectURL(url);
               } catch { alert("Download failed"); }
             }}
-            style={{ background: "#1a1a2e", color: "#e0e8f0", border: "1px solid #2a2a50", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}
+            style={{ background: ds.color.paper, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: ds.font.sans }}
           >
-            ⬇ Download ZIP
+            Download ZIP
           </button>
           <button
             onClick={() => onEdit(v.id)}
-            style={{ background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
+            style={{ background: ds.color.alert, color: ds.color.mute, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: ds.font.sans }}
           >
             Edit
           </button>
           <button
             onClick={() => onDelete(v.id, v.name)}
-            style={{ background: "#2a1a1a", color: "#f87171", border: "none", borderRadius: 6, padding: "5px 12px", fontSize: 12, cursor: "pointer" }}
+            style={{ background: "#2a1a1a", color: "#f87171", border: "1px solid #4a1a1a", borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: ds.font.sans }}
           >
             Remove
           </button>
@@ -747,19 +746,19 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
       {/* Reference image thumbnail strip */}
       {Array.isArray(v.referenceImages) && v.referenceImages.length > 0 && (
         <div style={{ display: "flex", gap: 4, padding: "0 18px 12px", alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "#3a3a5a", marginRight: 2 }}>Ref photos:</span>
+          <span style={{ fontSize: 10, color: ds.color.mute2, marginRight: 2, fontFamily: ds.font.mono }}>Ref photos:</span>
           {(v.referenceImages as ReferenceImage[]).map(r => (
             <img
               key={r.angle}
               src={normalizeImageUrl(r.url)}
               alt={r.label}
               title={r.label}
-              style={{ width: 28, height: 28, borderRadius: 5, objectFit: "cover", border: "1px solid #1e1e38" }}
+              style={{ width: 28, height: 28, borderRadius: ds.radius.xs, objectFit: "cover", border: `1px solid ${ds.color.line2}` }}
             />
           ))}
           <a
             href={`/dashboard/character-voices/${v.id}`}
-            style={{ fontSize: 10, color: "#5a5a7a", marginLeft: 4, textDecoration: "none" }}
+            style={{ fontSize: 10, color: ds.color.mute2, marginLeft: 4, textDecoration: "none", fontFamily: ds.font.mono }}
           >
             {(v.referenceImages as ReferenceImage[]).length}/5 →
           </a>
@@ -780,10 +779,10 @@ function PackWidget({
   const voiceNames = new Set(voices.map(v => v.name));
   const loaded = entries.some(e => voiceNames.has(e.name));
   const allLoaded = entries.every(e => voiceNames.has(e.name));
-  const bg = loaded ? `${color}0a` : "#0f0f1a";
-  const border = loaded ? `${color}44` : "#1e1e38";
+  const bg = loaded ? `${color}0a` : ds.color.card;
+  const borderColor = loaded ? `${color}44` : ds.color.line2;
   return (
-    <div style={{ background: bg, border: `1px solid ${border}`, borderRadius: 12, padding: 18 }}>
+    <div style={{ background: bg, border: `1px solid ${borderColor}`, borderRadius: ds.radius.md, padding: 18 }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -795,7 +794,7 @@ function PackWidget({
               </span>
             )}
           </div>
-          <p style={{ color: "#4a4a6a", fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>{description}</p>
+          <p style={{ color: ds.color.mute2, fontSize: 12, lineHeight: 1.6, marginBottom: 10 }}>{description}</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
             {entries.map(e => {
               const isIn = voiceNames.has(e.name);
@@ -926,9 +925,9 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
   const canBuild = mode === "free" ? freePrompt.trim().length > 10 : !!charType;
   const fields = charType ? getFieldsForType(charType) : [];
 
-  const sbInputStyle = { background: "#12121a", color: "#fff", border: "1px solid #3a2a5a", borderRadius: 6, padding: "6px 10px", fontSize: 13, width: "100%" };
-  const sbSelectStyle = { background: "#1a1a2e", color: "#ccc", border: "1px solid #3a2a5a", borderRadius: 6, padding: "6px 8px", fontSize: 13, width: "100%" };
-  const sbLabelStyle = { fontSize: 11, color: "#9070c0", display: "block", marginBottom: 4 } as const;
+  const sbInputStyle = { background: ds.color.paper, color: ds.color.ink, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "6px 10px", fontSize: 13, width: "100%", fontFamily: ds.font.sans };
+  const sbSelectStyle = { background: ds.color.card, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, padding: "6px 8px", fontSize: 13, width: "100%", fontFamily: ds.font.sans };
+  const sbLabelStyle = { fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4, fontFamily: ds.font.mono, textTransform: "uppercase" as const, letterSpacing: "0.08em" };
 
   return (
     <div style={{
@@ -937,7 +936,7 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
       padding: 20,
     }}>
       <div style={{
-        background: "#12121a", border: "1px solid #3a2a5a", borderRadius: 14,
+        background: ds.color.card, border: `1px solid ${ds.color.lilac}33`, borderRadius: ds.radius.lg,
         maxWidth: 720, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 28,
       }}>
         {/* Header */}
@@ -961,23 +960,23 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
         {/* Result view */}
         {result ? (
           <div>
-            <div style={{ background: "#1a1a2e", border: "1px solid #3a2a5a", borderRadius: 10, padding: 20, marginBottom: 16 }}>
+            <div style={{ background: ds.color.paper, border: `1px solid ${ds.color.lilac}33`, borderRadius: ds.radius.md, padding: 20, marginBottom: 16 }}>
               {/* Character header */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-                <span style={{ color: "#fff", fontWeight: 700, fontSize: 16 }}>
+                <span style={{ color: ds.color.ink, fontWeight: 700, fontSize: 16 }}>
                   {(result.parsed.displayName as string) || result.voice.name}
                 </span>
                 <span style={{
-                  fontFamily: "monospace", fontSize: 10, color: "#a855f7",
-                  background: "rgba(168,85,247,0.1)", padding: "2px 8px", borderRadius: 4,
-                  border: "1px solid rgba(168,85,247,0.25)",
+                  fontFamily: ds.font.mono, fontSize: 10, color: ds.color.magenta,
+                  background: `${ds.color.magenta}12`, padding: "2px 8px", borderRadius: ds.radius.xs,
+                  border: `1px solid ${ds.color.magenta}30`,
                 }}>
                   {result.voice.characterId}
                 </span>
                 {result.voice.role && (
                   <span style={{
-                    background: "rgba(168,85,247,0.1)", color: "#a855f7", fontSize: 10,
-                    borderRadius: 4, padding: "2px 8px", border: "1px solid rgba(168,85,247,0.2)",
+                    background: `${ds.color.lilac}12`, color: ds.color.lilac, fontSize: 10,
+                    borderRadius: ds.radius.xs, padding: "2px 8px", border: `1px solid ${ds.color.lilac}30`,
                   }}>
                     {result.voice.role}
                   </span>
@@ -1046,8 +1045,10 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
               <button
                 onClick={() => { onCreated(); onClose(); }}
                 style={{
-                  background: "#a855f7", color: "#fff", border: "none", borderRadius: 8,
-                  padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer",
+                  background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
+                  backgroundSize: "300% 100%",
+                  color: "#fff", border: "none", borderRadius: ds.radius.sm,
+                  padding: "10px 24px", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: ds.font.sans,
                 }}
               >
                 Done — Character Saved
@@ -1055,8 +1056,8 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
               <button
                 onClick={() => { setResult(null); setBuildError(""); }}
                 style={{
-                  background: "#2a2a40", color: "#9090b0", border: "none", borderRadius: 8,
-                  padding: "10px 20px", fontSize: 13, cursor: "pointer",
+                  background: ds.color.alert, color: ds.color.mute, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm,
+                  padding: "10px 20px", fontSize: 13, cursor: "pointer", fontFamily: ds.font.sans,
                 }}
               >
                 Build Another
@@ -1270,7 +1271,7 @@ function CharacterPreviewModal({ character, onClose }: { character: CharacterVoi
   const roleColor = character.role ? (ROLE_BADGE_COLOR[character.role] ?? "#9090b0") : null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={onClose}>
-      <div style={{ background: "#12121e", border: "1px solid #2a2a50", borderRadius: 16, padding: 28, maxWidth: 540, width: "90%", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.lg, padding: 28, maxWidth: 540, width: "90%", maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18 }}>
           <h2 style={{ color: "#fff", fontSize: 18, fontWeight: 700, margin: 0 }}>{character.name}</h2>
@@ -1283,7 +1284,7 @@ function CharacterPreviewModal({ character, onClose }: { character: CharacterVoi
             {character.imageUrl ? (
               <img src={normalizeImageUrl(character.imageUrl)} alt={character.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
-              <span style={{ fontSize: 48, opacity: 0.25 }}>👤</span>
+              <span style={{ fontSize: 32, opacity: 0.25, color: ds.color.mute, fontFamily: ds.font.mono }}>C</span>
             )}
           </div>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
@@ -1350,13 +1351,11 @@ function CharacterPreviewModal({ character, onClose }: { character: CharacterVoi
                 key={d.path}
                 href={`${d.path}?characterId=${character.id}`}
                 style={{
-                  background: "#1a2a1a", color: "#22c55e", border: "1px solid #2a4a2a",
-                  borderRadius: 8, padding: "8px 14px", fontSize: 12, fontWeight: 600,
+                  background: `${ds.color.mint}10`, color: ds.color.mint, border: `1px solid ${ds.color.mint}30`,
+                  borderRadius: ds.radius.sm, padding: "8px 14px", fontSize: 12, fontWeight: 600,
                   textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
-                  transition: "background 0.15s",
+                  fontFamily: ds.font.sans,
                 }}
-                onMouseEnter={e => (e.currentTarget.style.background = "#1a3a1a")}
-                onMouseLeave={e => (e.currentTarget.style.background = "#1a2a1a")}
               >
                 {d.label}
               </a>
@@ -1466,22 +1465,14 @@ export default function CharacterVoicesPage() {
   const characters = voices.filter(v => !v.isNarrator);
 
   return (
-    <div style={{ maxWidth: 900 }}>
+    <div style={{ maxWidth: 900, fontFamily: ds.font.sans }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
-        <div>
-          <div>
-            <h1 className="text-white font-bold" style={{ fontSize: 22 }}>🎭 Characters</h1>
-            <p className="text-xs mt-0.5" style={{ color: "var(--text2)" }}>Manage actors, voices, and character profiles for your content</p>
-          </div>
-          <p style={{ fontSize: 13, color: "#7070a0", marginTop: 4 }}>
-            Full character profiles — voice, appearance, role, and speech style — for consistent multi-voice casting.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <HeroTitle kicker="Character Studio" title="Characters" italic="& Voices" sub="Manage actors, voices, and character profiles for consistent casting" />
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 8 }}>
           {!showForm && (
             <button
               onClick={() => setShowForm(true)}
-              style={{ background: "#7c5cfc", color: "#fff", border: "none", borderRadius: 8, padding: "8px 18px", fontSize: 13, cursor: "pointer" }}
+              style={{ background: ds.color.card, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.sm, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: ds.font.sans }}
             >
               + Add Character
             </button>
@@ -1489,10 +1480,11 @@ export default function CharacterVoicesPage() {
           <button
             onClick={() => setShowSmartBuilder(true)}
             style={{
-              background: "linear-gradient(135deg, #a855f7, #7c3aed)",
-              color: "#fff", border: "none", borderRadius: 8,
+              background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
+              backgroundSize: "300% 100%",
+              color: "#fff", border: "none", borderRadius: ds.radius.sm,
               padding: "8px 18px", fontSize: 13, cursor: "pointer",
-              fontWeight: 600,
+              fontWeight: 700, fontFamily: ds.font.sans,
             }}
           >
             AI Smart Builder
@@ -1508,11 +1500,11 @@ export default function CharacterVoicesPage() {
 
       {/* ── Character Packs ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 28 }}>
-        <p style={{ color: "#5a5a7a", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em" }}>Character Packs</p>
+        <p style={{ color: ds.color.mute, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", fontFamily: ds.font.mono }}>Character Packs</p>
 
         <PackWidget
           label="Universal Narrator Pack"
-          emoji="🎙"
+          emoji=""
           description="5 age-group narrators: Child · Teen · Young Adult · Adult · Elder. Neutral global English. Voice IDs blank by default — paste your ElevenLabs cloned voice IDs after seeding."
           entries={UNIVERSAL_NARRATOR_PACK}
           voices={voices}
@@ -1524,7 +1516,7 @@ export default function CharacterVoicesPage() {
 
         <PackWidget
           label="World Cinema — Character Pack"
-          emoji="🌍"
+          emoji=""
           description="5 universal drama characters: Hero · Heroine · Elder Figure · Villain · Sidekick. Global archetypes with visual descriptions and default ElevenLabs voices pre-assigned."
           entries={WORLD_CINEMA_PACK}
           voices={voices}
@@ -1536,7 +1528,7 @@ export default function CharacterVoicesPage() {
 
         <PackWidget
           label="English Cinematic — Character Pack"
-          emoji="🎭"
+          emoji=""
           description="5 universal cinematic characters: Hero · Heroine · Mentor · Antagonist · English Narrator. Standard drama archetypes with ElevenLabs voices pre-assigned."
           entries={ENGLISH_CINEMATIC_PACK}
           voices={voices}
@@ -1559,18 +1551,18 @@ export default function CharacterVoicesPage() {
 
       {/* ── Character list ── */}
       {loading ? (
-        <p style={{ color: "#5a5a7a", fontSize: 13 }}>Loading…</p>
+        <p style={{ color: ds.color.mute, fontSize: 12, fontFamily: ds.font.mono }}>Loading…</p>
       ) : voices.length === 0 ? (
-        <div style={{ background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 10, padding: 32, textAlign: "center" }}>
-          <p style={{ color: "#5a5a7a", fontSize: 13 }}>No characters registered yet.</p>
-          <p style={{ color: "#3a3a5a", fontSize: 12, marginTop: 6 }}>Load a pack above or add characters manually.</p>
+        <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 32, textAlign: "center" }}>
+          <p style={{ color: ds.color.mute, fontSize: 13 }}>No characters registered yet.</p>
+          <p style={{ color: ds.color.mute2, fontSize: 12, marginTop: 6 }}>Load a pack above or add characters manually.</p>
         </div>
       ) : (
         <>
           {narrators.length > 0 && (
             <div style={{ marginBottom: 24 }}>
-              <p style={{ color: "#7070a0", fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                ◉ Narrators <span style={{ color: "#3a3a5a", fontWeight: 400 }}>({narrators.length})</span>
+              <p style={{ color: ds.color.mute, fontSize: 10, fontWeight: 700, marginBottom: 10, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: ds.font.mono }}>
+                Narrators <span style={{ color: ds.color.mute2, fontWeight: 400 }}>({narrators.length})</span>
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {narrators.map(v => (
@@ -1581,8 +1573,8 @@ export default function CharacterVoicesPage() {
           )}
           {characters.length > 0 && (
             <div>
-              <p style={{ color: "#7070a0", fontSize: 11, fontWeight: 600, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Characters <span style={{ color: "#3a3a5a", fontWeight: 400 }}>({characters.length})</span>
+              <p style={{ color: ds.color.mute, fontSize: 10, fontWeight: 700, marginBottom: 10, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: ds.font.mono }}>
+                Characters <span style={{ color: ds.color.mute2, fontWeight: 400 }}>({characters.length})</span>
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {characters.map(v => (
@@ -1595,9 +1587,9 @@ export default function CharacterVoicesPage() {
       )}
 
       {/* ── Multi-voice script format guide ── */}
-      <div style={{ background: "#1a1a2e", border: "1px solid #2a2a40", borderRadius: 10, padding: 20, marginTop: 28 }}>
-        <h3 style={{ color: "#9090b0", fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Multi-Voice Script Format</h3>
-        <pre style={{ background: "#12121a", borderRadius: 6, padding: 14, fontSize: 12, color: "#a0a0c0", overflow: "auto" }}>
+      <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 20, marginTop: 28 }}>
+        <h3 style={{ color: ds.color.mute, fontSize: 11, fontWeight: 700, marginBottom: 12, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.1em" }}>Multi-Voice Script Format</h3>
+        <pre style={{ background: ds.color.paper, borderRadius: ds.radius.sm, padding: 14, fontSize: 12, color: ds.color.mute, overflow: "auto", fontFamily: ds.font.mono }}>
 {`NARR_ADULT: "The city streets hummed with life that morning."
 [AMBIENCE: city_ambient]
 ELDER_FIGURE: "Stay close — this place holds secrets."
@@ -1606,22 +1598,22 @@ NARR_ADULT [emotional]: "He moved through the crowd, searching for answers."
 [SFX: crowd_murmur]
 VILLAIN_WORLD [commanding]: "Nobody leaves this city today."`}
         </pre>
-        <p style={{ fontSize: 11, color: "#3a3a5a", marginTop: 8 }}>
-          Characters not in the registry get auto-assigned default voices. Use <code style={{ color: "#7c5cfc" }}>CHARACTER [style]:</code> for per-line speech direction.
+        <p style={{ fontSize: 11, color: ds.color.mute2, marginTop: 8 }}>
+          Characters not in the registry get auto-assigned default voices. Use <code style={{ color: ds.color.lilac, fontFamily: ds.font.mono }}>CHARACTER [style]:</code> for per-line speech direction.
         </p>
       </div>
 
       {/* ── Voice ID Guide ── */}
-      <div style={{ background: "#0d0d18", border: "1px solid #1e1e38", borderRadius: 10, padding: 20, marginTop: 14 }}>
-        <p style={{ color: "#60a5fa", fontSize: 13, fontWeight: 600, marginBottom: 10 }}>🎙 How to get custom voice IDs</p>
-        <ol style={{ color: "#4a4a6a", fontSize: 12, lineHeight: 2, margin: 0, paddingLeft: 18 }}>
-          <li>Go to <span style={{ color: "#60a5fa" }}>elevenlabs.io</span> → Voice Lab → Create New Voice</li>
+      <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 20, marginTop: 14 }}>
+        <p style={{ color: ds.color.sky, fontSize: 11, fontWeight: 700, marginBottom: 10, fontFamily: ds.font.mono, textTransform: "uppercase", letterSpacing: "0.08em" }}>How to get custom voice IDs</p>
+        <ol style={{ color: ds.color.mute, fontSize: 12, lineHeight: 2, margin: 0, paddingLeft: 18 }}>
+          <li>Go to <span style={{ color: ds.color.sky }}>elevenlabs.io</span> → Voice Lab → Create New Voice</li>
           <li>Record or upload audio samples of the voice you want (any language or accent)</li>
           <li>Name the cloned voice to match your character</li>
           <li>Copy the Voice ID from the voice settings page</li>
           <li>Come back here → Edit the character → Paste the voice ID → Preview to confirm</li>
         </ol>
-        <p style={{ color: "#3a3a5a", fontSize: 11, marginTop: 10 }}>
+        <p style={{ color: ds.color.mute2, fontSize: 11, marginTop: 10 }}>
           ElevenLabs supports 30+ languages. Clone any voice or pick from their built-in voice library.
         </p>
       </div>
