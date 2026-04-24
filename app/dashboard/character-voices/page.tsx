@@ -647,8 +647,8 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
 
           {/* Tags + voice */}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-            {[v.gender, v.toneClass, v.accent].filter(Boolean).map(tag => (
-              <span key={tag} style={{ background: ds.color.alert, color: ds.color.mute, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>
+            {[v.gender, v.toneClass, v.accent].filter(Boolean).map((tag, i) => (
+              <span key={`${tag}-${i}`} style={{ background: ds.color.alert, color: ds.color.mute, fontSize: 11, borderRadius: ds.radius.xs, padding: "2px 7px", fontFamily: ds.font.mono }}>
                 {tag}
               </span>
             ))}

@@ -97,8 +97,8 @@ export default function TemplatesPage() {
     </p>
   );
 
-  const filterBtn = (active: boolean, label: string, onClick: () => void) => (
-    <button onClick={onClick} style={{
+  const filterBtn = (active: boolean, label: string, onClick: () => void, key?: string) => (
+    <button key={key ?? label} onClick={onClick} style={{
       padding: "7px 12px", borderRadius: ds.radius.sm, fontSize: 11, fontWeight: 600, cursor: "pointer",
       fontFamily: ds.font.sans,
       background: active ? `${ds.color.lilac}18` : ds.color.card,
@@ -122,6 +122,7 @@ export default function TemplatesPage() {
           filter === c,
           `${c} (${templates.filter(t => t.category === c).length})`,
           () => setFilter(f => f === c ? "" : c),
+          c,
         ))}
       </div>
 
