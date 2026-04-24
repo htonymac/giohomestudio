@@ -25,9 +25,12 @@ import AnimatedStickerPicker, { type StickerOverlay, STICKER_DEFS } from "../../
 // Flow: Import media → Review → Edit (instruction or controls) → Assemble → Export
 // ═══════════════════════════════════════════════════════════════════════════
 
-const s1 = "#0b0e18"; const s2 = "#10141f"; const border = "#1e2a35";
-const text = "#dde4f0"; const muted = "#4e6080"; const purple = "#a855f7";
-const green = "#22c55e"; const gold = "#f59e0b"; const red = "#ef4444"; const cyan = "#00d4ff";
+import { ds } from "../../../lib/designSystem";
+import { Folder, User, Wand, Music, Film, Check, X, Settings, Mic, Play } from "../../components/icons";
+
+const s1 = ds.color.sidebar; const s2 = ds.color.card; const border = ds.color.line;
+const text = ds.color.ink; const muted = ds.color.mute; const purple = ds.color.lilac;
+const green = ds.color.mint; const gold = ds.color.gold; const red = ds.color.coral; const cyan = ds.color.sky;
 
 export default function CollaborativeEditorPage() {
   return <Suspense fallback={<div style={{ padding: 40, color: muted }}>Loading Editor...</div>}><Editor /></Suspense>;
@@ -194,18 +197,18 @@ function Editor() {
 
   // All available design styles
   const DESIGN_STYLES = [
-    { id: "kinetic", name: "Kinetic Typography", desc: "Words flow & dance around hero text", icon: "💫" },
-    { id: "neon", name: "Neon Glow", desc: "Electric glowing text on dark bg", icon: "⚡" },
-    { id: "glass", name: "Glassmorphism", desc: "Frosted glass card with blur", icon: "🧊" },
-    { id: "engrave", name: "Engraved", desc: "Text pressed into surface", icon: "🔨" },
-    { id: "retro", name: "Retro Pop", desc: "Bold shadow, vintage feel", icon: "🎸" },
-    { id: "outline", name: "Outline Stroke", desc: "Hollow text with glow border", icon: "✏️" },
+    { id: "kinetic", name: "Kinetic Typography", desc: "Words flow & dance around hero text", icon: "" },
+    { id: "neon", name: "Neon Glow", desc: "Electric glowing text on dark bg", icon: "" },
+    { id: "glass", name: "Glassmorphism", desc: "Frosted glass card with blur", icon: "" },
+    { id: "engrave", name: "Engraved", desc: "Text pressed into surface", icon: "" },
+    { id: "retro", name: "Retro Pop", desc: "Bold shadow, vintage feel", icon: "" },
+    { id: "outline", name: "Outline Stroke", desc: "Hollow text with glow border", icon: "️" },
     { id: "minimal", name: "Minimal Clean", desc: "Simple white text, no effects", icon: "◻️" },
-    { id: "gradient_text", name: "Gradient Text", desc: "Text filled with gradient color", icon: "🌈" },
-    { id: "cinema", name: "Cinematic", desc: "Letterbox bars, film grain feel", icon: "🎬" },
-    { id: "magazine", name: "Magazine Cover", desc: "Bold serif, editorial layout", icon: "📰" },
-    { id: "hype", name: "Hype Beast", desc: "Streetwear bold, all caps, slashed", icon: "🔥" },
-    { id: "wave", name: "Wave Motion", desc: "Text on wavy animated paths", icon: "🌊" },
+    { id: "gradient_text", name: "Gradient Text", desc: "Text filled with gradient color", icon: "" },
+    { id: "cinema", name: "Cinematic", desc: "Letterbox bars, film grain feel", icon: "" },
+    { id: "magazine", name: "Magazine Cover", desc: "Bold serif, editorial layout", icon: "" },
+    { id: "hype", name: "Hype Beast", desc: "Streetwear bold, all caps, slashed", icon: "" },
+    { id: "wave", name: "Wave Motion", desc: "Text on wavy animated paths", icon: "" },
   ] as const;
 
   const [slideDesign, setSlideDesign] = useState({
@@ -1235,7 +1238,7 @@ function Editor() {
           const sfx = Object.entries(sfxMap).find(([k]) => low.includes(k))?.[1] || "whoosh";
           addSfx(sfx, currentTime);
         } else if (low.match(/^replace\s+image|^change\s+image|^swap\s+image/)) {
-          setChatLog(p => [...p, { role: "ai", text: "Use the Import modal (📂 Open) → select 'Replace Scene' to replace the image." }]);
+          setChatLog(p => [...p, { role: "ai", text: "Use the Import modal (Open) → select 'Replace Scene' to replace the image." }]);
         } else if (low.match(/^change\s+background|^set\s+background|^background\s+to/)) {
           const bgText = instruction.replace(/^(change|set)\s+background\s*(to|:)?\s*/i, "").trim();
           if (bgText) {
@@ -1244,7 +1247,7 @@ function Editor() {
             saveVersion("Background changed");
           }
         } else if (low.match(/^add\s+logo|^add\s+watermark/)) {
-          setChatLog(p => [...p, { role: "ai", text: "Use Import (📂 Open) → select 'Overlay On Top' → upload your logo image." }]);
+          setChatLog(p => [...p, { role: "ai", text: "Use Import (Open) → select 'Overlay On Top' → upload your logo image." }]);
         } else if (low.match(/^upload\s+music|^add\s+custom\s+music/)) {
           setChatLog(p => [...p, { role: "ai", text: "Use the Music section in Properties → upload custom music file via Import." }]);
         } else if (low.match(/^add\s+ambience|^add\s+rain|^add\s+forest|^add\s+city/)) {
@@ -1478,7 +1481,7 @@ function Editor() {
           <a href={`/dashboard/${params.get("from") || "hybrid-planner"}`} style={{ textDecoration: "none", fontSize: 10, color: muted, padding: "3px 8px", borderRadius: 6, border: `1px solid ${border}`, background: s2 }} title="Return to Planner">
             ← Planner
           </a>
-          <span style={{ fontWeight: 800, fontSize: 14, color: text }}>🎬 GHS<span style={{ color: cyan }}>Editor</span></span>
+          <span style={{ fontWeight: 800, fontSize: 14, color: text, display: "inline-flex", alignItems: "center", gap: 5 }}><Film size={14} color={cyan} /> GHS<span style={{ color: cyan }}>Editor</span></span>
           <input
             defaultValue={assembly.title}
             key={assembly.projectId}
@@ -1512,23 +1515,23 @@ function Editor() {
             <option value="premium_best">GHS Best</option>
           </select>
           <span style={{ fontSize: 10, color: muted, fontFamily: "monospace", padding: "3px 8px", background: s2, borderRadius: 6, border: `1px solid ${border}` }}>v{versions.length || 1}</span>
-          <button onClick={() => setShowShortcuts(true)} style={{ padding: "5px 8px", borderRadius: 7, fontSize: 11, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }} title="Keyboard Shortcuts (?)">⌨</button>
+          <button onClick={() => setShowShortcuts(true)} style={{ padding: "5px 8px", borderRadius: 7, fontSize: 11, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer", display: "flex", alignItems: "center" }} title="Keyboard Shortcuts"><Settings size={13} color={muted} /></button>
         </div>
       </div>
 
       {/* ══ ACTION TOOLBAR — Key buttons spread out and visible ══ */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 14px", background: s1, borderBottom: `1px solid ${border}`, flexWrap: "wrap" }}>
         <button onClick={() => setShowImport(true)} style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `1px solid ${cyan}30`, background: `${cyan}08`, color: cyan, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          📂 Import / Open
+          <Folder size={13} color={cyan} /> Import / Open
         </button>
         <button onClick={() => setShowCharacterPicker(true)} style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `1px solid ${purple}30`, background: `${purple}08`, color: purple, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-          👤 Add Character
+          <User size={13} color={purple} /> Add Character
         </button>
         <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `1px solid ${purple}30`, background: "transparent", color: purple, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-          ✨ Create Character
+          <Wand size={13} color={purple} /> Create Character
         </a>
         <a href="/dashboard/sfx-library?selectMode=music&returnTo=collaborative-editor" style={{ padding: "7px 16px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: `1px solid ${gold}30`, background: `${gold}06`, color: gold, cursor: "pointer", textDecoration: "none", display: "flex", alignItems: "center", gap: 6 }}>
-          🎵 Import Music
+          <Music size={13} color={gold} /> Import Music
         </a>
         <div style={{ flex: 1 }} />
         <a href={`/dashboard/${(() => { try { const p = new URLSearchParams(window.location.search); return p.get("from") || "hybrid-planner"; } catch { return "hybrid-planner"; } })()}`}
@@ -1536,8 +1539,8 @@ function Editor() {
           ← Planner
         </a>
         <button onClick={assemble} disabled={processing || !assembly.segments.length}
-          style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, border: "none", background: processing ? "#2a2a40" : green, color: processing ? muted : "#000", cursor: processing ? "not-allowed" : "pointer", fontWeight: 800 }}>
-          {processing ? "Processing..." : "🎬 Assemble & Export"}
+          style={{ padding: "8px 20px", borderRadius: 8, fontSize: 13, border: "none", background: processing || !assembly.segments.length ? ds.color.card : `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnC})`, color: processing || !assembly.segments.length ? muted : "#fff", cursor: processing ? "not-allowed" : "pointer", fontWeight: 800, opacity: !assembly.segments.length ? 0.45 : 1 }}>
+          {processing ? "Processing..." : "Assemble & Export"}
         </button>
       </div>
 
@@ -1550,8 +1553,7 @@ function Editor() {
           <button onClick={() => setSidebarExpanded(p => !p)} style={{ width: "100%", padding: "4px 0", borderRadius: 4, border: "none", background: "transparent", color: muted, fontSize: 10, cursor: "pointer", marginBottom: 3 }}>
             {sidebarExpanded ? "◀ Collapse" : "▶ Expand"}
           </button>
-          {/* Back to Projects — always visible */}
-          {(assembly.segments.length > 0 || assembly.projectId !== "new") && (
+          {/* Back to Projects — always visible */} {(assembly.segments.length > 0 || assembly.projectId !== "new") && (
             <button onClick={() => {
               // Save current project first
               if (assembly.segments.length > 0) {
@@ -1568,19 +1570,15 @@ function Editor() {
             style={{ width: "100%", padding: "7px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}08`, color: purple, fontSize: 11, fontWeight: 600, cursor: "pointer", marginBottom: 5, textAlign: "left" }}>
               ← Projects
             </button>
-          )}
-          {/* Collapse all scenes / close folders */}
-          {expandedFolders.size > 0 && (
+          )} {/* Collapse all scenes / close folders */} {expandedFolders.size > 0 && (
             <button onClick={() => setExpandedFolders(new Set())}
               style={{ width: "100%", padding: "4px 8px", borderRadius: 4, border: "none", background: `${cyan}08`, color: cyan, fontSize: 8, cursor: "pointer", marginBottom: 2 }}>
               ⬆ Close All Folders
             </button>
-          )}
-          {/* Project/Story title folder */}
-          {assembly.segments.length > 0 && assembly.title && assembly.title !== "Untitled Project" ? (
+          )} {/* Project/Story title folder */} {assembly.segments.length > 0 && assembly.title && assembly.title !== "Untitled Project" ? (
             <div style={{ padding: "6px 8px", marginBottom: 4, borderRadius: 6, background: `${purple}10`, border: `1px solid ${purple}20` }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: purple, marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                📁 {assembly.title}
+                <Folder size={11} color={purple} style={{ display: "inline", verticalAlign: "middle", marginRight: 4 }} /> {assembly.title}
               </div>
               <div style={{ fontSize: 8, color: muted }}>{assembly.segments.length} scenes · {fmtTime(assembly.totalDuration)}</div>
             </div>
@@ -1588,14 +1586,12 @@ function Editor() {
             <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, textTransform: "uppercase", color: muted, padding: "8px 6px 6px" }}>
               Scenes ({assembly.segments.length})
             </div>
-          )}
-          {assembly.segments.length === 0 && (
+          )} {assembly.segments.length === 0 && (
             <div style={{ textAlign: "center", padding: 20 }}>
               <p style={{ fontSize: 11, color: muted }}>No media</p>
-              <button onClick={() => setShowImport(true)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid ${purple}`, background: `${purple}15`, color: purple, fontSize: 10, cursor: "pointer" }}>Import</button>
+              <button onClick={() => setShowImport(true)} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: `1px solid ${purple}`, background: `${purple}15`, color: purple, fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}><Folder size={10} color={purple} />Import</button>
             </div>
-          )}
-          {assembly.segments.map((seg, i) => {
+          )} {assembly.segments.map((seg, i) => {
             const isExpanded = expandedFolders.has(i);
             const sceneNarr = assembly.narration.filter(n => n.startTime >= seg.startTime && n.startTime < seg.endTime);
             const sceneMusic = assembly.music.filter(m => m.startTime < seg.endTime && m.endTime > seg.startTime);
@@ -1639,8 +1635,7 @@ function Editor() {
                   style={{ background: "none", border: "none", cursor: "pointer", color: muted, fontSize: 8, padding: 0 }}>
                   {isExpanded ? "▼" : "▶"}
                 </button>
-                {/* Scene thumbnail */}
-                {seg.sourceUrl && !seg.sourceUrl.startsWith("bg:") && (
+                {/* Scene thumbnail */} {seg.sourceUrl && !seg.sourceUrl.startsWith("bg:") && (
                   <div style={{ width: 28, height: 20, borderRadius: 3, overflow: "hidden", flexShrink: 0, background: "#0a0d14", border: `1px solid ${border}` }}>
                     {seg.type === "video" ? (
                       <video src={seg.sourceUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} muted preload="metadata" />
@@ -1650,7 +1645,7 @@ function Editor() {
                   </div>
                 )}
                 <span style={{ fontSize: 11, fontWeight: 600, color: seg.id === "seg_assembled" ? green : text, flex: 1 }}>
-                  {seg.id === "seg_assembled" ? "📦 Output (assembled)" : seg.sourceUrl?.startsWith("bg:") ? "📄" : seg.type === "video" ? "🎬" : "🖼"} {seg.id !== "seg_assembled" && `Scene ${i + 1}`}
+                  {seg.id === "seg_assembled" ? "Output (assembled)" : seg.sourceUrl?.startsWith("bg:") ? "" : seg.type === "video" ? "" : ""} {seg.id !== "seg_assembled" && `Scene ${i + 1}`}
                 </span>
                 {/* Editable duration — click to change seconds per slide */}
                 <input type="number" min="2" max="30" step="1" value={Math.round(seg.duration)}
@@ -1688,46 +1683,35 @@ function Editor() {
                   if (assembly.segments.length <= 1) { setMediaUrl(""); }
                   setExpandedFolders(prev => { const n = new Set(prev); n.delete(i); return n; });
                   saveVersion(`Deleted scene ${i + 1}`);
-                }} style={{ fontSize: 7, color: red, background: "none", border: "none", cursor: "pointer", marginLeft: "auto", padding: "0 2px" }}>✕</button>
+                }} style={{ fontSize: 7, color: red, background: "none", border: "none", cursor: "pointer", marginLeft: "auto", padding: "0 2px" }}></button>
               </div>
-              {/* Expanded folder content — per-layer details */}
-              {isExpanded && (
+              {/* Expanded folder content — per-layer details */} {isExpanded && (
                 <div style={{ padding: "4px 8px 6px", borderTop: `1px solid ${border}`, fontSize: 8 }}>
                   {/* Source */}
                   <p style={{ color: muted, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {seg.sourceUrl?.split("/").pop() || "No source file"}
                   </p>
-                  {/* Narration in this scene */}
-                  {sceneNarr.length > 0 ? sceneNarr.map(n => (
+                  {/* Narration in this scene */} {sceneNarr.length > 0 ? sceneNarr.map(n => (
                     <div key={n.id} style={{ color: cyan, marginBottom: 2 }}>
-                      🎙 {n.text?.slice(0, 30) || "Narration"}{n.audioUrl ? " ✓" : ""}
+                      {n.text?.slice(0, 30) || "Narration"} {n.audioUrl ? " " : ""}
                     </div>
-                  )) : <div style={{ color: "#2a3040" }}>🎙 No narration</div>}
-                  {/* Music in this scene */}
-                  {sceneMusic.length > 0 ? sceneMusic.map(m => (
+                  )) : <div style={{ color: "#2a3040" }}>No narration</div>} {/* Music in this scene */} {sceneMusic.length > 0 ? sceneMusic.map(m => (
                     <div key={m.id} style={{ color: green, marginBottom: 2 }}>
-                      🎵 Music ({Math.round(m.volume * 100)}%)
+                      Music ({Math.round(m.volume * 100)}%)
                     </div>
-                  )) : <div style={{ color: "#2a3040" }}>🎵 No music</div>}
-                  {/* SFX in this scene */}
-                  {sceneSfx.length > 0 ? sceneSfx.map(s => (
+                  )) : <div style={{ color: "#2a3040" }}>No music</div>} {/* SFX in this scene */} {sceneSfx.length > 0 ? sceneSfx.map(s => (
                     <div key={s.id} style={{ color: gold, marginBottom: 2 }}>
-                      💥 {s.event} @ {fmtTime(s.startTime)}
+                      {s.event} @ {fmtTime(s.startTime)}
                     </div>
-                  )) : <div style={{ color: "#2a3040" }}>💥 No SFX</div>}
-                  {/* Overlays in this scene */}
-                  {sceneOverlays.length > 0 ? sceneOverlays.map(o => (
+                  )) : <div style={{ color: "#2a3040" }}>No SFX</div>} {/* Overlays in this scene */} {sceneOverlays.length > 0 ? sceneOverlays.map(o => (
                     <div key={o.id} style={{ color: "#ec4899", marginBottom: 2 }}>
-                      🎨 "{o.content.slice(0, 20)}" ({o.animation || "fade"})
+                      "{o.content.slice(0, 20)}" ({o.animation || "fade"})
                     </div>
-                  )) : <div style={{ color: "#2a3040" }}>🎨 No overlays</div>}
-                  {/* Subtitles */}
-                  {sceneSubs.length > 0 && sceneSubs.map(s => (
+                  )) : <div style={{ color: "#2a3040" }}>No overlays</div>} {/* Subtitles */} {sceneSubs.length > 0 && sceneSubs.map(s => (
                     <div key={s.id} style={{ color: purple, marginBottom: 2 }}>
-                      📝 "{s.text.slice(0, 25)}"
+                      "{s.text.slice(0, 25)}"
                     </div>
-                  ))}
-                  {/* Delete */}
+                  ))} {/* Delete */}
                   <button onClick={e => { e.stopPropagation();
                     updateAssembly(a => { a.segments = a.segments.filter((_, si) => si !== i); a.totalDuration = a.segments.reduce((t, s) => t + s.duration, 0); });
                     if (activeSegIdx >= assembly.segments.length - 1) setActiveSegIdx(Math.max(0, activeSegIdx - 1));
@@ -1738,8 +1722,7 @@ function Editor() {
                 </div>
               )}
             </div>
-          );})}
-          {/* Add segment / Intro / Outro */}
+          );})} {/* Add segment / Intro / Outro */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 6 }}>
             <button onClick={() => fileRef.current?.click()} style={{ width: "100%", padding: 8, borderRadius: 6, border: `1px dashed ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>+ Add Clip</button>
             {/* Intro — upload or generate */}
@@ -1748,7 +1731,7 @@ function Editor() {
               {showIntroMenu && (
                 <div style={{ position: "absolute", left: 0, right: 0, top: "100%", zIndex: 20, background: s1, border: `1px solid ${border}`, borderRadius: 8, padding: 6, marginTop: 2 }}>
                   <label style={{ display: "block", padding: "6px 8px", borderRadius: 6, cursor: "pointer", fontSize: 9, color: text, marginBottom: 2 }}>
-                    📁 Upload intro image/video
+                    Upload intro image/video
                     <input type="file" accept="video/*,image/*" style={{ display: "none" }} onChange={async e => {
                       if (!e.target.files?.[0]) return;
                       setShowIntroMenu(false);
@@ -1810,9 +1793,9 @@ function Editor() {
                     </div>
                   ) : (
                     <button onClick={() => setShowIntroGen(true)}
-                      style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 6, border: "none", background: "transparent", color: text, fontSize: 11, cursor: "pointer", textAlign: "left" }}>🎨 Generate intro image (AI)</button>
+                      style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 6, border: "none", background: "transparent", color: text, fontSize: 11, cursor: "pointer", textAlign: "left" }}>Generate intro image (AI)</button>
                   )}
-                  <a href="/dashboard/templates" target="_blank" style={{ display: "block", padding: "6px 10px", borderRadius: 6, fontSize: 11, color: muted, textDecoration: "none" }}>📋 Browse intro templates</a>
+                  <a href="/dashboard/templates" target="_blank" style={{ display: "block", padding: "6px 10px", borderRadius: 6, fontSize: 11, color: muted, textDecoration: "none" }}>Browse intro templates</a>
                 </div>
               )}
             </div>
@@ -1822,7 +1805,7 @@ function Editor() {
               {showOutroMenu && (
                 <div style={{ position: "absolute", left: 0, right: 0, top: "100%", zIndex: 20, background: s1, border: `1px solid ${border}`, borderRadius: 8, padding: 6, marginTop: 2 }}>
                   <label style={{ display: "block", padding: "6px 8px", borderRadius: 6, cursor: "pointer", fontSize: 9, color: text, marginBottom: 2 }}>
-                    📁 Upload outro image/video
+                    Upload outro image/video
                     <input type="file" accept="video/*,image/*" style={{ display: "none" }} onChange={async e => {
                       if (!e.target.files?.[0]) return;
                       setShowOutroMenu(false);
@@ -1877,7 +1860,7 @@ function Editor() {
                     </div>
                   ) : (
                     <button onClick={() => setShowOutroGen(true)}
-                      style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 6, border: "none", background: "transparent", color: text, fontSize: 11, cursor: "pointer", textAlign: "left" }}>🎨 Generate outro image (AI)</button>
+                      style={{ display: "block", width: "100%", padding: "7px 10px", borderRadius: 6, border: "none", background: "transparent", color: text, fontSize: 11, cursor: "pointer", textAlign: "left" }}>Generate outro image (AI)</button>
                   )}
                 </div>
               )}
@@ -1892,8 +1875,7 @@ function Editor() {
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
             {(mediaUrl || (activeSeg?.sourceUrl?.startsWith("bg:"))) ? (
               <div style={{ position: "relative", maxWidth: "100%", maxHeight: "100%", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {/* InvText slide: gradient background + text overlay */}
-                {activeSeg?.sourceUrl?.startsWith("bg:") && !mediaUrl ? (
+                {/* InvText slide: gradient background + text overlay */} {activeSeg?.sourceUrl?.startsWith("bg:") && !mediaUrl ? (
                   <div data-testid="invtext-preview" style={{ width: "100%", height: "100%", background: activeSeg.sourceUrl.slice(3), display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 0 }}>
                     {/* Scene status badge */}
                     <div style={{ position: "absolute", top: 10, left: 10, fontSize: 9, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.5)", color: green }}>
@@ -1905,17 +1887,12 @@ function Editor() {
                     onClick={togglePlay} />
                 ) : mediaUrl ? (
                   <img src={mediaUrl} alt="Preview" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
-                ) : null}
-                {/* Save video button — Place 3: floating on video preview */}
-                {mediaUrl && !mediaUrl.startsWith("blob:") && (
+                ) : null} {/* Save video button — Place 3: floating on video preview */} {mediaUrl && !mediaUrl.startsWith("blob:") && (
                   <a href={mediaUrl} download={`${(assembly.title || "video").replace(/\s+/g, "_")}.mp4`}
                     style={{ position: "absolute", top: 8, right: 8, padding: "5px 10px", borderRadius: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${green}50`, color: green, fontSize: 10, fontWeight: 700, textDecoration: "none", zIndex: 20, backdropFilter: "blur(4px)" }}>
-                    💾 Save Video
+                    Save Video
                   </a>
-                )}
-                {/* Live text overlays — FRAME-ACCURATE: only show when currentTime is in range */}
-                {/* HIDE overlays when playing assembled video (text already burned in) */}
-                {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && assembly.subtitles
+                )} {/* Live text overlays — FRAME-ACCURATE: only show when currentTime is in range */} {/* HIDE overlays when playing assembled video (text already burned in) */} {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && assembly.subtitles
                   .filter(sub => {
                     if (activeSeg?.sourceUrl?.startsWith("bg:") && !mediaUrl) {
                       return sub.startTime >= (activeSeg.startTime || 0) && sub.startTime < (activeSeg.endTime || Infinity);
@@ -1932,9 +1909,7 @@ function Editor() {
                     fontSize: sub.fontSize || 18, fontWeight: 600,
                     maxWidth: "80%", textAlign: "center", pointerEvents: "none",
                   }}>{sub.text}</div>
-                ))}
-                {/* HIDE overlays when playing assembled video (text already burned in) */}
-                {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && assembly.overlays
+                ))} {/* HIDE overlays when playing assembled video (text already burned in) */} {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && assembly.overlays
                   .filter(ovl => {
                     if (activeSeg?.sourceUrl?.startsWith("bg:") && !mediaUrl) {
                       return ovl.startTime >= (activeSeg.startTime || 0) && ovl.startTime < (activeSeg.endTime || Infinity);
@@ -1991,9 +1966,7 @@ function Editor() {
                         ...typewriterStyle,
                       }}>{ovl.content}</div>
                   );
-                })}
-                {/* ── Animated sticker overlays — frame-accurate SVG draw ── */}
-                {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && stickers
+                })} {/* ── Animated sticker overlays — frame-accurate SVG draw ── */} {!(activeSeg?.id === "seg_assembled" || mediaUrl?.includes("/assembled/")) && stickers
                   .filter(stk => currentTime >= stk.startTime && currentTime <= stk.startTime + stk.duration)
                   .map(stk => {
                     const def = STICKER_DEFS[stk.type as StickerOverlay["type"]];
@@ -2019,19 +1992,17 @@ function Editor() {
               </div>
             ) : (
               <div style={{ textAlign: "center", maxWidth: 640, width: "100%" }}>
-                {/* ═══ PROJECT LIST — shown when saved projects exist ═══ */}
-                {projectList.length > 0 && !showProjectList && (
+                {/* ═══ PROJECT LIST — shown when saved projects exist ═══ */} {projectList.length > 0 && !showProjectList && (
                   <div style={{ marginBottom: 16 }}>
                     <button onClick={() => setShowProjectList(true)} style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${purple}40`, background: `${purple}08`, color: purple, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                      📋 Open Saved Project ({projectList.length})
+                      Open Saved Project ({projectList.length})
                     </button>
                   </div>
-                )}
-                {showProjectList && (
+                )} {showProjectList && (
                   <div style={{ marginBottom: 20, textAlign: "left", background: s2, borderRadius: 14, border: `1px solid ${border}`, padding: 16, maxHeight: 340, overflowY: "auto" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                       <p style={{ fontSize: 14, fontWeight: 700, color: text }}>Saved Projects</p>
-                      <button onClick={() => setShowProjectList(false)} style={{ fontSize: 11, color: muted, background: "none", border: "none", cursor: "pointer" }}>✕ Close</button>
+                      <button onClick={() => setShowProjectList(false)} style={{ fontSize: 11, color: muted, background: "none", border: "none", cursor: "pointer" }}>Close</button>
                     </div>
                     {projectList.map(p => (
                       <div key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 12px", borderRadius: 10, border: `1px solid ${border}`, marginBottom: 6, background: s1 }}>
@@ -2041,22 +2012,21 @@ function Editor() {
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={() => loadProject(p.id)} style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: purple, color: "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Open</button>
-                          <button onClick={() => deleteProject(p.id, "editor")} title="Remove from editor (keeps in library)" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>🗑</button>
-                          <button onClick={() => { if (confirm("Delete FOREVER? This cannot be undone.")) deleteProject(p.id, "forever"); }} title="Delete forever" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid #ef444440`, background: "transparent", color: "#ef4444", fontSize: 10, cursor: "pointer" }}>✕</button>
+                          <button onClick={() => deleteProject(p.id, "editor")} title="Remove from editor (keeps in library)" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}></button>
+                          <button onClick={() => { if (confirm("Delete FOREVER? This cannot be undone.")) deleteProject(p.id, "forever"); }} title="Delete forever" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid #ef444440`, background: "transparent", color: "#ef4444", fontSize: 10, cursor: "pointer" }}></button>
                         </div>
                       </div>
-                    ))}
-                    {projectList.length === 0 && <p style={{ fontSize: 11, color: muted, textAlign: "center", padding: 20 }}>No saved projects yet</p>}
+                    ))} {projectList.length === 0 && <p style={{ fontSize: 11, color: muted, textAlign: "center", padding: 20 }}>No saved projects yet</p>}
                   </div>
                 )}
 
                 <div style={{ padding: "20px 0", textAlign: "center" }}>
                   <p style={{ fontSize: 18, fontWeight: 700, color: text, marginBottom: 6 }}>GHS Editor</p>
                   <p style={{ fontSize: 12, color: muted, marginBottom: 16, maxWidth: 320, margin: "0 auto 16px" }}>
-                    Use the <span style={{ color: purple, fontWeight: 700 }}>🤖 AI tab</span> (right panel) to create your video, or import a file below.
+                    Use the <span style={{ color: purple, fontWeight: 700 }}>AI tab</span> (right panel) to create your video, or import a file below.
                   </p>
                   <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                    <button onClick={() => setShowImport(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📂 Upload File</button>
+                    <button onClick={() => setShowImport(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Upload File</button>
                     <button onClick={async () => {
                       try {
                         const res = await fetch("/api/assets?type=video&limit=20");
@@ -2068,8 +2038,8 @@ function Editor() {
                         }));
                       } catch {}
                       setShowImport(true);
-                    }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📦 Asset Library</button>
-                    <button onClick={() => { loadProjectList(); setShowProjectList(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📋 Load Project</button>
+                    }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Asset Library</button>
+                    <button onClick={() => { loadProjectList(); setShowProjectList(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Load Project</button>
                   </div>
                 </div>
                 {false && (<div>
@@ -2090,16 +2060,14 @@ function Editor() {
                   </select>
                 </div>
 
-                {/* ═══ SHARED: Design panel — ALL MODES (hidden until clicked) ═══ */}
-                {creationMode !== "ai_motion" && (<>
+                {/* ═══ SHARED: Design panel — ALL MODES (hidden until clicked) ═══ */} {creationMode !== "ai_motion" && (<>
                 {/* Design button — hidden panel, only opens on click */}
                     <button onClick={() => setShowDesignPanel(p => !p)}
                       style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: `1px solid ${showDesignPanel ? purple : border}`, background: showDesignPanel ? `${purple}12` : s2, color: showDesignPanel ? purple : muted, fontSize: 10, cursor: "pointer", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontWeight: 600 }}>
-                      🎨 Design & Background {showDesignPanel ? "▲" : "▼"}
+                      Design & Background {showDesignPanel ? "▲" : "▼"}
                     </button>
 
-                    {/* ═══ FULL DESIGN PANEL — hidden until clicked ═══ */}
-                    {showDesignPanel && (
+                    {/* ═══ FULL DESIGN PANEL — hidden until clicked ═══ */} {showDesignPanel && (
                       <div style={{ padding: 10, marginBottom: 10, borderRadius: 10, border: `1px solid ${purple}25`, background: s2 }}>
 
                         {/* ── Design Style Selector with LIVE PREVIEW ── */}
@@ -2247,12 +2215,7 @@ function Editor() {
                         </div>
                       </div>
                     )}
-                </>)}
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* ═══ GHS INVTEXT — AI Story Builder + Manual ═══ */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                {creationMode === "ghs_invtext" && (
+                </>)} {/* ═══════════════════════════════════════════════════════ */} {/* ═══ GHS INVTEXT — AI Story Builder + Manual ═══ */} {/* ═══════════════════════════════════════════════════════ */} {creationMode === "ghs_invtext" && (
                   <div style={{ textAlign: "left" }}>
                     {/* Story prompt */}
                     <textarea id="gen-prompt" data-testid="invtext-prompt" placeholder={"Describe your story and let AI build it:\n\nExample: A sad lion walks alone in the savannah. He misses his family. Then he discovers his 8 cubs hiding in the tall grass. Joy fills his heart.\n\nOr type slides manually:\nSlide 1: Once upon a time...\nSlide 2: A hero was born."}
@@ -2298,7 +2261,7 @@ function Editor() {
                           setAssembly(a); setActiveSegIdx(0);
                           setVersions([{ label: "v1 — Story", desc: story.title, assembly: structuredClone(a) }]);
                           fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: a.projectId, title: a.title, assembly: a, status: "draft" }) }).catch(() => {});
-                          setChatLog(p => [...p, { role: "ai", text: `✓ Story written — ${story.slides.length} slides, ${Math.round(t)}s.\n${story.slides.map((s: { slide_number: number; text: string; mood: string }) => `  ${s.slide_number}. [${s.mood}] ${s.text.slice(0, 40)}`).join("\n")}` }]);
+                          setChatLog(p => [...p, { role: "ai", text: `Story written — ${story.slides.length} slides, ${Math.round(t)}s.\n${story.slides.map((s: { slide_number: number; text: string; mood: string }) => `  ${s.slide_number}. [${s.mood}] ${s.text.slice(0, 40)}`).join("\n")}` }]);
 
                           // Step 2: Auto-generate music
                           setChatLog(p => [...p, { role: "ai", text: `Step 2/4 — Generating ${story.music_mood} music...` }]);
@@ -2315,11 +2278,11 @@ function Editor() {
                                 next.music = [{ id: "music_0", sourceUrl: musicUrl, startTime: 0, endTime: next.totalDuration, volume: 0.3, fadeIn: 1, fadeOut: 2, duckUnderSpeech: true, duckLevel: 0.1 }];
                                 return next;
                               });
-                              setChatLog(p => [...p, { role: "ai", text: `✓ Music generated (${story.music_mood}).` }]);
+                              setChatLog(p => [...p, { role: "ai", text: `Music generated (${story.music_mood}).` }]);
                             } else {
-                              setChatLog(p => [...p, { role: "ai", text: "⚠ Music generation skipped." }]);
+                              setChatLog(p => [...p, { role: "ai", text: "Music generation skipped." }]);
                             }
-                          } catch { setChatLog(p => [...p, { role: "ai", text: "⚠ Music generation skipped." }]); }
+                          } catch { setChatLog(p => [...p, { role: "ai", text: "Music generation skipped." }]); }
 
                           // Step 3: Auto-generate narration TTS
                           setChatLog(p => [...p, { role: "ai", text: "Step 3/4 — Generating narration per slide..." }]);
@@ -2353,11 +2316,11 @@ function Editor() {
                                 });
                                 return next;
                               });
-                              setChatLog(p => [...p, { role: "ai", text: `✓ Narration generated for ${successCount}/${slideTexts.length} slides.` }]);
+                              setChatLog(p => [...p, { role: "ai", text: `Narration generated for ${successCount}/${slideTexts.length} slides.` }]);
                             } else {
-                              setChatLog(p => [...p, { role: "ai", text: "⚠ Voice generation skipped." }]);
+                              setChatLog(p => [...p, { role: "ai", text: "Voice generation skipped." }]);
                             }
-                          } catch { setChatLog(p => [...p, { role: "ai", text: "⚠ Voice generation skipped." }]); }
+                          } catch { setChatLog(p => [...p, { role: "ai", text: "Voice generation skipped." }]); }
 
                           // Step 4: Auto-assemble via FFmpeg
                           setChatLog(p => [...p, { role: "ai", text: "Step 4/4 — Assembling video with FFmpeg..." }]);
@@ -2407,47 +2370,47 @@ function Editor() {
                               // Check narration
                               const hasNarrAudio = latestAsm.narration.some(n => n.audioUrl);
                               if (!hasNarrAudio && latestAsm.narration.length > 0) {
-                                issues.push("⚠ Narration text exists but no voice audio generated — click Generate Voice in Properties");
+                                issues.push("Narration text exists but no voice audio generated — click Generate Voice in Properties");
                               }
                               // Check music
                               if (latestAsm.music.length === 0) {
-                                suggestions.push("💡 No background music — add music in Properties for a richer video");
+                                suggestions.push("No background music — add music in Properties for a richer video");
                               }
                               // Check slide count vs duration
                               const slideCount = latestAsm.segments.filter(s => s.sourceUrl?.startsWith("bg:")).length;
                               if (slideCount > 0 && latestAsm.totalDuration < slideCount * 2) {
-                                issues.push("⚠ Slides too short — increase duration per slide for better readability");
+                                issues.push("Slides too short — increase duration per slide for better readability");
                               }
                               if (slideCount > 8) {
-                                suggestions.push("💡 Many slides (" + slideCount + ") — consider reducing for more impact");
+                                suggestions.push("Many slides (" + slideCount + ") — consider reducing for more impact");
                               }
                               // Check text length
                               const longTexts = latestAsm.overlays.filter(o => o.content.length > 60);
                               if (longTexts.length > 0) {
-                                suggestions.push("💡 Some slides have long text — shorter text reads better on screen");
+                                suggestions.push("Some slides have long text — shorter text reads better on screen");
                               }
                               // Check SFX
                               if (latestAsm.sfx.length === 0 && contentType !== "poem" && contentType !== "quotes") {
-                                suggestions.push("💡 No SFX — add sound effects for engagement (whoosh, impact, etc.)");
+                                suggestions.push("No SFX — add sound effects for engagement (whoosh, impact, etc.)");
                               }
                               const qualityReport = [
-                                `✓ Video assembled! ${assembleData.duration ? Math.round(assembleData.duration) + "s" : ""}`,
+                                `Video assembled! ${assembleData.duration ? Math.round(assembleData.duration) + "s" : ""}`,
                                 "",
-                                "📋 AI Quality Report:",
-                                `  Slides: ${slideCount} | Music: ${latestAsm.music.length > 0 ? "✓" : "✗"} | Narration: ${hasNarrAudio ? "✓ audio" : latestAsm.narration.length > 0 ? "text only" : "✗"} | SFX: ${latestAsm.sfx.length}`,
+                                "AI Quality Report:",
+                                `  Slides: ${slideCount} | Music: ${latestAsm.music.length > 0 ? "" : ""} | Narration: ${hasNarrAudio ? "audio" : latestAsm.narration.length > 0 ? "text only" : ""} | SFX: ${latestAsm.sfx.length}`,
                                 ...issues,
                                 ...suggestions,
                                 "",
-                                issues.length === 0 ? "✅ Video looks good!" : "Fix the issues above for a better result.",
+                                issues.length === 0 ? "Video looks good!" : "Fix the issues above for a better result.",
                                 "",
-                                "▶ Play | ✏ Edit | 🔄 Reassemble | ⬇ Download from Library",
+                                "▶ Play | Edit | Reassemble | ⬇ Download from Library",
                               ].join("\n");
                               setChatLog(p => [...p, { role: "ai", text: qualityReport }]);
                             } else {
-                              setChatLog(p => [...p, { role: "ai", text: `⚠ Assembly failed: ${assembleData.error || "Unknown"}. You can still preview slides and try again.` }]);
+                              setChatLog(p => [...p, { role: "ai", text: `Assembly failed: ${assembleData.error || "Unknown"}. You can still preview slides and try again.` }]);
                             }
                           } catch (assembleErr) {
-                            setChatLog(p => [...p, { role: "ai", text: `⚠ Assembly failed: ${assembleErr instanceof Error ? assembleErr.message : "Unknown"}. Slides are ready — try Assemble & Export button.` }]);
+                            setChatLog(p => [...p, { role: "ai", text: `Assembly failed: ${assembleErr instanceof Error ? assembleErr.message : "Unknown"}. Slides are ready — try Assemble & Export button.` }]);
                           }
                         } catch (err) { setChatLog(p => [...p, { role: "ai", text: `Build failed: ${err instanceof Error ? err.message : "Unknown"}` }]); }
                         setProcessing(false);
@@ -2491,7 +2454,7 @@ function Editor() {
                             setVersions([{ label: "v1 — Slides", desc: story.title, assembly: structuredClone(a) }]);
                             // Save project to database immediately
                             fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: a.projectId, title: a.title, assembly: a, status: "draft" }) }).catch(() => {});
-                            setChatLog([{ role: "ai", text: `✓ "${story.title}" — ${story.slides.length} slides ready.\n\nSlides:\n${story.slides.map((s: { slide_number: number; text: string; mood: string }) => `  ${s.slide_number}. [${s.mood}] ${s.text.slice(0, 40)}`).join("\n")}\n\nNow you can:\n• Review & edit each slide\n• Add music in Properties\n• Change design in Background panel\n• Click "Assemble & Export" when ready` }]);
+                            setChatLog([{ role: "ai", text: `"${story.title}" — ${story.slides.length} slides ready.\n\nSlides:\n${story.slides.map((s: { slide_number: number; text: string; mood: string }) => `  ${s.slide_number}. [${s.mood}] ${s.text.slice(0, 40)}`).join("\n")}\n\nNow you can:\n• Review & edit each slide\n• Add music in Properties\n• Change design in Background panel\n• Click "Assemble & Export" when ready` }]);
                           }
                         } catch { setChatLog(p => [...p, { role: "ai", text: "Build failed." }]); }
                         setProcessing(false);
@@ -2523,12 +2486,7 @@ function Editor() {
                       Stories, children songs, motivational quotes, lyric videos, educational content — no AI credits needed
                     </p>
                   </div>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* ═══ GHS TEXT → VIDEO — AI video generation ═══ */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                {creationMode === "text_to_video" && (
+                )} {/* ═══════════════════════════════════════════════════════ */} {/* ═══ GHS TEXT → VIDEO — AI video generation ═══ */} {/* ═══════════════════════════════════════════════════════ */} {creationMode === "text_to_video" && (
                 <div style={{ marginBottom: 12, textAlign: "left" }}>
                   <textarea id="gen-prompt" placeholder={"Describe your video in detail...\n\nExample: A warrior stands on a cliff at sunset, wind blowing through his cape. Camera slowly zooms in on his face as he surveys the battlefield below. Epic cinematic feel, dramatic lighting."}
                     rows={5}
@@ -2647,12 +2605,7 @@ function Editor() {
                     </button>
                   </div>
                 </div>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* ═══ GHS HYBRID — Multi-Step Pipeline Wizard ═══ */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                {creationMode === "ghs_hybrid" && (
+                )} {/* ═══════════════════════════════════════════════════════ */} {/* ═══ GHS HYBRID — Multi-Step Pipeline Wizard ═══ */} {/* ═══════════════════════════════════════════════════════ */} {creationMode === "ghs_hybrid" && (
                 <div style={{ marginBottom: 12, textAlign: "left" }}>
                   {/* ── Progress bar ── */}
                   <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
@@ -2666,8 +2619,7 @@ function Editor() {
                     ))}
                   </div>
 
-                  {/* ══════════ STEP 1 — Story Input ══════════ */}
-                  {hybridStep === 1 && (
+                  {/* ══════════ STEP 1 — Story Input ══════════ */} {hybridStep === 1 && (
                     <div>
                       <p style={{ fontSize: 10, color: purple, marginBottom: 8, textAlign: "center" }}>Describe your story idea. AI will expand it into scenes, characters, and audio.</p>
                       <textarea
@@ -2735,10 +2687,7 @@ function Editor() {
                         {hybridProcessing ? "Expanding..." : "Expand Story"}
                       </button>
                     </div>
-                  )}
-
-                  {/* ══════════ STEP 2 — Story Expanded ══════════ */}
-                  {hybridStep === 2 && hybridExpansion && (
+                  )} {/* ══════════ STEP 2 — Story Expanded ══════════ */} {hybridStep === 2 && hybridExpansion && (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontSize: 11, color: text, fontWeight: 700 }}>Story Expansion</span>
@@ -2748,8 +2697,7 @@ function Editor() {
                       <div style={{ background: `${purple}08`, border: `1px solid ${purple}20`, borderRadius: 8, padding: "10px 12px", marginBottom: 8 }}>
                         <p style={{ fontSize: 10, color: text, lineHeight: 1.5 }}>{hybridExpansion?.summary}</p>
                       </div>
-                      {/* Characters */}
-                      {(hybridExpansion?.characters?.length ?? 0) > 0 && (
+                      {/* Characters */} {(hybridExpansion?.characters?.length ?? 0) > 0 && (
                         <div style={{ marginBottom: 8 }}>
                           <p style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Characters</p>
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -2761,8 +2709,7 @@ function Editor() {
                             ))}
                           </div>
                         </div>
-                      )}
-                      {/* Locations & Moods */}
+                      )} {/* Locations & Moods */}
                       <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                         {(hybridExpansion?.locations?.length ?? 0) > 0 && (
                           <div style={{ flex: 1 }}>
@@ -2771,8 +2718,7 @@ function Editor() {
                               <span key={i} style={{ display: "inline-block", fontSize: 9, color: gold, background: `${gold}10`, borderRadius: 4, padding: "2px 6px", marginRight: 4, marginBottom: 3 }}>{loc}</span>
                             ))}
                           </div>
-                        )}
-                        {(hybridExpansion?.moods?.length ?? 0) > 0 && (
+                        )} {(hybridExpansion?.moods?.length ?? 0) > 0 && (
                           <div style={{ flex: 1 }}>
                             <p style={{ fontSize: 9, color: muted, marginBottom: 3 }}>Moods</p>
                             {hybridExpansion?.moods?.map((mood, i) => (
@@ -2814,10 +2760,7 @@ function Editor() {
                         {hybridProcessing ? "Processing..." : "Extract Characters & Plan Scenes"}
                       </button>
                     </div>
-                  )}
-
-                  {/* ══════════ STEP 3 — Scene Review ══════════ */}
-                  {hybridStep === 3 && (
+                  )} {/* ══════════ STEP 3 — Scene Review ══════════ */} {hybridStep === 3 && (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontSize: 11, color: text, fontWeight: 700 }}>Scene Review ({hybridScenes.length} scenes)</span>
@@ -2867,8 +2810,7 @@ function Editor() {
                         <span>Est. total: {hybridScenes.reduce((s, sc) => s + sc.estimatedCost, 0)} credits</span>
                         <span>{hybridScenes.length} scenes</span>
                       </div>
-                      {/* Validation results */}
-                      {hybridValidation && (
+                      {/* Validation results */} {hybridValidation && (
                         <div style={{ marginBottom: 8 }}>
                           {(hybridValidation?.errors?.length ?? 0) > 0 && (
                             <div style={{ background: `${red}10`, border: `1px solid ${red}30`, borderRadius: 6, padding: "6px 10px", marginBottom: 4 }}>
@@ -2876,22 +2818,19 @@ function Editor() {
                                 <p key={i} style={{ fontSize: 9, color: red, margin: "2px 0" }}>{err}</p>
                               ))}
                             </div>
-                          )}
-                          {(hybridValidation?.warnings?.length ?? 0) > 0 && (
+                          )} {(hybridValidation?.warnings?.length ?? 0) > 0 && (
                             <div style={{ background: `${gold}10`, border: `1px solid ${gold}30`, borderRadius: 6, padding: "6px 10px" }}>
                               {hybridValidation?.warnings?.map((w, i) => (
                                 <p key={i} style={{ fontSize: 9, color: gold, margin: "2px 0" }}>{w}</p>
                               ))}
                             </div>
-                          )}
-                          {hybridValidation?.valid && (hybridValidation?.errors?.length ?? 0) === 0 && (
+                          )} {hybridValidation?.valid && (hybridValidation?.errors?.length ?? 0) === 0 && (
                             <div style={{ background: `${green}10`, border: `1px solid ${green}30`, borderRadius: 6, padding: "6px 10px" }}>
                               <p style={{ fontSize: 9, color: green, margin: 0 }}>Validation passed. Ready to assemble.</p>
                             </div>
                           )}
                         </div>
-                      )}
-                      {/* Action buttons */}
+                      )} {/* Action buttons */}
                       <div style={{ display: "flex", gap: 6 }}>
                         <button
                           disabled={hybridProcessing}
@@ -2939,10 +2878,7 @@ function Editor() {
                         </button>
                       </div>
                     </div>
-                  )}
-
-                  {/* ══════════ STEP 4 — Assemble ══════════ */}
-                  {hybridStep === 4 && (
+                  )} {/* ══════════ STEP 4 — Assemble ══════════ */} {hybridStep === 4 && (
                     <div>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                         <span style={{ fontSize: 11, color: text, fontWeight: 700 }}>Ready to Assemble</span>
@@ -2994,22 +2930,16 @@ function Editor() {
                     </div>
                   )}
                 </div>
-                )}
-
-                {/* ═══════════════════════════════════════════════════════ */}
-                {/* ═══ GHS AI MOTION — 3 modes ═══ */}
-                {/* ═══════════════════════════════════════════════════════ */}
-                {creationMode === "ai_motion" && (
+                )} {/* ═══════════════════════════════════════════════════════ */} {/* ═══ GHS AI MOTION — 3 modes ═══ */} {/* ═══════════════════════════════════════════════════════ */} {creationMode === "ai_motion" && (
                 <div style={{ marginBottom: 12, textAlign: "left" }}>
-                  {/* Step selector — 3 cards */}
-                  {!motionStep && (
+                  {/* Step selector — 3 cards */} {!motionStep && (
                     <>
                     <p style={{ fontSize: 10, color: gold, marginBottom: 10, textAlign: "center" }}>Choose how you want AI to create your video.</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
                       {/* Card 1: Video → Video */}
                       <button data-testid="motion-v2v" onClick={() => setMotionStep("video_to_video")}
                         style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${purple}25`, background: `${purple}06`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28, lineHeight: 1 }}>🎬</span>
+                        <span style={{ fontSize: 28, lineHeight: 1 }}></span>
                         <div>
                           <p style={{ fontSize: 12, fontWeight: 700, color: text, marginBottom: 2 }}>Video → Video</p>
                           <p style={{ fontSize: 9, color: muted }}>Upload a reference video. AI creates a new video inspired by it with your subject.</p>
@@ -3019,7 +2949,7 @@ function Editor() {
                       {/* Card 2: Image → Video */}
                       <button data-testid="motion-i2v" onClick={() => setMotionStep("image_to_video")}
                         style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${cyan}25`, background: `${cyan}06`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28, lineHeight: 1 }}>🖼</span>
+                        <span style={{ fontSize: 28, lineHeight: 1 }}></span>
                         <div>
                           <p style={{ fontSize: 12, fontWeight: 700, color: text, marginBottom: 2 }}>Image → Video</p>
                           <p style={{ fontSize: 9, color: muted }}>Upload a still image. AI brings it to life with motion and animation.</p>
@@ -3029,7 +2959,7 @@ function Editor() {
                       {/* Card 3: Image + Video → Video */}
                       <button data-testid="motion-iv2v" onClick={() => setMotionStep("image_video_to_video")}
                         style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${gold}25`, background: `${gold}06`, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 12 }}>
-                        <span style={{ fontSize: 28, lineHeight: 1 }}>🎭</span>
+                        <span style={{ fontSize: 28, lineHeight: 1 }}></span>
                         <div>
                           <p style={{ fontSize: 12, fontWeight: 700, color: text, marginBottom: 2 }}>Image + Video → Video</p>
                           <p style={{ fontSize: 9, color: muted }}>Upload an image AND a reference video. AI places your subject into the video motion.</p>
@@ -3038,27 +2968,21 @@ function Editor() {
                       </button>
                     </div>
                     </>
-                  )}
-
-                  {/* ── Step selected: show upload + prompt + generate ── */}
-                  {motionStep && (
+                  )} {/* ── Step selected: show upload + prompt + generate ── */} {motionStep && (
                     <div>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                         <button onClick={() => { setMotionStep(null); setMotionRefImageUrl(""); setMotionRefVideoUrl(""); }}
                           style={{ fontSize: 10, color: muted, background: "none", border: "none", cursor: "pointer" }}>← Back</button>
                         <span style={{ fontSize: 12, fontWeight: 700, color: text }}>
-                          {motionStep === "video_to_video" && "🎬 Video → Video"}
-                          {motionStep === "image_to_video" && "🖼 Image → Video"}
-                          {motionStep === "image_video_to_video" && "🎭 Image + Video → Video"}
+                          {motionStep === "video_to_video" && "Video → Video"} {motionStep === "image_to_video" && "Image → Video"} {motionStep === "image_video_to_video" && "Image + Video → Video"}
                         </span>
                       </div>
 
                       {/* Upload area(s) */}
                       <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                        {/* Video upload — for video_to_video and image_video_to_video */}
-                        {(motionStep === "video_to_video" || motionStep === "image_video_to_video") && (
+                        {/* Video upload — for video_to_video and image_video_to_video */} {(motionStep === "video_to_video" || motionStep === "image_video_to_video") && (
                           <label style={{ flex: 1, padding: 14, borderRadius: 10, border: `2px dashed ${motionRefVideoUrl ? green : purple}30`, cursor: "pointer", textAlign: "center", background: motionRefVideoUrl ? `${green}08` : `${purple}05` }}>
-                            <span style={{ fontSize: 18, display: "block" }}>{motionRefVideoUrl ? "✓" : "🎬"}</span>
+                            <span style={{ fontSize: 18, display: "block" }}>{motionRefVideoUrl ? "" : ""}</span>
                             <p style={{ fontSize: 10, fontWeight: 600, color: motionRefVideoUrl ? green : text, marginTop: 2 }}>
                               {motionRefVideoUrl ? "Video uploaded" : "Upload reference video"}
                             </p>
@@ -3076,12 +3000,9 @@ function Editor() {
                               }
                             }} />
                           </label>
-                        )}
-
-                        {/* Image upload — for image_to_video and image_video_to_video */}
-                        {(motionStep === "image_to_video" || motionStep === "image_video_to_video") && (
+                        )} {/* Image upload — for image_to_video and image_video_to_video */} {(motionStep === "image_to_video" || motionStep === "image_video_to_video") && (
                           <label style={{ flex: 1, padding: 14, borderRadius: 10, border: `2px dashed ${motionRefImageUrl ? green : cyan}30`, cursor: "pointer", textAlign: "center", background: motionRefImageUrl ? `${green}08` : `${cyan}05` }}>
-                            <span style={{ fontSize: 18, display: "block" }}>{motionRefImageUrl ? "✓" : "🖼"}</span>
+                            <span style={{ fontSize: 18, display: "block" }}>{motionRefImageUrl ? "" : ""}</span>
                             <p style={{ fontSize: 10, fontWeight: 600, color: motionRefImageUrl ? green : text, marginTop: 2 }}>
                               {motionRefImageUrl ? "Image uploaded" : "Upload your image"}
                             </p>
@@ -3102,15 +3023,11 @@ function Editor() {
                         )}
                       </div>
 
-                      {/* Preview thumbnails */}
-                      {(motionRefImageUrl || motionRefVideoUrl) && (
+                      {/* Preview thumbnails */} {(motionRefImageUrl || motionRefVideoUrl) && (
                         <div style={{ display: "flex", gap: 8, marginBottom: 10, justifyContent: "center" }}>
-                          {motionRefImageUrl && <img src={motionRefImageUrl} alt="Ref image" style={{ height: 60, borderRadius: 6, border: `1px solid ${cyan}30` }} />}
-                          {motionRefVideoUrl && <video src={motionRefVideoUrl} style={{ height: 60, borderRadius: 6, border: `1px solid ${purple}30` }} muted />}
+                          {motionRefImageUrl && <img src={motionRefImageUrl} alt="Ref image" style={{ height: 60, borderRadius: 6, border: `1px solid ${cyan}30` }} />} {motionRefVideoUrl && <video src={motionRefVideoUrl} style={{ height: 60, borderRadius: 6, border: `1px solid ${purple}30` }} muted />}
                         </div>
-                      )}
-
-                      {/* Prompt */}
+                      )} {/* Prompt */}
                       <textarea id="gen-prompt" placeholder={
                         motionStep === "video_to_video"
                           ? "Describe what AI should create from this video reference...\n\nExample: Recreate this choreography with a golden retriever in a park, keep the same energy and camera angles"
@@ -3192,7 +3109,7 @@ function Editor() {
 
                 <div style={{ fontSize: 10, color: muted, marginBottom: 12 }}>— or —</div>
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
-                  <button onClick={() => setShowImport(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📂 Upload File</button>
+                  <button onClick={() => setShowImport(true)} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Upload File</button>
                   <button onClick={async () => {
                     try {
                       const res = await fetch("/api/assets?type=video&limit=20");
@@ -3204,12 +3121,11 @@ function Editor() {
                       }));
                     } catch {}
                     setShowImport(true);
-                  }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📦 Asset Library</button>
-                  <button onClick={() => { loadProjectList(); setShowImport(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>📋 Load Project</button>
+                  }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Asset Library</button>
+                  <button onClick={() => { loadProjectList(); setShowImport(true); }} style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>Load Project</button>
                 </div>
 
-                {/* Saved projects from database */}
-                {savedProjects.length > 0 && (
+                {/* Saved projects from database */} {savedProjects.length > 0 && (
                   <div style={{ marginTop: 16, textAlign: "left", maxWidth: 500 }}>
                     <p style={{ fontSize: 10, fontWeight: 600, color: muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>Recent Projects</p>
                     <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto" }}>
@@ -3238,8 +3154,7 @@ function Editor() {
                 )}
                 </div>)}
               </div>
-            )}
-            {processing && (
+            )} {processing && (
               <div style={{ position: "absolute", top: 10, right: 10, padding: "6px 12px", borderRadius: 8, background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.3)", color: gold, fontSize: 10, display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 10, height: 10, border: "2px solid rgba(245,158,11,0.3)", borderTopColor: gold, borderRadius: "50%", display: "inline-block", animation: "spin 0.8s linear infinite" }} />
                 Processing...
@@ -3247,32 +3162,25 @@ function Editor() {
             )}
           </div>
 
-          {/* Scrub bar + controls + in/out trim */}
-          {activeSeg && (
+          {/* Scrub bar + controls + in/out trim */} {activeSeg && (
             <div style={{ padding: "8px 16px", background: s1, borderTop: `1px solid ${border}` }}>
               {/* Scrub bar with in/out markers */}
               <div style={{ position: "relative", height: 8, background: "#1a1a2e", borderRadius: 4, cursor: "pointer", marginBottom: 8 }}
                 onClick={e => { const r = (e.target as HTMLElement).getBoundingClientRect(); seek(((e.clientX - r.left) / r.width) * 100); }}>
-                {/* In/out range highlight */}
-                {inPoint !== null && outPoint !== null && (
+                {/* In/out range highlight */} {inPoint !== null && outPoint !== null && (
                   <div style={{ position: "absolute", top: 0, bottom: 0, borderRadius: 4,
                     left: `${(inPoint / (activeSeg.duration || 1)) * 100}%`,
                     width: `${((outPoint - inPoint) / (activeSeg.duration || 1)) * 100}%`,
                     background: `${cyan}30`, border: `1px solid ${cyan}60`, pointerEvents: "none" }} />
-                )}
-                {/* In-point marker */}
-                {inPoint !== null && (
+                )} {/* In-point marker */} {inPoint !== null && (
                   <div data-testid="in-point-marker" style={{ position: "absolute", top: -3, width: 3, height: 14, borderRadius: 2,
                     left: `${(inPoint / (activeSeg.duration || 1)) * 100}%`,
                     background: cyan, pointerEvents: "none" }} />
-                )}
-                {/* Out-point marker */}
-                {outPoint !== null && (
+                )} {/* Out-point marker */} {outPoint !== null && (
                   <div data-testid="out-point-marker" style={{ position: "absolute", top: -3, width: 3, height: 14, borderRadius: 2,
                     left: `${(outPoint / (activeSeg.duration || 1)) * 100}%`,
                     background: red, pointerEvents: "none" }} />
-                )}
-                {/* Progress */}
+                )} {/* Progress */}
                 <div style={{ height: "100%", background: purple, borderRadius: 4, width: `${(currentTime / (activeSeg.duration || 1)) * 100}%`, position: "relative", zIndex: 1 }} />
               </div>
               {/* Time + buttons */}
@@ -3289,8 +3197,7 @@ function Editor() {
                   {/* Set Out-point */}
                   <button data-testid="set-out-point" onClick={() => { if (inPoint !== null && currentTime <= inPoint) { setChatLog(p => [...p, { role: "ai", text: "Out-point must be after in-point." }]); return; } setOutPoint(currentTime); setChatLog(p => [...p, { role: "ai", text: `Out-point set at ${fmtTime(currentTime)}` }]); }}
                     title="Set Out-point (O)" style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${red}30`, background: `${red}10`, color: red, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>O</button>
-                  {/* Before/After comparison */}
-                  {beforeUrl && (
+                  {/* Before/After comparison */} {beforeUrl && (
                     <button onClick={() => {
                       if (showBeforeAfter) { setMediaUrl(beforeUrl); /* show original */ }
                       else { const assembled = assembly.segments.find(s => s.id === "seg_assembled"); if (assembled) setMediaUrl(assembled.sourceUrl); }
@@ -3300,8 +3207,7 @@ function Editor() {
                     style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${gold}30`, background: showBeforeAfter ? `${gold}20` : `${gold}08`, color: gold, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
                       {showBeforeAfter ? "After" : "B/A"}
                     </button>
-                  )}
-                  {/* Split at playhead */}
+                  )} {/* Split at playhead */}
                   <button data-testid="split-playhead" onClick={() => {
                     const t = currentTime;
                     if (t <= 0.1 || t >= (activeSeg.duration - 0.1)) return;
@@ -3317,9 +3223,8 @@ function Editor() {
                     saveVersion(`Split at ${fmtTime(t)}`);
                     setChatLog(p => [...p, { role: "ai", text: `Split clip at ${fmtTime(t)} — now ${assembly.segments.length + 1} segments.` }]);
                   }} title="Split at playhead (S)"
-                    style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${gold}30`, background: `${gold}10`, color: gold, fontSize: 9, cursor: "pointer" }}>✂</button>
-                  {/* Trim to in/out */}
-                  {inPoint !== null && outPoint !== null && (
+                    style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${gold}30`, background: `${gold}10`, color: gold, fontSize: 9, cursor: "pointer" }}></button>
+                  {/* Trim to in/out */} {inPoint !== null && outPoint !== null && (
                     <button data-testid="trim-inout" onClick={async () => {
                       const trimIn = inPoint;
                       const trimOut = outPoint;
@@ -3346,23 +3251,19 @@ function Editor() {
                       } catch { setChatLog(p => [...p, { role: "ai", text: "Trim failed." }]); }
                       setProcessing(false);
                     }} style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: green, color: "#000", fontSize: 9, cursor: "pointer", fontWeight: 700 }}>
-                      Trim ✓
-                    </button>
+                      Trim                     </button>
                   )}
                 </div>
                 <span style={{ fontSize: 10, color: muted }}>Seg {activeSegIdx + 1}/{assembly.segments.length}</span>
-                {/* Save video — Place 2: playback bar */}
-                {mediaUrl && !mediaUrl.startsWith("blob:") && (
+                {/* Save video — Place 2: playback bar */} {mediaUrl && !mediaUrl.startsWith("blob:") && (
                   <a href={mediaUrl} download={`${(assembly.title || "video").replace(/\s+/g, "_")}.mp4`}
                     title="Download video" style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${green}40`, background: `${green}08`, color: green, fontSize: 9, cursor: "pointer", textDecoration: "none", fontWeight: 700 }}>
-                    💾 Save
+                    Save
                   </a>
-                )}
-                {/* In/out point display */}
-                {(inPoint !== null || outPoint !== null) && (
+                )} {/* In/out point display */} {(inPoint !== null || outPoint !== null) && (
                   <span style={{ fontSize: 8, color: cyan, fontFamily: "monospace" }}>
                     {inPoint !== null ? `IN:${fmtTime(inPoint)}` : ""} {outPoint !== null ? `OUT:${fmtTime(outPoint)}` : ""}
-                    <button onClick={() => { setInPoint(null); setOutPoint(null); }} style={{ fontSize: 7, color: red, background: "none", border: "none", cursor: "pointer", marginLeft: 4 }}>✕</button>
+                    <button onClick={() => { setInPoint(null); setOutPoint(null); }} style={{ fontSize: 7, color: red, background: "none", border: "none", cursor: "pointer", marginLeft: 4 }}></button>
                   </span>
                 )}
               </div>
@@ -3383,8 +3284,7 @@ function Editor() {
                 onClipClick={id => { const idx = assembly.segments.findIndex(s => s.id === id); if (idx >= 0) { setActiveSegIdx(idx); if (assembly.segments[idx]?.sourceUrl) setMediaUrl(assembly.segments[idx].sourceUrl); } }}
                 compact
               />
-              {/* Audio waveform visualization */}
-              {(assembly.music.length > 0 || assembly.narration.some(n => n.audioUrl)) && (
+              {/* Audio waveform visualization */} {(assembly.music.length > 0 || assembly.narration.some(n => n.audioUrl)) && (
                 <div style={{ height: 24, background: "#080b10", borderTop: `1px solid ${border}`, display: "flex", alignItems: "end", gap: 0, padding: "0 4px", overflow: "hidden" }}>
                   {Array.from({ length: 80 }).map((_, i) => {
                     const t = (i / 80) * (assembly.totalDuration || 1);
@@ -3409,7 +3309,7 @@ function Editor() {
           {/* Tab bar — 4 tabs */}
           <div style={{ display: "flex", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
             {(["ai", "scene", "audio", "history"] as const).map(t => {
-              const labels: Record<string, string> = { ai: "🤖", scene: "🎬", audio: "🎵", history: "📋" };
+              const labels: Record<string, string> = { ai: "", scene: "", audio: "", history: "" };
               const titles: Record<string, string> = { ai: "AI", scene: "Scene", audio: "Audio", history: "History" };
               return (
                 <button key={t} onClick={() => setTab(t as typeof tab)}
@@ -3425,8 +3325,7 @@ function Editor() {
 
             {/* ═══════════════════════════════
                 TAB: AI — Create + Instruct + FAL
-                ═══════════════════════════════ */}
-            {tab === "ai" && (
+                ═══════════════════════════════ */} {tab === "ai" && (
               <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
                 {/* AI Auto-Assemble — intelligent pipeline */}
                 <button data-testid="auto-assemble-btn" onClick={async () => {
@@ -3490,17 +3389,16 @@ function Editor() {
                   setProcessing(false);
                 }} disabled={processing}
                   style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${gold}40`, background: `${gold}10`, color: gold, fontSize: 12, fontWeight: 700, cursor: processing ? "not-allowed" : "pointer", marginBottom: 8, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
-                  {processing ? "🤖 Planning..." : "🤖 AI Auto-Assemble — Plan Full Video"}
+                  {processing ? "Planning..." : "AI Auto-Assemble — Plan Full Video"}
                 </button>
                 {/* Chat log */}
                 <div style={{ flex: 1, overflowY: "auto", marginBottom: 10 }}>
                   {chatLog.map((m, i) => (
                     <div key={i} style={{ marginBottom: 8 }}>
-                      <div style={{ fontSize: 9, color: muted, marginBottom: 2 }}>{m.role === "ai" ? "🤖 GHS AI" : "You"}</div>
+                      <div style={{ fontSize: 9, color: muted, marginBottom: 2 }}>{m.role === "ai" ? "GHS AI" : "You"}</div>
                       <div style={{ padding: "8px 10px", borderRadius: 10, fontSize: 11, lineHeight: 1.6, color: text,
                         ...(m.role === "user" ? { background: `${purple}10`, border: `1px solid ${purple}20`, marginLeft: 20 } : { background: s2, border: `1px solid ${border}`, marginRight: 20 }) }}>
-                        {m.text}
-                        {m.approval && (
+                        {m.text} {m.approval && (
                           <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
                             <button onClick={async () => {
                               setProcessing(true);
@@ -3657,14 +3555,14 @@ function Editor() {
                   {/* Quick edits */}
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
                     {[
-                      { label: "🌧 Rain", action: () => executeEdit("add_sfx", { event: "rain_light" }) },
-                      { label: "✂️ Trim 5s", action: () => executeEdit("trim", { seconds: 5 }) },
-                      { label: "🔊 Louder", action: () => executeEdit("volume", { direction: "up" }) },
-                      { label: "🔉 Softer", action: () => executeEdit("volume", { direction: "down" }) },
-                      { label: "⛈ Thunder", action: () => executeEdit("add_sfx", { event: "thunder" }) },
-                      { label: "🐕 Dog Bark", action: () => executeEdit("add_sfx", { event: "dog_bark" }) },
-                      { label: "💥 Explosion", action: () => executeEdit("add_sfx", { event: "explosion" }) },
-                      { label: "🎵 Cinematic", action: async () => { await generateMusic("cinematic"); } },
+                      { label: "Rain", action: () => executeEdit("add_sfx", { event: "rain_light" }) },
+                      { label: "️ Trim 5s", action: () => executeEdit("trim", { seconds: 5 }) },
+                      { label: "Louder", action: () => executeEdit("volume", { direction: "up" }) },
+                      { label: "Softer", action: () => executeEdit("volume", { direction: "down" }) },
+                      { label: "Thunder", action: () => executeEdit("add_sfx", { event: "thunder" }) },
+                      { label: "Dog Bark", action: () => executeEdit("add_sfx", { event: "dog_bark" }) },
+                      { label: "Explosion", action: () => executeEdit("add_sfx", { event: "explosion" }) },
+                      { label: "Cinematic", action: async () => { await generateMusic("cinematic"); } },
                     ].map(q => (
                       <button key={q.label} onClick={q.action} disabled={processing}
                         style={{ fontSize: 10, padding: "4px 10px", borderRadius: 100, border: `1px solid ${border}`, background: "transparent", color: processing ? "#2a2a40" : muted, cursor: processing ? "not-allowed" : "pointer" }}>{q.label}</button>
@@ -3672,17 +3570,14 @@ function Editor() {
                   </div>
                 </div>
               </div>
-            )}
-
-            {/* ═══════════════════════════════
+            )} {/* ═══════════════════════════════
                 TAB: SCENE — Per-scene controls
-                ═══════════════════════════════ */}
-            {tab === "scene" && (
+                ═══════════════════════════════ */} {tab === "scene" && (
               <div>
                 {/* Motion Preset */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("motion")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899" }}>🎞 Motion</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899" }}>Motion</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("motion") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("motion") && (
@@ -3767,7 +3662,7 @@ function Editor() {
                 {/* Narration */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("narration")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cyan }}>🎙 Narration</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cyan }}>Narration</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("narration") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("narration") && <><textarea value={activeNarr?.text || ""} onChange={e => setNarration(e.target.value)}
@@ -3793,14 +3688,13 @@ function Editor() {
                   </div>
                   <button onClick={generateNarration} disabled={processing || !activeNarr?.text}
                     style={{ width: "100%", marginTop: 6, padding: 8, borderRadius: 6, border: `1px solid ${cyan}30`, background: `${cyan}10`, color: cyan, fontSize: 12, cursor: !activeNarr?.text ? "not-allowed" : "pointer", fontWeight: 600 }}>
-                    🎙 Generate Voice (This Scene)
+                    Generate Voice (This Scene)
                   </button>
                   <button onClick={generateAllVoices} disabled={processing}
                     style={{ width: "100%", marginTop: 4, padding: 8, borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}10`, color: purple, fontSize: 11, cursor: processing ? "not-allowed" : "pointer", fontWeight: 600 }}>
-                    🎙 Generate All Voices (All Scenes + AI Polish)
+                    Generate All Voices (All Scenes + AI Polish)
                   </button>
-                  {/* Per-narration timing controls — frame accurate */}
-                  {activeNarr && (
+                  {/* Per-narration timing controls — frame accurate */} {activeNarr && (
                     <div style={{ marginTop: 6, display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
                       <span style={{ fontSize: 8, color: muted }}>Start:</span>
                       <input type="number" step="0.1" min="0" value={activeNarr.startTime}
@@ -3824,13 +3718,13 @@ function Editor() {
                 {/* Music */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("music")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: green }}>🎵 Music {assembly.music.length > 0 ? "✓" : ""}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: green }}>Music {assembly.music.length > 0 ? "" : ""}</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("music") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("music") && <>
                   {activeMusic ? (
                     <div>
-                      <p style={{ fontSize: 10, color: green, marginBottom: 4 }}>Music added ✓</p>
+                      <p style={{ fontSize: 10, color: green, marginBottom: 4 }}>Music added </p>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                         <span style={{ fontSize: 9, color: muted }}>Vol</span>
                         <input type="range" min="0" max="100" value={Math.round((activeMusic.volume || 0.3) * 100)}
@@ -3872,7 +3766,7 @@ function Editor() {
                 {/* SFX */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("sfx")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: gold }}>💥 SFX {assembly.sfx.length > 0 ? `(${assembly.sfx.length})` : ""}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: gold }}>SFX {assembly.sfx.length > 0 ? `(${assembly.sfx.length})` : ""}</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("sfx") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("sfx") && <>
@@ -3901,7 +3795,7 @@ function Editor() {
                             style={{ width: 50, accentColor: gold }} />
                           <span style={{ fontSize: 7, color: "#3d5060", fontFamily: "monospace" }}>{Math.round(s.volume * 100)}%</span>
                           <button onClick={() => { updateAssembly(a => { a.sfx = a.sfx.filter(x => x.id !== s.id); }); saveVersion(`Removed ${s.event}`); }}
-                            style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                            style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}></button>
                         </div>
                       ))}
                     </div>
@@ -3912,7 +3806,7 @@ function Editor() {
                 {/* Cast Tray — characters assigned to project */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("cast")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: purple }}>👥 Cast {castTray.length > 0 ? `(${castTray.length})` : ""}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: purple }}>Cast {castTray.length > 0 ? `(${castTray.length})` : ""}</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("cast") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("cast") && <>
@@ -3925,7 +3819,7 @@ function Editor() {
                           {c.imageUrl ? (
                             <img src={c.imageUrl} alt={c.name} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover", border: "1px solid #2a2a40", flexShrink: 0 }} />
                           ) : (
-                            <div style={{ width: 32, height: 32, borderRadius: 6, background: "#1a1a2e", border: "1px solid #2a2a40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#3a3a5a", flexShrink: 0 }}>👤</div>
+                            <div style={{ width: 32, height: 32, borderRadius: 6, background: "#1a1a2e", border: "1px solid #2a2a40", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, color: "#3a3a5a", flexShrink: 0 }}></div>
                           )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 10, color: text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</div>
@@ -3963,8 +3857,7 @@ function Editor() {
                             onClick={() => setCastTray(prev => prev.filter(x => x.characterId !== c.characterId))}
                             style={{ padding: "3px 6px", borderRadius: 5, border: "none", background: `${red}15`, color: red, fontSize: 8, cursor: "pointer", flexShrink: 0 }}
                           >
-                            ✕
-                          </button>
+                                                      </button>
                         </div>
                       ))}
                     </div>
@@ -3985,8 +3878,7 @@ function Editor() {
                       {assembly.segments[activeSegIdx]?.id || assembly.segments[activeSegIdx]?.sceneId || "No segment"}
                     </span>
                   </div>
-                  {/* Character IDs in this scene */}
-                  {castTray.length > 0 && (
+                  {/* Character IDs in this scene */} {castTray.length > 0 && (
                     <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 6 }}>
                       {castTray.map(c => (
                         <span key={c.characterId} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 10, background: `${purple}15`, color: purple, fontFamily: "monospace" }}>{c.characterId}</span>
@@ -4022,7 +3914,7 @@ function Editor() {
                         }).catch(() => { setChatLog(p => [...p, { role: "ai", text: "Video generation failed." }]); }).finally(() => setProcessing(false));
                       }
                     }} style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: `1px solid ${green}30`, background: `${green}06`, color: green, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                      🎬 Animate
+                      Animate
                     </button>
                   </div>
                 </div>
@@ -4030,7 +3922,7 @@ function Editor() {
                 {/* Scene Image Panel — structured image creation with character chips */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("scene-image")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cyan }}>🖼 Generate Image</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: cyan }}>Generate Image</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("scene-image") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("scene-image") && (
@@ -4057,7 +3949,7 @@ function Editor() {
 
                 {/* Subtitle */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: purple, marginBottom: 8 }}>📝 Caption / Subtitle</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: purple, marginBottom: 8 }}>Caption / Subtitle</div>
                   <input id="caption-input" placeholder="Add caption text..." value={assembly.subtitles[0]?.text || ""}
                     onChange={e => { const t = e.target.value; updateAssembly(a => {
                       if (t) { a.subtitles = [{ id: "sub_0", text: t, startTime: 0, endTime: a.totalDuration, position: "bottom", fontSize: 24, fontColor: "#ffffff", style: "normal" }]; }
@@ -4109,7 +4001,7 @@ function Editor() {
 
                 {/* ── Characters — Create + Assign (click to select, no prompt) ── */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899", marginBottom: 8 }}>👤 Characters</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899", marginBottom: 8 }}>Characters</div>
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
                     <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer"
                       style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid #ec489940", background: "#ec489910", color: "#ec4899", fontSize: 11, cursor: "pointer", textAlign: "center", textDecoration: "none", fontWeight: 600 }}>
@@ -4117,22 +4009,22 @@ function Editor() {
                     </a>
                     <button onClick={() => setShowCharacterPicker(true)}
                       style={{ flex: 2, padding: "8px 10px", borderRadius: 8, border: "1px solid #ec489940", background: "#ec489918", color: "#ec4899", fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
-                      👤 Select Character
+                      Select Character
                     </button>
                   </div>
                   {assembly.narration.find(n => n.speakerId) && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 8px", borderRadius: 6, background: "#ec489910", border: "1px solid #ec489930" }}>
-                      <span style={{ fontSize: 12 }}>🎙</span>
+                      <span style={{ fontSize: 12 }}></span>
                       <span style={{ fontSize: 11, color: "#ec4899", fontWeight: 600 }}>{assembly.narration.find(n => n.speakerId)?.speakerId}</span>
                       <button onClick={() => updateAssembly(a => { a.narration.forEach(n => { delete (n as unknown as Record<string, unknown>).speakerId; delete (n as unknown as Record<string, unknown>).voiceId; }); })}
-                        style={{ marginLeft: "auto", fontSize: 10, color: red, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                        style={{ marginLeft: "auto", fontSize: 10, color: red, background: "none", border: "none", cursor: "pointer" }}></button>
                     </div>
                   )}
                 </div>
 
                 {/* ── Overlay/Text ── */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899", marginBottom: 8 }}>🎨 Text Overlay</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#ec4899", marginBottom: 8 }}>Text Overlay</div>
                   <input placeholder="Overlay text (title, CTA, watermark)..." id="overlay-text"
                     style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 8, padding: "6px 8px", color: text, fontSize: 10, outline: "none", marginBottom: 4 }} />
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -4184,7 +4076,7 @@ function Editor() {
                             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                               <span style={{ fontSize: 7, color: "#3d5060" }}>{o.animation || "fade"}</span>
                               <button onClick={() => updateAssembly(a => { a.overlays = a.overlays.filter(x => x.id !== o.id); })}
-                                style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                                style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}></button>
                             </div>
                           </div>
                           {/* Per-overlay timing editor */}
@@ -4213,7 +4105,7 @@ function Editor() {
                 {/* ── Sticker Overlays ── */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("stickers")} style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", background: "none", border: "none", cursor: "pointer", padding: "4px 0", marginBottom: expandedSections.has("stickers") ? 8 : 0 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#f97316" }}>✨ Stickers</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: "#f97316" }}>Stickers</span>
                     <span style={{ fontSize: 11, color: muted }}>{expandedSections.has("stickers") ? "▼" : "▶"}</span>
                   </button>
                   {expandedSections.has("stickers") && (
@@ -4229,7 +4121,7 @@ function Editor() {
 
                 {/* ── Per-layer volume mixer ── */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: muted, marginBottom: 8 }}>🔊 Volume Mix</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", color: muted, marginBottom: 8 }}>Volume Mix</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: cyan, width: 64 }}>Voice</span>
                     <input type="range" min="0" max="100" data-testid="narration-volume" value={Math.round((assembly.narration[0]?.volume ?? 1) * 100)}
@@ -4257,36 +4149,30 @@ function Editor() {
                 {/* Assemble button */}
                 <button onClick={assemble} disabled={processing || !assembly.segments.length}
                   style={{ width: "100%", padding: 12, borderRadius: 8, border: "none", background: processing ? "#2a2a40" : green, color: processing ? muted : "#000", fontSize: 14, fontWeight: 700, cursor: processing ? "not-allowed" : "pointer", marginBottom: 8 }}>
-                  {processing ? "Processing..." : "🎬 Assemble + Mix (FFmpeg)"}
+                  {processing ? "Processing..." : "Assemble + Mix (FFmpeg)"}
                 </button>
 
-                {/* Save / Download assembled video — Place 1 */}
-                {mediaUrl && !mediaUrl.startsWith("blob:") && (
+                {/* Save / Download assembled video — Place 1 */} {mediaUrl && !mediaUrl.startsWith("blob:") && (
                   <a href={mediaUrl} download={`${(assembly.title || "video").replace(/\s+/g, "_")}_${Date.now()}.mp4`}
                     style={{ display: "block", width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${green}40`, background: `${green}08`, color: green, fontSize: 12, fontWeight: 700, cursor: "pointer", textAlign: "center", textDecoration: "none", marginBottom: 8 }}>
-                    💾 Download Video
+                    Download Video
                   </a>
-                )}
-
-                {/* Review & Export button */}
+                )} {/* Review & Export button */}
                 <button onClick={() => setShowReview(true)}
                   style={{ width: "100%", padding: 10, borderRadius: 8, border: `1px solid ${purple}`, background: `${purple}10`, color: purple, fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                  👁 Review Before Export
+                  Review Before Export
                 </button>
               </div>
-            )}
-
-            {/* ═══════════════════════════════
+            )} {/* ═══════════════════════════════
                 TAB: AUDIO — Music + SFX + Mix
-                ═══════════════════════════════ */}
-            {tab === "audio" && (
+                ═══════════════════════════════ */} {tab === "audio" && (
               <div>
                 {/* Music */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: green, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>🎵 Music {assembly.music.length > 0 ? "✓" : ""}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: green, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Music {assembly.music.length > 0 ? "" : ""}</div>
                   {activeMusic ? (
                     <div>
-                      <p style={{ fontSize: 10, color: green, marginBottom: 6 }}>Music track added ✓</p>
+                      <p style={{ fontSize: 10, color: green, marginBottom: 6 }}>Music track added </p>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                         <span style={{ fontSize: 10, color: muted, width: 28 }}>Vol</span>
                         <input type="range" min="0" max="100" value={Math.round((activeMusic.volume || 0.3) * 100)} onChange={e => { const v = parseInt(e.target.value) / 100; updateAssembly(a => { if (a.music[0]) a.music[0].volume = v; }); setLiveMusicVolume(v); }} style={{ flex: 1, accentColor: green }} />
@@ -4308,7 +4194,7 @@ function Editor() {
 
                 {/* SFX */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>💥 Sound Effects {assembly.sfx.length > 0 ? `(${assembly.sfx.length})` : ""}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: gold, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Sound Effects {assembly.sfx.length > 0 ? `(${assembly.sfx.length})` : ""}</div>
                   <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {["thunder", "rain_light", "rain_heavy", "wind_gentle", "wind_howling", "storm", "ocean_waves", "footstep_gravel", "footsteps_run", "door_slam", "door_creak", "crowd_cheer", "crowd_applause", "dog_bark", "explosion", "forest_birds", "heartbeat", "whoosh", "whoosh_deep", "siren", "fire_crackling", "car_engine", "car_horn", "airhorn", "beep", "clapping", "children_laugh", "city_ambience", "church_bell", "birds_chirping"].map(s => (
                       <div key={s} style={{ display: "inline-flex", gap: 0, marginBottom: 3 }}>
@@ -4327,7 +4213,7 @@ function Editor() {
                           <span style={{ color: "#3d5060", fontFamily: "monospace" }}>@{fmtTime(s.startTime)}</span>
                           <input type="range" min="0" max="100" value={Math.round(s.volume * 100)} onChange={e => updateAssembly(a => { const sfx = a.sfx.find(x => x.id === s.id); if (sfx) sfx.volume = parseInt(e.target.value) / 100; })} style={{ width: 48, accentColor: gold }} />
                           <span style={{ fontSize: 7, color: "#3d5060", width: 26, textAlign: "right" }}>{Math.round(s.volume * 100)}%</span>
-                          <button onClick={() => { updateAssembly(a => { a.sfx = a.sfx.filter(x => x.id !== s.id); }); saveVersion(`Removed ${s.event}`); }} style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+                          <button onClick={() => { updateAssembly(a => { a.sfx = a.sfx.filter(x => x.id !== s.id); }); saveVersion(`Removed ${s.event}`); }} style={{ fontSize: 8, color: red, background: "none", border: "none", cursor: "pointer" }}></button>
                         </div>
                       ))}
                     </div>
@@ -4336,7 +4222,7 @@ function Editor() {
 
                 {/* Volume Mixer */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>🔊 Volume Mix</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>Volume Mix</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                     <span style={{ fontSize: 11, color: cyan, width: 52 }}>Voice</span>
                     <input type="range" min="0" max="100" data-testid="narration-volume" value={Math.round((assembly.narration[0]?.volume ?? 1) * 100)} onChange={e => { const v = parseInt(e.target.value) / 100; updateAssembly(a => { if (a.narration[0]) a.narration[0].volume = v; }); setLiveNarrationVolume(v); }} style={{ flex: 1, accentColor: cyan }} />
@@ -4355,12 +4241,9 @@ function Editor() {
                   <p style={{ fontSize: 9, color: "#3d5060", marginTop: 3 }}>Live — adjust while playing</p>
                 </div>
               </div>
-            )}
-
-            {/* ═══════════════════════════════
+            )} {/* ═══════════════════════════════
                 TAB: HISTORY
-                ═══════════════════════════════ */}
-            {tab === "history" && (
+                ═══════════════════════════════ */} {tab === "history" && (
               <div>
                 {versions.length === 0 ? (
                   <p style={{ fontSize: 12, color: muted, textAlign: "center", padding: 20 }}>No history yet — changes appear here</p>
@@ -4381,8 +4264,7 @@ function Editor() {
         </div>
       </div>
 
-      {/* ══ REVIEW PANELS ══ */}
-      {showReview && (
+      {/* ══ REVIEW PANELS ══ */} {showReview && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(6,8,16,0.95)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, overflowY: "auto" }}>
           <div style={{ maxWidth: 800, width: "100%" }}>
             <button onClick={() => setShowReview(false)} style={{ fontSize: 12, color: muted, background: "none", border: "none", cursor: "pointer", marginBottom: 12 }}>← Back to editor</button>
@@ -4410,17 +4292,13 @@ function Editor() {
             />
           </div>
         </div>
-      )}
-
-      {/* ══ IMPORT MODAL ══ */}
-      {showImport && (
+      )} {/* ══ IMPORT MODAL ══ */} {showImport && (
         <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(6,8,16,0.92)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: s1, border: `1px solid ${border}`, borderRadius: 20, padding: 28, maxWidth: 480, width: "90%" }}>
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 20 }}>
               <span style={{ fontSize: 16, fontWeight: 700, color: text }}>Import Into Editor</span>
             </div>
-            {/* Import mode selector — shows when project has existing segments */}
-            {assembly.segments.length > 0 && (
+            {/* Import mode selector — shows when project has existing segments */} {assembly.segments.length > 0 && (
               <div style={{ display: "flex", gap: 4, marginBottom: 12 }}>
                 {([["append", "Append After", green], ["overlay", "Overlay On Top", cyan], ["blend", "Blend/Composite", "#ec4899"], ["replace", "Replace Scene", gold]] as const).map(([mode, label, color]) => (
                   <button key={mode} onClick={() => setImportMode(mode)}
@@ -4431,17 +4309,17 @@ function Editor() {
               </div>
             )}
             <div style={{ position: "absolute", top: 20, right: 20 }}>
-              <button onClick={() => setShowImport(false)} style={{ fontSize: 14, color: muted, background: "none", border: "none", cursor: "pointer" }}>✕</button>
+              <button onClick={() => setShowImport(false)} style={{ fontSize: 14, color: muted, background: "none", border: "none", cursor: "pointer" }}></button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               <label style={{ padding: 20, borderRadius: 14, border: `2px dashed ${border}`, cursor: "pointer", textAlign: "center" }}>
-                <span style={{ fontSize: 24, display: "block" }}>📁</span>
+                <span style={{ fontSize: 24, display: "block" }}></span>
                 <p style={{ fontSize: 12, fontWeight: 600, color: text, marginTop: 4 }}>Upload File</p>
                 <p style={{ fontSize: 9, color: muted }}>Video or image</p>
                 <input type="file" accept="video/*,image/*" data-testid="import-file" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) importFile(e.target.files[0]); }} />
               </label>
               <button onClick={() => { loadProjectList(); }} style={{ padding: 20, borderRadius: 14, border: `1px solid ${border}`, background: "transparent", cursor: "pointer", textAlign: "center" }}>
-                <span style={{ fontSize: 24, display: "block" }}>📋</span>
+                <span style={{ fontSize: 24, display: "block" }}></span>
                 <p style={{ fontSize: 12, fontWeight: 600, color: text, marginTop: 4 }}>Load Project</p>
                 <p style={{ fontSize: 9, color: muted }}>{projectList.length || "..."} saved</p>
               </button>
@@ -4456,9 +4334,7 @@ function Editor() {
                   </button>
                 ))}
               </div>
-            )}
-            {/* Asset Library items */}
-            {assetList.length > 0 && (
+            )} {/* Asset Library items */} {assetList.length > 0 && (
               <div style={{ marginTop: 12, borderTop: `1px solid ${border}`, paddingTop: 12 }}>
                 <p style={{ fontSize: 10, fontWeight: 500, color: muted, marginBottom: 8 }}>From Asset Library</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 200, overflowY: "auto" }}>
@@ -4510,7 +4386,7 @@ function Editor() {
         @keyframes ovl-glow { 0%, 100% { text-shadow: 0 0 5px rgba(168,85,247,0.5); } 50% { text-shadow: 0 0 20px rgba(168,85,247,1), 0 0 40px rgba(168,85,247,0.5); } }
         @keyframes ovl-shake { 0%, 100% { transform: translate(-50%, 0); } 10%, 30%, 50%, 70%, 90% { transform: translate(calc(-50% - 3px), 0); } 20%, 40%, 60%, 80% { transform: translate(calc(-50% + 3px), 0); } }
         @keyframes ovl-rotate-in { from { transform: translate(-50%, 0) rotate(-180deg) scale(0); opacity: 0; } to { transform: translate(-50%, 0) rotate(0) scale(1); opacity: 1; } }
-        @keyframes ovl-blur-reveal { from { filter: blur(12px); opacity: 0; } to { filter: blur(0); opacity: 1; } }
+        @keyframes ovl-blur-reveal { from { opacity: 0; } to { opacity: 1; } }
         @keyframes ovl-word-reveal { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
         .ovl-anim-fade { animation: ovl-fade 0.8s ease-out forwards; }
         .ovl-anim-slide_up { animation: ovl-slide-up 0.6s ease-out forwards; }
@@ -4523,11 +4399,7 @@ function Editor() {
         .ovl-anim-none { }
       `}</style>
 
-      {/* ══ KEYBOARD SHORTCUTS PANEL ══ */}
-      {showShortcuts && <KeyboardShortcutsPanel onClose={() => setShowShortcuts(false)} />}
-
-      {/* ══ CHARACTER PICKER MODAL ══ */}
-      {showCharacterPicker && (
+      {/* ══ KEYBOARD SHORTCUTS PANEL ══ */} {showShortcuts && <KeyboardShortcutsPanel onClose={() => setShowShortcuts(false)} />} {/* ══ CHARACTER PICKER MODAL ══ */} {showCharacterPicker && (
         <div style={{ position: "fixed", inset: 0, zIndex: 400, background: "rgba(6,8,16,0.85)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setShowCharacterPicker(false)}>
           <div style={{ maxWidth: 420, width: "90%" }} onClick={e => e.stopPropagation()}>
             <CharacterPicker
@@ -4561,10 +4433,7 @@ function Editor() {
             />
           </div>
         </div>
-      )}
-
-      {/* Character Save Prompt — after video generation */}
-      {detectedCharacters.length > 0 && (
+      )} {/* Character Save Prompt — after video generation */} {detectedCharacters.length > 0 && (
         <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", zIndex: 350, maxWidth: 500, width: "90%" }}>
           <CharacterSavePrompt
             characters={detectedCharacters}
@@ -4576,10 +4445,7 @@ function Editor() {
             onDismiss={() => setDetectedCharacters([])}
           />
         </div>
-      )}
-
-      {/* Audio Preview — hear voice before committing */}
-      {showAudioPreview && audioPreviewText && (
+      )} {/* Audio Preview — hear voice before committing */} {showAudioPreview && audioPreviewText && (
         <div style={{ position: "fixed", bottom: 20, right: 20, zIndex: 350, maxWidth: 360 }}>
           <AudioPreview
             text={audioPreviewText}
