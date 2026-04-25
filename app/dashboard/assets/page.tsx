@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import LayerizePanel, { type LayerizeResult } from "../../components/LayerizePanel";
+import ModelChip from "../../components/ModelChip";
 import { ds } from "../../../lib/designSystem";
 import HeroTitle from "../../components/hero/HeroTitle";
 
@@ -146,13 +147,16 @@ export default function AssetsPage() {
           {assets.filter(a => !transparentOnly || a.tags.includes("transparent-png") || a.tags.includes("transparent")).map(a => (
             <div key={a.id} className="card" style={{ padding: 0, overflow: "hidden" }}>
               {/* Thumbnail — click to preview popup */}
-              <div className="h-32 flex items-center justify-center text-3xl cursor-pointer" style={{ background: "var(--surface3)" }} onClick={() => setPreview(a)}>
+              <div className="h-32 flex items-center justify-center text-3xl cursor-pointer" style={{ background: "var(--surface3)", position: "relative" }} onClick={() => setPreview(a)}>
                 {(a.type === "image" || a.type === "actor") && a.filePath ? (
                   <img src={assetUrl(a.filePath)} alt={a.name} className="w-full h-full object-cover" />
                 ) : a.type === "video" && a.filePath ? (
                   <img src={`/api/thumbnail?path=${encodeURIComponent(a.filePath)}`} alt={a.name} className="w-full h-full object-cover" />
                 ) : (
                   TYPE_ICONS[a.type] ?? "[?]"
+                )}
+                {a.provider && (a.type === "image" || a.type === "video" || a.type === "actor") && (
+                  <ModelChip provider={a.provider} position="absolute" />
                 )}
               </div>
               <div className="p-3">
