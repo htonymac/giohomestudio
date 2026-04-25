@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { ds } from "../../../lib/designSystem";
 import { Folder, Settings, Wand, Mic, Film, Check, X, Plus } from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -319,7 +320,9 @@ function AdEditorInner() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [versionHistory, setVersionHistory] = useState<{ url: string; label: string }[]>([]);
+  const [versionHistory, setVersionHistory] = useState<{ url: string; label: string; modelId?: string }[]>([]);
+  const [aiBgResultModelId, setAiBgResultModelId] = useState<string | null>(null);
+  const [currentImageModelId, setCurrentImageModelId] = useState<string | null>(null);
 
   const [leftTab, setLeftTab] = useState<"setup" | "ai" | "content" | "audio">("setup");
 
@@ -560,6 +563,7 @@ function AdEditorInner() {
       const data = await res.json();
       if (data.outputUrl) {
         setAiBgResult(data.outputUrl);
+        setAiBgResultModelId(selectedBgModel);
         setCanvas(prev => ({ ...prev, background: `url(${data.outputUrl})` }));
       }
     } catch { /* ignore */ }
@@ -703,8 +707,9 @@ function AdEditorInner() {
       if (data.outputUrl) {
         const imgLayer2 = canvas.layers.find(l => l.type === "image");
         if (imgLayer2) {
-          setVersionHistory(prev => [...prev, { url: imgLayer2.content, label: `v${prev.length + 1}` }]);
+          setVersionHistory(prev => [...prev, { url: imgLayer2.content, label: `v${prev.length + 1}`, modelId: currentImageModelId ?? undefined }]);
           updateLayer(imgLayer2.id, { content: data.outputUrl });
+          setCurrentImageModelId(selectedImageModel);
         } else {
           addLayer({
             id: nextLayerId("img"), type: "image",
@@ -712,6 +717,7 @@ function AdEditorInner() {
             rotation: 0, zIndex: 1, locked: false, visible: true,
             content: data.outputUrl, style: { opacity: 1 },
           });
+          setCurrentImageModelId(selectedImageModel);
         }
       } else {
         setAiError(data.error ?? "AI edit failed");
@@ -1137,13 +1143,16 @@ function AdEditorInner() {
             <p style={sectionTitle}>Version History</p>
             <div style={{ display: "flex", gap: 4, overflowX: "auto" }}>
               {versionHistory.map((v, i) => (
-                <button key={i} onClick={() => restoreVersion(v.url)}
-                  style={{ flexShrink: 0, width: 44, height: 44, borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, overflow: "hidden", cursor: "pointer", padding: 0 }}>
+                <button key={i} onClick={() => restoreVersion(v.url)} title={v.modelId ? `Generated with ${v.modelId}` : v.label}
+                  style={{ flexShrink: 0, width: 44, height: 44, borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, overflow: "hidden", cursor: "pointer", padding: 0, position: "relative" }}>
                   <img src={v.url} alt={v.label} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  {v.modelId && (
+                    <span style={{ position: "absolute", bottom: 1, right: 1, width: 6, height: 6, borderRadius: 999, background: "#7c5cfc", border: "1px solid #0e0e10" }} />
+                  )}
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 3, fontFamily: ds.font.mono }}>Click to restore a previous version</p>
+            <p style={{ fontSize: 9, color: ds.color.mute2, marginTop: 3, fontFamily: ds.font.mono }}>Click to restore. Dot = AI-generated.</p>
           </div>
         )}
 
@@ -1315,9 +1324,10 @@ function AdEditorInner() {
               </button>
             )}
             {aiBgResult && (
-              <div style={{ marginTop: 8, borderRadius: ds.radius.xs, overflow: "hidden", border: `1px solid ${ds.color.line2}` }}>
+              <div style={{ marginTop: 8, borderRadius: ds.radius.xs, overflow: "hidden", border: `1px solid ${ds.color.line2}`, position: "relative" }}>
                 <img src={aiBgResult} alt="AI Background" style={{ width: "100%", display: "block", maxHeight: 80, objectFit: "cover" }} />
-                <button onClick={() => { setAiBgResult(null); setCanvas(prev => ({ ...prev, background: "#FFFFFF" })); }}
+                <ModelChip modelId={aiBgResultModelId} position="absolute" />
+                <button onClick={() => { setAiBgResult(null); setAiBgResultModelId(null); setCanvas(prev => ({ ...prev, background: "#FFFFFF" })); }}
                   style={{ ...btnSm, width: "100%", fontSize: 9, borderRadius: 0 }}>Clear</button>
               </div>
             )}
