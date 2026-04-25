@@ -183,6 +183,7 @@ model ContentItem {
   voiceMatchType           String?   // exact, close, library, generic
   voiceCustomInstruct      String?   // user's custom narration instruction
   overlayLayers            Json?     // array of OverlayLayer objects applied to the video
+  modelId                  String?   // image/video generation model used (e.g. "flux-schnell", "kling-2.5")
   videoPath         String?
   voicePath         String?
   musicPath         String?

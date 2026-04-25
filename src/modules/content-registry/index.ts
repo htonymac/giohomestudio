@@ -40,6 +40,7 @@ export async function createContentItem(data: {
   musicGenre?: string;
   musicRegion?: string;
   narrationScript?: string;
+  modelId?: string;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -78,6 +79,7 @@ export async function createContentItem(data: {
       musicGenre: data.musicGenre ?? null,
       musicRegion: data.musicRegion ?? null,
       narrationScript: data.narrationScript ?? null,
+      modelId: data.modelId ?? null,
     },
     include: { destinationPage: true },
   });
@@ -133,6 +135,7 @@ export async function updateContentItem(
     notes: string;
     approvedAt: Date;
     rejectedAt: Date;
+    modelId: string;
   }>
 ): Promise<ContentItem> {
   // overlayLayers is a Json field added after the initial migration.

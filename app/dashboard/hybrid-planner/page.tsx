@@ -11,6 +11,7 @@ import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import { ds } from "../../../lib/designSystem";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -251,6 +252,7 @@ function HybridPlannerInner() {
   const [photoImportName, setPhotoImportName] = useState("");
   const [photoDragOver, setPhotoDragOver] = useState(false);
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
+  const [sceneImageModels, setSceneImageModels] = useState<Record<string, string>>({});
   const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
   const [sceneViewMode, setSceneViewMode] = useState<"grid" | "list">("grid");
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
@@ -1442,6 +1444,7 @@ function HybridPlannerInner() {
           }
           return { ...prev, [scene.sceneId]: url };
         });
+        if (data.model) setSceneImageModels(prev => ({ ...prev, [scene.sceneId]: data.model }));
         // New image means old video is stale — clear it so scene board shows the new image
         setSceneVideos(prev => prev[scene.sceneId] ? (({ [scene.sceneId]: _, ...rest }) => rest)(prev) : prev);
         setSceneVideoVersions(prev => prev[scene.sceneId] ? (({ [scene.sceneId]: _, ...rest }) => rest)(prev) : prev);
@@ -3122,6 +3125,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (data.imageUrl || data.imagePath) {
         const url = data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
+        if (data.model) setSceneImageModels(prev => ({ ...prev, [sceneId]: data.model }));
         setScenes(prev => prev.map(s => s.sceneId === sceneId ? { ...s, status: "generated" as const } : s));
         setLastAction(`Scene ${sceneId} image generated — planning audio...`);
       }
@@ -4340,6 +4344,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ position: "absolute", bottom: 8, right: 8 }}>
                         <span style={badgeStyle(statusColor)}>{scene.status || "draft"}</span>
                       </div>
+                      {/* Model chip — bottom-left, only when image has model info */}
+                      {hasImage && sceneImageModels[scene.sceneId] && (
+                        <div style={{ position: "absolute", bottom: 8, left: 8 }}>
+                          <ModelChip modelId={sceneImageModels[scene.sceneId]} size="xs" position="static" />
+                        </div>
+                      )}
                     </div>
 
                     {/* Scene Asset Review Tabs — click any tab to open its review panel */}
