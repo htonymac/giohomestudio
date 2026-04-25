@@ -8,6 +8,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { Image, Film, X, Check, Folder } from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 type Step = "upload" | "instruct" | "review" | "done";
 type SideTab = "trim" | "bg_image" | "bg_video" | "object_remove";
@@ -480,7 +481,10 @@ export default function VideoTrimmerPage() {
 
           {bgResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.mint, marginBottom: 8 }}>Background removed · {bgResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.mint }}>Background removed</p>
+                <ModelChip provider={bgResult.provider} size="xs" position="static" />
+              </div>
               <img src={bgResult.url} alt="No background" style={{ maxWidth: "100%", borderRadius: 6, border: `1px solid ${ds.color.line2}`, background: "repeating-conic-gradient(#1a1a2e 0% 25%, #0a0a18 0% 50%) 0 0 / 20px 20px" }} />
               <a href={bgResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download PNG</a>
             </Card>
@@ -514,7 +518,10 @@ export default function VideoTrimmerPage() {
 
           {bgVideoResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.sky, marginBottom: 8 }}>Background removed · {bgVideoResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.sky }}>Background removed</p>
+                <ModelChip provider={bgVideoResult.provider} size="xs" position="static" />
+              </div>
               <video src={bgVideoResult.url} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
               <a href={bgVideoResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download</a>
             </Card>
@@ -549,7 +556,10 @@ export default function VideoTrimmerPage() {
 
           {objResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.gold, marginBottom: 8 }}>Object removed · {objResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.gold }}>Object removed</p>
+                <ModelChip provider={objResult.provider} size="xs" position="static" />
+              </div>
               <video src={objResult.url} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
               <a href={objResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download</a>
             </Card>

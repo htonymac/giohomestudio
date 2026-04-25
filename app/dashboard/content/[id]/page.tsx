@@ -6,6 +6,7 @@ import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content
 import OverlayPanel from "../../../components/OverlayPanel";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import { ds } from "../../../../lib/designSystem";
+import ModelChip from "../../../components/ModelChip";
 
 // ── Provider badge ───────────────────────────────────────────
 type ProviderTier = "real" | "mock" | "stock" | "fallback";
@@ -670,6 +671,18 @@ export default function ContentDetailPage() {
               >
                 Refresh status
               </button>
+            </div>
+          )}
+
+          {/* Model chip — show which model produced this content */}
+          {(item.modelId || item.videoProvider || item.requestedVideoProvider) && (
+            <div className="mt-2 flex items-center gap-2">
+              <ModelChip
+                modelId={item.modelId}
+                provider={item.videoProvider ?? item.requestedVideoProvider}
+                size="sm"
+                position="static"
+              />
             </div>
           )}
 
