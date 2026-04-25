@@ -6,7 +6,8 @@ import { ds } from "../../../lib/designSystem";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
-import { Film, Mic, Image, Folder, X } from "../../components/icons";
+import { Film, Mic, Image, Folder, X, Check } from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 import { generateSegments, formatRange, type Segment } from "./segment-utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -570,6 +571,8 @@ function TimelineEditor() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [tempPath, setTempPath] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string>("");
   const [duration, setDuration] = useState(0);
   const [segments, setSegments] = useState<Segment[]>([]);
@@ -577,6 +580,12 @@ function TimelineEditor() {
   const [uploading, setUploading] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string>("");
   const [error, setError] = useState<string>("");
+  const [actionRunning, setActionRunning] = useState<string | null>(null);
+  const [actionResult, setActionResult] = useState<{ url: string; provider: string; type: "video" | "image" } | null>(null);
+  const [actionError, setActionError] = useState<string>("");
+  const [narrationText, setNarrationText] = useState<string>("");
+  const [realSuggestions, setRealSuggestions] = useState<AiSuggestion[]>([]);
+  const [loadingAiSuggestions, setLoadingAiSuggestions] = useState(false);
 
   useEffect(() => {
     return () => { if (videoSrc && videoSrc.startsWith("blob:")) URL.revokeObjectURL(videoSrc); };
@@ -584,8 +593,10 @@ function TimelineEditor() {
 
   async function handleImport(file: File) {
     setError(""); setStatusMsg(""); setUploading(true);
+    setActionResult(null); setRealSuggestions([]);
     const blobUrl = URL.createObjectURL(file);
     setVideoSrc(blobUrl);
+    setUploadedFile(file);
     setFileName(file.name);
 
     try {
@@ -594,6 +605,7 @@ function TimelineEditor() {
       const res = await fetch("/api/video-trimmer/upload", { method: "POST", body: fd });
       if (res.ok) {
         const data = await res.json();
+        setTempPath(data.tempPath ?? null);
         setStatusMsg(`Uploaded: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
         const d = data?.metadata?.duration;
         if (typeof d === "number" && d > 0) {
@@ -601,6 +613,8 @@ function TimelineEditor() {
           const segs = generateSegments(d);
           setSegments(segs);
           setSelectedSegId(segs[0]?.id ?? null);
+          // Fetch AI suggestions after upload
+          fetchAiSuggestions(segs, d, file.name);
         }
       } else {
         const data = await res.json().catch(() => ({}));
@@ -610,6 +624,42 @@ function TimelineEditor() {
       setError("Network error uploading (preview still works).");
     } finally {
       setUploading(false);
+    }
+  }
+
+  async function fetchAiSuggestions(segs: Segment[], totalDuration: number, videoName: string) {
+    if (!process.env.NEXT_PUBLIC_AI_SUGGESTIONS_ENABLED && segs.length === 0) return;
+    setLoadingAiSuggestions(true);
+    try {
+      const res = await fetch("/api/llm/polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `I have a video "${videoName}" that is ${totalDuration.toFixed(1)}s long with ${segs.length} scenes. Give me 3 short, specific editing suggestions as a JSON array of strings. Each suggestion should be max 10 words and suggest an action like removing background, adding narration, removing objects, or motion effects. Example format: ["Scene 1 has noisy background — remove it?", "Scene 2 could use narration overlay", "Scene 3 has distracting object — erase?"]`,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.polishedPrompt ?? "";
+        // Try to extract JSON array from response
+        const start = text.indexOf("[");
+        const end = text.lastIndexOf("]");
+        if (start !== -1 && end !== -1) {
+          try {
+            const parsed = JSON.parse(text.slice(start, end + 1)) as string[];
+            const actionTypes: Array<"bg_video" | "object_remove" | "narrate" | "motion"> = ["bg_video", "narrate", "object_remove", "motion"];
+            const built: AiSuggestion[] = parsed.slice(0, 3).map((txt, i) => ({
+              id: `ai_${i}`,
+              segId: segs[i % segs.length]?.id ?? segs[0].id,
+              text: typeof txt === "string" ? txt : String(txt),
+              action: actionTypes[i % actionTypes.length],
+            }));
+            setRealSuggestions(built);
+          } catch { /* use fallback */ }
+        }
+      }
+    } catch { /* use fallback suggestions */ } finally {
+      setLoadingAiSuggestions(false);
     }
   }
 
@@ -631,11 +681,14 @@ function TimelineEditor() {
 
   const selectedSeg = segments.find(s => s.id === selectedSegId) ?? null;
 
-  const suggestions: AiSuggestion[] = segments.length > 0
+  // Use AI suggestions if available, fallback to static
+  const suggestions: AiSuggestion[] = realSuggestions.length > 0
+    ? realSuggestions
+    : segments.length > 0
     ? [
-        { id: "s1", segId: segments[0].id, text: `Scene 1 has noisy background — remove it?`, action: "bg_video" },
-        ...(segments[2] ? [{ id: "s2", segId: segments[2].id, text: `Scene 3 has redundant object — remove?`, action: "object_remove" as const }] : []),
-        ...(segments[1] ? [{ id: "s3", segId: segments[1].id, text: `Scene 2 could use narration overlay`, action: "narrate" as const }] : []),
+        { id: "s1", segId: segments[0].id, text: `Scene 1 background — remove it?`, action: "bg_video" },
+        ...(segments[2] ? [{ id: "s2", segId: segments[2].id, text: `Scene 3 has object — remove?`, action: "object_remove" as const }] : []),
+        ...(segments[1] ? [{ id: "s3", segId: segments[1].id, text: `Scene 2 could use narration`, action: "narrate" as const }] : []),
       ]
     : [];
 
@@ -643,18 +696,58 @@ function TimelineEditor() {
     const seg = segments.find(x => x.id === s.segId);
     if (!seg) return;
     setSelectedSegId(seg.id);
-    setStatusMsg(`Apply "${s.action}" on ${formatRange(seg.start, seg.end)} — routed to tool (mock).`);
+    // Immediately run the action for the suggestion
+    runAction(s.action);
   }
 
-  function runAction(action: "bg_video" | "object_remove" | "narrate" | "motion") {
-    if (!selectedSeg) return;
-    const map: Record<string, string> = {
-      bg_video: "/api/video/bg-remove",
-      object_remove: "/api/video/object-remove",
-      narrate: "/api/video-tools/narrate",
-      motion: "/api/video-tools/motion-transfer",
-    };
-    setStatusMsg(`Queued ${action} on ${formatRange(selectedSeg.start, selectedSeg.end)} → ${map[action]} (Phase 1 stub — full wiring in Phase 2).`);
+  async function runAction(action: "bg_video" | "object_remove" | "narrate" | "motion") {
+    if (!selectedSeg || !uploadedFile) {
+      setActionError("No video uploaded yet — import a video first.");
+      return;
+    }
+    setActionRunning(action); setActionResult(null); setActionError(""); setStatusMsg("");
+
+    try {
+      if (action === "bg_video") {
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        const res = await fetch("/api/video/bg-remove", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "BG remove failed");
+        setActionResult({ url: data.outputUrl, provider: data.provider ?? "fal.ai", type: "video" });
+        setStatusMsg(`Background removed on ${formatRange(selectedSeg.start, selectedSeg.end)}`);
+
+      } else if (action === "object_remove") {
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        fd.append("prompt", "Remove any distracting foreground object");
+        const res = await fetch("/api/video/object-remove", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Object remove failed");
+        setActionResult({ url: data.outputUrl, provider: data.provider ?? "fal.ai", type: "video" });
+        setStatusMsg(`Object removed on ${formatRange(selectedSeg.start, selectedSeg.end)}`);
+
+      } else if (action === "narrate") {
+        const text = narrationText.trim() || `Narration for scene ${formatRange(selectedSeg.start, selectedSeg.end)}`;
+        const fd = new FormData();
+        fd.append("file", uploadedFile);
+        fd.append("text", text);
+        const res = await fetch("/api/video-tools/narrate", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Narration failed");
+        setStatusMsg(`Narration queued (${data.contentItemId}) — processing in background`);
+
+      } else if (action === "motion") {
+        // Motion transfer needs image+video. Show helpful message directing to the full Motion Transfer tool.
+        setStatusMsg(`Motion Transfer requires a still image + this video as motion reference. Use the Motion Transfer tool in Classic Tools mode for the full workflow.`);
+        setActionRunning(null);
+        return;
+      }
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setActionRunning(null);
+    }
   }
 
   return (
@@ -740,6 +833,18 @@ function TimelineEditor() {
                     Duration {(selectedSeg.end - selectedSeg.start).toFixed(1)}s
                   </div>
                 </div>
+                {/* Narration text for "Add Text" action */}
+                <div style={{ marginBottom: 10 }}>
+                  <label style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono, textTransform: "uppercase" as const, letterSpacing: "0.12em", display: "block", marginBottom: 4 }}>
+                    Narration text (for &ldquo;Add Text&rdquo; action)
+                  </label>
+                  <input
+                    value={narrationText}
+                    onChange={e => setNarrationText(e.target.value)}
+                    placeholder="Text to speak over this scene…"
+                    style={{ background: ds.color.card, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: 6, padding: "8px 10px", fontSize: 12, width: "100%", boxSizing: "border-box" as const }}
+                  />
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
                   {[
                     { label: "Change Background", action: "bg_video" as const },
@@ -764,17 +869,50 @@ function TimelineEditor() {
 
             {statusMsg && <Card radius={8} padding="10px 14px" style={{ borderColor: "rgba(122,224,195,.2)" }}><p style={{ color: ds.color.mint, fontSize: 12 }}>{statusMsg}</p></Card>}
             {error && <Card radius={8} padding="10px 14px" style={{ borderColor: "rgba(255,122,69,.2)" }}><p style={{ color: ds.color.coral, fontSize: 12 }}>{error}</p></Card>}
+            {actionRunning && (
+              <Card radius={8} padding="10px 14px" style={{ borderColor: "rgba(245,166,35,.2)" }}>
+                <p style={{ color: ds.color.gold, fontSize: 12 }}>Running {actionRunning}…</p>
+              </Card>
+            )}
+            {actionError && (
+              <Card radius={8} padding="10px 14px" style={{ borderColor: "rgba(255,122,69,.2)" }}>
+                <p style={{ color: ds.color.coral, fontSize: 12 }}>{actionError}</p>
+              </Card>
+            )}
+            {actionResult && (
+              <Card radius={8} padding={14}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <Check size={14} color={ds.color.mint} />
+                  <span style={{ fontSize: 12, color: ds.color.mint, fontWeight: 600 }}>Done</span>
+                  {actionResult.provider && (
+                    <ModelChip provider={actionResult.provider} size="xs" position="static" />
+                  )}
+                </div>
+                {actionResult.type === "video" ? (
+                  <video src={actionResult.url} controls style={{ width: "100%", borderRadius: 6, maxHeight: 220 }} />
+                ) : (
+                  <img src={actionResult.url} alt="result" style={{ width: "100%", borderRadius: 6, maxHeight: 220, objectFit: "contain" }} />
+                )}
+                <a href={actionResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "none" }}>
+                  Download result
+                </a>
+              </Card>
+            )}
           </div>
 
           <Card radius={10} padding={14} style={{ alignSelf: "flex-start" }}>
             <div style={{ color: ds.color.lilac, fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10, fontFamily: ds.font.mono }}>
               AI Suggestions
             </div>
-            {suggestions.length === 0 && <p style={{ color: ds.color.mute, fontSize: 11 }}>No suggestions yet — import a video.</p>}
+            {loadingAiSuggestions && (
+              <p style={{ color: ds.color.gold, fontSize: 11, marginBottom: 8 }}>Analyzing video with AI…</p>
+            )}
+            {!loadingAiSuggestions && suggestions.length === 0 && (
+              <p style={{ color: ds.color.mute, fontSize: 11 }}>No suggestions yet — import a video.</p>
+            )}
             {suggestions.map(s => (
               <Card key={s.id} radius={8} padding={10} style={{ marginBottom: 8 }}>
-                <p style={{ color: ds.color.ink2, fontSize: 12, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>{s.text}</p>
-                <p style={{ color: ds.color.mute, fontSize: 10, fontStyle: "italic", marginBottom: 8 }}>— AI analysis placeholder</p>
+                <p style={{ color: ds.color.ink2, fontSize: 12, fontWeight: 500, lineHeight: 1.4, marginBottom: 8 }}>{s.text}</p>
                 <ButtonPrimary size="sm" onClick={() => applySuggestion(s)}>Apply</ButtonPrimary>
               </Card>
             ))}
