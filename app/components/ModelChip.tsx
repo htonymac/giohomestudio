@@ -10,39 +10,48 @@ import { IMAGE_MODELS, VIDEO_MODELS } from "./ModelPicker";
 
 interface ModelChipProps {
   modelId?: string | null;
+  /** Used when modelId is unknown — produces a "Provider · Generated" pill. */
+  provider?: string | null;
   size?: "xs" | "sm";
   position?: "static" | "absolute";
 }
 
 const PROVIDER_LABEL: Record<string, string> = {
-  fal_: "FAL",
-  muapi_: "MUAPI",
-  segmind_: "Segmind",
-  runway_: "Runway",
-  kling_: "Kling",
-  kie_: "KIE",
+  fal: "FAL",
+  muapi: "MUAPI",
+  segmind: "Segmind",
+  runway: "Runway",
+  kling: "Kling",
+  kie: "KIE",
 };
 
-function inferProvider(modelId: string): string {
-  for (const prefix in PROVIDER_LABEL) {
-    if (modelId.startsWith(prefix)) return PROVIDER_LABEL[prefix];
+function inferProvider(token: string): string {
+  const lower = token.toLowerCase();
+  for (const key in PROVIDER_LABEL) {
+    if (lower === key || lower.startsWith(`${key}_`)) return PROVIDER_LABEL[key];
   }
   return "AI";
 }
 
-export default function ModelChip({ modelId, size = "xs", position = "absolute" }: ModelChipProps) {
+export default function ModelChip({ modelId, provider, size = "xs", position = "absolute" }: ModelChipProps) {
   const id = modelId ?? "";
   const entry =
     IMAGE_MODELS.find(m => m.id === id) ||
     VIDEO_MODELS.find(m => m.id === id) ||
     null;
 
-  if (!entry && !id) {
+  if (!entry && !id && !provider) {
     return null;
   }
 
-  const provider = entry ? inferProvider(entry.id) : inferProvider(id);
-  const name = entry?.name ?? id;
+  const providerLabel = entry
+    ? inferProvider(entry.id)
+    : id
+      ? inferProvider(id)
+      : provider
+        ? inferProvider(provider)
+        : "AI";
+  const name = entry?.name ?? (id || "Generated");
   const cost = entry?.cost ?? "";
   const badgeColor = entry?.badgeColor ?? "#7c5cfc";
 
