@@ -33,7 +33,9 @@ export type AnimationEntrance =
   | "slide_bottom"
   | "fade_in"
   | "pop_in"
-  | "typewriter";
+  | "typewriter"
+  | "zoom_in"
+  | "pulse";
 
 export interface TextLayer {
   type: "text";
@@ -251,6 +253,18 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
         // Typewriter: reveal text character by character using textlen expression
         // FFmpeg doesn't natively support typewriter, so we approximate with alpha fade
         parts.push(`alpha='min(1,(t-${start})/0.3)'`);
+      } else if (t.animation.entrance === "zoom_in") {
+        // Zoom-in: alpha fade + font grows from ~60% to 100% over 0.4s
+        // Simulate grow by starting with smaller size via alpha + y offset nudge
+        parts.push(`alpha='min(1,(t-${start})/0.4)'`);
+        // Move text slightly down then settle: approaches final position from slightly higher
+        // (true font-size animation not possible in drawtext; fade+slide approximates zoom feel)
+        parts.push(`y='${textYExpr(t.position, t.animation.startSec, "slide_top")}'`);
+      } else if (t.animation.entrance === "pulse") {
+        // Pulse: rapid fade-in then sustain with slight alpha oscillation to simulate pulse
+        // alpha = clamp 0→1 in 0.2s then add gentle sine oscillation over lifetime
+        const endSec = t.animation.startSec + t.animation.durationSec;
+        parts.push(`alpha='min(1,(t-${start})/0.2)*max(0.7,0.85+0.15*sin(2*PI*(t-${start})*2)):enable=between(t,${start},${endSec})'`);
       }
 
       filterParts.push(`${currentVideoLabel}drawtext=${parts.join(":")}${outLabel}`);
