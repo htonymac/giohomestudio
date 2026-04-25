@@ -3838,6 +3838,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           const isActive = activeTab === tab.id;
           return (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+              data-testid={`hybrid-tab-${tab.id}`}
               style={{
                 padding: "12px 14px", background: "none", border: "none",
                 color: isActive ? "#fff" : muted,

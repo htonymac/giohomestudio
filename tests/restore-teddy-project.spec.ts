@@ -184,11 +184,13 @@ test.describe("Restore and Assemble Teddy & Dog", () => {
     console.log(`Project title visible: ${hasTeddy}, Scenes: ${hasScenes}`);
 
     // ── Go to Assembly tab ────────────────────────────────────────────────────────
-    const assemblyTab = page.locator('button, [role="tab"]').filter({ hasText: /^Assembly$/ }).first();
+    // Use data-testid="hybrid-tab-assembly" (added to WORKSHOP_TABS button) — robust post-v14
+    const assemblyTab = page.getByTestId("hybrid-tab-assembly");
     if (await assemblyTab.isVisible({ timeout: 5000 }).catch(() => false)) {
       await assemblyTab.click();
     } else {
-      await page.locator('text=Assembly').first().click();
+      // Fallback: match button whose text *contains* Assembly (handles "5Assembly" badge concat)
+      await page.locator('button').filter({ hasText: /Assembly/ }).first().click();
     }
     await page.waitForTimeout(1500);
     await ss("03-assembly-tab", page);
