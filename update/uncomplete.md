@@ -2507,3 +2507,131 @@ Total: 50+ documents across all folders
 - [x] Movie Planner has Overview tab with dashboard
 - [x] Children Planner has Overview tab with dashboard
 - [x] All 3 planners have Workshop tabs (Overview + content tabs)
+
+---
+
+## v14 DESIGN SYSTEM ROLLOUT — DONE (2026-04-23/24)
+
+- [x] All 51 pages transformed to v14 dark/purple-orange design (`design/v14-rollout`, 12 commits, 102 files, +12.7k/-10.8k LOC)
+- [x] Foundation: tokens, fonts (Geist + Instrument Serif + JetBrains Mono), sidebar (#0b0b0d), 26 stroke-SVG icons, ui primitives (Card / ButtonPrimary / ButtonTile / PillLive)
+- [x] 10 shared display components: hero/HeroTitle, hero/ComposeCard, stats/StatCard, feedback/AlertBar, render/RenderDeck, render/RenderJob, layout/Panel, buttons/QuickStartButton, buttons/ToolTile, project/ProjectRow
+- [x] v13 multi-theme system killed entirely (data-theme + ghs_theme localStorage gone from layout)
+- [x] All pictographic emoji removed; replaced with stroke SVG icons (or 2-letter abbrev where rotation needed)
+- [x] All `backdrop-filter` / `filter: blur()` removed (including `ovl-blur-reveal` keyframe in collab-editor)
+- [x] Stat cards interactive (hover: translate -3px, dashed sparkline march, value float, warm purple border)
+- [x] Render Queue: real job cards (96×54 thumb / status pill / ETA / progress bar when Rendering), dashed empty-state card, conditional LIVE pulse
+- [x] Scanline overlays stripped from gradient thumbs
+- [x] 2 React duplicate-key warnings killed (templates filterBtn, character-voices tag list)
+- [x] 30 emoji thumbnails stripped from `app/api/templates/route.ts`
+
+### v14 leftovers (post-rollout, NOT regressions)
+
+- [ ] **Open PR** `design/v14-rollout` → main
+- [ ] **Delete or repurpose `app/dashboard/settings/appearance/page.tsx`** — theme picker UI still renders + writes `ghs_theme` localStorage but layout no longer reads it. Picker is functionally dead.
+- [ ] **Investigate 404 on `/dashboard/character-voices`** — stale API call somewhere
+- [ ] (pre-existing) hydration warnings on `/login` `/register` — NextAuth dev-mode noise, harmless
+- [ ] (pre-existing) 500 on `/dashboard/settings/finance` — missing Finance Phase 2 backend (see DEFERRED below)
+
+---
+
+## DEFERRED — Henry's special call only
+
+### Finance Phase 2 — credit DB + deduction
+- **Status:** ⛔ DEFERRED. DO NOT START WITHOUT EXPLICIT HENRY SIGNAL.
+- **Trigger phrase:** "start Finance Phase 2" or "build credits"
+- **Plan:** `update/GHS_PAYMENT_BILLING_PLAN.md`
+- **Scope:** Prisma models User / CreditBalance / CreditTransaction / Subscription, deduction middleware, wiring into all generation endpoints
+- **Side effect when shipped:** kills 500 errors on `/dashboard/settings/finance`, unblocks `/dashboard/budget`
+
+---
+
+## CONTINUOUS MOTION PIPELINE — Phase 2 (NOT STARTED)
+
+- **Source spec:** `update/CONTINUOUS MOTION/CONTINUOUS_MOTION_SPEC (1).md`
+- **Index doc:** `Must Read.md` Section B
+- **Why:** AI video models generate 5-10s clips. Real scenes need 15-27s of continuous motion. Independent clips look broken. Fix: each new clip starts from LAST FRAME of previous clip (FFmpeg anchor extraction). Same character, motion, lighting, camera. Provider-agnostic.
+
+### Architecture — 3 layers
+
+- LAYER 1 — `backend/video/continuity_engine.js` — provider-independent brain. Segmentation, anchor chaining, prompt continuation, assembly.
+- LAYER 2 — `backend/video/adapters/[provider].adapter.js` — one per provider. Standard 3-method interface: `generateFromText`, `generateFromImage`, `getCapabilities`.
+- LAYER 3 — `backend/video/provider_router.js` — picks adapter from user choice.
+
+### Pipeline 9 steps
+
+1. Receive scene data (full prompt, total duration, segment duration, provider, seed, continuous_motion=true)
+2. MOTION UNIT PLANNER (LLM splits prompt by physical action, NOT punctuation)
+3. SEGMENT DURATION PLANNER (map units to provider's max comfortable duration)
+4. GENERATE SEGMENT 1 via `adapter.generateFromText`
+5. EXTRACT MOTION ANCHOR via FFmpeg: `ffmpeg -sseof -0.1 -i clip.mp4 -frames:v 1 -q:v 2 anchor.jpg`
+6. GENERATE SEGMENT 2 via `adapter.generateFromImage(anchor, "Continue: " + char + camera + action, seed, dur)`
+7. REPEAT FOR ALL SEGMENTS
+8. ASSEMBLY via FFmpeg concat → final scene → Review Queue
+9. AUDIO ATTACHMENT (only after all visual merged) via Audio-Video Sync Tool
+
+### Build order — 5 sessions
+
+#### Session 1 — Foundation
+- [ ] Create DB tables: continuous_scenes, motion_segments, motion_anchors
+- [ ] Create `backend/video/provider_router.js`
+- [ ] Create `backend/video/adapters/fal_wan.adapter.js` (Wan 2.2 Pro: t2v-1.3b, i2v-720p)
+- [ ] Create `backend/video/adapters/fal_kling.adapter.js` (Kling 2.5 Standard)
+- [ ] Test: generate one clip from text via each adapter
+- [ ] Test: generate one clip from image via each adapter
+- [ ] Show Henry both results
+
+#### Session 2 — Continuity Engine
+- [ ] Create `backend/video/continuity_engine.js`
+- [ ] Build `extractMotionAnchor()` (FFmpeg)
+- [ ] Build `buildContinuationPrompt()` ("Continue: " + char + camera + action)
+- [ ] Build `assembleClips()` (FFmpeg concat)
+- [ ] Test: 3-segment chain on Wan — verify anchor extraction
+- [ ] Test: merged output looks continuous
+- [ ] Show Henry the 15-second result
+
+#### Session 3 — Motion Unit Planner
+- [ ] Build motion unit splitting logic
+- [ ] LLM call (Claude API or local) to split long prompts by physical action
+- [ ] Build segment duration planner
+- [ ] Test: 27-second story → verify segment plan
+- [ ] Show Henry the breakdown
+
+#### Session 4 — UI Integration
+- [ ] Continuous Motion toggle in Scene Settings
+- [ ] Segment chain visualization in Scene Board (anchor links, status, progress)
+- [ ] Provider lock when Continuous Motion is on
+- [ ] Cost estimation display before generation start
+- [ ] Progress indicator during generation
+- [ ] Connect assembly output to Review Queue (final scene only, NOT individual segments)
+- [ ] "Add Audio" button post-assembly → opens Audio-Video Sync Tool from Music Studio
+- [ ] Show Henry full end-to-end workflow
+
+#### Session 5 — Remaining Adapters
+- [ ] `fal_kling_pro.adapter.js` (Kling 2.5 Pro / 3.0 Pro)
+- [ ] `fal_hailuo.adapter.js` (Hailuo/MiniMax)
+- [ ] `fal_runway.adapter.js` (Runway Gen-4)
+- [ ] `fal_veo.adapter.js` (Veo 3.1 Google)
+- [ ] `fal_seedance.adapter.js` (Seedance 2.0 ByteDance)
+- [ ] Test each with 3-segment continuation
+- [ ] Push to GitHub after Henry approves
+
+### CRITICAL RULES (from spec)
+
+1. Provider Lock Per Scene — once first segment generates, lock provider dropdown
+2. Seed Consistency — same seed for every segment
+3. Sequential Generation Only — strict dependency chain, NO parallel within a scene
+4. Audio After Visual — never attach audio until all visual segments merged
+5. Failure Recovery — retry failed segment up to 2x; if still fails mark scene FAILED at that segment; allow regenerate from there onward; NEVER regenerate completed segments; refund only failed
+6. Credit Calculation — show total estimated cost before start, confirm, deduct per segment as each completes
+
+### WHAT NOT TO DO
+
+- DO NOT generate segments in parallel — strict sequential
+- DO NOT split prompts by sentence — split by motion action
+- DO NOT allow provider switching mid-scene
+- DO NOT attach audio before visual chain complete
+- DO NOT show individual segments in Review Queue — only final
+- DO NOT skip anchor extraction between segments
+- DO NOT hardcode any provider logic in continuity engine
+- DO NOT charge full scene cost upfront — charge per segment
+- DO NOT regenerate completed segments on failure — only failed ones
