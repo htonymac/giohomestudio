@@ -1,6 +1,28 @@
 # GioHomeStudio — Incomplete / Pending Tasks
 Updated: 2026-04-25
 
+## SESSION 2026-04-25 Thompson (backlog TASKS A–E)
+
+### COMPLETED — Thompson autonomous run
+
+- [x] **TASK A** (fix/migration-test-selectors) — PR #3: Added `data-testid="hybrid-tab-{id}"` to every WORKSHOP_TABS button in `app/dashboard/hybrid-planner/page.tsx`. Updated `tests/restore-teddy-project.spec.ts` line 187 to use `page.getByTestId("hybrid-tab-assembly")` with visible-check fallback. Test passed (timeout was audio pipeline duration, not selector failure).
+- [x] **TASK B** (feat/model-chip-db) — PR #4: Added `modelId String?` to `prisma/schema.prisma`, pushed to DB. Propagated through `src/types/content.ts`, `src/modules/content-registry/index.ts`. ModelChip added to `app/dashboard/content/[id]/page.tsx`, hybrid-planner scene cards (sceneImageModels state), and Video Trimmer bgResult/bgVideoResult/objResult cards.
+- [x] **TASK C** (feat/video-trimmer-enhancements) — PR #5: Created `/api/llm/polish/route.ts` (Claude Haiku 4.5, silent fallback). Wired polish button in video-trimmer to real endpoint. Added "Change BG (Video)" tab with handleBgChange() calling `/api/video/bg-remove` with `newBackground` field. Full state: bgChangeFile, bgChangePrompt, bgChanging, bgChangeResult, bgChangeError.
+- [x] **TASK D** (feat/video-editor-pipeline) — PR #6: Added `zoom_in` and `pulse` animations to `src/modules/ffmpeg/overlay.ts`. Created `/api/overlays/render-direct/route.ts` (POST videoPath+layers, no ContentItem prereq). Wired Video Editor Export button to endpoint; result shows video player + download + registry link + ModelChip. Updated polishPrompt() to use `/api/llm/polish`.
+- [x] **TASK E** (feat/video-tools-segment-actions) — PR #7: Wired TimelineEditor action buttons to real endpoints (bg-remove, object-remove, narrate). fetchAiSuggestions() calls `/api/llm/polish` for real Haiku suggestions with static fallback. Narration text input in selected-segment card. actionRunning/actionError/actionResult state with video/image preview and ModelChip. Removed "— AI analysis placeholder" from suggestion cards. Motion Transfer shows redirect to Classic Tools (workflow incompatible with single-video timeline).
+
+### PRs opened this session
+- PR #3: https://github.com/htonymac/giohomestudio/pull/3 (fix/migration-test-selectors → feat/model-name-chip)
+- PR #4: https://github.com/htonymac/giohomestudio/pull/4 (feat/model-chip-db → feat/model-name-chip)
+- PR #5: https://github.com/htonymac/giohomestudio/pull/5 (feat/video-trimmer-enhancements → feat/model-chip-db)
+- PR #6: https://github.com/htonymac/giohomestudio/pull/6 (feat/video-editor-pipeline → feat/video-trimmer-enhancements)
+- PR #7: https://github.com/htonymac/giohomestudio/pull/7 (feat/video-tools-segment-actions → feat/video-editor-pipeline)
+
+### Notes for merge
+Branch chain (base→child): feat/model-name-chip → feat/model-chip-db → feat/video-trimmer-enhancements → feat/video-editor-pipeline → feat/video-tools-segment-actions. Merge in that order. Run `npx prisma db push --accept-data-loss` after merging TASK B branch.
+
+---
+
 ## SESSION 2026-04-25 — Henry asked for items 1, 3, 4, 5, 6, 7
 
 ### Completed
