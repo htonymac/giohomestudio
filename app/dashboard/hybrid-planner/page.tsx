@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, Suspense } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import { useSearchParams } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import NarrationControls from "../../components/NarrationControls";
@@ -181,6 +182,7 @@ export default function HybridPlannerPage() {
 
 function HybridPlannerInner() {
   const params = useSearchParams();
+  const { requireGate, GateModal } = useGate();
 
   // ── Workshop tab ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("overview");
@@ -331,6 +333,11 @@ function HybridPlannerInner() {
   const [aidSort, setAidSort] = useState<"cheapest" | "quality" | "expensive">("cheapest");
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>("fal_flux_schnell");
   const [transparentBg, setTransparentBg] = useState(false); // Ideogram V3 transparent PNG mode
+  const [genSeed, setGenSeed] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_hybrid_seed");
+    return v ? Number(v) : null;
+  });
   const [aiTier, setAiTier] = useState<AITier>("standard"); // GHS AI tier for story expansion
   // ── Generation progress bars (sceneId → live progress) ──
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string; type: "image" | "video" }>>({});
@@ -1390,6 +1397,7 @@ function HybridPlannerInner() {
   }
 
   async function makeSceneImage(scene: HybridScene) {
+    try { await requireGate(); } catch { return; }
     setGeneratingSceneImage(scene.sceneId);
     setLastAction(`Generating image for Scene ${scene.scene}...`);
     setSceneGenProgress(prev => ({ ...prev, [scene.sceneId]: { percent: 3, message: "Starting image generation...", type: "image" } }));
@@ -1425,6 +1433,7 @@ function HybridPlannerInner() {
           projectStyle, characterOverrides,
           modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
           transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       const data = await res.json();
@@ -1473,6 +1482,7 @@ function HybridPlannerInner() {
   }
 
   async function makeSceneVideo(scene: HybridScene, durationSecs?: number) {
+    try { await requireGate(); } catch { return; }
     const existingImage = sceneImages[scene.sceneId];
     if (!existingImage) {
       setUiError(`Scene ${scene.scene} needs an image first. Click "Make Image" before making a video.`);
@@ -1491,6 +1501,7 @@ function HybridPlannerInner() {
           duration: durationSecs ?? scene.motionDuration ?? 5,
           motionDescription: scene.shots[0]?.cameraMovement || "",
           modelId: selectedVideoModelId !== "segmind_pruna_video" ? selectedVideoModelId : undefined,
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
 
@@ -1956,6 +1967,7 @@ function HybridPlannerInner() {
   }
 
   async function assembleScenes() {
+    try { await requireGate(); } catch { return; }
     setAssembling(true); setAssemblyComplete(false); setAssembledVideoUrl(null); setUiError(null);
     const progress: Record<number, string> = {};
     scenes.forEach(s => { progress[s.scene] = "queued"; }); setAssemblyProgress({ ...progress });
@@ -2838,6 +2850,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             ? "3D render, photorealistic, CGI, bokeh"
             : "",
           width: 768, height: 960,
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       const d = await res.json();
@@ -3157,6 +3170,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           characterIds: charIds, location: newSceneLocation,
           mood: newSceneMood, timeOfDay: newSceneTimeOfDay,
           projectStyle,
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       const data = await res.json();
@@ -3243,6 +3257,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
   return (
     <div suppressHydrationWarning style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 32px 60px", fontFamily: ds.font.sans }}>
+      <GateModal />
 
       {/* ── Quick Preview Modal — image or video lightbox ── */}
       {previewMedia && (
@@ -4295,6 +4310,31 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
                 </button>
               )}
+              {/* Seed control — set a fixed seed to repeat results */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number"
+                  placeholder="Seed (random)"
+                  value={genSeed ?? ""}
+                  onChange={e => {
+                    const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
+                    setGenSeed(isNaN(v as number) ? null : v);
+                    if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_hybrid_seed", String(v));
+                    else localStorage.removeItem("ghs_hybrid_seed");
+                  }}
+                  style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
+                />
+                <button
+                  title="Randomize seed"
+                  onClick={() => {
+                    const s = Math.floor(Math.random() * 1e9);
+                    setGenSeed(s);
+                    localStorage.setItem("ghs_hybrid_seed", String(s));
+                  }}
+                  style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
+                  🎲
+                </button>
+              </div>
               <button onClick={() => setSceneViewMode("grid")} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${sceneViewMode === "grid" ? accent : border}`, background: sceneViewMode === "grid" ? `${accent}10` : "transparent", color: sceneViewMode === "grid" ? accent : muted, fontSize: 10, cursor: "pointer" }}>Grid</button>
               <button onClick={() => setSceneViewMode("list")} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${sceneViewMode === "list" ? accent : border}`, background: sceneViewMode === "list" ? `${accent}10` : "transparent", color: sceneViewMode === "list" ? accent : muted, fontSize: 10, cursor: "pointer" }}>List</button>
               {(() => {

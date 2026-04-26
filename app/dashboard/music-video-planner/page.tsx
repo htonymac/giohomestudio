@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
@@ -121,6 +122,7 @@ const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
 ];
 
 export default function MusicVideoPlannerPage() {
+  const { requireGate, GateModal } = useGate();
   const [activeTab, setActiveTab] = useState<MvTab>("overview");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectList, setProjectList] = useState<MvProject[]>([]);
@@ -242,6 +244,11 @@ export default function MusicVideoPlannerPage() {
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [genSeed, setGenSeed] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_mv_seed");
+    return v ? Number(v) : null;
+  });
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
   const [aidStyle, setAidStyle] = useState<"all"|"2d"|"3d"|"cartoon"|"realistic">("all");
@@ -467,6 +474,7 @@ export default function MusicVideoPlannerPage() {
 
   // ── Generate scene image ──
   async function makeSceneImage(scene: Scene) {
+    try { await requireGate(); } catch { return; }
     setGeneratingImage(scene.scene);
     try {
       const res = await fetch("/api/hybrid/scene-image", {
@@ -476,6 +484,7 @@ export default function MusicVideoPlannerPage() {
           prompt: `${scene.prompt}. Style: ${scene.style}. Music video for: ${songTitle} by ${artistName || "artist"}. Mood: ${analysis?.mood || "cinematic"}.`,
           style: visualStyle || "cinematic",
           sceneType: scene.genMethod === "video-led" ? "video-led" : "image-led",
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       const data = await res.json();
@@ -712,6 +721,7 @@ export default function MusicVideoPlannerPage() {
 
   // ── makeSceneVideo (SSE streaming) ──
   async function makeSceneVideo(scene: Scene) {
+    try { await requireGate(); } catch { return; }
     const sceneId = `mv_sc${scene.scene}`;
     const existingImage = sceneImages[scene.scene];
     if (!existingImage) { setLastAction(`Scene ${scene.scene} needs an image first`); return; }
@@ -721,7 +731,7 @@ export default function MusicVideoPlannerPage() {
     try {
       const response = await fetch("/api/hybrid/scene-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.section}. ${scene.prompt}`, imageUrl: existingImage, duration: 5, motionDescription: scene.movement || "" }),
+        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.section}. ${scene.prompt}`, imageUrl: existingImage, duration: 5, motionDescription: scene.movement || "", seed: genSeed !== null ? genSeed : undefined }),
       });
       if (!response.body) throw new Error("No response stream");
       const reader = response.body.getReader();
@@ -928,7 +938,7 @@ export default function MusicVideoPlannerPage() {
       const res = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${scene.prompt}. Camera: ${scene.movement}. Style: ${scene.style}.`, model: videoModel }),
+        body: JSON.stringify({ prompt: `${scene.prompt}. Camera: ${scene.movement}. Style: ${scene.style}.`, model: videoModel, seed: genSeed !== null ? genSeed : undefined }),
       });
       const data = await res.json();
       setStoryboard(prev => prev.map(s => s.scene === sceneNum ? { ...s, status: data.outputUrl ? "generated" : "needs_edit", outputUrl: data.outputUrl } : s));
@@ -1031,6 +1041,7 @@ export default function MusicVideoPlannerPage() {
 
   return (
     <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
+      <GateModal />
       {/* ── Page Header ── */}
       <div style={{ padding: "24px 32px 0" }}>
         <HeroTitle
@@ -1942,6 +1953,31 @@ export default function MusicVideoPlannerPage() {
               >
                 {loadingAutoTimestamp ? "Timestamping..." : "Auto Time Stamp"}
               </button>
+              {/* Seed control */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number"
+                  placeholder="Seed (random)"
+                  value={genSeed ?? ""}
+                  onChange={e => {
+                    const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
+                    setGenSeed(isNaN(v as number) ? null : v);
+                    if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_mv_seed", String(v));
+                    else localStorage.removeItem("ghs_mv_seed");
+                  }}
+                  style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: "1px solid #2a2a40", background: "#0d0d1a", color: "#fff", fontSize: 10, outline: "none" }}
+                />
+                <button
+                  title="Randomize seed"
+                  onClick={() => {
+                    const s = Math.floor(Math.random() * 1e9);
+                    setGenSeed(s);
+                    localStorage.setItem("ghs_mv_seed", String(s));
+                  }}
+                  style={{ padding: "5px 7px", borderRadius: 7, border: "1px solid #2a2a40", background: "#0d0d1a", color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
+                  🎲
+                </button>
+              </div>
             </div>
             {runningIntelligence && (
               <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
