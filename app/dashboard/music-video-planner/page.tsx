@@ -8,6 +8,7 @@ import { ds } from "../../../lib/designSystem";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -215,6 +216,28 @@ export default function MusicVideoPlannerPage() {
 
   // ── Story AI provider ──
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
+
+  // ── Text-to-Music-Video entry mode ──
+  const [t2mvPrompt, setT2mvPrompt] = useState("");
+  const [t2mvGenerating, setT2mvGenerating] = useState(false);
+  const [t2mvStep, setT2mvStep] = useState<"idle" | "lyrics" | "storyboard" | "done">("idle");
+  const [entryMode, setEntryMode] = useState<"song" | "text-concept">("song");
+
+  // ── Beat/Section Intelligence ──
+  const [beats, setBeats] = useState<number[]>([]);
+  const [detectingBeats, setDetectingBeats] = useState(false);
+  const [beatSections, setBeatSections] = useState<Array<{ label: string; startTime: number; endTime: number; energy: "low" | "medium" | "high" }>>([]);
+
+  // ── Review-first checkpoints ──
+  const [reviewCheckpoint, setReviewCheckpoint] = useState<"none" | "storyboard" | "generation">("none");
+  const [reviewPassed, setReviewPassed] = useState<Record<string, boolean>>({});
+
+  // ── Provider routing labels ──
+  const [sceneProviderMap, setSceneProviderMap] = useState<Record<number, string>>({});
+
+  // ── Auto Time Stamp ──
+  const [loadingAutoTimestamp, setLoadingAutoTimestamp] = useState(false);
+  const [autoTimestampPlan, setAutoTimestampPlan] = useState<null | { totalDuration: number; segmentCount: number; segments: Array<{ id: string; title: string; startTime: number; endTime: number; duration: number; narrationText: string }> }>(null);
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
@@ -586,6 +609,99 @@ export default function MusicVideoPlannerPage() {
     setRunningIntelligence(false);
   }
 
+  // ── Beat Detection (FFmpeg onset via API) ──
+  async function detectBeats() {
+    if (!songUrl && !songFile) return;
+    setDetectingBeats(true);
+    try {
+      const formData = new FormData();
+      if (songFile) {
+        formData.append("file", songFile);
+      } else if (songUrl) {
+        formData.append("url", songUrl);
+      }
+      const res = await fetch("/api/music-video/detect-beats", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.beats && Array.isArray(data.beats)) {
+        setBeats(data.beats);
+        // Build section map from beats
+        if (data.sections && Array.isArray(data.sections)) {
+          setBeatSections(data.sections);
+        }
+        setLastAction(`Beat detection: ${data.beats.length} beats found`);
+      } else if (data.error) {
+        setLastAction(`Beat detection: ${data.error}`);
+      }
+    } catch (err) {
+      console.warn("Beat detection failed:", err);
+      setLastAction("Beat detection failed — FFmpeg may not be available");
+    }
+    setDetectingBeats(false);
+  }
+
+  // ── Text-to-Music-Video flow ──
+  async function generateFromTextConcept() {
+    if (!t2mvPrompt.trim()) return;
+    setT2mvGenerating(true);
+    setT2mvStep("lyrics");
+    try {
+      const res = await fetch("/api/music-video/text-to-mv", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: t2mvPrompt, videoMode, visualStyle }),
+      });
+      const data = await res.json();
+      if (data.title) setSongTitle(data.title);
+      if (data.lyrics) {
+        setLyrics(data.lyrics);
+        setT2mvStep("storyboard");
+      }
+      if (data.analysis) {
+        setAnalysis(data.analysis);
+        setActiveTab("analysis");
+      }
+      if (data.storyboard?.length > 0) {
+        setStoryboard(data.storyboard);
+        setT2mvStep("done");
+        setReviewCheckpoint("storyboard");
+        setActiveTab("storyboard");
+      }
+      setLastAction(`Text-to-MV: "${t2mvPrompt.slice(0, 40)}" → ${data.storyboard?.length || 0} scenes`);
+    } catch (err) {
+      console.error("T2MV failed:", err);
+      setLastAction("Text-to-MV failed — check console");
+    }
+    setT2mvGenerating(false);
+  }
+
+  // ── Auto Time Stamp (calls SPEC 1 endpoint) ──
+  async function runAutoTimestamp() {
+    setLoadingAutoTimestamp(true);
+    try {
+      const sceneTexts = storyboard.map(s => `${s.section}: ${s.prompt}`);
+      const totalDur = storyboard.reduce((sum, s) => {
+        const match = s.duration.match(/(\d+)/g);
+        if (match && match.length >= 2) return sum + (parseInt(match[0]) + parseInt(match[1])) / 2;
+        if (match && match.length === 1) return sum + parseInt(match[0]);
+        return sum + 5;
+      }, 0) || 60;
+      const res = await fetch("/api/timeline/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ script: lyrics || songTitle, scenes: sceneTexts.length > 0 ? sceneTexts : undefined, mode: "scene", targetDuration: totalDur }),
+      });
+      const data = await res.json();
+      if (data.plan) {
+        setAutoTimestampPlan(data.plan);
+        setLastAction(`Auto Time Stamp: ${data.plan.segmentCount} segments, ${data.plan.totalDuration.toFixed(1)}s total`);
+      }
+    } catch (err) { console.error("autoTimestamp failed:", err); }
+    setLoadingAutoTimestamp(false);
+  }
+
   // ── makeSceneVideo (SSE streaming) ──
   async function makeSceneVideo(scene: Scene) {
     const sceneId = `mv_sc${scene.scene}`;
@@ -798,6 +914,8 @@ export default function MusicVideoPlannerPage() {
     if (!scene) return;
     setRenderingScene(sceneNum);
     setStoryboard(prev => prev.map(s => s.scene === sceneNum ? { ...s, status: "generating" } : s));
+    // Track which provider/model was used for this scene
+    const usedModelId = selectedVideoModelId || videoModel;
     try {
       const res = await fetch("/api/video/generate", {
         method: "POST",
@@ -806,6 +924,8 @@ export default function MusicVideoPlannerPage() {
       });
       const data = await res.json();
       setStoryboard(prev => prev.map(s => s.scene === sceneNum ? { ...s, status: data.outputUrl ? "generated" : "needs_edit", outputUrl: data.outputUrl } : s));
+      // Record which model produced this scene
+      setSceneProviderMap(prev => ({ ...prev, [sceneNum]: usedModelId }));
     } catch {
       setStoryboard(prev => prev.map(s => s.scene === sceneNum ? { ...s, status: "needs_edit" } : s));
     }
@@ -1292,6 +1412,70 @@ export default function MusicVideoPlannerPage() {
         <div style={cardStyle}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Your Song</h2>
 
+          {/* ── Entry Mode Toggle: Have a song / Start from text ── */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            {([
+              { id: "song" as const, label: "I have a song" },
+              { id: "text-concept" as const, label: "Start from text idea" },
+            ]).map(m => (
+              <button key={m.id} onClick={() => setEntryMode(m.id)}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${entryMode === m.id ? "#7c5cfc" : border}`, background: entryMode === m.id ? "rgba(124,92,252,0.08)" : "transparent", cursor: "pointer" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: entryMode === m.id ? "#7c5cfc" : "#fff" }}>{m.label}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* ── Text-to-Music-Video Mode ── */}
+          {entryMode === "text-concept" && (
+            <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 14, background: "rgba(124,92,252,0.06)", border: "1px solid rgba(124,92,252,0.25)" }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#7c5cfc", marginBottom: 6 }}>Text-to-Music-Video</p>
+              <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Type a concept or mood — AI will write lyrics, plan scenes, and build your storyboard automatically.</p>
+              <textarea
+                value={t2mvPrompt}
+                onChange={e => setT2mvPrompt(e.target.value)}
+                placeholder="e.g. A late-night drive through neon city streets, feeling nostalgic and free..."
+                rows={3}
+                style={{ ...inputStyle, resize: "vertical" as const, marginBottom: 10 }}
+              />
+              {t2mvStep !== "idle" && (
+                <div style={{ marginBottom: 8, padding: "6px 12px", borderRadius: 8, background: "rgba(124,92,252,0.1)", border: "1px solid rgba(124,92,252,0.2)" }}>
+                  <p style={{ fontSize: 10, color: "#7c5cfc", fontWeight: 600 }}>
+                    {t2mvStep === "lyrics" ? "Writing lyrics..." : t2mvStep === "storyboard" ? "Building storyboard..." : "Done — review Storyboard tab"}
+                  </p>
+                </div>
+              )}
+              <button onClick={generateFromTextConcept} disabled={t2mvGenerating || !t2mvPrompt.trim()}
+                style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: t2mvGenerating ? "#2a2a40" : "#7c5cfc", color: "#fff", fontSize: 12, fontWeight: 700, cursor: t2mvGenerating ? "not-allowed" : "pointer" }}>
+                {t2mvGenerating ? "Generating..." : "Generate Music Video Concept"}
+              </button>
+            </div>
+          )}
+
+          {/* ── Beat Detection panel (song mode) ── */}
+          {entryMode === "song" && songFile && (
+            <div style={{ marginBottom: 16, padding: "10px 14px", borderRadius: 10, background: "rgba(236,72,153,0.06)", border: "1px solid rgba(236,72,153,0.2)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#ec4899" }}>Beat / Section Intelligence</p>
+                <button onClick={detectBeats} disabled={detectingBeats}
+                  style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(236,72,153,0.3)", background: "transparent", color: "#ec4899", fontSize: 10, fontWeight: 700, cursor: detectingBeats ? "not-allowed" : "pointer" }}>
+                  {detectingBeats ? "Detecting..." : "Detect Beats"}
+                </button>
+              </div>
+              {beats.length > 0 && (
+                <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>{beats.length} beats detected</p>
+              )}
+              {beatSections.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginTop: 6 }}>
+                  {beatSections.map((s, i) => (
+                    <span key={i} style={{ fontSize: 9, padding: "3px 8px", borderRadius: 12, background: s.energy === "high" ? "rgba(239,68,68,0.12)" : s.energy === "medium" ? "rgba(234,179,8,0.12)" : "rgba(99,102,241,0.12)", color: s.energy === "high" ? "#ef4444" : s.energy === "medium" ? "#eab308" : "#818cf8", fontWeight: 600 }}>
+                      {s.label} {s.startTime.toFixed(0)}–{s.endTime.toFixed(0)}s
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
             {(["upload", "generate", "library"] as const).map(s => (
               <button key={s} onClick={() => setSongSource(s)}
@@ -1766,10 +1950,17 @@ export default function MusicVideoPlannerPage() {
                   <div style={{ flex: 1, cursor: "pointer" }} onClick={() => setSelectedScene(selectedScene === s.scene ? null : s.scene)}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{s.section}</p>
-                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" as const }}>
                         <span style={{ fontSize: 10, color: muted }}>{s.duration}</span>
                         {s.status === "generated" && <span style={{ fontSize: 9, color: "#22c55e", background: "rgba(34,197,94,0.12)", padding: "2px 7px", borderRadius: 10, fontWeight: 600 }}>Image Ready</span>}
                         <span style={{ fontSize: 9, color: muted, background: "#080b10", padding: "2px 6px", borderRadius: 8 }}>{s.genMethod}</span>
+                        {/* Provider ModelChip — shows which model produced this scene */}
+                        {sceneProviderMap[s.scene] && (
+                          <ModelChip modelId={sceneProviderMap[s.scene]} size="xs" position="static" />
+                        )}
+                        {!sceneProviderMap[s.scene] && s.status === "planned" && (
+                          <ModelChip modelId={selectedVideoModelId} size="xs" position="static" />
+                        )}
                       </div>
                     </div>
                     {selectedScene === s.scene ? (
@@ -1987,13 +2178,42 @@ export default function MusicVideoPlannerPage() {
             </div>
           ))}
 
-          <button
-            onClick={async () => { for (const s of storyboard) { if (s.status === "planned") await renderSingleScene(s.scene); } }}
-            disabled={renderingScene !== null}
-            style={{ width: "100%", marginTop: 16, padding: 16, borderRadius: 14, border: "none", background: renderingScene !== null ? "#2a2a40" : accent, color: "#fff", fontSize: 16, fontWeight: 700, cursor: renderingScene !== null ? "not-allowed" : "pointer" }}>
-            {renderingScene !== null ? `Rendering Scene ${renderingScene}...` : "Render All Scenes"}
-          </button>
-          <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 8 }}>Credits charged per scene</p>
+          {/* ── Review Checkpoint before render ── */}
+          {reviewCheckpoint === "storyboard" && !reviewPassed["storyboard"] ? (
+            <div style={{ marginTop: 16, padding: "16px 18px", borderRadius: 12, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.3)" }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#eab308", marginBottom: 6 }}>Review Checkpoint — Storyboard</p>
+              <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>
+                Review the {storyboard.length} scenes above before starting expensive scene generation.
+                Each scene will be rendered individually — you can still edit prompts above.
+              </p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => { setReviewPassed(p => ({ ...p, storyboard: true })); setReviewCheckpoint("generation"); }}
+                  style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: "#22c55e", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Storyboard Looks Good — Start Rendering
+                </button>
+                <button onClick={() => setReviewCheckpoint("none")}
+                  style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(234,179,8,0.3)", background: "transparent", color: "#eab308", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                  Skip Checkpoint
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button
+                onClick={async () => {
+                  if (reviewCheckpoint === "none" || reviewPassed["storyboard"]) {
+                    for (const s of storyboard) { if (s.status === "planned") await renderSingleScene(s.scene); }
+                  } else {
+                    setReviewCheckpoint("storyboard");
+                  }
+                }}
+                disabled={renderingScene !== null}
+                style={{ width: "100%", marginTop: 16, padding: 16, borderRadius: 14, border: "none", background: renderingScene !== null ? "#2a2a40" : accent, color: "#fff", fontSize: 16, fontWeight: 700, cursor: renderingScene !== null ? "not-allowed" : "pointer" }}>
+                {renderingScene !== null ? `Rendering Scene ${renderingScene}...` : "Render All Scenes"}
+              </button>
+              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 8 }}>Credits charged per scene</p>
+            </>
+          )}
 
           {/* Scene selection for assembly */}
           {storyboard.length > 0 && (
