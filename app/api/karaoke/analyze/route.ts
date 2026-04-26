@@ -9,9 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { spawn } from "child_process";
 import { env } from "@/config/env";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 const PYTHON_BIN = process.env.PYTHON_BIN || "python";
 const SCRIPT_PATH = path.resolve(process.cwd(), "scripts", "karaoke_analyze.py");

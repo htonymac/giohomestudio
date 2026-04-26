@@ -8,6 +8,7 @@ Output: JSON to stdout. Errors/warnings to stderr.
 import sys
 import json
 import os
+import numpy as np
 
 def suggest_genre(tempo: float, energy: float, brightness: float) -> str:
     """Nigeria-aware genre heuristic from tempo + brightness + energy."""
@@ -41,7 +42,6 @@ def score_vocal_quality(pitches, magnitudes) -> float:
     Estimate vocal quality 0-1 from pitch stability.
     Higher = more consistent pitch = better quality.
     """
-    import numpy as np
     # Get the dominant pitch at each frame (highest magnitude)
     active_pitches = []
     for t in range(pitches.shape[1]):
@@ -96,8 +96,7 @@ def main():
 
     try:
         import librosa
-        import numpy as np
-        import soundfile as sf
+        import soundfile as sf  # noqa: F401 — validates soundfile is installed
     except ImportError as e:
         print(json.dumps({"error": f"Missing required dependency: {e}"}))
         sys.exit(1)
@@ -152,13 +151,8 @@ def main():
         print(f"[WARN] Energy calc failed: {e}", file=sys.stderr)
         energy_level = 0.05
 
-    # ── Brightness ──────────────────────────────────────────────────────────
-    try:
-        sc = librosa.feature.spectral_centroid(y=y, sr=sr)[0]
-        brightness = float(sc.mean())
-    except Exception as e:
-        print(f"[WARN] Brightness calc failed: {e}", file=sys.stderr)
-        brightness = 2000.0
+    # ── Brightness — reuse spectral_centroid already computed in key block ──
+    brightness = spectral_centroid_mean
 
     # ── Pitch / vocal quality ────────────────────────────────────────────────
     try:
