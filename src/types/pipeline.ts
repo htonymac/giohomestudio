@@ -51,6 +51,8 @@ export interface PipelineInput {
   storyThreadId?: string;          // shared thread ID linking all scenes in a story
   sourceVideoPath?: string;        // video_to_video mode: path to uploaded source video
   imageActionPrompt?: string;      // image_to_video mode: what the character should do, e.g. "make her turn and smile"
+  videoModelId?: string;           // specific video generation model (e.g. fal_kling_2_5_standard)
+  imageModelId?: string;           // specific image generation model (e.g. fal_flux_pro)
 }
 
 export interface PipelineResult {

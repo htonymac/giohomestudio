@@ -49,6 +49,8 @@ export interface VideoGenerationInput {
   style?: string;
   /** Image-to-video: source image URL or local path. Provider uses this as the start frame. */
   referenceImageUrl?: string;
+  /** Specific model ID to use (e.g. fal_kling_2_5_standard). Overrides provider default. */
+  modelId?: string;
 }
 
 export interface VideoGenerationOutput {

@@ -646,6 +646,7 @@ export async function runPipeline(input: PipelineInput): Promise<PipelineResult>
       prompt: enhanced.enhancedPrompt,
       durationSeconds: effectiveDuration,
       aspectRatio: input.aspectRatio ?? "9:16",
+      ...(input.videoModelId ? { modelId: input.videoModelId } : {}),
     };
 
     let videoResult = await videoProvider.generate(videoGenInput);

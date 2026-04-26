@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import DurationPicker from "../../components/DurationPicker";
+import ModelPicker, { VIDEO_MODELS, IMAGE_MODELS } from "../../components/ModelPicker";
 import { ds } from "../../../lib/designSystem";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -426,6 +427,8 @@ function FreeModeInner() {
   const [showAdv,    setShowAdv]    = useState(false);
   const [showModes,  setShowModes]  = useState(false);
   const [aiModel,    setAiModel]    = useState<AIModel>("haiku");
+  const [selectedVideoModel, setSelectedVideoModel] = useState<string>(VIDEO_MODELS[2].id); // Seedance 2.0 default
+  const [selectedImageModel, setSelectedImageModel] = useState<string>(IMAGE_MODELS[0].id); // Flux Schnell default
 
   // Multi-upload state (primary images or single video)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -679,6 +682,7 @@ function FreeModeInner() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: enhancedPrompt,
+            modelId: selectedImageModel,
             referenceImageUrls: capRefImagePaths.length > 0 ? capRefImagePaths : undefined,
             width:  aspect === "16:9" ? 1216 : aspect === "1:1" ? 1024 : 832,
             height: aspect === "16:9" ? 832  : aspect === "1:1" ? 1024 : 1472,
@@ -706,6 +710,8 @@ function FreeModeInner() {
         rawInput:           enhancedPrompt,
         outputMode:         pipelineMode,
         llmModel:           MODEL_IDS[aiModel],
+        videoModelId:       selectedVideoModel,
+        imageModelId:       selectedImageModel,
         durationSeconds:    duration,
         aspectRatio:        aspect,
         aiAutoMode:         true,
@@ -1165,6 +1171,17 @@ function FreeModeInner() {
                 <select value={style} onChange={e => setStyle(e.target.value)} style={{ width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line}`, color: ds.color.ink, borderRadius: 7, padding: "7px 9px", fontSize: 12 }}>
                   {STYLES.map(s => <option key={s} value={s === "— Any —" ? "" : s}>{s}</option>)}
                 </select>
+              </div>
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: 9, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Generation Models</label>
+                <ModelPicker
+                  videoModel={selectedVideoModel}
+                  imageModel={selectedImageModel}
+                  onVideoChange={setSelectedVideoModel}
+                  onImageChange={setSelectedImageModel}
+                  accentColor={ds.color.sky}
+                  compact
+                />
               </div>
             </div>
           )}
