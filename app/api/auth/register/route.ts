@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 
+const LEGAL_VERSION = "2026-04-26-v1";
+
 export async function POST(req: NextRequest) {
   try {
     const { name, email, password } = await req.json();
@@ -19,14 +21,25 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Account already exists" }, { status: 409 });
     }
 
+    const ip = req.headers.get("x-forwarded-for") ?? req.headers.get("x-real-ip") ?? "unknown";
+    const ua = req.headers.get("user-agent") ?? "unknown";
+    const now = new Date();
+
     const passwordHash = await bcrypt.hash(password, 12);
     const user = await prisma.user.create({
       data: {
         name: name || email.split("@")[0],
         email,
         passwordHash,
-        termsAcceptedAt: new Date(),
-        termsVersion: "1.0",
+        termsAcceptedAt: now,
+        termsVersion: LEGAL_VERSION,
+        legalConsentVersion: LEGAL_VERSION,
+        legalConsent: {
+          acceptedAt: now.toISOString(),
+          version: LEGAL_VERSION,
+          ip,
+          userAgent: ua,
+        },
       },
     });
 

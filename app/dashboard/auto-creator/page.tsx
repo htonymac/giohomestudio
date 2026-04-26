@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import exifr from "exifr";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import HeroTitle from "../../components/hero/HeroTitle";
@@ -89,6 +90,7 @@ const btnSm: React.CSSProperties = { fontSize: 12, padding: "8px 14px", borderRa
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AIContentCreatorPage() {
+  const { requireGate, GateModal } = useGate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Flow state
@@ -440,6 +442,7 @@ export default function AIContentCreatorPage() {
 
   // ── Step 5: Generate draft ──
   async function generateDraft(sug: Suggestion) {
+    try { await requireGate(); } catch { return; }
     setSelectedSuggestion(sug);
     setDraftLoading(true);
     setDraft(null);
@@ -602,6 +605,7 @@ export default function AIContentCreatorPage() {
 
   return (
     <div>
+      <GateModal />
 
       <HeroTitle
         kicker="AI Studio"

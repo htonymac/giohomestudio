@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
@@ -205,6 +206,7 @@ export default function CommercialPlannerPage() {
 }
 
 function CommercialPlannerInner() {
+  const { requireGate, GateModal } = useGate();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<WorkshopTab>("overview");
 
@@ -503,6 +505,7 @@ function CommercialPlannerInner() {
   }
 
   async function makeSceneImage(scene: CommercialScene) {
+    try { await requireGate(); } catch { return; }
     setGeneratingSceneImage(scene.sceneId);
     try {
       const charRefs = cast.filter(c => scene.characterIds.includes(c.characterId)).map(c => `${c.displayName}: ${c.description}`).join(", ");
@@ -532,6 +535,7 @@ function CommercialPlannerInner() {
   }
 
   async function assembleCommercial() {
+    try { await requireGate(); } catch { return; }
     setAssembling(true);
     const sceneList = scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || "", narration: s.voiceoverScript, duration: s.duration, onScreenText: s.onScreenText, musicStyle: musicChoice }));
     try {
@@ -733,6 +737,7 @@ function CommercialPlannerInner() {
 
   // ── makeSceneVideo (SSE streaming) ──
   async function makeSceneVideo(scene: CommercialScene) {
+    try { await requireGate(); } catch { return; }
     const sceneId = scene.sceneId;
     const existingImage = sceneImages[sceneId];
     if (!existingImage) { setLastAction(`Scene ${scene.scene} needs an image first`); return; }
@@ -1961,6 +1966,7 @@ function CommercialPlannerInner() {
 
   return (
     <div style={{ background: ds.color.paper, minHeight: "100vh", color: ds.color.ink, fontFamily: ds.font.sans }}>
+      <GateModal />
       {/* ── Page Header ── */}
       <div style={{ padding: "24px 32px 0" }}>
         <HeroTitle kicker="Commercial Workshop" title="Campaign" italic="Production" sub={`${brief.brandName || "No brand"} · ${brief.format} · ${brief.platform}`} />
