@@ -154,4 +154,230 @@ The project's scene/character/audio data is stored in browser localStorage, whic
 
 ---
 
-*Last updated: 2026-04-17*
+*Last updated: 2026-04-26*
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: FAL_KEY not set in environment | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: FAL_KEY not set in environment
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | image-to-video | FAIL: FAL_KEY not set in environment | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan image-to-video: FAL_KEY not set in environment
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | text-to-video | FAIL: FAL_KEY not set in environment | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std text-to-video: FAL_KEY not set in environment
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL_KEY not set in environment | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL_KEY not set in environment
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /t2v-1.3b not found"} | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: FAL completed but no video URL found: {"detail":"Path /t2v-1.3b not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | image-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /i2v-720p not found"} | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan image-to-video: FAL completed but no video URL found: {"detail":"Path /i2v-720p not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /t2v-1.3b not found"} | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: FAL completed but no video URL found: {"detail":"Path /t2v-1.3b not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/text-to-vid | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/text-to-video not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | image-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /i2v-720p not found"} | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan image-to-video: FAL completed but no video URL found: {"detail":"Path /i2v-720p not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/image-to-vi | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/image-to-video not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/text-to-vid | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/text-to-video not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/image-to-vi | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":"Path /v2.5/standard/image-to-video not found"}
+
+
+---
+## Session 1 Smoke Test — 2026-04-26
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits | — | $0.00 |
+| kling_std | image-to-video | FAIL: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard. | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits.
+- kling_std image-to-video: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard.

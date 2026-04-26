@@ -1090,3 +1090,63 @@ model LayerizedDesign {
 
   @@map("layerized_designs")
 }
+
+// ── Continuous Motion Pipeline ───────────────────────────────────────────────
+
+model ContinuousScene {
+  id                      String           @id @default(cuid())
+  projectId               String
+  userId                  String
+  fullPrompt              String
+  totalDurationSeconds    Int
+  segmentDurationSeconds  Int              @default(5)
+  providerKey             String           // e.g. "wan" | "kling_std"
+  seed                    Int?
+  continuousMotion        Boolean          @default(true)
+  status                  String           @default("PLANNING")
+  // PLANNING | GENERATING | ASSEMBLING | COMPLETE | FAILED
+  finalVideoUrl           String?
+  createdAt               DateTime         @default(now())
+  updatedAt               DateTime         @updatedAt
+  segments                MotionSegment[]
+  anchors                 MotionAnchor[]
+
+  @@index([userId])
+  @@index([projectId])
+  @@map("continuous_scenes")
+}
+
+model MotionSegment {
+  id                    String          @id @default(cuid())
+  sceneId               String
+  scene                 ContinuousScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  segmentNumber         Int
+  motionAction          String
+  continuationPrompt    String
+  durationSeconds       Int
+  startTimeSeconds      Int
+  endTimeSeconds        Int
+  anchorImageUrl        String?         // last frame of PREVIOUS segment
+  clipUrl               String?         // generated clip URL
+  status                String          @default("PENDING")
+  // PENDING | GENERATING | EXTRACTING | COMPLETE | FAILED
+  falJobId              String?
+  falCost               Decimal?        @db.Decimal(10, 4)
+  generationTimeSeconds Int?
+  createdAt             DateTime        @default(now())
+
+  @@index([sceneId, segmentNumber])
+  @@map("motion_segments")
+}
+
+model MotionAnchor {
+  id               String          @id @default(cuid())
+  sceneId          String
+  scene            ContinuousScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+  segmentNumber    Int
+  anchorImagePath  String
+  extractedAt      DateTime        @default(now())
+
+  @@index([sceneId])
+  @@map("motion_anchors")
+}

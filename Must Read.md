@@ -163,6 +163,8 @@ DO NOT regenerate completed segments on failure — only failed ones
 
 These specs in `update/` must be read before touching their feature areas. Listed for triage; build order depends on Henry's call.
 
+- **Auto Time Stamp / Timeline Intelligence** — `update/AUTO TIME STAMP TXT/AUTO_TIME_STAMP_FUNCTION_SPEC.md`
+- Read this before touching script flow timing, assembly planning, subtitle timing, narration timing, or scene-to-timeline conversion.
 - **AI Content Creator** — `update/GHS AUTO CONTENT CREATOR/ghm_auto_content_creator_professional_master_plan.md` + magic layer blueprint
 - **Children Hybrid Story Planner MVP** — `update/CHILDREN/ghs_children_hybrid_story_planner_read_along_mvp_master_canvas (1).md`
 - **Movie Planner advanced** — `update/MOVIE PLANNER/ghs_ai_movie_creator_professional_mvp_plan.md` + scene intelligence
@@ -182,3 +184,23 @@ These specs in `update/` must be read before touching their feature areas. Liste
 - **`URGENT_INSTRUCTIONS.md`** — 8-step audio pipeline test (Check Audio → Screenplay → Parser → Parse → Narration → Music → Audio Plan → Assemble).
 - **`update/uncomplete.md`** — running task log. Append every completed task + leave open ones marked `[ ]`.
 - **GHS branding** — never expose Claude/GPT/Ollama/Grok names to user. Only GHS Standard/Pro/Premium/Best.
+
+---
+
+## SECTION E — Mandatory Read Trigger
+
+If the task touches any of the following:
+
+- auto timestamp
+- timeline intelligence
+- script-to-timeline conversion
+- narration timing
+- subtitle timing
+- scene timing
+- assembly planning
+
+then Claude Code must read:
+
+1. `update/AUTO TIME STAMP TXT/AUTO_TIME_STAMP_FUNCTION_SPEC.md`
+2. `update/PROBLEM_AND_FIX.md`
+3. any relevant planner/workshop spec before coding
