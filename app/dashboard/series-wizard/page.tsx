@@ -272,6 +272,11 @@ function SeriesPlannerInner() {
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [genSeed, setGenSeed] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_series_seed");
+    return v ? Number(v) : null;
+  });
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
   const [aidStyle, setAidStyle] = useState<"all"|"2d"|"3d"|"cartoon"|"realistic">("all");
@@ -469,7 +474,7 @@ function SeriesPlannerInner() {
       const chars = characters.filter(c => scene.characterIds.includes(c.characterId));
       const charRefs = chars.map(c => `[${c.characterId}] ${c.displayName}: ${c.colorDescription || ""} ${c.clothingDetails || ""}`).join(", ");
       const prompt = `Scene: ${scene.title}. ${scene.description}. Location: ${scene.location}. Mood: ${scene.mood}. Time: ${scene.timeOfDay}. Characters: ${charRefs || "no specific characters"}. Style: ${visualStyle}. Series genre: ${genre}.`;
-      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, style: visualStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })) }) });
+      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, style: visualStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));
@@ -833,6 +838,7 @@ function SeriesPlannerInner() {
           imageUrl: existingImage,
           duration: 5,
           motionDescription: "",
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       if (!response.body) throw new Error("No response stream");
@@ -1642,6 +1648,31 @@ function SeriesPlannerInner() {
               style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
               Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
             </button>
+            {/* Seed control */}
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                type="number"
+                placeholder="Seed (random)"
+                value={genSeed ?? ""}
+                onChange={e => {
+                  const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
+                  setGenSeed(isNaN(v as number) ? null : v);
+                  if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_series_seed", String(v));
+                  else localStorage.removeItem("ghs_series_seed");
+                }}
+                style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
+              />
+              <button
+                title="Randomize seed"
+                onClick={() => {
+                  const sv = Math.floor(Math.random() * 1e9);
+                  setGenSeed(sv);
+                  localStorage.setItem("ghs_series_seed", String(sv));
+                }}
+                style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
+                🎲
+              </button>
+            </div>
           </div>
         </div>
 

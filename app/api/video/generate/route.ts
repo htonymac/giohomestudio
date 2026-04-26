@@ -149,7 +149,7 @@ function toRelUrl(absPath: string): string {
 // ── Provider: fal.ai ────────────────────────────────────────────────────────
 
 async function generateFal(
-  prompt: string, endpoint: string, aspectRatio: string, durationSec: number, imageUrl?: string,
+  prompt: string, endpoint: string, aspectRatio: string, durationSec: number, imageUrl?: string, seed?: number,
 ): Promise<{ videoUrl: string } | null> {
   const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;
   if (!FAL_KEY) throw new Error("FAL_KEY not configured in .env");
@@ -167,6 +167,7 @@ async function generateFal(
   }
 
   if (imageUrl) body.image_url = imageUrl;
+  if (seed !== undefined) body.seed = seed;
 
   const res = await fetch(`https://queue.fal.run/${endpoint}`, {
     method: "POST",
@@ -403,7 +404,7 @@ async function generateKlingDirect(prompt: string, aspectRatio: string, duration
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { prompt, model, imageUrl, aspectRatio, duration: durationSec } = body;
+    const { prompt, model, imageUrl, aspectRatio, duration: durationSec, seed } = body;
 
     if (!prompt) return NextResponse.json({ error: "Prompt required" }, { status: 400 });
 
@@ -433,7 +434,7 @@ export async function POST(req: NextRequest) {
         let result: { videoUrl: string } | null = null;
 
         if (route.provider === "fal" && route.endpoint) {
-          result = await generateFal(enrichedPrompt, route.endpoint, ar, dur, effectiveImageUrl);
+          result = await generateFal(enrichedPrompt, route.endpoint, ar, dur, effectiveImageUrl, seed !== undefined && seed !== null ? Number(seed) : undefined);
         } else if (route.provider === "kie" && route.kieModel) {
           result = await generateKie(enrichedPrompt, route.kieModel, ar, dur);
         } else if (route.provider === "runway") {

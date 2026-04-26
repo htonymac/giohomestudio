@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     duration,
     motionDescription,
     modelId,
+    seed,
   } = body;
 
   const encoder = new TextEncoder();
@@ -289,7 +290,7 @@ export async function POST(req: NextRequest) {
 
           // FAL — streams real progress via onProgress callback
           const fr = await falGenerateVideo(
-            { endpoint: model.endpoint_id, prompt: motionPrompt, imageUrl: falImageUrl, duration: clipDuration },
+            { endpoint: model.endpoint_id, prompt: motionPrompt, imageUrl: falImageUrl, duration: clipDuration, ...(seed !== undefined && seed !== null ? { seed: Number(seed) } : {}) },
             (evt) => send({ type: "progress", percent: evt.percent, message: evt.message }),
           );
           if (!fr.success || !fr.videoUrl) {

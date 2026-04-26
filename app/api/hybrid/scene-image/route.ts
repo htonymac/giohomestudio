@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
       lighting,
       cameraFraming,   // e.g. "wide establishing shot", "close-up"
       modelId,         // optional: image model to use
+      seed,            // optional: integer seed for reproducibility
       projectStyle,    // "3d-cinematic" | "2d-cartoon" | "anime" | "realistic" | "storybook"
       characterOverrides, // array of {characterId, name, visualDescription, imageUrl, wardrobe, hairstyle}
                           // passed from client with computed visual descriptions — more precise than DB
@@ -229,6 +230,7 @@ export async function POST(req: NextRequest) {
       negativePrompt: negativePrompt,
       width: 1280,
       height: 720,
+      seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
       referenceImageUrl: referenceImageUrls[0], // pass primary character reference image for style consistency
     });

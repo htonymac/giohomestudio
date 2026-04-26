@@ -225,6 +225,11 @@ function ChildrenPlannerInner() {
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [genSeed, setGenSeed] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_children_seed");
+    return v ? Number(v) : null;
+  });
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
   const [aidStyle, setAidStyle] = useState<"all"|"2d"|"3d"|"cartoon"|"realistic">("all");
@@ -577,6 +582,7 @@ function ChildrenPlannerInner() {
           imageUrl: existingImage,
           duration: 5,
           motionDescription: scene.cameraDirection || "",
+          seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       if (!response.body) throw new Error("No response stream");
@@ -1806,6 +1812,31 @@ function ChildrenPlannerInner() {
                 <Icon.Image style={{ width: 12, height: 12 }} />
                 Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
+              {/* Seed control */}
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <input
+                  type="number"
+                  placeholder="Seed (random)"
+                  value={genSeed ?? ""}
+                  onChange={e => {
+                    const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
+                    setGenSeed(isNaN(v as number) ? null : v);
+                    if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_children_seed", String(v));
+                    else localStorage.removeItem("ghs_children_seed");
+                  }}
+                  style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
+                />
+                <button
+                  title="Randomize seed"
+                  onClick={() => {
+                    const sv = Math.floor(Math.random() * 1e9);
+                    setGenSeed(sv);
+                    localStorage.setItem("ghs_children_seed", String(sv));
+                  }}
+                  style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
+                  🎲
+                </button>
+              </div>
             </div>
           </div>
 
