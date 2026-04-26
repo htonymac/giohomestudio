@@ -31,7 +31,6 @@ export async function POST(req: NextRequest) {
       projectStyle,    // "3d-cinematic" | "2d-cartoon" | "anime" | "realistic" | "storybook"
       characterOverrides, // array of {characterId, name, visualDescription, imageUrl, wardrobe, hairstyle}
                           // passed from client with computed visual descriptions — more precise than DB
-      productImages,   // optional: string[] of product image URLs to use as visual references
     } = body;
 
     // ── VISUAL STYLE DIRECTIVE — injected into every generation to lock rendering style ──
@@ -210,13 +209,6 @@ export async function POST(req: NextRequest) {
           const url = (ref && typeof ref === "object" ? ref.url : ref) as string;
           if (url) referenceImageUrls.push(normalizeRef(url));
         }
-      }
-    }
-
-    // Append product images as additional visual references (before generation)
-    if (productImages && Array.isArray(productImages)) {
-      for (const pUrl of productImages as string[]) {
-        if (pUrl) referenceImageUrls.push(normalizeRef(pUrl));
       }
     }
 

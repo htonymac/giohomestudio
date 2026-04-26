@@ -1,21 +1,4 @@
 # GioHomeStudio — Incomplete / Pending Tasks
-Updated: 2026-04-25
-
-## SESSION 2026-04-25 Thompson (commercial-planner-upgrade)
-
-### COMPLETED — feat/commercial-planner-upgrade-v2
-
-- [x] **Step 1 — Color picker swatches**: Replaced `brandColors` text input with up to 8 native `<input type="color">` swatches. Add/remove buttons. Preview swatch row above pickers. Persists as comma-separated hex string in `brief.brandColors` for backwards compat.
-- [x] **Step 2 — Product image upload**: Multi-file upload zone (jpg/png/webp). POST to `/api/upload/logo`. New `productImages: string[]` field on `BriefData`. Thumbnail grid with X-to-remove. Restored on project load.
-- [x] **Step 3 — Product images wired into scene generation**: `makeSceneImage()` passes `productImages: brief.productImages` in POST body. `app/api/hybrid/scene-image/route.ts` appends product images to `referenceImageUrls` before generation.
-- [x] **Step 4 — Per-scene image + video model selectors**: Dropdowns per scene card (`data-testid="img-model-{sceneId}"` / `vid-model-{sceneId}"`). Default to global model, scene-specific overrides via `sceneImageModels`/`sceneVideoModels` state. Both use model lists from AID_IMAGE_MODELS/AID_VIDEO_MODELS. `makeSceneVideo` passes per-scene modelId. Global model defaults persist to localStorage keys `ghs_commercial_planner_image_model` / `ghs_commercial_planner_video_model`.
-- [x] **Step 5 — Browser verify**: Spec at `tests/commercial-planner-upgrade.spec.ts`. CDP connect to :9222. All checks PASSED: color pickers present, + swatch increases count, product image thumbnail rendered, 5 image + 5 video model selectors found with 10/19 options respectively.
-
-### PR
-- PR: feat/commercial-planner-upgrade-v2 → main (pending push)
-
----
-
 Updated: 2026-04-26
 
 ## SESSION 2026-04-25 Thompson (backlog TASKS A–E)
