@@ -44,8 +44,6 @@ export interface TimingPlan {
 const WORDS_PER_SECOND = 2.17;
 // Minimum scene duration in seconds
 const MIN_SCENE_DURATION = 1.5;
-// Transition pad added between scenes (seconds)
-const TRANSITION_PAD = 0.3;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
