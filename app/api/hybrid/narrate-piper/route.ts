@@ -1,6 +1,6 @@
 // POST /api/hybrid/narrate-piper
-// Generates narration audio using Piper TTS (local, no cost).
-// If the requested model is not found locally it auto-downloads from
+// Generates narration audio using Piper TTS (local, no cost) or ElevenLabs (voiceProvider=elevenlabs).
+// If the requested Piper model is not found locally it auto-downloads from
 // huggingface.co/rhasspy/piper-voices — no HF account required (public repo).
 // Set HF_TOKEN in .env to avoid rate-limits or access private models.
 
@@ -9,6 +9,8 @@ import { spawn } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 import * as os from "os";
+import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
+import { env } from "@/config/env";
 
 // ── HF model registry ─────────────────────────────────────────────────────────
 // Each entry: { onnx: HF path, json: HF path }
@@ -202,10 +204,45 @@ export async function POST(req: NextRequest) {
       model = "en_US-lessac-medium",
       outputName,
       speed = 1.0,
-    } = body as { text?: string; model?: string; outputName?: string; speed?: number };
+      voiceProvider = "piper",
+      voiceId,
+      voiceModel,
+      language,
+    } = body as { text?: string; model?: string; outputName?: string; speed?: number; voiceProvider?: string; voiceId?: string; voiceModel?: string; language?: string };
 
     if (!text || text.trim().length < 2) {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
+    }
+
+    // ── Route to ElevenLabs if requested ──────────────────────────────────────
+    if (voiceProvider === "elevenlabs") {
+      if (!env.elevenlabs?.apiKey) {
+        return NextResponse.json({ ok: false, error: "ELEVENLABS_API_KEY not configured. Add it to .env to use ElevenLabs narration." }, { status: 200 });
+      }
+      const outDir = getOutputDir();
+      const fileName = outputName
+        ? `${outputName.replace(/[^a-z0-9_-]/gi, "_")}.mp3`
+        : `narration_el_${Date.now()}.mp3`;
+      const outputPath = path.join(outDir, fileName);
+      try {
+        const result = await elevenLabsVoiceProvider.generate({
+          text: text.trim(),
+          voiceId: voiceId || undefined,
+          voiceModel: voiceModel as import("@/types/providers").ElevenLabsModel | undefined,
+          language: language || undefined,
+          speed,
+          outputPath,
+        });
+        if (result.status !== "completed" || !result.localPath) {
+          return NextResponse.json({ ok: false, error: result.error || "ElevenLabs generation failed" }, { status: 200 });
+        }
+        const relativePath = path.relative(path.join(process.cwd(), "storage"), result.localPath).replace(/\\/g, "/");
+        const audioUrl = `/api/media/${relativePath}`;
+        return NextResponse.json({ ok: true, audioUrl, provider: "elevenlabs", outputPath: result.localPath });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return NextResponse.json({ ok: false, error: `ElevenLabs error: ${msg}` }, { status: 200 });
+      }
     }
 
     // 1 — Check Piper binary

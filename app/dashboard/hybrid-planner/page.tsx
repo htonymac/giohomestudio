@@ -1599,6 +1599,7 @@ function HybridPlannerInner() {
           text: narrationText,
           model: narratorPiperModel,
           speed: narratorPiperSpeed,
+          voiceProvider: narratorVoice,
           outputName: `narration_${projectId || "draft"}_${Date.now()}`,
         }),
       });
@@ -5676,7 +5677,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   {narratorVoice === "elevenlabs" && (
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: `${purple}08`, border: `1px solid ${purple}20` }}>
                       <p style={{ fontSize: 10, color: purple, fontWeight: 600 }}>ElevenLabs narrator</p>
-                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>ElevenLabs narration will use the narrator voice configured in your LLM settings. Load your API key to enable this.</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3, marginBottom: 10 }}>Uses your ELEVENLABS_API_KEY. Requires the key to be set in .env.</p>
+                      <button onClick={generateNarrationPiper} disabled={generatingNarration}
+                        style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
+                          background: generatingNarration ? "#2a2a40" : purple, color: "#fff" }}>
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (ElevenLabs)" : "Generate via ElevenLabs"}
+                      </button>
                     </div>
                   )}
 
