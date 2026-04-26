@@ -4,6 +4,11 @@
 
 import { FalWanAdapter } from "./adapters/fal-wan.adapter";
 import { FalKlingAdapter } from "./adapters/fal-kling.adapter";
+import { FalKlingProAdapter } from "./adapters/fal-kling-pro.adapter";
+import { FalHailuoAdapter } from "./adapters/fal-hailuo.adapter";
+import { FalRunwayAdapter } from "./adapters/fal-runway.adapter";
+import { FalVeoAdapter } from "./adapters/fal-veo.adapter";
+import { FalSeedanceAdapter } from "./adapters/fal-seedance.adapter";
 
 // ── Adapter interface ─────────────────────────────────────────────────────────
 
@@ -13,7 +18,7 @@ export interface VideoAdapterCapabilities {
   supportsSeed: boolean;
   supportsImageInput: boolean;
   costPerSecond: number;      // USD
-  quality: "standard" | "pro" | "ultra";
+  quality: "standard" | "pro" | "ultra" | "premium" | "high" | "best";
 }
 
 export interface VideoGenerationResult {
@@ -49,7 +54,11 @@ type AdapterConstructor = new () => VideoProviderAdapter;
 const ADAPTER_REGISTRY: Record<string, AdapterConstructor> = {
   wan: FalWanAdapter,
   kling_std: FalKlingAdapter,
-  // Sessions 5+: kling_pro, hailuo, runway, veo, seedance
+  kling_pro: FalKlingProAdapter,
+  hailuo: FalHailuoAdapter,
+  runway: FalRunwayAdapter,
+  veo: FalVeoAdapter,
+  seedance: FalSeedanceAdapter,
 };
 
 // ── Router ────────────────────────────────────────────────────────────────────
