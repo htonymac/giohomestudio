@@ -213,6 +213,10 @@ export default function MusicVideoPlannerPage() {
   const [narrationText, setNarrationText] = useState("");
   const [narrationSettings, setNarrationSettings] = useState<Partial<NarrationSettings>>({});
 
+  // ── Auto Time Stamp ──
+  const [loadingAutoTimestamp, setLoadingAutoTimestamp] = useState(false);
+  const [autoTimestampPlan, setAutoTimestampPlan] = useState<null | { totalDuration: number; segmentCount: number; segments: Array<{ id: string; title: string; startTime: number; endTime: number; duration: number; narrationText: string }> }>(null);
+
   // ── Story AI provider ──
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
 
@@ -545,6 +549,39 @@ export default function MusicVideoPlannerPage() {
       }
     } catch { setLastAction("AI expansion failed — try again"); }
     setExpanding(false);
+  }
+
+  async function runAutoTimestamp() {
+    setLoadingAutoTimestamp(true);
+    try {
+      const sceneTexts = storyboard.map(s => `${s.section}: ${s.prompt}`);
+      // Estimate total from storyboard duration strings (e.g. "4-6s" → mid 5s)
+      const totalDur = storyboard.reduce((sum, s) => {
+        const match = s.duration.match(/(\d+)/g);
+        if (match && match.length >= 2) return sum + (parseInt(match[0]) + parseInt(match[1])) / 2;
+        if (match && match.length === 1) return sum + parseInt(match[0]);
+        return sum + 5;
+      }, 0) || 60;
+
+      const res = await fetch("/api/timeline/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script: lyrics || songTitle,
+          scenes: sceneTexts.length > 0 ? sceneTexts : undefined,
+          mode: "scene",
+          targetDuration: totalDur,
+        }),
+      });
+      const data = await res.json();
+      if (data.plan) {
+        setAutoTimestampPlan(data.plan);
+        setLastAction(`Auto Time Stamp: ${data.plan.segmentCount} segments, ${data.plan.totalDuration.toFixed(1)}s total`);
+      }
+    } catch (err) {
+      console.error("autoTimestamp failed:", err);
+    }
+    setLoadingAutoTimestamp(false);
   }
 
   async function runSceneIntelligence() {
@@ -1743,6 +1780,13 @@ export default function MusicVideoPlannerPage() {
               >
                 {runningIntelligence ? "Detecting..." : "Scene Intelligence"}
               </button>
+              <button
+                disabled={loadingAutoTimestamp || storyboard.length === 0}
+                onClick={runAutoTimestamp}
+                style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #7c5cfc30", background: loadingAutoTimestamp ? "#1a1a2a" : "#0d0d1a", color: "#7c5cfc", fontSize: 10, fontWeight: 700, cursor: loadingAutoTimestamp ? "not-allowed" : "pointer", opacity: loadingAutoTimestamp ? 0.6 : 1 }}
+              >
+                {loadingAutoTimestamp ? "Timestamping..." : "Auto Time Stamp"}
+              </button>
             </div>
             {runningIntelligence && (
               <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
@@ -1751,6 +1795,30 @@ export default function MusicVideoPlannerPage() {
               <p style={{ fontSize: 10, color: "#666", margin: "4px 0" }}>
                 {Object.keys(sceneIntelligence).length} scenes have sound environment data
               </p>
+            )}
+
+            {/* ── Auto Time Stamp Results ── */}
+            {autoTimestampPlan && (
+              <div style={{ margin: "12px 0", padding: "12px 16px", borderRadius: 10, background: "#7c5cfc08", border: "1px solid #7c5cfc30" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#7c5cfc" }}>
+                    Auto Time Stamp — {autoTimestampPlan.segmentCount} segments · {autoTimestampPlan.totalDuration.toFixed(1)}s
+                  </span>
+                  <button onClick={() => setAutoTimestampPlan(null)} style={{ padding: "2px 8px", borderRadius: 5, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>
+                    Clear
+                  </button>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                  {autoTimestampPlan.segments.map(seg => (
+                    <div key={seg.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 10 }}>
+                      <span style={{ color: "#7c5cfc", fontFamily: "monospace", minWidth: 80 }}>{seg.startTime.toFixed(1)}–{seg.endTime.toFixed(1)}s</span>
+                      <span style={{ color: "#fff", fontWeight: 600, minWidth: 120 }}>{seg.title}</span>
+                      <span style={{ color: muted, flex: 1 }}>{seg.narrationText.slice(0, 80)}{seg.narrationText.length > 80 ? "…" : ""}</span>
+                      <span style={{ color: muted, fontFamily: "monospace" }}>{seg.duration.toFixed(1)}s</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {storyboard.map(s => (

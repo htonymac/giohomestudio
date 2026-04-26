@@ -261,6 +261,8 @@ function HybridPlannerInner() {
   // ── Audio ──
   const [loadingAudioPlan, setLoadingAudioPlan] = useState(false);
   const [loadingShotPlan, setLoadingShotPlan] = useState(false);
+  const [loadingAutoTimestamp, setLoadingAutoTimestamp] = useState(false);
+  const [autoTimestampPlan, setAutoTimestampPlan] = useState<null | { totalDuration: number; segmentCount: number; segments: Array<{ id: string; title: string; startTime: number; endTime: number; duration: number; narrationText: string; subtitleText: string }> }>(null);
   const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
 
@@ -1888,6 +1890,42 @@ function HybridPlannerInner() {
       setUiError("AI audio plan failed — using scene intelligence data instead");
     }
     setLoadingAudioPlan(false);
+  }
+
+  async function runAutoTimestamp() {
+    setLoadingAutoTimestamp(true);
+    setLastAction("Auto Time Stamp: building timing plan...");
+    try {
+      const scriptText = fullScript || expandedSummary || idea;
+      const sceneTexts = scenes.map(s => `${s.title}: ${s.description}`);
+      const totalDur = scenes.reduce((sum, s) => {
+        const shots = s.shots ?? [];
+        return sum + (shots.length > 0 ? shots.reduce((a: number, sh: ShotObject) => a + (sh.plannedDuration || 5), 0) : 10);
+      }, 0) || 60;
+
+      const res = await fetch("/api/timeline/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          script: scriptText,
+          scenes: sceneTexts.length > 0 ? sceneTexts : undefined,
+          mode: "hybrid",
+          targetDuration: totalDur,
+          enrichWithAi: !!process.env.NEXT_PUBLIC_TIMESTAMP_AI_ENRICH,
+        }),
+      });
+      const data = await res.json();
+      if (data.plan) {
+        setAutoTimestampPlan(data.plan);
+        setLastAction(`Auto Time Stamp: ${data.plan.segmentCount} segments, ${data.plan.totalDuration.toFixed(1)}s total`);
+      } else {
+        setUiError(data.error || "Auto Time Stamp failed");
+      }
+    } catch (err) {
+      console.error("autoTimestamp failed:", err);
+      setUiError("Auto Time Stamp failed. Check console.");
+    }
+    setLoadingAutoTimestamp(false);
   }
 
   async function generateShotPlans() {
@@ -6012,6 +6050,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   Asset Library
                 </button>
               </a>
+              <button onClick={runAutoTimestamp} disabled={loadingAutoTimestamp}
+                style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${"#7c5cfc"}30`, background: `${"#7c5cfc"}08`, color: "#7c5cfc", fontSize: 11, fontWeight: 600, cursor: loadingAutoTimestamp ? "not-allowed" : "pointer" }}>
+                {loadingAutoTimestamp ? "Timestamping..." : "Auto Time Stamp"}
+              </button>
               <button onClick={generateAudioPlans} disabled={loadingAudioPlan}
                 style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${gold}30`, background: `${gold}06`, color: gold, fontSize: 11, fontWeight: 600, cursor: loadingAudioPlan ? "not-allowed" : "pointer" }}>
                 {loadingAudioPlan ? "Generating..." : "Auto Audio Plans"}
@@ -6022,6 +6064,38 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </button>
             </div>
           </div>
+
+          {/* ── Auto Time Stamp Results ─────────────────────────────────────── */}
+          {autoTimestampPlan && (
+            <div style={{ ...cardStyle, borderColor: "#7c5cfc40", marginBottom: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                  Auto Time Stamp Plan
+                  <span style={{ fontSize: 10, color: "#7c5cfc", marginLeft: 10, fontFamily: "var(--font-mono, monospace)" }}>
+                    {autoTimestampPlan.segmentCount} segments · {autoTimestampPlan.totalDuration.toFixed(1)}s
+                  </span>
+                </h3>
+                <button onClick={() => setAutoTimestampPlan(null)}
+                  style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                  Clear
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                {autoTimestampPlan.segments.map((seg) => (
+                  <div key={seg.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "8px 12px", borderRadius: 8, background: "#7c5cfc08", border: "1px solid #7c5cfc18" }}>
+                    <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "#7c5cfc", whiteSpace: "nowrap" as const, minWidth: 90 }}>
+                      {seg.startTime.toFixed(1)}s – {seg.endTime.toFixed(1)}s
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0, marginBottom: 2 }}>{seg.title}</p>
+                      <p style={{ fontSize: 10, color: muted, margin: 0, lineHeight: 1.4 }}>{seg.narrationText.slice(0, 100)}{seg.narrationText.length > 100 ? "…" : ""}</p>
+                    </div>
+                    <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 9, color: muted, whiteSpace: "nowrap" as const }}>{seg.duration.toFixed(1)}s</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
