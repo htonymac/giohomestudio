@@ -1,6 +1,27 @@
 # GioHomeStudio — Incomplete / Pending Tasks
 Updated: 2026-04-25
 
+## SESSION 2026-04-25 Thompson (feat/music-provider-abstraction)
+
+### COMPLETED — feat/music-provider-abstraction
+
+- [x] **types.ts** — `MusicGenerateInput`, `MusicGenerateOutput`, `MusicProviderAdapter`, `MusicProviderCapabilities` interfaces. No mocks.
+- [x] **kie.adapter.ts** — Kie.ai/Suno V5 adapter. Real API calls, async polling, throws if `KIE_AI_API_KEY` not set. Caps: 240s, lyrics true, cost $0.10/track, quality high.
+- [x] **mubert.adapter.ts** — Mubert B2B adapter. Real `RecordTrackTTM` endpoint, throws if `MUBERT_PAT` not set. Caps: 600s, instrumental only, cost $0.05/track, quality standard.
+- [x] **stable-audio.adapter.ts** — Stable Audio via fal.ai queue. Throws if `FAL_KEY` not set. Caps: 47s max, instrumental, cost $0.03/track, quality standard.
+- [x] **stock.adapter.ts** — Pure local stock library. Keyword matching (afrobeats/calm/upbeat/epic/emotional). Always succeeds. Cost $0.
+- [x] **index.ts** — `getMusicProvider(key)` + `pickAutomaticProvider(input)`. Auto-routing: hasLyrics→kie/stock, short→stable_audio, long→mubert, fallback→stock.
+- [x] **Prisma schema** — `MusicGeneration` model added. `prisma db push` run.
+- [x] **app/api/music/generate/route.ts** — Replaced old 2-tier route with provider-layer route. Supports `providerKey` param. Persists to `music_generations` table. Stock fallback on any provider error.
+- [x] **music-studio/page.tsx** — Provider dropdown (5 options: Auto/Kie/Mubert/StableAudio/Stock). Persists to `localStorage.ghs_music_provider`. Fetch passes `providerKey` + `hasLyrics`.
+- [x] **music-video-planner/page.tsx** — Same provider dropdown in "Generate New" song source section. Shared localStorage key.
+- [x] **tests/music-provider-abstraction.spec.ts** — 6 tests all PASSED: UI dropdowns (5 options), localStorage persistence, stock API 200+audioUrl, auto-routing.
+
+### PR
+- Branch: feat/music-provider-abstraction → main
+
+---
+
 ## SESSION 2026-04-25 Thompson (commercial-planner-upgrade)
 
 ### COMPLETED — feat/commercial-planner-upgrade-v2

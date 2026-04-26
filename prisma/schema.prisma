@@ -1168,3 +1168,24 @@ model KaraokeRecording {
   @@index([userId])
   @@map("karaoke_recordings")
 }
+
+// ── Music Provider Layer ──────────────────────────────────────────────────────
+
+model MusicGeneration {
+  id              String   @id @default(cuid())
+  userId          String?
+  prompt          String
+  providerKey     String
+  modelName       String
+  audioUrl        String
+  durationSeconds Int
+  costUsd         Decimal  @default(0) @db.Decimal(10, 4)
+  hasLyrics       Boolean  @default(false)
+  genre           String?
+  mood            String?
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([providerKey])
+  @@map("music_generations")
+}
