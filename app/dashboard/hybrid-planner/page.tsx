@@ -387,6 +387,7 @@ function HybridPlannerInner() {
   const [showMusicPicker, setShowMusicPicker] = useState(false);
   const [playingMusicId, setPlayingMusicId] = useState<string | null>(null);
   const [musicVolume, setMusicVolume] = useState(0.7);
+  const [narrationVolume, setNarrationVolume] = useState(1.0);
   const [aiPickingMusic, setAiPickingMusic] = useState(false);
   const [aiMusicPickLog, setAiMusicPickLog] = useState<string>("");
 
@@ -2279,7 +2280,7 @@ function HybridPlannerInner() {
           // Narrator: use narrationList (per-scene timing) if we have char voices, else single URL
           narrationUrl: narrationList.length === 0 ? (narratorAudioUrl || undefined) : undefined,
           narrationList: narrationList.length > 0 ? narrationList : undefined,
-          narrationVolume: 1.0,
+          narrationVolume,
           sfx: sfxList.length > 0 ? sfxList : undefined,
           subtitleStyle,
         }),
@@ -6985,6 +6986,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <span style={{ fontSize: 9, color: muted }}>Music Volume:</span>
                           <input type="range" min={0} max={1} step={0.05} value={musicVolume} onChange={e => setMusicVolume(Number(e.target.value))} style={{ flex: 1, accentColor: purple }} />
                           <span style={{ fontSize: 10, fontWeight: 700, color: purple, minWidth: 30 }}>{Math.round(musicVolume * 100)}%</span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                          <span style={{ fontSize: 9, color: muted }}>Narration Volume:</span>
+                          <input type="range" min={0} max={1.5} step={0.05} value={narrationVolume} onChange={e => setNarrationVolume(Number(e.target.value))} style={{ flex: 1, accentColor: "#06b6d4" }} />
+                          <span style={{ fontSize: 10, fontWeight: 700, color: "#06b6d4", minWidth: 30 }}>{Math.round(narrationVolume * 100)}%</span>
                         </div>
                       </div>
                     )}
