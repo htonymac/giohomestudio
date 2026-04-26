@@ -19,6 +19,12 @@ It combines:
 - Cost and usage awareness
 - Future team and plugin expansion
 
+**Required spec index:** `Must Read.md`
+Before touching the music video planner, script flow timing, assembly planning, subtitle timing, narration timing, scene-to-timeline conversion, or text-to-music-video, Claude Code must read:
+- `Must Read.md`
+- `update/AUTO TIME STAMP TXT/AUTO_TIME_STAMP_FUNCTION_SPEC.md`
+- `update/MUSIC AND MUSIC VIDEO/GHS_MUSIC_VISION_STUDIO_IMPLEMENTATION_SPEC_2026_04_25.md`
+
 ---
 
 ## 2. Core Positioning
