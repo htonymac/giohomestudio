@@ -35,6 +35,7 @@ interface MvAssembleRequest {
   scenes: MvScene[];
   sections?: Section[];       // AI-generated section timing data
   musicVolume?: number;       // 0-1, default 0.85 (music is the star)
+  narrationVolume?: number;   // 0-1.5, default 1.0 for narration/voiceover mix level
   narrationUrl?: string;      // optional voiceover to mix under music at 0.3 volume
   captions?: boolean;         // whether to burn captions
   captionStyle?: "white" | "yellow" | "neon";
@@ -64,7 +65,7 @@ async function getVideoDuration(ffprobePath: string, filePath: string): Promise<
 
 export async function POST(req: NextRequest) {
   const body: MvAssembleRequest = await req.json();
-  const { projectId, title, songUrl, songPath, scenes, sections, musicVolume = 0.85, narrationUrl, captions = false, captionStyle = "white", aspectRatio = "16:9" } = body;
+  const { projectId, title, songUrl, songPath, scenes, sections, musicVolume = 0.85, narrationVolume = 1.0, narrationUrl, captions = false, captionStyle = "white", aspectRatio = "16:9" } = body;
 
   if (!scenes || scenes.length === 0) return NextResponse.json({ error: "No scenes provided" }, { status: 400 });
 
@@ -200,7 +201,7 @@ export async function POST(req: NextRequest) {
         "-i", concatFile,
         "-i", resolvedSongPath,
         "-i", resolvedNarrationPath,
-        "-filter_complex", `[1:a]volume=${musicVolume}[music];[2:a]volume=1.0[narr];[music][narr]amix=inputs=2:duration=first[aout]`,
+        "-filter_complex", `[1:a]volume=${musicVolume}[music];[2:a]volume=${narrationVolume}[narr];[music][narr]amix=inputs=2:duration=first[aout]`,
         "-map", "0:v:0",
         "-map", "[aout]",
         "-c:v", "copy",

@@ -210,6 +210,10 @@ export default function MusicVideoPlannerPage() {
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
 
+  // Volume controls
+  const [mvMusicVolume, setMvMusicVolume] = useState(0.85);
+  const [mvNarrationVolume, setMvNarrationVolume] = useState(1.0);
+
   // Narration controls
   const [narrationText, setNarrationText] = useState("");
   const [narrationSettings, setNarrationSettings] = useState<Partial<NarrationSettings>>({});
@@ -822,7 +826,8 @@ export default function MusicVideoPlannerPage() {
           songPath: undefined,
           scenes: mvScenes,
           sections,
-          musicVolume: 0.85,
+          musicVolume: mvMusicVolume,
+          narrationVolume: mvNarrationVolume,
           narrationUrl: resolvedNarrationUrl,
           captions: !!(mvScenes.some(s => s.caption)),
           captionStyle: "white",
@@ -2290,6 +2295,20 @@ export default function MusicVideoPlannerPage() {
                 </a>
               </div>
             )}
+
+            {/* Volume controls */}
+            <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: `1px solid ${border}`, background: "rgba(255,255,255,0.02)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <span style={{ fontSize: 9, color: muted, minWidth: 110 }}>Music Volume:</span>
+                <input type="range" min={0} max={1} step={0.05} value={mvMusicVolume} onChange={e => setMvMusicVolume(Number(e.target.value))} style={{ flex: 1, accentColor: "#00d4ff" }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#00d4ff", minWidth: 32 }}>{Math.round(mvMusicVolume * 100)}%</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 9, color: muted, minWidth: 110 }}>Narration Volume:</span>
+                <input type="range" min={0} max={1.5} step={0.05} value={mvNarrationVolume} onChange={e => setMvNarrationVolume(Number(e.target.value))} style={{ flex: 1, accentColor: "#ec4899" }} />
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#ec4899", minWidth: 32 }}>{Math.round(mvNarrationVolume * 100)}%</span>
+              </div>
+            </div>
 
             {/* Primary assembleMovie (uses scene videos + images) */}
             <button
