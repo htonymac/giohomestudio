@@ -1,0 +1,87 @@
+ - fal.ai account unlock not yet unlock do later 
+  - Suno/Mubert AI music API do now i will fix api later from the llm setting 
+  - ElevenLabs SFX generation do now i will fix api later from the llm setting 
+  - Overlay drag-and-drop positioning do now 
+  - SaaS billing (future phase) later 
+C:\Users\USER\Desktop\CLAUDE\giohomestudio\update check all the updates here and confirm the one u have not done 
+i have this video here  C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\Images - WhatsApp Video 2026-04-06 at 13.25.46.mp4 WhatsApp Video 2026-04-06 at 13.25.48 watch the video , i like the overlay their and i want GHS TO DO SOMEHTING LIKE THAT 
+C:\Users\USER\Desktop\CLAUDE\giohomestudio\update  have u read and done allthe functions here claude_code_overlay_upgrade_command.md
+check for generate updates and let me now 
+that do you think of that has not been added ...
+make generate image show on panel in_review 
+add a select and delete button in review 
+the ai model section is separated what is the link -- user can generate a actor - need to be able to use the actor he -he generated from txt to image and use it subsequently on image video or text and image to video.
+image should be save where in can be select when doing t to v - v to v  - txt to audio to video
+from trim music section  user can  select music already trim when doing ad or move - 2 ways download and upload or select from music 
+You have to links these thinks - think of a way u are smart - where user can use actor - user can use music - user can use video -
+
+add the sounds correctly like gun ith different  gun sound an arrange it properly
+structure all this very well - the project is currently look like a high school project not a saas or a mvp - kindly structure it well and ilter bad codes 
+Failed: Segmind 404: { "error": "Model information not found" }
+ this error when try to use pruna p 
+
+
+ when i am here [Image #3] i will have to pick 4 things - a text - upload a image - add a character from librar - last pick from character
+  library - now if i click add character and it takes character section- to be frank nothing to do thier - there is not select button on that
+  character section to send the character. secondly there is not text to image - usually when user click text to video or image to video  or
+  hybrid - first on top should be ai model following will be CHARACTER EITHER FROM ANY OF THE SOURCE - THEN TEXT BOX FOR PROMT THEN OTHER
+  FOLLOWS.  THEN FROM AI mODEL SECTION - USER CAN SELECT FROM THEIR IT PUSH USER TO HOME STUDIO , JUST LIKE IN COMMERCIAL AFTER SELECT IMAGES
+  WITH AUTO AI GENERATION IT SEND USER BACK TO EDIT FORM, USER WILL USE THE AI MODELS TO KNOW THRENDING AND MORE IN ORDER TO KNOW WHICH TO US-
+  ITS USEFUL DONT DELETE IT .
+
+
+yOU HAVE NOT DONE TEXT TO IMAGE .
+CAN THIS DO IMAGE TO VIDEO + MOTION 
+USER UPLOAD IMAGE AND MOTION  THEN USE  KLING - IMAGE DO EXACTLY WHAT MOTION DO 
+
+
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ [Pasted text #8 +9 lines][Pasted text #9 +94 lines]ffmpeg exited with code 4294967274: Error : Invalid argument preview button does not work
+  in overlay -load preset on overlay not wrk-like a digital book of company it use to be at the end of the video of commercial or the
+  beginning templates where user can edit and fix in the begging and the end of the video - edit to edit change txt and reuse change login 40
+  20 is ok for a start - where can u get them? do not skip any of my text in this message like u do before read them and document them. - in
+  asset library - content can be playable- on the screen no need next page it will pop out video quick view but in the same page [Image #10]
+  video will pop out as order pop out on that image - also vido can be videin another browser tab - dont remove delete button on asset
+  library.- also asset library can downloa and save-
+
+
+
+
+
+
+
+  1. Fix overlay preview button — FFmpeg error code 4294967274, load preset broken
+  2. Image + motion transfer — upload image + upload motion video → image performs the motion
+  3. Review Queue — make videos openable in new browser tab (use <a> tags not onClick)
+  4. Digital intro/outro templates — 20-40 editable templates (company intro, CTA, credits), user swaps text/logo
+  5. DJ beats & waveform — visual waveform display, beat patterns in mixer
+  6. Series Mode wizard — episode tracking, character consistency, story bible
+  7. Intro page — use your videos from update/Intro/ to show what GHS does
+  8. Asset library — make content playable inline (popup done, needs testing after server restart)
+
+  BUGS TO FIX
+
+  9. Overlay preview — FFmpeg Invalid argument error
+  10. Load Preset button — not working in overlay panel
+
+  YOUR ACTION (no code)
+
+  11. Email support@fal.ai — unlock account for 20+ AI models
+  12. Top up ElevenLabs — 31 credits left, needs refill
+  13. Set YouTube/Facebook/TikTok OAuth credentials in .env
+
+  FUTURE PHASES
+
+  14. SaaS billing/credit system
+  15. Multi-user auth/permissions
+  16. Trend/competitor monitor
+  17. Full 4-step Commercial wizard from mock
+
+  Start new chat → "Continue GioHomeStudio from uncomplete.md"
+
+
+
+
+
+

@@ -1,15 +1,45 @@
 // GioHomeStudio — Content Registry Module
 // All reads/writes to content_items go through this module.
 
+import * as fs from "fs";
 import { prisma } from "@/lib/prisma";
 import type { ContentItem, ContentStatus, ContentVersion } from "@/types/content";
 
 export async function createContentItem(data: {
   originalInput: string;
-  mode?: "FREE";
+  mode?: "FREE" | "COMMERCIAL";
   durationSeconds?: number;
   destinationPageId?: string;
   requestedVideoProvider?: string;
+  videoQuality?: string;
+  videoType?: string;
+  visualStyle?: string;
+  subjectType?: string;
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
+  aspectRatio?: string;
+  castingEthnicity?: string;
+  castingGender?: string;
+  castingAge?: string;
+  castingCount?: string;
+  cultureContext?: string;
+  referenceImageUrl?: string;
+  storyContext?: string;
+  previousContentItemId?: string;
+  storyThreadId?: string;
+  voiceId?: string;
+  voiceLanguage?: string;
+  requestedVoiceProvider?: string;
+  narrationSpeed?: number;
+  narrationVolume?: number;
+  outputMode?: string;
+  audioMode?: string;
+  castingCharacters?: string[];
+  requestedMusicProvider?: string;
+  musicVolume?: number;
+  musicGenre?: string;
+  musicRegion?: string;
+  narrationScript?: string;
 }): Promise<ContentItem> {
   const item = await prisma.contentItem.create({
     data: {
@@ -19,6 +49,35 @@ export async function createContentItem(data: {
       durationSeconds: data.durationSeconds,
       destinationPageId: data.destinationPageId,
       requestedVideoProvider: data.requestedVideoProvider ?? null,
+      videoQuality: data.videoQuality ?? null,
+      videoType: data.videoType ?? null,
+      visualStyle: data.visualStyle ?? null,
+      subjectType: data.subjectType ?? null,
+      customSubjectDescription: data.customSubjectDescription ?? null,
+      aiAutoMode: data.aiAutoMode ?? true,
+      aspectRatio: data.aspectRatio ?? "9:16",
+      castingEthnicity: data.castingEthnicity ?? null,
+      castingGender: data.castingGender ?? null,
+      castingAge: data.castingAge ?? null,
+      castingCount: data.castingCount ?? null,
+      cultureContext: data.cultureContext ?? null,
+      referenceImageUrl: data.referenceImageUrl ?? null,
+      storyContext: data.storyContext ?? null,
+      previousContentItemId: data.previousContentItemId ?? null,
+      storyThreadId: data.storyThreadId ?? null,
+      voiceId: data.voiceId ?? null,
+      voiceLanguage: data.voiceLanguage ?? null,
+      requestedVoiceProvider: data.requestedVoiceProvider ?? null,
+      narrationSpeed: data.narrationSpeed ?? null,
+      narrationVolume: data.narrationVolume ?? null,
+      outputMode: data.outputMode ?? null,
+      audioMode: data.audioMode ?? null,
+      castingCharacters: data.castingCharacters ?? [],
+      requestedMusicProvider: data.requestedMusicProvider ?? null,
+      musicVolume: data.musicVolume ?? null,
+      musicGenre: data.musicGenre ?? null,
+      musicRegion: data.musicRegion ?? null,
+      narrationScript: data.narrationScript ?? null,
     },
     include: { destinationPage: true },
   });
@@ -30,24 +89,70 @@ export async function updateContentItem(
   updates: Partial<{
     status: ContentStatus;
     enhancedPrompt: string;
+    narrationScript: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    supervisorPlan: any;
+    voiceSource: string;
+    musicSource: string;
     requestedVideoProvider: string;
     videoProvider: string;
     voiceProvider: string;
+    requestedVoiceProvider: string;
+    voiceId: string;
+    voiceLanguage: string;
+    narrationSpeed: number;
+    narrationVolume: number;
+    outputMode: string;
+    audioMode: string;
+    castingCharacters: string[];
     musicProvider: string;
+    requestedMusicProvider: string;
+    musicVolume: number;
+    musicGenre: string;
+    musicRegion: string;
+    videoQuality: string;
+    videoType: string;
+    visualStyle: string;
+    subjectType: string;
+    customSubjectDescription: string;
+    aiAutoMode: boolean;
+    aspectRatio: string;
+    castingEthnicity: string;
+    castingGender: string;
+    castingAge: string;
+    castingCount: string;
+    cultureContext: string;
+    referenceImageUrl: string;
     videoPath: string;
     voicePath: string;
     musicPath: string;
     mergedOutputPath: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    overlayLayers: any;
     durationSeconds: number;
     notes: string;
     approvedAt: Date;
     rejectedAt: Date;
   }>
 ): Promise<ContentItem> {
+  // overlayLayers is a Json field added after the initial migration.
+  // The Prisma client may not include it until the server is restarted after
+  // prisma generate. Strip it out and write it via raw SQL to avoid validation errors.
+  const { overlayLayers, ...prismaUpdates } = updates as Record<string, unknown>;
+
   const item = await prisma.contentItem.update({
     where: { id },
-    data: updates,
+    data: prismaUpdates,
   });
+
+  if (overlayLayers !== undefined) {
+    await prisma.$executeRaw`
+      UPDATE "content_items"
+      SET "overlayLayers" = ${JSON.stringify(overlayLayers)}::jsonb
+      WHERE id = ${id}
+    `;
+  }
+
   return item as ContentItem;
 }
 
@@ -61,17 +166,33 @@ export async function getContentItem(id: string): Promise<ContentItem | null> {
 
 export async function listContentItems(filters?: {
   status?: ContentStatus;
+  excludeStatus?: ContentStatus;
+  renderedOnly?: boolean;
+  mode?: string;
+  search?: string;
   limit?: number;
   offset?: number;
-}): Promise<ContentItem[]> {
-  const items = await prisma.contentItem.findMany({
-    where: filters?.status ? { status: filters.status } : undefined,
-    orderBy: { createdAt: "desc" },
-    take: filters?.limit ?? 50,
-    skip: filters?.offset ?? 0,
-    include: { destinationPage: true },
-  });
-  return items as ContentItem[];
+}): Promise<{ items: ContentItem[]; total: number }> {
+  const where: Record<string, unknown> = {};
+  if (filters?.status) where.status = filters.status;
+  else if (filters?.excludeStatus) where.status = { not: filters.excludeStatus };
+  if (filters?.renderedOnly) where.mergedOutputPath = { not: null };
+  if (filters?.mode) where.mode = filters.mode;
+  if (filters?.search) {
+    where.originalInput = { contains: filters.search, mode: "insensitive" };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.contentItem.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: filters?.limit ?? 50,
+      skip: filters?.offset ?? 0,
+      include: { destinationPage: true },
+    }),
+    prisma.contentItem.count({ where }),
+  ]);
+  return { items: items as ContentItem[], total };
 }
 
 export async function createContentVersion(data: {
@@ -114,4 +235,25 @@ export async function getContentVersions(contentItemId: string): Promise<Content
     orderBy: { versionNumber: "desc" },
   });
   return versions as ContentVersion[];
+}
+
+export async function deleteContentItems(ids: string[]): Promise<{ deleted: number }> {
+  if (ids.length === 0) return { deleted: 0 };
+
+  // Collect file paths before deletion so we can remove them from disk.
+  const items = await prisma.contentItem.findMany({
+    where: { id: { in: ids } },
+    select: { videoPath: true, voicePath: true, musicPath: true, mergedOutputPath: true },
+  });
+
+  const result = await prisma.contentItem.deleteMany({ where: { id: { in: ids } } });
+
+  // Best-effort disk cleanup — orphaned files accumulate quickly otherwise.
+  for (const item of items) {
+    for (const p of [item.videoPath, item.voicePath, item.musicPath, item.mergedOutputPath]) {
+      if (p && fs.existsSync(p)) { try { fs.unlinkSync(p); } catch { /* ignore */ } }
+    }
+  }
+
+  return { deleted: result.count };
 }

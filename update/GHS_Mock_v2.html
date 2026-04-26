@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GioHomeStudio — Connected Interface Mock v2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg: #070710;
+  --surface: #0e0e1a;
+  --surface2: #141422;
+  --surface3: #1c1c2e;
+  --surface4: #232338;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.12);
+  --accent: #6c63ff;
+  --accent-glow: rgba(108,99,255,0.25);
+  --accent2: #ff6b9d;
+  --accent3: #00e5c3;
+  --accent4: #ffa843;
+  --text: #eeeeff;
+  --text2: #8888aa;
+  --text3: #44445a;
+  --success: #22d18a;
+  --warning: #f5c842;
+  --danger: #ff5757;
+  --info: #4db8ff;
+  --sidebar-w: 220px;
+  --topbar-h: 52px;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ─── MOCK PAGE WRAPPER ─── */
+.mock-doc {
+  padding: 40px 24px 80px;
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.doc-header {
+  text-align: center;
+  padding: 56px 40px 48px;
+  margin-bottom: 48px;
+  background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(108,99,255,0.18) 0%, transparent 70%);
+  border-bottom: 1px solid var(--border);
+}
+
+.doc-header h1 {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  background: linear-gradient(135deg, #fff 0%, #c8c5ff 50%, #6c63ff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.doc-header p { color: var(--text2); font-size: 15px; margin-top: 8px; }
+
+.doc-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 6px 16px;
+  background: rgba(108,99,255,0.12);
+  border: 1px solid rgba(108,99,255,0.3);
+  border-radius: 100px;
+  font-size: 11px;
+  color: #a09bff;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.screen-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 10px;
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.screen-label::before {
+  content: '';
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.screen-group {
+  margin-bottom: 72px;
+}
+
+.screen-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 20px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.screen-group-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.flow-arrow {
+  text-align: center;
+  color: var(--text3);
+  font-size: 20px;
+  margin: 12px 0;
+  letter-spacing: 2px;
+}
+
+/* ─── APP SHELL ─── */
+.app-shell {
+  background: var(--surface);
+  border-radius: 16px;
+  border: 1px solid var(--border2);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+/* TITLEBAR */
+.titlebar {
+  height: var(--topbar-h);
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.win-dots { display:flex; gap:5px; }
+.dot { width:11px; height:11px; border-radius:50%; }
+.dot-r { background: #ff5f57; }
+.dot-y { background: #ffbd2e; }
+.dot-g { background: #28c840; }
+
+.titlebar-url {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.url-bar {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text2);
+  width: 340px;
+  text-align: center;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pill {
+  padding: 2px 9px;
+  border-radius: 100px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.pill-green { background: rgba(34,209,138,0.15); color: var(--success); border: 1px solid rgba(34,209,138,0.25); }
+.pill-red   { background: rgba(255,87,87,0.15); color: var(--danger); border: 1px solid rgba(255,87,87,0.25); }
+.pill-amber { background: rgba(255,168,67,0.15); color: var(--accent4); border: 1px solid rgba(255,168,67,0.25); }
+.pill-purple{ background: rgba(108,99,255,0.15); color: #a09bff; border: 1px solid rgba(108,99,255,0.3); }
+.pill-teal  { background: rgba(0,229,195,0.12); color: var(--accent3); border: 1px solid rgba(0,229,195,0.25); }
+
+/* MAIN LAYOUT */
+.app-body {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  min-height: 620px;
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  padding: 16px 14px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.logo-icon {
+  width: 30px; height: 30px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.logo-sub {
+  font-size: 10px;
+  color: var(--text3);
+  font-weight: 400;
+}
+
+.nav-section {
+  padding: 14px 8px 4px;
+}
+
+.nav-section-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 0 6px;
+  margin-bottom: 4px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text2);
+  font-size: 12.5px;
+  font-weight: 450;
+  margin-bottom: 1px;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.nav-item:hover { background: var(--surface3); color: var(--text); }
+
+.nav-item.active {
+  background: rgba(108,99,255,0.15);
+  color: #c0bcff;
+}
+
+.nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 6px; bottom: 6px;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent2);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 100px;
+}
+
+.nav-badge-dot {
+  margin-left: auto;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.user-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.user-row:hover { background: var(--surface3); }
+
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.user-name { font-size: 12px; font-weight: 600; }
+.user-plan { font-size: 10px; color: var(--accent3); }
+
+/* ─── MAIN CONTENT ─── */
+.main {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+/* TOPBAR inside main */
+.page-topbar {
+  height: 56px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.page-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.page-topbar-title {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.page-topbar-desc {
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.tab-bar {
+  display: flex;
+  gap: 2px;
+  background: var(--surface3);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.tab {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab.active {
+  background: var(--surface2);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  font-family: 'Outfit', sans-serif;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.btn-primary { background: var(--accent); color: white; }
+.btn-primary:hover { background: #7c74ff; }
+.btn-danger { background: rgba(255,87,87,0.15); color: var(--danger); border: 1px solid rgba(255,87,87,0.25); }
+.btn-ghost { background: var(--surface3); color: var(--text2); border: 1px solid var(--border); }
+.btn-ghost:hover { color: var(--text); border-color: var(--border2); }
+.btn-teal { background: rgba(0,229,195,0.12); color: var(--accent3); border: 1px solid rgba(0,229,195,0.25); }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+
+/* CONTENT AREA */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+}
+
+/* ─── GRID SYSTEMS ─── */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; }
+.grid-auto { display: grid; grid-template-columns: repeat(auto-fill,minmax(160px,1fr)); gap: 12px; }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.card-sm { padding: 12px; }
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.card-sub { font-size: 11px; color: var(--text2); }
+
+.stat-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+.stat-value { font-size: 24px; font-weight: 800; letter-spacing: -1px; }
+.stat-change { font-size: 11px; margin-top: 3px; }
+.stat-up { color: var(--success); }
+.stat-down { color: var(--danger); }
+
+/* ─── INPUTS ─── */
+.input-group { margin-bottom: 14px; }
+
+.input-label {
+  font-size: 11px;
+  color: var(--text2);
+  font-weight: 500;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.input, .select, .textarea {
+  width: 100%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  outline: none;
+}
+
+.input:focus, .select:focus, .textarea:focus {
+  border-color: rgba(108,99,255,0.5);
+  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+}
+
+.textarea { min-height: 80px; resize: vertical; }
+
+.select option { background: var(--surface3); }
+
+/* ─── TAGS ─── */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 100px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.tag-purple { background: rgba(108,99,255,0.15); color: #a09bff; border: 1px solid rgba(108,99,255,0.25); }
+.tag-pink   { background: rgba(255,107,157,0.15); color: #ff8db8; border: 1px solid rgba(255,107,157,0.25); }
+.tag-teal   { background: rgba(0,229,195,0.1); color: var(--accent3); border: 1px solid rgba(0,229,195,0.2); }
+.tag-amber  { background: rgba(255,168,67,0.15); color: #ffbb70; border: 1px solid rgba(255,168,67,0.25); }
+.tag-green  { background: rgba(34,209,138,0.12); color: var(--success); border: 1px solid rgba(34,209,138,0.2); }
+.tag-red    { background: rgba(255,87,87,0.12); color: var(--danger); border: 1px solid rgba(255,87,87,0.2); }
+.tag-gray   { background: rgba(255,255,255,0.06); color: var(--text2); border: 1px solid var(--border); }
+
+/* ─── ALERTS ─── */
+.alert {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.alert-info    { background: rgba(77,184,255,0.08); border: 1px solid rgba(77,184,255,0.2); color: #80caff; }
+.alert-success { background: rgba(34,209,138,0.08); border: 1px solid rgba(34,209,138,0.2); color: var(--success); }
+.alert-warning { background: rgba(245,200,66,0.08); border: 1px solid rgba(245,200,66,0.2); color: var(--warning); }
+.alert-danger  { background: rgba(255,87,87,0.08); border: 1px solid rgba(255,87,87,0.2); color: var(--danger); }
+
+/* ─── BREADCRUMB ─── */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 16px;
+}
+
+.breadcrumb a { color: var(--text2); cursor: pointer; }
+.breadcrumb a:hover { color: var(--accent); }
+.breadcrumb .sep { color: var(--text3); }
+.breadcrumb .current { color: var(--text); font-weight: 600; }
+
+/* ─── PROGRESS BARS ─── */
+.progress-bar {
+  width: 100%;
+  height: 4px;
+  background: var(--surface3);
+  border-radius: 100px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 100px;
+}
+
+.fill-purple { background: var(--accent); }
+.fill-teal   { background: var(--accent3); }
+.fill-pink   { background: var(--accent2); }
+.fill-amber  { background: var(--accent4); }
+.fill-green  { background: var(--success); }
+
+/* ─── DIVIDER ─── */
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}
+
+/* ─── MEDIA CARD ─── */
+.media-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.media-card:hover {
+  border-color: var(--border2);
+  transform: translateY(-1px);
+}
+
+.media-thumb {
+  aspect-ratio: 16/9;
+  background: var(--surface3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  position: relative;
+  overflow: hidden;
+}
+
+.media-thumb-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 6px 8px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.media-info { padding: 10px 12px; }
+.media-title { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+.media-meta { font-size: 10px; color: var(--text2); }
+
+/* ─── STEP INDICATOR ─── */
+.steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text3);
+}
+
+.step.active { color: var(--text); }
+.step.done { color: var(--success); }
+
+.step-circle {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.step.active .step-circle {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.step.done .step-circle {
+  background: rgba(34,209,138,0.15);
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.step-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+  margin: 0 8px;
+  min-width: 20px;
+}
+
+.step-line.done { background: var(--success); opacity: 0.4; }
+
+/* ─── WAVEFORM FAKE ─── */
+.waveform {
+  height: 48px;
+  background: var(--surface3);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.wave-bar {
+  flex: 1;
+  border-radius: 2px;
+  background: rgba(108,99,255,0.4);
+  min-width: 2px;
+}
+
+/* ─── ANNOTATION BOX ─── */
+.annotation {
+  border: 1.5px dashed rgba(108,99,255,0.5);
+  background: rgba(108,99,255,0.04);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-top: 10px;
+}
+
+.annotation-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.annotation-text {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ─── CONNECTION ARROW ─── */
+.connector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 10px 0;
+  color: var(--text3);
+  font-size: 11px;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.connector::before, .connector::after {
+  content: '';
+  flex: 1;
+  max-width: 80px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border2));
+}
+
+.connector::after {
+  background: linear-gradient(90deg, var(--border2), transparent);
+}
+
+/* ─── TABLES ─── */
+.table-wrap { overflow-x: auto; }
+
+table { width: 100%; border-collapse: collapse; }
+th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+td {
+  padding: 10px 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: middle;
+}
+
+tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* ─── MINI MAP / FLOW ─── */
+.flow-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.flow-box .flow-icon { font-size: 22px; margin-bottom: 4px; }
+.flow-box .flow-name { font-size: 11px; font-weight: 600; }
+.flow-box .flow-sub { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+.flow-arrow-h {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text3);
+  font-size: 16px;
+}
+
+/* ─── SECTION HEADER ─── */
+.section-h {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-h-num {
+  width: 26px; height: 26px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  color: white;
+  flex-shrink: 0;
+}
+
+.section-desc {
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 20px;
+  margin-left: 36px;
+}
+
+/* ─── CREDIT WIDGET ─── */
+.credit-widget {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.credit-icon { font-size: 18px; }
+
+.credit-info { flex: 1; }
+.credit-amount { font-size: 16px; font-weight: 800; }
+.credit-label { font-size: 10px; color: var(--text2); }
+
+/* ─── MUSIC SECTION ─── */
+.track-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.track-row:hover { background: var(--surface3); }
+
+.track-row.playing { background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.2); }
+
+.track-num { font-size: 11px; color: var(--text3); width: 18px; text-align: center; }
+
+.track-thumb {
+  width: 38px; height: 38px;
+  border-radius: 6px;
+  background: var(--surface3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.track-info { flex: 1; }
+.track-name { font-size: 12px; font-weight: 600; }
+.track-genre { font-size: 10px; color: var(--text2); }
+
+.track-duration { font-size: 11px; color: var(--text2); font-family: 'IBM Plex Mono', monospace; }
+
+/* MODEL CARD */
+.model-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.model-card:hover { border-color: var(--border2); }
+.model-card.selected { border-color: var(--accent); background: rgba(108,99,255,0.07); }
+
+.model-tier { font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.model-name { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+.model-by { font-size: 10px; color: var(--text2); margin-bottom: 8px; }
+.model-price { font-size: 14px; font-weight: 800; }
+.model-unit { font-size: 10px; color: var(--text2); }
+
+/* ─── NOTIFICATION DOT ─── */
+.notif { position: relative; }
+.notif-dot {
+  position: absolute;
+  top: -2px; right: -2px;
+  width: 7px; height: 7px;
+  background: var(--danger);
+  border-radius: 50%;
+  border: 1.5px solid var(--surface2);
+}
+
+/* ─── CONTEXT CALLOUT ─── */
+.callout {
+  background: rgba(108,99,255,0.08);
+  border: 1px dashed rgba(108,99,255,0.35);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #b0acff;
+  margin-top: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.callout-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
+/* ─── LAYOUT HELPERS ─── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.gap-16 { gap: 16px; }
+.mt-8 { margin-top: 8px; }
+.mt-12 { margin-top: 12px; }
+.mt-16 { margin-top: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-12 { margin-bottom: 12px; }
+.mb-16 { margin-bottom: 16px; }
+.w-full { width: 100%; }
+.text-sm { font-size: 11px; color: var(--text2); }
+.text-mono { font-family: 'IBM Plex Mono', monospace; }
+.bold { font-weight: 700; }
+.muted { color: var(--text2); }
+
+/* ─── SIDEBAR SHARED COMPONENT ─── */
+.sidebar-std {
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+</style>
+</head>
+<body>
+
+<div class="mock-doc">
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- HEADER -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="doc-header">
+  <h1>GioHomeStudio</h1>
+  <p>Connected Interface Specification · v2.0 · For Claude Code</p>
+  <div class="doc-note">⚠ Every screen shares one sidebar · Every flow is linked · Nothing is isolated</div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 0. THE CORE RULE -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">ARCHITECTURE RULE — READ THIS FIRST</div>
+
+  <div class="card" style="border-color: rgba(108,99,255,0.4); background: rgba(108,99,255,0.06);">
+    <div class="card-title" style="font-size:15px;">🏗️ Every Screen Uses One App Shell</div>
+    <p class="card-sub" style="font-size:12px; margin-top:6px; line-height:1.8;">
+      GioHomeStudio is a <strong style="color:var(--text)">single-page application (SPA)</strong>. The sidebar never disappears. The top URL bar never reloads. Clicking any nav item <strong style="color:var(--text)">swaps only the right content panel</strong>. The sidebar, user info, credit balance, and status indicators are always visible. This is how Artlist, Linear, Notion, and every professional tool works.
+    </p>
+    <div class="divider"></div>
+    <div class="grid-3 mt-8" style="gap:10px;">
+      <div class="card card-sm" style="background:var(--surface3);">
+        <div style="font-size:11px; font-weight:700; color:var(--accent); margin-bottom:4px;">ALWAYS VISIBLE</div>
+        <div class="text-sm" style="line-height:1.8;">Left sidebar navigation<br>Credit balance in sidebar<br>User name + plan<br>System status indicator<br>Active project context</div>
+      </div>
+      <div class="card card-sm" style="background:var(--surface3);">
+        <div style="font-size:11px; font-weight:700; color:var(--accent3); margin-bottom:4px;">SWAPS ON CLICK</div>
+        <div class="text-sm" style="line-height:1.8;">Right content panel only<br>Page title in topbar<br>Action buttons in topbar<br>Tab bars if the page has tabs<br>Main page content</div>
+      </div>
+      <div class="card card-sm" style="background:var(--surface3);">
+        <div style="font-size:11px; font-weight:700; color:var(--accent2); margin-bottom:4px;">CONNECTED FLOWS</div>
+        <div class="text-sm" style="line-height:1.8;">Generate image → review queue<br>Generate video → review queue<br>Approve content → all content<br>Music trimmed → attached to video<br>Credit deducted → balance updates live</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 1. DASHBOARD — HOME -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">SCREEN 1 — DASHBOARD (Home + Studio)</div>
+  <div class="screen-label">Route: /dashboard &nbsp;·&nbsp; Nav item active: "Home + Studio"</div>
+
+  <div class="app-shell">
+    <div class="titlebar">
+      <div class="win-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <div class="titlebar-url"><div class="url-bar">localhost:3200/dashboard</div></div>
+      <div class="titlebar-right">
+        <span class="pill pill-green">● Claude Online</span>
+        <span class="pill pill-teal">ElevenLabs ✓</span>
+        <span class="pill pill-purple">fal.ai ✓</span>
+      </div>
+    </div>
+
+    <div class="app-body">
+      <!-- SIDEBAR -->
+      <div class="sidebar">
+        <div class="sidebar-logo">
+          <div class="logo-icon">🎬</div>
+          <div>
+            <div class="logo-text">GioHomeStudio</div>
+            <div class="logo-sub">Content Studio</div>
+          </div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-label">Create</div>
+          <div class="nav-item active"><div class="nav-icon">🏠</div> Home + Studio</div>
+          <div class="nav-item"><div class="nav-icon">📽️</div> Commercial Maker</div>
+          <div class="nav-item"><div class="nav-icon">✨</div> Free Mode</div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-label">Content</div>
+          <div class="nav-item notif"><div class="nav-icon">📋</div> Review Queue <span class="nav-badge">3</span></div>
+          <div class="nav-item"><div class="nav-icon">📁</div> All Content</div>
+          <div class="nav-item"><div class="nav-icon">🖼️</div> Asset Library</div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-label">Audio & Voice</div>
+          <div class="nav-item"><div class="nav-icon">🎵</div> Music Studio</div>
+          <div class="nav-item"><div class="nav-icon">👤</div> Characters</div>
+          <div class="nav-item"><div class="nav-icon">🔊</div> SFX Library</div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-label">AI & Models</div>
+          <div class="nav-item"><div class="nav-icon">🤖</div> AI Models</div>
+          <div class="nav-item"><div class="nav-icon">🎞️</div> Video Tools</div>
+          <div class="nav-item"><div class="nav-icon">✂️</div> Video Trimmer</div>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-label">Insights</div>
+          <div class="nav-item"><div class="nav-icon">📊</div> Analytics</div>
+          <div class="nav-item"><div class="nav-icon">💰</div> Budget</div>
+        </div>
+
+        <div class="sidebar-footer">
+          <!-- CREDIT BALANCE — always visible in sidebar footer -->
+          <div class="credit-widget mb-8">
+            <div class="credit-icon">💳</div>
+            <div class="credit-info">
+              <div class="credit-amount">$18.40</div>
+              <div class="credit-label">Credit Balance</div>
+            </div>
+            <button class="btn btn-teal btn-sm">+ Add</button>
+          </div>
+
+          <div class="user-row">
+            <div class="user-avatar">H</div>
+            <div>
+              <div class="user-name">Henry</div>
+              <div class="user-plan">Creator Plan</div>
+            </div>
+            <span style="margin-left:auto; color:var(--text3); font-size:14px;">⚙️</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN CONTENT -->
+      <div class="main">
+        <div class="page-topbar">
+          <div class="page-topbar-left">
+            <div class="page-topbar-title">🏠 Home + Studio</div>
+            <div class="page-topbar-desc">Your creative command centre</div>
+          </div>
+          <button class="btn btn-primary">+ New Project</button>
+        </div>
+
+        <div class="content">
+          <!-- Stats row -->
+          <div class="grid-4 mb-16">
+            <div class="stat-card">
+              <div class="stat-label">Generated Today</div>
+              <div class="stat-value">14</div>
+              <div class="stat-change stat-up">↑ 4 from yesterday</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Pending Review</div>
+              <div class="stat-value" style="color:var(--warning);">3</div>
+              <div class="stat-change" style="color:var(--text2);">Needs your approval</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Published</div>
+              <div class="stat-value" style="color:var(--success);">47</div>
+              <div class="stat-change stat-up">↑ 7 this week</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Credit Spent</div>
+              <div class="stat-value">$1.60</div>
+              <div class="stat-change" style="color:var(--text2);">Today</div>
+            </div>
+          </div>
+
+          <!-- Quick actions + recent -->
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title">⚡ Quick Start</div>
+              <div class="card-sub mb-12">Jump straight into creating</div>
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                <button class="btn btn-primary w-full">🎬 Make a Commercial</button>
+                <button class="btn btn-ghost w-full">✨ Free Mode — Describe Anything</button>
+                <button class="btn btn-teal w-full">🎵 Open Music Studio</button>
+              </div>
+              <div class="callout mt-12">
+                <span class="callout-icon">💡</span>
+                <span>3 items in Review Queue waiting for approval before publishing →</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">🕐 Recent Projects</div>
+              <div class="card-sub mb-12">Pick up where you left off</div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                <div class="flex items-center gap-8" style="padding:8px; border-radius:7px; background:var(--surface3); cursor:pointer;">
+                  <span style="font-size:18px;">🏢</span>
+                  <div style="flex:1;">
+                    <div style="font-size:12px; font-weight:600;">StreetEdge Spring Ad</div>
+                    <div class="text-sm">Commercial · 30s · Edited 2h ago</div>
+                  </div>
+                  <span class="tag tag-amber">Draft</span>
+                </div>
+                <div class="flex items-center gap-8" style="padding:8px; border-radius:7px; background:var(--surface3); cursor:pointer;">
+                  <span style="font-size:18px;">⚔️</span>
+                  <div style="flex:1;">
+                    <div style="font-size:12px; font-weight:600;">Sons of Broken Crown Ep.6</div>
+                    <div class="text-sm">Series · 90s · Yesterday</div>
+                  </div>
+                  <span class="tag tag-green">Done</span>
+                </div>
+                <div class="flex items-center gap-8" style="padding:8px; border-radius:7px; background:var(--surface3); cursor:pointer;">
+                  <span style="font-size:18px;">🛍️</span>
+                  <div style="flex:1;">
+                    <div style="font-size:12px; font-weight:600;">Marabiz Product Reel</div>
+                    <div class="text-sm">Reel · 15s · Mar 26</div>
+                  </div>
+                  <span class="tag tag-purple">Review</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div><!-- app-body -->
+  </div><!-- app-shell -->
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — Dashboard Connections</div>
+    <div class="annotation-text">
+      · "3 Pending Review" card → clicking it navigates to <strong>/review-queue</strong> (same sidebar, content swaps)<br>
+      · "Make a Commercial" button → navigates to <strong>/commercial-maker</strong><br>
+      · "Open Music Studio" → navigates to <strong>/music-studio</strong><br>
+      · Credit balance in sidebar footer → clicking "Add" opens <strong>credit top-up modal</strong> (does not navigate away)<br>
+      · Recent project rows → clicking opens that project in its correct screen (Commercial Maker, etc.)
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 2. COMMERCIAL MAKER — STEP FLOW -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">SCREEN 2 — COMMERCIAL MAKER · MODE 1: SLIDE AD</div>
+  <div class="screen-label">Route: /commercial-maker &nbsp;·&nbsp; Step 1 of 4</div>
+
+  <div class="app-shell">
+    <div class="titlebar">
+      <div class="win-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <div class="titlebar-url"><div class="url-bar">localhost:3200/commercial-maker</div></div>
+      <div class="titlebar-right"><span class="pill pill-green">● Connected</span></div>
+    </div>
+
+    <div class="app-body">
+      <div class="sidebar sidebar-std">
+        <div class="sidebar-logo">
+          <div class="logo-icon">🎬</div>
+          <div><div class="logo-text">GioHomeStudio</div><div class="logo-sub">Content Studio</div></div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Create</div>
+          <div class="nav-item"><div class="nav-icon">🏠</div> Home + Studio</div>
+          <div class="nav-item active"><div class="nav-icon">📽️</div> Commercial Maker</div>
+          <div class="nav-item"><div class="nav-icon">✨</div> Free Mode</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Content</div>
+          <div class="nav-item"><div class="nav-icon">📋</div> Review Queue <span class="nav-badge">3</span></div>
+          <div class="nav-item"><div class="nav-icon">📁</div> All Content</div>
+          <div class="nav-item"><div class="nav-icon">🖼️</div> Asset Library</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Audio & Voice</div>
+          <div class="nav-item"><div class="nav-icon">🎵</div> Music Studio</div>
+          <div class="nav-item"><div class="nav-icon">👤</div> Characters</div>
+          <div class="nav-item"><div class="nav-icon">🔊</div> SFX Library</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">AI & Models</div>
+          <div class="nav-item"><div class="nav-icon">🤖</div> AI Models</div>
+          <div class="nav-item"><div class="nav-icon">🎞️</div> Video Tools</div>
+          <div class="nav-item"><div class="nav-icon">✂️</div> Video Trimmer</div>
+        </div>
+        <div class="nav-section">
+          <div class="nav-section-label">Insights</div>
+          <div class="nav-item"><div class="nav-icon">📊</div> Analytics</div>
+          <div class="nav-item"><div class="nav-icon">💰</div> Budget</div>
+        </div>
+        <div class="sidebar-footer">
+          <div class="credit-widget mb-8">
+            <div class="credit-icon">💳</div>
+            <div class="credit-info">
+              <div class="credit-amount">$18.40</div>
+              <div class="credit-label">Credit Balance</div>
+            </div>
+            <button class="btn btn-teal btn-sm">+ Add</button>
+          </div>
+          <div class="user-row">
+            <div class="user-avatar">H</div>
+            <div><div class="user-name">Henry</div><div class="user-plan">Creator Plan</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="main">
+        <!-- Topbar with MODE tabs -->
+        <div class="page-topbar">
+          <div class="page-topbar-left">
+            <div class="page-topbar-title">📽️ Commercial Maker</div>
+            <div class="tab-bar" style="margin-left:12px;">
+              <div class="tab active">🖼️ Mode 1 — Slide Ad</div>
+              <div class="tab">✨ Mode 2 — AI Ad</div>
+            </div>
+          </div>
+          <button class="btn btn-ghost btn-sm">← Back to Dashboard</button>
+          <button class="btn btn-primary">💾 Save Draft</button>
+        </div>
+
+        <div class="content">
+          <!-- Breadcrumb -->
+          <div class="breadcrumb">
+            <a>Dashboard</a><span class="sep">›</span>
+            <a>Commercial Maker</a><span class="sep">›</span>
+            <span class="current">New Slide Ad</span>
+          </div>
+
+          <!-- Step indicator -->
+          <div class="steps mb-16">
+            <div class="step active">
+              <div class="step-circle">1</div> Setup
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+              <div class="step-circle">2</div> Images
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+              <div class="step-circle">3</div> Audio
+            </div>
+            <div class="step-line"></div>
+            <div class="step">
+              <div class="step-circle">4</div> Review
+            </div>
+          </div>
+
+          <!-- Step 1 Content -->
+          <div class="grid-2">
+            <div class="card">
+              <div class="card-title">📝 Ad Details</div>
+              <div class="card-sub mb-12">Tell us about your product or service</div>
+
+              <div class="input-group">
+                <label class="input-label">Project Name</label>
+                <input class="input" type="text" value="StreetEdge Spring Collection Ad">
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Ad Purpose</label>
+                <select class="select">
+                  <option>Product Promotion</option>
+                  <option>Brand Awareness</option>
+                  <option>Service Announcement</option>
+                  <option>Event Promotion</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Target Audience</label>
+                <input class="input" type="text" placeholder="e.g. Lagos men 25-40, fashion-conscious">
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Key Message / Tagline</label>
+                <textarea class="textarea" style="min-height:60px;">New season drops Friday. StreetEdge — wear the culture.</textarea>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">⚙️ Format & Platform</div>
+              <div class="card-sub mb-12">Where will this ad run?</div>
+
+              <div class="input-group">
+                <label class="input-label">Video Format</label>
+                <div class="grid-3" style="gap:8px;">
+                  <div class="model-card selected" style="padding:10px; text-align:center;">
+                    <div style="font-size:18px;">📱</div>
+                    <div style="font-size:11px; font-weight:600; margin-top:4px;">9:16</div>
+                    <div class="text-sm">Reels / TikTok</div>
+                  </div>
+                  <div class="model-card" style="padding:10px; text-align:center;">
+                    <div style="font-size:18px;">🖥️</div>
+                    <div style="font-size:11px; font-weight:600; margin-top:4px;">16:9</div>
+                    <div class="text-sm">YouTube</div>
+                  </div>
+                  <div class="model-card" style="padding:10px; text-align:center;">
+                    <div style="font-size:18px;">⬜</div>
+                    <div style="font-size:11px; font-weight:600; margin-top:4px;">1:1</div>
+                    <div class="text-sm">Feed / FB</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Duration</label>
+                <select class="select">
+                  <option>15 seconds</option>
+                  <option>30 seconds</option>
+                  <option>60 seconds</option>
+                </select>
+              </div>
+
+              <div class="input-group">
+                <label class="input-label">Publish To (after approval)</label>
+                <select class="select">
+                  <option>Facebook — StreetEdge Page</option>
+                  <option>Instagram + Facebook</option>
+                  <option>All Platforms</option>
+                </select>
+              </div>
+
+              <button class="btn btn-primary w-full mt-8">Continue to Images →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — Commercial Maker Connections</div>
+    <div class="annotation-text">
+      · Step indicator: 4 steps total. Each "Continue →" button advances the step number and swaps the content below the steps<br>
+      · Step 3 (Audio): has a link "Open Music Studio →" that opens the music studio in a <strong>modal/drawer</strong> (not navigation) so user can pick a track without losing their ad progress<br>
+      · Step 4 (Review): shows preview of finished ad + "Send to Review Queue" button → adds to /review-queue automatically<br>
+      · Mode tabs: "Mode 1 — Slide Ad" and "Mode 2 — AI Ad" are tabs. Clicking switches the content area only. Breadcrumb updates.
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 3. AI MODELS — SELECTION SCREEN -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">SCREEN 3 — AI MODELS (Image + Video Selection)</div>
+  <div class="screen-label">Route: /ai-models &nbsp;·&nbsp; Tab: Images &nbsp;·&nbsp; Sort: By Price</div>
+
+  <div class="app-shell">
+    <div class="titlebar">
+      <div class="win-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <div class="titlebar-url"><div class="url-bar">localhost:3200/ai-models</div></div>
+      <div class="titlebar-right"><span class="pill pill-purple">fal.ai ✓</span><span class="pill pill-teal">Segmind ✓</span></div>
+    </div>
+
+    <div class="app-body">
+      <!-- Same sidebar always -->
+      <div class="sidebar sidebar-std">
+        <div class="sidebar-logo"><div class="logo-icon">🎬</div><div><div class="logo-text">GioHomeStudio</div><div class="logo-sub">Content Studio</div></div></div>
+        <div class="nav-section"><div class="nav-section-label">Create</div><div class="nav-item"><div class="nav-icon">🏠</div> Home + Studio</div><div class="nav-item"><div class="nav-icon">📽️</div> Commercial Maker</div><div class="nav-item"><div class="nav-icon">✨</div> Free Mode</div></div>
+        <div class="nav-section"><div class="nav-section-label">Content</div><div class="nav-item"><div class="nav-icon">📋</div> Review Queue <span class="nav-badge">3</span></div><div class="nav-item"><div class="nav-icon">📁</div> All Content</div><div class="nav-item"><div class="nav-icon">🖼️</div> Asset Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">Audio & Voice</div><div class="nav-item"><div class="nav-icon">🎵</div> Music Studio</div><div class="nav-item"><div class="nav-icon">👤</div> Characters</div><div class="nav-item"><div class="nav-icon">🔊</div> SFX Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">AI & Models</div><div class="nav-item active"><div class="nav-icon">🤖</div> AI Models</div><div class="nav-item"><div class="nav-icon">🎞️</div> Video Tools</div><div class="nav-item"><div class="nav-icon">✂️</div> Video Trimmer</div></div>
+        <div class="nav-section"><div class="nav-section-label">Insights</div><div class="nav-item"><div class="nav-icon">📊</div> Analytics</div><div class="nav-item"><div class="nav-icon">💰</div> Budget</div></div>
+        <div class="sidebar-footer">
+          <div class="credit-widget mb-8"><div class="credit-icon">💳</div><div class="credit-info"><div class="credit-amount">$18.40</div><div class="credit-label">Credit Balance</div></div><button class="btn btn-teal btn-sm">+ Add</button></div>
+          <div class="user-row"><div class="user-avatar">H</div><div><div class="user-name">Henry</div><div class="user-plan">Creator Plan</div></div></div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="page-topbar">
+          <div class="page-topbar-left">
+            <div class="page-topbar-title">🤖 AI Models</div>
+            <div class="tab-bar" style="margin-left:12px;">
+              <div class="tab active">🖼️ Images</div>
+              <div class="tab">🎬 Video</div>
+            </div>
+          </div>
+          <!-- Sort controls -->
+          <div class="tab-bar">
+            <div class="tab active">💰 Price</div>
+            <div class="tab">⭐ Quality</div>
+            <div class="tab">🔥 Trending</div>
+            <div class="tab">📈 Popular</div>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="alert alert-info mb-12">
+            <span>ℹ️</span>
+            <span>Your balance is <strong>$18.40</strong>. Free tier models are highlighted. Locked models require more credits. Select a model to generate — cost is shown before confirming.</span>
+          </div>
+
+          <!-- FREE TIER -->
+          <div class="card-sub bold mb-8" style="color:var(--success); font-size:11px; letter-spacing:1px; text-transform:uppercase;">✓ Free Tier — Included with account</div>
+          <div class="grid-3 mb-16">
+            <div class="model-card selected">
+              <div class="model-tier" style="color:var(--success);">FREE · Segmind</div>
+              <div class="model-name">Pruna P Image</div>
+              <div class="model-by">by Pruna AI · 🇮🇳 India</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                <span class="tag tag-green">Fast</span>
+                <span class="tag tag-gray">1024px</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price" style="color:var(--success);">FREE</div><div class="model-unit">3 per day</div></div>
+                <button class="btn btn-teal btn-sm">Generate</button>
+              </div>
+            </div>
+
+            <div class="model-card">
+              <div class="model-tier" style="color:var(--success);">FREE · Segmind</div>
+              <div class="model-name">Pruna P Image Edit</div>
+              <div class="model-by">by Pruna AI · 🇮🇳 India</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                <span class="tag tag-teal">Edit</span>
+                <span class="tag tag-gray">Multi-image</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price">$0.03</div><div class="model-unit">per image</div></div>
+                <button class="btn btn-primary btn-sm">Select</button>
+              </div>
+            </div>
+
+            <div class="model-card">
+              <div class="model-tier" style="color:var(--accent);">STANDARD · fal.ai</div>
+              <div class="model-name">Flux Schnell</div>
+              <div class="model-by">by Black Forest Labs · 🇩🇪</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;">
+                <span class="tag tag-purple">Fast</span>
+                <span class="tag tag-gray">1024px</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price">$0.02</div><div class="model-unit">per image</div></div>
+                <button class="btn btn-primary btn-sm">Select</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- STANDARD TIER -->
+          <div class="card-sub bold mb-8" style="color:var(--accent); font-size:11px; letter-spacing:1px; text-transform:uppercase;">⚡ Standard Tier</div>
+          <div class="grid-3 mb-8">
+            <div class="model-card">
+              <div class="model-tier" style="color:var(--accent);">STANDARD · fal.ai</div>
+              <div class="model-name">Imagen 4 Fast</div>
+              <div class="model-by">by Google · 🇺🇸</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;"><span class="tag tag-green">2K res</span><span class="tag tag-gray">Products</span></div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price">$0.07</div><div class="model-unit">per image</div></div>
+                <button class="btn btn-primary btn-sm">Select</button>
+              </div>
+            </div>
+            <div class="model-card">
+              <div class="model-tier" style="color:var(--accent);">STANDARD · fal.ai</div>
+              <div class="model-name">Ideogram V3 Turbo</div>
+              <div class="model-by">by Ideogram · 🇺🇸</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;"><span class="tag tag-amber">Text-in-image</span><span class="tag tag-gray">Logos</span></div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price">$0.09</div><div class="model-unit">per image</div></div>
+                <button class="btn btn-primary btn-sm">Select</button>
+              </div>
+            </div>
+            <div class="model-card">
+              <div class="model-tier" style="color:var(--accent);">STANDARD · fal.ai</div>
+              <div class="model-name">Hunyuan Image</div>
+              <div class="model-by">by Tencent · 🇨🇳</div>
+              <div style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px;"><span class="tag tag-pink">Diversity</span><span class="tag tag-gray">Characters</span></div>
+              <div class="flex items-center justify-between">
+                <div><div class="model-price">$0.09</div><div class="model-unit">per image</div></div>
+                <button class="btn btn-primary btn-sm">Select</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — AI Models Connections</div>
+    <div class="annotation-text">
+      · Image tab / Video tab: switches the model list below without navigating away<br>
+      · Sort buttons (Price / Quality / Trending / Popular): re-orders the model cards in place<br>
+      · "Generate" / "Select" button: opens a <strong>generation modal overlay</strong> (not a new page) with prompt field + confirm<br>
+      · After generation: result appears in <strong>Review Queue</strong> automatically — nav badge count increases<br>
+      · Cost is deducted from credit balance in sidebar footer <strong>immediately after generation</strong> — the number updates live<br>
+      · Locked models (insufficient balance): show a 🔒 icon and "Add Credits" tooltip on hover
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 4. MUSIC STUDIO -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">SCREEN 4 — MUSIC STUDIO (9 Sections)</div>
+  <div class="screen-label">Route: /music-studio &nbsp;·&nbsp; Section: Music Trimmer & Editor</div>
+
+  <div class="app-shell">
+    <div class="titlebar">
+      <div class="win-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <div class="titlebar-url"><div class="url-bar">localhost:3200/music-studio</div></div>
+      <div class="titlebar-right"><span class="pill pill-green">ElevenLabs ✓</span><span class="pill pill-teal">Suno API ✓</span></div>
+    </div>
+
+    <div class="app-body">
+      <div class="sidebar sidebar-std">
+        <div class="sidebar-logo"><div class="logo-icon">🎬</div><div><div class="logo-text">GioHomeStudio</div><div class="logo-sub">Content Studio</div></div></div>
+        <div class="nav-section"><div class="nav-section-label">Create</div><div class="nav-item"><div class="nav-icon">🏠</div> Home + Studio</div><div class="nav-item"><div class="nav-icon">📽️</div> Commercial Maker</div><div class="nav-item"><div class="nav-icon">✨</div> Free Mode</div></div>
+        <div class="nav-section"><div class="nav-section-label">Content</div><div class="nav-item"><div class="nav-icon">📋</div> Review Queue <span class="nav-badge">3</span></div><div class="nav-item"><div class="nav-icon">📁</div> All Content</div><div class="nav-item"><div class="nav-icon">🖼️</div> Asset Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">Audio & Voice</div><div class="nav-item active"><div class="nav-icon">🎵</div> Music Studio</div><div class="nav-item"><div class="nav-icon">👤</div> Characters</div><div class="nav-item"><div class="nav-icon">🔊</div> SFX Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">AI & Models</div><div class="nav-item"><div class="nav-icon">🤖</div> AI Models</div><div class="nav-item"><div class="nav-icon">🎞️</div> Video Tools</div><div class="nav-item"><div class="nav-icon">✂️</div> Video Trimmer</div></div>
+        <div class="nav-section"><div class="nav-section-label">Insights</div><div class="nav-item"><div class="nav-icon">📊</div> Analytics</div><div class="nav-item"><div class="nav-icon">💰</div> Budget</div></div>
+        <div class="sidebar-footer">
+          <div class="credit-widget mb-8"><div class="credit-icon">💳</div><div class="credit-info"><div class="credit-amount">$18.40</div><div class="credit-label">Credit Balance</div></div><button class="btn btn-teal btn-sm">+ Add</button></div>
+          <div class="user-row"><div class="user-avatar">H</div><div><div class="user-name">Henry</div><div class="user-plan">Creator Plan</div></div></div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="page-topbar">
+          <div class="page-topbar-left">
+            <div class="page-topbar-title">🎵 Music Studio</div>
+            <!-- 9 section tabs -->
+            <div class="tab-bar" style="margin-left:8px; overflow-x:auto;">
+              <div class="tab">AI Generator</div>
+              <div class="tab">Library</div>
+              <div class="tab active">Trimmer</div>
+              <div class="tab">DJ Mixer</div>
+              <div class="tab">Audio Cleaner</div>
+              <div class="tab">Recorder</div>
+              <div class="tab">Sync Tool</div>
+              <div class="tab">Stems</div>
+              <div class="tab">Platform</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="content">
+          <div class="breadcrumb">
+            <a>Dashboard</a><span class="sep">›</span>
+            <a>Music Studio</a><span class="sep">›</span>
+            <span class="current">Trimmer & Editor</span>
+          </div>
+
+          <!-- Current track info -->
+          <div class="card mb-16">
+            <div class="flex items-center justify-between mb-12">
+              <div class="flex items-center gap-12">
+                <div class="track-thumb" style="width:52px; height:52px; font-size:22px;">🎸</div>
+                <div>
+                  <div style="font-size:14px; font-weight:700;">Lagos Night Drive</div>
+                  <div class="text-sm">Afrobeats · Licensed Library · 2:34 total</div>
+                  <div style="display:flex; gap:6px; margin-top:4px;">
+                    <span class="tag tag-green">Royalty-Free</span>
+                    <span class="tag tag-teal">Commercial Use ✓</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-8">
+                <button class="btn btn-ghost btn-sm">← Back to Library</button>
+                <button class="btn btn-teal btn-sm">Attach to Video →</button>
+              </div>
+            </div>
+
+            <!-- WAVEFORM -->
+            <div style="background:var(--surface3); border-radius:8px; padding:12px 16px; margin-bottom:12px;">
+              <div class="waveform" style="height:64px;">
+                <!-- Fake wave bars of varying heights -->
+                <div class="wave-bar" style="height:30%;"></div><div class="wave-bar" style="height:60%;"></div><div class="wave-bar" style="height:80%;"></div><div class="wave-bar" style="height:45%;"></div><div class="wave-bar" style="height:90%;"></div><div class="wave-bar" style="height:70%;"></div><div class="wave-bar" style="height:40%;"></div><div class="wave-bar" style="height:95%;"></div><div class="wave-bar" style="height:60%;"></div><div class="wave-bar" style="height:50%;"></div><div class="wave-bar" style="height:75%;"></div><div class="wave-bar" style="height:85%;"></div><div class="wave-bar" style="height:55%;"></div><div class="wave-bar" style="height:40%;"></div><div class="wave-bar" style="height:65%;"></div><div class="wave-bar" style="height:90%;"></div><div class="wave-bar" style="height:80%;"></div><div class="wave-bar" style="height:35%;"></div><div class="wave-bar" style="height:70%;"></div><div class="wave-bar" style="height:60%;"></div><div class="wave-bar" style="height:45%;"></div><div class="wave-bar" style="height:80%;"></div><div class="wave-bar" style="height:95%;"></div><div class="wave-bar" style="height:50%;"></div><div class="wave-bar" style="height:70%;"></div><div class="wave-bar" style="height:85%;"></div><div class="wave-bar" style="height:40%;"></div><div class="wave-bar" style="height:60%;"></div><div class="wave-bar" style="height:75%;"></div><div class="wave-bar" style="height:90%;"></div><div class="wave-bar" style="height:55%;"></div><div class="wave-bar" style="height:65%;"></div><div class="wave-bar" style="height:80%;"></div><div class="wave-bar" style="height:45%;"></div><div class="wave-bar" style="height:70%;"></div><div class="wave-bar" style="height:30%;"></div><div class="wave-bar" style="height:50%;"></div><div class="wave-bar" style="height:85%;"></div><div class="wave-bar" style="height:60%;"></div><div class="wave-bar" style="height:40%;"></div>
+              </div>
+              <!-- Playback controls -->
+              <div class="flex items-center justify-between mt-8">
+                <div class="flex gap-8">
+                  <button class="btn btn-ghost btn-sm">⏮</button>
+                  <button class="btn btn-primary btn-sm">▶ Play</button>
+                  <button class="btn btn-ghost btn-sm">⏭</button>
+                </div>
+                <div class="text-mono text-sm">0:14 / 2:34 &nbsp;·&nbsp; BPM: 104 &nbsp;·&nbsp; Key: Am</div>
+                <div class="flex gap-8">
+                  <button class="btn btn-ghost btn-sm">🔁 Loop</button>
+                  <button class="btn btn-ghost btn-sm">🎚 Volume</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Trim controls -->
+            <div class="grid-2">
+              <div class="input-group">
+                <label class="input-label">Start Point</label>
+                <input class="input" type="text" value="0:14" style="font-family:'IBM Plex Mono',monospace;">
+              </div>
+              <div class="input-group">
+                <label class="input-label">End Point</label>
+                <input class="input" type="text" value="0:44" style="font-family:'IBM Plex Mono',monospace;">
+              </div>
+            </div>
+
+            <div class="grid-3" style="gap:10px; margin-bottom:12px;">
+              <div class="input-group" style="margin-bottom:0;">
+                <label class="input-label">Fade In</label>
+                <select class="select"><option>0.5s</option><option>1s</option><option>2s</option><option>None</option></select>
+              </div>
+              <div class="input-group" style="margin-bottom:0;">
+                <label class="input-label">Fade Out</label>
+                <select class="select"><option>1s</option><option>2s</option><option>0.5s</option><option>None</option></select>
+              </div>
+              <div class="input-group" style="margin-bottom:0;">
+                <label class="input-label">Auto-Fit to Video</label>
+                <button class="btn btn-teal w-full">✂️ Fit to 30s</button>
+              </div>
+            </div>
+
+            <div class="flex gap-8">
+              <button class="btn btn-primary" style="flex:1;">💾 Save Trim</button>
+              <button class="btn btn-ghost">Preview Trimmed</button>
+              <button class="btn btn-ghost">↗ Open in DJ Mixer</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — Music Studio Connections</div>
+    <div class="annotation-text">
+      · 9 tabs across the top: AI Generator, Library, Trimmer, DJ Mixer, Audio Cleaner, Recorder, Sync Tool, Stems, Platform<br>
+      · Each tab swaps the content area below — the sidebar and topbar never change<br>
+      · "Attach to Video →" button: opens a modal to select which video project to attach this track to. The video project in Commercial Maker or Free Mode is updated with this track reference<br>
+      · "↗ Open in DJ Mixer" button: switches to the DJ Mixer tab WITH this track pre-loaded as Layer 1<br>
+      · "← Back to Library" button: switches to Library tab without losing trim progress (auto-saved to state)
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 5. REVIEW QUEUE -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">SCREEN 5 — REVIEW QUEUE (Central Approval Hub)</div>
+  <div class="screen-label">Route: /review-queue &nbsp;·&nbsp; 3 items pending</div>
+
+  <div class="app-shell">
+    <div class="titlebar">
+      <div class="win-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+      <div class="titlebar-url"><div class="url-bar">localhost:3200/review-queue</div></div>
+      <div class="titlebar-right"><span class="pill pill-amber">3 Pending</span></div>
+    </div>
+
+    <div class="app-body">
+      <div class="sidebar sidebar-std">
+        <div class="sidebar-logo"><div class="logo-icon">🎬</div><div><div class="logo-text">GioHomeStudio</div><div class="logo-sub">Content Studio</div></div></div>
+        <div class="nav-section"><div class="nav-section-label">Create</div><div class="nav-item"><div class="nav-icon">🏠</div> Home + Studio</div><div class="nav-item"><div class="nav-icon">📽️</div> Commercial Maker</div><div class="nav-item"><div class="nav-icon">✨</div> Free Mode</div></div>
+        <div class="nav-section"><div class="nav-section-label">Content</div><div class="nav-item active"><div class="nav-icon">📋</div> Review Queue <span class="nav-badge">3</span></div><div class="nav-item"><div class="nav-icon">📁</div> All Content</div><div class="nav-item"><div class="nav-icon">🖼️</div> Asset Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">Audio & Voice</div><div class="nav-item"><div class="nav-icon">🎵</div> Music Studio</div><div class="nav-item"><div class="nav-icon">👤</div> Characters</div><div class="nav-item"><div class="nav-icon">🔊</div> SFX Library</div></div>
+        <div class="nav-section"><div class="nav-section-label">AI & Models</div><div class="nav-item"><div class="nav-icon">🤖</div> AI Models</div><div class="nav-item"><div class="nav-icon">🎞️</div> Video Tools</div><div class="nav-item"><div class="nav-icon">✂️</div> Video Trimmer</div></div>
+        <div class="nav-section"><div class="nav-section-label">Insights</div><div class="nav-item"><div class="nav-icon">📊</div> Analytics</div><div class="nav-item"><div class="nav-icon">💰</div> Budget</div></div>
+        <div class="sidebar-footer">
+          <div class="credit-widget mb-8"><div class="credit-icon">💳</div><div class="credit-info"><div class="credit-amount">$18.40</div><div class="credit-label">Credit Balance</div></div><button class="btn btn-teal btn-sm">+ Add</button></div>
+          <div class="user-row"><div class="user-avatar">H</div><div><div class="user-name">Henry</div><div class="user-plan">Creator Plan</div></div></div>
+        </div>
+      </div>
+
+      <div class="main">
+        <div class="page-topbar">
+          <div class="page-topbar-left">
+            <div class="page-topbar-title">📋 Review Queue</div>
+            <div class="page-topbar-desc">Approve before publishing to social platforms</div>
+          </div>
+          <button class="btn btn-ghost btn-sm">✅ Approve All</button>
+          <button class="btn btn-danger btn-sm">🗑 Reject All</button>
+        </div>
+
+        <div class="content">
+          <div class="alert alert-warning mb-12">
+            <span>⚠️</span>
+            <span>3 items waiting for your review. Nothing publishes without your approval.</span>
+          </div>
+
+          <!-- Review item 1 -->
+          <div class="card mb-12">
+            <div class="flex items-center justify-between mb-12">
+              <div class="flex items-center gap-12">
+                <div class="media-thumb" style="width:140px; height:79px; border-radius:8px; font-size:28px;">🏢</div>
+                <div>
+                  <div style="font-size:14px; font-weight:700;">StreetEdge Spring Ad — 30s</div>
+                  <div class="text-sm mt-8">Commercial · 9:16 · Kling 2.5 Pro · Generated 20 min ago</div>
+                  <div style="display:flex; gap:6px; margin-top:6px;">
+                    <span class="tag tag-amber">Pending Review</span>
+                    <span class="tag tag-purple">Facebook</span>
+                    <span class="tag tag-pink">Instagram</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-8">
+                <button class="btn btn-ghost">▶ Preview</button>
+                <button class="btn btn-ghost">✏️ Edit</button>
+                <button class="btn btn-danger btn-sm">✕ Reject</button>
+                <button class="btn btn-primary">✓ Approve & Publish</button>
+              </div>
+            </div>
+            <div class="flex items-center gap-8">
+              <div class="text-sm">Music: <strong style="color:var(--text)">Lagos Night Drive</strong> · 0:14–0:44</div>
+              <div class="text-sm">·</div>
+              <div class="text-sm">Voice: <strong style="color:var(--text)">Nigerian Polished (ElevenLabs)</strong></div>
+              <div class="text-sm">·</div>
+              <div class="text-sm">Cost: <strong style="color:var(--text)">$0.35</strong></div>
+            </div>
+          </div>
+
+          <!-- Review item 2 -->
+          <div class="card mb-12">
+            <div class="flex items-center justify-between mb-12">
+              <div class="flex items-center gap-12">
+                <div class="media-thumb" style="width:140px; height:79px; border-radius:8px; font-size:28px;">⚔️</div>
+                <div>
+                  <div style="font-size:14px; font-weight:700;">Sons of Broken Crown — Ep. 6 Trailer</div>
+                  <div class="text-sm mt-8">Series · 16:9 · Veo 3.1 · Generated 1h ago</div>
+                  <div style="display:flex; gap:6px; margin-top:6px;">
+                    <span class="tag tag-amber">Pending Review</span>
+                    <span class="tag tag-green">YouTube</span>
+                    <span class="tag tag-purple">Facebook</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex gap-8">
+                <button class="btn btn-ghost">▶ Preview</button>
+                <button class="btn btn-ghost">✏️ Edit</button>
+                <button class="btn btn-danger btn-sm">✕ Reject</button>
+                <button class="btn btn-primary">✓ Approve & Publish</button>
+              </div>
+            </div>
+            <div class="flex items-center gap-8">
+              <div class="text-sm">Music: <strong style="color:var(--text)">Epic Drums — AI Generated</strong></div>
+              <div class="text-sm">·</div>
+              <div class="text-sm">Voice: <strong style="color:var(--text)">Yoruba Storyteller</strong></div>
+              <div class="text-sm">·</div>
+              <div class="text-sm">Cost: <strong style="color:var(--text)">$0.80</strong></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — Review Queue Connections</div>
+    <div class="annotation-text">
+      · Every AI generation (image or video) from any screen automatically lands here with status "Pending Review"<br>
+      · "✓ Approve & Publish" → publishes to the selected platforms AND moves the item to /all-content with status "Published"<br>
+      · "✕ Reject" → removes from queue. User can regenerate from the original project<br>
+      · "✏️ Edit" → opens the source screen (Commercial Maker or Free Mode) for this item in edit mode<br>
+      · "▶ Preview" → opens a full-screen video modal over the current page (does not navigate away)<br>
+      · The "3" badge on the sidebar nav item decrements by 1 each time an item is approved or rejected
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 6. FULL USER JOURNEY MAP -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">THE CONNECTED FLOW — How All Screens Link</div>
+
+  <div class="card" style="border-color: rgba(0,229,195,0.3); background: rgba(0,229,195,0.04);">
+    <div class="card-title" style="font-size:14px; color:var(--accent3);">📍 Complete User Journey Map</div>
+    <div class="card-sub mb-16">Every arrow is a real clickable connection. Nothing is a dead end.</div>
+
+    <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px; align-items:start;">
+      <div>
+        <div class="flow-box" style="border-color:rgba(108,99,255,0.4); background:rgba(108,99,255,0.08);">
+          <div class="flow-icon">🏠</div>
+          <div class="flow-name">Dashboard</div>
+          <div class="flow-sub">/dashboard</div>
+        </div>
+        <div style="font-size:10px; color:var(--text3); text-align:center; margin-top:8px; line-height:1.7;">
+          Stats overview<br>Quick actions<br>Recent projects<br>System status
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div class="flow-box">
+          <div class="flow-icon">📽️</div>
+          <div class="flow-name">Commercial Maker</div>
+          <div class="flow-sub">4-step wizard</div>
+        </div>
+        <div class="flow-box">
+          <div class="flow-icon">✨</div>
+          <div class="flow-name">Free Mode</div>
+          <div class="flow-sub">Describe anything</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div class="flow-box" style="border-color:rgba(0,229,195,0.3); background:rgba(0,229,195,0.05);">
+          <div class="flow-icon">🎵</div>
+          <div class="flow-name">Music Studio</div>
+          <div class="flow-sub">9 sections</div>
+        </div>
+        <div class="flow-box" style="border-color:rgba(0,229,195,0.3); background:rgba(0,229,195,0.05);">
+          <div class="flow-icon">🤖</div>
+          <div class="flow-name">AI Models</div>
+          <div class="flow-sub">Select + generate</div>
+        </div>
+        <div class="flow-box" style="border-color:rgba(0,229,195,0.3); background:rgba(0,229,195,0.05);">
+          <div class="flow-icon">✂️</div>
+          <div class="flow-name">Video Trimmer</div>
+          <div class="flow-sub">Edit clips</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="flow-box" style="border-color:rgba(255,168,67,0.4); background:rgba(255,168,67,0.08);">
+          <div class="flow-icon">📋</div>
+          <div class="flow-name">Review Queue</div>
+          <div class="flow-sub">Approve before publish</div>
+        </div>
+        <div style="font-size:10px; color:var(--text3); text-align:center; margin-top:8px; line-height:1.7;">
+          All generated content<br>lands here first.<br>Nothing goes live<br>without approval.
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <div class="flow-box" style="border-color:rgba(34,209,138,0.3); background:rgba(34,209,138,0.05);">
+          <div class="flow-icon">📁</div>
+          <div class="flow-name">All Content</div>
+          <div class="flow-sub">Published library</div>
+        </div>
+        <div class="flow-box" style="border-color:rgba(34,209,138,0.3); background:rgba(34,209,138,0.05);">
+          <div class="flow-icon">📊</div>
+          <div class="flow-name">Analytics</div>
+          <div class="flow-sub">Views + performance</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Key flow descriptions -->
+    <div class="grid-3" style="gap:10px;">
+      <div style="background:var(--surface3); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-weight:700; color:var(--accent); margin-bottom:6px; letter-spacing:0.8px;">CREATION FLOW</div>
+        <div class="text-sm" style="line-height:2;">
+          Dashboard → Commercial Maker<br>
+          Step 3: picks music from Music Studio<br>
+          Generate → Review Queue<br>
+          Approve → All Content → Analytics
+        </div>
+      </div>
+      <div style="background:var(--surface3); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-weight:700; color:var(--accent3); margin-bottom:6px; letter-spacing:0.8px;">AUDIO FLOW</div>
+        <div class="text-sm" style="line-height:2;">
+          Music Studio → Trimmer<br>
+          → DJ Mixer (layers music + SFX)<br>
+          → Sync Tool (attaches to video)<br>
+          → Back to project automatically
+        </div>
+      </div>
+      <div style="background:var(--surface3); border-radius:8px; padding:10px 12px;">
+        <div style="font-size:10px; font-weight:700; color:var(--accent2); margin-bottom:6px; letter-spacing:0.8px;">CREDIT FLOW</div>
+        <div class="text-sm" style="line-height:2;">
+          User selects model → cost shown<br>
+          Confirms → generates<br>
+          Credit deducted immediately<br>
+          Balance in sidebar updates live
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- 7. GENERATION MODAL — Overlay Pattern -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="screen-group">
+  <div class="screen-group-title">COMPONENT — GENERATION MODAL (Overlay, not new page)</div>
+  <div class="screen-label">Appears over any screen when user clicks "Generate"</div>
+
+  <div style="background:rgba(0,0,0,0.7); border-radius:16px; padding:24px; display:flex; justify-content:center; border: 1px solid var(--border);">
+    <div style="background:var(--surface2); border:1px solid var(--border2); border-radius:16px; padding:24px; width:100%; max-width:520px; box-shadow:0 40px 80px rgba(0,0,0,0.8);">
+      <div class="flex items-center justify-between mb-16">
+        <div style="font-size:16px; font-weight:800;">⚡ Generate Image</div>
+        <button class="btn btn-ghost btn-sm">✕</button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Prompt</label>
+        <textarea class="textarea" style="min-height:80px;">A confident Nigerian businesswoman in a tailored suit, standing in modern Lagos office, golden hour light, professional headshot, 85mm lens</textarea>
+      </div>
+
+      <div class="grid-2" style="gap:10px; margin-bottom:14px;">
+        <div class="input-group" style="margin-bottom:0">
+          <label class="input-label">Model</label>
+          <select class="select"><option>Pruna P Image — FREE</option><option>Flux Dev — $0.08</option><option>Flux Pro Ultra — $0.18</option></select>
+        </div>
+        <div class="input-group" style="margin-bottom:0">
+          <label class="input-label">Format</label>
+          <select class="select"><option>Portrait 9:16</option><option>Square 1:1</option><option>Landscape 16:9</option></select>
+        </div>
+      </div>
+
+      <div class="card card-sm" style="background:var(--surface3); margin-bottom:16px;">
+        <div class="flex items-center justify-between">
+          <div>
+            <div style="font-size:11px; font-weight:700;">Cost Summary</div>
+            <div class="text-sm mt-8">Pruna P Image · 1 image · Free tier</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:18px; font-weight:800; color:var(--success);">FREE</div>
+            <div class="text-sm">2 free remaining today</div>
+          </div>
+        </div>
+        <div class="progress-bar mt-8">
+          <div class="progress-fill fill-green" style="width:33%"></div>
+        </div>
+        <div class="text-sm mt-8">1 of 3 free images used today</div>
+      </div>
+
+      <div class="flex gap-8">
+        <button class="btn btn-ghost" style="flex:1;">Cancel</button>
+        <button class="btn btn-primary" style="flex:2;">✨ Generate Now → goes to Review Queue</button>
+      </div>
+
+      <div class="callout mt-12">
+        <span class="callout-icon">ℹ️</span>
+        <span>After generation, your image will appear in the Review Queue. Nothing publishes without your approval.</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="annotation">
+    <div class="annotation-label">Claude Code Note — Modal Pattern</div>
+    <div class="annotation-text">
+      · This modal appears as an overlay over whichever screen the user is on. The page behind is dimmed but does not navigate away<br>
+      · The "Model" dropdown list is populated from the MODEL_REGISTRY in registry.js — same data source that powers /ai-models screen<br>
+      · "✕ close" and "Cancel" both close the modal with no action<br>
+      · "Generate Now" button: calls the generation API, shows a loading state, then closes modal and adds result to review queue<br>
+      · The credit balance in the sidebar behind the modal updates immediately after generation completes
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<!-- FOOTER -->
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div style="text-align:center; padding:40px 20px; color:var(--text3); font-size:11px; font-family:'IBM Plex Mono',monospace; border-top:1px solid var(--border); margin-top:40px;">
+  GioHomeStudio · Interface Mock v2.0 · For Claude Code<br><br>
+  <span style="color:var(--accent); opacity:0.7;">KEY RULE: One app shell. One sidebar. Content swaps on the right. All flows are connected.</span><br><br>
+  Owner: Henry · Lagos · All screens share the same sidebar component · Credits update live everywhere
+</div>
+
+</div><!-- mock-doc -->
+
+</body>
+</html>

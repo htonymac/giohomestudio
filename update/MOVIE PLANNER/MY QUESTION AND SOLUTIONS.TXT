@@ -1,0 +1,295 @@
+Yes — your question is valid, and you are spotting a real gap.
+
+The gap is this:
+
+If a user uploads a **full movie, episode, or scene**, GHS cannot jump straight to generation blindly. It first needs an **analysis pipeline** that turns the source into structured production data.
+
+That production data is what tells the system:
+
+* what is happening in the scene
+* who is speaking
+* what environment exists
+* what SFX may be needed
+* what background ambience is needed
+* what characters are present
+* whether existing characters should be reused or new ones should be built
+* what emotional tone and pacing the scene has
+
+So the real answer is:
+
+**It is the software’s job to analyze and structure this first.**
+Not the user’s job to do all the breakdown manually.
+
+But the software should still ask the user for missing creative decisions in a right sidebar or review panel.
+
+## The correct architecture
+
+When a user inputs a **full movie / episode / scene**, GHS should do this:
+
+### Step 1 — Ingest
+
+User uploads:
+
+* full movie
+* episode
+* single scene
+* script
+* subtitle file
+* audio only
+* supporting cast/character notes if available
+
+### Step 2 — Audit / Analyze
+
+GHS should analyze the input before generation.
+
+It should break it into:
+
+* scenes
+* sub-scenes / beats
+* dialogue groups
+* speaker turns
+* environment and setting
+* time of day
+* weather clues
+* motion/action cues
+* emotional tone
+* object interactions
+* ambience needs
+* likely SFX needs
+* character list
+* continuity requirements
+
+### Step 3 — Build structured production data
+
+This becomes the real source of truth.
+
+For each scene, GHS should create something like:
+
+* Scene title
+* Scene summary
+* Characters present
+* Dialogue blocks
+* Action blocks
+* Environment
+* Weather
+* Mood
+* Required ambience
+* Required SFX
+* Character continuity requirement
+* Props / objects
+* Camera intent if relevant
+* Music need
+* Silence / tension moments
+
+That is the missing layer you are talking about.
+
+## About SFX: if GHS does not have the right sound
+
+You are right again.
+
+If GHS does not already have the exact SFX needed, it needs a fallback chain.
+
+### SFX source order
+
+GHS should try this order:
+
+**1. Internal SFX library**
+
+* preloaded approved sound bank
+* common ambience
+* footsteps
+* rain
+* wind
+* market noise
+* crowd noise
+* doors
+* vehicles
+* animal sounds
+* room tone
+* city ambience
+
+**2. Tagged downloadable/free library**
+If not found internally, GHS should search an approved external library source and import what is needed.
+
+Examples of the type of sources the architecture should support:
+
+* licensed stock SFX library
+* approved free library
+* user-owned uploaded SFX pack
+
+**3. AI-generated SFX**
+If no good library result exists, GHS can generate synthetic SFX or ambience based on the analyzed scene description.
+
+**4. Human review fallback**
+If confidence is low, GHS should flag:
+
+* “SFX not confidently available”
+* “Needs user approval”
+* “Suggested replacement ambience ready”
+
+So the answer to “where would it get it from?” is:
+
+**from an SFX retrieval layer with fallback to external library or AI generation**
+
+## Whose work is it?
+
+This should be split clearly.
+
+### Software responsibility
+
+GHS should:
+
+* analyze uploaded movie/scene
+* break it into structured scene data
+* detect likely ambience and SFX
+* detect characters and continuity
+* detect dialogue groups
+* suggest missing assets
+* propose character creation if needed
+* retrieve or generate candidate SFX
+* prepare draft scene packages for review
+
+### User responsibility
+
+User should:
+
+* confirm creative direction
+* approve or correct detected characters
+* choose whether to reuse same character or create new one
+* approve SFX choices if needed
+* approve generated character designs
+* provide missing story/cast notes where the source is unclear
+
+So:
+**analysis is software work**
+**final creative confirmation is user work**
+
+## Character system you described
+
+Your idea is strong and should be formalized.
+
+If GHS detects characters from movie input, the sidebar should show:
+
+* detected cast
+* confidence level
+* reuse same character?
+* build new character?
+* import reference character?
+* generate character from scene/script info?
+
+Then the user can choose:
+
+* Use detected character
+* Import my own character
+* Let GHS build character
+* Build character with provided information
+* Edit before generation
+
+That character profile should include:
+
+* face/look
+* age range
+* outfit style
+* body type
+* voice profile if needed
+* personality notes
+* continuity tags
+* scene appearance history
+
+This matters because character info should feed:
+
+* visual generation
+* voice generation
+* SFX context
+* scene continuity
+* camera choices
+* dialogue identity
+
+## The right question to ask Claude Code
+
+You should ask him something like this:
+
+---
+
+We need to fix a major architecture gap in GHS for movie, episode, and scene-based generation.
+
+If a user uploads a full movie, episode, or single scene, the software should not jump directly into generation. It should first run a strong analysis/audit pipeline.
+
+I want GHS to do this:
+
+1. Ingest the uploaded source
+
+   * full movie
+   * episode
+   * scene
+   * script
+   * subtitle/audio if available
+
+2. Analyze and break it down into structured production data:
+
+   * scenes
+   * sub-scenes / beats
+   * dialogue groups
+   * speaker turns
+   * characters present
+   * actions
+   * environment
+   * weather
+   * ambience needs
+   * SFX needs
+   * mood
+   * props / objects
+   * continuity notes
+
+3. For each scene, build a scene package that becomes source-of-truth for generation:
+
+   * scene summary
+   * cast in scene
+   * dialogue blocks
+   * action blocks
+   * ambience
+   * required SFX
+   * music need
+   * visual style notes
+   * continuity requirements
+
+4. Add an SFX retrieval/generation layer.
+   If GHS does not already have the required SFX, it should:
+
+   * first check internal SFX library
+   * then check approved external/library sources
+   * then use AI-generated SFX/ambience if needed
+   * then flag low-confidence cases for user review
+
+5. Add a right sidebar / review panel for movie information:
+
+   * detected cast
+   * environment
+   * scene metadata
+   * mood
+   * ambience/SFX suggestions
+   * continuity info
+
+6. Add character workflow:
+
+   * if character is detected, user can choose reuse same character
+   * or import character
+   * or let GHS build character from available information
+   * add button options like:
+
+     * Build Character
+     * Build from Provided Information
+     * Import Character
+     * Reuse Existing Character
+
+7. Character generation must happen early enough to inform:
+
+   * scene generation
+   * SFX context
+   * voice identity
+   * continuity across scenes
+
+Main question:
+How should we architect this analysis → scene package → character system → SFX retrieval/generation pipeline cleanly inside GHS without breaking the current Studio flow?
+
+I want this planned as a proper system, not as scattered features.

@@ -14,6 +14,8 @@ const VALID_STATUSES = new Set<ContentStatus>([
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const rawStatus = searchParams.get("status");
+  const mode = searchParams.get("mode") ?? undefined;
+  const search = searchParams.get("search") ?? undefined;
   const limit = parseInt(searchParams.get("limit") ?? "50", 10);
   const offset = parseInt(searchParams.get("offset") ?? "0", 10);
 
@@ -21,7 +23,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: `Invalid status: ${rawStatus}` }, { status: 400 });
   }
 
+  const rawExclude = searchParams.get("excludeStatus");
+  const excludeStatus = rawExclude as ContentStatus | null;
+  const renderedOnly = searchParams.get("renderedOnly") === "1";
+
   const status = rawStatus as ContentStatus | null;
-  const items = await listContentItems({ status: status ?? undefined, limit, offset });
-  return NextResponse.json({ items, total: items.length });
+  const result = await listContentItems({ status: status ?? undefined, excludeStatus: excludeStatus ?? undefined, renderedOnly, mode, search, limit, offset });
+  return NextResponse.json({ items: result.items, total: result.total });
 }

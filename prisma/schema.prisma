@@ -7,6 +7,120 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Auth Models ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String    @id @default(cuid())
+  name            String?
+  email           String?   @unique
+  emailVerified   DateTime?
+  image           String?
+  passwordHash    String?   // null for OAuth-only users
+  phone           String?
+  role            String    @default("user") // user | admin
+  termsAcceptedAt DateTime?
+  termsVersion    String?   // e.g. "1.0"
+  // ── Finance Phase 2: credit tracking ────────────────────────────────
+  tier             String    @default("FREE")  // FREE|STARTER|PRO|PREMIUM
+  creditBalance    Int       @default(100)     // default Free tier credits
+  billingCountry   String?
+  paddleCustomerId String?   @unique
+  autoTopUp        Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  subscriptions   Subscription[]
+  transactions    CreditTransaction[]
+
+  @@map("users")
+}
+
+// ── Finance Phase 2: subscriptions & credit ledger ──────────────────────
+model Subscription {
+  id                    String    @id @default(cuid())
+  userId                String
+  paddleSubscriptionId  String?   @unique
+  tier                  String    // STARTER|PRO|PREMIUM
+  status                String    // active|paused|canceled|past_due
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean   @default(false)
+  createdAt             DateTime  @default(now())
+  user                  User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+model CreditTransaction {
+  id              String    @id @default(cuid())
+  userId          String
+  type            String    // deposit|deduct|refund|bonus|reserve
+  amount          Int       // positive; sign interpreted by type
+  reason          String    // "tier_renewal" | "topup" | "generation:<tool>:<modelId>"
+  costToHenry     Float?    // USD Henry paid provider
+  modelUsed       String?
+  generationRef   String?
+  balanceAfter    Int       // snapshot of user balance after this txn
+  createdAt       DateTime  @default(now())
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("credit_transactions")
+}
+
+model PaddleEvent {
+  id              String    @id @default(cuid())
+  paddleEventId   String    @unique
+  eventType       String
+  payload         Json
+  processed       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  @@map("paddle_events")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ── Business Models ─────────────────────────────────────────────────────────
+
 model DestinationPage {
   id           String        @id @default(cuid())
   name         String
@@ -27,10 +141,48 @@ model ContentItem {
   status            ContentStatus    @default(PENDING)
   originalInput     String
   enhancedPrompt    String?
-  requestedVideoProvider String?
-  videoProvider          String?
-  voiceProvider          String?
-  musicProvider          String?
+  narrationScript   String?   // natural spoken text used for voice generation (not cinematic description)
+  supervisorPlan    Json?     // stored OrchestrationPlan from local LLM supervisor
+  voiceSource       String?   // "generated" | "uploaded" | "fallback" | "stock" | "manual"
+  musicSource       String?   // "generated" | "uploaded" | "fallback" | "stock" | "pixabay" | "manual"
+  requestedVideoProvider   String?
+  videoProvider            String?
+  voiceProvider            String?
+  requestedVoiceProvider   String?   // user-selected voice provider: "elevenlabs" | "mock_voice"
+  voiceId                  String?   // requested ElevenLabs voice ID
+  voiceLanguage            String?   // language hint e.g. "en", "es", "fr"
+  narrationSpeed           Float?    // speech rate 0.7-1.2, default 1.0
+  narrationVolume          Float?    // voice level in FFmpeg mix 0.0-1.0, default 1.0
+  outputMode               String?   // "text_to_video" | "text_to_audio" | "images_audio" | "hybrid" | "video_to_video"
+  audioMode                String?   // "voice_music" | "voice_only" | "music_only" | "audio_only"
+  castingCharacters        String[]  // character names selected for this generation
+  musicProvider            String?
+  requestedMusicProvider   String?   // user-selected music provider
+  musicVolume              Float?    // music ducking level 0.0-1.0, default 0.85
+  musicGenre               String?   // cinematic | electronic | acoustic | orchestral | ambient | hip_hop
+  musicRegion              String?   // global | western | latin | asian | middle_eastern | african
+  videoQuality             String?   // draft | standard | high
+  videoType                String?   // cinematic | ad_promo | realistic | animation | storytelling | social_short
+  visualStyle              String?   // photorealistic | stylized | anime | 3d | cinematic_dark | bright_commercial
+  subjectType              String?   // human | animal | product | scene_only | custom_character
+  customSubjectDescription String?
+  aiAutoMode               Boolean   @default(true)
+  aspectRatio              String?   // "9:16" | "16:9" | "1:1" — output format, drives preview framing
+  castingEthnicity         String?   // african | black | white | asian | arab | mixed | auto
+  castingGender            String?   // male | female | nonbinary | mixed_gender
+  castingAge               String?   // child | teen | young_adult | adult | senior
+  castingCount             String?   // solo | duo | group | crowd
+  cultureContext           String?   // african | arab | asian | latin | western | global
+  referenceImageUrl        String?   // URL of a visual reference image
+  storyContext             String?   // story context/continuation brief passed to the prompt enhancer
+  previousContentItemId    String?   // ID of the item this scene continues from
+  storyThreadId            String?   // shared thread ID linking scenes in the same story
+  voiceLocale              String?   // en-NG-polished, en-GH-standard, etc.
+  voiceAccentSubtype       String?   // yoruba, igbo, hausa, standard, polished
+  voiceDeliveryStyle       String?   // commercial, storytelling, news_anchor, etc.
+  voiceMatchType           String?   // exact, close, library, generic
+  voiceCustomInstruct      String?   // user's custom narration instruction
+  overlayLayers            Json?     // array of OverlayLayer objects applied to the video
   videoPath         String?
   voicePath         String?
   musicPath         String?
@@ -43,11 +195,60 @@ model ContentItem {
   updatedAt         DateTime         @updatedAt
   approvedAt        DateTime?
   rejectedAt        DateTime?
+  scheduledAt       DateTime?
+  publishedAt       DateTime?
+  lastPostedAt      DateTime?
+  repostCount       Int              @default(0)
+  repostCooldownDays Int?            // minimum days between reposts
+  repostEligible    Boolean          @default(false)
   versions          ContentVersion[]
   jobs              Job[]
   reviewActions     ReviewAction[]
 
   @@map("content_items")
+}
+
+// Character voice registry — maps character names to specific ElevenLabs voices
+// Used for multi-voice dialogue to ensure consistent casting across episodes.
+// Extended in Pass D: full character profile with image, visual description, role, default speech style.
+model CharacterVoice {
+  id                 String   @id @default(cuid())
+  characterId        String?  // format: COUNTRY_NAMEageATTRIBUTE e.g. US_JAMES57BLACK1, NG_TUNDE38FAIRBLACK
+  name               String   @unique  // character name e.g. "JOHN", "NARRATOR", "MAMA"
+  gender             String?  // "male" | "female" | "boy" | "girl"
+  toneClass          String?  // "bass" | "tenor" | "soft" | "commanding" | "elder" | "youthful"
+  accent             String?  // "american" | "british" | "african" | "nigerian" | "neutral"
+  language           String?  // "en" | "pidgin" | "yo" | "ig" | "ha"
+  voiceId            String?  // ElevenLabs voice ID
+  voiceName          String?  // human-readable voice name for display
+  isNarrator         Boolean  @default(false)
+  notes              String?
+  // Pass D — full character profile
+  imageUrl           String?  // URL to character portrait image
+  visualDescription  String?  // appearance/style for prompt injection e.g. "tall Nigerian man in agbada"
+  role               String?  // protagonist | antagonist | narrator | supporting | comic_relief | elder | child
+  defaultSpeechStyle String?  // normal | whisper | emotional | commanding | trembling
+  // Multi-angle reference images for video generation consistency
+  referenceImages    Json?    // [{url: string, angle: string, label: string}]
+  // Character Pack — extended profile
+  age                String?  // "child" | "teen" | "young_adult" | "adult" | "elder"
+  height             String?  // "short" | "average" | "tall"
+  culture            String?  // cultural background
+  country            String?  // country of origin
+  dialect            String?  // specific dialect
+  personality        String?  // personality traits summary
+  wardrobe           String?  // default clothing/outfit description
+  hairstyle          String?  // hair description
+  expressions        Json?    // [{emotion: string, imageUrl: string}] — happy, sad, angry, surprised
+  posePack           Json?    // [{pose: string, imageUrl: string}] — front, side, three_quarter, full_body
+  motionReference    String?  // URL to motion reference video
+  keepSameToggle     Boolean  @default(true) // maintain appearance across scenes
+  voiceProvider      String?  // "piper" | "elevenlabs" | "user_upload"
+  projectAssociation String?  // linked project ID
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@map("character_voices")
 }
 
 model ContentVersion {
@@ -139,6 +340,7 @@ enum ContentStatus {
 
 enum ContentMode {
   FREE
+  COMMERCIAL
 }
 
 enum PagePlatform {
@@ -177,4 +379,713 @@ enum AlertStatus {
   PENDING
   SENT
   FAILED
+}
+
+// ── Free Mode History ─────────────────────────────────────────────────────────
+
+model FreeModeHistory {
+  id             String   @id @default(cuid())
+  rawPrompt      String
+  enhancedPrompt String?
+  mode           String
+  motionSub      String?
+  aspect         String   @default("9:16")
+  duration       Int      @default(10)
+  language       String   @default("en")
+  style          String?
+  audioMode      String   @default("voice_music")
+  aiModel        String   @default("haiku")
+  status         String   @default("generating") // generating | done | error
+  resultType     String   @default("job")        // image | job
+  resultUrl      String?
+  errorMsg       String?
+  contentItemId  String?
+  uploadedPaths  String[]
+  refImagePaths  String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("free_mode_history")
+}
+
+// ── Commercial Maker ───────────────────────────────────────────────────────────
+
+model CommercialProject {
+  id                String            @id @default(cuid())
+  projectName       String
+  aspectRatio       String            @default("9:16")   // "9:16" | "16:9" | "1:1"
+  brandName         String?
+  brandLogoPath     String?
+  colorAccent       String?
+  tagline           String?
+  ctaMethod            String?           // "whatsapp" | "call" | "telegram"
+  ctaValue             String?           // primary phone or handle
+  ctaValueSecondary    String?           // secondary phone number
+  ctaLabel             String?
+  voiceId              String?           // ElevenLabs voice ID for narration
+  voiceLanguage        String?           // accent/language hint passed to TTS
+  targetDurationSec    Int?              // desired total commercial length in seconds
+  autoDistribute       Boolean           @default(false)  // divide targetDurationSec evenly across slides
+  captionMaxWords      Int               @default(8)      // AI caption generation limit (words)
+  captionMaxChars      Int?              // optional character limit for AI caption generation
+  transitionType        String?           // "fade" | "slide-left" | "slide-right" | "zoom-in" | null = none
+  transitionDurationSec Float?            // transition duration in seconds (default 0.5)
+  globalCaptionPosition String?           // "top" | "center" | "bottom" — overrides all per-slide positions when set
+  renderQuality         String?           // "draft" | "standard" | "high" | "cinema" — controls CRF + preset
+  musicPath            String?           // path to music file (uploaded or stock)
+  musicSource          String?           // "uploaded" | "stock" | "pixabay"
+  musicVolume          Float             @default(0.85)
+  narrationVolume      Float             @default(1.0)   // voice level in final FFmpeg mix 0.0-2.0
+  narrationScript      String?           // full narration text (assembled from slide narrationLines)
+  enhancementPreset    String?           // "cinematic" | "hdr" | "natural" | "clean_social" | "warm_promo"
+  enhancementLevel     Int?              // global enhancement level 1-100 (applied to all slides)
+  renderStatus      String            @default("draft")  // "draft" | "rendering" | "ready" | "failed"
+  contentItemId     String?           // linked ContentItem when rendered
+  destinationPageId String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  slides            CommercialSlide[]
+
+  @@map("commercial_projects")
+}
+
+model CommercialSlide {
+  id                  String             @id @default(cuid())
+  projectId           String
+  slideOrder          Int
+  imagePath           String?            // absolute path to uploaded image
+  imageFileName       String?            // original filename for display
+  captionOriginal     String?
+  captionPolished     String?
+  captionApproved     Boolean            @default(false)
+  narrationLine       String?            // spoken text for this slide
+  durationMs          Int                @default(3000)   // how long to show this slide
+  brandingEnabled     Boolean            @default(false)
+  enhancementSettings Json?              // per-slide overrides: {brightness, contrast, saturation}
+  status              String             @default("draft") // "draft" | "ready" | "missing_media"
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  project             CommercialProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("commercial_slides")
+}
+
+// ── Story Bank ────────────────────────────────────────────────────────────────
+
+model StoryIdea {
+  id              String   @id @default(cuid())
+  title           String
+  body            String?
+  tags            String   @default("") // comma-separated
+  rating          Int      @default(0)  // 0-5 stars
+  mode            String?  // FREE, COMMERCIAL, SERIES
+  platform        String?  // youtube, instagram, tiktok
+  status          String   @default("idea") // idea, scripted, in_production, used
+  usedInContentId String?
+  expandedText    String?  @db.Text // AI-expanded full story
+  brainstormLog   Json?    // [{role, content, timestamp}]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("story_ideas")
+}
+
+// ── A/B Testing ───────────────────────────────────────────────────────────────
+
+model ABTest {
+  id              String       @id @default(cuid())
+  name            String       // "Homepage reel — title test"
+  contentItemId   String       // source content item
+  status          String       @default("active") // active, paused, completed
+  winnerVariantId String?      // which variant won
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  variants        ABVariant[]
+
+  @@map("ab_tests")
+}
+
+model ABVariant {
+  id           String   @id @default(cuid())
+  testId       String
+  label        String   // "A", "B", "C"
+  title        String?  // different title
+  caption      String?  // different caption
+  thumbnailUrl String?  // different thumbnail
+  hashtags     String?  // different tags
+  views        Int      @default(0)
+  clicks       Int      @default(0)
+  engagement   Float    @default(0) // engagement rate %
+  isWinner     Boolean  @default(false)
+  publishedAt  DateTime?
+  platform     String?  // where this variant was published
+  postUrl      String?
+  createdAt    DateTime @default(now())
+  test         ABTest   @relation(fields: [testId], references: [id], onDelete: Cascade)
+
+  @@map("ab_variants")
+}
+
+// ── Ad Image Editor ──────────────────────────────────────────────────────────
+
+model AdProject {
+  id              String          @id @default(cuid())
+  name            String          @default("Untitled Ad")
+  type            AdProjectType   @default(AD)
+  canvasWidth     Int             @default(1080)
+  canvasHeight    Int             @default(1080)
+  background      String          @default("#FFFFFF")
+  backgroundFinish String         @default("none")  // "none" | "matte" | "gloss"
+  gradient        String?         // CSS gradient string if used
+  templateId      String?         // which ad template was used to start
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  layers          AdLayer[]
+  assets          AdAsset[]
+  aiJobs          AIEditJob[]
+
+  @@map("ad_projects")
+}
+
+model AdLayer {
+  id          String     @id @default(cuid())
+  projectId   String
+  type        String     // "image" | "text" | "whatsapp" | "cta" | "price" | "shape"
+  positionX   Float      @default(0)
+  positionY   Float      @default(0)
+  width       Float      @default(200)
+  height      Float      @default(60)
+  rotation    Float      @default(0)
+  zIndex      Int        @default(0)
+  locked      Boolean    @default(false)
+  visible     Boolean    @default(true)
+  content     String     @default("")   // text content or image URL
+  style       Json       @default("{}")  // LayerStyle as JSON
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  project     AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ad_layers")
+}
+
+model AdAsset {
+  id          String     @id @default(cuid())
+  projectId   String
+  sourceType  String     // "upload" | "ai_edit" | "ai_generate" | "library" | "bg_remove"
+  originalUrl String?    // original image before edits
+  currentUrl  String     // current version URL
+  fileName    String?
+  mimeType    String?
+  sizeBytes   Int?
+  metadata    Json       @default("{}")
+  createdAt   DateTime   @default(now())
+  project     AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ad_assets")
+}
+
+model AIEditJob {
+  id             String     @id @default(cuid())
+  projectId      String
+  mode           String     // "ad" | "movie" | "banner" | "text_to_image"
+  editType       String     // "bg_remove" | "bg_replace" | "style_transfer" | "generate" | "upscale" | "inpaint" | "outpaint"
+  originalPrompt String
+  enhancedPrompt String?
+  provider       String?    // "fal_ai" | "segmind" | "remove_bg"
+  inputAssetId   String?    // source AdAsset ID
+  outputAssetId  String?    // result AdAsset ID
+  outputUrl      String?
+  status         AIEditStatus @default(QUEUED)
+  error          String?
+  createdAt      DateTime   @default(now())
+  completedAt    DateTime?
+  project        AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("ai_edit_jobs")
+}
+
+enum AdProjectType {
+  AD
+  BANNER
+  FLYER
+  MOVIE_POSTER
+  EVENT
+}
+
+enum AIEditStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+// ── Movie & Series Planner Models ───────────────────────────────────────────
+
+model MovieProject {
+  id              String        @id @default(cuid())
+  title           String        @default("Untitled Movie")
+  idea            String        // short user input
+  expandedStory   String?       // optional longer description
+  genre           String?
+  style           String?       // storytelling style
+  format          String?       // output format (audio_only, audio_image, etc.)
+  productionMode  String?
+  planningDepth   String?       @default("smart")
+  tone            String?
+  setting         String?
+  duration        String?       @default("10 min")
+  language        String?       @default("English")
+  summary         String?       // AI-generated movie summary
+  storyArc        Json?         // { setup, tension, climax, resolution }
+  soundPlan       String?
+  musicDirection  String?
+  visualDirection String?
+  continuityNotes Json?         // string[]
+  missingAssets   Json?         // string[]
+  reviewerNotes   Json?         // string[]
+  estimatedCredits Int?         @default(0)
+  status          MovieStatus   @default(DRAFT)
+  cast            Json?         // [{ characterId, role }]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  scenes          MovieScene[]
+
+  @@map("movie_projects")
+}
+
+model MovieScene {
+  id                String    @id @default(cuid())
+  projectId         String
+  scene             Int       // scene number / order
+  title             String
+  goal              String?
+  duration          String?
+  characters        Json?     // string[] of character names
+  visualDescription String?
+  cameraDirection   String?
+  dialogue          String?
+  soundEffects      String?
+  ambience          String?
+  musicCue          String?
+  generationMethod  String?   // image, video, image-to-video, audio-only, hybrid
+  costLabel         String?   // cheap, balanced, premium
+  status            String    @default("planned") // planned, approved, generating, generated, needs_edit, blocked
+  generatedAssetUrl String?   // URL to generated video/image
+  generatedAudioUrl String?   // URL to generated audio for this scene
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  project           MovieProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("movie_scenes")
+}
+
+enum MovieStatus {
+  DRAFT
+  PLANNING
+  SCENES_READY
+  RENDERING
+  RENDERED
+  ASSEMBLED
+  EXPORTED
+}
+
+// ── Music Video Projects ────────────────────────────────────────────────────
+
+model MusicVideoProject {
+  id              String    @id @default(cuid())
+  title           String    @default("Untitled Music Video")
+  songTitle       String?
+  songUrl         String?
+  lyrics          String?
+  videoMode       String?   // official, lyric, visualizer, commercial, performance, dance, children, image-mv
+  visualStyle     String?
+  artistName      String?
+  status          String    @default("draft") // draft, planned, rendering, rendered, assembled
+  musicProfile    Json?     // from intelligence analysis
+  storyboard      Json?     // scene array
+  motionboard     Json?     // energy curve
+  recommendations Json?
+  renderedVideoUrl String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("music_video_projects")
+}
+
+// ── Protection & Metadata Foundation (from Support Canvas) ──────────────────
+
+// Sound Asset Record — tracks every sound with license info
+model SoundAsset {
+  id                String    @id @default(cuid())
+  title             String
+  creatorName       String?
+  sourcePlatform    String?   // "internal" | "freesound" | "pixabay" | "mixkit" | "user_upload" | "ai_generated"
+  sourceUrl         String?
+  licenseType       String    @default("owned") // "owned" | "cc0" | "cc_by" | "cc_by_nc" | "unknown"
+  requiresAttribution Boolean @default(false)
+  commercialAllowed Boolean   @default(true)
+  attributionText   String?   // e.g. '"Rain on Window" by Jane Doe, used under CC BY 4.0'
+  localFilename     String?
+  cacheStatus       String    @default("local") // "local" | "cached" | "remote"
+  usageBucket       String    @default("owned") // "owned" | "cc0" | "cc_by" — NO cc_by_nc in production
+  tags              Json?     // string[]
+  duration          Float?    // seconds
+  qualityRating     Int?      // 1-5
+  category          String?   // "sfx" | "music" | "ambience" | "foley"
+  blocked           Boolean   @default(false) // true if license doesn't allow production use
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  usages            ProjectSoundUsage[]
+
+  @@map("sound_assets")
+}
+
+// Project Sound Usage Record — tracks which sounds are used in which project
+model ProjectSoundUsage {
+  id                String    @id @default(cuid())
+  projectId         String    // movie/music-video/commercial project ID
+  projectType       String    // "movie" | "music_video" | "commercial" | "content"
+  assetId           String
+  usageType         String    // "background_music" | "sfx" | "ambience" | "narration_bed"
+  attributionIncluded Boolean @default(false)
+  commercialContext Boolean   @default(false) // true if used in commercial/ad content
+  exportEligible    Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  asset             SoundAsset @relation(fields: [assetId], references: [id])
+
+  @@map("project_sound_usages")
+}
+
+// Rights Confirmation Record — logs every rights check the user confirms
+model RightsConfirmation {
+  id                String    @id @default(cuid())
+  projectId         String?
+  projectType       String?
+  confirmationType  String    // "likeness" | "voice" | "commercial" | "third_party_media" | "endorsement"
+  confirmationText  String    // the exact text user agreed to
+  acceptedVersion   String    @default("1.0")
+  ipAddress         String?
+  createdAt         DateTime  @default(now())
+
+  @@map("rights_confirmations")
+}
+
+// Audit Log Record — tracks critical trust and assembly events
+model AuditLog {
+  id                String    @id @default(cuid())
+  eventType         String    // "upload_approved" | "export_approved" | "rights_confirmed" | "sound_used" | "render_started" | "assembly_completed"
+  projectId         String?
+  projectType       String?
+  details           Json?     // flexible event-specific data
+  soundAssetId      String?   // if event involves a sound
+  licenseType       String?   // license of sound used
+  attributionGenerated String? // attribution text if generated
+  plannerTier       String?   // "standard" | "pro" | "premium" | "premium_best"
+  supervisorTier    String?
+  providerUsed      String?
+  assemblyJsonVersion String?
+  previewStatus     String?
+  renderStatus      String?
+  sourceType        String?   // "uploaded" | "generated" | "imported" | "local"
+  stayedLocal       Boolean   @default(true) // whether media stayed on device
+  createdAt         DateTime  @default(now())
+
+  @@map("audit_logs")
+}
+
+// Assembly Record — tracks assembly pipeline state
+model AssemblyRecord {
+  id                  String    @id @default(cuid())
+  projectId           String
+  projectType         String    // "movie" | "music_video" | "commercial"
+  assemblyJson        Json?     // the full assembly plan (source of truth)
+  assemblyJsonVersion Int       @default(1)
+  plannerModelTier    String?   // "standard" | "pro" | "premium" | "premium_best"
+  supervisorModelTier String?
+  previewStatus       String    @default("pending") // "pending" | "generated" | "approved"
+  renderStatus        String    @default("pending") // "pending" | "rendering" | "completed" | "failed"
+  exportApproved      Boolean   @default(false)
+  thumbnailUrl        String?
+  finalOutputUrl      String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@map("assembly_records")
+}
+
+// ── Children Learning Memory ──
+// Tracks what was taught per child/session so content can continue from where they left off.
+// Powers: progress tracking, repetition engine, curriculum continuity.
+model LearningProgress {
+  id              String   @id @default(cuid())
+  childName       String?  // optional child name / profile
+  ageGroup        String   // toddler | preschool | early | older
+  contentType     String   // phonics | mathematics | science | etc.
+  language        String   @default("en")
+  secondLanguage  String?  // bilingual pair
+  // What was taught
+  topicsCovered   Json     @default("[]") // ["letter_A", "letter_B", "counting_1_5"]
+  wordsLearned    Json     @default("[]") // ["cat", "dog", "sun"]
+  conceptsMastered Json    @default("[]") // ["shapes_circle", "colour_red"]
+  // Progress
+  currentLevel    Int      @default(1)
+  totalSessions   Int      @default(0)
+  lastSessionDate DateTime?
+  nextSuggested   String?  // AI-suggested next topic
+  // Repetition engine
+  reviewDue       Json     @default("[]") // topics needing "Remember?" review
+  reviewHistory   Json     @default("[]") // [{topic, reviewedAt, correct}]
+  // Curriculum template tracking
+  curriculumId    String?  // e.g. "read30", "phonics20"
+  curriculumStep  Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("learning_progress")
+}
+
+// ── Editor Projects — collaborative editor projects saved to DB ──
+model EditorProject {
+  id            String    @id @default(cuid())
+  title         String    @default("Untitled Project")
+  type          String    @default("collaborative") // collaborative | auto | manual
+  status        String    @default("draft") // draft | archived | exported
+  assembly      Json      // full AssemblyJSON — source of truth
+  segmentCount  Int       @default(0)
+  totalDuration Float     @default(0) // seconds
+  creationMode  String?   // invtext | text_to_video | hybrid | ai_motion
+  thumbnailUrl  String?   // first scene thumbnail
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@map("editor_projects")
+}
+
+// ── Content Memory — learns user preferences over time ──
+model ContentMemory {
+  id              String   @id @default(cuid())
+  userId          String?  // linked user if auth active
+  // Preferred styles
+  preferredTone   String?  // classy, hype, storytelling, etc.
+  preferredStyle  String?  // cinematic, playful, minimalist
+  preferredPlatform String? // TikTok, Instagram, YouTube
+  preferredFormat String?  // 9:16, 1:1, 16:9
+  preferredMusic  String?  // afrobeats, cinematic, lo-fi
+  preferredVoice  String?  // voice ID or style
+  // Learning from usage
+  topPlatforms    Json     @default("[]") // [{platform, count}]
+  topContentTypes Json     @default("[]") // [{type, count}]
+  topMoods        Json     @default("[]") // [{mood, count}]
+  avgDuration     Int?     // average video duration in seconds
+  totalCreated    Int      @default(0)
+  // Event awareness
+  customEvents    Json     @default("[]") // [{name, date, recurring}]
+  timezone        String?
+  country         String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("content_memory")
+}
+
+// ── GHS Hybrid Pipeline — Master Workflow Models ──
+// Source of truth: update/GHS_HYBRID_MASTER_WORKFLOW.md
+
+model HybridProject {
+  id                String    @id @default(cuid())
+  title             String    @default("Untitled Hybrid")
+  storyInput        String                          // raw user input
+  expandedStory     Json?                           // structured expansion output
+  targetDuration    String?                         // "5 min", "10 min"
+  audience          String?                         // general, children, business
+  language          String    @default("English")
+  costPreference    String?                         // efficient, balanced, premium
+  narrationPref     String?                         // heavy, balanced, minimal
+  tone              String?
+  genre             String?
+  status            String    @default("STORY_INPUT") // HybridStatus enum
+  characterIds      String[]                        // linked CharacterVoice IDs
+  editorProjectId   String?                         // linked EditorProject for assembly
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  scenes            HybridScene[]
+
+  @@map("hybrid_projects")
+}
+
+// ── Hybrid Planner — persistent project state (replaces localStorage) ──
+// Keyed by the client-generated localId so state survives page refreshes,
+// different browsers, and multi-session workflows.
+model HybridSavedState {
+  localId   String   @id                      // UUID generated client-side
+  data      Json                              // full project state blob
+  updatedAt DateTime @updatedAt
+
+  @@map("hybrid_saved_states")
+}
+
+model HybridScene {
+  id                String    @id @default(cuid())
+  projectId         String
+  sceneId           String                          // SC01, SC02...
+  title             String
+  orderIndex        Int
+  location          String?
+  timeOfDay         String?
+  weather           String?
+  mood              String?
+  characterIds      String[]                        // CH01, CH02...
+  primarySpeaker    String?                         // CH01
+  secondarySpeakers String[]
+  sceneType         String                          // image-led, video-led, image-to-video, audio-bridge, hybrid
+  motionNeed        String?                         // low, medium, high
+  imageSuitability  Int?                            // 1-10
+  motionNecessity   Int?                            // 1-10
+  narrationIntensity String?                        // low, medium, high
+  dialogueDensity   String?                         // low, medium, high
+  emotionalWeight   String?                         // low, medium, high
+  costPriority      String?                         // efficient, balanced, premium
+  durationEstimate  Float?                          // seconds
+  lightingPlan      String?
+  cameraSuggestion  String?
+  soundSuggestion   String?
+  musicSuggestion   String?
+  tags              String[]                        // narration-heavy, action-heavy, etc.
+  draftState        String    @default("draft")     // draft, reviewed, locked, generating, generated
+  status            String    @default("planned")
+  generatedAssetUrl String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  project           HybridProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shots             HybridShot[]
+  dialogueLines     DialogueLine[]
+  audioPlan         AudioPlan?
+
+  @@map("hybrid_scenes")
+}
+
+model HybridShot {
+  id                  String    @id @default(cuid())
+  sceneId             String
+  shotId              String                        // SH01, SH02...
+  orderIndex          Int
+  visibleCharacterIds String[]
+  speakingCharacterId String?
+  listeningCharacterIds String[]
+  cameraAngle         String?                       // close-up, medium, wide, OTS
+  cameraMovement      String?                       // static, pan, tilt, dolly, crane
+  framingType         String?                       // single, two-shot, group, establishing
+  lightingStyle       String?
+  dialogueLineId      String?
+  mediaType           String?                       // image, video, image-to-video
+  plannedDuration     Float?
+  environmentSfx      String?
+  regenEligible       Boolean   @default(true)
+  generatedAssetUrl   String?
+  status              String    @default("planned")
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  scene               HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("hybrid_shots")
+}
+
+model DialogueLine {
+  id            String    @id @default(cuid())
+  sceneId       String
+  shotId        String?
+  characterId   String                              // CH01 — NEVER unowned
+  voiceId       String?                             // ElevenLabs voice ID
+  lineText      String
+  timingType    String?                             // sync, pre-lap, post-lap, overlap
+  orderIndex    Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  scene         HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("dialogue_lines")
+}
+
+model AudioPlan {
+  id                  String    @id @default(cuid())
+  sceneId             String    @unique
+  narrationTrack      Json?                         // {text, voiceId, intensity, style}
+  dialogueTracks      Json?                         // [{characterId, voiceId, lines}]
+  ambienceTracks      Json?                         // [{description, volume, loop}]
+  sfxTracks           Json?                         // [{event, timing, volume}]
+  musicTrack          Json?                         // {mood, intensity, instrument, fadeIn, fadeOut}
+  transitionAudioLogic String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  scene               HybridScene @relation(fields: [sceneId], references: [id], onDelete: Cascade)
+
+  @@map("audio_plans")
+}
+
+// ── Story Bank ───────────────────────────────────────────────────────────────
+
+model Story {
+  id                    String      @id @default(cuid())
+  title                 String
+  genre                 String?
+  tone                  String?
+  logline               String?     // one-line pitch
+  targetDurationSeconds Int         @default(0)
+  status                String      @default("draft")  // draft | scripted | in_production | done
+  chapters              Chapter[]
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@map("stories")
+}
+
+model Chapter {
+  id          String       @id @default(cuid())
+  storyId     String
+  title       String
+  summary     String?
+  orderIndex  Int          @default(0)
+  story       Story        @relation(fields: [storyId], references: [id], onDelete: Cascade)
+  scenes      StoryScene[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("chapters")
+}
+
+model StoryScene {
+  id              String   @id @default(cuid())
+  chapterId       String
+  title           String?
+  description     String   @default("")
+  durationSeconds Int      @default(5)
+  orderIndex      Int      @default(0)
+  notes           String?
+  chapter         Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("story_scenes")
+}
+
+// ── Layerized Designs ─────────────────────────────────────────────────────────
+// Stores Ideogram V3 Layerize results — editable text layers over background images.
+// Text edits and re-compositing happen client-side (free — no API call after initial).
+
+model LayerizedDesign {
+  id               String   @id @default(cuid())
+  userId           String
+  sourceImageUrl   String
+  backgroundUrl    String
+  textContainers   Json
+  overlayHtml      String?  @db.Text
+  imageLayers      Json?
+  currentTextEdits Json?
+  falSeed          Int?
+  projectType      String?  // "commercial" | "movie" | "hybrid" | "music_video" | "children"
+  projectId        String?  // link to source project
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("layerized_designs")
 }

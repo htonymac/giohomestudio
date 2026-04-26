@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GioHomeStudio — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+<style>
+/* ── DESIGN SYSTEM ─────────────────────────────────────── */
+:root {
+  --bg:        #080810;
+  --bg2:       #0d0d1a;
+  --bg3:       #111120;
+  --surface:   #13131f;
+  --surface2:  #18182a;
+  --surface3:  #1e1e30;
+  --border:    rgba(255,255,255,0.06);
+  --border2:   rgba(255,255,255,0.10);
+
+  --text:      #e8e8f4;
+  --text2:     #8888aa;
+  --text3:     #44445a;
+
+  --gold:      #d4a843;
+  --gold-glow: rgba(212,168,67,0.15);
+  --gold-soft: rgba(212,168,67,0.08);
+
+  --blue:      #3b82f6;
+  --blue-glow: rgba(59,130,246,0.15);
+
+  --green:     #22d18a;
+  --red:       #ff5757;
+  --amber:     #ffb547;
+  --purple:    #8b5cf6;
+
+  --font-head: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius:    12px;
+  --radius-sm: 8px;
+  --radius-xs: 5px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-head);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── NOISE TEXTURE OVERLAY ─────────────────────────────── */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* ── LAYOUT ────────────────────────────────────────────── */
+.shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  grid-template-rows: 56px 1fr;
+  min-height: 100vh;
+  position: relative;
+  z-index: 1;
+}
+
+/* ── TOPBAR ────────────────────────────────────────────── */
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 24px;
+  background: rgba(8,8,16,0.95);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.logo span {
+  color: var(--text3);
+  font-weight: 400;
+}
+
+.topbar-cmd {
+  flex: 1;
+  max-width: 480px;
+  position: relative;
+}
+
+.topbar-cmd input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 999px;
+  padding: 7px 16px 7px 36px;
+  font-family: var(--font-head);
+  font-size: 13px;
+  color: var(--text2);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.topbar-cmd input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+  color: var(--text);
+}
+
+.topbar-cmd .cmd-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--text3);
+}
+
+.topbar-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-stat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.topbar-stat .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), #a07828);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0a0a10;
+  cursor: pointer;
+}
+
+/* ── SIDEBAR ───────────────────────────────────────────── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.nav-section {
+  padding: 6px 16px 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-top: 12px;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  border-radius: 0;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  position: relative;
+}
+
+.nav-item:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav-item.active {
+  background: var(--gold-soft);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+.nav-item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: var(--gold);
+  border-radius: 0 2px 2px 0;
+}
+
+.nav-icon { font-size: 14px; width: 18px; text-align: center; }
+
+.nav-badge {
+  margin-left: auto;
+  background: rgba(255,87,87,0.2);
+  color: var(--red);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,87,87,0.3);
+}
+
+.nav-badge.amber {
+  background: rgba(255,181,71,0.15);
+  color: var(--amber);
+  border-color: rgba(255,181,71,0.3);
+}
+
+/* ── MAIN CONTENT ──────────────────────────────────────── */
+.main {
+  padding: 28px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: var(--bg);
+}
+
+/* ── HERO COMMAND BAR ──────────────────────────────────── */
+.hero {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 28px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  top: -40px;
+  right: -40px;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, var(--gold-glow) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.hero-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.hero-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 20px;
+  line-height: 1.2;
+}
+
+.hero-title em {
+  font-style: normal;
+  color: var(--gold);
+}
+
+.hero-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.hero-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  padding: 13px 18px;
+  font-family: var(--font-head);
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.hero-input::placeholder { color: var(--text3); }
+
+.hero-input:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--gold-soft);
+}
+
+.btn-generate {
+  background: var(--gold);
+  color: #080810;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 13px 24px;
+  font-family: var(--font-head);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+.btn-generate:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-generate:active { transform: translateY(0); }
+
+.hero-chips {
+  display: flex;
+  gap: 6px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  color: var(--text2);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.chip:hover { border-color: var(--gold); color: var(--gold); }
+.chip.active { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+
+/* ── STATS ROW ─────────────────────────────────────────── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.stat-card:hover { border-color: var(--border2); }
+
+.stat-card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+}
+
+.stat-card.gold::after   { background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+.stat-card.blue::after   { background: linear-gradient(90deg, transparent, var(--blue), transparent); }
+.stat-card.green::after  { background: linear-gradient(90deg, transparent, var(--green), transparent); }
+.stat-card.purple::after { background: linear-gradient(90deg, transparent, var(--purple), transparent); }
+
+.stat-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--text3);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.stat-card.gold  .stat-value { color: var(--gold); }
+.stat-card.green .stat-value { color: var(--green); }
+
+.stat-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 6px;
+}
+
+.stat-sub .up   { color: var(--green); }
+.stat-sub .down { color: var(--red); }
+
+/* ── TWO COLUMN GRID ───────────────────────────────────── */
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 16px;
+}
+
+/* ── SECTION CARD ──────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-title .icon {
+  width: 24px;
+  height: 24px;
+  background: var(--surface3);
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.card-link {
+  font-size: 11px;
+  color: var(--text3);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.card-link:hover { color: var(--gold); }
+
+/* ── CONTENT TABLE ─────────────────────────────────────── */
+.content-table { width: 100%; border-collapse: collapse; }
+
+.content-table th {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  text-align: left;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.content-table td {
+  padding: 12px 20px;
+  font-size: 12px;
+  color: var(--text2);
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  vertical-align: middle;
+}
+
+.content-table tr:hover td { background: rgba(255,255,255,0.02); }
+.content-table tr:last-child td { border-bottom: none; }
+
+.td-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  max-width: 260px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.td-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+
+.badge-review  { background: rgba(255,181,71,0.12); color: var(--amber);  border: 1px solid rgba(255,181,71,0.25); }
+.badge-done    { background: rgba(34,209,138,0.1);  color: var(--green);  border: 1px solid rgba(34,209,138,0.2); }
+.badge-failed  { background: rgba(255,87,87,0.1);   color: var(--red);    border: 1px solid rgba(255,87,87,0.2); }
+.badge-pending { background: rgba(139,92,246,0.1);  color: var(--purple); border: 1px solid rgba(139,92,246,0.2); }
+
+/* ── QUICK START PANEL ─────────────────────────────────── */
+.qs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px;
+}
+
+.qs-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s;
+  cursor: pointer;
+}
+
+.qs-item:hover { background: var(--surface3); color: var(--text); }
+
+.qs-item.primary {
+  background: var(--gold-soft);
+  border: 1px solid rgba(212,168,67,0.2);
+  color: var(--gold);
+  font-weight: 700;
+}
+
+.qs-item.primary:hover { background: var(--gold-glow); }
+
+.qs-icon {
+  width: 32px;
+  height: 32px;
+  background: var(--surface3);
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.qs-item.primary .qs-icon {
+  background: rgba(212,168,67,0.15);
+}
+
+.qs-text { flex: 1; }
+.qs-desc { font-size: 10px; color: var(--text3); margin-top: 1px; font-weight: 400; }
+.qs-item.primary .qs-desc { color: rgba(212,168,67,0.6); }
+
+.qs-arrow { font-size: 10px; color: var(--text3); }
+
+/* ── REVIEW ALERT ──────────────────────────────────────── */
+.review-alert {
+  margin: 0 8px 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255,181,71,0.06);
+  border: 1px solid rgba(255,181,71,0.2);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--amber);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.review-alert:hover { background: rgba(255,181,71,0.1); }
+
+/* ── MODE SELECTOR STRIP ───────────────────────────────── */
+.mode-strip {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+
+.mode-strip::-webkit-scrollbar { display: none; }
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-head);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.mode-btn:hover { border-color: var(--border2); color: var(--text); }
+.mode-btn.active { background: var(--gold-soft); border-color: rgba(212,168,67,0.4); color: var(--gold); font-weight: 600; }
+
+/* ── TOOLS GRID ────────────────────────────────────────── */
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.tool-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 14px 12px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+  display: block;
+}
+
+.tool-tile:hover {
+  border-color: var(--border2);
+  transform: translateY(-2px);
+}
+
+.tool-emoji { font-size: 20px; margin-bottom: 8px; display: block; }
+
+.tool-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  display: block;
+  margin-bottom: 2px;
+}
+
+.tool-desc {
+  font-size: 10px;
+  color: var(--text3);
+  line-height: 1.4;
+}
+
+/* ── SCROLLBAR ─────────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="logo">GHS<span>.studio</span></div>
+
+    <div class="topbar-cmd">
+      <span class="cmd-icon">⌘</span>
+      <input type="text" placeholder="Search or run a command…" />
+    </div>
+
+    <div class="topbar-right">
+      <div class="topbar-stat">
+        <span class="dot"></span>
+        <span>All systems live</span>
+      </div>
+      <div class="topbar-stat">
+        <span>⚡</span>
+        <span>847 credits</span>
+      </div>
+      <div class="avatar">H</div>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="nav-section">Create</div>
+    <a class="nav-item active" href="#">
+      <span class="nav-icon">🏠</span> Dashboard
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">✨</span> Free Mode
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">🎬</span> Commercial
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">🎭</span> Collaborative Editor
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">⚡</span> Hybrid Planner
+    </a>
+
+    <div class="nav-section">Manage</div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">📦</span> Asset Library
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">🎭</span> Characters
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">🎵</span> Music Studio
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">📋</span> All Content
+      <span class="nav-badge amber">12</span>
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">👁</span> Review Queue
+      <span class="nav-badge">3</span>
+    </a>
+
+    <div class="nav-section">Publish</div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">📅</span> Calendar
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">📊</span> Analytics
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">📡</span> Destinations
+    </a>
+
+    <div class="nav-section">System</div>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">🤖</span> AI Models
+    </a>
+    <a class="nav-item" href="#">
+      <span class="nav-icon">⚙️</span> Settings
+    </a>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- HERO COMMAND BAR -->
+    <section class="hero">
+      <div class="hero-label">Studio Command</div>
+      <div class="hero-title">What are you <em>creating</em> today?</div>
+
+      <!-- Mode strip -->
+      <div class="mode-strip" style="margin-bottom:16px;">
+        <button class="mode-btn active">🎬 Text → Video</button>
+        <button class="mode-btn">🖼️ Text → Image</button>
+        <button class="mode-btn">🎙 Text → Audio</button>
+        <button class="mode-btn">🎭 Image → Video</button>
+        <button class="mode-btn">📸 Images + Audio</button>
+        <button class="mode-btn">⚡ Hybrid</button>
+        <button class="mode-btn">🔄 Video → Video</button>
+      </div>
+
+      <div class="hero-input-row">
+        <input class="hero-input" type="text" placeholder="e.g. A cinematic shot of a hero standing at the edge of a cliff at golden hour…" />
+        <button class="btn-generate">✦ Generate</button>
+      </div>
+
+      <div class="hero-chips">
+        <span class="chip active">9:16 Vertical</span>
+        <span class="chip">16:9 Landscape</span>
+        <span class="chip">1:1 Square</span>
+        <span style="width:1px;background:var(--border);margin:0 4px;"></span>
+        <span class="chip">5s</span>
+        <span class="chip">10s</span>
+        <span class="chip active">AI Auto</span>
+        <span style="width:1px;background:var(--border);margin:0 4px;"></span>
+        <span class="chip">🎯 Kling</span>
+        <span class="chip">🚀 Runway</span>
+        <span class="chip">⚡ FAL</span>
+      </div>
+    </section>
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+      <div class="stat-card gold">
+        <div class="stat-label">Total Videos</div>
+        <div class="stat-value">248</div>
+        <div class="stat-sub"><span class="up">↑ 14</span> this week</div>
+      </div>
+      <div class="stat-card green">
+        <div class="stat-label">Approved</div>
+        <div class="stat-value">191</div>
+        <div class="stat-sub"><span class="up">↑ 8</span> approved today</div>
+      </div>
+      <div class="stat-card blue">
+        <div class="stat-label">In Review</div>
+        <div class="stat-value">3</div>
+        <div class="stat-sub">Awaiting approval</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-label">Credits Used</div>
+        <div class="stat-value">153</div>
+        <div class="stat-sub">of 1,000 monthly</div>
+      </div>
+    </div>
+
+    <!-- TWO COLUMN -->
+    <div class="two-col">
+
+      <!-- Recent Content Table -->
+      <div class="card">
+        <div class="card-head">
+          <div class="card-title">
+            <span class="icon">🕐</span>
+            Recent Productions
+          </div>
+          <a class="card-link" href="#">View all →</a>
+        </div>
+        <table class="content-table">
+          <thead>
+            <tr>
+              <th>Title / Prompt</th>
+              <th>Mode</th>
+              <th>Date of Production</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <span class="td-title">A hero standing at the edge of a cliff at sunset…</span>
+                <span class="td-sub">TEXT → VIDEO · Kling · 9:16</span>
+              </td>
+              <td><span style="font-size:11px;color:var(--text2)">🎬 T→V</span></td>
+              <td><span style="font-family:var(--font-mono);font-size:11px;">Apr 18, 2026</span></td>
+              <td><span class="badge badge-review">⏳ Review</span></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="td-title">Premium property showcase — Lagos Island</span>
+                <span class="td-sub">IMAGES + AUDIO · FFmpeg · 16:9</span>
+              </td>
+              <td><span style="font-size:11px;color:var(--text2)">📸 I+A</span></td>
+              <td><span style="font-family:var(--font-mono);font-size:11px;">Apr 18, 2026</span></td>
+              <td><span class="badge badge-done">✓ Done</span></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="td-title">Simba: The Brave King — Episode 3</span>
+                <span class="td-sub">HYBRID · Kling + FAL · 9:16</span>
+              </td>
+              <td><span style="font-size:11px;color:var(--text2)">⚡ Hybrid</span></td>
+              <td><span style="font-family:var(--font-mono);font-size:11px;">Apr 17, 2026</span></td>
+              <td><span class="badge badge-done">✓ Done</span></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="td-title">Amazing dogs for sale — premium quality</span>
+                <span class="td-sub">COMMERCIAL · Ideogram · 9:16</span>
+              </td>
+              <td><span style="font-size:11px;color:var(--text2)">📣 Comm</span></td>
+              <td><span style="font-family:var(--font-mono);font-size:11px;">Apr 17, 2026</span></td>
+              <td><span class="badge badge-done">✓ Done</span></td>
+            </tr>
+            <tr>
+              <td>
+                <span class="td-title">Dramatic storm chase across open desert</span>
+                <span class="td-sub">TEXT → VIDEO · Runway · 16:9</span>
+              </td>
+              <td><span style="font-size:11px;color:var(--text2)">🎬 T→V</span></td>
+              <td><span style="font-family:var(--font-mono);font-size:11px;">Apr 16, 2026</span></td>
+              <td><span class="badge badge-failed">✗ Failed</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Right panel -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Quick Start -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <span class="icon">⚡</span>
+              Quick Start
+            </div>
+          </div>
+
+          <a class="review-alert" href="#">
+            💡 3 items waiting in Review Queue →
+          </a>
+
+          <div class="qs-list">
+            <a class="qs-item primary" href="#">
+              <div class="qs-icon">🎬</div>
+              <div class="qs-text">
+                Make a Commercial
+                <div class="qs-desc">Slide builder · text overlays · brand kit</div>
+              </div>
+              <span class="qs-arrow">›</span>
+            </a>
+            <a class="qs-item" href="#">
+              <div class="qs-icon">✨</div>
+              <div class="qs-text">
+                Free Mode
+                <div class="qs-desc">Describe anything · AI handles the rest</div>
+              </div>
+              <span class="qs-arrow">›</span>
+            </a>
+            <a class="qs-item" href="#">
+              <div class="qs-icon">⚡</div>
+              <div class="qs-text">
+                Hybrid Planner
+                <div class="qs-desc">Smart scenes · images + video mix</div>
+              </div>
+              <span class="qs-arrow">›</span>
+            </a>
+            <a class="qs-item" href="#">
+              <div class="qs-icon">🎭</div>
+              <div class="qs-text">
+                Collaborative Editor
+                <div class="qs-desc">Drag · cut · SFX · AI tools</div>
+              </div>
+              <span class="qs-arrow">›</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Tools -->
+        <div class="card">
+          <div class="card-head">
+            <div class="card-title">
+              <span class="icon">🛠</span>
+              Studio Tools
+            </div>
+          </div>
+          <div style="padding:12px;">
+            <div class="tools-grid">
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">📦</span>
+                <span class="tool-name">Assets</span>
+                <span class="tool-desc">Library</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">🎭</span>
+                <span class="tool-name">Characters</span>
+                <span class="tool-desc">Voices + looks</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">🎵</span>
+                <span class="tool-name">Music</span>
+                <span class="tool-desc">Generate + browse</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">💥</span>
+                <span class="tool-name">SFX</span>
+                <span class="tool-desc">235 sounds</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">📅</span>
+                <span class="tool-name">Calendar</span>
+                <span class="tool-desc">Schedule posts</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">📊</span>
+                <span class="tool-name">Analytics</span>
+                <span class="tool-desc">Performance</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">🤖</span>
+                <span class="tool-name">AI Models</span>
+                <span class="tool-desc">Kling · FAL · Runway</span>
+              </a>
+              <a class="tool-tile" href="#">
+                <span class="tool-emoji">📡</span>
+                <span class="tool-name">Destinations</span>
+                <span class="tool-desc">Pages + channels</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>

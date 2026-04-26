@@ -27,7 +27,7 @@ export type ContentStatus =
   | "PUBLISHED"
   | "ARCHIVED";
 
-export type ContentMode = "FREE";
+export type ContentMode = "FREE" | "COMMERCIAL";
 
 export interface ContentItem {
   id: string;
@@ -35,10 +35,42 @@ export interface ContentItem {
   status: ContentStatus;
   originalInput: string;
   enhancedPrompt?: string | null;
+  narrationScript?: string | null;
+  supervisorPlan?: Record<string, unknown> | null;
+  voiceSource?: string | null;
+  musicSource?: string | null;
   requestedVideoProvider?: string | null;
   videoProvider?: string | null;
   voiceProvider?: string | null;
+  requestedVoiceProvider?: string | null;
+  voiceId?: string | null;
+  voiceLanguage?: string | null;
+  narrationSpeed?: number | null;
+  narrationVolume?: number | null;
+  outputMode?: string | null;
+  audioMode?: string | null;
+  castingCharacters?: string[];
   musicProvider?: string | null;
+  requestedMusicProvider?: string | null;
+  musicVolume?: number | null;
+  musicGenre?: string | null;
+  musicRegion?: string | null;
+  videoQuality?: string | null;
+  videoType?: string | null;
+  visualStyle?: string | null;
+  subjectType?: string | null;
+  customSubjectDescription?: string | null;
+  aiAutoMode?: boolean;
+  aspectRatio?: string | null;
+  castingEthnicity?: string | null;
+  castingGender?: string | null;
+  castingAge?: string | null;
+  castingCount?: string | null;
+  cultureContext?: string | null;
+  referenceImageUrl?: string | null;
+  storyContext?: string | null;
+  previousContentItemId?: string | null;
+  storyThreadId?: string | null;
   videoPath?: string | null;
   voicePath?: string | null;
   musicPath?: string | null;
@@ -51,6 +83,12 @@ export interface ContentItem {
   updatedAt: Date;
   approvedAt?: Date | null;
   rejectedAt?: Date | null;
+  scheduledAt?: Date | null;
+  publishedAt?: Date | null;
+  lastPostedAt?: Date | null;
+  repostCount?: number;
+  repostCooldownDays?: number | null;
+  repostEligible?: boolean;
 }
 
 export interface ContentVersion {

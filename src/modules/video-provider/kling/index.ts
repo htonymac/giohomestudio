@@ -7,16 +7,25 @@ import * as jwt from "jsonwebtoken";
 import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
+import { loadLLMSettings } from "@/lib/llm-settings";
 import type { IVideoProvider, VideoGenerationInput, VideoGenerationOutput } from "@/types/providers";
 
+function getKlingCreds() {
+  const s = loadLLMSettings();
+  return {
+    accessKey: s.KLING_ACCESS_KEY || env.kling.accessKey,
+    secretKey: s.KLING_SECRET_KEY || env.kling.secretKey,
+  };
+}
+
 function buildKlingJWT(): string {
-  // Kling requires a signed JWT using access key + secret key
+  const { accessKey, secretKey } = getKlingCreds();
   const payload = {
-    iss: env.kling.accessKey,
-    exp: Math.floor(Date.now() / 1000) + 1800, // 30 min expiry
+    iss: accessKey,
+    exp: Math.floor(Date.now() / 1000) + 1800,
     nbf: Math.floor(Date.now() / 1000) - 5,
   };
-  return jwt.sign(payload, env.kling.secretKey, { algorithm: "HS256", header: { alg: "HS256", typ: "JWT" } });
+  return jwt.sign(payload, secretKey, { algorithm: "HS256", header: { alg: "HS256", typ: "JWT" } });
 }
 
 function klingHeaders() {
@@ -30,7 +39,8 @@ class KlingVideoProvider implements IVideoProvider {
   readonly name = "kling";
 
   async generate(input: VideoGenerationInput): Promise<VideoGenerationOutput> {
-    if (!env.kling.accessKey || !env.kling.secretKey) {
+    const { accessKey, secretKey } = getKlingCreds();
+    if (!accessKey || !secretKey) {
       return { jobId: "", status: "failed", error: "Kling credentials not configured." };
     }
 

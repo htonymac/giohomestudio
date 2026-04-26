@@ -10,10 +10,26 @@ export interface PromptEnhancerInput {
   mode?: "FREE";
   targetDuration?: number; // seconds
   style?: string;
+  // Studio control layer — all optional, used when provided
+  videoType?: string;
+  visualStyle?: string;
+  subjectType?: string;
+  customSubjectDescription?: string;
+  aiAutoMode?: boolean;
+  // Identity / casting controls
+  castingEthnicity?: string;
+  castingGender?: string;
+  castingAge?: string;
+  castingCount?: string;
+  cultureContext?: string;
+  referenceImageUrl?: string;
+  // Story continuation context — when present, enhancer writes a continuation not a fresh start
+  storyContext?: string;
 }
 
 export interface PromptEnhancerOutput {
-  enhancedPrompt: string;
+  enhancedPrompt: string;   // cinematic video prompt → sent to video provider
+  narrationScript: string;  // natural spoken text → sent to voice provider
   suggestions?: string[];
   tokensUsed?: number;
 }
@@ -31,6 +47,8 @@ export interface VideoGenerationInput {
   durationSeconds?: number;
   aspectRatio?: "9:16" | "16:9" | "1:1";
   style?: string;
+  /** Image-to-video: source image URL or local path. Provider uses this as the start frame. */
+  referenceImageUrl?: string;
 }
 
 export interface VideoGenerationOutput {
@@ -52,13 +70,33 @@ export interface IVideoProvider {
 // VOICE PROVIDER
 // ─────────────────────────────────────────────
 
+// Single source of truth — derive the type from the const array so
+// dialogue-parser validation and TypeScript type-checking stay in sync.
+export const SPEECH_STYLE_VALUES = [
+  "normal", "whisper", "emotional", "commanding", "trembling",
+] as const;
+export type SpeechStyle = typeof SPEECH_STYLE_VALUES[number];
+
+export const ELEVENLABS_MODELS = [
+  "eleven_multilingual_v2",
+  "eleven_turbo_v2_5",
+  "eleven_flash_v2_5",
+] as const;
+export type ElevenLabsModel = typeof ELEVENLABS_MODELS[number];
+
 export interface VoiceGenerationInput {
   text: string;
   voiceId?: string;         // provider-specific voice ID
   stability?: number;       // 0-1
   similarityBoost?: number; // 0-1
+  speed?: number;           // speech rate 0.7-1.2 (ElevenLabs top-level param)
+  language?: string;        // ISO 639-1 code e.g. "en", "es", "fr" — influences model selection
+  voiceModel?: ElevenLabsModel; // explicit model override; auto-selected from language if omitted
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path for the generated audio file
+  // Scene-directed audio (Pass B)
+  speechStyle?: SpeechStyle; // voice performance direction — maps to ElevenLabs voice_settings
+  styleIntensity?: number;   // 0-1 override for the style value; if omitted, preset default applies
 }
 
 export interface VoiceGenerationOutput {
@@ -108,24 +146,32 @@ export interface MusicTrackMetadata {
 // Generation providers (Mubert) use mood/prompt/durationSeconds.
 export interface MusicGenerationInput {
   mood?: string;            // "epic" | "calm" | "emotional" | "upbeat" | "dramatic"
-  genre?: string;           // "cinematic" | "ambient" | "electronic" | etc.
+  genre?: string;           // "cinematic" | "electronic" | "acoustic" | "orchestral" | "ambient" | "hip_hop"
+  region?: string;          // "global" | "western" | "latin" | "asian" | "middle_eastern" | "african"
   tags?: string[];          // additional search tags for Jamendo / Freesound
   searchQuery?: string;     // free-text search override (takes precedence over mood+tags)
   durationSeconds?: number; // target duration — search providers find closest match
   minDurationSeconds?: number;
   maxDurationSeconds?: number;
-  prompt?: string;          // free-text prompt for generation providers (Mubert)
+  prompt?: string;          // free-text prompt for generation providers
+  description?: string;     // alternative to prompt for describing the music
+  style?: string;           // music style (e.g. "Afrobeats", "Classical")
+  title?: string;           // song title (used by Kie.ai/Suno)
+  instrumental?: boolean;   // true = no vocals
+  lyrics?: string;          // lyrics text for vocal tracks
   outputFormat?: "mp3" | "wav";
   outputPath?: string;      // destination path on disk — provider writes here
 }
 
 export interface MusicGenerationOutput {
-  status: "completed" | "failed" | "queued";
+  status: "completed" | "failed" | "queued" | "processing";
   jobId?: string;           // for async/generation providers that poll
   localPath?: string;       // absolute path to the downloaded/generated file
+  outputUrl?: string;       // remote URL of generated audio
   durationSeconds?: number;
   providerName: string;
   track?: MusicTrackMetadata; // populated for search providers; null for stock/mock
+  metadata?: Record<string, unknown>; // provider-specific metadata
   error?: string;
 }
 

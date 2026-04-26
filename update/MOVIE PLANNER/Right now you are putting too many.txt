@@ -1,0 +1,783 @@
+Right now you are putting too many different things inside one Movie type field.
+A producer would not do that.
+
+You are mixing:
+
+genre
+format
+production method
+storytelling style
+special modules like ads
+
+Those should be separated.
+
+The correct producer structure
+
+For Movie Planner, do not use one dropdown called only “Movie type.”
+
+Use 4 planning layers:
+
+1. Story Genre
+
+This tells AI what kind of world and emotional logic to build.
+
+Use options like:
+
+Children Story
+Short Story
+Action
+Western
+African Cinema
+Epic Fantasy
+Mythology
+Historical Drama
+Adventure
+Romance
+Thriller
+Horror
+Comedy
+Sci-Fi
+War
+Crime
+Supernatural
+Survival
+Inspirational
+
+For your question:
+
+Game of Thrones type is mainly:
+
+Epic Fantasy
+also partly Dark Fantasy
+also partly Political Fantasy
+with a Medieval feel
+
+So in your system, the safest user-facing option is:
+
+Epic Fantasy
+
+Then inside advanced tags AI can add:
+
+dark
+political
+medieval
+royal conflict
+mythical world
+2. Format
+
+This tells AI what kind of output pipeline to plan.
+
+This is where your real product power shows.
+
+Use:
+
+Audio Only Movie
+Audio + Image Movie
+Audio + Video + Image Movie
+Video First Movie
+Image-to-Video Movie
+
+Your own meaning for these is good:
+
+Audio Only Movie
+For radio drama, storytelling, podcasts, voice-led drama.
+
+Audio + Image Movie
+For story films with still scenes, narrated visuals, children stories, simple affordable content.
+
+Audio + Video + Image Movie
+Best hybrid mode.
+AI can use images for static or slow parts, and video for action parts to save cost.
+
+That is a very strong product idea.
+
+3. Production Mode
+
+This tells AI how much control it has versus the user.
+
+Use:
+
+AI Generated Movie
+AI + Human Movie
+Manual Assisted Movie
+
+Meaning:
+
+AI Generated Movie
+Pure AI planning and generation.
+
+AI + Human Movie
+AI plans most things, user edits important creative decisions.
+
+Manual Assisted Movie
+User controls scene design manually, AI helps with suggestions, structure, continuity, assets, sound, and generation support.
+
+This is better than putting it inside movie type.
+
+4. Storytelling Style
+
+This tells AI how the story should be presented.
+
+Use:
+
+Dialogue Driven
+Narrated
+Visual Only
+Minimal Dialogue
+Voiceover Led
+Music Led
+Cinematic Silent
+Documentary Style
+
+You are right:
+
+Narrated Story should not sit in Movie Type.
+It belongs here.
+
+Because narrated story is not a genre.
+It is a presentation style.
+
+Ads should not live inside Movie Planner
+
+You are right again.
+
+Ad should not be mixed into Movie Planner.
+
+Ads already have their own logic:
+
+product focus
+CTA
+brand message
+conversion goal
+shorter timing
+offer structure
+
+So keep these outside Movie Planner:
+
+Ad
+Commercial
+Product Promo
+Marketing Reel
+
+Those belong in:
+
+Commercial Maker
+or Ad Studio
+
+Not Movie Planner.
+
+Music video is special
+
+This one can go either way.
+
+You have two choices:
+
+Option A
+
+Keep Music Video as its own module.
+
+Best if:
+
+lyrics sync matters
+beat sync matters
+artist identity matters
+chorus / verse / hook structure matters
+Option B
+
+Allow Music Video inside Movie Planner, but as a project template, not a movie type.
+
+That means:
+
+user opens Movie Planner
+selects Template: Music Video
+then AI switches the planner behavior
+
+That is cleaner.
+
+So the real planning screen should look like this
+
+For New Movie, ask these in order:
+
+Project Basics
+Project Title
+Story Idea
+Duration
+Language
+Story Design
+Genre
+Tone
+World/Setting
+Storytelling Style
+Production Design
+Format
+Production Mode
+Budget Level
+cheap
+balanced
+premium
+Character Layer
+Choose saved characters
+Assign roles
+Confirm main lead
+Planning Mode
+Fast AI Plan
+Detailed Producer Plan
+Scene-by-Scene Manual Plan
+
+That is much more professional.
+
+For Continue Existing Movie
+
+You are correct:
+if the user clicks Continue, do not ask all the basic things again.
+
+Instead:
+
+Continue flow
+Load project
+Load existing scenes
+Load characters already assigned
+Load assets already present
+Ask only what is missing
+Open Scene Planner directly
+
+Maybe show:
+
+Continue with
+
+Existing scenes
+Existing characters
+Existing audio
+Existing visual assets
+
+Then AI says:
+
+I found 8 scenes, 2 characters, 1 narration track, and 4 image assets.
+Do you want me to expand the scene plan, fix continuity, or prepare generation?
+
+That is producer behavior.
+
+Best field structure for Movie Planner
+
+Do it like this, not one single movie-type box.
+
+A. Genre
+Children Story
+Short Story
+Action
+Western
+African Cinema
+Epic Fantasy
+Mythology
+Historical Drama
+Adventure
+Romance
+Thriller
+Horror
+Comedy
+Sci-Fi
+War
+Crime
+Supernatural
+Survival
+Inspirational
+B. Style
+Cinematic
+Dialogue Driven
+Narrated
+Visual Only
+Documentary
+Music Led
+Minimal Dialogue
+Voiceover Led
+C. Format
+Audio Only
+Audio + Image
+Audio + Video + Image
+Video First
+Image-to-Video Hybrid
+D. Production Mode
+AI Generated
+AI + Human
+Manual Assisted
+
+That is the right structure.
+
+What AI should infer from those choices
+
+Example:
+
+If user selects:
+Genre: Epic Fantasy
+Style: Dialogue Driven
+Format: Audio + Video + Image
+Production Mode: AI + Human
+
+Then AI understands:
+
+world should feel grand and mythical
+scenes should include castles, war banners, ancient landscapes, royal tension
+action scenes can use video
+quiet scenes can use images
+dialogue needs voice planning
+user likely wants approval before big generation
+
+That is much stronger than just “cinematic.”
+
+Your hybrid format idea is excellent
+
+This one is especially smart:
+
+Audio + Video + Image Movie
+
+Because it lets AI use:
+
+images for cheap static scenes
+video only when action matters
+narration and sound to keep it feeling alive
+
+That can reduce cost a lot.
+
+So for planning, AI should mark each scene as:
+
+image scene
+video scene
+hybrid scene
+audio-only bridge scene
+
+Example:
+
+Scene 1 — snowy mountain setup → image scene
+Scene 2 — Tunde preparing → image-to-video
+Scene 3 — jump moment → video scene
+Scene 4 — parachute glide → video scene
+Scene 5 — landing and narration → hybrid
+
+That is the producer mindset.
+
+Add a “Planning Depth” option
+
+This is another thing producers use, even if they do not call it that.
+
+Let the user choose:
+
+Quick Plan
+Smart Plan
+Full Producer Plan
+Quick Plan
+
+AI makes a fast short outline.
+
+Smart Plan
+
+AI makes better scenes, sound, style, and shot ideas.
+
+Full Producer Plan
+
+AI builds:
+
+story summary
+character roles
+scene-by-scene timing
+dialogue
+narration
+sound effects
+music notes
+continuity warnings
+generation method per scene
+
+That gives both simple users and serious users a place.
+
+Character flow should be stronger
+
+Since you already have a Character panel, use it deeply.
+
+After genre/style/format are chosen:
+
+AI should ask:
+
+Who is the lead?
+Which saved character is Tunde?
+Is Tunde narrator, hero, antihero, or side character?
+Should AI suggest outfit, props, age expression, and speech style based on genre?
+
+Then if user selects Tunde, AI can auto-suggest:
+
+For Epic Fantasy
+
+dark leather armor
+royal cloak
+sword or sigil
+stormy background
+serious tone
+
+For African Cinema
+
+local clothing style
+realistic city or village setting
+grounded speech pattern
+family/social tension
+practical props
+
+This is where saved characters become real production assets, not just profile cards.
+
+Recommended top-level structure in your sidebar
+
+You already have:
+
+Story Bank
+Series Wizard
+Characters
+
+For movie work, I would make:
+
+Movie Planner
+Scene Planner
+Story Bank
+Characters
+Audio Plan
+Generate Queue
+
+Or keep it simpler:
+
+Movie Planner
+Characters
+Story Bank
+Scene Board
+Generate
+The strongest correction
+
+Do not label everything as “movie type.”
+
+Instead use this exact logic:
+
+Movie Planner
+
+Story Genre
+Storytelling Style
+Output Format
+Production Mode
+
+That is clean and powerful.
+
+My recommended final set for you
+
+If I were shaping this for GHS, I would use:
+
+Story Genre
+Children Story
+Short Story
+Action
+Western
+African Cinema
+Epic Fantasy
+Mythology
+Historical Drama
+Adventure
+Romance
+Thriller
+Horror
+Comedy
+Sci-Fi
+War
+Crime
+Supernatural
+Survival
+Inspirational
+Storytelling Style
+Cinematic
+Narrated
+Dialogue Driven
+Voiceover Led
+Minimal Dialogue
+Visual Only
+Documentary
+Music Led
+Output Format
+Audio Only Movie
+Audio + Image Movie
+Audio + Video + Image Movie
+Video First Movie
+Image-to-Video Hybrid
+Production Mode
+AI Generated Movie
+AI + Human Movie
+Manual Assisted Movie
+Separate modules outside Movie Planner
+Commercial Maker
+Ad Builder
+Music Video Builder
+
+That is the clean product architecture.
+
+The biggest idea here is this:
+
+A producer does not ask one vague question.
+A producer separates creative intent, production method, and delivery format.
+
+That is what your page should do.
+
+Put this in canvas and I’ll turn it into a proper product spec for Claude Code.
+
+
+Ad is separate.
+When someone enters GHS, they can choose Ad/Commercial and leave Movie alone.
+
+So this part should be movie only.
+
+Clean structure for GHS
+
+At the top level, keep it like this:
+
+Create
+
+Movie
+Music Video
+Ad / Commercial
+AI Content Creator
+
+So once user clicks Movie, everything inside should behave like a film producer workflow, not ad workflow.
+
+Inside Movie only
+
+Do not use one weak field like “movie type” alone.
+
+Inside Movie, use this structure:
+
+1. Movie Genre
+
+This is the story world.
+
+Children Story
+Short Story
+Action
+Western
+African Cinema
+Epic Fantasy
+Mythology
+Historical Drama
+Adventure
+Romance
+Thriller
+Horror
+Comedy
+Sci-Fi
+War
+Crime
+Supernatural
+Survival
+Inspirational
+
+For your earlier question, Game of Thrones type fits best under:
+
+Epic Fantasy
+and second layer feel can be:
+
+Dark Fantasy
+Political
+Royal Conflict
+Medieval World
+
+That can be AI tags behind the scenes.
+
+2. Movie Style
+
+This is how the movie is told.
+
+Cinematic
+Dialogue Driven
+Narrated
+Voiceover Led
+Minimal Dialogue
+Visual Only
+Documentary Style
+Music Led
+
+You were right that Narrated Story should not sit as the main movie type.
+It belongs under Style.
+
+3. Output Format
+
+This is very important for GHS because of cost and generation strategy.
+
+Audio Only Movie
+Audio + Image Movie
+Audio + Video + Image Movie
+Video First Movie
+Image-to-Video Hybrid
+
+This is strong because AI now knows how to plan the pipeline.
+
+Example:
+
+Audio + Image Movie
+good for cheap story content, children stories, narrated visual stories.
+
+Audio + Video + Image Movie
+best hybrid mode. Static scenes use images, action scenes use video.
+
+Audio Only Movie
+good for radio drama, story voice, immersive sound storytelling.
+
+4. Production Mode
+
+This tells AI how much creative control it has.
+
+AI Generated Movie
+AI + Human Movie
+Manual Assisted Movie
+
+This is separate from genre and format.
+
+So user may choose:
+
+Genre: Epic Fantasy
+Style: Dialogue Driven
+Format: Audio + Video + Image Movie
+Production Mode: AI + Human Movie
+
+That is clean.
+
+Continue Existing Movie
+
+You were also right here.
+
+When user clicks Continue, do not ask the whole movie setup again unless this is missing.
+
+Instead GHS should do this:
+
+load saved movie project
+load selected characters
+load saved scenes
+load saved assets
+load narration/audio/video/image status
+jump straight into Scene Planner
+
+Then AI can say:
+
+I found 12 scenes, 3 assigned characters, 1 narration draft, and 6 generated assets.
+Do you want me to continue planning, fix continuity, or prepare generation?
+
+That is producer behavior.
+
+Better Movie workflow
+
+Inside Movie, the workflow should be:
+
+Movie Idea
+→ Genre / Style / Format / Production Mode
+→ Character Selection
+→ AI Movie Plan
+→ Scene Planner
+→ Audio Plan
+→ Generation Queue
+→ Assembly
+
+That is much better than one prompt box.
+
+Character use inside Movie
+
+Since your Character panel already exists, Movie should use it deeply.
+
+Flow should be:
+
+User enters movie idea
+→ GHS asks: Which saved character is the lead?
+→ user picks character
+→ AI reads the saved profile
+→ AI applies it to scenes
+
+So if user says Tunde, AI should ask:
+
+Is Tunde the main lead?
+hero, antihero, narrator, side character, villain?
+should I suggest outfit, prop, age feel, tone, and speech style based on genre?
+
+That way Movie Planner becomes connected to Characters.
+
+What AI should suggest automatically
+
+This is where your product becomes powerful.
+
+User should not need to specify every tiny thing.
+
+If movie idea says:
+
+Tunde jumps from a cliff, spreads his hands in the wind, opens a parachute, and glides across the mountains.
+
+AI should suggest:
+
+outfit
+parachute color
+weather
+camera style
+sound design
+music direction
+scene timing
+which scenes should be image or video
+whether narration is needed
+
+Then user edits only what matters.
+
+That is a real movie producer flow.
+
+Best internal sections for Movie
+
+Inside Movie page, I would use these tabs:
+
+Overview
+Characters
+Scenes
+Audio
+Visual Plan
+Generate
+
+Or a slightly stronger naming:
+
+Movie Brief
+Cast
+Scene Planner
+Sound & Music
+Shot Plan
+Production Queue
+Strong recommendation for sidebar
+
+Since Ad is separate, your Movie section can be clean like this:
+
+CONTENT
+
+Story Bank
+Characters
+Movie Planner
+Scene Planner
+Asset Library
+Review Queue
+
+Or, if you want Movie to feel premium:
+
+MOVIE
+
+Movie Planner
+Cast
+Scene Board
+Audio Plan
+Generate Queue
+Final corrected logic
+
+So yes, the correct architecture is:
+
+Ad / Commercial = separate entry path
+Movie = movie only
+
+And inside Movie, do not mix everything under “movie type.”
+
+Use:
+
+Genre
+Style
+Format
+Production Mode
+
+That is the producer-level structure.
+
+When you're ready, say put this in canvas, and I’ll turn it into a full Claude Code product spec for the GHS Movie section only.

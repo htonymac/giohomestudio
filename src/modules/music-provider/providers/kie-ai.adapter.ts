@@ -1,46 +1,108 @@
-// GioHomeStudio — Kie.AI Music Provider Adapter (stub)
-// Kie.AI supports song-style and instrumental music generation.
-// Implement when API key is available.
+// GioHomeStudio — Kie.AI Music Provider Adapter
+// Kie.AI wraps Suno V5 API — premium tier music generation
+// Supports: vocals + lyrics, instrumental, custom mode, style control
+// Pricing: credit-based, 5000 free credits on signup at kie.ai
 
 import type { IMusicProvider, MusicGenerationInput, MusicGenerationOutput } from "@/types/providers";
 import { env } from "@/config/env";
 
 class KieAiMusicProvider implements IMusicProvider {
   readonly name = "kie_ai";
-  readonly isAsync = true; // Kie.AI is async — generates a job, poll for result
+  readonly isAsync = true;
 
   async generate(input: MusicGenerationInput): Promise<MusicGenerationOutput> {
     if (!env.music.kieAiApiKey) {
       return {
         status: "failed",
-        error: "KIE_AI_API_KEY is not set. Add it to .env to activate this provider.",
+        error: "KIE_AI_API_KEY not set. Sign up free at kie.ai (5000 free credits).",
         providerName: this.name,
       };
     }
 
-    // TODO: Implement Kie.AI API call when key is available
-    // Expected flow:
-    // 1. POST /v1/generate with { prompt, duration, style }
-    // 2. Receive { job_id }
-    // 3. Poll GET /v1/jobs/{job_id} until status = "completed"
-    // 4. Download result audio to local storage
+    try {
+      const isCustom = !!(input.style || input.genre);
+      const body: Record<string, unknown> = {
+        prompt: input.prompt ?? input.description ?? "upbeat background music",
+        customMode: isCustom,
+        instrumental: !input.prompt?.toLowerCase().includes("lyrics") && !input.prompt?.toLowerCase().includes("vocal"),
+        model: "V5",
+      };
 
-    return {
-      status: "queued",
-      jobId: "kie_ai_placeholder",
-      providerName: this.name,
-      error: "Kie.AI adapter not yet fully implemented — add API key and complete POST logic.",
-    };
+      if (isCustom) {
+        body.style = input.genre ?? input.style ?? "Pop";
+        body.title = input.title ?? "GHS Track";
+      }
+
+      const res = await fetch("https://api.kie.ai/api/v1/generate", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.music.kieAiApiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        return { status: "failed", error: `Kie.ai HTTP ${res.status}`, providerName: this.name };
+      }
+
+      const data = await res.json();
+      const taskId = data.data?.taskId;
+      if (!taskId) {
+        return { status: "failed", error: "No taskId returned", providerName: this.name };
+      }
+
+      return {
+        status: "queued",
+        jobId: taskId,
+        providerName: this.name,
+      };
+    } catch (e) {
+      return {
+        status: "failed",
+        error: `Kie.ai error: ${e instanceof Error ? e.message : String(e)}`,
+        providerName: this.name,
+      };
+    }
   }
 
   async checkStatus(jobId: string): Promise<MusicGenerationOutput> {
-    // TODO: implement polling
-    return {
-      status: "failed",
-      jobId,
-      providerName: this.name,
-      error: "checkStatus not implemented yet for Kie.AI.",
-    };
+    if (!env.music.kieAiApiKey) {
+      return { status: "failed", jobId, error: "KIE_AI_API_KEY not set", providerName: this.name };
+    }
+
+    try {
+      const res = await fetch(`https://api.kie.ai/api/v1/task/${jobId}`, {
+        headers: { Authorization: `Bearer ${env.music.kieAiApiKey}` },
+      });
+
+      if (!res.ok) {
+        return { status: "failed", jobId, error: `Poll HTTP ${res.status}`, providerName: this.name };
+      }
+
+      const data = await res.json();
+      const status = data.data?.status;
+
+      if (status === "complete" || data.data?.callbackType === "complete") {
+        const tracks = data.data?.data ?? [];
+        const audioUrl = tracks[0]?.audio_url;
+        return {
+          status: "completed",
+          jobId,
+          providerName: this.name,
+          outputUrl: audioUrl,
+          metadata: { tracks: tracks.length, duration: tracks[0]?.duration },
+        };
+      }
+
+      if (status === "failed") {
+        return { status: "failed", jobId, error: "Generation failed", providerName: this.name };
+      }
+
+      return { status: "processing", jobId, providerName: this.name };
+    } catch (e) {
+      return { status: "failed", jobId, error: `Poll error: ${e instanceof Error ? e.message : String(e)}`, providerName: this.name };
+    }
   }
 }
 

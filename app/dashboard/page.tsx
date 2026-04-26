@@ -1,166 +1,363 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { DestinationPage } from "@/types/content";
+// app/dashboard/page.tsx — v14 dashboard rewrite (Batch 2)
+// Data sources preserved from original page:
+//   /api/registry?limit=5&renderedOnly=1  → recentItems, totalCount
+//   /api/review                            → reviewCount
+//   /api/analytics                         → successCount (completed)
+// Studio form (free-mode generation) moved to /dashboard/free-mode
+// All emoji removed. Stroke SVG icons from app/components/icons.tsx.
 
-export default function StudioPage() {
-  const [input, setInput] = useState("");
-  const [duration, setDuration] = useState(5);
-  const [musicMood, setMusicMood] = useState("epic");
-  const [videoProvider, setVideoProvider] = useState<"runway" | "kling" | "">("");
-  const [destinationPageId, setDestinationPageId] = useState("");
-  const [pages, setPages] = useState<DestinationPage[]>([]);
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
-  const [message, setMessage] = useState("");
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
+import { ds } from "../../lib/designSystem";
+
+// Chrome
+import { TopBar } from "../components/chrome/TopBar";
+
+// Shared display components (batch 2)
+import { HeroTitle } from "../components/hero/HeroTitle";
+import { ComposeCard } from "../components/hero/ComposeCard";
+import { StatCard } from "../components/stats/StatCard";
+import { AlertBar } from "../components/feedback/AlertBar";
+import { RenderDeck } from "../components/render/RenderDeck";
+import { Panel } from "../components/layout/Panel";
+import { QuickStartButton } from "../components/buttons/QuickStartButton";
+import { ProjectRow } from "../components/project/ProjectRow";
+import { ToolTile } from "../components/buttons/ToolTile";
+
+// Icons
+import {
+  Alert,
+  Bolt,
+  Monitor,
+  Star,
+  Grid,
+  Music,
+  Clock,
+  User,
+  Folder,
+  Cpu,
+  Users,
+} from "../components/icons";
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+type RegistryItem = {
+  id: string;
+  status: string;
+  originalInput: string;
+  mode: string;
+  createdAt: string;
+  mergedOutputPath?: string | null;
+};
+
+type RenderJobData = {
+  id: string;
+  title: string;
+  engine: "Kling" | "Runway" | "Suno" | "FAL";
+  format: string;
+  duration: string;
+  pct: number;
+  eta: string;
+  frame?: string;
+  thumbVariant: 1 | 2 | 3;
+};
+
+// ── Adapter helpers ────────────────────────────────────────────────────────
+
+// Map a registry item to a ProjectRow-compatible shape.
+// thumbVariant cycles 1..4 by index position.
+function itemToProjectRow(item: RegistryItem, idx: number) {
+  const thumbVariant = ((idx % 4) + 1) as 1 | 2 | 3 | 4;
+  const dateStr = new Date(item.createdAt).toLocaleDateString("en-GB", {
+    day: "numeric", month: "short", year: "2-digit",
+  });
+  return {
+    id: item.id,
+    title: item.originalInput?.slice(0, 48) || "Untitled project",
+    tag: item.mode ?? "Free",
+    date: dateStr,
+    thumbVariant,
+    href: `/dashboard/content/${item.id}`,
+  };
+}
+
+// ── Dashboard page ─────────────────────────────────────────────────────────
+
+export default function DashboardPage() {
+  const router = useRouter();
+
+  // Data fetched from existing API routes
+  const [recentItems, setRecentItems] = useState<RegistryItem[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [successCount, setSuccessCount] = useState(0);
+
+  // Active renders (the API doesn't expose a render-queue endpoint yet — empty until wired)
+  // TODO(@opus): wire /api/render-queue when the endpoint exists.
+  const [activeRenders, setActiveRenders] = useState<RenderJobData[]>([]);
 
   useEffect(() => {
-    fetch("/api/destination-pages")
+    fetch("/api/registry?limit=5&renderedOnly=1")
       .then((r) => r.json())
-      .then((d) => setPages(d.pages ?? []))
+      .then((d) => {
+        setRecentItems(d.items ?? []);
+        setTotalCount(d.total ?? 0);
+      })
+      .catch(() => {});
+
+    fetch("/api/review")
+      .then((r) => r.json())
+      .then((d) => { setReviewCount(d.items?.length ?? 0); })
+      .catch(() => {});
+
+    fetch("/api/analytics")
+      .then((r) => r.json())
+      .then((d) => { setSuccessCount(d.summary?.successCount ?? 0); })
       .catch(() => {});
   }, []);
 
-  async function handleGenerate() {
-    if (!input.trim()) return;
-    setStatus("loading");
-    setMessage("");
-
-    try {
-      const res = await fetch("/api/pipeline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rawInput: input.trim(),
-          durationSeconds: duration,
-          musicMood,
-          aspectRatio: "9:16",
-          destinationPageId: destinationPageId || undefined,
-          videoProvider: videoProvider || undefined,
-        }),
-      });
-
-      if (res.ok) {
-        setStatus("success");
-        setMessage("Pipeline started. Your content is being generated. Check the Review tab when ready.");
-        setInput("");
-      } else {
-        const err = await res.json();
-        setStatus("error");
-        setMessage(err.error ?? "Something went wrong.");
-      }
-    } catch {
-      setStatus("error");
-      setMessage("Network error. Is the server running?");
-    }
+  // ComposeCard handler → navigate to free-mode with pre-filled prompt
+  function handleRoll(prompt: string) {
+    router.push(`/dashboard/free-mode?prompt=${encodeURIComponent(prompt)}`);
   }
 
+  // Build typed stats object
+  const stats = {
+    total: totalCount,
+    pendingReview: reviewCount,
+    completed: successCount,
+    creditSpent: 0, // no spend tracking API yet — show 0
+  };
+
+  // Adapt recent items → ProjectRow props
+  const recentProjects = recentItems.slice(0, 4).map(itemToProjectRow);
+
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-2">Free Mode Studio</h1>
-      <p className="text-gray-400 mb-8 text-sm">
-        Type anything. GioHomeStudio will enhance your prompt and generate a video, voice, and music track.
-      </p>
+    <main
+      className="stagger"
+      style={{
+        padding: "22px 32px 48px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 22,
+        minWidth: 0,
+      }}
+    >
+      {/* ── TopBar ───────────────────────────────────────── d-1 */}
+      <TopBar className="animate-rise d-1" />
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm text-gray-400 mb-1">Your idea</label>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="e.g. A cat flying off a cliff at golden hour..."
-            rows={4}
-            className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-brand-500 resize-none"
-          />
-        </div>
+      {/* ── Hero: HeroTitle + ComposeCard ─────────────── d-2 */}
+      <section
+        className="animate-rise d-2"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1.2fr 1fr",
+          gap: 22,
+          alignItems: "end",
+        }}
+      >
+        <HeroTitle
+          kicker="Studio · Dashboard"
+          title="Make the"
+          italic="impossible"
+          rest="before breakfast."
+          sub="A studio that dreams out loud. Drop a scene, pick a format, roll camera — your reels land below."
+        />
+        <ComposeCard onRoll={handleRoll} />
+      </section>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Duration (seconds)</label>
-            <select
-              value={duration}
-              onChange={(e) => setDuration(Number(e.target.value))}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
-            >
-              <option value={5}>5s</option>
-              <option value={10}>10s</option>
-              <option value={15}>15s</option>
-              <option value={30}>30s</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Video provider</label>
-            <select
-              value={videoProvider}
-              onChange={(e) => setVideoProvider(e.target.value as "runway" | "kling" | "")}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
-            >
-              <option value="">Auto (env default)</option>
-              <option value="runway">Runway</option>
-              <option value="kling">Kling</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Music mood</label>
-            <select
-              value={musicMood}
-              onChange={(e) => setMusicMood(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
-            >
-              <option value="epic">Epic</option>
-              <option value="calm">Calm</option>
-              <option value="emotional">Emotional</option>
-              <option value="upbeat">Upbeat</option>
-              <option value="dramatic">Dramatic</option>
-            </select>
-          </div>
-
-          <div className="col-span-2">
-            <label className="block text-sm text-gray-400 mb-1">Destination page</label>
-            <select
-              value={destinationPageId}
-              onChange={(e) => setDestinationPageId(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-700 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-brand-500"
-            >
-              <option value="">— No destination selected —</option>
-              {pages.filter((p) => p.isActive).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name} ({p.platform}{p.handle ? ` · ${p.handle}` : ""})
-                </option>
-              ))}
-            </select>
-            {pages.length === 0 && (
-              <p className="text-xs text-gray-600 mt-1">
-                No pages configured.{" "}
-                <a href="/dashboard/destination-pages" className="text-brand-400 hover:text-brand-300">
-                  Add one in Destination Pages.
-                </a>
-              </p>
-            )}
-          </div>
-        </div>
-
-        <button
-          onClick={handleGenerate}
-          disabled={status === "loading" || !input.trim()}
-          className="w-full bg-brand-500 hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-colors"
-        >
-          {status === "loading" ? "Generating..." : "Generate Content"}
-        </button>
-
-        {message && (
-          <div
-            className={`rounded-lg px-4 py-3 text-sm ${
-              status === "success"
-                ? "bg-green-900/40 text-green-300 border border-green-800"
-                : "bg-red-900/40 text-red-300 border border-red-800"
-            }`}
-          >
-            {message}
-          </div>
-        )}
+      {/* ── Stats row ─────────────────────────────────── d-3 */}
+      <div
+        className="animate-rise d-3"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4,1fr)",
+          gap: 14,
+        }}
+      >
+        <StatCard
+          variant="a"
+          label="Total Content"
+          value={stats.total}
+          delta={stats.total > 0 ? `${stats.total}` : "0"}
+          sub="Across all modes"
+        />
+        <StatCard
+          variant="b"
+          label="Pending Review"
+          value={stats.pendingReview}
+          delta={stats.pendingReview > 0 ? `+${stats.pendingReview}` : "0"}
+          sub="Needs your approval"
+        />
+        <StatCard
+          variant="c"
+          label="Completed"
+          value={stats.completed}
+          delta={stats.completed > 0 ? `+${stats.completed}` : "0"}
+          sub="Approved this cycle"
+        />
+        <StatCard
+          variant="d"
+          label="Credit Spent"
+          value={`$${stats.creditSpent.toFixed(2)}`}
+          delta="0%"
+          sub="Today · budget tracked"
+        />
       </div>
-    </div>
+
+      {/* ── Alert bar (only shown when review queue has items) ── d-4 */}
+      {reviewCount > 0 && (
+        <AlertBar
+          className="animate-rise d-4"
+          icon={<Alert size={16} />}
+          message={
+            <>
+              <b>{reviewCount} item{reviewCount !== 1 ? "s" : ""}</b> in Review Queue waiting for your approval
+            </>
+          }
+          cta="Review Now"
+          href="/dashboard/review"
+        />
+      )}
+
+      {/* AlertBar placeholder when queue empty — keeps d-4 in layout */}
+      {reviewCount === 0 && (
+        <AlertBar
+          className="animate-rise d-4"
+          icon={<Alert size={16} />}
+          message="Review queue is clear — no items waiting."
+          cta="Open Review"
+          href="/dashboard/review"
+        />
+      )}
+
+      {/* ── Render deck ─────────────────────────────────── d-5 */}
+      <RenderDeck
+        className="animate-rise d-5"
+        jobs={activeRenders}
+      />
+
+      {/* ── Two-col: Quick Start + Recent Projects ──────── d-6 */}
+      <div
+        className="animate-rise d-6"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 18,
+        }}
+      >
+        <Panel
+          title="Quick Start"
+          icon={<Bolt size={14} />}
+          iconGrad={ds.grad.tile.active}
+          action="Customize"
+        >
+          <QuickStartButton
+            variant="primary"
+            title="Make a Commercial"
+            sub="Slide builder · overlays · brand kit"
+            icon={<Monitor size={14} />}
+            href="/dashboard/commercial-planner"
+          />
+          <QuickStartButton
+            variant="v2"
+            title="Free Mode — Describe Anything"
+            sub="AI handles the rest"
+            icon={<Star size={14} />}
+            href="/dashboard/free-mode"
+          />
+          <QuickStartButton
+            variant="v3"
+            title="Browse Templates"
+            sub="Starters · styles · prompts"
+            icon={<Grid size={14} />}
+            href="/dashboard/templates"
+          />
+          <QuickStartButton
+            variant="v4"
+            title="Open Music Studio"
+            sub="Generate · score · mix"
+            icon={<Music size={14} />}
+            href="/dashboard/music-studio"
+          />
+        </Panel>
+
+        <Panel
+          title="Recent Projects"
+          icon={<Clock size={14} />}
+          iconGrad={ds.grad.tile.c4}
+          action="View all"
+          actionHref="/dashboard/review"
+        >
+          {recentProjects.length > 0 ? (
+            recentProjects.map((p, i) => (
+              <ProjectRow
+                key={p.id}
+                title={p.title}
+                tag={p.tag}
+                date={p.date}
+                thumbVariant={p.thumbVariant}
+                href={p.href}
+                onReview={() => router.push(`/dashboard/review?highlight=${p.id}`)}
+              />
+            ))
+          ) : (
+            <div
+              style={{
+                padding: "20px 0",
+                textAlign: "center",
+                color: ds.color.mute,
+                fontSize: 12,
+                fontFamily: ds.font.sans,
+              }}
+            >
+              No projects yet. Start creating.
+            </div>
+          )}
+        </Panel>
+      </div>
+
+      {/* ── Tool tiles row ───────────────────────────────── d-7 */}
+      <div
+        className="animate-rise d-7"
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(4,1fr)",
+          gap: 12,
+        }}
+      >
+        <ToolTile
+          variant="t1"
+          title="Animate Actor"
+          sub="Character motion"
+          icon={<User size={16} />}
+          href="/dashboard/free-mode?mode=image_to_video"
+        />
+        <ToolTile
+          variant="t2"
+          title="Asset Library"
+          sub="Stock · uploads · brand"
+          icon={<Folder size={16} />}
+          href="/dashboard/assets"
+        />
+        <ToolTile
+          variant="t3"
+          title="AI Models"
+          sub="Kling · Runway · FAL"
+          icon={<Cpu size={16} />}
+          href="/dashboard/models"
+        />
+        <ToolTile
+          variant="t4"
+          title="Characters"
+          sub="Voices · looks · casts"
+          icon={<Users size={16} />}
+          href="/dashboard/character-voices"
+        />
+      </div>
+    </main>
   );
 }

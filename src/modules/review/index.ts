@@ -9,7 +9,7 @@ import type { ReviewAction, ReviewActionType } from "@/types/content";
 export async function getPendingReviewItems() {
   return prisma.contentItem.findMany({
     where: { status: "IN_REVIEW" },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     include: { destinationPage: true },
   });
 }

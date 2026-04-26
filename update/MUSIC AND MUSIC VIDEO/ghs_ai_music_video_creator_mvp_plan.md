@@ -1,0 +1,630 @@
+# GHS AI Music Video Creator — MVP Plan
+
+We are continuing GioHomeStudio from an already-working localhost build.
+
+This document is the **MVP build canvas** for:
+
+## GHS AI Music Video Creator
+
+This version is focused on what should be built **now** so the product becomes real, testable, and usable without collapsing under too much scope.
+
+This is the **practical MVP plan**, not the full final product.
+
+---
+
+# 1. MVP Product Goal
+
+The MVP goal is to turn GHS from:
+- music generation only
+
+into:
+- music + visual concept + storyboard + preview + approval + music video export
+
+The MVP should let a user:
+- create music inside GHS or import a song
+- choose a music video mode
+- get a storyboard and preview draft
+- review the idea before heavy rendering
+- approve final generation
+- export music video outputs for real use
+
+The MVP should feel like:
+
+**a review-first AI music video studio**
+
+not a random video generator.
+
+---
+
+# 2. MVP Core Promise
+
+The defining MVP experience should be:
+
+**Create or import a song -> let GHS understand the music -> choose a visual mode -> preview storyboard and draft -> approve spend -> render a usable music video.**
+
+---
+
+# 3. MVP Product Positioning
+
+The MVP should feel:
+- cinematic
+- modern
+- creator-friendly
+- AI-assisted
+- structured
+- premium
+- controllable
+- commercially useful
+- social-media ready
+
+It should not feel like:
+- random slideshow software
+- plain clip stitching
+- confusing professional editing software
+- uncontrolled video generation
+
+---
+
+# 4. MVP Scope
+
+## Included in MVP
+- music created inside GHS
+- imported audio track
+- music analysis basics
+- storyboard generation
+- preview-first workflow
+- credit approval gate
+- review inbox integration
+- export to major aspect ratios
+- simple narration intro/outro
+- safety and rights checks
+- Studio-level Music Video section added cleanly
+
+## Core Modes Included in MVP
+### 1. Official Music Video — Basic
+For full visual concept around a song.
+
+### 2. Lyric Video
+Timed lyrics with mood visuals.
+
+### 3. Visualizer
+Waveform / motion / branded visual background.
+
+### 4. Image and Music Video
+Use still images plus music to create a visual music sequence.
+
+### 5. Commercial Music Promo — Basic
+Use songs/jingles/music-backed promo visuals for products, services, fashion, property, and brand content.
+
+### 6. AI Artist Performance — Basic
+Use approved artist/character images to create performance-style visuals in a controlled way.
+This should exist early because the character system already supports identity logic.
+
+### 7. Dance Mode — Basic
+A small rhythm/performance mode for short energetic music visuals.
+Not a full choreography engine.
+
+### 8. Children Music Video — Basic
+For simple educational animation-style music content such as:
+- ABC songs
+- counting songs
+- colors songs
+- nursery style visuals
+
+This should use:
+- bright visuals
+- safe pacing
+- strong subtitle clarity
+- simple reusable templates
+
+---
+
+# 5. MVP Excludes
+
+Do not build these deeply in MVP:
+- Audio to Text and Video deep workflow
+- strong connected publishing
+- advanced social auto-cuts
+- advanced beat-sync engine
+- team/campaign features
+- unrestricted likeness/voice cloning
+- fully automatic publishing without review
+- highly complex manual timeline editing
+- uncontrolled long-form generation without preview
+
+---
+
+# 6. Studio Placement
+
+This product should sit inside Studio as two connected sections:
+- Music
+- Music Video
+
+The user should clearly see Studio entry tiles/cards for:
+- Music
+- Music Video
+- Text to Music
+- Lyrics to Music
+- Audio to Music Video
+- Image and Music Video
+- Image, Voice, and Music Video
+- Children Music Video
+- Lyric Video
+- Visualizer
+- Commercial Music Video
+- AI Artist Performance
+- Dance Mode
+
+## Important UI Rule
+When the user clicks any of these entries, it should take them into:
+- the existing music edit flow, or
+- the new music video edit flow,
+depending on the mode selected.
+
+No static dead menu.
+
+---
+
+# 7. MVP Main User Journey
+
+1. user creates music in GHS or imports a track
+2. GHS analyzes the music
+3. GHS identifies mood, tempo, length, and likely visual direction
+4. GHS suggests music video options
+5. user selects a video mode
+6. GHS creates a storyboard draft
+7. GHS shows:
+   - video concept
+   - scene structure
+   - art style
+   - lyric/caption structure if relevant
+   - narration intro/outro option if relevant
+   - estimated credits
+8. user edits or approves the plan
+9. GHS generates preview frames or preview clips
+10. user reviews
+11. user approves final rendering
+12. credits are deducted after approval
+13. final video renders
+14. user exports or saves
+
+---
+
+# 8. Music Intake Sources
+
+## Supported Inputs
+- music generated inside GHS
+- uploaded MP3/WAV track
+- beat-only track
+- jingle track
+- user-uploaded song with lyrics
+- song draft generated by AI
+
+## Optional Metadata
+- song title
+- artist name
+- theme
+- mood
+- genre
+- target audience
+- main message
+- release type
+- visual reference prompt
+
+---
+
+# 9. Music Analysis Engine — MVP
+
+## Purpose
+Before generating visuals, GHS should understand the music at a basic usable level.
+
+## MVP Analysis Includes
+- duration
+- tempo
+- energy level
+- emotional tone
+- likely genre
+- intro and outro feel
+- strong/high points
+- simple chorus/section detection if practical
+
+## Output of MVP Analysis
+- song profile
+- visual recommendations
+- scene pacing recommendations
+- lyric timing guidance if relevant
+- suggested video modes
+
+---
+
+# 10. Visual Concept Engine — MVP
+
+## Purpose
+Turn the music analysis into a usable visual concept.
+
+## MVP Concept Outputs
+- visual direction
+- color mood
+- scene progression summary
+- performance style if selected
+- transition mood
+- commercial direction if selected
+
+## Example Directions
+- cinematic love story
+- luxury afrobeat performance
+- dark neon club visual
+- worship lyric glow
+- founder promo with strong beat cuts
+- product jingle promo
+
+---
+
+# 11. Storyboard Engine — MVP
+
+## Purpose
+Break the song into planned sections before rendering.
+
+## MVP Storyboard Structure
+- intro scene
+- main section scenes
+- chorus highlight sections if detected
+- outro scene
+
+## For Each Scene Store
+- scene purpose
+- approximate duration
+- prompt
+- style
+- movement type
+- text/lyric overlay if needed
+- source assets if used
+- generation method
+
+This should be structured but not overly complex in MVP.
+
+---
+
+# 12. Video Generation Methods in MVP
+
+## Method A — AI Video Generation
+For direct prompt-based scene generation.
+
+## Method B — AI Image to Video
+Generate key images first, then animate them.
+
+## Method C — Uploaded Media + AI Enhancement
+Use user clips/images and enhance or sync them to music.
+
+## Method D — Hybrid Build
+Mix:
+- AI video scenes
+- AI images
+- real user footage
+- lyric overlays
+- subtitles
+- transitions
+
+Hybrid should be supported conceptually even if early implementation is modest.
+
+---
+
+# 13. Lyrics and Caption Engine — MVP
+
+## Included Modes
+- full lyric display
+- key line emphasis
+- subtitle-only mode
+- no text mode
+
+## Basic Controls
+- font style
+- text position
+- timing sensitivity
+- subtitle size
+- highlight color logic
+- text shadow/background support
+
+Use this strongly for:
+- lyric videos
+- worship songs
+- sing-along clips
+- short teaser videos
+
+---
+
+# 14. Narration and Intro/Outro System — MVP
+
+## Purpose
+Allow a short spoken opening or closing where useful.
+
+This is not for singing over the song.
+This is for:
+- intro voiceover
+- artist announcement
+- teaser intro
+- promo CTA ending
+- commercial framing
+
+## Voice Options
+- standard AI voice
+- user approved voice profile
+- saved brand voice if available later
+
+---
+
+# 15. AI Artist Performance — Basic
+
+## Why Included Early
+This should not be pushed too far back because the character/identity system already exists as a direction inside GHS.
+
+## MVP Scope
+- approved artist/character image input
+- performance-style visual concept
+- identity-consistent scene prompts where possible
+- performance scene selection
+- rights confirmation if a real identifiable person is used
+
+Do not overbuild this into a full avatar engine yet.
+
+---
+
+# 16. Dance Mode — Basic
+
+## MVP Scope
+- short energetic visual mode
+- rhythm-driven scene selection
+- movement energy presets
+- social-friendly visual cuts
+- performance/dance vibe, not full choreography control
+
+This is enough for afrobeat, party, energetic, or fashion/music content in MVP.
+
+---
+
+# 17. Children Music Video — Basic
+
+## MVP Scope
+- ABC song visuals
+- counting song visuals
+- colors and shapes style visuals
+- nursery-style lyric visuals
+- simple educational animation pacing
+- bright, safe, child-friendly art direction
+- strong clear captions/lyrics
+
+## Safety Rule
+Children mode must use:
+- safe prompts
+- safe visual style
+- safe pacing
+- no risky adult content bleed-through
+
+This is a controlled basic mode, not the full final children-content engine.
+
+---
+
+# 18. Commercial Music Promo — Basic
+
+## Purpose
+Support product, service, property, fashion, and business visuals backed by music.
+
+## MVP Outputs
+- short ad-style music video
+- jingle promo visual
+- product/music promo
+- property/music promo
+- fashion/music short
+
+## Basic Commercial Controls
+- objective
+- audience
+- CTA style
+- text overlay on/off
+- logo on/off
+- export format
+
+---
+
+# 19. Draft and Preview Flow
+
+## Product Rule
+Heavy render should not happen first.
+
+## MVP Preview-First Flow
+1. user chooses video mode
+2. GHS analyzes song
+3. GHS builds concept and storyboard
+4. GHS shows preview plan
+5. GHS creates selected preview frames or short preview clips
+6. user reviews
+7. user edits style, pacing, text, or narration
+8. user approves final render
+
+## Draft Should Show
+- song title
+- video mode
+- mood
+- storyboard summary
+- text/lyrics style
+- narration option
+- scene count
+- estimated duration
+- estimated credits
+
+---
+
+# 20. Credit and Approval Gate
+
+## Core Rule
+No expensive final render should happen before approval.
+
+## Approval Screen Must Show
+- video type
+- music source
+- style selected
+- number of scenes
+- preview frames/clips
+- lyric/narration settings
+- estimated credits
+- current balance
+
+## Credit Logic
+- preview should use lower credit or limited allowance if designed that way
+- final render uses full credit
+- if balance is low, ask user to top up
+- no hidden deduction
+- all charges should be logged
+
+---
+
+# 21. Review Inbox Integration
+
+## Status Types
+- Draft Created
+- Storyboard Ready
+- Preview Ready
+- Awaiting Approval
+- Awaiting Credit Top-Up
+- Rendering
+- Render Failed
+- Ready to Export
+- Blocked for Safety
+- Blocked for Rights
+
+## Review Actions
+- approve
+- reject
+- edit storyboard
+- change style
+- change lyrics mode
+- remove narration
+- add narration
+- change visuals
+- regenerate scene
+- shorten video
+- export
+
+---
+
+# 22. Output Types in MVP
+
+## Main Outputs
+- full horizontal video
+- vertical reel/shorts version
+- square promo version
+- teaser version
+- lyric-only version
+- audio visualizer version
+- WhatsApp status cut if practical
+
+## Additional Exports
+- thumbnail image
+- promo poster
+- upload-ready description text later if easy
+
+---
+
+# 23. Safety and Rights Layer
+
+## The System Must Block
+- nude or sexualized music video prompts
+- exploitative visuals
+- unauthorized celebrity cloning
+- deceptive impersonation
+- unauthorized likeness use
+- unauthorized voice imitation
+- illegal or harmful content
+- minors in unsafe visual concepts
+
+## Checks Must Run At
+- project setup
+- prompt input
+- image upload
+- performer/artist image use
+- narration setup
+- export
+
+## Rights Confirmation Needed For
+- third-party faces
+- third-party performer visuals
+- brand-owned assets without clear rights
+- non-user voice cloning
+
+---
+
+# 24. Recommended MVP Architecture Logic
+
+The MVP pipeline should be:
+1. ingest music
+2. analyze song structure
+3. generate concept directions
+4. generate storyboard
+5. generate preview frames/clips
+6. user review
+7. scene generation/render
+8. add lyrics/captions/narration
+9. final export
+
+Keep this structured.
+Do not make it chaotic.
+
+---
+
+# 25. MVP Phase Order
+
+## Phase 1A
+- Music Video section inside Studio
+- music import / music selection
+- music analysis basics
+- Official Music Video basic
+- Lyric Video
+- Visualizer
+- Image and Music Video
+- preview-first flow
+- credit approval gate
+- export basics
+
+## Phase 1B
+- Commercial Music Promo basic
+- AI Artist Performance basic
+- Dance Mode basic
+- Children Music Video basic
+- narration intro/outro
+- stronger review inbox integration
+
+---
+
+# 26. Product Principles to Preserve
+
+1. Music must drive the visuals
+2. Preview before heavy rendering
+3. User approval before major credit spend
+4. Flexible modes for art and commercial use
+5. Structured storyboard, not random output
+6. Strong rights and safety controls
+7. Fast enough for creators, strong enough for businesses
+8. One song can produce multiple content formats
+9. Simple experience, powerful output
+10. Music video creation should feel inspiring, not stressful
+
+---
+
+# 27. Final MVP Product Statement
+
+GHS AI Music Video Creator — MVP should become the first strong visual extension of GHS music generation.
+
+If GHS can already make music, the MVP should let that music become:
+- official music videos
+- lyric videos
+- visualizers
+- image-and-music videos
+- commercial music promos
+- basic artist-performance visuals
+- basic dance visuals
+- basic children music videos
+
+The MVP defining experience should be:
+
+**Create or import a song, let GHS understand the music, choose a visual mode, preview the storyboard and direction, approve the spend, and render a music video that is usable in real life.**
+
