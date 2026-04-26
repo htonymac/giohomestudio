@@ -73,6 +73,7 @@ interface BriefData {
   aspectRatio: "9:16" | "16:9" | "1:1" | "4:5";
   brandColors: string;
   brandTone: "professional" | "friendly" | "luxury" | "energetic" | "emotional" | "humorous" | "authoritative" | "inspirational";
+  productImages: string[];
 }
 
 type WorkshopTab = "overview" | "design" | "brief" | "cast" | "scenes" | "screenplay" | "audio" | "assembly";
@@ -177,7 +178,7 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 function defaultBrief(): BriefData {
-  return { brandName: "", productName: "", tagline: "", objective: "awareness", targetAudience: "Adults 25-45", keyMessage: "", callToAction: "", budget: "medium", platform: "Instagram", format: "30s", aspectRatio: "9:16", brandColors: "", brandTone: "friendly" };
+  return { brandName: "", productName: "", tagline: "", objective: "awareness", targetAudience: "Adults 25-45", keyMessage: "", callToAction: "", budget: "medium", platform: "Instagram", format: "30s", aspectRatio: "9:16", brandColors: "", brandTone: "friendly", productImages: [] };
 }
 
 function mkScene(n: number, section: CommercialScene["sceneSection"] = "hook"): CommercialScene {
@@ -285,9 +286,29 @@ function CommercialPlannerInner() {
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
 
+  // ── Color swatches ──
+  const [brandSwatches, setBrandSwatches] = useState<string[]>(["#FF4500"]);
+
+  // ── Product image upload ──
+  const [uploadingProductImage, setUploadingProductImage] = useState(false);
+
+  // ── Per-scene model overrides ──
+  const [sceneImageModels, setSceneImageModels] = useState<Record<string, string>>({});
+  const [sceneVideoModels, setSceneVideoModels] = useState<Record<string, string>>({});
+
   // ── AID model picker ──
-  const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ghs_commercial_planner_video_model") || "fal_wan_lite";
+    }
+    return "fal_wan_lite";
+  });
+  const [selectedImageModelId, setSelectedImageModelId] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("ghs_commercial_planner_image_model") || "fal_flux_schnell";
+    }
+    return "fal_flux_schnell";
+  });
   const [transparentBg, setTransparentBg] = useState(false);
   const [aiTier, setAiTier] = useState<AITier>("standard");
   const [showAidPicker, setShowAidPicker] = useState(false);
@@ -341,9 +362,27 @@ function CommercialPlannerInner() {
         if (d.designComplete != null) setDesignComplete(d.designComplete);
         if (d.storyAiProvider) setStoryAiProvider(d.storyAiProvider);
         if (d.voiceoverText) setVoiceoverText(d.voiceoverText);
+        // Restore swatches from brandColors
+        if (d.brief?.brandColors) {
+          const saved = d.brief.brandColors.split(",").map((s: string) => s.trim()).filter(Boolean);
+          if (saved.length > 0) setBrandSwatches(saved);
+        }
       }
+      // Restore model preferences
+      const savedImgModel = localStorage.getItem("ghs_commercial_planner_image_model");
+      const savedVidModel = localStorage.getItem("ghs_commercial_planner_video_model");
+      if (savedImgModel) setSelectedImageModelId(savedImgModel);
+      if (savedVidModel) setSelectedVideoModelId(savedVidModel);
     } catch {}
   }, []);
+
+  // Persist model selections to localStorage when changed
+  useEffect(() => {
+    if (mounted) localStorage.setItem("ghs_commercial_planner_image_model", selectedImageModelId);
+  }, [selectedImageModelId, mounted]);
+  useEffect(() => {
+    if (mounted) localStorage.setItem("ghs_commercial_planner_video_model", selectedVideoModelId);
+  }, [selectedVideoModelId, mounted]);
 
   function saveLocal() {
     if (!mounted) return;
@@ -469,7 +508,19 @@ function CommercialPlannerInner() {
       const charRefs = cast.filter(c => scene.characterIds.includes(c.characterId)).map(c => `${c.displayName}: ${c.description}`).join(", ");
       const prompt = `Commercial scene for ${brief.brandName}. ${brief.productName} — ${brief.tagline}. Scene: ${scene.title}. ${scene.description}. Brand tone: ${brief.brandTone}. Style: ${scene.cameraStyle || "clean commercial photography"}.${charRefs ? ` Characters: ${charRefs}.` : ""} Professional ${brief.budget === "premium" ? "cinematic" : "clean"} advertising style.`;
       const useTransparent = transparentBg && selectedImageModelId.includes("ideogram_v3");
-      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, style: brief.budget === "premium" ? "cinematic-premium" : "clean-commercial", sceneType: scene.sceneType === "video" ? "video-led" : "image-led", modelId: useTransparent ? "fal_ideogram_v3_transparent" : selectedImageModelId, transparentBg: useTransparent }) });
+      const sceneImgModel = sceneImageModels[scene.sceneId] || (useTransparent ? "fal_ideogram_v3_transparent" : selectedImageModelId);
+      const res = await fetch("/api/hybrid/scene-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          style: brief.budget === "premium" ? "cinematic-premium" : "clean-commercial",
+          sceneType: scene.sceneType === "video" ? "video-led" : "image-led",
+          modelId: sceneImgModel,
+          transparentBg: useTransparent,
+          productImages: (brief.productImages || []).filter(Boolean),
+        }),
+      });
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));
@@ -691,7 +742,7 @@ function CommercialPlannerInner() {
     try {
       const response = await fetch("/api/hybrid/scene-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`, imageUrl: existingImage, duration: scene.duration, motionDescription: scene.cameraStyle || "" }),
+        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`, imageUrl: existingImage, duration: scene.duration, motionDescription: scene.cameraStyle || "", modelId: sceneVideoModels[sceneId] || selectedVideoModelId }),
       });
       if (!response.body) throw new Error("No response stream");
       const reader = response.body.getReader();
@@ -1047,7 +1098,106 @@ function CommercialPlannerInner() {
             <div style={{ marginBottom: 10 }}><span style={lbl}>Brand Name</span><input style={inp} value={brief.brandName} onChange={e => setBrief(p => ({ ...p, brandName: e.target.value }))} placeholder="e.g. FreshBrew Coffee" /></div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Product / Service Name</span><input style={inp} value={brief.productName} onChange={e => setBrief(p => ({ ...p, productName: e.target.value }))} placeholder="e.g. FreshBrew Bold Blend" /></div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Tagline</span><input style={inp} value={brief.tagline} onChange={e => setBrief(p => ({ ...p, tagline: e.target.value }))} placeholder="e.g. Wake up to something bold" /></div>
-            <div><span style={lbl}>Brand Colors (hex codes)</span><input style={inp} value={brief.brandColors} onChange={e => setBrief(p => ({ ...p, brandColors: e.target.value }))} placeholder="#FF4500, #1A1A2E" /></div>
+
+            {/* ── Product Images ── */}
+            <div style={{ marginBottom: 10 }}>
+              <span style={lbl}>Product Images</span>
+              <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Upload product shots used as reference in scene generation</p>
+              {(brief.productImages || []).length > 0 && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                  {(brief.productImages || []).map((url, idx) => (
+                    <div key={idx} style={{ position: "relative", width: 72, height: 72 }}>
+                      <img src={url} alt={`product-${idx}`} style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: `1px solid ${border}` }} />
+                      <button
+                        onClick={() => setBrief(p => ({ ...p, productImages: (p.productImages || []).filter((_, i) => i !== idx) }))}
+                        style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: red, border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
+                      >✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <label style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 10, border: `1px dashed ${border}`, background: ds.color.paper, color: muted, fontSize: 12, cursor: uploadingProductImage ? "not-allowed" : "pointer" }}>
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp"
+                  multiple
+                  style={{ display: "none" }}
+                  disabled={uploadingProductImage}
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    setUploadingProductImage(true);
+                    try {
+                      for (const file of files) {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+                        const d = await res.json();
+                        if (d.filePath) {
+                          const cleaned = d.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "");
+                          const mediaUrl = `/api/media/${cleaned}`;
+                          setBrief(p => ({ ...p, productImages: [...(p.productImages || []), mediaUrl] }));
+                        }
+                      }
+                    } catch { setLastAction("Product image upload failed"); }
+                    setUploadingProductImage(false);
+                    e.target.value = "";
+                  }}
+                />
+                {uploadingProductImage ? "Uploading…" : "+ Add Product Image"}
+              </label>
+            </div>
+
+            {/* ── Brand Colors (swatches) ── */}
+            <div>
+              <span style={lbl}>Brand Colors</span>
+              {/* Swatch preview row */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+                {brandSwatches.map((col, idx) => (
+                  <div key={idx} style={{ width: 32, height: 32, borderRadius: 8, background: col, border: `2px solid ${border}`, flexShrink: 0 }} title={col} />
+                ))}
+              </div>
+              {/* Color pickers */}
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                {brandSwatches.map((col, idx) => (
+                  <div key={idx} style={{ position: "relative" }}>
+                    <input
+                      type="color"
+                      value={col}
+                      onChange={e => {
+                        const updated = brandSwatches.map((c, i) => i === idx ? e.target.value : c);
+                        setBrandSwatches(updated);
+                        setBrief(p => ({ ...p, brandColors: updated.join(", ") }));
+                      }}
+                      style={{ width: 36, height: 36, padding: 2, borderRadius: 8, border: `1px solid ${border}`, background: "transparent", cursor: "pointer" }}
+                      title={col}
+                    />
+                    {brandSwatches.length > 1 && (
+                      <button
+                        onClick={() => {
+                          const updated = brandSwatches.filter((_, i) => i !== idx);
+                          setBrandSwatches(updated);
+                          setBrief(p => ({ ...p, brandColors: updated.join(", ") }));
+                        }}
+                        style={{ position: "absolute", top: -6, right: -6, width: 16, height: 16, borderRadius: "50%", background: red, border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                      >✕</button>
+                    )}
+                  </div>
+                ))}
+                {brandSwatches.length < 8 && (
+                  <button
+                    onClick={() => {
+                      const updated = [...brandSwatches, "#ffffff"];
+                      setBrandSwatches(updated);
+                      setBrief(p => ({ ...p, brandColors: updated.join(", ") }));
+                    }}
+                    style={{ width: 36, height: 36, borderRadius: 8, border: `1px dashed ${border}`, background: "transparent", color: muted, fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                    title="Add color"
+                  >+</button>
+                )}
+              </div>
+              <p style={{ fontSize: 10, color: muted, marginTop: 6 }}>{brief.brandColors || "No colors set"}</p>
+            </div>
           </div>
 
           <div style={card}>
@@ -1274,7 +1424,28 @@ function CommercialPlannerInner() {
                       </div>
                     );
                   })()}
-                  {selectedImageModelId.includes("ideogram_v3") && (
+                  {/* ── Per-scene model selectors ── */}
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    <select
+                      data-testid={`img-model-${sc.sceneId}`}
+                      value={sceneImageModels[sc.sceneId] || selectedImageModelId}
+                      onChange={e => setSceneImageModels(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
+                      style={{ fontSize: 10, padding: "3px 6px", borderRadius: 6, border: `1px solid ${border}`, background: ds.color.paper, color: muted, cursor: "pointer" }}
+                      title="Image model for this scene"
+                    >
+                      {AID_IMAGE_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                    <select
+                      data-testid={`vid-model-${sc.sceneId}`}
+                      value={sceneVideoModels[sc.sceneId] || selectedVideoModelId}
+                      onChange={e => setSceneVideoModels(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
+                      style={{ fontSize: 10, padding: "3px 6px", borderRadius: 6, border: `1px solid ${border}`, background: ds.color.paper, color: muted, cursor: "pointer" }}
+                      title="Video model for this scene"
+                    >
+                      {AID_VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  </div>
+                  {(sceneImageModels[sc.sceneId] || selectedImageModelId).includes("ideogram_v3") && (
                     <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, cursor: "pointer" }}>
                       <input type="checkbox" checked={transparentBg} onChange={e => setTransparentBg(e.target.checked)} />
                       <span style={{ fontSize: 10, color: "#aaa" }}>Transparent Background (PNG)</span>
