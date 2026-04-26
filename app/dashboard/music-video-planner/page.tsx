@@ -245,6 +245,14 @@ export default function MusicVideoPlannerPage() {
   // ── Provider routing labels ──
   const [sceneProviderMap, setSceneProviderMap] = useState<Record<number, string>>({});
 
+  // ── Music Provider selector (persisted in localStorage) ──
+  const [musicProvider, setMusicProvider] = useState<"auto" | "kie" | "mubert" | "stable_audio" | "stock">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("ghs_music_provider") as "auto" | "kie" | "mubert" | "stable_audio" | "stock") ?? "auto";
+    }
+    return "auto";
+  });
+
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
@@ -1522,7 +1530,25 @@ export default function MusicVideoPlannerPage() {
 
           {songSource === "generate" && (
             <div style={{ marginBottom: 20 }}>
-              <p style={{ fontSize: 12, color: muted, marginBottom: 8 }}>Create your song first in the <a href="/dashboard/music-video" style={{ color: "#00d4ff", textDecoration: "none" }}>Music Studio</a>, then come back here to plan the video.</p>
+              <p style={{ fontSize: 12, color: muted, marginBottom: 12 }}>Generate a track here or use the <a href="/dashboard/music-studio" style={{ color: "#00d4ff", textDecoration: "none" }}>Music Studio</a> for full controls.</p>
+              <div style={{ marginBottom: 12 }}>
+                <label style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 6 }}>Music Provider</label>
+                <select
+                  value={musicProvider}
+                  onChange={e => {
+                    const v = e.target.value as typeof musicProvider;
+                    setMusicProvider(v);
+                    if (typeof window !== "undefined") localStorage.setItem("ghs_music_provider", v);
+                  }}
+                  style={{ width: "100%", background: "#1a1a2e", border: `1px solid ${border}`, color: "#fff", fontSize: 11, borderRadius: 8, padding: "8px 12px" }}
+                >
+                  <option value="auto">Auto (smart routing)</option>
+                  <option value="kie">Kie.ai (Suno V5 — lyrical)</option>
+                  <option value="mubert">Mubert (ambient — instrumental)</option>
+                  <option value="stable_audio">Stable Audio (cinematic ≤47s)</option>
+                  <option value="stock">Stock Library (free, offline)</option>
+                </select>
+              </div>
             </div>
           )}
 

@@ -39,9 +39,16 @@ export default function MusicStudioPage() {
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [genTitle, setGenTitle] = useState("");
   const [genLyrics, setGenLyrics] = useState("");
-  const [genResult, setGenResult] = useState<{ musicPath?: string; source?: string; provider?: string; tier?: string; error?: string; note?: string } | null>(null);
+  const [genResult, setGenResult] = useState<{ musicPath?: string; audioUrl?: string; source?: string; provider?: string; providerKey?: string; tier?: string; error?: string; note?: string } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genHistory, setGenHistory] = useState<Array<{ prompt: string; musicPath: string; provider: string; tier: string }>>([]);
+  // Music Provider selector (persisted in localStorage)
+  const [musicProvider, setMusicProvider] = useState<"auto" | "kie" | "mubert" | "stable_audio" | "stock">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("ghs_music_provider") as "auto" | "kie" | "mubert" | "stable_audio" | "stock") ?? "auto";
+    }
+    return "auto";
+  });
 
   // SFX state
   const [sfxPrompt, setSfxPrompt] = useState("");
@@ -78,6 +85,9 @@ export default function MusicStudioPage() {
           genre: genGenre || undefined,
           mood: genMood || undefined,
           durationSeconds: genDuration,
+          hasLyrics: !genInstrumental,
+          providerKey: musicProvider,
+          // Legacy fields kept for backward compat
           instrumental: genInstrumental,
           tier: genTier,
           title: genTitle || undefined,
@@ -86,8 +96,9 @@ export default function MusicStudioPage() {
       });
       const result = await res.json();
       setGenResult(result);
-      if (result.musicPath) {
-        setGenHistory(prev => [{ prompt: genPrompt, musicPath: result.musicPath!, provider: result.provider || "unknown", tier: result.tier || genTier }, ...prev.slice(0, 9)]);
+      const trackUrl = result.audioUrl ?? result.musicPath;
+      if (trackUrl) {
+        setGenHistory(prev => [{ prompt: genPrompt, musicPath: trackUrl, provider: result.providerKey ?? result.provider ?? musicProvider, tier: result.tier || genTier }, ...prev.slice(0, 9)]);
       }
     } catch { setGenResult({ error: "Network error" }); }
     setGenerating(false);
@@ -176,6 +187,26 @@ export default function MusicStudioPage() {
             </div>
           </div>
 
+          {/* Music Provider selector */}
+          <div>
+            <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Provider</p>
+            <select
+              value={musicProvider}
+              onChange={e => {
+                const v = e.target.value as typeof musicProvider;
+                setMusicProvider(v);
+                if (typeof window !== "undefined") localStorage.setItem("ghs_music_provider", v);
+              }}
+              style={{ width: "100%", background: ds.color.alert, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, fontSize: 11, borderRadius: ds.radius.sm, padding: "6px 10px" }}
+            >
+              <option value="auto">Auto (smart routing)</option>
+              <option value="kie">Kie.ai (Suno V5 — lyrical)</option>
+              <option value="mubert">Mubert (ambient — instrumental)</option>
+              <option value="stable_audio">Stable Audio (cinematic ≤47s)</option>
+              <option value="stock">Stock Library (free, offline)</option>
+            </select>
+          </div>
+
           <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 20 }}>
             <div style={{ marginBottom: 16 }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>AI Music Generator</h2>
@@ -248,13 +279,13 @@ export default function MusicStudioPage() {
                   <>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                       <p style={{ color: ds.color.mint, fontWeight: 700 }}>Track generated</p>
-                      <span style={{ fontSize: 9, background: ds.color.alert, padding: "2px 6px", borderRadius: 4, color: ds.color.lilac }}>{genResult.provider}</span>
+                      <span style={{ fontSize: 9, background: ds.color.alert, padding: "2px 6px", borderRadius: 4, color: ds.color.lilac }}>{genResult.providerKey ?? genResult.provider}</span>
                     </div>
-                    <p style={{ color: ds.color.mute, marginBottom: 8 }}>{genResult.musicPath?.split(/[\\/]/).pop()}</p>
-                    {genResult.musicPath && (
-                      <button onClick={() => playTrack(genResult.musicPath!)}
-                        style={{ padding: "6px 14px", borderRadius: ds.radius.sm, color: ds.color.ink, fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", background: playing === genResult.musicPath ? ds.color.mute2 : ds.color.lilac }}>
-                        {playing === genResult.musicPath ? "Stop" : "Play"}
+                    <p style={{ color: ds.color.mute, marginBottom: 8 }}>{(genResult.audioUrl ?? genResult.musicPath)?.split(/[\\/]/).pop()}</p>
+                    {(genResult.audioUrl ?? genResult.musicPath) && (
+                      <button onClick={() => playTrack((genResult.audioUrl ?? genResult.musicPath)!)}
+                        style={{ padding: "6px 14px", borderRadius: ds.radius.sm, color: ds.color.ink, fontSize: 11, fontWeight: 700, border: "none", cursor: "pointer", background: playing === (genResult.audioUrl ?? genResult.musicPath) ? ds.color.mute2 : ds.color.lilac }}>
+                        {playing === (genResult.audioUrl ?? genResult.musicPath) ? "Stop" : "Play"}
                       </button>
                     )}
                   </>
