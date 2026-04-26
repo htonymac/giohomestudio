@@ -251,6 +251,8 @@ function SeriesPlannerInner() {
   // ── Audio ──
   const [globalMusicChoice, setGlobalMusicChoice] = useState("soft_drama");
   const [globalNarration, setGlobalNarration] = useState("narrator");
+  const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
+  const [narratorVoiceProvider, setNarratorVoiceProvider] = useState<"piper" | "elevenlabs">("piper");
 
   // ── Assembly ──
   const [assembling, setAssembling] = useState(false);
@@ -1060,7 +1062,8 @@ function SeriesPlannerInner() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text, sceneId: scene.sceneId,
-          model: "en_US-lessac-medium", speed: 0.85,
+          model: narratorPiperModel, speed: 0.85,
+          voiceProvider: narratorVoiceProvider,
         }),
       });
       const data = await res.json();
