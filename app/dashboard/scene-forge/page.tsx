@@ -4,6 +4,7 @@
 // Talking Avatar: Upload photo → script → voice → lip-sync → final video
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
 import { ds } from "../../../lib/designSystem";
@@ -59,6 +60,7 @@ const inputSt = (): React.CSSProperties => ({
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function SceneForgePage() {
+  const { requireGate, GateModal } = useGate();
   // Inputs
   const [imageUrl, setImageUrl]         = useState<string>("");
   const [imagePreview, setImagePreview] = useState<string>("");
@@ -147,6 +149,7 @@ export default function SceneForgePage() {
   // ── Generate ───────────────────────────────────────────────────────────────
 
   const generate = async () => {
+    try { await requireGate(); } catch { return; }
     if (!imageUrl) return;
     if (!topic.trim()) return;
 
@@ -181,6 +184,7 @@ export default function SceneForgePage() {
 
   return (
     <div style={{ minHeight: "100vh", background: ds.color.paper, color: ds.color.ink, fontFamily: ds.font.sans, padding: "0 0 80px" }}>
+      <GateModal />
 
       {/* ── Header ── */}
       <div style={{ borderBottom: `1px solid ${ds.color.line}`, padding: "20px 32px", display: "flex", alignItems: "center", gap: 16 }}>

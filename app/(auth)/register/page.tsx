@@ -5,6 +5,16 @@ import { signIn } from "next-auth/react";
 import { ds } from "../../../lib/designSystem";
 import ButtonPrimary from "../../components/ui/ButtonPrimary";
 
+const LEGAL_DOCS = [
+  { label: "Terms of Use",               href: "/terms" },
+  { label: "Privacy Policy",             href: "/privacy" },
+  { label: "Acceptable Use Policy",      href: "/acceptable-use" },
+  { label: "AI Disclosure Policy",       href: "/ai-disclosure" },
+  { label: "DMCA / Takedown Procedure",  href: "/dmca" },
+  { label: "Cookies Policy",             href: "/cookies" },
+  { label: "Sound Licensing Policy",     href: "/sound-licensing" },
+];
+
 // ── Input style ────────────────────────────────────────────────────────────────
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -30,12 +40,13 @@ const labelStyle: React.CSSProperties = {
 };
 
 export default function RegisterPage() {
-  const [name, setName]           = useState("");
-  const [email, setEmail]         = useState("");
-  const [password, setPassword]   = useState("");
+  const [name, setName]               = useState("");
+  const [email, setEmail]             = useState("");
+  const [password, setPassword]       = useState("");
   const [agreedTerms, setAgreedTerms] = useState(false);
-  const [error, setError]         = useState("");
-  const [loading, setLoading]     = useState(false);
+  const [showDocs, setShowDocs]       = useState(false);
+  const [error, setError]             = useState("");
+  const [loading, setLoading]         = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -200,46 +211,92 @@ export default function RegisterPage() {
             />
           </div>
 
-          {/* Terms checkbox */}
-          <label
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 8,
-              fontSize: 12,
-              color: ds.color.mute,
-              cursor: "pointer",
-              marginBottom: 16,
-              lineHeight: 1.6,
-              fontFamily: ds.font.sans,
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={agreedTerms}
-              onChange={e => setAgreedTerms(e.target.checked)}
-              style={{ marginTop: 3, accentColor: ds.color.lilac }}
-            />
-            <span>
-              I agree to the{" "}
-              <a
-                href="/terms"
-                target="_blank"
-                style={{ color: ds.color.lilac, textDecoration: "none" }}
+          {/* Bundled legal consent checkbox */}
+          <div style={{ marginBottom: 16 }}>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 8,
+                fontSize: 12,
+                color: ds.color.mute,
+                cursor: "pointer",
+                lineHeight: 1.6,
+                fontFamily: ds.font.sans,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={agreedTerms}
+                onChange={e => setAgreedTerms(e.target.checked)}
+                style={{ marginTop: 3, accentColor: ds.color.lilac, flexShrink: 0 }}
+              />
+              <span>
+                I agree to the GHS{" "}
+                <a href="/terms" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>Terms of Use</a>,{" "}
+                <a href="/privacy" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>Privacy Policy</a>,{" "}
+                <a href="/acceptable-use" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>Acceptable Use Policy</a>,{" "}
+                <a href="/ai-disclosure" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>AI Disclosure</a>,{" "}
+                <a href="/dmca" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>DMCA / Takedown Procedure</a>,{" "}
+                <a href="/cookies" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>Cookies Policy</a>, and{" "}
+                <a href="/sound-licensing" target="_blank" style={{ color: ds.color.lilac, textDecoration: "none" }}>Sound Licensing Policy</a>.{" "}
+                I confirm I am 13+ (18+ for monetisation) and that I will only generate content I have rights to.
+              </span>
+            </label>
+
+            {/* Collapsible doc list */}
+            <button
+              type="button"
+              onClick={() => setShowDocs(v => !v)}
+              style={{
+                marginTop: 8,
+                marginLeft: 20,
+                background: "none",
+                border: "none",
+                color: ds.color.mute2,
+                fontSize: 11,
+                fontFamily: ds.font.mono,
+                cursor: "pointer",
+                padding: 0,
+                textDecoration: "underline",
+              }}
+            >
+              {showDocs ? "Hide documents" : "Show all 7 documents"}
+            </button>
+
+            {showDocs && (
+              <div
+                style={{
+                  marginTop: 8,
+                  marginLeft: 20,
+                  padding: "10px 12px",
+                  background: ds.color.wallet,
+                  border: `1px solid ${ds.color.line}`,
+                  borderRadius: ds.radius.xs,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 6,
+                }}
               >
-                Terms of Use
-              </a>
-              {" "}and{" "}
-              <a
-                href="/privacy"
-                target="_blank"
-                style={{ color: ds.color.lilac, textDecoration: "none" }}
-              >
-                Privacy Policy
-              </a>
-              . I understand I am responsible for content I approve and publish.
-            </span>
-          </label>
+                {LEGAL_DOCS.map(doc => (
+                  <a
+                    key={doc.href}
+                    href={doc.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      fontSize: 12,
+                      color: ds.color.lilac,
+                      textDecoration: "none",
+                      fontFamily: ds.font.sans,
+                    }}
+                  >
+                    {doc.label} &rarr;
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
 
           {error && (
             <p

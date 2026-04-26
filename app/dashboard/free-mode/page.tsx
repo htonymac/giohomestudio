@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, Suspense } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import { useSearchParams } from "next/navigation";
 import DurationPicker from "../../components/DurationPicker";
 import ModelPicker, { VIDEO_MODELS, IMAGE_MODELS } from "../../components/ModelPicker";
@@ -407,6 +408,7 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
 
 // ── Main component ─────────────────────────────────────────────────────────────
 function FreeModeInner() {
+  const { requireGate, GateModal } = useGate();
   const searchParams = useSearchParams();
   const feedRef      = useRef<HTMLDivElement>(null);
   const textareaRef  = useRef<HTMLTextAreaElement>(null);
@@ -576,6 +578,7 @@ function FreeModeInner() {
 
   // Step 1: validate + call enhance → open confirm modal
   async function handleGenerate() {
+    try { await requireGate(); } catch { return; }
     const needsPrompt = mode !== "image_to_video" && mode !== "ai_motion";
     if (needsPrompt && !prompt.trim()) return;
     if ((mode === "image_to_video" || mode === "video_to_video") && uploadedPaths.length === 0) return;
@@ -770,8 +773,8 @@ function FreeModeInner() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: ds.color.paper, color: ds.color.ink, fontFamily: "ds.font.sans" }}>
+      <GateModal />
 
-      
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", zIndex: 0, opacity: 0.03,
         backgroundImage: `linear-gradient(${ds.color.line} 1px, transparent 1px), linear-gradient(90deg, ${ds.color.line} 1px, transparent 1px)`,
         backgroundSize: "48px 48px",

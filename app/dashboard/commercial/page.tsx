@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from "react";
+import { useGate } from "../../components/PreGenerationGate";
 import { useSearchParams } from "next/navigation";
 import { ds } from "../../../lib/designSystem";
 import HeroTitle from "../../components/hero/HeroTitle";
@@ -758,6 +759,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 // ── Commercial Editor (Mode 1) ────────────────────────────────────────────────
 
 function CommercialEditor({ initialProject, onBack, initialCharacterId }: { initialProject: CommercialProject; onBack: () => void; initialCharacterId?: string }) {
+  const { requireGate, GateModal } = useGate();
   const [project, setProject]     = useState<CommercialProject>(initialProject);
   const [selectedId, setSelectedId] = useState<string | null>(project.slides[0]?.id ?? null);
   const [uploading, setUploading] = useState(false);
@@ -1175,6 +1177,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
   // ── Render ──────────────────────────────────────────────────────────────
   async function handleRender() {
+    try { await requireGate(); } catch { return; }
     setRenderMsg("");
     try {
       // Always save voice settings to DB before render — server reads project.voiceId at render time.
@@ -1265,6 +1268,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
   return (
     <div className="flex flex-col h-full min-h-0" style={{ height: "calc(100vh - 80px)" }}>
+      <GateModal />
       {/* Top bar */}
       <div className="flex items-center gap-3 mb-3 flex-shrink-0">
         <button onClick={onBack} className="text-[#6060a0] hover:text-white transition-colors text-sm">← Projects</button>

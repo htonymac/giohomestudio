@@ -12,6 +12,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ds } from "../../lib/designSystem";
+import LegalConsentModal from "../components/LegalConsentModal";
+import Footer from "../components/Footer";
 
 // Chrome
 import { TopBar } from "../components/chrome/TopBar";
@@ -136,6 +138,8 @@ export default function DashboardPage() {
   const recentProjects = recentItems.slice(0, 4).map(itemToProjectRow);
 
   return (
+    <>
+      <LegalConsentModal />
     <main
       className="stagger"
       style={{
@@ -359,5 +363,7 @@ export default function DashboardPage() {
         />
       </div>
     </main>
+    <Footer />
+    </>
   );
 }

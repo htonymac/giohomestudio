@@ -1,4 +1,4 @@
-// GioHomeStudio — Privacy Policy
+// GioHomeStudio — Privacy Policy v2.0 (2026-04-26)
 import { ds } from "../../../lib/designSystem";
 
 const h2Style: React.CSSProperties = {
@@ -63,40 +63,64 @@ export default function PrivacyPage() {
             fontFamily: ds.font.mono,
           }}
         >
-          Version 1.0
+          Version 2.0 &middot; Effective Date: 2026-04-26
         </p>
 
-        <h2 style={h2Style}>1. What We Collect</h2>
-        <p style={pStyle}>When you create an account, we collect your name, email address, and profile image (if signing in with Google). When you use the platform, we store the media you upload, content you create, and settings you configure.</p>
+        <div
+          style={{
+            background: ds.color.alert,
+            border: `1px solid ${ds.color.line2}`,
+            borderRadius: ds.radius.sm,
+            padding: "12px 16px",
+            marginBottom: 28,
+          }}
+        >
+          <p style={{ ...pStyle, marginBottom: 0, color: ds.color.mute, fontSize: 12 }}>
+            This document is a product legal draft and is not a substitute for advice from a qualified lawyer.
+            Contact: legal@giohomestudio.com — Jurisdiction: Federal Republic of Nigeria.
+          </p>
+        </div>
 
-        <h2 style={h2Style}>2. How We Use Your Data</h2>
-        <p style={pStyle}>Your data is used to operate the platform: creating content, storing your projects, connecting your social accounts, and improving the service. We do not sell your data to third parties.</p>
+        <h2 style={h2Style}>1. Introduction</h2>
+        <p style={pStyle}>GioHomeStudio is committed to protecting the privacy of its users. This Privacy Policy explains what personal data we collect, why we collect it, how we use it, who we share it with, and your rights over it. It is drafted in compliance with the Nigeria Data Protection Act (NDPA) 2023, the NDPR 2019, and, where applicable, the EU GDPR.</p>
 
-        <h2 style={h2Style}>3. AI Processing</h2>
-        <p style={pStyle}>Your prompts, uploaded media, and instructions may be sent to third-party AI services (such as image generation or voice synthesis providers) to create content. These providers process your data according to their own privacy policies.</p>
+        <h2 style={h2Style}>2. Data We Collect</h2>
+        <p style={pStyle}>Account data: your name, email, and profile image (if using Google sign-in). Usage data: media you upload, content you create, prompts you enter, generation logs, and settings. Technical data: IP address, browser/device info, session tokens, and error logs for security and operations.</p>
 
-        <h2 style={h2Style}>4. Connected Accounts</h2>
-        <p style={pStyle}>When you connect social media accounts, we store secure access tokens to post on your behalf. We never store your social media passwords. You can disconnect accounts at any time.</p>
+        <h2 style={h2Style}>3. How We Use Your Data</h2>
+        <p style={pStyle}>To operate and deliver the platform, including AI generation, project storage, and social account publishing. To maintain security and prevent fraud. To respond to legal obligations, support requests, or abuse reports. We do not sell your data to third parties.</p>
 
-        <h2 style={h2Style}>5. Data Storage</h2>
-        <p style={pStyle}>Your data is stored in secure databases. Media files are stored on our servers. We use industry-standard security measures to protect your information.</p>
+        <h2 style={h2Style}>4. AI Processing</h2>
+        <p style={pStyle}>Your prompts, uploaded media, and instructions may be transmitted to third-party AI providers (including Anthropic Claude, FAL.ai, ElevenLabs, Kie.ai, Runway, and others) to generate content. These providers process your data under their own privacy policies and, where applicable, data processing agreements.</p>
 
-        <h2 style={h2Style}>6. Data Retention</h2>
-        <p style={pStyle}>Your content and account data is retained while your account is active. You can request deletion of your account and data at any time. We may retain limited records for legal compliance or abuse prevention.</p>
+        <h2 style={h2Style}>5. Legal Consent Record</h2>
+        <p style={pStyle}>When you register and accept our legal policies, we record a timestamped consent entry including the policy version, date of acceptance, your IP address (for compliance), and your browser/device user-agent. This record is retained for legal compliance purposes.</p>
 
-        <h2 style={h2Style}>7. Your Rights</h2>
-        <p style={pStyle}>You have the right to access, correct, or delete your personal data. You can export your content. You can withdraw consent for data processing at any time by closing your account.</p>
+        <h2 style={h2Style}>6. Connected Accounts</h2>
+        <p style={pStyle}>When you connect social media accounts (YouTube, Instagram, TikTok, Facebook, X, and others), we store secure access tokens to post on your behalf. We never store your social media passwords. You can disconnect any account at any time from your account settings.</p>
 
-        <h2 style={h2Style}>8. Cookies</h2>
-        <p style={pStyle}>We use essential cookies for authentication and session management. No third-party tracking cookies are used.</p>
+        <h2 style={h2Style}>7. Data Storage and Security</h2>
+        <p style={pStyle}>Your data is stored in secure databases using industry-standard security measures. Media files are stored on platform servers. We implement access controls, encryption, and audit logging for sensitive operations.</p>
 
-        <h2 style={h2Style}>9. Children</h2>
-        <p style={pStyle}>The platform is not intended for users under 18 years of age. We do not knowingly collect data from minors.</p>
+        <h2 style={h2Style}>8. Data Retention</h2>
+        <p style={pStyle}>Your content and account data is retained while your account is active. You may request deletion at any time. GioHomeStudio may retain limited records for legal compliance, fraud controls, or claim defence even after account closure.</p>
 
-        <h2 style={h2Style}>10. Contact</h2>
-        <p style={pStyle}>For privacy-related questions or data requests, contact us at the email provided on your account settings page.</p>
+        <h2 style={h2Style}>9. Your Rights</h2>
+        <p style={pStyle}>You have the right to access, correct, or delete your personal data. You may export your content. You may withdraw consent by closing your account. To exercise these rights, contact legal@giohomestudio.com.</p>
 
-        <h2 style={h2Style}>11. Applicable Law</h2>
+        <h2 style={h2Style}>10. Cookies and Local Storage</h2>
+        <p style={pStyle}>We use essential cookies for authentication and session management. See our Cookies Policy for full details. No third-party tracking or advertising cookies are used.</p>
+
+        <h2 style={h2Style}>11. Children</h2>
+        <p style={pStyle}>The platform is not intended for users under 13 years of age. We do not knowingly collect personal data from children under 13. Users aged 13–17 require verified parental consent.</p>
+
+        <h2 style={h2Style}>12. Changes to This Policy</h2>
+        <p style={pStyle}>We will notify registered users of material changes 30 days in advance. Continued use after the effective date constitutes acceptance.</p>
+
+        <h2 style={h2Style}>13. Contact</h2>
+        <p style={pStyle}>Privacy questions or data requests: legal@giohomestudio.com</p>
+
+        <h2 style={h2Style}>14. Governing Law</h2>
         <p style={pStyle}>This policy is governed by the Nigeria Data Protection Act (NDPA) 2023 and applicable Nigerian law.</p>
 
         <div

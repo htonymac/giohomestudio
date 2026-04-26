@@ -20,6 +20,8 @@ model User {
   role            String    @default("user") // user | admin
   termsAcceptedAt DateTime?
   termsVersion    String?   // e.g. "1.0"
+  legalConsent        Json?     // { acceptedAt, version, ip, userAgent }
+  legalConsentVersion String?   // e.g. "2026-04-26-v1"
   // ── Finance Phase 2: credit tracking ────────────────────────────────
   tier             String    @default("FREE")  // FREE|STARTER|PRO|PREMIUM
   creditBalance    Int       @default(100)     // default Free tier credits
