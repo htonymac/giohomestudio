@@ -65,6 +65,34 @@ Branch chain (base→child): feat/model-name-chip → feat/model-chip-db → fea
 - [ ] **Item 7 — Video Editor pipeline end-to-end**: Standalone /dashboard/video-editor exists. Import + prompt + caption work. Missing: FFmpeg assembly endpoint not wired, animations only fade_in/pop_in (no zoom, no pulse).
 - [ ] **Item 10 — Video Tools layered timeline**: TimelineEditor() exists at /dashboard/video-tools. Horizontal timeline + segment selection + 4 action buttons all rendered. Missing: action buttons are Phase 1 stubs (statusMsg only, no real endpoint calls). AI suggestions are mocked italic text.
 
+---
+
+## SESSION 2026-04-25 Thompson — Karaoke Studio MVP (feat/karaoke-studio-mvp)
+
+### COMPLETED
+
+- [x] **KaraokeRecording model** — added to `prisma/schema.prisma`, pushed with `db push`. Fields: id, userId, fileUrl, fileName, durationSec, analysis (Json), transcript, createdAt.
+- [x] **Python analysis script** — `scripts/karaoke_analyze.py`. Tier 1: faster-whisper transcription + librosa (tempo/key/energy/brightness/beats/pitch). Genre heuristic Nigeria-aware (Afrobeats default near 100 BPM). basic-pitch/demucs/RVC stubbed with stderr log.
+- [x] **Upload API** — `app/api/karaoke/upload/route.ts`. Accepts multipart file → saves to `storage/karaoke/<uuid>.<ext>` → creates KaraokeRecording row → returns `{recordingId, fileUrl}`.
+- [x] **Analyze API** — `app/api/karaoke/analyze/route.ts`. POST `{recordingId}` → spawns Python via `child_process.spawn(PYTHON_BIN, [script, audioPath])` → updates DB → returns full analysis JSON. Errors logged to PROBLEM_AND_FIX.md.
+- [x] **VoiceRecorder component** — `app/components/VoiceRecorder.tsx`. Web Audio API live recording with AnalyserNode waveform canvas. Timer. Stop/start button. Returns Blob.
+- [x] **Karaoke Studio page** — `app/dashboard/karaoke-studio/page.tsx`. 3 sections: Record/Upload → AI Analysis → Next Steps. Stat cards (duration/tempo/key/energy/mood/vocal quality). Transcription display. "Send to Music Video Planner" button (passes `?karaokeId=...`). Phase 2 stub notice.
+- [x] **Sidebar wiring** — "Karaoke Studio" added to Tools group in `app/components/Sidebar.tsx`.
+- [x] **Tests** — `tests/karaoke-studio-mvp.spec.ts`. 7/7 PASSED. Upload + analysis verified with real audio. Screenshots in `tests/screenshots/karaoke-*.png`.
+
+### Stubbed (Phase 2)
+- basic-pitch (melody → MIDI) — not installed, log to stderr, continue
+- Demucs (vocal isolation) — not installed
+- RVC (voice enhancement) — not installed
+- Audio editor with EQ/reverb/autotune — Phase 2
+- Lyrics AI assistant (Claude) — Phase 2
+
+### PR
+- Branch: `feat/karaoke-studio-mvp`
+- Target: main
+
+---
+
 ### State of the test test failure (Item 3 blocker, for next session)
 Test `restore-teddy-project.spec.ts` line 187 looks for `button:has-text(/^Assembly$/)`. Post-v14 the top-level Hybrid Planner tab renders as "5Assembly" (number+name concatenated) and the WORKSHOP_TABS sub-row Assembly button has step badge "6" appended when inactive. Easiest fix: replace selector with `page.getByRole('button', { name: /Assembly/ })` filtered by parent nav, OR use `data-testid` (requires UI change). For now the underlying audio APIs all work — `/api/hybrid/check-audio` confirmed returns codec/transcript via faster-whisper.
 
