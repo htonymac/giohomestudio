@@ -45,6 +45,8 @@ const schema = z.object({
   referenceVideoPath: z.string().optional(),   // ai_motion image+video: secondary reference video
   slideImagePaths: z.array(z.string()).optional(), // images_audio: user-uploaded photos
   llmModel: z.string().optional(),             // Free Mode AI model override (future use)
+  videoModelId: z.string().optional(),         // Specific video generation model (e.g. fal_kling_2_5_standard)
+  imageModelId: z.string().optional(),         // Specific image generation model (e.g. fal_flux_pro)
   storyContext: z.string().max(1000).optional(),
   previousContentItemId: z.string().optional(),
   storyThreadId: z.string().optional(),

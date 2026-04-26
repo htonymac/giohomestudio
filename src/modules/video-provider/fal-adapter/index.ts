@@ -19,7 +19,7 @@ class FalVideoAdapter implements IVideoProvider {
       return { jobId: "", status: "failed", error: "FAL_KEY not configured" };
     }
 
-    const model = getDefaultVideoModel();
+    const model = (input.modelId ? getModelById(input.modelId) : undefined) ?? getDefaultVideoModel();
     const jobId = `fal_${Date.now()}`;
 
     const result = await falGenerateVideo({
