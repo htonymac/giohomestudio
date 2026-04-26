@@ -86,6 +86,39 @@ When all 5 items are checked, do this before moving:
 
 ---
 
+## 2026-04-26 — Migration prep audit (Opus session)
+
+**Items 1, 4: COMPLETE.**
+
+Item 4 (Path Audit) re-verified:
+- 5 additional Windows-path fallbacks in source code fixed in commit `3987038`:
+  - `src/config/env.ts` — ffmpeg/ffprobe defaults bare; FONT_DIR auto-picks `/usr/share/fonts` on non-Windows
+  - `src/modules/voice-provider/piper/index.ts` — fallback bare `ffmpeg`
+  - `src/modules/voice-provider/mock/index.ts` — same
+  - `src/modules/video-provider/mock/index.ts` — same
+  - `src/modules/music-provider/providers/mock-music.adapter.ts` — same
+- Zero hardcoded `C:\\ffmpeg\\bin\\ffmpeg.exe` defaults remain in production source.
+- `.env` Linux flip values documented in `LINUX_MIGRATION_RUNBOOK.md` step 4.
+
+**Items 2, 3, 5: BLOCKED on UI test infrastructure.**
+
+`tests/restore-teddy-project.spec.ts` cannot complete the full assembly run because the project-restore mechanism has drifted since the test was written. The localStorage keys / project state shape changed; setting `ghs_hybrid_proj_<id>` no longer hydrates "Teddy & Dog" into the planner. Test reaches the Assembly tab cleanly but the planner shows "No scenes yet" because the restore path is broken.
+
+Backend pipelines independently verified working via direct API calls earlier this session:
+- `/api/hybrid/check-audio` returns codec + transcript + silent flag (Item 2 Ears Check ✓)
+- `/api/video/assemble` produced clean assembled output `movie_export_1776562920777.mp4` with audible narration (transcript "The savannah was his home...") — Item 3 partial ✓
+- `/api/hybrid/scene-image`, `/api/hybrid/scene-video`, `/api/timeline/plan`, `/api/continuous-motion/plan`, `/api/karaoke/upload`, `/api/karaoke/analyze` all return 200 in their respective tests.
+
+**Owner reassignment:** Items 2, 3, 5 reassigned to Henry's manual browser smoke test (per Item 5 owner already). Run on Linux post-migration with a fresh project — that's the canonical proof.
+
+**Action items for migration day:**
+1. Tag `windows-final-2026-04-26` before deploy.
+2. Follow `LINUX_MIGRATION_RUNBOOK.md` end-to-end.
+3. Manually run the 8-step pipeline (URGENT_INSTRUCTIONS.md) in browser on the Linux box.
+4. If all 8 steps green, GHS migration done.
+
+---
+
 ## Files AUT Claude Fixed This Session (DO NOT re-edit without reading first)
 
 | File | What was fixed |

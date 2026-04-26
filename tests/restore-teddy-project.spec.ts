@@ -43,7 +43,9 @@ test.describe("Restore and Assemble Teddy & Dog", () => {
       browser = await chromium.launch({ headless: false });
     }
     const context = browser.contexts()[0] || await browser.newContext();
-    const page = context.pages().find(p => p.url().includes("localhost:3200")) || await context.newPage();
+    // Always open a fresh page — reusing existing localhost:3200 tabs picked up unrelated
+    // projects (e.g. HMK Sync) running on the same port at some point in browser history.
+    const page = await context.newPage();
 
     // Navigate to Hybrid Planner
     await page.goto(`${BASE}/dashboard/hybrid-planner`);
@@ -184,11 +186,26 @@ test.describe("Restore and Assemble Teddy & Dog", () => {
     console.log(`Project title visible: ${hasTeddy}, Scenes: ${hasScenes}`);
 
     // ── Go to Assembly tab ────────────────────────────────────────────────────────
-    const assemblyTab = page.locator('button, [role="tab"]').filter({ hasText: /^Assembly$/ }).first();
-    if (await assemblyTab.isVisible({ timeout: 5000 }).catch(() => false)) {
-      await assemblyTab.click();
-    } else {
-      await page.locator('text=Assembly').first().click();
+    // Tab buttons render as "Assembly" (active) or "Assembly6" (with step badge when inactive).
+    // Match both. Pick the WORKSHOP_TABS row variant by filtering buttons containing "Assembly"
+    // and accepting an optional trailing digit.
+    const candidates = await page.locator('button').filter({ hasText: /Assembly/i }).all();
+    let clicked = false;
+    for (const btn of candidates) {
+      const t = (await btn.textContent())?.trim() ?? "";
+      // "Assembly" or "Assembly6" (label + step badge) — but NOT "5Assembly" top tab (number prefix)
+      if (/^Assembly\s*\d*$/i.test(t)) {
+        await btn.click();
+        clicked = true;
+        break;
+      }
+    }
+    if (!clicked) {
+      // Fallback: click the top-level "5Assembly" tab
+      const top = page.locator('button').filter({ hasText: /^\s*5\s*Assembly\s*$/ }).first();
+      if (await top.isVisible({ timeout: 3000 }).catch(() => false)) {
+        await top.click();
+      }
     }
     await page.waitForTimeout(1500);
     await ss("03-assembly-tab", page);
