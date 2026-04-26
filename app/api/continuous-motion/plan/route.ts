@@ -67,9 +67,10 @@ export async function POST(req: NextRequest) {
   // ── 3. Persist scene record to DB ─────────────────────────────────────────
   let sceneId = `scene_${Date.now()}`;
   let dbAvailable = false;
+  let prisma: import("@prisma/client").PrismaClient | null = null;
 
   try {
-    const { prisma } = await import("@/lib/prisma");
+    ({ prisma } = await import("@/lib/prisma"));
     const scene = await prisma.continuousScene.create({
       data: {
         projectId,
@@ -91,9 +92,8 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 4. Update status to GENERATING ───────────────────────────────────────
-  if (dbAvailable) {
+  if (dbAvailable && prisma) {
     try {
-      const { prisma } = await import("@/lib/prisma");
       await prisma.continuousScene.update({
         where: { id: sceneId },
         data: { status: "GENERATING" },
@@ -113,9 +113,8 @@ export async function POST(req: NextRequest) {
   });
 
   // ── 6. Persist segments and anchors ──────────────────────────────────────
-  if (dbAvailable && chainResult.completedSegments > 0) {
+  if (dbAvailable && prisma && chainResult.completedSegments > 0) {
     try {
-      const { prisma } = await import("@/lib/prisma");
       for (let i = 0; i < chainResult.completedSegments; i++) {
         const seg = plan.segments[i];
         if (!seg) continue;
@@ -158,9 +157,8 @@ export async function POST(req: NextRequest) {
         ? "PLANNING" // plan-only mode (no FAL_KEY)
         : "ASSEMBLING";
 
-  if (dbAvailable) {
+  if (dbAvailable && prisma) {
     try {
-      const { prisma } = await import("@/lib/prisma");
       await prisma.continuousScene.update({
         where: { id: sceneId },
         data: {

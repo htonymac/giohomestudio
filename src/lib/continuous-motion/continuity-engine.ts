@@ -9,7 +9,7 @@
 
 import { execFile } from "child_process";
 import { promisify } from "util";
-import { writeFile, readFile, unlink, mkdir } from "fs/promises";
+import { writeFile, unlink, mkdir } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import os from "os";
