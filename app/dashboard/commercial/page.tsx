@@ -2751,6 +2751,8 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
   const [flavorVariant, setFlavorVariant] = useState("");
   const [packSize, setPackSize] = useState("");
   const [brandColors, setBrandColors] = useState("");
+  const [brandColorSwatch1, setBrandColorSwatch1] = useState("#ff0000");
+  const [brandColorSwatch2, setBrandColorSwatch2] = useState("#ffd700");
   const [brandStyle, setBrandStyle] = useState("");
   const [allowedClaims, setAllowedClaims] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
@@ -3040,8 +3042,14 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
             <div>
               <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Brand Colors</p>
-              <input value={brandColors} onChange={e => setBrandColors(e.target.value)} placeholder="e.g. Red + Gold"
-                style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input value={brandColors} onChange={e => setBrandColors(e.target.value)} placeholder="e.g. Red + Gold"
+                  style={{ flex: 1, background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "10px 14px", color: "#fff", fontSize: 13, outline: "none" }} />
+                <input type="color" value={brandColorSwatch1} onChange={e => { setBrandColorSwatch1(e.target.value); setBrandColors(prev => { const parts = prev.split("+").map(s => s.trim()).filter(Boolean); parts[0] = e.target.value; return parts.join(" + "); }); }}
+                  title="Primary color" style={{ width: 34, height: 34, padding: 2, borderRadius: 8, border: "1px solid #1e2a35", background: "#080b10", cursor: "pointer", flexShrink: 0 }} />
+                <input type="color" value={brandColorSwatch2} onChange={e => { setBrandColorSwatch2(e.target.value); setBrandColors(prev => { const parts = prev.split("+").map(s => s.trim()).filter(Boolean); parts[1] = e.target.value; return parts.join(" + "); }); }}
+                  title="Secondary color" style={{ width: 34, height: 34, padding: 2, borderRadius: 8, border: "1px solid #1e2a35", background: "#080b10", cursor: "pointer", flexShrink: 0 }} />
+              </div>
             </div>
             <div>
               <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Brand Style</p>
