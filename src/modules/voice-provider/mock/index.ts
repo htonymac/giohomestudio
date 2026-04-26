@@ -10,7 +10,7 @@ import * as fs from "fs";
 import type { IVoiceProvider, VoiceGenerationInput, VoiceGenerationOutput } from "@/types/providers";
 
 const execFileAsync = promisify(execFile);
-const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "C:\\ffmpeg\\bin\\ffmpeg.exe";
+const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "ffmpeg";
 
 class MockVoiceProvider implements IVoiceProvider {
   readonly name = "mock_voice";

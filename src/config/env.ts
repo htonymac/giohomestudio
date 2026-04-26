@@ -62,13 +62,17 @@ export const env = {
     kieAiApiKey:  optional("KIE_AI_API_KEY"),
     kieAiBaseUrl: optional("KIE_AI_API_BASE_URL", "https://api.kie.ai"),
     pixabayApiKey: optional("PIXABAY_API_KEY"),
+    // Music Provider Layer adapters
+    mubertPat:    optional("MUBERT_PAT"),    // Mubert B2B Personal Access Token
+    falKey:       optional("FAL_KEY"),       // fal.ai key (Stable Audio gateway)
   },
 
-  // FFmpeg binaries
-  ffmpegPath:  optional("FFMPEG_PATH",  "C:\\ffmpeg\\bin\\ffmpeg.exe"),
-  ffprobePath: optional("FFPROBE_PATH", "C:\\ffmpeg\\bin\\ffprobe.exe"),
-  // Font directory for FFmpeg drawtext — Windows has no Fontconfig; fontfile= must be explicit
-  fontDir:     optional("FONT_DIR",     "C:\\Windows\\Fonts"),
+  // FFmpeg binaries — fallbacks resolve via PATH (Linux ffmpeg + Windows when added to PATH).
+  // Override via .env FFMPEG_PATH / FFPROBE_PATH for explicit binaries.
+  ffmpegPath:  optional("FFMPEG_PATH",  "ffmpeg"),
+  ffprobePath: optional("FFPROBE_PATH", "ffprobe"),
+  // Font directory for FFmpeg drawtext. Override on Linux via FONT_DIR=/usr/share/fonts.
+  fontDir:     optional("FONT_DIR",     process.platform === "win32" ? "C:\\Windows\\Fonts" : "/usr/share/fonts"),
 
   // ComfyUI (local Flux.1 image generation)
   comfyui: {

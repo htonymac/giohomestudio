@@ -10,7 +10,7 @@ import { env } from "@/config/env";
 import type { IMusicProvider, MusicGenerationInput, MusicGenerationOutput } from "@/types/providers";
 
 const execFileAsync = promisify(execFile);
-const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "C:\\ffmpeg\\bin\\ffmpeg.exe";
+const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "ffmpeg";
 
 // Different frequencies per mood so they sound distinct
 const MOOD_FREQ: Record<string, string> = {

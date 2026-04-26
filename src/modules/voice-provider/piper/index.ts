@@ -18,7 +18,7 @@ import { env } from "@/config/env";
 import type { IVoiceProvider, VoiceGenerationInput, VoiceGenerationOutput } from "@/types/providers";
 
 const execFileAsync = promisify(execFile);
-const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "C:\\ffmpeg\\bin\\ffmpeg.exe";
+const FFMPEG_PATH = process.env.FFMPEG_PATH ?? "ffmpeg";
 
 // Piper voice models — id maps to the ONNX model name used by piper-tts
 // Add more from: https://rhasspy.github.io/piper-samples/
