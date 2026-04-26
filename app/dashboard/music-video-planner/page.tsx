@@ -710,31 +710,6 @@ export default function MusicVideoPlannerPage() {
     setT2mvGenerating(false);
   }
 
-  // ── Auto Time Stamp (calls SPEC 1 endpoint) ──
-  async function runAutoTimestamp() {
-    setLoadingAutoTimestamp(true);
-    try {
-      const sceneTexts = storyboard.map(s => `${s.section}: ${s.prompt}`);
-      const totalDur = storyboard.reduce((sum, s) => {
-        const match = s.duration.match(/(\d+)/g);
-        if (match && match.length >= 2) return sum + (parseInt(match[0]) + parseInt(match[1])) / 2;
-        if (match && match.length === 1) return sum + parseInt(match[0]);
-        return sum + 5;
-      }, 0) || 60;
-      const res = await fetch("/api/timeline/plan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ script: lyrics || songTitle, scenes: sceneTexts.length > 0 ? sceneTexts : undefined, mode: "scene", targetDuration: totalDur }),
-      });
-      const data = await res.json();
-      if (data.plan) {
-        setAutoTimestampPlan(data.plan);
-        setLastAction(`Auto Time Stamp: ${data.plan.segmentCount} segments, ${data.plan.totalDuration.toFixed(1)}s total`);
-      }
-    } catch (err) { console.error("autoTimestamp failed:", err); }
-    setLoadingAutoTimestamp(false);
-  }
-
   // ── makeSceneVideo (SSE streaming) ──
   async function makeSceneVideo(scene: Scene) {
     const sceneId = `mv_sc${scene.scene}`;
