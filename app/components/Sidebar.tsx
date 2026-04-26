@@ -42,7 +42,8 @@ const NAV_ITEMS = [
   { href: "/dashboard/video-tools",         label: "Video Tools",        icon: Wand,   tint: "c4" },
   { href: "/dashboard/video-trimmer",       label: "Video Trimmer",      icon: ChevronRight, tint: "c5" },
   { href: "/dashboard/music-studio",        label: "Music & DJ",         icon: Music,  tint: "c6" },
-  { href: "/dashboard/sfx-library",         label: "SFX Library",        icon: Mic,    tint: "c7" },
+  { href: "/dashboard/karaoke-studio",      label: "Karaoke Studio",     icon: Mic,    tint: "c7" },
+  { href: "/dashboard/sfx-library",         label: "SFX Library",        icon: Mic,    tint: "c8" },
   // Content group
   { href: "/dashboard/review",           label: "Review Queue",   icon: Bell,   tint: "c8", badge: true },
   { href: "/dashboard/registry",         label: "All Content",    icon: Grid,   tint: "c9" },
@@ -66,10 +67,10 @@ const NAV_ITEMS = [
 const NAV_GROUPS = [
   { group: "Create",   items: NAV_ITEMS.slice(0, 11) },
   { group: "Planners", items: NAV_ITEMS.slice(11, 18) },
-  { group: "Tools",    items: NAV_ITEMS.slice(18, 26) },
-  { group: "Content",  items: NAV_ITEMS.slice(26, 31) },
-  { group: "Publish",  items: NAV_ITEMS.slice(31, 36) },
-  { group: "Settings", items: NAV_ITEMS.slice(36) },
+  { group: "Tools",    items: NAV_ITEMS.slice(18, 27) },
+  { group: "Content",  items: NAV_ITEMS.slice(27, 32) },
+  { group: "Publish",  items: NAV_ITEMS.slice(32, 37) },
+  { group: "Settings", items: NAV_ITEMS.slice(37) },
 ];
 
 // Tile tint gradients

@@ -1152,3 +1152,19 @@ model MotionAnchor {
   @@index([sceneId])
   @@map("motion_anchors")
 }
+
+// ── Karaoke Studio ────────────────────────────────────────────────────────────
+
+model KaraokeRecording {
+  id          String   @id @default(cuid())
+  userId      String
+  fileUrl     String
+  fileName    String
+  durationSec Float?
+  analysis    Json?
+  transcript  String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("karaoke_recordings")
+}
