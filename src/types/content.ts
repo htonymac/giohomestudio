@@ -71,6 +71,7 @@ export interface ContentItem {
   storyContext?: string | null;
   previousContentItemId?: string | null;
   storyThreadId?: string | null;
+  modelId?: string | null;
   videoPath?: string | null;
   voicePath?: string | null;
   musicPath?: string | null;

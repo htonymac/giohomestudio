@@ -9,7 +9,8 @@ import { ds } from "../../../lib/designSystem";
 import HeroTitle from "../../components/hero/HeroTitle";
 import Card from "../../components/ui/Card";
 import ButtonPrimary from "../../components/ui/ButtonPrimary";
-import { Folder, Wand, Film, Music, X } from "../../components/icons";
+import { Folder, Wand, Film, Music, X, Check } from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 export default function VideoEditorPage() {
   const [videoPath, setVideoPath] = useState<string | null>(null);
@@ -21,6 +22,9 @@ export default function VideoEditorPage() {
   const [polishing, setPolishing] = useState(false);
   const [voiceTier, setVoiceTier] = useState<VoiceTierConfig>({ tier: "standard" });
   const [captionText, setCaptionText] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const [exportResult, setExportResult] = useState<{ outputUrl: string; contentItemId: string } | null>(null);
+  const [exportError, setExportError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function handleUpload(file: File) {
@@ -42,17 +46,45 @@ export default function VideoEditorPage() {
     if (!promptInput.trim()) return;
     setPolishing(true);
     try {
-      const res = await fetch("/api/assembly/change", {
+      const res = await fetch("/api/llm/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          instruction: `You are a professional video editor assistant. Polish and improve this video editing prompt for better output: "${promptInput}". Return ONLY the improved prompt text, nothing else.`,
-          assembly: { segments: [], narration: [], music: [], sfx: [], subtitles: [], ambience: [] },
-        }),
+        body: JSON.stringify({ prompt: promptInput }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.polishedPrompt) setPolishedPrompt(data.polishedPrompt);
+      }
+    } catch { /* ignore */ } finally { setPolishing(false); }
+  }
+
+  async function handleExport() {
+    if (!videoPath) return;
+    setExporting(true);
+    setExportError("");
+    setExportResult(null);
+    // Build caption layer if provided
+    const allLayers: OverlayLayer[] = [...overlayLayers];
+    if (captionText.trim()) {
+      allLayers.push({
+        type: "text",
+        id: `caption_${Date.now()}`,
+        text: captionText,
+        position: { zone: "bottom" },
+        style: { fontSize: 32, fontWeight: "bold", color: "#FFFFFF", shadow: true, outline: true, outlineColor: "#000000", outlineWidth: 2 },
+        animation: { entrance: "fade_in", startSec: 0, durationSec: 9999 },
+      });
+    }
+    try {
+      const res = await fetch("/api/overlays/render-direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoPath, layers: allLayers, title: polishedPrompt || promptInput || "Video Editor export" }),
       });
       const data = await res.json();
-      if (data.suggestion || data.instruction) setPolishedPrompt(data.suggestion || data.instruction);
-    } catch { /* ignore */ } finally { setPolishing(false); }
+      if (!res.ok) { setExportError(data.error ?? "Export failed"); return; }
+      setExportResult({ outputUrl: data.outputUrl, contentItemId: data.contentItemId });
+    } catch { setExportError("Network error during export"); } finally { setExporting(false); }
   }
 
   const microLabel: React.CSSProperties = {
@@ -249,6 +281,32 @@ export default function VideoEditorPage() {
             <h3 style={{ fontSize: 12, fontWeight: 700, color: ds.color.ink2, marginBottom: 6 }}>Sound Effects Library</h3>
             <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 10 }}>Browse and preview SFX. Click "Use" to add to your project.</p>
             <SFXPicker onSelect={(event, path) => { console.log(`[SFX] ${event} → ${path}`); }} />
+          </Card>
+
+          {/* Export / Assembly */}
+          <Card style={{ marginTop: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2 }}>Export Video</h3>
+              <ModelChip modelId="ffmpeg" provider="FFmpeg" size="xs" position="static" />
+            </div>
+            <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 12 }}>Burn all overlays, captions, and animations into the final video.</p>
+            <ButtonPrimary onClick={handleExport} disabled={exporting || !videoPath} style={{ width: "100%" }}>
+              {exporting ? "Exporting…" : "Export with Overlays"}
+            </ButtonPrimary>
+            {exportError && <p style={{ fontSize: 11, color: ds.color.coral, marginTop: 8 }}>{exportError}</p>}
+            {exportResult && (
+              <div style={{ marginTop: 12, background: ds.color.paper, borderRadius: ds.radius.sm, padding: 12, border: `1px solid ${ds.color.line2}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Check size={14} color={ds.color.mint} />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: ds.color.mint }}>Export complete</span>
+                </div>
+                <video src={exportResult.outputUrl} controls style={{ width: "100%", borderRadius: ds.radius.xs, background: "black" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <a href={exportResult.outputUrl} download style={{ fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download MP4</a>
+                  <a href={`/dashboard/content/${exportResult.contentItemId}`} style={{ fontSize: 11, color: ds.color.mute, textDecoration: "underline" }}>View in registry</a>
+                </div>
+              </div>
+            )}
           </Card>
         </div>
       )}

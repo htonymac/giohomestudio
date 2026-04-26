@@ -8,9 +8,10 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { Image, Film, X, Check, Folder } from "../../components/icons";
+import ModelChip from "../../components/ModelChip";
 
 type Step = "upload" | "instruct" | "review" | "done";
-type SideTab = "trim" | "bg_image" | "bg_video" | "object_remove";
+type SideTab = "trim" | "bg_image" | "bg_video" | "object_remove" | "bg_change";
 
 const COMMERCIAL_GOALS = ["shortlet ad", "product launch", "brand promo", "real estate", "custom"] as const;
 
@@ -30,19 +31,16 @@ function fmtSec(s: number): string {
 interface VideoMeta { durationSec: number; width: number; height: number; format: string; }
 
 // ── AI Prompt Polish ──────────────────────────────────────────────────────────
-async function polishPrompt(raw: string, context: string): Promise<string> {
+async function polishPrompt(raw: string, _context: string): Promise<string> {
   try {
-    const res = await fetch("/api/assembly/change", {
+    const res = await fetch("/api/llm/polish", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instruction: `Polish and clarify this video editing instruction for professional use. Context: ${context}. Instruction: "${raw}". Return ONLY the improved instruction, no explanation.`,
-        assembly: { segments: [], narration: [], music: [], sfx: [], subtitles: [], ambience: [] },
-      }),
+      body: JSON.stringify({ prompt: raw }),
     });
+    if (!res.ok) return raw;
     const data = await res.json();
-    if (data.suggestion || data.instruction) return data.suggestion || data.instruction;
-    return raw;
+    return (data.polishedPrompt && typeof data.polishedPrompt === "string") ? data.polishedPrompt : raw;
   } catch { return raw; }
 }
 
@@ -119,9 +117,17 @@ export default function VideoTrimmerPage() {
   const [objResult, setObjResult] = useState<{ url: string; provider: string } | null>(null);
   const [objError, setObjError] = useState("");
 
+  // ── Background Changer by Prompt ──
+  const [bgChangeFile, setBgChangeFile] = useState<File | null>(null);
+  const [bgChangePrompt, setBgChangePrompt] = useState("");
+  const [bgChanging, setBgChanging] = useState(false);
+  const [bgChangeResult, setBgChangeResult] = useState<{ url: string; provider: string } | null>(null);
+  const [bgChangeError, setBgChangeError] = useState("");
+
   const fileRef = useRef<HTMLInputElement>(null);
   const bgFileRef = useRef<HTMLInputElement>(null);
   const bgVideoFileRef = useRef<HTMLInputElement>(null);
+  const bgChangeFileRef = useRef<HTMLInputElement>(null);
   const objFileRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -246,10 +252,26 @@ export default function VideoTrimmerPage() {
     } catch { setObjError("Network error"); } finally { setObjRemoving(false); }
   }
 
+  async function handleBgChange() {
+    if (!bgChangeFile || !bgChangePrompt.trim()) return;
+    setBgChangeError(""); setBgChanging(true); setBgChangeResult(null);
+    const fd = new FormData();
+    fd.append("file", bgChangeFile);
+    fd.append("newBackground", bgChangePrompt);
+    try {
+      // Reuse the video bg-remove endpoint which accepts newBackground prompt
+      const res = await fetch("/api/video/bg-remove", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setBgChangeError(data.error ?? "Background change failed"); return; }
+      setBgChangeResult({ url: data.outputUrl, provider: data.provider ?? "fal.ai" });
+    } catch { setBgChangeError("Network error"); } finally { setBgChanging(false); }
+  }
+
   const SIDE_TABS: { id: SideTab; label: string; icon: React.ReactNode; provider: string; cost: string }[] = [
     { id: "trim",          label: "AI Trim",           icon: <Film size={12} />,  provider: "Claude / GPT", cost: "1 credit" },
     { id: "bg_image",      label: "Remove BG (Image)", icon: <Image size={12} />, provider: "Bria RMBG 2.0", cost: "~$0.01" },
     { id: "bg_video",      label: "Remove BG (Video)", icon: <Film size={12} />,  provider: "fal.ai (VEED)", cost: "~$0.10/sec" },
+    { id: "bg_change",     label: "Change BG (Video)", icon: <Image size={12} />, provider: "fal.ai (VEED)", cost: "~$0.10/sec" },
     { id: "object_remove", label: "Remove Object",     icon: <X size={12} />,    provider: "fal.ai Eraser", cost: "~$0.05" },
   ];
 
@@ -480,7 +502,10 @@ export default function VideoTrimmerPage() {
 
           {bgResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.mint, marginBottom: 8 }}>Background removed · {bgResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.mint }}>Background removed</p>
+                <ModelChip provider={bgResult.provider} size="xs" position="static" />
+              </div>
               <img src={bgResult.url} alt="No background" style={{ maxWidth: "100%", borderRadius: 6, border: `1px solid ${ds.color.line2}`, background: "repeating-conic-gradient(#1a1a2e 0% 25%, #0a0a18 0% 50%) 0 0 / 20px 20px" }} />
               <a href={bgResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download PNG</a>
             </Card>
@@ -514,7 +539,10 @@ export default function VideoTrimmerPage() {
 
           {bgVideoResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.sky, marginBottom: 8 }}>Background removed · {bgVideoResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.sky }}>Background removed</p>
+                <ModelChip provider={bgVideoResult.provider} size="xs" position="static" />
+              </div>
               <video src={bgVideoResult.url} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
               <a href={bgVideoResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download</a>
             </Card>
@@ -523,6 +551,43 @@ export default function VideoTrimmerPage() {
           {bgVideoError && <p style={errStyle}>{bgVideoError}</p>}
           <ButtonPrimary onClick={handleBgVideoRemove} disabled={!bgVideoFile || bgVideoRemoving}>
             {bgVideoRemoving ? "Removing background…" : "Remove Video Background"}
+          </ButtonPrimary>
+        </Card>
+      )}
+
+      {/* ══ TAB: Background Changer by Prompt ══ */}
+      {sideTab === "bg_change" && (
+        <Card radius={10} padding={24}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: ds.color.ink, marginBottom: 12 }}>Change Background by Prompt — Video</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
+            <span style={{ ...badge, background: "rgba(124,196,255,0.1)", color: ds.color.sky }}>fal.ai (VEED pipeline)</span>
+            <span style={{ fontSize: 10, color: ds.color.mute2 }}>Removes existing BG and replaces with your described scene</span>
+          </div>
+
+          <div onClick={() => bgChangeFileRef.current?.click()} style={{ border: `2px dashed ${ds.color.line2}`, borderRadius: 8, padding: "30px 20px", textAlign: "center", cursor: "pointer", marginBottom: 12 }}>
+            {bgChangeFile ? <p style={{ fontSize: 12, color: ds.color.ink2 }}>{bgChangeFile.name} ({(bgChangeFile.size / 1024 / 1024).toFixed(1)} MB)</p> : <p style={{ fontSize: 12, color: ds.color.mute }}>Click to upload video (MP4, MOV, WebM)</p>}
+          </div>
+          <input ref={bgChangeFileRef} type="file" accept="video/*" style={{ display: "none" }} onChange={e => { if (e.target.files?.[0]) { setBgChangeFile(e.target.files[0]); setBgChangeResult(null); } }} />
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={microLabel}>New Background Description (required)</label>
+            <input value={bgChangePrompt} onChange={e => setBgChangePrompt(e.target.value)} placeholder="neon city at night, rainy street, sunny beach, white studio..." style={inputSt} />
+          </div>
+
+          {bgChangeResult && (
+            <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.mint }}>Background changed</p>
+                <ModelChip provider={bgChangeResult.provider} size="xs" position="static" />
+              </div>
+              <video src={bgChangeResult.url} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
+              <a href={bgChangeResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download</a>
+            </Card>
+          )}
+
+          {bgChangeError && <p style={errStyle}>{bgChangeError}</p>}
+          <ButtonPrimary onClick={handleBgChange} disabled={!bgChangeFile || !bgChangePrompt.trim() || bgChanging}>
+            {bgChanging ? "Changing background…" : "Change Background"}
           </ButtonPrimary>
         </Card>
       )}
@@ -549,7 +614,10 @@ export default function VideoTrimmerPage() {
 
           {objResult && (
             <Card radius={8} padding={12} style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.gold, marginBottom: 8 }}>Object removed · {objResult.provider}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <p style={{ fontSize: 10, color: ds.color.gold }}>Object removed</p>
+                <ModelChip provider={objResult.provider} size="xs" position="static" />
+              </div>
               <video src={objResult.url} controls style={{ maxWidth: "100%", borderRadius: 6 }} />
               <a href={objResult.url} download style={{ display: "inline-block", marginTop: 8, fontSize: 11, color: ds.color.lilac, textDecoration: "underline" }}>Download</a>
             </Card>
