@@ -239,10 +239,6 @@ export default function MusicVideoPlannerPage() {
   // ── Provider routing labels ──
   const [sceneProviderMap, setSceneProviderMap] = useState<Record<number, string>>({});
 
-  // ── Auto Time Stamp ──
-  const [loadingAutoTimestamp, setLoadingAutoTimestamp] = useState(false);
-  const [autoTimestampPlan, setAutoTimestampPlan] = useState<null | { totalDuration: number; segmentCount: number; segments: Array<{ id: string; title: string; startTime: number; endTime: number; duration: number; narrationText: string }> }>(null);
-
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
