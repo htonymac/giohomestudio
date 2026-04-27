@@ -381,3 +381,219 @@ The project's scene/character/audio data is stored in browser localStorage, whic
 - wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
 - kling_std text-to-video: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits.
 - kling_std image-to-video: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard.
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits | — | $0.00 |
+| kling_std | image-to-video | FAIL: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard. | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits.
+- kling_std image-to-video: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard.
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"prompt":"A Nigerian man in traditional agbada walks through a sunlit market, cinematic slow motion, wide angle","duration":"5","seed":42,"aspect_ratio":"16:9"}}}]}
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"image_url":"https://storage.googleapis.com/falserverless/gallery/images/stock-photo-1.jpg","prompt":"Continue: same man continues walking, camera follows from behind, market stalls on both sides","duration
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"prompt":"A Nigerian man in traditional agbada walks through a sunlit market, cinematic slow motion, wide angle","duration":"5","seed":42,"aspect_ratio":"16:9"}}}]}
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"prompt":"A Nigerian man in traditional agbada walks through a sunlit market, cinematic slow motion, wide angle","duration":"5","seed":42,"aspect_ratio":"16:9"}}}]}
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"image_url":"https://storage.googleapis.com/falserverless/gallery/images/stock-photo-1.jpg","prompt":"Continue: same man continues walking, camera follows from behind, market stalls on both sides","duration
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"prompt":"A Nigerian man in traditional agbada walks through a sunlit market, cinematic slow motion, wide angle","duration":"5","seed":42,"aspect_ratio":"16:9"}}}]}
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body" | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body","prompt"],"msg":"Field required","input":{"input":{"image_url":"https://storage.googleapis.com/falserverless/gallery/images/stock-photo-1.jpg","prompt":"Continue: same man continues walking, camera follows from behind, market stalls on both sides","duration
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"ms | — | $0.00 |
+
+**Total cost:** $0.00
+**Passed:** 0/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"msg":"Failed to download the file. Please check if the URL is accessible and try again.","type":"file_download_error","url":"https://docs.fal.ai/errors#file_download_error","input":"https://storage.googleapis.com/falserverless/gallery/images/stock-photo-1.jpg"
+
+
+---
+## Session 1 Smoke Test — 2026-04-27
+
+**Continuous Motion Foundation: 4-clip smoke test**
+
+| Provider | Mode | Status | Output URL | Cost |
+|----------|------|--------|------------|------|
+| wan | text-to-video | FAIL: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models. | — | $0.00 |
+| wan | image-to-video | FAIL: SKIPPED — Wan Pro i2v not activated on FAL account. | — | $0.00 |
+| kling_std | text-to-video | PASS | https://v3b.fal.media/files/b/0a97e352/BLzzqp1xH4WL3uiJU-bs3_output.mp4... | $0.35 |
+| kling_std | image-to-video | FAIL: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"ms | — | $0.00 |
+
+**Total cost:** $0.35
+**Passed:** 1/4
+**Output dir:** storage/continuous-motion/test/
+
+### Failures
+- wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"msg":"Failed to download the file. Please check if the URL is accessible and try again.","type":"file_download_error","url":"https://docs.fal.ai/errors#file_download_error","input":"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1280px-Cat

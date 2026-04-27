@@ -141,6 +141,7 @@ const PRESETS: Record<PresetName, MixSettings> = {
 
 interface Props {
   audioUrl?: string;
+  secondaryAudioUrl?: string;  // generated music URL for Step 12 mixing context
   recordingId?: string;
   onSave?: (settings: MixSettings) => void;
   onToast?: (msg: string) => void;
@@ -198,7 +199,7 @@ function SliderRow({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function KaraokeAudioEditor({ audioUrl, recordingId, onSave, onToast }: Props) {
+export default function KaraokeAudioEditor({ audioUrl, secondaryAudioUrl, recordingId, onSave, onToast }: Props) {
   const [settings, setSettings] = useState<MixSettings>({ ...NEUTRAL_SETTINGS }); // §25 — starts neutral
   const [activePreset, setActivePreset] = useState<PresetName>("Natural Voice");
   const [isSaving, setIsSaving] = useState(false);
