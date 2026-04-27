@@ -4,7 +4,13 @@
 //
 // NOTE: Runway Gen-4 supports seed and image input.
 // NOTE: costPerSecond is $0.05 — lower cost than Kling/Wan.
-// NOTE: Verify endpoints at https://fal.ai/models/runway-gen4 — Turbo path may update.
+//
+// EXPERIMENTAL: The "runway-gen4/turbo" path has NOT been confirmed in the live
+//   app/api/video/generate/route.ts source of truth (route.ts uses Runway via direct API,
+//   not via fal.ai). The paths below follow fal.ai naming conventions for Gen-4 Turbo.
+//   If 404 at runtime: check https://fal.ai/models?q=runway for the correct versioned path.
+//   Alternative: "fal-ai/runway/gen4/text-to-video" (without the turbo sub-path).
+//   This adapter is marked experimental: true in capabilities until confirmed.
 
 import { falGenerateVideo } from "../../generation/gateways/fal";
 import type {
@@ -14,6 +20,7 @@ import type {
 } from "../provider-router";
 
 // fal.ai endpoint identifiers for Runway Gen-4 Turbo
+// EXPERIMENTAL — verify at https://fal.ai/models?q=runway before production use
 const RUNWAY_T2V_ENDPOINT = "fal-ai/runway-gen4/turbo/text-to-video";
 const RUNWAY_I2V_ENDPOINT = "fal-ai/runway-gen4/turbo/image-to-video";
 
