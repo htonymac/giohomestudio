@@ -113,13 +113,13 @@ def main():
     # ── Tempo and beats ─────────────────────────────────────────────────────
     try:
         tempo_result = librosa.beat.beat_track(y=y, sr=sr)
-        # librosa >= 0.10 returns BeatResult namedtuple; older returns (tempo, beat_frames)
         if hasattr(tempo_result, 'bpm'):
-            tempo = float(tempo_result.bpm)
+            tempo_raw = tempo_result.bpm
             beat_frames = tempo_result.beats
         else:
-            tempo, beat_frames = tempo_result
-            tempo = float(tempo)
+            tempo_raw, beat_frames = tempo_result
+        # tempo may be a 0-d / 1-d numpy array in librosa 0.11+ — convert via .item() / asarray.
+        tempo = float(np.asarray(tempo_raw).flatten()[0])
         beat_times = librosa.frames_to_time(beat_frames, sr=sr).tolist()
     except Exception as e:
         print(f"[WARN] Beat tracking failed: {e}", file=sys.stderr)
