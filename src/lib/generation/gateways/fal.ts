@@ -82,7 +82,9 @@ async function submitAndPoll(
     onProgress?.({ status: "submitting", percent: 8, message: "Submitting to FAL queue..." });
 
     // Submit to queue
-    const submitRes = await axios.post(`${QUEUE_URL}/${endpoint}`, { input }, {
+    // FAL queue accepts the body flat — wrapping in { input } causes nested-input
+    // errors on Kling 1.6/standard, Wan 2.5, etc. Mirrors app/api/video/generate logic.
+    const submitRes = await axios.post(`${QUEUE_URL}/${endpoint}`, input, {
       headers: authHeaders(),
       timeout: 30000,
     });

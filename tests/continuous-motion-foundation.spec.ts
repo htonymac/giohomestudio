@@ -42,7 +42,9 @@ const TEST_DURATION = 5;  // 5 seconds — shortest viable clip
 
 // A publicly-accessible test image (GHS stored image uploaded to FAL)
 // We use a known stable FAL CDN image for I2V test
-const TEST_IMAGE_URL = "https://storage.googleapis.com/falserverless/gallery/images/stock-photo-1.jpg";
+// Use a publicly stable image URL that FAL workers can fetch.
+// FAL's own gallery CDN — guaranteed reachable from FAL workers.
+const TEST_IMAGE_URL = "https://fal.media/files/koala/sFcnfKj7lmL0tpqCjFAzj_image.webp";
 
 // Timeout: 8 minutes total — FAL video gen can take 3-5 min per clip
 test.setTimeout(480_000);
@@ -60,11 +62,11 @@ async function falSubmitAndPoll(
     "Content-Type": "application/json",
   };
 
-  // Submit
+  // Submit — body sent FLAT (no {input:...} wrap). Matches /api/video/generate.
   const submitRes = await fetch(`${QUEUE_URL}/${endpoint}`, {
     method: "POST",
     headers,
-    body: JSON.stringify({ input }),
+    body: JSON.stringify(input),
   });
   const submitData = await submitRes.json() as Record<string, string>;
   const requestId = submitData.request_id;
