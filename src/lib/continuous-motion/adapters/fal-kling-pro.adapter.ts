@@ -1,10 +1,14 @@
-// GioHomeStudio — Kling 2.5 Pro / 3.0 Pro Adapter (via fal.ai)
+// GioHomeStudio — Kling 2.5 Turbo Pro / Kling 3.0 Pro Adapter (via fal.ai)
 // Implements VideoProviderAdapter for Kling Pro text-to-video and image-to-video.
 // Reuses the existing fal.ts gateway — no direct axios calls here.
 //
 // NOTE: Kling Pro requires duration as STRING ("5" or "10") — handled inside fal.ts gateway.
 // NOTE: Kling Pro requires active credits on the FAL account — see fal.ai dashboard.
-// NOTE: Endpoints use v2.5/turbo/pro path — verify at https://fal.ai/models/kling if availability changes.
+// NOTE: Primary = v2.5/turbo/pro (Kling 2.5 Turbo Pro, ~$0.35/5s).
+//       Fallback = v2/master = "Kling 3.0 Pro" tier (~$0.50/5s) — same fal.ai path.
+//       Endpoints verified against app/api/video/generate/route.ts (source of truth):
+//         kling25-turbo → fal-ai/kling-video/v2.5/turbo/pro/text-to-video
+//         kling3-pro    → fal-ai/kling-video/v2/master/text-to-video (fallback tier)
 
 import { falGenerateVideo } from "../../generation/gateways/fal";
 import type {
@@ -13,9 +17,12 @@ import type {
   VideoProviderAdapter,
 } from "../provider-router";
 
-// fal.ai endpoint identifiers for Kling 2.5 Pro
+// fal.ai endpoint identifiers for Kling 2.5 Turbo Pro (primary)
 const KLING_PRO_T2V_ENDPOINT = "fal-ai/kling-video/v2.5/turbo/pro/text-to-video";
 const KLING_PRO_I2V_ENDPOINT = "fal-ai/kling-video/v2.5/turbo/pro/image-to-video";
+// Kling 3.0 Pro / v2 Master fallback — used by kling3-pro model route
+export const KLING_MASTER_T2V_ENDPOINT = "fal-ai/kling-video/v2/master/text-to-video";
+export const KLING_MASTER_I2V_ENDPOINT = "fal-ai/kling-video/v2/master/image-to-video";
 
 export class FalKlingProAdapter implements VideoProviderAdapter {
   /**

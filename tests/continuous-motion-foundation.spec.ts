@@ -169,7 +169,7 @@ test.describe("Continuous Motion Foundation — Session 1 Smoke Tests", () => {
     let passed = false;
 
     try {
-      const result = await falSubmitAndPoll("fal-ai/wan-pro/t2v-1.3b", {
+      const result = await falSubmitAndPoll("fal-ai/wan/v2.5/text-to-video", {
         prompt,
         seed: TEST_SEED,
         num_frames: TEST_DURATION * 24,
@@ -228,7 +228,7 @@ test.describe("Continuous Motion Foundation — Session 1 Smoke Tests", () => {
     let passed = false;
 
     try {
-      const result = await falSubmitAndPoll("fal-ai/wan-pro/i2v-720p", {
+      const result = await falSubmitAndPoll("fal-ai/wan/v2.5/image-to-video", {
         image_url: TEST_IMAGE_URL,
         prompt,
         seed: TEST_SEED,
@@ -287,7 +287,7 @@ test.describe("Continuous Motion Foundation — Session 1 Smoke Tests", () => {
     let passed = false;
 
     try {
-      const result = await falSubmitAndPoll("fal-ai/kling-video/v2.5/standard/text-to-video", {
+      const result = await falSubmitAndPoll("fal-ai/kling-video/v1.6/standard/text-to-video", {
         prompt,
         duration: "5",
         seed: TEST_SEED,
@@ -346,7 +346,7 @@ test.describe("Continuous Motion Foundation — Session 1 Smoke Tests", () => {
     let passed = false;
 
     try {
-      const result = await falSubmitAndPoll("fal-ai/kling-video/v2.5/standard/image-to-video", {
+      const result = await falSubmitAndPoll("fal-ai/kling-video/v1.6/standard/image-to-video", {
         image_url: TEST_IMAGE_URL,
         prompt,
         duration: "5",

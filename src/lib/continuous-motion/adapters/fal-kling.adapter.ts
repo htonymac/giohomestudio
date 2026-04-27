@@ -1,9 +1,11 @@
-// GioHomeStudio — Kling 2.5 Standard Adapter (via fal.ai)
+// GioHomeStudio — Kling 1.6 Standard Adapter (via fal.ai)
 // Implements VideoProviderAdapter for Kling text-to-video and image-to-video.
 // Reuses the existing fal.ts gateway — no direct axios calls here.
 //
 // NOTE: Kling requires duration as STRING ("5" or "10") — handled inside fal.ts gateway.
 // NOTE: Kling may require active credits on the FAL account — see fal.ai dashboard.
+// NOTE: v2.5/standard is NOT a live FAL path. v1.6/standard IS live.
+//       Endpoints verified against app/api/video/generate/route.ts (source of truth).
 
 import { falGenerateVideo } from "../../generation/gateways/fal";
 import type {
@@ -12,9 +14,9 @@ import type {
   VideoProviderAdapter,
 } from "../provider-router";
 
-// fal.ai endpoint identifiers for Kling 2.5 Standard
-const KLING_T2V_ENDPOINT = "fal-ai/kling-video/v2.5/standard/text-to-video";
-const KLING_I2V_ENDPOINT = "fal-ai/kling-video/v2.5/standard/image-to-video";
+// fal.ai endpoint identifiers for Kling 1.6 Standard
+const KLING_T2V_ENDPOINT = "fal-ai/kling-video/v1.6/standard/text-to-video";
+const KLING_I2V_ENDPOINT = "fal-ai/kling-video/v1.6/standard/image-to-video";
 
 export class FalKlingAdapter implements VideoProviderAdapter {
   /**
@@ -93,7 +95,7 @@ export class FalKlingAdapter implements VideoProviderAdapter {
    */
   getCapabilities(): VideoAdapterCapabilities {
     return {
-      name: "Kling 2.5 Standard",
+      name: "Kling 1.6 Standard",
       maxDuration: 10,
       supportsSeed: true,
       supportsImageInput: true,

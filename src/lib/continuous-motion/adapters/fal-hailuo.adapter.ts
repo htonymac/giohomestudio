@@ -5,6 +5,11 @@
 // NOTE: Hailuo (MiniMax) does NOT support seed — continuity relies on anchor frame only.
 // NOTE: maxDuration is 6s per segment — shorter clips, more transitions needed for long scenes.
 // NOTE: costPerSecond is $0.10 — higher cost, cinematic quality.
+// NOTE: MiniMax uses a SINGLE endpoint for both T2V and I2V — the input shape determines
+//       the mode (prompt-only = T2V, prompt+image_url = I2V).
+//       Verified against app/api/video/generate/route.ts (source of truth):
+//         hailuo-pro  → fal-ai/minimax/video-01
+//         hailuo-fast → fal-ai/minimax/video-01
 
 import { falGenerateVideo } from "../../generation/gateways/fal";
 import type {
@@ -13,9 +18,9 @@ import type {
   VideoProviderAdapter,
 } from "../provider-router";
 
-// fal.ai endpoint identifiers for Hailuo (MiniMax)
-const HAILUO_T2V_ENDPOINT = "fal-ai/minimax/video-01-text-to-video";
-const HAILUO_I2V_ENDPOINT = "fal-ai/minimax/video-01-image-to-video";
+// fal.ai endpoint identifiers for Hailuo (MiniMax) — single endpoint handles T2V + I2V
+const HAILUO_T2V_ENDPOINT = "fal-ai/minimax/video-01";
+const HAILUO_I2V_ENDPOINT = "fal-ai/minimax/video-01";
 
 export class FalHailuoAdapter implements VideoProviderAdapter {
   /**

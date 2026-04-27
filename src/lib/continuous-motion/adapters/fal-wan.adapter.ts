@@ -1,6 +1,7 @@
-// GioHomeStudio — Wan 2.2 Pro Adapter (via fal.ai)
+// GioHomeStudio — Wan 2.5 Adapter (via fal.ai)
 // Implements VideoProviderAdapter for Wan text-to-video and image-to-video.
 // Reuses the existing fal.ts gateway — no direct axios calls here.
+// Endpoints verified against app/api/video/generate/route.ts (source of truth).
 
 import { falGenerateVideo } from "../../generation/gateways/fal";
 import type {
@@ -9,9 +10,9 @@ import type {
   VideoProviderAdapter,
 } from "../provider-router";
 
-// fal.ai endpoint identifiers for Wan
-const WAN_T2V_ENDPOINT = "fal-ai/wan-pro/t2v-1.3b";
-const WAN_I2V_ENDPOINT = "fal-ai/wan-pro/i2v-720p";
+// fal.ai endpoint identifiers for Wan 2.5
+const WAN_T2V_ENDPOINT = "fal-ai/wan/v2.5/text-to-video";
+const WAN_I2V_ENDPOINT = "fal-ai/wan/v2.5/image-to-video";
 
 export class FalWanAdapter implements VideoProviderAdapter {
   /**
@@ -90,7 +91,7 @@ export class FalWanAdapter implements VideoProviderAdapter {
    */
   getCapabilities(): VideoAdapterCapabilities {
     return {
-      name: "Wan 2.2 Pro",
+      name: "Wan 2.5",
       maxDuration: 10,
       supportsSeed: true,
       supportsImageInput: true,
