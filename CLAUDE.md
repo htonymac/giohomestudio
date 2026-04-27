@@ -1,5 +1,59 @@
 # GioHomeStudio Master Canvas
 
+## 0. Karaoke Architecture (locked 2026-04-27 per Final Master System Canvas)
+
+GHS Karaoke / Voice-to-Music splits across two surfaces, NOT one:
+
+| Sidebar group | Page | Owns |
+|---|---|---|
+| **Create** | `/dashboard/karaoke-music-creator` | Mode A-E selector + 5 input methods (record / upload / pick from library / recent / paste URL). Routes to Planner with `?recordingId=…&mode=…`. |
+| **Planners** | `/dashboard/karaoke-music-planner` | Full 18-step workshop. Workshop history of all takes. Flow-lock gate before music gen. |
+
+### 5 Modes (canvas §4 in `update/GHS KERAOKE/GHS Karaoke.docx`)
+
+- **Mode A** — Voice → Music (build music around vocal idea)
+- **Mode B** — Voice → Karaoke (lyric timing + karaoke export)
+- **Mode C** — Voice → Polished Demo (rough → demo)
+- **Mode D** — Voice → Lyrics + Music (lyrics first, then music)
+- **Mode E** — Voice → Beat Match (chant/flow + best beat family)
+
+### 18-Step Master Workflow (canvas §2 in `update/GHS KERAOKE/GHS KARAOKE update.docx`)
+
+1. Voice Input → 2. Vocal Cleanup (Demucs ⏸ post-Linux) → 3. Audio Analysis (librosa+Whisper) → 4. Melody Extraction (Basic Pitch ⏸ post-Linux) → 5. Lyrics Extraction (Whisper) → 6. Lyrics Intelligence (Claude Haiku 4.5, 5 levels) → 7. Flow Profiling (sing/chant/spoken/hum) → 8. Beat Recommendation (11 families) → 9. Production Brief → 10. Music Generation (Kie.ai Suno / Mubert / Stable Audio / Stock fallback) → 11. Voice Enhancement (RVC ⏸ post-Linux) → 12. Mixing (Web Audio API) → 13. Review → 14. Version Comparison → 15. Final Assembly (FFmpeg) → 16. Export (MP3/WAV/vocal-only/instrumental/karaoke/short clip/hook) → 17. Optional Video Pipeline → 18. Storage Lifecycle (AES-256 + 30-day purge).
+
+### Flow lock (CRITICAL)
+
+Music generation MUST NOT start until ALL of: tempo detected, melody extracted (or marked unavailable), lyrics processed, flow classified, production brief built. UI button disabled until satisfied.
+
+### Source-of-truth doc map
+
+- TECH: `update/GHS KERAOKE/GHS_KARAOKE_STUDIO_PLAN.md`
+- FLOW: `update/GHS KERAOKE/GHS Karaoke.docx`
+- MASTER: `update/GHS KERAOKE/GHS KARAOKE update.docx` (this is the truth — supersedes earlier MVP layout)
+
+### Master rule (canvas §29)
+
+> Voice is truth. Flow is authority. AI assists. User decides. System executes.
+
+### Provider keys required for music gen
+
+- `KIE_AI_API_KEY` — Kie.ai Suno V5 (lyrical music). Currently NOT in .env.
+- `MUBERT_PAT` — Mubert B2B (instrumental long). Currently NOT in .env.
+- `FAL_KEY` — ✅ already set, covers Stable Audio (≤47s instrumental).
+- Stock Library — always works ($0 fallback).
+
+Without Kie key: Music Provider falls back to Stock Library — functional but not Suno-quality.
+
+### Post-Linux migration items (cannot install on Python 3.13 / Windows)
+
+- Demucs (Step 2 vocal isolation) — `pip install demucs torch`
+- Basic Pitch (Step 4 melody → MIDI) — `pip install basic-pitch`
+- RVC (Step 11 voice enhancement) — GitHub clone
+
+Until then UI marks these steps ⏸ visibly.
+
+---
+
 ## 1. Product Identity
 
 **Product name:** GioHomeStudio  

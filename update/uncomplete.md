@@ -1,5 +1,46 @@
 # GioHomeStudio — Incomplete / Pending Tasks
-Updated: 2026-04-25
+Updated: 2026-04-27
+
+## SESSION 2026-04-27 — Karaoke restructure (Final Master Canvas)
+
+**Doctrine locked:** Karaoke splits into TWO surfaces per `update/GHS KERAOKE/GHS KARAOKE update.docx`.
+
+| Surface | Path | Owns |
+|---|---|---|
+| Karaoke Music Creator (Create group) | `/dashboard/karaoke-music-creator` | Mode A-E selector + 5 input methods |
+| Karaoke Music Planner (Planners group) | `/dashboard/karaoke-music-planner` | Full 18-step workshop |
+
+Old `/dashboard/karaoke-studio` becomes a redirect.
+
+### Active tasks (this session)
+- [~] Build Karaoke Music Creator page — 5 inputs + Mode A-E selector + route to Planner
+- [~] Build Karaoke Music Planner page — 18-step workshop UI + history list + flow lock
+- [~] Sidebar: Creator under Create + Planner under Planners
+- [~] APIs: `flow-profile` / `beat-recommend` / `production-brief` / `generate-music` / `assemble` / `export`
+- [~] Wire Music Provider Layer (PR #20) into Step 10 Music Generation
+- [~] FFmpeg merge for Step 15 Final Assembly
+- [~] Schema additions: mode / flowProfile / productionBrief / generatedMusicUrl / mixedOutputUrl / exportedFiles
+- [~] Workshop history (left panel showing all takes across modes)
+- [~] Mode-aware step gating (Mode B skips music gen, Mode E ends at beat-match, etc.)
+- [x] Update CLAUDE.md project root with Karaoke architecture
+- [x] Daily log saved at `daily/2026-04-27_karaoke-restructure.md`
+
+### Post-Linux migration (locked — cannot install on Python 3.13 Windows)
+- [ ] Demucs install — Step 2 Vocal Cleanup (`pip install demucs torch`)
+- [ ] Basic Pitch install — Step 4 Melody Extraction (`pip install basic-pitch`)
+- [ ] RVC install — Step 11 Voice Enhancement (GitHub clone)
+- [ ] Voice similarity model — Step 21 Deepfake prevention
+- [ ] Distributed processing — Step 25 high-traffic scaling
+
+### Provider keys missing from .env (you must provision)
+- [ ] `KIE_AI_API_KEY` — Kie.ai Suno V5 (lyrical music, the main music engine)
+- [ ] `MUBERT_PAT` — Mubert B2B (instrumental >47s)
+- [x] `FAL_KEY` — ready (covers Stable Audio ≤47s)
+
+### Until keys arrive
+Music Provider Layer auto-falls-back to Stock Library — functional but not Suno-quality.
+
+---
 
 ## SESSION 2026-04-25 Thompson (feat/music-provider-abstraction)
 
@@ -3228,6 +3269,439 @@ Total: 50+ documents across all folders
 - [ ] kling_std image-to-video: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard.
 
 **Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [ ] kling_std text-to-video: SKIPPED — Kling 2.5 via FAL not activated. Check FAL dashboard for Kling credits
+- [ ] kling_std image-to-video: SKIPPED — Kling 2.5 i2v via FAL not activated. Check FAL dashboard.
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [ ] kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [ ] kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [ ] kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [ ] kling_std text-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"type":"missing","loc":["body"
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"ms
+
+**Cost incurred:** $0.00
+
+### Queued for Session 2
+- [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
+- [ ] 3-segment chain test on Wan
+- [ ] Verify merged output is continuous
+
+### Queued for Session 3
+- [ ] Motion unit planner (LLM-based prompt splitting by physical action)
+- [ ] Segment duration planner
+
+### Queued for Session 4
+- [ ] UI: Continuous Motion toggle in Scene Settings
+- [ ] Segment visualization in Scene Board
+- [ ] Provider lock, cost estimation, progress indicator
+- [ ] Connect to Review Queue + Add Audio button
+
+### Queued for Session 5
+- [ ] fal_kling_pro adapter
+- [ ] fal_hailuo adapter
+- [ ] fal_veo adapter
+- [ ] fal_seedance adapter
+
+
+---
+## SESSION 1 — Continuous Motion Foundation (2026-04-27)
+
+### Shipped
+- [x] ContinuousScene, MotionSegment, MotionAnchor DB tables (prisma db push done)
+- [x] Provider router at src/lib/continuous-motion/provider-router.ts
+- [x] Wan adapter at src/lib/continuous-motion/adapters/fal-wan.adapter.ts
+- [x] Kling adapter at src/lib/continuous-motion/adapters/fal-kling.adapter.ts
+- [x] Smoke test at tests/continuous-motion-foundation.spec.ts
+- [x] Spec copied to specs/CONTINUOUS_MOTION_SPEC.md
+
+### Smoke Test Results
+- [ ] wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
+- [ ] wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
+- [x] kling_std text-to-video: https://v3b.fal.media/files/b/0a97e352/BLzzqp1xH4WL3uiJU-bs3_output.mp4
+- [ ] kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"ms
+
+**Cost incurred:** $0.35
 
 ### Queued for Session 2
 - [ ] continuity_engine.ts — extractMotionAnchor (FFmpeg), buildContinuationPrompt, assembleClips
