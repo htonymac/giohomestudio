@@ -1,92 +1,134 @@
-# GHS Handoff — 2026-04-25 (updated — Thompson paused on credit cap)
+# GHS Handoff — 2026-04-27
 
-## PAUSED — Karaoke Step 5 + Step 6 task
-Thompson was invoked to ship Step 5 (Audio Editor) + Step 6 (Lyrics Editor with Claude AI) per spec at `update/updated ff/GHS_KARAOKE_STUDIO_PLAN.md`.
+## Where we are
 
-**Stopped:** credit_freeze flag active — age 0.48h (frozen_at ~2026-04-26 23:21 PDT, resume at 04:21 PDT + 60s).
+Main branch is GREEN. Karaoke Final Master Canvas restructure shipped. All 26 session PRs merged. Zero open PRs. Dev server up at :3200, Chrome debug at :9222.
 
-**Task scope (not yet started — zero code written):**
-- Branch: `feat/karaoke-step-5-and-6`
-- New files needed:
-  - `app/components/KaraokeAudioEditor.tsx` — Web Audio API editor (Step 5)
-  - `app/api/karaoke/polish-lyrics/route.ts` — Claude Haiku 4.5 lyrics AI (Step 6)
-  - `app/api/karaoke/from-url/route.ts` — Paste URL input
-  - `app/api/karaoke/list/route.ts` — Recent recordings list
-  - `app/api/karaoke/save-mix/route.ts` — Persist mix settings JSON
-  - `tests/karaoke-deep-coverage.spec.ts` — Playwright headed test
-- Modified files:
-  - `app/dashboard/karaoke-studio/page.tsx` — Add Lyrics Editor section + 3 new input methods
-  - `prisma/schema.prisma` — Add `mixSettings Json?` to KaraokeRecording model
-- PR title: `feat(karaoke): Step 5 Audio Editor + Step 6 Lyrics Polish + multi-input`
+## Tag for rollback safety
+- `windows-final-2026-04-26` — last green build before any Linux migration. `git checkout windows-final-2026-04-26` rolls everything back.
 
-**What was read before stopping:**
-- Full spec Steps 5+6 (lines 270-465) — understood in detail
-- Existing `page.tsx` — understood current state (record + upload + analyze done)
-- HANDOFF.md current state
+## Today's commits since the tag
 
-**Resume steps:**
-1. Delete `C:\Users\USER\Desktop\CLAUDE\AU AUTOMATION\credit_freeze`
-2. Re-invoke Thompson: "connect Thompson" then give same task
-3. Thompson starts at git checkout -b feat/karaoke-step-5-and-6
+```
+7e7d1a0  feat(karaoke): Final Master Canvas — Creator + Planner split (#24)
+3bf9901  docs(karaoke): lock Final Master Canvas architecture
+e66eb29  feat(karaoke): doc-polished flow — voice-first lyrics polish + simple-label audio editor (#23)
+2576596  fix(sidebar): multi-open accordion — Karaoke / SFX / etc visible by default
+0124f38  fix(karaoke): beat tracking — convert numpy 0-d tempo to float
+8073e4f  fix(fal-gateway): send body flat — drop {input:...} wrap
+2b60079  fix(continuous-motion): align adapter endpoints to live FAL paths (#22)
+01ef6d1  chore(migration): mark FIXES_BEFORE_MIGRATION audit complete + tag drift
+3987038  chore(migration): portable ffmpeg fallbacks + Linux migration runbook
+ec47f09  fix(music-video-planner): dedupe runAutoTimestamp function
++ many earlier from the session
+```
 
----
+## Live routes (verified 200 just now)
 
-# GHS Handoff — 2026-04-26 23:21 PDT (prior session)
+- `/dashboard` — Sidebar shows all 6 groups expanded by default (multi-open fix)
+- `/dashboard/karaoke-music-creator` — NEW (Create group). Mode A-E + 5 inputs.
+- `/dashboard/karaoke-music-planner` — NEW (Planners group). 18-step workshop with flow lock.
+- `/dashboard/karaoke-studio` — redirects to `karaoke-music-creator`
+- `/dashboard/hybrid-planner` / `music-video-planner` / `commercial-planner` / `assets` / `ad-editor` — all 200
+- `/terms` / `/privacy` / `/dmca` / `/ai-disclosure` / `/cookies` / `/sound-licensing` / `/acceptable-use` — all 200
 
-## Where stopped
+## Karaoke architecture (locked per Final Master Canvas)
 
-Henry hit rate limit while running 9-Thompson parallel coverage test on GHS. Reset announced at **10:50pm America/Los_Angeles**.
+| Surface | Route | Owns |
+|---|---|---|
+| **Karaoke Music Creator** (Create group) | `/dashboard/karaoke-music-creator` | Mode A-E selector (Voice→Music / Voice→Karaoke / Voice→Polished Demo / Voice→Lyrics+Music / Voice→Beat Match) + 5 inputs (record / upload / asset library / recent / paste URL) |
+| **Karaoke Music Planner** (Planners group) | `/dashboard/karaoke-music-planner` | 18-step workshop: Voice Input → Cleanup ⏸ → Analysis → Melody ⏸ → Lyrics → Lyrics AI (5 levels) → Flow Profiling → Beat Recommendation (11 families) → Production Brief → Music Gen → RVC ⏸ → Mixing → Review → Version Compare → FFmpeg Assembly → Export → Optional Video Pipeline → Storage Lifecycle |
 
-All 9 Thompsons returned `You've hit your limit · resets 10:50pm`. **Zero coverage data was produced.** They created branches but no tests ran.
+Flow LOCK rule: Music Gen disabled until tempo + lyrics + flow + brief all complete.
 
-## Frozen flag
-- `C:/Users/USER/Desktop/CLAUDE/AU AUTOMATION/credit_freeze` — set 2026-04-26 23:21 PDT.
+## In-flight / blocked / waiting
 
-## In-progress
-- **9-Thompson coverage test** — needs full re-spawn after reset. Each Thompson scope:
-  - T-A: hybrid-planner + music-video-planner
-  - T-B: commercial-planner + commercial
-  - T-C: movie-creator + series-wizard + children-planner
-  - T-D: ad-editor + scene-forge
-  - T-E: video-editor + video-tools + video-trimmer
-  - T-F: free-mode + auto-creator
-  - T-G: music-studio + sfx-library
-  - T-H: assets + templates + content/[id] + review
-  - T-I: auth/legal (9 routes) + settings + sidebar
-- Output dir for results: `update/test-coverage/<surface>.md` (none yet written).
+### Waiting on Henry (you)
 
-## Blockers
-- Rate limit. Wait for reset.
+| Item | Action needed |
+|---|---|
+| **T4 Finance Phase 2** | Trigger phrase: "start Finance Phase 2" or "build credits" (per Must Read SECTION A1). DO NOT auto-start. |
+| **Karaoke music gen — Suno-quality** | Add `KIE_AI_API_KEY` to `.env`. Without it, Music Provider falls back to Stock Library (functional but not Suno). |
+| **Karaoke long instrumental** | Add `MUBERT_PAT` to `.env`. Without it, Mubert adapter throws and falls back. |
+| **CMF entitlement** | Wan Pro + Kling 2.5 may need fal.ai account credit top-up. Verify at fal.ai dashboard. (Not strictly blocking — Wan v2.5 endpoint works as of PR #22 fix.) |
+| **GHS Linux migration** | Per `project_server_setup.md`: GHS is LAST in onboarding queue (Marabiz → HMKSync → GioBiz → Giolog → GHS). Drive via `connect Terry` when earlier projects are stable on Contabo VPS. |
 
-## Next exact steps after reset
+### Post-Linux migration items (cannot install on Python 3.13 Windows)
 
-1. Verify `curl http://localhost:3200/dashboard/karaoke-studio` returns 200 (dev server may need restart).
-2. Delete `credit_freeze` flag.
-3. Re-spawn the 9 Thompsons OR run as a single sequential Thompson hitting all surfaces back-to-back (less context cost than 9 parallel). Sequential is safer post-cap.
-4. Aggregate results into one `update/test-coverage/SUMMARY.md`.
+| Item | Step | Linux command |
+|---|---|---|
+| Demucs | 2 — Vocal Cleanup | `pip install demucs torch` |
+| Spotify Basic Pitch | 4 — Melody → MIDI | `pip install basic-pitch` |
+| RVC | 11 — Voice Enhancement | `git clone Retrieval-based-Voice-Conversion-WebUI && pip install -r requirements.txt` |
+| Voice similarity model | 21 — Deepfake prevention | TBD |
 
-## Recent main commits (state of code)
+### On hold
 
-- `0124f38` fix(karaoke): beat tracking — convert numpy 0-d tempo to float
-- `8073e4f` fix(fal-gateway): send body flat — drop {input:...} wrap
-- `2b60079` fix(continuous-motion): align adapter endpoints to live FAL paths (#22)
-- `cdacd21` feat(continuous-motion): Session 5 (5 adapters + scene routes) (#21)
-- `00085dc` feat(music-provider): generic provider layer + 4 adapters (#20)
-- Tag: `windows-final-2026-04-26` for migration rollback
+| Task | Status | Why |
+|---|---|---|
+| T28 9-Thompson coverage test | on hold | Original burst hit Henry's rate limit. Re-run in a single sequential Thompson when ready (less concurrent burn). |
 
-## Karaoke MVP — confirmed working
+## Known gaps (not blockers, just noted)
 
-Tested directly via Playwright headed browser, 7/7 pass.
-- Page 200, recorder + upload zone render
-- /api/karaoke/upload + /api/karaoke/analyze return real data
-- Whisper transcription (42 words), librosa BPM (109.96), key (G# major), genre (Afrobeats), 25 beats, mood (Groovy)
-- Bug fixed mid-test: librosa 0.11 returns 0-d numpy tempo → float() crashed → was falling back to 90 BPM with empty beats. Pushed `0124f38`.
+- Karaoke Step 2 (Demucs) UI shows ⏸ "post-Linux install" badge — works visually, just no real cleanup happens. Fine until Linux.
+- Karaoke Step 4 (Basic Pitch) same.
+- Karaoke Step 11 (RVC) same.
+- Music gen falls back to Stock Library when no `KIE_AI_API_KEY` — output is real but not Suno-quality.
+- Mode B (Voice → Karaoke) Step 10 stub: takes existing song, vocal-extraction is `Demucs vocal_only` which needs Demucs (post-Linux).
+- Test infra: `tests/restore-teddy-project.spec.ts` has stale project-restore mechanism. Reassigned to your manual smoke on Linux per FIXES_BEFORE_MIGRATION owner tag.
 
-## Migration prep status
+## Doc system (per Rule 13 — locked 2026-04-24)
 
-Per `LINUX_MIGRATION_RUNBOOK.md` + `FIXES_BEFORE_MIGRATION.md`:
-- ✅ Path audit (commits 3987038)
-- ✅ Tag `windows-final-2026-04-26`
-- ✅ Backend pipelines API-verified
-- 🟡 Items 2/3/5 reassigned to Henry's manual smoke on Linux (per owner tag)
-- Real blocker: queue order Marabiz → HMKSync → GioBiz → Giolog → GHS LAST. GHS not next in queue.
+| Doc | Purpose | Last touched |
+|---|---|---|
+| `CHANGELOG.md` | What/why/impact/risk per PR | 2026-04-27 |
+| `HANDOFF.md` | Where stopped, in-progress, blockers, next steps (THIS DOC) | 2026-04-27 |
+| `update/uncomplete.md` | Running task log + post-Linux + missing keys | 2026-04-27 |
+| `update/PROBLEM_AND_FIX.md` | Bug log — check first when symptom recurs | various |
+| `daily/2026-04-27_karaoke-restructure.md` | Today's full plan + file list + deferred | 2026-04-27 |
+| `LINUX_MIGRATION_RUNBOOK.md` | End-to-end Ubuntu deploy | 2026-04-26 |
+| `FIXES_BEFORE_MIGRATION.md` | 5-item checklist + audit notes | 2026-04-26 |
+| `URGENT_INSTRUCTIONS.md` | 8-step audio pipeline manual smoke | unchanged |
+| `Must Read.md` | Spec index + deferred items + global rules | unchanged |
+| `CLAUDE.md` (project root) | §0 Karaoke architecture + product master canvas | 2026-04-27 |
+
+## Servers / processes
+
+- Dev server: `npm run dev` on :3200 (currently up after final restart). Owns Prisma client DLL — kill before any `prisma generate`.
+- Chrome debug: `start_chrome_debug.bat` on :9222. Used by Playwright CDP tests.
+- Both auto-start when needed; safe to leave running.
+
+## Source-of-truth docs (Karaoke specifically)
+
+- TECH: `update/GHS KERAOKE/GHS_KARAOKE_STUDIO_PLAN.md` — 11-step pipeline + tools
+- FLOW: `update/GHS KERAOKE/GHS Karaoke.docx` (extracted: `GHS_Karaoke_extracted.txt`) — 10-step user-side workflow + 5 modes + UX principles
+- MASTER: `update/GHS KERAOKE/GHS KARAOKE update.docx` (extracted: `GHS_KARAOKE_update_extracted.txt`) — Final Master System Canvas, 18-step pipeline, locked architecture
+- Reference: `update/GHS KERAOKE/GHS KAROKE KERAOKE GEMINI.pdf`
+
+## Rules (preserved)
+
+- Voice = truth. Flow = authority. AI assists. User decides. System executes.
+- Music gen MUST NOT start until cleanup + tempo + melody + lyrics + flow profile + brief all complete.
+- Lyrics polish: Option 1 is always the user's exact line. Server-enforced. Never auto-overwrite.
+- Audio editor opens neutral on "Natural Voice" preset. Reset button always visible.
+- 5 intervention levels: improve / simplify / strengthen / rewrite_light / rewrite_full. Default = improve.
+
+## Resume instructions for next session
+
+1. Verify dev still up: `curl http://localhost:3200/dashboard/karaoke-music-creator` (expect 200).
+2. If Henry says "start Finance Phase 2": load `update/GHS_PAYMENT_BILLING_PLAN.md` and proceed.
+3. If Henry adds Kie.ai key: restart dev server, then test music gen via `/api/karaoke/generate-music` with mode A.
+4. If Henry says "run karaoke 100% test": spawn ONE sequential Thompson hitting all 18 steps, not 9 parallel (avoids rate-limit burst).
+5. If Henry triggers GHS Linux migration: `connect Terry` and follow `LINUX_MIGRATION_RUNBOOK.md` end-to-end.
+
+## Backlog summary (open tasks)
+
+| ID | Task | Owner |
+|---|---|---|
+| T4 | Finance Phase 2 — credit DB + deduction | blocked on trigger |
+| T28 | Re-run 9-Thompson coverage test | on hold (rate limit) |
+| (post-Linux) | Demucs / Basic Pitch / RVC / voice similarity | on Linux deploy |
+| (post-keys) | Suno-quality lyrical music gen via Kie.ai | needs KIE_AI_API_KEY |
+| (post-keys) | Long instrumentals via Mubert | needs MUBERT_PAT |
+
+Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture finalized. Migration prep done. Linux migration is the next big move when GHS reaches the front of your queue.

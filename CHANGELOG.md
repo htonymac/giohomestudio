@@ -1,0 +1,147 @@
+# GHS Changelog
+
+## 2026-04-27 — Karaoke Final Master Canvas (PR #24)
+
+### What
+Karaoke restructured into two surfaces per `update/GHS KERAOKE/GHS KARAOKE update.docx`:
+- `/dashboard/karaoke-music-creator` (Create group) — Mode A-E selector + 5 input methods
+- `/dashboard/karaoke-music-planner` (Planners group) — full 18-step workshop with flow lock
+- `/dashboard/karaoke-studio` → redirects to creator (backward compat)
+
+### Why
+Original Karaoke MVP was a single page mixing entry + workshop. Final Master Canvas (the locked spec) requires Create-vs-Planner separation to mirror Hybrid / Movie / Music Video / Commercial pattern.
+
+### Impact
+- Sidebar +2 entries (Karaoke Music Creator under Create, Karaoke Music Planner under Planners)
+- 7 new API routes (flow-profile / beat-recommend / production-brief / generate-music / assemble / export / set-mode)
+- Schema +6 fields on KaraokeRecording: mode / flowProfile / productionBrief / generatedMusicUrl / mixedOutputUrl / exportedFiles
+- Music Provider Layer (PR #20) wired into Step 10
+- 5 Modes (A: Voice→Music / B: Voice→Karaoke / C: Voice→Polished Demo / D: Voice→Lyrics+Music / E: Voice→Beat Match)
+
+### Risk
+- LOW. Old route redirects, no breaking changes.
+- Flow LOCK enforces correct order — Music Gen disabled until tempo + lyrics + flow + brief all complete.
+
+### Tests
+- 12/12 Playwright headless pass
+- `npx tsc --noEmit` clean
+- Routes 200: creator / planner / old-studio
+
+---
+
+## 2026-04-27 — Karaoke doc-polished flow (PR #23)
+
+### What
+Lyrics polish + Audio Editor implementing all spec principles from `update/GHS KERAOKE/GHS Karaoke.docx`:
+- §11: 5 intervention levels (improve / simplify / strengthen / rewrite_light / rewrite_full). Option 1 always = user's exact line.
+- §14: Plain-English labels in Audio Editor ("Bass up/down" not "lowshelf gain")
+- §19: Voice-first toasts ("GHS understood your flow…", "Mix saved. Your idea, preserved.")
+- §23: Inline AI hints above lyrics
+- §25: Reset button always visible
+
+### Impact
+- New: `app/components/KaraokeAudioEditor.tsx` (Web Audio API, 8 presets)
+- New: `/api/karaoke/polish-lyrics`, `/api/karaoke/hints`, `/api/karaoke/from-url`, `/api/karaoke/list`, `/api/karaoke/save-mix`
+- Schema: `mixSettings Json?` on KaraokeRecording
+
+### Tests
+- 11/11 Playwright headed pass
+
+---
+
+## 2026-04-26 — Continuous Motion endpoints (PR #22)
+
+### What
+FAL gateway body shape fix (drop `{input:...}` wrap → flat). Adapter endpoints aligned to live FAL paths.
+
+### Impact
+- All 7 CMF adapters now functional (Wan v2.5, Kling v1.6/std + v2.5/turbo/pro, Hailuo, Runway, Veo, Seedance)
+- Real FAL queue calls now succeed
+- Gateway body shape mirrors `/api/video/generate` (proven path)
+
+### Risk
+- LOW. Other gateway consumers untouched.
+
+---
+
+## 2026-04-26 — Music Provider abstraction (PR #20)
+
+### What
+Generic `MusicProviderAdapter` interface + 4 adapters (Kie.ai / Mubert / Stable Audio / Stock).
+
+### Impact
+- New `/api/music/generate` route with auto-routing
+- Provider dropdown in Music Studio + Music Video Planner
+- Stock Library always-works fallback ($0)
+
+### Risk
+- LOW. Existing /api/music/* routes untouched.
+
+---
+
+## 2026-04-26 — CMF Sessions 4+5 (PR #21)
+
+### What
+5 remaining adapters (Kling Pro / Hailuo / Runway / Veo / Seedance) + scene status/cancel routes.
+
+---
+
+## 2026-04-26 — Karaoke Studio MVP (PR #19)
+
+### What
+Page + recorder + upload + analyze + scripts/karaoke_analyze.py + KaraokeRecording DB. faster-whisper + librosa Tier 1.
+
+---
+
+## 2026-04-26 — Legal full set (PR #18)
+
+### What
+7 legal docs (Terms / Privacy / AUP / DMCA / AI Disclosure / Cookies / Sound Licensing). Single bundled consent at registration. Pre-generation rights gate wired into 7 generation entry points.
+
+---
+
+## 2026-04-25 — Phantom controls + seed + voice/volume (PRs #12-#17)
+
+- #12: free-mode model selectors now sent to API
+- #13: commercial Mode1/3 video model + brand color picker
+- #14: commercial-planner v2 (color picker, product upload, per-scene models)
+- #15: voiceProvider plumbed into hybrid + series narration
+- #16: musicVolume + narrationVolume in assemble payloads
+- #17: seed control on 4 planners + 3 video routes
+
+---
+
+## 2026-04-25 — Auto Time Stamp + Music Vision + CMF Engine (PRs #9-#11)
+
+- #9: Auto Time Stamp engine + UI
+- #10: Music Vision Studio upgrade (T2MV + beats + checkpoints)
+- #11: CMF Sessions 2+3 (continuity engine + motion planner)
+
+---
+
+## 2026-04-25 — Continuous Motion foundation (PR #8)
+
+3 Prisma tables + Wan + Kling adapters + provider router.
+
+---
+
+## 2026-04-25 — Chain merge to main (PR #7)
+
+113-commit chain squashed: ModelChip + DB modelId + video tools timeline + video editor pipeline + video trimmer enhancements + auth gates.
+
+---
+
+## 2026-04-25 — v14 Design rollout (PR #1)
+
+51 pages × dark/purple-orange tokens. Killed v13 multi-theme. Foundation for all subsequent UI.
+
+---
+
+## Migration prep (commits to main, not PRs)
+
+- `windows-final-2026-04-26` tag for rollback safety
+- `LINUX_MIGRATION_RUNBOOK.md` (10 sections, end-to-end Ubuntu deploy)
+- 5 ffmpeg path fallbacks made portable (commit `3987038`)
+- music-video-planner duplicate-state fix (commit `a4fd603`, `ec47f09`)
+- karaoke beat-tracking numpy fix (commit `0124f38`)
+- sidebar multi-open accordion (commit `2576596`)
