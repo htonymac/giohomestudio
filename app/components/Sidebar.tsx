@@ -127,18 +127,43 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
     return "Create";
   }
 
-  const [openGroup, setOpenGroup] = useState<string>(() => activeGroupName());
+  // Multi-open accordion: ALL groups expanded by default so users can scan every
+  // surface without hunting. Single-open hid Karaoke / SFX Library / Asset
+  // Library / etc. when active group was Create.
+  const ALL_GROUPS = NAV_GROUPS.map((g) => g.group);
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(ALL_GROUPS));
   const [collapsed, setCollapsed] = useState(false);
 
   useEffect(() => {
     const saved = localStorage.getItem("ghs_sidebar_collapsed");
     if (saved === "true") setCollapsed(true);
+    const savedGroups = localStorage.getItem("ghs_sidebar_open_groups");
+    if (savedGroups) {
+      try { setOpenGroups(new Set(JSON.parse(savedGroups))); } catch { /* ignore */ }
+    }
   }, []);
 
   useEffect(() => {
-    setOpenGroup(activeGroupName());
+    // Always ensure the active group is open when navigating.
+    const activeName = activeGroupName();
+    setOpenGroups((prev) => {
+      if (prev.has(activeName)) return prev;
+      const next = new Set(prev);
+      next.add(activeName);
+      return next;
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  function toggleGroup(name: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      try { localStorage.setItem("ghs_sidebar_open_groups", JSON.stringify(Array.from(next))); } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   const toggleCollapse = () => {
     setCollapsed((prev) => {
@@ -237,7 +262,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
       {/* Nav groups */}
       <nav style={{ flex: 1, overflowY: "auto", overflowX: "hidden", padding: "8px 6px 4px" }}>
         {NAV_GROUPS.map((group) => {
-          const isOpen = !collapsed && openGroup === group.group;
+          const isOpen = !collapsed && openGroups.has(group.group);
           const hasActive = group.items.some(
             (item) =>
               pathname === item.href ||
@@ -250,7 +275,7 @@ export default function Sidebar({ reviewCount }: { reviewCount?: number }) {
               <button
                 onClick={() => {
                   if (!collapsed) {
-                    setOpenGroup((prev) => (prev === group.group ? "" : group.group));
+                    toggleGroup(group.group);
                   }
                 }}
                 title={collapsed ? group.group : undefined}
