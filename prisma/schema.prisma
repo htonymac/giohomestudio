@@ -1156,14 +1156,21 @@ model MotionAnchor {
 // ── Karaoke Studio ────────────────────────────────────────────────────────────
 
 model KaraokeRecording {
-  id          String   @id @default(cuid())
-  userId      String
-  fileUrl     String
-  fileName    String
-  durationSec Float?
-  analysis    Json?
-  transcript  String?
-  createdAt   DateTime @default(now())
+  id                String   @id @default(cuid())
+  userId            String
+  fileUrl           String
+  fileName          String
+  durationSec       Float?
+  analysis          Json?
+  transcript        String?
+  mixSettings       Json?
+  mode              String?  // "A" | "B" | "C" | "D" | "E"
+  flowProfile       Json?    // { voiceType, phraseGaps, hookCandidates, cadenceLabel }
+  productionBrief   Json?    // { genre, tempo, key, mood, structure, duration, energyCurve, instructions }
+  generatedMusicUrl String?
+  mixedOutputUrl    String?
+  exportedFiles     Json?    // [{ format, url, createdAt }]
+  createdAt         DateTime @default(now())
 
   @@index([userId])
   @@map("karaoke_recordings")

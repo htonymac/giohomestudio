@@ -1,0 +1,1343 @@
+"use client";
+
+/**
+ * Karaoke Music Planner — Surface 2 (under Planners)
+ * Path: /dashboard/karaoke-music-planner
+ *
+ * 18-step pipeline workshop (canvas §2)
+ * Mode-aware step gating
+ * Left panel: workshop history of all takes
+ * Flow lock: Music Gen disabled until Steps 3+5+7+9 complete
+ *
+ * Canvas §29: Voice is truth. Flow is authority.
+ */
+
+import React, { useState, useCallback, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from "next/dynamic";
+import type { MixSettings } from "../../components/KaraokeAudioEditor";
+
+const KaraokeAudioEditor = dynamic(() => import("../../components/KaraokeAudioEditor"), { ssr: false });
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+type KaraokeMode = "A" | "B" | "C" | "D" | "E";
+
+type StepStatus =
+  | "pending"     // not yet run
+  | "running"     // in progress
+  | "done"        // complete
+  | "post_linux"  // blocked — needs Demucs/BasicPitch/RVC
+  | "skipped"     // not applicable for this mode
+  | "locked"      // flow lock — prerequisite not met
+  | "error";      // failed
+
+interface StepState {
+  status: StepStatus;
+  output?: Record<string, unknown>;
+  error?: string;
+}
+
+interface Recording {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  durationSec?: number;
+  transcript?: string;
+  createdAt: string;
+  analysis?: Record<string, unknown>;
+  mode?: string;
+  flowProfile?: FlowProfile;
+  productionBrief?: ProductionBrief;
+  generatedMusicUrl?: string;
+  mixedOutputUrl?: string;
+  exportedFiles?: unknown;
+}
+
+interface FlowProfile {
+  voiceType: string;
+  phraseGaps: number[];
+  hookCandidates: string[];
+  cadenceLabel: string;
+}
+
+interface ProductionBrief {
+  genre: string;
+  tempo: number;
+  key: string;
+  mood: string;
+  structure: string;
+  duration: number;
+  energyCurve: string;
+  selectedBeatFamily: string;
+  instructions: string;
+}
+
+interface BeatRec {
+  rank: number;
+  beatFamily: string;
+  reasoning: string;
+  tempoFit: string;
+  energyFit: string;
+}
+
+// ── Mode labels ────────────────────────────────────────────────────────────────
+
+const MODE_LABELS: Record<KaraokeMode, string> = {
+  A: "Voice → Music — Steps 1–17",
+  B: "Voice → Karaoke — Steps 1–9, 12–16 (no music gen)",
+  C: "Voice → Polished Demo — Steps 1–17",
+  D: "Voice → Lyrics + Music — Steps 1–17 (Lyrics required first)",
+  E: "Voice → Beat Match — Steps 1–8 + beat sample",
+};
+
+// ── Step definitions ───────────────────────────────────────────────────────────
+
+interface StepDef {
+  num: number;
+  title: string;
+  subtitle: string;
+  postLinux?: boolean;
+  skipForModes?: KaraokeMode[];
+}
+
+const STEP_DEFS: StepDef[] = [
+  { num: 1, title: "Voice Input", subtitle: "Received from Karaoke Music Creator" },
+  { num: 2, title: "Vocal Cleanup", subtitle: "Demucs — separate vocals from background noise", postLinux: true },
+  { num: 3, title: "Audio Analysis", subtitle: "Tempo · Key · Beats · Energy · Mood · Genre (librosa + Whisper)" },
+  { num: 4, title: "Melody Extraction", subtitle: "Basic Pitch — voice → MIDI note events", postLinux: true },
+  { num: 5, title: "Lyrics Extraction", subtitle: "Whisper transcription with word timestamps" },
+  { num: 6, title: "Lyrics Intelligence", subtitle: "5-level AI polish (Claude Haiku) — your line is always option 1" },
+  { num: 7, title: "Flow Profiling", subtitle: "Classify voice type · Detect phrase gaps · Hook candidates" },
+  { num: 8, title: "Beat Recommendation", subtitle: "Top 3 beat families from 11 options based on your flow" },
+  { num: 9, title: "Production Brief", subtitle: "AI builds structured music instructions from all analysis" },
+  { num: 10, title: "Music Generation", subtitle: "Kie.ai / Stable Audio / Mubert / Stock — follows your brief", skipForModes: ["E"] },
+  { num: 11, title: "Voice Enhancement", subtitle: "RVC — professional vocal quality polish", postLinux: true },
+  { num: 12, title: "Audio Mixing", subtitle: "Voice + music blend controls — Web Audio API" },
+  { num: 13, title: "Review Interface", subtitle: "Waveform + lyrics overlay + lyric-time markers" },
+  { num: 14, title: "Version Comparison", subtitle: "Compare saved mixes side-by-side" },
+  { num: 15, title: "Final Assembly", subtitle: "FFmpeg combines voice + music with ducking" },
+  { num: 16, title: "Export", subtitle: "MP3 · WAV · Vocal-only · Instrumental · Karaoke · Short clip · Hook" },
+  { num: 17, title: "Music Video Pipeline", subtitle: "Optional — send to Music Video Planner", skipForModes: ["E"] },
+  { num: 18, title: "Storage Lifecycle", subtitle: "30-day retention · AES-256 at rest (compliance todo)" },
+];
+
+// ── Utility helpers ────────────────────────────────────────────────────────────
+
+function statusBadge(status: StepStatus, postLinux?: boolean): { label: string; color: string; bg: string } {
+  if (postLinux || status === "post_linux") {
+    return { label: "⏸ post-Linux", color: "#ffb347", bg: "rgba(255,179,71,0.1)" };
+  }
+  const map: Record<StepStatus, { label: string; color: string; bg: string }> = {
+    pending:    { label: "⏳ pending",  color: "#7b7b80", bg: "rgba(255,255,255,0.04)" },
+    running:    { label: "🔄 running",  color: "#7cc4ff", bg: "rgba(124,196,255,0.1)" },
+    done:       { label: "✅ done",     color: "#7ae0c3", bg: "rgba(122,224,195,0.1)" },
+    post_linux: { label: "⏸ post-Linux", color: "#ffb347", bg: "rgba(255,179,71,0.1)" },
+    skipped:    { label: "⏭ skipped",  color: "#55555a", bg: "rgba(255,255,255,0.02)" },
+    locked:     { label: "🔒 locked",   color: "#ff7a45", bg: "rgba(255,122,69,0.07)" },
+    error:      { label: "❌ error",    color: "#ff7a45", bg: "rgba(255,122,69,0.1)" },
+  };
+  return map[status] || map.pending;
+}
+
+function Toast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDismiss, 6000);
+    return () => clearTimeout(t);
+  }, [message, onDismiss]);
+
+  return (
+    <div
+      onClick={onDismiss}
+      style={{
+        position: "fixed",
+        bottom: 32,
+        right: 32,
+        background: "#1a1a1e",
+        border: "1px solid rgba(167,139,250,0.3)",
+        borderRadius: 10,
+        padding: "12px 20px",
+        maxWidth: 400,
+        fontSize: 14,
+        color: "#c5c5c8",
+        fontWeight: 500,
+        zIndex: 1000,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+        cursor: "pointer",
+        lineHeight: 1.5,
+      }}
+    >
+      {message}
+    </div>
+  );
+}
+
+// ── Inner planner (receives searchParams) ──────────────────────────────────────
+
+function KaraokeMusicPlannerInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const qRecordingId = searchParams.get("recordingId");
+  const qMode = (searchParams.get("mode") as KaraokeMode) || "A";
+
+  const [activeRecordingId, setActiveRecordingId] = useState<string | null>(qRecordingId);
+  const [activeMode, setActiveMode] = useState<KaraokeMode>(qMode);
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [allTakes, setAllTakes] = useState<Recording[]>([]);
+  const [steps, setSteps] = useState<Record<number, StepState>>(() => {
+    const initial: Record<number, StepState> = {};
+    STEP_DEFS.forEach((s) => {
+      initial[s.num] = { status: s.postLinux ? "post_linux" : "pending" };
+    });
+    initial[1] = { status: "done" }; // Voice Input already received
+    return initial;
+  });
+
+  const [toastMsg, setToastMsg] = useState("");
+  const showToast = useCallback((msg: string) => setToastMsg(msg), []);
+
+  // Step-specific state
+  const [lyricLines, setLyricLines] = useState<{ id: string; text: string }[]>([]);
+  const [flowProfile, setFlowProfile] = useState<FlowProfile | null>(null);
+  const [beatRecs, setBeatRecs] = useState<BeatRec[]>([]);
+  const [selectedBeatFamily, setSelectedBeatFamily] = useState<string>("");
+  const [productionBrief, setProductionBrief] = useState<ProductionBrief | null>(null);
+  const [briefInstructions, setBriefInstructions] = useState("");
+  const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
+  const [exportFormat, setExportFormat] = useState("mp3");
+  const [exportUrls, setExportUrls] = useState<{format: string; url: string}[]>([]);
+  const [mixedOutputUrl, setMixedOutputUrl] = useState<string | null>(null);
+
+  // ── Check flow lock ─────────────────────────────────────────────────────────
+
+  const isFlowLocked = useCallback((): boolean => {
+    return (
+      steps[3]?.status !== "done" ||
+      steps[5]?.status !== "done" ||
+      steps[7]?.status !== "done" ||
+      steps[9]?.status !== "done"
+    );
+  }, [steps]);
+
+  // ── Load recording + hydrate step state ──────────────────────────────────────
+
+  const loadRecording = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/karaoke/list?userId=anonymous&limit=100`);
+      const data = await res.json();
+      const recs: Recording[] = data.recordings || [];
+      const rec = recs.find((r) => r.id === id);
+      if (rec) {
+        setRecording(rec);
+        if (rec.mode) setActiveMode(rec.mode as KaraokeMode);
+
+        // Hydrate steps from existing DB data
+        const newSteps: Record<number, StepState> = {};
+        STEP_DEFS.forEach((s) => {
+          newSteps[s.num] = { status: s.postLinux ? "post_linux" : "pending" };
+        });
+        newSteps[1] = { status: "done" };
+
+        if (rec.analysis) {
+          newSteps[3] = { status: "done", output: rec.analysis as Record<string, unknown> };
+        }
+        if (rec.transcript) {
+          newSteps[5] = { status: "done" };
+          setLyricLines(
+            rec.transcript
+              .split(/\n/)
+              .map((t, i) => ({ id: `line-${i}`, text: t.trim() }))
+              .filter((l) => l.text)
+          );
+        }
+
+        // Hydrate steps 7, 8, 9, 10, 15 from DB fields
+        if (rec.flowProfile) {
+          newSteps[7] = { status: "done", output: rec.flowProfile as unknown as Record<string, unknown> };
+          setFlowProfile(rec.flowProfile);
+        }
+        if (rec.productionBrief) {
+          newSteps[8] = { status: "done" };
+          newSteps[9] = { status: "done", output: rec.productionBrief as unknown as Record<string, unknown> };
+          setProductionBrief(rec.productionBrief);
+          setBriefInstructions(rec.productionBrief.instructions || "");
+        }
+        if (rec.generatedMusicUrl) {
+          newSteps[10] = { status: "done", output: { url: rec.generatedMusicUrl } };
+          setGeneratedMusicUrl(rec.generatedMusicUrl);
+        }
+        if (rec.mixedOutputUrl) {
+          newSteps[15] = { status: "done", output: { url: rec.mixedOutputUrl } };
+          setMixedOutputUrl(rec.mixedOutputUrl);
+        }
+
+        setSteps(newSteps);
+      }
+    } catch {
+      // silent
+    }
+  }, []);
+
+  const loadAllTakes = useCallback(async () => {
+    try {
+      const res = await fetch("/api/karaoke/list?userId=anonymous&limit=20");
+      const data = await res.json();
+      setAllTakes(data.recordings || []);
+    } catch {
+      setAllTakes([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllTakes();
+    if (activeRecordingId) {
+      loadRecording(activeRecordingId);
+    }
+  }, [activeRecordingId, loadAllTakes, loadRecording]);
+
+  const setStepStatus = (num: number, status: StepStatus, output?: Record<string, unknown>, error?: string) => {
+    setSteps((prev) => ({ ...prev, [num]: { status, output, error } }));
+  };
+
+  // ── Step 3: Audio Analysis ──────────────────────────────────────────────────
+
+  const runAnalysis = useCallback(async () => {
+    if (!activeRecordingId) return;
+    setStepStatus(3, "running");
+    try {
+      const res = await fetch("/api/karaoke/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setStepStatus(3, "done", data.analysis);
+
+      // Step 5 auto-completes if transcript returned
+      if (data.analysis?.transcription) {
+        setStepStatus(5, "done");
+        setLyricLines(
+          String(data.analysis.transcription)
+            .split(/\n/)
+            .map((t, i) => ({ id: `line-${i}`, text: t.trim() }))
+            .filter((l) => l.text)
+        );
+      }
+
+      showToast(`Analysis complete — ${Math.round(data.analysis?.tempo_bpm || 0)} BPM, ${data.analysis?.detected_key || ""}, ${data.analysis?.suggested_genre || ""}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Analysis failed";
+      setStepStatus(3, "error", undefined, msg);
+      showToast(`Analysis error: ${msg}`);
+    }
+  }, [activeRecordingId, showToast]);
+
+  // ── Step 7: Flow Profiling ──────────────────────────────────────────────────
+
+  const runFlowProfile = useCallback(async () => {
+    if (!activeRecordingId) return;
+    if (steps[3]?.status !== "done") {
+      showToast("Run Audio Analysis (Step 3) first.");
+      return;
+    }
+    setStepStatus(7, "running");
+    try {
+      const res = await fetch("/api/karaoke/flow-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setFlowProfile(data.flowProfile);
+      setStepStatus(7, "done", data.flowProfile);
+      showToast(`Flow: ${data.flowProfile.voiceType} — ${data.flowProfile.cadenceLabel}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Flow profile failed";
+      setStepStatus(7, "error", undefined, msg);
+      showToast(`Flow error: ${msg}`);
+    }
+  }, [activeRecordingId, steps, showToast]);
+
+  // ── Step 8: Beat Recommendation ────────────────────────────────────────────
+
+  const runBeatRecommend = useCallback(async () => {
+    if (!activeRecordingId) return;
+    if (steps[7]?.status !== "done") {
+      showToast("Run Flow Profiling (Step 7) first.");
+      return;
+    }
+    setStepStatus(8, "running");
+    try {
+      const res = await fetch("/api/karaoke/beat-recommend", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId, mode: activeMode }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setBeatRecs(data.recommendations || []);
+      if (data.recommendations?.length > 0) {
+        setSelectedBeatFamily(data.recommendations[0].beatFamily);
+      }
+      setStepStatus(8, "done");
+      showToast(`Top beat: ${data.recommendations?.[0]?.beatFamily || "Afro Light Groove"}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Beat recommendation failed";
+      setStepStatus(8, "error", undefined, msg);
+      showToast(`Beat error: ${msg}`);
+    }
+  }, [activeRecordingId, steps, activeMode, showToast]);
+
+  // ── Step 9: Production Brief ────────────────────────────────────────────────
+
+  const runProductionBrief = useCallback(async () => {
+    if (!activeRecordingId) return;
+    if (steps[8]?.status !== "done" && activeMode !== "E") {
+      showToast("Run Beat Recommendation (Step 8) first.");
+      return;
+    }
+    setStepStatus(9, "running");
+    try {
+      const res = await fetch("/api/karaoke/production-brief", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recordingId: activeRecordingId,
+          selectedBeatFamily: selectedBeatFamily || "Afro Light Groove",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      const brief: ProductionBrief = data.productionBrief;
+      setProductionBrief(brief);
+      setBriefInstructions(brief.instructions);
+      setStepStatus(9, "done");
+      showToast(`Production brief built — ${brief.genre}, ${brief.tempo} BPM, ${brief.key}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Brief failed";
+      setStepStatus(9, "error", undefined, msg);
+      showToast(`Brief error: ${msg}`);
+    }
+  }, [activeRecordingId, steps, activeMode, selectedBeatFamily, showToast]);
+
+  // ── Step 10: Music Generation ───────────────────────────────────────────────
+
+  const runMusicGeneration = useCallback(async () => {
+    if (!activeRecordingId) return;
+    if (isFlowLocked()) {
+      showToast("Complete Analysis, Lyrics, Flow, Brief first. (canvas §2 flow lock)");
+      return;
+    }
+    setStepStatus(10, "running");
+    try {
+      const briefWithOverride = productionBrief
+        ? { ...productionBrief, instructions: briefInstructions }
+        : undefined;
+
+      const res = await fetch("/api/karaoke/generate-music", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recordingId: activeRecordingId,
+          brief: briefWithOverride,
+          mode: activeMode,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        if (data.locked) {
+          setStepStatus(10, "locked", undefined, data.lockReasons?.join(", "));
+          showToast(`Flow lock: ${data.lockReasons?.join(" · ")}`);
+          return;
+        }
+        throw new Error(data.error);
+      }
+      setGeneratedMusicUrl(data.generatedMusicUrl);
+      setStepStatus(10, "done", { provider: data.provider, url: data.generatedMusicUrl });
+      showToast(`Music generated via ${data.provider} — ${data.mode === "B" ? "karaoke mode" : "track ready"}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Generation failed";
+      setStepStatus(10, "error", undefined, msg);
+      showToast(`Music gen error: ${msg}`);
+    }
+  }, [activeRecordingId, isFlowLocked, productionBrief, briefInstructions, activeMode, showToast]);
+
+  // ── Step 15: Final Assembly ─────────────────────────────────────────────────
+
+  const runAssembly = useCallback(async () => {
+    if (!activeRecordingId) return;
+    if (steps[10]?.status !== "done") {
+      showToast("Run Music Generation (Step 10) first.");
+      return;
+    }
+    setStepStatus(15, "running");
+    try {
+      const res = await fetch("/api/karaoke/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setMixedOutputUrl(data.mixedOutputUrl);
+      setStepStatus(15, "done", { url: data.mixedOutputUrl });
+      showToast("Final assembly complete — voice + music merged.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Assembly failed";
+      setStepStatus(15, "error", undefined, msg);
+      showToast(`Assembly error: ${msg}`);
+    }
+  }, [activeRecordingId, steps, showToast]);
+
+  // ── Step 16: Export ─────────────────────────────────────────────────────────
+
+  const runExport = useCallback(async () => {
+    if (!activeRecordingId) return;
+    setStepStatus(16, "running");
+    try {
+      const res = await fetch("/api/karaoke/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId, format: exportFormat }),
+      });
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error);
+      setExportUrls(data.exportedFiles || []);
+      setStepStatus(16, "done", { url: data.downloadUrl });
+      showToast(`Export ready: ${exportFormat} — ${data.downloadUrl}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Export failed";
+      setStepStatus(16, "error", undefined, msg);
+      showToast(`Export error: ${msg}`);
+    }
+  }, [activeRecordingId, exportFormat, showToast]);
+
+  // ── Determine step display status (mode-aware) ──────────────────────────────
+
+  const getStepStatus = (stepDef: StepDef): StepStatus => {
+    if (stepDef.postLinux) return "post_linux";
+    if (stepDef.skipForModes?.includes(activeMode)) return "skipped";
+    return steps[stepDef.num]?.status || "pending";
+  };
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        minHeight: "100vh",
+        fontFamily: "'Geist', 'Inter', sans-serif",
+        color: "#fff",
+        background: "#08080a",
+      }}
+    >
+      {toastMsg && <Toast message={toastMsg} onDismiss={() => setToastMsg("")} />}
+
+      {/* ── Left panel: workshop history ──────────────────────────────── */}
+      <aside
+        style={{
+          width: 220,
+          flexShrink: 0,
+          borderRight: "1px solid rgba(255,255,255,0.06)",
+          display: "flex",
+          flexDirection: "column",
+          overflowY: "auto",
+          background: "#0b0b0d",
+        }}
+      >
+        <div style={{ padding: "16px 14px 10px" }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 9,
+              fontWeight: 700,
+              color: "#55555a",
+              textTransform: "uppercase",
+              letterSpacing: "0.2em",
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            Workshop History
+          </p>
+        </div>
+
+        <button
+          onClick={() => router.push("/dashboard/karaoke-music-creator")}
+          data-testid="new-take-btn"
+          style={{
+            margin: "0 10px 8px",
+            padding: "8px 12px",
+            borderRadius: 7,
+            border: "1px solid rgba(167,139,250,0.3)",
+            background: "rgba(167,139,250,0.08)",
+            color: "#a78bfa",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          + New Take
+        </button>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "0 10px 16px" }}>
+          {allTakes.length === 0 && (
+            <p style={{ margin: "8px 4px", fontSize: 11, color: "#55555a" }}>No takes yet.</p>
+          )}
+          {allTakes.map((take) => {
+            const isActive = take.id === activeRecordingId;
+            return (
+              <button
+                key={take.id}
+                data-testid={`take-${take.id}`}
+                onClick={() => {
+                  setActiveRecordingId(take.id);
+                  setActiveMode((take.mode as KaraokeMode) || "A");
+                }}
+                style={{
+                  width: "100%",
+                  padding: "8px 10px",
+                  borderRadius: 7,
+                  border: `1px solid ${isActive ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.05)"}`,
+                  background: isActive ? "rgba(167,139,250,0.1)" : "transparent",
+                  color: isActive ? "#a78bfa" : "#7b7b80",
+                  fontSize: 11,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  marginBottom: 3,
+                  overflow: "hidden",
+                }}
+              >
+                <p style={{ margin: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {take.fileName || take.id}
+                </p>
+                <p style={{ margin: "2px 0 0", fontSize: 10, color: "#55555a" }}>
+                  Mode {take.mode || "?"} · {new Date(take.createdAt).toLocaleDateString()}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+      </aside>
+
+      {/* ── Center: 18-step pipeline ───────────────────────────────────── */}
+      <main
+        style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: "24px 28px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 20,
+          maxWidth: 800,
+        }}
+      >
+        {/* Header */}
+        <div>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 26,
+              fontWeight: 900,
+              letterSpacing: "-0.5px",
+              background: "linear-gradient(135deg, #a78bfa, #7cc4ff)",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            Karaoke Music Planner
+          </h1>
+          {activeRecordingId && (
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#7b7b80" }}>
+              Recording:{" "}
+              <span style={{ color: "#c5c5c8" }}>
+                {recording?.fileName || activeRecordingId}
+              </span>
+            </p>
+          )}
+          {!activeRecordingId && (
+            <p style={{ margin: "6px 0 0", fontSize: 13, color: "#ff7a45" }}>
+              No recording loaded.{" "}
+              <button
+                onClick={() => router.push("/dashboard/karaoke-music-creator")}
+                style={{ background: "none", border: "none", color: "#a78bfa", cursor: "pointer", fontSize: 13, padding: 0 }}
+              >
+                Go to Creator →
+              </button>
+            </p>
+          )}
+        </div>
+
+        {/* Mode banner */}
+        <div
+          style={{
+            padding: "10px 16px",
+            background: "rgba(167,139,250,0.07)",
+            border: "1px solid rgba(167,139,250,0.18)",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "#a78bfa",
+            fontWeight: 600,
+          }}
+        >
+          Mode {activeMode}: {MODE_LABELS[activeMode]}
+        </div>
+
+        {/* Flow lock status bar */}
+        {activeRecordingId && (
+          <div
+            data-testid="flow-lock-status"
+            style={{
+              padding: "10px 16px",
+              background: isFlowLocked()
+                ? "rgba(255,122,69,0.07)"
+                : "rgba(122,224,195,0.07)",
+              border: `1px solid ${isFlowLocked() ? "rgba(255,122,69,0.2)" : "rgba(122,224,195,0.2)"}`,
+              borderRadius: 8,
+              fontSize: 12,
+              color: isFlowLocked() ? "#ff7a45" : "#7ae0c3",
+            }}
+          >
+            {isFlowLocked()
+              ? "🔒 Flow lock active — complete Steps 3, 5, 7, 9 before Music Generation (Step 10)"
+              : "✅ Flow lock cleared — Music Generation ready"}
+          </div>
+        )}
+
+        {/* ── 18-step list ─────────────────────────────────────────────── */}
+        <div
+          data-testid="step-list"
+          style={{ display: "flex", flexDirection: "column", gap: 10 }}
+        >
+          {STEP_DEFS.map((stepDef) => {
+            const status = getStepStatus(stepDef);
+            const badge = statusBadge(status, stepDef.postLinux);
+            const stepData = steps[stepDef.num];
+            const isSkipped = status === "skipped";
+            const isPostLinux = status === "post_linux";
+
+            return (
+              <div
+                key={stepDef.num}
+                data-testid={`step-${stepDef.num}`}
+                style={{
+                  background: "#0e0e10",
+                  border: `1px solid ${status === "done" ? "rgba(122,224,195,0.15)" : status === "error" ? "rgba(255,122,69,0.15)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: 10,
+                  padding: "14px 16px",
+                  opacity: isSkipped ? 0.4 : 1,
+                }}
+              >
+                {/* Step header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <span
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background: status === "done" ? "rgba(122,224,195,0.12)" : "rgba(255,255,255,0.05)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: status === "done" ? "#7ae0c3" : "#55555a",
+                      flexShrink: 0,
+                      fontFamily: "'JetBrains Mono', monospace",
+                    }}
+                  >
+                    {stepDef.num}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: isSkipped ? "#55555a" : "#c5c5c8" }}>
+                      {stepDef.title}
+                    </p>
+                    <p style={{ margin: "2px 0 0", fontSize: 11, color: "#55555a", lineHeight: 1.4 }}>
+                      {stepDef.subtitle}
+                    </p>
+                  </div>
+                  <span
+                    data-testid={`step-${stepDef.num}-badge`}
+                    style={{
+                      padding: "3px 9px",
+                      borderRadius: 99,
+                      fontSize: 10,
+                      fontWeight: 600,
+                      color: badge.color,
+                      background: badge.bg,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {badge.label}
+                  </span>
+                </div>
+
+                {/* Post-Linux notice */}
+                {isPostLinux && (
+                  <div
+                    data-testid={`step-${stepDef.num}-postlinux`}
+                    style={{
+                      marginTop: 10,
+                      padding: "8px 12px",
+                      background: "rgba(255,179,71,0.06)",
+                      border: "1px solid rgba(255,179,71,0.18)",
+                      borderRadius: 7,
+                      fontSize: 11,
+                      color: "#ffb347",
+                    }}
+                  >
+                    {stepDef.num === 2 && "Demucs install pending — waiting for Linux deploy"}
+                    {stepDef.num === 4 && "Basic Pitch install pending — waiting for Linux deploy"}
+                    {stepDef.num === 11 && "RVC install pending — waiting for Linux deploy"}
+                  </div>
+                )}
+
+                {/* Error notice */}
+                {stepData?.error && (
+                  <div style={{ marginTop: 8, padding: "6px 10px", background: "rgba(255,122,69,0.08)", borderRadius: 6, fontSize: 11, color: "#ff7a45" }}>
+                    {stepData.error}
+                  </div>
+                )}
+
+                {/* ── Step-specific output/controls ─────────────────────── */}
+
+                {/* Step 3: Analysis run button + output */}
+                {stepDef.num === 3 && !isSkipped && !isPostLinux && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {steps[3]?.status === "done" && steps[3].output && (
+                      <div
+                        data-testid="analysis-output"
+                        style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}
+                      >
+                        {[
+                          ["Tempo", `${Math.round((steps[3].output.tempo_bpm as number) || 0)} BPM`],
+                          ["Key", String(steps[3].output.detected_key || "—")],
+                          ["Energy", String(steps[3].output.energy_level ? "Medium" : "Low")],
+                          ["Mood", String(steps[3].output.mood || "—")],
+                          ["Genre", String(steps[3].output.suggested_genre || "—")],
+                        ].map(([label, val]) => (
+                          <div key={label} style={{ padding: "6px 10px", background: "#151518", borderRadius: 6, border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <p style={{ margin: 0, fontSize: 9, color: "#55555a", textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: "monospace" }}>{label}</p>
+                            <p style={{ margin: "2px 0 0", fontSize: 13, fontWeight: 700, color: "#fff" }}>{val}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {steps[3]?.status !== "done" && (
+                      <button
+                        data-testid="run-analysis-btn"
+                        onClick={runAnalysis}
+                        disabled={steps[3]?.status === "running"}
+                        style={{
+                          padding: "8px 20px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: steps[3]?.status === "running" ? "rgba(124,196,255,0.3)" : "linear-gradient(135deg, #a78bfa, #7cc4ff)",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: steps[3]?.status === "running" ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {steps[3]?.status === "running" ? "Analysing… (30–60s)" : "Run Analysis"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 5: Lyrics display */}
+                {stepDef.num === 5 && steps[5]?.status === "done" && (
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#7ae0c3" }}>
+                      {lyricLines.length} lines transcribed by Whisper
+                    </p>
+                  </div>
+                )}
+
+                {/* Step 6: Lyrics intelligence editor */}
+                {stepDef.num === 6 && !isSkipped && activeRecordingId && steps[5]?.status === "done" && (
+                  <div
+                    data-testid="lyrics-editor"
+                    style={{ marginTop: 12 }}
+                  >
+                    {lyricLines.length === 0 && (
+                      <p style={{ margin: 0, fontSize: 12, color: "#7b7b80" }}>
+                        No lyrics extracted — audio may be instrumental.
+                      </p>
+                    )}
+                    {lyricLines.slice(0, 6).map((line, idx) => (
+                      <div
+                        key={line.id}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "7px 10px",
+                          marginBottom: 3,
+                          background: "#151518",
+                          borderRadius: 6,
+                          border: "1px solid rgba(255,255,255,0.05)",
+                        }}
+                      >
+                        <span style={{ fontSize: 10, color: "#55555a", fontFamily: "monospace", minWidth: 16 }}>{idx + 1}</span>
+                        <span style={{ flex: 1, fontSize: 12, color: "#c5c5c8" }}>{line.text}</span>
+                        <span style={{ fontSize: 10, color: "#a78bfa" }}>line {idx + 1}</span>
+                      </div>
+                    ))}
+                    {lyricLines.length > 6 && (
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#55555a" }}>
+                        +{lyricLines.length - 6} more lines. Use full Karaoke Studio for per-line polish.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 7: Flow profiling */}
+                {stepDef.num === 7 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {flowProfile && (
+                      <div
+                        data-testid="flow-profile-output"
+                        style={{
+                          padding: "10px 12px",
+                          background: "#151518",
+                          borderRadius: 7,
+                          border: "1px solid rgba(167,139,250,0.12)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#a78bfa" }}>
+                          Voice type: {flowProfile.voiceType}
+                        </p>
+                        <p style={{ margin: "3px 0 0", fontSize: 11, color: "#7b7b80" }}>
+                          {flowProfile.cadenceLabel}
+                        </p>
+                        {flowProfile.hookCandidates?.length > 0 && (
+                          <p style={{ margin: "3px 0 0", fontSize: 11, color: "#7b7b80" }}>
+                            Hook candidates: {flowProfile.hookCandidates.slice(0, 2).join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {steps[7]?.status !== "done" && (
+                      <button
+                        data-testid="run-flow-profile-btn"
+                        onClick={runFlowProfile}
+                        disabled={steps[7]?.status === "running" || steps[3]?.status !== "done"}
+                        style={{
+                          padding: "7px 18px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: steps[7]?.status === "running" ? "rgba(167,139,250,0.3)" : "#a78bfa",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: steps[7]?.status === "running" || steps[3]?.status !== "done" ? "not-allowed" : "pointer",
+                          opacity: steps[3]?.status !== "done" ? 0.4 : 1,
+                        }}
+                      >
+                        {steps[7]?.status === "running" ? "Profiling…" : "Run Flow Profile"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 8: Beat recommendation */}
+                {stepDef.num === 8 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {beatRecs.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
+                        {beatRecs.map((rec) => (
+                          <button
+                            key={rec.rank}
+                            data-testid={`beat-rec-${rec.rank}`}
+                            onClick={() => setSelectedBeatFamily(rec.beatFamily)}
+                            style={{
+                              padding: "8px 12px",
+                              borderRadius: 7,
+                              border: `1px solid ${selectedBeatFamily === rec.beatFamily ? "#a78bfa" : "rgba(255,255,255,0.07)"}`,
+                              background: selectedBeatFamily === rec.beatFamily ? "rgba(167,139,250,0.12)" : "#151518",
+                              color: selectedBeatFamily === rec.beatFamily ? "#a78bfa" : "#c5c5c8",
+                              cursor: "pointer",
+                              textAlign: "left",
+                              display: "flex",
+                              gap: 10,
+                              alignItems: "center",
+                            }}
+                          >
+                            <span style={{ fontSize: 11, color: "#55555a", fontFamily: "monospace", minWidth: 14 }}>#{rec.rank}</span>
+                            <span style={{ flex: 1 }}>
+                              <span style={{ fontWeight: 700, fontSize: 12 }}>{rec.beatFamily}</span>
+                              <span style={{ fontSize: 11, color: "#7b7b80", marginLeft: 8 }}>{rec.reasoning}</span>
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {steps[8]?.status !== "done" && (
+                      <button
+                        data-testid="run-beat-recommend-btn"
+                        onClick={runBeatRecommend}
+                        disabled={steps[8]?.status === "running" || steps[7]?.status !== "done"}
+                        style={{
+                          padding: "7px 18px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: steps[8]?.status === "running" ? "rgba(167,139,250,0.3)" : "#7cc4ff",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: steps[8]?.status === "running" || steps[7]?.status !== "done" ? "not-allowed" : "pointer",
+                          opacity: steps[7]?.status !== "done" ? 0.4 : 1,
+                        }}
+                      >
+                        {steps[8]?.status === "running" ? "Recommending…" : "Get Beat Recommendations"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 9: Production brief */}
+                {stepDef.num === 9 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {productionBrief && (
+                      <div
+                        data-testid="production-brief-output"
+                        style={{
+                          padding: "12px 14px",
+                          background: "#151518",
+                          borderRadius: 7,
+                          border: "1px solid rgba(255,255,255,0.07)",
+                          marginBottom: 10,
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                          {[
+                            ["Genre", productionBrief.genre],
+                            ["Tempo", `${productionBrief.tempo} BPM`],
+                            ["Key", productionBrief.key],
+                            ["Mood", productionBrief.mood],
+                          ].map(([l, v]) => (
+                            <div key={l} style={{ padding: "4px 8px", background: "#0e0e10", borderRadius: 5, border: "1px solid rgba(255,255,255,0.05)" }}>
+                              <p style={{ margin: 0, fontSize: 9, color: "#55555a", textTransform: "uppercase", fontFamily: "monospace" }}>{l}</p>
+                              <p style={{ margin: "1px 0 0", fontSize: 12, fontWeight: 700, color: "#fff" }}>{v}</p>
+                            </div>
+                          ))}
+                        </div>
+                        <p style={{ margin: "0 0 6px", fontSize: 11, color: "#7b7b80" }}>
+                          {productionBrief.structure} · {productionBrief.energyCurve}
+                        </p>
+                        <textarea
+                          value={briefInstructions}
+                          onChange={(e) => setBriefInstructions(e.target.value)}
+                          placeholder="Production instructions (editable)"
+                          style={{
+                            width: "100%",
+                            padding: "8px 10px",
+                            borderRadius: 6,
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            background: "#0e0e10",
+                            color: "#c5c5c8",
+                            fontSize: 12,
+                            lineHeight: 1.5,
+                            resize: "vertical",
+                            minHeight: 72,
+                            boxSizing: "border-box",
+                            fontFamily: "'Geist', sans-serif",
+                          }}
+                        />
+                      </div>
+                    )}
+                    {steps[9]?.status !== "done" && (
+                      <button
+                        data-testid="run-production-brief-btn"
+                        onClick={runProductionBrief}
+                        disabled={steps[9]?.status === "running" || steps[8]?.status !== "done"}
+                        style={{
+                          padding: "7px 18px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: steps[9]?.status === "running" ? "rgba(167,139,250,0.3)" : "#7ae0c3",
+                          color: "#08080a",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: steps[9]?.status === "running" || steps[8]?.status !== "done" ? "not-allowed" : "pointer",
+                          opacity: steps[8]?.status !== "done" ? 0.4 : 1,
+                        }}
+                      >
+                        {steps[9]?.status === "running" ? "Building brief…" : "Build Production Brief"}
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 10: Music generation (flow-locked) */}
+                {stepDef.num === 10 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {generatedMusicUrl && (
+                      <div style={{ marginBottom: 10 }}>
+                        <p style={{ margin: 0, fontSize: 11, color: "#7ae0c3" }}>
+                          Music generated — provider: {steps[10]?.output?.provider as string || "stock"}
+                        </p>
+                        {generatedMusicUrl !== "none" && (
+                          <audio
+                            controls
+                            src={generatedMusicUrl}
+                            style={{ width: "100%", marginTop: 6, borderRadius: 4 }}
+                          />
+                        )}
+                      </div>
+                    )}
+                    <button
+                      data-testid="run-music-gen-btn"
+                      onClick={runMusicGeneration}
+                      disabled={steps[10]?.status === "running" || (isFlowLocked() && activeRecordingId !== null)}
+                      style={{
+                        padding: "9px 22px",
+                        borderRadius: 7,
+                        border: "none",
+                        background: isFlowLocked()
+                          ? "rgba(255,122,69,0.2)"
+                          : steps[10]?.status === "running"
+                            ? "rgba(167,139,250,0.3)"
+                            : "linear-gradient(135deg, #a78bfa, #ff9a3c)",
+                        color: isFlowLocked() ? "#ff7a45" : "#fff",
+                        fontWeight: 700,
+                        fontSize: 13,
+                        cursor: isFlowLocked() || steps[10]?.status === "running" ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      {isFlowLocked() && <span>🔒</span>}
+                      {steps[10]?.status === "running"
+                        ? "Generating music…"
+                        : isFlowLocked()
+                          ? "Complete analysis, lyrics, flow, brief first"
+                          : "Generate Music"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 12: Audio mixing */}
+                {stepDef.num === 12 && !isSkipped && activeRecordingId && recording && (
+                  <div style={{ marginTop: 12 }}>
+                    <Suspense fallback={<p style={{ fontSize: 12, color: "#7b7b80" }}>Loading editor…</p>}>
+                      <KaraokeAudioEditor
+                        audioUrl={recording.fileUrl || undefined}
+                        secondaryAudioUrl={generatedMusicUrl || undefined}
+                        recordingId={activeRecordingId}
+                        onSave={() => {
+                          setStepStatus(12, "done");
+                          showToast("Mix settings saved.");
+                        }}
+                        onToast={showToast}
+                      />
+                    </Suspense>
+                  </div>
+                )}
+
+                {/* Step 13: Review interface */}
+                {stepDef.num === 13 && !isSkipped && activeRecordingId && recording && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                      {recording.fileUrl && (
+                        <div style={{ flex: "1 1 200px" }}>
+                          <p style={{ margin: "0 0 4px", fontSize: 11, color: "#55555a", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                            Voice Waveform
+                          </p>
+                          <audio controls src={recording.fileUrl} style={{ width: "100%", borderRadius: 4 }} />
+                        </div>
+                      )}
+                      {generatedMusicUrl && generatedMusicUrl !== "none" && (
+                        <div style={{ flex: "1 1 200px" }}>
+                          <p style={{ margin: "0 0 4px", fontSize: 11, color: "#55555a", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                            Generated Music
+                          </p>
+                          <audio controls src={generatedMusicUrl} style={{ width: "100%", borderRadius: 4 }} />
+                        </div>
+                      )}
+                    </div>
+                    {lyricLines.length > 0 && (
+                      <div style={{ marginTop: 10 }}>
+                        <p style={{ margin: "0 0 6px", fontSize: 11, color: "#55555a" }}>Lyrics overlay</p>
+                        {lyricLines.slice(0, 4).map((line, idx) => (
+                          <p key={line.id} style={{ margin: 0, fontSize: 12, color: "#c5c5c8", lineHeight: 1.8, borderLeft: "2px solid rgba(167,139,250,0.3)", paddingLeft: 8 }}>
+                            <span style={{ color: "#55555a", fontFamily: "monospace", fontSize: 10, marginRight: 6 }}>{idx + 1}</span>
+                            {line.text}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 14: Version comparison */}
+                {stepDef.num === 14 && !isSkipped && (
+                  <div style={{ marginTop: 10 }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#7b7b80" }}>
+                      Previous exports from this session:
+                    </p>
+                    {exportUrls.length === 0 && (
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#55555a" }}>No exports yet.</p>
+                    )}
+                    {exportUrls.map((ex, idx) => (
+                      <div key={idx} style={{ marginTop: 4, display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontSize: 11, color: "#a78bfa", fontFamily: "monospace" }}>{ex.format}</span>
+                        <a
+                          href={ex.url}
+                          download
+                          style={{ fontSize: 11, color: "#7cc4ff", textDecoration: "underline" }}
+                        >
+                          Download
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Step 15: Final assembly */}
+                {stepDef.num === 15 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {mixedOutputUrl && (
+                      <div style={{ marginBottom: 8 }}>
+                        <p style={{ margin: 0, fontSize: 11, color: "#7ae0c3" }}>Assembly complete</p>
+                        <audio controls src={mixedOutputUrl} style={{ width: "100%", marginTop: 4, borderRadius: 4 }} />
+                      </div>
+                    )}
+                    <button
+                      data-testid="run-assemble-btn"
+                      onClick={runAssembly}
+                      disabled={steps[15]?.status === "running" || steps[10]?.status !== "done"}
+                      style={{
+                        padding: "7px 18px",
+                        borderRadius: 7,
+                        border: "none",
+                        background: steps[15]?.status === "running" ? "rgba(167,139,250,0.3)" : "linear-gradient(135deg, #7ae0c3, #7cc4ff)",
+                        color: "#08080a",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: steps[15]?.status === "running" || steps[10]?.status !== "done" ? "not-allowed" : "pointer",
+                        opacity: steps[10]?.status !== "done" ? 0.4 : 1,
+                      }}
+                    >
+                      {steps[15]?.status === "running" ? "Assembling…" : "Run Final Assembly"}
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 16: Export */}
+                {stepDef.num === 16 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+                      {["mp3", "wav", "vocal_only", "instrumental_only", "karaoke_lyric_timed", "short_clip", "hook_segment"].map((fmt) => (
+                        <button
+                          key={fmt}
+                          data-testid={`export-format-${fmt}`}
+                          onClick={() => setExportFormat(fmt)}
+                          style={{
+                            padding: "5px 10px",
+                            borderRadius: 5,
+                            border: `1px solid ${exportFormat === fmt ? "#a78bfa" : "rgba(255,255,255,0.08)"}`,
+                            background: exportFormat === fmt ? "rgba(167,139,250,0.12)" : "transparent",
+                            color: exportFormat === fmt ? "#a78bfa" : "#7b7b80",
+                            fontSize: 11,
+                            fontWeight: exportFormat === fmt ? 700 : 500,
+                            cursor: "pointer",
+                            fontFamily: "'JetBrains Mono', monospace",
+                          }}
+                        >
+                          {fmt}
+                        </button>
+                      ))}
+                    </div>
+                    <button
+                      data-testid="run-export-btn"
+                      onClick={runExport}
+                      disabled={steps[16]?.status === "running"}
+                      style={{
+                        padding: "7px 18px",
+                        borderRadius: 7,
+                        border: "none",
+                        background: steps[16]?.status === "running" ? "rgba(167,139,250,0.3)" : "#a78bfa",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: steps[16]?.status === "running" ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {steps[16]?.status === "running" ? "Exporting…" : `Export as ${exportFormat}`}
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 17: Music Video Pipeline */}
+                {stepDef.num === 17 && !isSkipped && activeRecordingId && (
+                  <div style={{ marginTop: 10 }}>
+                    <button
+                      data-testid="send-to-mv-planner-btn"
+                      onClick={() => router.push(`/dashboard/music-video-planner?karaokeId=${activeRecordingId}`)}
+                      style={{
+                        padding: "8px 20px",
+                        borderRadius: 7,
+                        border: "none",
+                        background: "linear-gradient(135deg, #ff9a3c, #d17bff)",
+                        color: "#fff",
+                        fontWeight: 700,
+                        fontSize: 12,
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="23 7 16 12 23 17 23 7" />
+                        <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+                      </svg>
+                      Send to Music Video Planner
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 18: Storage lifecycle */}
+                {stepDef.num === 18 && (
+                  <div style={{ marginTop: 10, padding: "10px 12px", background: "rgba(255,255,255,0.02)", borderRadius: 6 }}>
+                    <p style={{ margin: 0, fontSize: 11, color: "#55555a" }}>
+                      30-day retention · AES-256 at rest (compliance todo — planned for Linux deploy) · TLS 1.3 in transit
+                    </p>
+                    {recording && (
+                      <p style={{ margin: "4px 0 0", fontSize: 11, color: "#55555a" }}>
+                        Created: {new Date(recording.createdAt).toLocaleString()} ·
+                        Expires: {new Date(new Date(recording.createdAt).getTime() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ── Page with Suspense wrapper (required for useSearchParams) ──────────────────
+
+export default function KaraokeMusicPlannerPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ padding: 32, color: "#7b7b80", fontFamily: "'Geist', sans-serif" }}>
+        Loading Karaoke Music Planner…
+      </div>
+    }>
+      <KaraokeMusicPlannerInner />
+    </Suspense>
+  );
+}

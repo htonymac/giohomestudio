@@ -454,3 +454,15 @@ Poll interval: 5s. Max polls: 60 (5 minutes).
 
 **File:** `app/dashboard/collaborative-editor/page.tsx`
 **Prevention:** Always use `useRef` for values that need fresh state in stale-closure contexts. Never check `sourceUrl.startsWith(...)` to determine if a segment is assembled — check `id === "seg_assembled"` instead.
+
+
+## Karaoke Analysis Error — 2026-04-27T06:48:47.928Z
+**Recording:** a0ce3097-37f4-4860-aae4-7c6a3dbcd7ca
+**Error:** Python exited with code 1. stderr: C:\Users\USER\Desktop\CLAUDE\giohomestudio\scripts\karaoke_analyze.py:106: UserWarning: PySoundFile failed. Trying audioread instead.
+  y, sr = librosa.load(audio_path, sr=None, mono=True)
+C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\core\audio.py:184: FutureWarning: librosa.core.audio.__audioread_load
+	Deprecated as of librosa version 0.10.0.
+	It will be removed in librosa version 1.0.
+  y, sr_native = __audioread_load(path, offset, duration, dtype)
+
+**Stderr:** 

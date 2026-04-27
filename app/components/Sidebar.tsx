@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/ai-motion-video", label: "AI Motion Video",     icon: Film,    tint: "c10" },
   { href: "/dashboard/commercial",      label: "Commercial",          icon: Monitor, tint: "c11" },
   { href: "/dashboard/children-video",  label: "Children Video",      icon: Users,   tint: "c2" },
+  { href: "/dashboard/karaoke-music-creator", label: "Karaoke Music Creator", icon: Mic, tint: "c3" },
   // Planners group
   { href: "/dashboard/hybrid-planner",      label: "Hybrid Planner",     icon: Grid,   tint: "c3" },
   { href: "/dashboard/movie-planner",       label: "Movie Planner",      icon: Film,   tint: "c4" },
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/children-planner",    label: "Child Video Planner",icon: Image,  tint: "c7" },
   { href: "/dashboard/commercial-planner",  label: "Commercial Planner", icon: Cpu,    tint: "c8" },
   { href: "/dashboard/story-bank",          label: "Story Bank",         icon: Folder, tint: "c9" },
+  { href: "/dashboard/karaoke-music-planner", label: "Karaoke Music Planner", icon: Music, tint: "c8" },
   // Tools group
   { href: "/dashboard/collaborative-editor",label: "Collaborative Editor",icon: Film,  tint: "c10" },
   { href: "/dashboard/video-finishing",     label: "Video Finishing",    icon: Check,  tint: "c11" },
@@ -64,13 +66,16 @@ const NAV_ITEMS = [
 ];
 
 // Grouped for the accordion nav
+// Create: 12 items (0-11, added Karaoke Music Creator)
+// Planners: 8 items (12-19, added Karaoke Music Planner)
+// Tools: 9 items (20-28), Content: 5 (29-33), Publish: 5 (34-38), Settings: rest
 const NAV_GROUPS = [
-  { group: "Create",   items: NAV_ITEMS.slice(0, 11) },
-  { group: "Planners", items: NAV_ITEMS.slice(11, 18) },
-  { group: "Tools",    items: NAV_ITEMS.slice(18, 27) },
-  { group: "Content",  items: NAV_ITEMS.slice(27, 32) },
-  { group: "Publish",  items: NAV_ITEMS.slice(32, 37) },
-  { group: "Settings", items: NAV_ITEMS.slice(37) },
+  { group: "Create",   items: NAV_ITEMS.slice(0, 12) },
+  { group: "Planners", items: NAV_ITEMS.slice(12, 20) },
+  { group: "Tools",    items: NAV_ITEMS.slice(20, 29) },
+  { group: "Content",  items: NAV_ITEMS.slice(29, 34) },
+  { group: "Publish",  items: NAV_ITEMS.slice(34, 39) },
+  { group: "Settings", items: NAV_ITEMS.slice(39) },
 ];
 
 // Tile tint gradients
