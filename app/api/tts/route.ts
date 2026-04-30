@@ -1,6 +1,7 @@
 // POST /api/tts — Generate speech audio from text
-// Tries Piper TTS (free, local) first, then ElevenLabs as fallback
+// Provider chain: piper (free local) → fal-narrator → elevenlabs → windows-sapi → placeholder
 // Returns { audioUrl, engine, duration } or { error }
+// Accepts `provider` field: "piper" | "fal-narrator" | "elevenlabs" | "karaoke"
 
 import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
@@ -12,14 +13,27 @@ import { spawn } from "child_process";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { text, voiceId, speed, engine } = body;
+    const { text, voiceId, speed, engine, provider } = body;
+
+    // Resolve effective provider — `provider` field takes precedence over legacy `engine`
+    // "karaoke" maps to windows-sapi (browser speech API handled client-side)
+    const effectiveProvider: string = provider || engine || "auto";
 
     if (!text?.trim()) {
       return NextResponse.json({ error: "text required" }, { status: 400 });
     }
 
+    // ── Karaoke / browser-speech provider — handled client-side, signal back ──
+    if (effectiveProvider === "karaoke") {
+      return NextResponse.json({
+        audioUrl: null, engine: "browser-speech", fallback: "browser",
+        text: text.slice(0, 100),
+        message: "Use Web Speech API (SpeechSynthesis) in the browser for karaoke mode.",
+      });
+    }
+
     // ── Try Gemini Premium if explicitly requested ──
-    if (engine === "gemini" || engine === "premium") {
+    if (effectiveProvider === "gemini" || effectiveProvider === "premium") {
       try {
         const { generateSpeechGemini } = await import("@/lib/generation/gateways/fal");
         const result = await generateSpeechGemini(text, { voice: voiceId || "Charon" });
@@ -33,9 +47,9 @@ export async function POST(req: NextRequest) {
     fs.mkdirSync(audioDir, { recursive: true });
     const outFile = path.join(audioDir, `tts_${Date.now()}.wav`);
 
-    // Try 1: Piper TTS (free, local) — skip if Pro/Premium explicitly requested
-    if (engine === "elevenlabs" || engine === "pro") {
-      // Jump straight to ElevenLabs — handled below
+    // Try 1: Piper TTS (free, local) — skip if elevated provider explicitly requested
+    if (effectiveProvider === "elevenlabs" || effectiveProvider === "pro" || effectiveProvider === "fal-narrator") {
+      // Jump straight to requested provider — handled below
     } else try {
       const piperPath = process.env.PIPER_BIN || path.join(os.homedir(), "piper", "piper");
       const piperModel = path.join(env.storagePath, "..", "piper", "en_US-lessac-medium.onnx");
@@ -61,11 +75,57 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* Piper failed */ }
 
-    // Try 2: ElevenLabs
+    // Try 2: FAL Narrator — fal-ai/kokoro TTS (between Piper and ElevenLabs in quality)
+    // Triggers when provider="fal-narrator" OR when Piper fails and provider is "auto"
+    const useFalNarrator = effectiveProvider === "fal-narrator" || effectiveProvider === "fal";
+    if (useFalNarrator && process.env.FAL_KEY) {
+      try {
+        const falRes = await fetch("https://fal.run/fal-ai/kokoro/american-english", {
+          method: "POST",
+          headers: {
+            "Authorization": `Key ${process.env.FAL_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: text,
+            voice: voiceId || "af_sky",
+            speed: speed || 1.0,
+          }),
+        });
+
+        if (!falRes.ok) {
+          const falBody = await falRes.text();
+          console.error(`FAL Narrator TTS failed ${falRes.status}:`, falBody.slice(0, 200));
+          throw new Error(`FAL Narrator ${falRes.status}: ${falBody.slice(0, 200)}`);
+        }
+
+        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falAudioUrl = falData.audio_url || falData.audio?.url;
+        if (falAudioUrl) {
+          // Download FAL audio to local storage
+          const falAudioRes = await fetch(falAudioUrl);
+          if (falAudioRes.ok) {
+            const mp3File = outFile.replace(".wav", "_fal.mp3");
+            const buffer = Buffer.from(await falAudioRes.arrayBuffer());
+            fs.writeFileSync(mp3File, buffer);
+            const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
+            return NextResponse.json({ audioUrl: url, engine: "fal-narrator", text: text.slice(0, 100) });
+          }
+        }
+      } catch (err) {
+        console.error("FAL Narrator TTS failed:", JSON.stringify(err instanceof Error ? err.message : err));
+        // Fall through to ElevenLabs if not explicitly requested
+        if (effectiveProvider === "fal-narrator" || effectiveProvider === "fal") {
+          return NextResponse.json({ error: err instanceof Error ? err.message : "FAL Narrator failed" }, { status: 500 });
+        }
+      }
+    }
+
+    // Try 3: ElevenLabs — premium quality, explicit error surfacing (no silent swallow)
     if (process.env.ELEVENLABS_API_KEY) {
       try {
         const vid = voiceId || "EXAVITQu4vr4xnSDxMaL"; // Sarah
-        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
+        const elevenLabsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
           method: "POST",
           headers: {
             "xi-api-key": process.env.ELEVENLABS_API_KEY,
@@ -78,17 +138,28 @@ export async function POST(req: NextRequest) {
           }),
         });
 
-        if (res.ok) {
-          const mp3File = outFile.replace(".wav", ".mp3");
-          const buffer = Buffer.from(await res.arrayBuffer());
-          fs.writeFileSync(mp3File, buffer);
-          const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
-          return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100) });
+        // Surface 401/quota/4xx errors explicitly — do NOT swallow them silently
+        if (!elevenLabsRes.ok) {
+          const body = await elevenLabsRes.text();
+          throw new Error(`ElevenLabs ${elevenLabsRes.status}: ${body.slice(0, 200)}`);
         }
-      } catch { /* ElevenLabs failed */ }
+
+        const mp3File = outFile.replace(".wav", ".mp3");
+        const buffer = Buffer.from(await elevenLabsRes.arrayBuffer());
+        fs.writeFileSync(mp3File, buffer);
+        const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
+        return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100) });
+      } catch (err) {
+        console.error("ElevenLabs TTS failed:", JSON.stringify(err instanceof Error ? err.message : err));
+        // If ElevenLabs was explicitly requested, return the error — don't fall through
+        if (effectiveProvider === "elevenlabs" || effectiveProvider === "pro") {
+          return NextResponse.json({ error: err instanceof Error ? err.message : "ElevenLabs TTS failed" }, { status: 500 });
+        }
+        // Otherwise fall through to SAPI fallback
+      }
     }
 
-    // Try 3: Windows PowerShell speech synthesis (SAPI)
+    // Try 4: Windows PowerShell speech synthesis (SAPI) / karaoke fallback
     if (process.platform === "win32") {
       try {
         const wavFile = outFile.replace(".wav", "_sapi.wav");
@@ -109,7 +180,7 @@ $synth.Dispose()
       } catch { /* Windows SAPI failed */ }
     }
 
-    // Try 4: FFmpeg-based silent placeholder with text burned in (last resort)
+    // Try 5: FFmpeg-based silent placeholder with text burned in (last resort)
     try {
       const silentFile = outFile.replace(".wav", "_silent.mp3");
       const { execFileSync } = await import("child_process");
