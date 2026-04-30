@@ -1,5 +1,35 @@
 # GHS Changelog
 
+## 2026-04-30 — S14: BUG-15+16 Hybrid persistence race + Assembly narrator/subtitle/image fixes (branch: fix/ghs-bug-15-16-hybrid-assembly)
+
+### What
+- `app/dashboard/hybrid-planner/page.tsx`: added `isRestoringRef` + `cancelled` flag to restoreState — blocks save effect while DB fetch is in-flight; guards unmount race; mirrors fresh DB data back to localStorage (correct order, never overwrites)
+- `generateNarrationPiper()`: filters to narrator-only segments (`type === "narration"`) before TTS — prevents narrator covering dialogue lines (BUG-16a)
+- `assembleScenes()` subtitle source: full `s.narrationScript || fullScript` replaces 2-sentence regex truncation (BUG-16b)
+- `assembleScenes()` image payload: resolves `imageUrl` from runtime `sceneImages` store, passes `imageUrl` + `mode: "image"` to assembler when imageUrl present and no videoUrl (BUG-16c)
+
+### Why
+BUG-15: localStorage write-back raced with DB read → stale state overwrote fresh DB data on refresh. BUG-16a: narrator TTS sent entire script including dialogue, causing audio overlap. BUG-16b: subtitles cut after 2 sentences, losing most narration text. BUG-16c: image-only scenes fell through to CSS gradient instead of using generated imageUrl.
+
+### Impact
+- Zero TS errors introduced in page.tsx. Playwright test PASS (text survived reload, assembly tab no crash).
+- Risk: low. All changes are behavioural guards and fallback-order fixes; no schema changes.
+
+## 2026-04-30 — S13: BUG-11 AI Motion Video JSON guard + BUG-14 Lip-sync error surface (branch: fix/ghs-bug-11-14-motion-lipsync, commit: ad805ef)
+
+### What
+- Created `lib/api-utils.ts` with `safeJson<T>()` helper — throws descriptive error when API returns HTML instead of JSON
+- `app/dashboard/ai-motion-video/page.tsx`: replaced 4 bare `.json()` calls (upload/logo, hybrid/scene-video, motion-transfer, generation/video) with `safeJson<T>`. Added `data-testid="motion-video-error"` to error banner.
+- `app/dashboard/scene-forge/page.tsx`: guarded `avatar/create` fetch with `safeJson`. Added `data-testid="lip-sync-error"` to error div.
+- `app/api/avatar/lip-sync/route.ts`: per-provider error messages collected into `providerErrors[]`, surfaced in 502 body. Outer catch logs full error string.
+
+### Why
+BUG-11: `Unexpected token <` crash when Next.js returns HTML error page and client calls `.json()` without checking content-type. BUG-14: lip-sync failures silently swallowed — user sees spinner forever with no feedback.
+
+### Impact
+- No risk: purely additive guard layer. Existing success paths unchanged.
+- Playwright test PASS: both pages load clean, zero Unexpected token < errors.
+
 ## 2026-04-27 — Karaoke Final Master Canvas (PR #24)
 
 ### What
