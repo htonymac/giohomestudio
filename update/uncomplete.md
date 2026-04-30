@@ -146,7 +146,7 @@ The central AI supervisor/orchestrator that should coordinate each section from 
 
 ### BUG-03 — Characters and Scenes Not Saving (CRITICAL)
 
-**[FIXED 2026-04-30 S1] commit: see fix/ghs-bug-03-s1-foundation**
+**[FIXED 2026-04-30 S1] commit: 8a544ef**
 
 **Affects:** All planners, Movie, Children
 **Reference file:** `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\GHS Character, Scene, and Identity.txt`
