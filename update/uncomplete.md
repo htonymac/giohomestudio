@@ -1,6 +1,34 @@
 # GioHomeStudio — Incomplete / Pending Tasks
 Updated: 2026-04-30
 
+## SESSION 2026-04-30 — S10 BUG-05 Movie Planner Pipeline Audit
+
+### [FIXED 2026-04-30 S10] BUG-05 — Movie planner pipeline gaps (all 7 sub-bugs)
+- Audit result: 6 of 7 sub-items already fixed in prior slices (S3/S4/S4c/S5/S8/S9)
+- Sub-bug gap fixed: Overview tab did not show assembledUrl — now renders video player + Watch/Download buttons when movie is assembled
+- Assembly tab: assemble button gets `data-testid="assemble-movie-btn"` for Playwright
+- Assembly tab: adds `Download MP4` link alongside `Watch Final Movie`
+- Verified already working: Assembly tab assemble button + video player, Screenplay tab, Audio tab (narration provider + Auto SFX + music library), scene→assembly data flow (img: prefix for images), nextStepBanner click, Overview last in WORKSHOP_TABS
+- Branch: fix/ghs-bug-05-movie-planner
+- Commit: dcdf31c
+- Playwright: 8/8 tabs rendered, assemble button confirmed, audio provider selector confirmed, auto SFX toggle confirmed
+
+## SESSION 2026-04-30 — S9 BUG-06 Per-scene text polish
+
+### [FIXED 2026-04-30 S9] BUG-06 — No per-scene text polish for individual scene descriptions
+- Was: No way for user to improve individual scene descriptions after generation
+- Fix: New `/api/hybrid/scene-polish` route (action: polish|upgrade|add-detail). Uses `callLLM` with critical system prompt preserving all story elements. Polish button + `handlePolishScene` handler added to hybrid-planner (scene.description), children-planner (scene.visualDescription), movie-planner (scene.visualDescription|goal). All use `data-testid="polish-btn-{sceneId}"`.
+- Branch: fix/ghs-bug-06-scene-polish
+- Commits: 5b24534 b73b83b fdfdc0e
+
+## SESSION 2026-04-30 — S7 BUG-08 Karaoke Python Windows fix
+
+### [FIXED 2026-04-30 S7] BUG-08 — Karaoke Python analysis fails silently on Windows Python 3.13
+- Was: `librosa.load()` bare call fails on Windows 3.13 with no error surfaced to route.ts; stderr truncated to 500 chars; greedy JSON regex causes backtracking; Python uncaught exceptions print raw traceback to stdout confusing JSON parser
+- Fix: (A) `requirements.txt` with Python 3.13 verified packages (numpy 2.4.4, librosa 0.11.0, soundfile 0.13.1, faster-whisper 1.2.1, audioread 3.1.0). (B) soundfile → librosa → audioread fallback chain for audio load. (C) Full stderr capture (no .slice(500)). (D) Non-greedy JSON regex. (E) Top-level __main__ try/except prints {error, traceback} JSON on unhandled exceptions.
+- Branch: fix/ghs-bug-08-karaoke-python
+- Commits: 17796d2 7bcb887 358efda
+
 ## SESSION 2026-04-30 — S3 BUG-04 payload + JSON guard
 
 ### [FIXED 2026-04-30 S3] BUG-04a — Children planner scene-plan payload mismatch
@@ -62,6 +90,14 @@ Updated: 2026-04-30
 - Was: ElevenLabs errors silently swallowed (empty catch). No FAL Narrator tier. No provider selector UI in any planner. No voiceLayers state.
 - Fix: (A) `/api/tts/route.ts` — `provider` field routing, ElevenLabs error surface, FAL Narrator via `fal-ai/kokoro`, karaoke short-circuit. (B) New `/api/tts/fal-narrator/route.ts`. (C) Hybrid-planner permanent provider card + voiceLayers. (D) Children-planner STYLE & VOICE tab narrationProvider. (E) Movie-planner Audio tab narrationProvider.
 - Branch: fix/ghs-bug-09-voice-tiers | Playwright: 17/17 PASS 90s
+
+### [FIXED 2026-04-30 S8] BUG-10 — SFX provider expansion + license enforcement + auto-mode toggle
+- Was: SFX route only did local-match → ElevenLabs. No FAL tier. No CC license gate in auto mode. No Auto SFX toggle in children-planner or movie-planner. No `safeForAutoMode` field on asset entries.
+- Fix: (A) `app/api/sfx/generate/route.ts` — 3-tier chain: local-match (CC-safe in auto mode) → FAL stable-audio (`fal-ai/stable-audio`, AbortSignal 45s) → ElevenLabs premium. Accepts `provider`, `mode`, `autoSfx` in body. Returns `{audioUrl, provider, cost}`. (B) License enforcement: `isLicenseSafe()` blocks NC/unknown; `getLocalTrackLicense()` reads sidecar JSON or filename prefix. (C) `children-planner/page.tsx` — `autoSfx` state + toggle UI in Style & Voice tab (`data-testid="auto-sfx-toggle"`, `data-testid="auto-sfx-btn"`). (D) `movie-planner/page.tsx` — same toggle in Audio tab. (E) `app/api/assets/route.ts` — `safeForAutoMode` computed from license on SFX auto-seed.
+- Bonus: Fixed pre-existing `@/lib/api-utils` import error in `music-video-planner/page.tsx` (was breaking ALL pages with 500).
+- Branch: fix/ghs-bug-10-sfx-provider
+- Commits: f99f83a de7aa7e 760148c 691a5e8
+- Playwright: PASS (35s, 5 passes: hybrid SFX present, children Auto SFX toggle present + interactive, movie Auto SFX toggle present + interactive)
 
 ### OPEN — BUG-04d (scene images children, full integration)
 - BUG-04d (remaining): Scene images in children Scene Board now work (S4c). makeSceneVideo requires image first — flow works. Full integration + video-from-image tested pending user content.

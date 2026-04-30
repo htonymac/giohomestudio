@@ -1,4 +1,4 @@
-# GHS HANDOFF — 2026-04-30 Session (updated S6)
+# GHS HANDOFF — 2026-04-30 Session (updated S10)
 
 ## Credit cap hit at ~11:54am UTC (10:54am PT). Resets 11:40am PT.
 
@@ -12,6 +12,10 @@
 | S4 | fix/ghs-bug-04b-tab-order-character-picker | 4a3caa0 | BUG-04b tab order (Overview last), design style flow, CharacterPicker inline |
 | S5 | fix/ghs-bug-09-voice-tiers | 6576960 | BUG-09 voice provider tiers, ElevenLabs error surface, FAL Narrator, voiceLayers |
 | S6 | fix/ghs-bug-07-music-pipeline | d433f2c | BUG-07 expansion error surface, BUG-23 Mubert dead branch fix, MUBERT_PAT docs, stock fallback banners |
+| S7 | fix/ghs-bug-08-karaoke-python | 17796d2 7bcb887 358efda | BUG-08 requirements.txt Py3.13, soundfile fallback chain, full stderr, non-greedy JSON regex, JSON error on unhandled exceptions |
+| S8 | fix/ghs-bug-10-sfx-provider | f99f83a de7aa7e 760148c 691a5e8 | BUG-10 FAL SFX tier, CC license gate, auto-mode toggle (children+movie), safeForAutoMode in assets. Bonus: music-video-planner @/lib/api-utils path fix. |
+| S9 | fix/ghs-bug-06-scene-polish | 5b24534 b73b83b fdfdc0e | BUG-06 per-scene text polish: /api/hybrid/scene-polish route (polish|upgrade|add-detail), Polish button + handler in hybrid-planner, children-planner, movie-planner. |
+| S10 | fix/ghs-bug-05-movie-planner | dcdf31c | BUG-05 audit: 6/7 sub-bugs already fixed in prior slices. Gap fixed: Overview tab now shows assembledUrl video player + Watch/Download buttons. Assembly tab assemble button gets data-testid. Assembly footer adds Download MP4 link. Playwright 8/8 tabs PASS. |
 
 ## S4c — NOT completed (credit cap hit):
 - Movie planner Cast tab: replace "Import Existing" primary → AI-generate-cast-from-story
@@ -25,9 +29,10 @@
 4. Every correction and the full original narration is in uncomplete.md SESSION 2026-04-30
 
 ## Next steps when credits resume:
-1. S7: Karaoke Python fix (next per plan)
+1. S7: DONE — BUG-08 Karaoke Python fix complete (fix/ghs-bug-08-karaoke-python)
 2. S6 DONE: BUG-07 expansion surface + BUG-23 Mubert dead branch + MUBERT_PAT docs + stock fallback banners — branch fix/ghs-bug-07-music-pipeline (4 commits, not yet merged to main)
-3. S8+: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+3. S8 DONE: BUG-10 SFX provider expansion + license enforcement + auto-mode toggle — branch fix/ghs-bug-10-sfx-provider (4 commits, not yet merged to main). Playwright PASS.
+4. S9: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
