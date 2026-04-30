@@ -15,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getMusicProvider, pickAutomaticProvider } from "@/modules/music-provider";
+import { getMusicProvider, pickAutomaticProvider, pickAutomaticProviderWithReason } from "@/modules/music-provider";
 import type { MusicProviderKey } from "@/modules/music-provider";
 
 const schema = z.object({
@@ -48,9 +48,14 @@ export async function POST(req: NextRequest) {
   const input = { prompt, durationSeconds, genre, mood, hasLyrics };
 
   // Resolve provider
+  let autoFallbackReason: string | undefined;
   const provider =
     providerKey === "auto"
-      ? pickAutomaticProvider(input)
+      ? (() => {
+          const { adapter, fallbackReason } = pickAutomaticProviderWithReason(input);
+          autoFallbackReason = fallbackReason;
+          return adapter;
+        })()
       : getMusicProvider(providerKey as MusicProviderKey);
 
   let result;
@@ -102,5 +107,6 @@ export async function POST(req: NextRequest) {
     costUsd: result.costUsd,
     providerKey: result.providerKey,
     modelName: result.modelName,
+    ...(autoFallbackReason ? { fallbackReason: autoFallbackReason } : {}),
   });
 }

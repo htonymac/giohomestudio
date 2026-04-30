@@ -35,26 +35,44 @@ export function getMusicProvider(key: MusicProviderKey): MusicProviderAdapter {
  *   hasLyrics: true   → kie    (if KIE_AI_API_KEY set)
  *                      → stock (fallback)
  *   instrumental, duration ≤ 47s → stable_audio  (if FAL_KEY set)
+ *                               → mubert          (if MUBERT_PAT set, as alternative)
+ *                               → stock           (final fallback)
  *   instrumental, duration  > 47s → mubert        (if MUBERT_PAT set)
- *                               → stock           (fallback)
+ *                               → stock           (fallback — logs warning)
  */
 export function pickAutomaticProvider(input: MusicGenerateInput): MusicProviderAdapter {
+  return pickAutomaticProviderWithReason(input).adapter;
+}
+
+/** Same routing logic but also returns a fallbackReason string when stock is chosen due to missing config. */
+export function pickAutomaticProviderWithReason(
+  input: MusicGenerateInput,
+): { adapter: MusicProviderAdapter; fallbackReason?: string } {
   if (input.hasLyrics) {
-    if (process.env.KIE_AI_API_KEY) return kieAdapter;
-    return stockAdapter;
+    if (process.env.KIE_AI_API_KEY) return { adapter: kieAdapter };
+    return {
+      adapter: stockAdapter,
+      fallbackReason: "KIE_AI_API_KEY not configured — using stock library for lyrical tracks",
+    };
   }
 
-  // Instrumental path
+  // Instrumental ≤ 47s — FAL Stable Audio preferred
   if (input.durationSeconds <= 47) {
-    if (process.env.FAL_KEY) return stableAudioAdapter;
-    if (process.env.MUBERT_PAT) return mubertAdapter;
-    return stockAdapter;
+    if (process.env.FAL_KEY) return { adapter: stableAudioAdapter };
+    if (process.env.MUBERT_PAT) return { adapter: mubertAdapter };
+    return {
+      adapter: stockAdapter,
+      fallbackReason: "FAL_KEY and MUBERT_PAT not configured — using stock library",
+    };
   }
 
-  // Longer instrumental
-  if (process.env.MUBERT_PAT) return mubertAdapter;
-  if (process.env.FAL_KEY && input.durationSeconds <= 47) return stableAudioAdapter;
-  return stockAdapter;
+  // Longer instrumental (> 47s) — Mubert required; FAL Stable Audio caps at 47s
+  if (process.env.MUBERT_PAT) return { adapter: mubertAdapter };
+
+  // MUBERT_PAT not set — warn and fall back to stock library
+  const reason = `MUBERT_PAT not configured — using stock library for tracks >47s (${input.durationSeconds}s requested)`;
+  console.warn(`[music-provider] ${reason}. Set MUBERT_PAT to enable Mubert B2B.`);
+  return { adapter: stockAdapter, fallbackReason: reason };
 }
 
 /** List all registered provider keys */
