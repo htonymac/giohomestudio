@@ -266,6 +266,8 @@ function MoviePlannerInner() {
   const [generatedCast, setGeneratedCast] = useState<Character[]>([]);
   const [castGenerating, setCastGenerating] = useState(false);
   const [castGenError, setCastGenError] = useState<string | null>(null);
+  // ── Portrait image model selector (Cast tab) ──
+  const [castPortraitModel, setCastPortraitModel] = useState<"fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev">("fal_flux_schnell");
 
   // ── AI Planning ──
   const [planning, setPlanning] = useState(false);
@@ -2263,12 +2265,12 @@ function MoviePlannerInner() {
             </div>
           </div>
 
-          {/* ── PRIMARY ACTION: AI Cast Generation from Story ── */}
+          {/* ── PRIMARY ACTION: Build Story Characters with AI ── */}
           <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${purple}40`, background: `${purple}08` }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <Icon.Star style={{ width: 18, height: 18, color: purple, flexShrink: 0 }} />
               <div>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>AI Cast Generator</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Build Story Characters with AI</p>
                 <p style={{ fontSize: 11, color: muted }}>AI reads your story and builds the full cast — names, roles, voices, ready to use.</p>
               </div>
             </div>
@@ -2282,12 +2284,26 @@ function MoviePlannerInner() {
                 <p style={{ fontSize: 11, color: green, fontWeight: 600 }}>{generatedCast.length} cast members generated and added below.</p>
               </div>
             )}
+            {/* ── Portrait model selector ── */}
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" as const }}>
+              <span style={{ fontSize: 10, color: muted, alignSelf: "center", flexShrink: 0 }}>Portrait model:</span>
+              {([
+                { id: "fal_flux_schnell" as const, label: "Flux Schnell", desc: "Fast · $0.003" },
+                { id: "segmind_pruna" as const, label: "Pruna", desc: "Cheap · $0.005" },
+                { id: "fal_flux_dev" as const, label: "Flux Dev", desc: "Quality · $0.025" },
+              ] as Array<{ id: "fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev"; label: string; desc: string }>).map(m => (
+                <button key={m.id} onClick={() => setCastPortraitModel(m.id)}
+                  style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${castPortraitModel === m.id ? purple : border}`, background: castPortraitModel === m.id ? `${purple}20` : "transparent", color: castPortraitModel === m.id ? purple : muted, fontSize: 9, cursor: "pointer", fontWeight: castPortraitModel === m.id ? 700 : 400 }}>
+                  {m.label} <span style={{ opacity: 0.6 }}>{m.desc}</span>
+                </button>
+              ))}
+            </div>
             <button
               onClick={generateCastFromStory}
               disabled={castGenerating || (!expandedStory && !idea.trim())}
               title={(!expandedStory && !idea.trim()) ? "Write your story first" : ""}
               style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: castGenerating ? "#2a2040" : (!expandedStory && !idea.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${purple}, #7c3aed)`, color: (!expandedStory && !idea.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: castGenerating || (!expandedStory && !idea.trim()) ? "not-allowed" : "pointer" }}>
-              {castGenerating ? "Generating cast from story..." : generatedCast.length > 0 ? "Regenerate Cast from Story" : "Generate Cast from Story"}
+              {castGenerating ? "Building characters from story..." : generatedCast.length > 0 ? "Rebuild Story Characters with AI" : "Build Story Characters with AI"}
             </button>
             {!expandedStory && !idea.trim() && (
               <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Write your story first in the Story tab, then come back here.</p>
@@ -2353,16 +2369,16 @@ function MoviePlannerInner() {
                         <button onClick={() => {
                           fetch("/api/generation/image", {
                             method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view.`, width: 768, height: 768 }),
+                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view.`, width: 768, height: 768, model: castPortraitModel }),
                           }).then(r => r.json()).then(d => {
                             if (d.imageUrl || d.imagePath) {
                               setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
-                              setLastAction(`Image generated for ${char.name}`);
+                              setLastAction(`Portrait generated for ${char.name}`);
                             }
-                          }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate image for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
+                          }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
                         }}
                           style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
-                          Gen. Image
+                          Generate Portrait
                         </button>
                       </div>
                     </div>

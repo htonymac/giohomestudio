@@ -1566,31 +1566,65 @@ function ChildrenPlannerInner() {
       {activeTab === "design" && renderDesign()}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* CHARACTERS TAB                                                      */}
+      {/* CHARACTERS TAB — Inline Registry (AI-first)                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "characters" && (
         <div>
           {/* Header */}
-          <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Characters</h2>
-              <p style={{ fontSize: 11, color: muted, marginTop: 4 }}>
-                Add characters from your library to include in this children video.
-                {selectedCharIds.length > 0 && <span style={{ color: childAccent, fontWeight: 600 }}> {selectedCharIds.length} selected</span>}
-              </p>
-            </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Characters ({savedChars.length})</h2>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowCharPicker(true)}
-                style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${childAccent}`, background: `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                + Import from Library
+              <button onClick={() => setShowCharPicker(prev => !prev)}
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                {showCharPicker ? "Hide Library" : "or import saved →"}
               </button>
-              <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                <button style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
-                  Create New
-                </button>
-              </a>
             </div>
           </div>
+
+          {/* ── PRIMARY ACTION: Build Story Characters with AI ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}08` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <Icon.Star style={{ width: 18, height: 18, color: childAccent, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Build Story Characters with AI</p>
+                <p style={{ fontSize: 11, color: muted }}>AI reads your story, extracts characters, and builds their profiles — names, roles, descriptions, ready to use.</p>
+              </div>
+            </div>
+            <button
+              onClick={extractChildCharacters}
+              disabled={extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim())}
+              title={(!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "Enter your story content first" : ""}
+              style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: extractingChars !== "idle" ? "#1a2a1a" : (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${childAccent}, #059669)`, color: (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "not-allowed" : "pointer" }}>
+              {extractingChars === "building" ? "Building character profiles..." : extractingChars === "extracting" ? "Extracting characters from story..." : savedChars.length > 0 ? "Rebuild Story Characters with AI" : "Build Story Characters with AI"}
+            </button>
+            {(!expandedContent && !textContent.trim() && !readAlongText.trim()) && (
+              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Enter your story in the Content tab first, then come back here.</p>
+            )}
+          </div>
+
+          {/* ── Inline import from library (secondary, hidden by default) ── */}
+          {showCharPicker && (
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Import from Character Library</p>
+                <button onClick={() => setShowCharPicker(false)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                  Close
+                </button>
+              </div>
+              <CharacterPicker
+                onSelect={(char) => {
+                  setSavedChars(prev => {
+                    if (prev.some(c => c.id === char.id)) return prev;
+                    return [...prev, { id: char.id, name: char.name, role: char.role || "supporting", imageUrl: char.imageUrl || undefined, characterId: char.characterId || undefined, voiceName: char.voiceName || undefined, visualDescription: char.visualDescription || undefined }];
+                  });
+                  setSelectedCharIds(prev => prev.includes(char.id) ? prev : [...prev, char.id]);
+                  setLastAction(`Imported character "${char.name}"`);
+                }}
+                onCreateNew={() => { window.open("/dashboard/character-voices?returnTo=children-planner", "_blank"); }}
+                compact
+              />
+            </div>
+          )}
 
           {/* Character cards */}
           {loadingChars ? (
@@ -1598,24 +1632,13 @@ function ChildrenPlannerInner() {
               <p style={{ color: muted, fontSize: 12 }}>Loading characters...</p>
             </div>
           ) : savedChars.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: "center", padding: 40, borderStyle: "dashed" }}>
+            <div style={{ ...cardStyle, textAlign: "center", padding: 32, borderStyle: "dashed" }}>
               <Icon.User style={{ width: 28, height: 28, color: muted, marginBottom: 8 }} />
               <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>No characters yet</p>
-              <p style={{ fontSize: 10, color: muted, marginTop: 4, marginBottom: 16 }}>Create characters in the Character Voices section and import them here.</p>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: childAccent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Create Characters
-                  </button>
-                </a>
-                <button onClick={() => setShowCharPicker(true)}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 11, cursor: "pointer" }}>
-                  Import Existing
-                </button>
-              </div>
+              <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Click "Build Story Characters with AI" above, or import from your library.</p>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
               {savedChars.map(char => {
                 const isSelected = selectedCharIds.includes(char.id);
                 const hasVoice = !!char.voiceName;
@@ -1656,7 +1679,7 @@ function ChildrenPlannerInner() {
                       </div>
 
                       {/* Action buttons */}
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button onClick={() => {
                           const next = isSelected ? selectedCharIds.filter(id => id !== char.id) : [...selectedCharIds, char.id];
                           setSelectedCharIds(next);
@@ -1665,11 +1688,25 @@ function ChildrenPlannerInner() {
                           style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "none", background: isSelected ? `${childAccent}20` : childAccent, color: isSelected ? childAccent : "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                           {isSelected ? "Remove" : "Add to Video"}
                         </button>
-                        <a href={`/dashboard/character-voices?edit=${char.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                          <button style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                            Edit
-                          </button>
-                        </a>
+                        <button onClick={() => {
+                          fetch("/api/generation/image", { method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.visualDescription || ""}. Children's book illustration style, age-appropriate, friendly, colorful, front view.`, width: 768, height: 768 }) })
+                            .then(r => r.json()).then(d => {
+                              if (d.imageUrl || d.imagePath) {
+                                setSavedChars(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
+                                setLastAction(`Portrait generated for ${char.name}`);
+                              }
+                            }).catch((err) => { console.error("genChildCharImage:", err); });
+                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${childAccent}30`, background: `${childAccent}06`, color: childAccent, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
+                          Gen. Portrait
+                        </button>
+                        <button onClick={() => {
+                          setSavedChars(prev => prev.filter(c => c.id !== char.id));
+                          setSelectedCharIds(prev => prev.filter(id => id !== char.id));
+                          setLastAction(`Removed ${char.name}`);
+                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: "#ef4444", fontSize: 9, cursor: "pointer" }}>
+                          Remove
+                        </button>
                       </div>
                     </div>
                   </div>
