@@ -1,5 +1,14 @@
 # GioHomeStudio — Incomplete / Pending Tasks
-Updated: 2026-04-27
+Updated: 2026-04-30
+
+## BUG-13 — DONE 2026-04-30 | commit 7385bcd | Playwright PASS
+- [x] Free Mode: Segmind Flux (FREE) set as default image model (first in IMAGE_MODELS, hardcoded initial state)
+- [x] Free Mode: Ideogram Free added as second image model option
+- [x] model-registry.ts: segmind_flux + ideogram_free entries added
+- [x] Free Mode: localStorage persistence for history (key=ghs_free_mode_history, max 50, restore on mount, sync on change)
+- [x] enhance route: callLLM already correctly structured (no change needed — Fix C was already correct)
+- Branch: fix/ghs-bug-13-free-mode | pushed to remote
+
 
 ## SESSION 2026-04-27 — Karaoke restructure (Final Master Canvas)
 

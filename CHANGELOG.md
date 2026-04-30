@@ -1,5 +1,23 @@
 # GHS Changelog
 
+## 2026-04-30 — BUG-13 Free Mode: Segmind Flux default + localStorage history persistence (branch: fix/ghs-bug-13-free-mode, commit 7385bcd)
+
+### What
+- `ModelPicker.tsx`: Added `segmind_flux` (FREE badge, $0.0003–0.0005/img) as first item and `ideogram_free` (FREE/$0) as second item in IMAGE_MODELS array
+- `free-mode/page.tsx`: Changed `selectedImageModel` initial state from `IMAGE_MODELS[0].id` to hardcoded `"segmind_flux"`; added localStorage persistence layer (key `ghs_free_mode_history`, max 50 entries); mount restores from LS before DB fetch; history synced on add/delete/clear
+- `model-registry.ts`: Added `segmind_flux` (segmind/flux endpoint, free-tier) and `ideogram_free` (fal/ideogram-v2, $0) registry entries
+
+### Why
+BUG-13: Free Mode was defaulting to Flux Schnell ($0.003) instead of the free Segmind Flux. Chat history was lost on page reload since it relied on DB fetch only (no offline/reload safety net).
+
+### Impact
+Free Mode image generation now defaults to lowest-cost option. History survives page reload via localStorage (no extra API cost). Enhance route callLLM was already correct — no change.
+
+### Risk
+Low — localStorage persistence is additive (DB remains source of truth). segmind_flux endpoint `flux` may need verification against actual Segmind API docs; falls back to FAL schnell if segmind fails (existing fallback chain unchanged).
+
+---
+
 ## 2026-04-27 — Karaoke Final Master Canvas (PR #24)
 
 ### What
