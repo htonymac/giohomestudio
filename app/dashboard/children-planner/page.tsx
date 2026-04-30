@@ -443,6 +443,29 @@ function ChildrenPlannerInner() {
             }
             return combined;
           });
+          // Persist each new character to DB
+          for (const nc of newChars) {
+            try {
+              const postRes = await fetch("/api/character-voices", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  name: nc.name,
+                  characterId: nc.characterId || undefined,
+                  role: nc.role || "character",
+                  visualDescription: nc.visualDescription || undefined,
+                  isNarrator: false,
+                }),
+              });
+              if (!postRes.ok && postRes.status !== 409) {
+                console.error("children-planner: DB save failed for", nc.name, await postRes.text());
+                setLastAction(`Character saved locally — DB save failed for ${nc.name}`);
+              }
+            } catch (dbErr) {
+              console.error("children-planner: DB POST error", dbErr);
+              setLastAction(`Character saved locally — DB save failed for ${nc.name}`);
+            }
+          }
         }
       }
     } catch { /* ignore */ }
@@ -500,6 +523,28 @@ function ChildrenPlannerInner() {
           }
           return combined;
         });
+        // Persist each new character to DB
+        for (const nc of newChars) {
+          try {
+            const postRes = await fetch("/api/character-voices", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: nc.name,
+                role: nc.role || "character",
+                visualDescription: nc.visualDescription || undefined,
+                isNarrator: false,
+              }),
+            });
+            if (!postRes.ok && postRes.status !== 409) {
+              console.error("children-planner expandStory: DB save failed for", nc.name, await postRes.text());
+              setLastAction(`Character saved locally — DB save failed for ${nc.name}`);
+            }
+          } catch (dbErr) {
+            console.error("children-planner expandStory: DB POST error", dbErr);
+            setLastAction(`Character saved locally — DB save failed for ${nc.name}`);
+          }
+        }
       }
 
       const sceneRes = await fetch("/api/hybrid/scene-plan", {

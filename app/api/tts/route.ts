@@ -78,14 +78,23 @@ export async function POST(req: NextRequest) {
           }),
         });
 
-        if (res.ok) {
+        if (!res.ok) {
+          let errBody = "";
+          try { errBody = JSON.stringify(await res.json()); } catch { errBody = await res.text().catch(() => ""); }
+          const msg = `ElevenLabs TTS HTTP ${res.status}: ${errBody}`;
+          console.error("ElevenLabs TTS failed:", msg);
+          // fall through to next tier
+        } else {
           const mp3File = outFile.replace(".wav", ".mp3");
           const buffer = Buffer.from(await res.arrayBuffer());
           fs.writeFileSync(mp3File, buffer);
           const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
           return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100) });
         }
-      } catch { /* ElevenLabs failed */ }
+      } catch (err) {
+        console.error("ElevenLabs TTS failed:", err instanceof Error ? err.message : String(err));
+        // fall through to next tier — error logged, not swallowed
+      }
     }
 
     // Try 3: Windows PowerShell speech synthesis (SAPI)
