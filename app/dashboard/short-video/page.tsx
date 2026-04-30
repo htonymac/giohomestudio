@@ -1,8 +1,9 @@
 "use client";
-
+// S15 BUG-22b fix: full model unlock 2026-04-30
 import { useState, useEffect, useCallback } from "react";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
+import ModelPicker from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { ds } from "../../../lib/designSystem";
@@ -50,6 +51,8 @@ export default function ShortVideoPage() {
   const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; visualDescription: string | null } | null>(null);
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [videoModel, setVideoModel] = useState("muapi_wan_v2_1_720p");
+  const [imageModel, setImageModel] = useState("fal_flux_schnell");
 
   const saveSession = useCallback(() => {
     if (!prompt && !contentType) return;
@@ -117,7 +120,7 @@ export default function ShortVideoPage() {
       const videoRes = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.${assignedCharacter?.visualDescription ? ` Character: ${assignedCharacter.visualDescription}.` : ""}`, model: "hailuo-fast", aspectRatio: ar, llmModel: getModelForTier(aiTier).llmValue }),
+        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.${assignedCharacter?.visualDescription ? ` Character: ${assignedCharacter.visualDescription}.` : ""}`, model: videoModel, imageModel, aspectRatio: ar, llmModel: getModelForTier(aiTier).llmValue }),
       });
       if (!videoRes.ok) {
         const e = await videoRes.json().catch(() => ({}));
@@ -246,6 +249,18 @@ export default function ShortVideoPage() {
             <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 8, fontFamily: ds.font.mono }}>AI Model</p>
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
           </div>
+        </div>
+
+        {/* Model Picker */}
+        <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 8, fontFamily: ds.font.mono }}>AI Generation Models</p>
+        <div style={{ marginBottom: 20 }}>
+          <ModelPicker
+            videoModel={videoModel}
+            imageModel={imageModel}
+            onVideoChange={setVideoModel}
+            onImageChange={setImageModel}
+            accentColor={ds.color.lilac}
+          />
         </div>
 
         {/* Music mood */}

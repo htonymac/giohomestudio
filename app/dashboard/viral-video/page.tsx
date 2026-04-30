@@ -1,10 +1,10 @@
 "use client";
-
+// S15 BUG-22 fix: full model unlock 2026-04-30
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
-import ModelPicker from "../../components/ModelPicker";
+import ModelPicker, { VIDEO_MODELS, IMAGE_MODELS } from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { ds } from "../../../lib/designSystem";
@@ -62,7 +62,8 @@ export default function ViralVideoPage() {
   } | null>(null);
   const [contentType, setContentType] = useState("");
   const [selectedModel, setSelectedModel] = useState("");
-  const [imageModel, setImageModel] = useState("fal_flux_dev");
+  const [imageModel, setImageModel] = useState("fal_flux_schnell");
+  const [showAllVideoModels, setShowAllVideoModels] = useState(false);
   const [duration, setDuration] = useState("30–60 sec");
   const [viralStyle, setViralStyle] = useState("");
   const [platform, setPlatform] = useState("");
@@ -306,27 +307,73 @@ export default function ViralVideoPage() {
       {step === 2 && (
         <div style={cardStyle}>
           <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: ds.color.mute, marginBottom: 6, fontFamily: ds.font.mono }}>
-            Best AI Models for {CONTENT_TYPES.find(t => t.id === contentType)?.label}
+            Video AI Model — {CONTENT_TYPES.find(t => t.id === contentType)?.label}
           </p>
-          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 20 }}>AI pre-selected the best models for your content type. Pick one.</p>
+          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 16 }}>Choose a video generation model. All {VIDEO_MODELS.length} models available — cheaper options save cost.</p>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-            {models.map((m, i) => (
-              <button key={m.id} onClick={() => setSelectedModel(m.id)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px", borderRadius: ds.radius.md, border: `1px solid ${selectedModel === m.id ? ds.color.coral : ds.color.line}`, background: selectedModel === m.id ? "rgba(255,122,69,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedModel === m.id ? ds.color.coral : ds.color.mute2}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {selectedModel === m.id && <div style={{ width: 8, height: 8, borderRadius: "50%", background: ds.color.coral }} />}
+          {/* Recommended (content-type specific) */}
+          {models.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <p style={{ fontSize: 10, color: ds.color.mint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: ds.font.mono }}>Recommended for {CONTENT_TYPES.find(t => t.id === contentType)?.label}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                {models.map((m, i) => {
+                  const vm = VIDEO_MODELS.find(v => v.id === m.id || v.name.toLowerCase().includes(m.name.toLowerCase().split(" ")[0]));
+                  const costLabel = vm ? vm.cost : "";
+                  return (
+                    <button key={m.id} onClick={() => setSelectedModel(m.id)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: ds.radius.md, border: `1px solid ${selectedModel === m.id ? ds.color.coral : ds.color.line}`, background: selectedModel === m.id ? "rgba(255,122,69,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", border: `2px solid ${selectedModel === m.id ? ds.color.coral : ds.color.mute2}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          {selectedModel === m.id && <div style={{ width: 8, height: 8, borderRadius: "50%", background: ds.color.coral }} />}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: ds.color.ink }}>{m.provider} / {m.name}</p>
+                          <p style={{ fontSize: 11, color: ds.color.mute }}>{m.best}{costLabel ? ` · ${costLabel}` : ""}</p>
+                        </div>
+                      </div>
+                      {i === 0 && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(122,224,195,0.12)", color: ds.color.mint, fontWeight: 600 }}>Recommended</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* All VIDEO_MODELS toggle */}
+          <button onClick={() => setShowAllVideoModels(!showAllVideoModels)}
+            style={{ width: "100%", padding: "10px 14px", borderRadius: ds.radius.md, border: `1px solid ${ds.color.line}`, background: "transparent", color: ds.color.mute, fontSize: 12, fontWeight: 600, cursor: "pointer", marginBottom: 12, textAlign: "left" }}>
+            {showAllVideoModels ? "Hide" : "Show"} all {VIDEO_MODELS.length} video models {showAllVideoModels ? "▲" : "▼"}
+          </button>
+
+          {showAllVideoModels && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
+              {VIDEO_MODELS.map(m => (
+                <button key={m.id} onClick={() => setSelectedModel(m.id)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: ds.radius.md, border: `1px solid ${selectedModel === m.id ? ds.color.coral : ds.color.line}`, background: selectedModel === m.id ? "rgba(255,122,69,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 16, height: 16, borderRadius: "50%", border: `2px solid ${selectedModel === m.id ? ds.color.coral : ds.color.mute2}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {selectedModel === m.id && <div style={{ width: 7, height: 7, borderRadius: "50%", background: ds.color.coral }} />}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: ds.color.ink, display: "flex", alignItems: "center", gap: 6 }}>
+                        {m.name}
+                        <span style={{ fontSize: 9, fontWeight: 700, color: m.badgeColor, background: `${m.badgeColor}18`, padding: "1px 5px", borderRadius: 4 }}>{m.badge}</span>
+                      </p>
+                      <p style={{ fontSize: 10, color: ds.color.mute }}>{m.desc} · {m.cost}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: ds.color.ink }}>{m.provider} / {m.name}</p>
-                    <p style={{ fontSize: 11, color: ds.color.mute }}>{m.best}</p>
-                  </div>
-                </div>
-                {i === 0 && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(122,224,195,0.12)", color: ds.color.mint, fontWeight: 600 }}>Recommended</span>}
-              </button>
-            ))}
-          </div>
+                  {selectedModel === m.id && <span style={{ color: ds.color.coral, fontSize: 14 }}>✓</span>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Selected model summary */}
+          {selectedModel && (
+            <div style={{ padding: "10px 14px", borderRadius: ds.radius.sm, background: "rgba(255,122,69,0.06)", border: `1px solid rgba(255,122,69,0.2)`, marginBottom: 16 }}>
+              <p style={{ fontSize: 11, color: ds.color.mute }}>Selected: <span style={{ color: ds.color.coral, fontWeight: 600 }}>{VIDEO_MODELS.find(v => v.id === selectedModel)?.name ?? models.find(m => m.id === selectedModel)?.name ?? selectedModel}</span></p>
+            </div>
+          )}
 
           {/* Character Section */}
           <div style={{ marginBottom: 20 }}>
@@ -430,9 +477,9 @@ export default function ViralVideoPage() {
                 <DurationPicker preset="video" value={duration} onChange={(label: string) => setDuration(label)} label="" accentColor={ds.color.coral} compact />
               </div>
               <div>
-                <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>Image Model</p>
+                <p style={{ fontSize: 10, color: ds.color.mute, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8, fontFamily: ds.font.mono }}>Image &amp; Video Models</p>
                 <ModelPicker videoModel={selectedModel || "muapi_seedance_v2"} imageModel={imageModel}
-                  onVideoChange={() => {}} onImageChange={setImageModel}
+                  onVideoChange={(id) => setSelectedModel(id)} onImageChange={setImageModel}
                   accentColor={ds.color.coral} compact />
               </div>
             </div>
