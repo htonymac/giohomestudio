@@ -1955,6 +1955,28 @@ function MoviePlannerInner() {
             </div>
           )}
 
+          {/* Assembled video in Overview */}
+          {assembledUrl && (
+            <div style={{ ...cardStyle, borderColor: `${green}40`, background: `${green}04` }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: green, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon.Check style={{ width: 14, height: 14 }} /> Movie Assembled
+              </p>
+              <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 280, borderRadius: 10, marginBottom: 10 }} />
+              <div style={{ display: "flex", gap: 8 }}>
+                <a href={assembledUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: "none" }}>
+                  <button style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid ${green}30`, background: `${green}08`, color: green, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                    Watch Full Movie
+                  </button>
+                </a>
+                <a href={assembledUrl} download={`${title || "movie"}.mp4`} style={{ flex: 1, textDecoration: "none" }}>
+                  <button style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}08`, color: accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                    Download MP4
+                  </button>
+                </a>
+              </div>
+            </div>
+          )}
+
           {/* Movie Blueprint if exists */}
           {moviePlan && (
             <div style={cardStyle}>
@@ -3328,12 +3350,18 @@ function MoviePlannerInner() {
           {assembledUrl && (
             <div style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
               <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 320 }} />
-              <div style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ padding: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: green }}>Assembly Complete</span>
-                <a href={assembledUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${green}15`, color: green, textDecoration: "none", fontWeight: 600 }}>
-                  Watch Final Movie
-                </a>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <a href={assembledUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${green}15`, color: green, textDecoration: "none", fontWeight: 600 }}>
+                    Watch Final Movie
+                  </a>
+                  <a href={assembledUrl} download={`${title || "movie"}.mp4`}
+                    style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${accent}15`, color: accent, textDecoration: "none", fontWeight: 600 }}>
+                    Download MP4
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -3341,7 +3369,10 @@ function MoviePlannerInner() {
           {/* Assemble / Editor buttons */}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             {!assemblyComplete ? (
-              <button onClick={assembleMovie} disabled={assembling || assemblySelectedIds.length === 0}
+              <button
+                data-testid="assemble-movie-btn"
+                onClick={assembleMovie}
+                disabled={assembling || assemblySelectedIds.length === 0}
                 style={{ ...btnPrimary, flex: 1, background: (assembling || assemblySelectedIds.length === 0) ? "#2a2a40" : green, color: "#000" }}>
                 {assembling ? "Assembling..." : `Assemble "${assemblyName}" (${assemblySelectedIds.length} scenes)`}
               </button>
