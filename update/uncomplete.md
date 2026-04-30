@@ -1,5 +1,29 @@
 # GioHomeStudio — Incomplete / Pending Tasks
-Updated: 2026-04-27
+Updated: 2026-04-30
+
+## SESSION 2026-04-30 — S3 BUG-04 payload + JSON guard
+
+### [FIXED 2026-04-30 S3] BUG-04a — Children planner scene-plan payload mismatch
+- Was: `{expandedStory, genre, tone}` → 400 from server
+- Fix: `{storyText, characters[], costPreference, targetDuration, projectId}` — matches /api/hybrid/scene-plan schema
+- Branch: fix/ghs-bug-04-payload-json-guard
+
+### [FIXED 2026-04-30 S3] BUG-04c — Children planner music/generate payload mismatch
+- Was: `{mood, duration}` → 400 from server
+- Fix: `{prompt: "...", durationSeconds: 20}` — matches zod schema
+- Branch: fix/ghs-bug-04-payload-json-guard
+
+### [FIXED 2026-04-30 S3] BUG-04f — JSON parse crash on HTML error responses
+- Was: bare `.json()` calls crashing on Next.js HTML error pages
+- Fix: `safeJson<T>(res, context)` in lib/api-utils.ts, applied to 6+1 fetch calls
+- Branch: fix/ghs-bug-04-payload-json-guard
+
+### OPEN — BUG-04b, BUG-04d, BUG-04e
+- BUG-04b: Tab order + character picker — see S4
+- BUG-04d: Scene images not generating in children-planner — S4+
+- BUG-04e: Movie-planner same patterns (payload aligned, safeJson added) — DONE as part of S3
+
+---
 
 ## SESSION 2026-04-27 — Karaoke restructure (Final Master Canvas)
 

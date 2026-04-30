@@ -11,6 +11,7 @@ import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import { safeJson } from "../../../lib/api-utils";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -468,7 +469,7 @@ function ChildrenPlannerInner() {
           childContext: { ageGroup, learningMode, safetyLevel, visualStyle },
         }),
       });
-      const expandData = await expandRes.json();
+      const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "story-expand");
       const summary = expandData.expandedStory?.summary || expandData.summary || "";
       if (summary) {
         setExpandedContent(summary);
@@ -483,7 +484,7 @@ function ChildrenPlannerInner() {
           language: "English",
         }),
       });
-      const charData = await charRes.json();
+      const charData = await safeJson<{ characters?: Array<{ name: string; description?: string }> }>(charRes, "character-extract");
       const detectedChars = (charData.characters || []) as Array<{ name: string; description?: string }>;
       if (detectedChars.length > 0) {
         const base = Date.now();
@@ -505,14 +506,18 @@ function ChildrenPlannerInner() {
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          expandedStory: { summary: summary || storyInput },
-          genre: "children",
-          tone: tone === "soft" ? "gentle" : "energetic",
-          totalScenes: movieSceneCount,
+          storyText: summary || storyInput,
+          characters: savedChars.map(c => ({
+            characterId: c.id,
+            displayName: c.name,
+            role: c.role || "character",
+          })),
+          costPreference: "budget",
           targetDuration: movieSceneDuration,
+          projectId: `children_${Date.now()}`,
         }),
       });
-      const sceneData = await sceneRes.json();
+      const sceneData = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(sceneRes, "scene-plan");
       const planned = (sceneData.scenes || []) as Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }>;
       if (planned.length > 0) {
         setChildScenes(planned.map((s, i) => ({
@@ -549,7 +554,7 @@ function ChildrenPlannerInner() {
           storyContext: textContent || readAlongText || "",
         }),
       });
-      const data = await res.json();
+      const data = await safeJson<{ ok?: boolean; intelligence?: SceneIntelligenceData[] }>(res, "scene-intelligence");
       if (data.ok && Array.isArray(data.intelligence)) {
         const map: Record<string, SceneIntelligenceData> = {};
         for (const item of data.intelligence) map[item.sceneId] = item;
@@ -785,18 +790,22 @@ function ChildrenPlannerInner() {
           slideCount: 4,
         }),
       });
-      const storyData = await storyRes.json();
+      const storyData = await safeJson<{ slides?: Array<{ text?: string; background?: string }>; scenes?: Array<{ text?: string; background?: string }> }>(storyRes, "invtext-story");
 
       setGenerationProgress("Step 2/3: Generating music...");
       // Step 2: Generate background music
       try {
+        const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mood: musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat", duration: 20 }),
+          body: JSON.stringify({
+            prompt: `${musicMood} background music for a children's story`,
+            durationSeconds: 20,
+          }),
         });
-        const musicData = await musicRes.json();
-        if (musicData.url || musicData.audioUrl) setGeneratedMusicUrl(musicData.url || musicData.audioUrl);
+        const musicData = await safeJson<{ url?: string; audioUrl?: string }>(musicRes, "music/generate");
+        if (musicData.url || musicData.audioUrl) setGeneratedMusicUrl(musicData.url ?? musicData.audioUrl ?? "");
       } catch { /* music generation is optional */ }
 
       setGenerationProgress("Step 3/3: Assembling video...");
@@ -816,9 +825,9 @@ function ChildrenPlannerInner() {
             outputName: `children_${Date.now()}`,
           }),
         });
-        const assembleData = await assembleRes.json();
+        const assembleData = await safeJson<{ outputUrl?: string; videoUrl?: string }>(assembleRes, "video/assemble");
         if (assembleData.outputUrl || assembleData.videoUrl) {
-          setGeneratedVideoUrl(assembleData.outputUrl || assembleData.videoUrl);
+          setGeneratedVideoUrl(assembleData.outputUrl ?? assembleData.videoUrl ?? "");
         }
       }
 

@@ -4,6 +4,25 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-04-30 — BUG-04a/c/f: Children/Movie planner API payload mismatch + JSON parse crash
+
+**Symptom:** Scene plan never generates in children-planner. Music generation silently fails. Any API 500/404 causes `Unexpected token '<', "<!DOCTYPE"... is not valid JSON` crash.
+
+**Root cause:**
+- `children-planner/page.tsx` scene-plan call sent `{expandedStory: {summary}, genre, tone, totalScenes, targetDuration}`. Server at `/api/hybrid/scene-plan` expects `{storyText: string, characters: [], costPreference, targetDuration, projectId}`. Server returns 400, 400 response is HTML error page, `.json()` on HTML crashes.
+- Music call sent `{mood, duration}`. Server zod schema requires `{prompt: string(min1), durationSeconds: number}`. Returns 400 JSON.
+- No content-type guard on any `.json()` call — HTML error pages thrown as parse errors.
+
+**Fix applied (S3, fix/ghs-bug-04-payload-json-guard):**
+- Rewrote children-planner scene-plan payload to match server: `{storyText: summary||storyInput, characters: savedChars.map(...), costPreference: "budget", targetDuration, projectId}`.
+- Rewrote music payload: `{prompt: "${musicMood} background music for a children's story", durationSeconds: 20}`.
+- Created `lib/api-utils.ts` with `safeJson<T>(res, context)` — throws readable error with status code if not 200+JSON. Applied to 6 calls in children-planner + 1 in movie-planner.
+- Movie-planner scene-plan payload was already correct; added safeJson guard only.
+
+**Prevention:** Copy payload shape from server route zod schema, not from old UI code. Always use `safeJson()` instead of bare `.json()`.
+
+---
+
 ## AUDIO ISSUES
 
 ---
