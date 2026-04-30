@@ -283,6 +283,7 @@ function MoviePlannerInner() {
   const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
+  const [autoSfx, setAutoSfx] = useState(true);
 
   // ── Project persistence ──
   const [projectList, setProjectList] = useState<Array<{ id: string; title: string; genre: string | null; status: string; updatedAt: string; _count: { scenes: number } }>>([]);
@@ -1457,7 +1458,7 @@ function MoviePlannerInner() {
     try {
       const res = await fetch("/api/sfx/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: sfxDesc.trim() }),
+        body: JSON.stringify({ description: sfxDesc.trim(), autoSfx, mode: autoSfx ? "auto" : undefined }),
       });
       const data = await res.json();
       if (data.fileUrl) { setSfxGeneratedUrl(data.fileUrl); setLastAction(`SFX generated: "${sfxDesc.slice(0, 30)}"`); }
@@ -2572,6 +2573,9 @@ function MoviePlannerInner() {
                               {intel.sfxEvents.length > 0 && (
                                 <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
                               )}
+                              {autoSfx && intel.sfxEvents.length > 0 && (
+                                <span style={{ fontSize: 6, padding: "2px 5px", borderRadius: 20, background: "#1a1a2a", color: "#818cf8", border: "1px solid #818cf830" }}>Auto SFX</span>
+                              )}
                             </div>
                           </div>
                         );
@@ -2860,6 +2864,18 @@ function MoviePlannerInner() {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* ── Auto SFX toggle ── */}
+          <div data-testid="auto-sfx-toggle" style={{ ...cardStyle, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Auto SFX</p>
+              <p style={{ fontSize: 10, color: muted }}>AI assigns sound effects to each scene automatically. Only CC0 / CC BY / Public Domain tracks used.</p>
+            </div>
+            <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
+              style={{ padding: "8px 20px", borderRadius: 20, border: `1px solid ${autoSfx ? accent + "60" : border}`, background: autoSfx ? `${accent}18` : "transparent", color: autoSfx ? accent : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const, minWidth: 64 }}>
+              {autoSfx ? "ON" : "OFF"}
+            </button>
           </div>
 
           {/* ── SFX / Sound Browser ── */}

@@ -212,6 +212,7 @@ function ChildrenPlannerInner() {
   const [textContent, setTextContent] = useState(topicPromptParam || "");
   const [narrationStyle, setNarrationStyle] = useState("gentle");
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
+  const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [visualStyle, setVisualStyle] = useState("storybook");
   const [tone, setTone] = useState<"soft" | "active">("soft");
@@ -835,12 +836,12 @@ function ChildrenPlannerInner() {
     try {
       const res = await fetch("/api/sfx/generate", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description: sfxDesc, duration_seconds: 5 }),
+        body: JSON.stringify({ description: sfxDesc, duration_seconds: 5, autoSfx, mode: autoSfx ? "auto" : undefined }),
       });
       const data = await res.json();
-      if (data.url || data.audioUrl) setSfxGeneratedUrl(data.url || data.audioUrl);
+      if (data.fileUrl || data.url || data.audioUrl) setSfxGeneratedUrl(data.fileUrl || data.url || data.audioUrl);
       else setLastAction("SFX generation failed: " + (data.error || "unknown"));
-    } catch { setLastAction("ElevenLabs SFX generation failed"); }
+    } catch { setLastAction("SFX generation failed"); }
     setSfxGenerating(false);
   }
 
@@ -1831,6 +1832,9 @@ function ChildrenPlannerInner() {
                                 {intel.sfxEvents.length > 0 && (
                                   <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
                                 )}
+                                {autoSfx && intel.sfxEvents.length > 0 && (
+                                  <span style={{ fontSize: 6, padding: "2px 5px", borderRadius: 20, background: "#1a1a2a", color: "#818cf8", border: "1px solid #818cf830" }}>Auto SFX</span>
+                                )}
                               </div>
                             </div>
                           );
@@ -2037,6 +2041,18 @@ function ChildrenPlannerInner() {
           </div>
 
           <p style={{ fontSize: 9, color: muted, marginBottom: 16 }}>Music is always secondary to narration. Voice stays at 100%, music at 18-35%. Music ducks when narration is active.</p>
+
+          {/* Auto SFX toggle */}
+          <div data-testid="auto-sfx-toggle" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: s2, border: `1px solid ${autoSfx ? childAccent + "40" : border}`, marginBottom: 20 }}>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Auto SFX</p>
+              <p style={{ fontSize: 9, color: muted }}>AI assigns sound effects to each scene automatically. Only CC0 / CC BY / Public Domain tracks used.</p>
+            </div>
+            <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
+              style={{ padding: "7px 18px", borderRadius: 20, border: `1px solid ${autoSfx ? childAccent : border}`, background: autoSfx ? `${childAccent}18` : "transparent", color: autoSfx ? childAccent : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const, minWidth: 64 }}>
+              {autoSfx ? "ON" : "OFF"}
+            </button>
+          </div>
 
           {/* ── Music Library Picker ── */}
           <p style={labelStyle}>Music Library</p>
