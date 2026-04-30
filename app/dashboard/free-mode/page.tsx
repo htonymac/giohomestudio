@@ -430,7 +430,7 @@ function FreeModeInner() {
   const [showModes,  setShowModes]  = useState(false);
   const [aiModel,    setAiModel]    = useState<AIModel>("haiku");
   const [selectedVideoModel, setSelectedVideoModel] = useState<string>(VIDEO_MODELS[2].id); // Seedance 2.0 default
-  const [selectedImageModel, setSelectedImageModel] = useState<string>(IMAGE_MODELS[0].id); // Flux Schnell default
+  const [selectedImageModel, setSelectedImageModel] = useState<string>("segmind_flux"); // Segmind Flux default for Free Mode
 
   // Multi-upload state (primary images or single video)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -452,13 +452,39 @@ function FreeModeInner() {
   const [history,       setHistory]       = useState<HistoryItem[]>([]);
   const [histLoaded,    setHistLoaded]    = useState(false);
 
-  // Load history from DB on mount
+  // ── localStorage helpers ────────────────────────────────────────
+  const LS_KEY = "ghs_free_mode_history";
+  const LS_MAX = 50;
+
+  function saveHistoryToLS(items: HistoryItem[]) {
+    try {
+      // Keep only last LS_MAX items (oldest trimmed)
+      const trimmed = items.slice(-LS_MAX);
+      localStorage.setItem(LS_KEY, JSON.stringify(trimmed));
+    } catch { /* storage full or unavailable — silently skip */ }
+  }
+
+  function loadHistoryFromLS(): HistoryItem[] {
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
+  }
+
+  // Load history: restore from localStorage immediately, then refresh from DB
   useEffect(() => {
+    // Step 1: restore from localStorage for instant display on reload
+    const cached = loadHistoryFromLS();
+    if (cached.length > 0) setHistory(cached);
+
+    // Step 2: fetch from DB to get authoritative data (may include server-side completions)
     fetch("/api/free-mode/history")
       .then(r => r.ok ? r.json() : null)
       .then(data => {
         if (data?.items) {
-          setHistory(data.items.map((item: Record<string, unknown>) => ({
+          const dbItems = data.items.map((item: Record<string, unknown>) => ({
             id:             String(item.id),
             mode:           String(item.mode) as OutputMode,
             motionSub:      item.motionSub ? String(item.motionSub) as MotionSubMode : null,
@@ -477,12 +503,23 @@ function FreeModeInner() {
             errorMsg:       item.errorMsg ? String(item.errorMsg) : null,
             uploadedPaths:  Array.isArray(item.uploadedPaths) ? (item.uploadedPaths as string[]) : [],
             refImagePaths:  Array.isArray(item.refImagePaths) ? (item.refImagePaths as string[]) : [],
-          })).reverse()); // DB returns newest first, show oldest first in feed
+          })).reverse(); // DB returns newest first, show oldest first in feed
+          setHistory(dbItems);
+          saveHistoryToLS(dbItems);
         }
         setHistLoaded(true);
       })
-      .catch(() => setHistLoaded(true));
+      .catch(() => {
+        // DB failed — keep using localStorage data if we have it
+        setHistLoaded(true);
+      });
   }, []);
+
+  // Persist history to localStorage whenever it changes (after initial load)
+  useEffect(() => {
+    if (!histLoaded) return; // don't write during the initial load phase
+    saveHistoryToLS(history);
+  }, [history, histLoaded]);
 
   // Auto-scroll feed to bottom
   useEffect(() => {
@@ -572,7 +609,11 @@ function FreeModeInner() {
   }
 
   async function deleteItem(id: string) {
-    setHistory(prev => prev.filter(x => x.id !== id));
+    setHistory(prev => {
+      const updated = prev.filter(x => x.id !== id);
+      saveHistoryToLS(updated);
+      return updated;
+    });
     await fetch(`/api/free-mode/history/${id}`, { method: "DELETE" }).catch(() => null);
   }
 
@@ -809,6 +850,8 @@ function FreeModeInner() {
               if (!confirm("Clear all history? This cannot be undone.")) return;
               // Delete from DB in background
               history.forEach(item => fetch(`/api/free-mode/history/${item.id}`, { method: "DELETE" }).catch(() => null));
+              // Clear localStorage too
+              try { localStorage.removeItem(LS_KEY); } catch { /* ignore */ }
               setHistory([]);
             }} style={{
               padding: "6px 12px", borderRadius: 8, fontSize: 11, fontWeight: 600,

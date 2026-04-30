@@ -18,6 +18,8 @@ export const VIDEO_MODELS: VideoModel[] = [
 ];
 
 export const IMAGE_MODELS: ImageModel[] = [
+  { id: "segmind_flux",            name: "Segmind Flux (Free)", cost: "$0.0003–0.0005/img", badge: "FREE",    badgeColor: "#22c55e", desc: "Free-tier Segmind Flux — fast quality at minimal cost" },
+  { id: "ideogram_free",           name: "Ideogram Free",     cost: "$0",        badge: "FREE",     badgeColor: "#06b6d4", desc: "Ideogram free tier — best text rendering at $0" },
   { id: "fal_flux_schnell",        name: "Flux Schnell",      cost: "$0.003",    badge: "FASTEST",  badgeColor: "#22c55e", desc: "Ultra-fast draft images" },
   { id: "fal_flux_dev",            name: "Flux Dev",          cost: "$0.025",    badge: "STANDARD", badgeColor: "#3b82f6", desc: "Good detail, balanced" },
   { id: "fal_ideogram_v3_turbo",   name: "Ideogram v3",       cost: "$0.020",    badge: "TEXT",     badgeColor: "#06b6d4", desc: "Best text rendering" },
