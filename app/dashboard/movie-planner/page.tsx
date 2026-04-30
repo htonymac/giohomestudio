@@ -262,6 +262,11 @@ function MoviePlannerInner() {
   const [selectedCast, setSelectedCast] = useState<Array<{ characterId: string; role: string }>>([]);
   const [loadingChars, setLoadingChars] = useState(false);
 
+  // ── AI Cast Generation from story ──
+  const [generatedCast, setGeneratedCast] = useState<Character[]>([]);
+  const [castGenerating, setCastGenerating] = useState(false);
+  const [castGenError, setCastGenError] = useState<string | null>(null);
+
   // ── AI Planning ──
   const [planning, setPlanning] = useState(false);
   const [moviePlan, setMoviePlan] = useState<MoviePlan | null>(null);
@@ -293,6 +298,11 @@ function MoviePlannerInner() {
 
   // ── Character Picker ──
   const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+
+  // ── Pre-flight check ──
+  interface PreflightCheck { id: string; label: string; status: "ok" | "warn" | "error"; detail?: string; autoFixAvailable: boolean; autoFixAction?: string; }
+  const [preflightResult, setPreflightResult] = useState<{ checks: PreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
+  const [preflightRunning, setPreflightRunning] = useState(false);
 
   // ── Error display ──
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -1165,6 +1175,83 @@ function MoviePlannerInner() {
       setErrorMsg(`Validation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     setValidating(false);
+  }
+
+  // ── Pre-flight check before assembly ──
+  async function runPreflight() {
+    setPreflightRunning(true);
+    try {
+      const sceneList = scenes.map(s => {
+        const sceneId = `SC${String(s.scene).padStart(2, "0")}`;
+        return { sceneId, imageUrl: sceneImages[sceneId] || s.generatedAssetUrl || null, videoUrl: sceneVideos?.[sceneId] || null, title: s.title };
+      });
+      const charList = savedCharacters.filter(c => selectedCast.some(sc => sc.characterId === c.id)).map(c => ({ id: c.id, name: c.name, voiceId: c.characterId, voiceName: c.voiceName }));
+      const res = await fetch("/api/hybrid/pre-flight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectType: "movie",
+          scenes: sceneList,
+          audioConfig: { narrationProvider: "piper", musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          characters: charList,
+        }),
+      });
+      const data = await safeJson<{ checks: PreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number }>(res, "pre-flight");
+      setPreflightResult(data);
+    } catch (err) {
+      console.error("preflight error:", err);
+    } finally {
+      setPreflightRunning(false);
+    }
+  }
+
+  // ── Generate Cast from Story (AI extracts characters from the expanded story) ──
+  async function generateCastFromStory() {
+    const storyText = expandedStory || idea;
+    if (!storyText.trim()) {
+      setCastGenError("Write your story first before generating cast.");
+      return;
+    }
+    setCastGenerating(true);
+    setCastGenError(null);
+    try {
+      const expandedPayload = { summary: storyText, characterList: [] };
+      const res = await fetch("/api/hybrid/character-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expandedStory: expandedPayload, projectId }),
+      });
+      const data = await safeJson<{ characters: Array<{ characterId: string; name: string; role: string; gender: string; age: string; voiceId: string; voiceName: string; dbId: string }>; error?: string }>(res, "cast-generate");
+      if (data.error) {
+        setCastGenError(data.error);
+        return;
+      }
+      const chars: Character[] = (data.characters || []).map(c => ({
+        id: c.dbId || c.characterId,
+        name: c.name,
+        role: c.role || "supporting",
+        description: "",
+        imageUrl: "",
+        characterId: c.characterId,
+        voiceName: c.voiceName || "",
+      }));
+      setGeneratedCast(chars);
+      // Merge into savedCharacters (deduplicate by id)
+      setSavedCharacters(prev => {
+        const existingIds = new Set(prev.map(c => c.id));
+        const newChars = chars.filter(c => !existingIds.has(c.id));
+        return [...prev, ...newChars];
+      });
+      // Auto-add all to cast
+      chars.forEach(c => addToCast(c.id));
+      setLastAction(`AI generated ${chars.length} cast member${chars.length !== 1 ? "s" : ""} from story`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Cast generation failed";
+      setCastGenError(msg);
+      setErrorMsg(msg);
+    } finally {
+      setCastGenerating(false);
+    }
   }
 
   // ── Assemble Final Movie ──
@@ -2170,13 +2257,44 @@ function MoviePlannerInner() {
                 </button>
               </a>
               <button onClick={() => setShowCharacterPicker(prev => !prev)}
-                style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${purple}30`, background: showCharacterPicker ? `${purple}10` : "transparent", color: purple, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                {showCharacterPicker ? "Hide Picker" : "Import Existing"}
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                {showCharacterPicker ? "Hide Library" : "or import saved →"}
               </button>
             </div>
           </div>
 
-          {/* Inline CharacterPicker — always visible in Characters tab */}
+          {/* ── PRIMARY ACTION: AI Cast Generation from Story ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${purple}40`, background: `${purple}08` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <Icon.Star style={{ width: 18, height: 18, color: purple, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>AI Cast Generator</p>
+                <p style={{ fontSize: 11, color: muted }}>AI reads your story and builds the full cast — names, roles, voices, ready to use.</p>
+              </div>
+            </div>
+            {castGenError && (
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: `${red}10`, border: `1px solid ${red}30`, marginBottom: 10 }}>
+                <p style={{ fontSize: 11, color: red }}>{castGenError}</p>
+              </div>
+            )}
+            {generatedCast.length > 0 && (
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: `${green}08`, border: `1px solid ${green}25`, marginBottom: 10 }}>
+                <p style={{ fontSize: 11, color: green, fontWeight: 600 }}>{generatedCast.length} cast members generated and added below.</p>
+              </div>
+            )}
+            <button
+              onClick={generateCastFromStory}
+              disabled={castGenerating || (!expandedStory && !idea.trim())}
+              title={(!expandedStory && !idea.trim()) ? "Write your story first" : ""}
+              style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: castGenerating ? "#2a2040" : (!expandedStory && !idea.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${purple}, #7c3aed)`, color: (!expandedStory && !idea.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: castGenerating || (!expandedStory && !idea.trim()) ? "not-allowed" : "pointer" }}>
+              {castGenerating ? "Generating cast from story..." : generatedCast.length > 0 ? "Regenerate Cast from Story" : "Generate Cast from Story"}
+            </button>
+            {!expandedStory && !idea.trim() && (
+              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Write your story first in the Story tab, then come back here.</p>
+            )}
+          </div>
+
+          {/* Inline CharacterPicker — secondary, hidden by default */}
           {showCharacterPicker && (
             <div style={{ ...cardStyle, marginBottom: 16 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
@@ -3006,6 +3124,40 @@ function MoviePlannerInner() {
                 Save Cut
               </button>
             </div>
+          </div>
+
+          {/* ── Pre-Flight AI Review ── */}
+          <div style={{ ...cardStyle, marginBottom: 12, borderColor: preflightResult ? (preflightResult.blockingErrors > 0 ? `${red}40` : preflightResult.warnings > 0 ? `${gold}40` : `${green}40`) : `${purple}30` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Assembly Review</p>
+              </div>
+              {preflightResult && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  {preflightResult.blockingErrors > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${red}20`, color: red, fontWeight: 700 }}>{preflightResult.blockingErrors} error{preflightResult.blockingErrors !== 1 ? "s" : ""}</span>}
+                  {preflightResult.warnings > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${gold}20`, color: gold, fontWeight: 700 }}>{preflightResult.warnings} warning{preflightResult.warnings !== 1 ? "s" : ""}</span>}
+                  {preflightResult.canAssemble && preflightResult.warnings === 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${green}20`, color: green, fontWeight: 700 }}>Ready</span>}
+                </div>
+              )}
+            </div>
+            <button onClick={runPreflight} disabled={preflightRunning}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
+              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+            </button>
+            {preflightResult && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {preflightResult.checks.map(check => (
+                  <div key={check.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 8, background: check.status === "ok" ? `${green}08` : check.status === "warn" ? `${gold}08` : `${red}08`, border: `1px solid ${check.status === "ok" ? green : check.status === "warn" ? gold : red}20` }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗"}</span>
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: check.status === "ok" ? green : check.status === "warn" ? gold : red }}>{check.label}</p>
+                      {check.detail && <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{check.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Readiness gate */}
