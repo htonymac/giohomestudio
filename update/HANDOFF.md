@@ -1,4 +1,4 @@
-# GHS HANDOFF — 2026-04-30 Session (updated S10)
+# GHS HANDOFF — 2026-04-30 Session (updated S11)
 
 ## Credit cap hit at ~11:54am UTC (10:54am PT). Resets 11:40am PT.
 
@@ -16,6 +16,7 @@
 | S8 | fix/ghs-bug-10-sfx-provider | f99f83a de7aa7e 760148c 691a5e8 | BUG-10 FAL SFX tier, CC license gate, auto-mode toggle (children+movie), safeForAutoMode in assets. Bonus: music-video-planner @/lib/api-utils path fix. |
 | S9 | fix/ghs-bug-06-scene-polish | 5b24534 b73b83b fdfdc0e | BUG-06 per-scene text polish: /api/hybrid/scene-polish route (polish|upgrade|add-detail), Polish button + handler in hybrid-planner, children-planner, movie-planner. |
 | S10 | fix/ghs-bug-05-movie-planner | dcdf31c | BUG-05 audit: 6/7 sub-bugs already fixed in prior slices. Gap fixed: Overview tab now shows assembledUrl video player + Watch/Download buttons. Assembly tab assemble button gets data-testid. Assembly footer adds Download MP4 link. Playwright 8/8 tabs PASS. |
+| S11 | fix/ghs-bug-12-commercial | 9031af8 f685800 10de8e6 | BUG-12 commercial 3 sub-modes. safeJson guards on narration polish + caption polish + translate. Mode 2 regen script error surface. Mode 3 videoGenError state + UI banner. All 3 modes render. Playwright 12/12 PASS 90s. |
 
 ## S4c — NOT completed (credit cap hit):
 - Movie planner Cast tab: replace "Import Existing" primary → AI-generate-cast-from-story

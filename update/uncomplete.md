@@ -1,6 +1,19 @@
 # GioHomeStudio — Incomplete / Pending Tasks
 Updated: 2026-04-30
 
+## SESSION 2026-04-30 — S11 BUG-12 Commercial 3 Sub-modes
+
+### [FIXED 2026-04-30 S11] BUG-12 — Commercial section 3 sub-modes broken
+- Narration polish: bare `res.json()` with no try/catch → crash on HTML error pages. Fixed: `safeJson<T>()` + try/catch, error shown near button.
+- Caption polish: same issue. Fixed same way.
+- Translate handler: same issue. Fixed same way.
+- Mode 2 AI Ad Creator: regen-script button had no error surface. Fixed: safeJson + setWarn on failure. All 4 Mode 2 fetches (analyze/generate-script/regen/build-slides) now use safeJson.
+- Mode 3 AI Video Commercial: no error state. Added `videoGenError` state. Set on scene generation catch + when all scenes fail. Error banner shown in Step 4 UI.
+- All 3 mode cards render correctly. Mode navigation (list→Mode2→back→Mode3→back) works.
+- Branch: fix/ghs-bug-12-commercial
+- Commits: 9031af8 f685800 10de8e6
+- Playwright: 12/12 PASS, 90s
+
 ## SESSION 2026-04-30 — S10 BUG-05 Movie Planner Pipeline Audit
 
 ### [FIXED 2026-04-30 S10] BUG-05 — Movie planner pipeline gaps (all 7 sub-bugs)
