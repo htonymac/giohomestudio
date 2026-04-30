@@ -17,6 +17,7 @@ import CharacterPicker from "../../components/CharacterPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
+import { safeJson } from "../../../lib/api-utils";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -1019,12 +1020,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
   async function handleTranslateField(slideId: string, field: "caption" | "narration", text: string) {
     setTranslateState({ slideId, field, translated: "", loading: true, lang: translateLang });
-    const res  = await fetch("/api/translate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, targetLanguage: translateLang }),
-    });
-    const data = await res.json();
-    setTranslateState({ slideId, field, translated: data.translated ?? "", loading: false, lang: translateLang });
+    try {
+      const res  = await fetch("/api/translate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetLanguage: translateLang }),
+      });
+      const data = await safeJson<{ translated?: string; error?: string }>(res, "commercial-translate");
+      setTranslateState({ slideId, field, translated: data.translated ?? "", loading: false, lang: translateLang });
+    } catch {
+      setTranslateState({ slideId, field, translated: "", loading: false, lang: translateLang });
+    }
   }
 
   // ── Project-level PATCH ─────────────────────────────────────────────────
@@ -1742,13 +1747,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const text = selectedSlide.captionOriginal?.trim();
                         if (!text) return;
                         setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: true });
+                        try {
                         const res  = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/polish`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, field: "caption", maxWords: project.captionMaxWords, maxChars: project.captionMaxChars }),
                         });
-                        const data = await res.json();
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished, loading: false });
+                        const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-caption-polish");
+                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished ?? "", loading: false });
                         else setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        } catch (err) {
+                          setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
+                        }
                       }}
                       className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -1889,13 +1898,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const text = selectedSlide.narrationLine?.trim();
                         if (!text) return;
                         setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: true });
+                        try {
                         const res  = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/polish`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, tone: "warm", field: "narration" }),
                         });
-                        const data = await res.json();
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished, loading: false });
+                        const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-narration-polish");
+                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished ?? "", loading: false });
                         else setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        } catch (err) {
+                          setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
+                        }
                       }}
                       className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -2786,9 +2799,9 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
     formData.append("file", file);
     try {
       const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
-      const data = await res.json();
+      const data = await safeJson<{ url?: string }>(res, "commercial-mode3-upload");
       if (data.url) setProductImageUrl(data.url);
-    } catch { /* upload failed */ }
+    } catch { /* upload failed — preview-only mode */ }
   };
 
   // Step 2: AI Planning — generate scene blueprints
@@ -2821,7 +2834,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: planPrompt, mode: "json" }),
       });
-      const data = await res.json();
+      const data = await safeJson<{ enhanced?: string; result?: string; text?: string }>(res, "commercial-mode3-plan");
       const raw = data.enhanced || data.result || data.text || "";
 
       // Parse the JSON array from the response
@@ -2922,10 +2935,11 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
             aspectRatio: "16:9",
           }),
         });
-        const data = await res.json();
-        if (data.outputUrl) {
-          outputs[scene.id] = data.outputUrl;
-          setSceneOutputs(prev => ({ ...prev, [scene.id]: data.outputUrl }));
+        const data = await safeJson<{ outputUrl?: string; videoUrl?: string; url?: string; error?: string }>(res, "commercial-mode3-generate");
+        const outputUrl = data.outputUrl ?? data.videoUrl ?? data.url;
+        if (outputUrl) {
+          outputs[scene.id] = outputUrl;
+          setSceneOutputs(prev => ({ ...prev, [scene.id]: outputUrl }));
           setSceneProgress(prev => ({ ...prev, [scene.id]: "done" }));
         } else {
           setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
