@@ -466,3 +466,15 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
   y, sr_native = __audioread_load(path, offset, duration, dtype)
 
 **Stderr:** 
+
+
+## Karaoke Analysis Error — 2026-04-29T21:44:04.615Z
+**Recording:** 7aaea769-9fa9-4339-a49d-4c0d6e21b4fe
+**Error:** Python exited with code 1. stderr: C:\Users\USER\Desktop\CLAUDE\giohomestudio\scripts\karaoke_analyze.py:106: UserWarning: PySoundFile failed. Trying audioread instead.
+  y, sr = librosa.load(audio_path, sr=None, mono=True)
+C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\core\audio.py:184: FutureWarning: librosa.core.audio.__audioread_load
+	Deprecated as of librosa version 0.10.0.
+	It will be removed in librosa version 1.0.
+  y, sr_native = __audioread_load(path, offset, duration, dtype)
+
+**Stderr:** 
