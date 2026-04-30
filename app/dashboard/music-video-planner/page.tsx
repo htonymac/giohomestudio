@@ -6,7 +6,7 @@ import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import { ds } from "../../../lib/designSystem";
-import { safeJson } from "@/lib/api-utils";
+import { safeJson } from "../../../lib/api-utils";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
