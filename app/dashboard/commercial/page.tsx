@@ -2779,6 +2779,7 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
   const [brandStyle, setBrandStyle] = useState("");
   const [allowedClaims, setAllowedClaims] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [videoGenError, setVideoGenError] = useState<string | null>(null);
 
   // Step 2: AI-planned scenes
   const [plannedScenes, setPlannedScenes] = useState<CommercialScene[]>([]);
@@ -2910,6 +2911,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
     const approved = plannedScenes.filter(s => s.approved);
     if (approved.length === 0) return;
     setGenerating(true);
+    setVideoGenError(null);
 
     // Initialize progress
     const progress: Record<string, "pending" | "generating" | "done" | "error"> = {};
@@ -2950,8 +2952,9 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         } else {
           setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
         }
-      } catch {
+      } catch (err) {
         setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
+        setVideoGenError(err instanceof Error ? err.message : "Video generation failed");
       }
     }
 
@@ -2959,6 +2962,8 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
     const firstOutput = Object.values(outputs)[0];
     if (firstOutput) {
       setResultUrl(firstOutput);
+    } else if (Object.keys(outputs).length === 0) {
+      setVideoGenError("All scenes failed to generate. Check your API keys in Settings.");
     }
     setGenerating(false);
   };
@@ -3228,6 +3233,15 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
           <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 6 }}>Generate & Assemble</p>
           <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 16 }}>Rendering approved scenes. This may take a few minutes per scene.</p>
+          {videoGenError && (
+            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div>
+                <p style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginBottom: 2 }}>Generation error</p>
+                <p style={{ fontSize: 10, color: "#ef4444", opacity: 0.8 }}>{videoGenError}</p>
+              </div>
+              <button onClick={() => setVideoGenError(null)} style={{ background: "none", border: "none", color: "#5a7080", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>✕</button>
+            </div>
+          )}
 
           {/* Per-scene progress */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
