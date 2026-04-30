@@ -6221,6 +6221,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
           </div>
 
+          {/* ── Narration Provider — global selector (always visible in Audio tab) ── */}
+          <div style={{ ...cardStyle, borderColor: `${accent}15`, marginBottom: 16 }} data-testid="narration-provider-card">
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Narration Provider</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Narrator = cloud AI (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech (no file).</p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {([
+                { id: "piper",       label: "Piper (free)",   color: accent },
+                { id: "fal-narrator", label: "FAL Narrator",  color: blue },
+                { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
+                { id: "karaoke",     label: "Karaoke",        color: gold },
+                { id: "none",        label: "None",           color: muted },
+              ] as const).map(v => (
+                <button key={v.id} onClick={() => setNarratorVoice(v.id)}
+                  data-provider={v.id}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
+                    background: narratorVoice === v.id ? `${v.color}15` : "transparent",
+                    color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                  {v.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* ── Auto Time Stamp Results ─────────────────────────────────────── */}
           {autoTimestampPlan && (
             <div style={{ ...cardStyle, borderColor: "#7c5cfc40", marginBottom: 20 }}>
