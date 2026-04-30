@@ -1,5 +1,13 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-04-30 S2
+
+### fix(character-system): eliminate bear collapse + attach reference images by characterId (BUG-02)
+- **What:** (A) New `attachCharacterReferences(prompt, characterIds[])` in `src/lib/character-resolver.ts` — explicit ID lookup, no token embedding needed. (B) `app/api/generation/image/route.ts` accepts `characterIds[]`, calls attachCharacterReferences, returns `referenceImages` in response. (C) `app/api/hybrid/character-build/route.ts` — `isHumanRole()` helper, `humanGuard` in user prompt, ABSOLUTE human enforcement when `role=human` or `childSafe=true`, system prompt guard against bear/animal anatomy. (D) `app/api/hybrid/story-expand/route.ts` — removed "The Bear" anti-example, added global human-default rule to system prompt.
+- **Why:** Characters rendering as bears across all planners. Root cause: resolver token-only path missed explicit character lookups; species enum allowed bear for human roles; story-expand primed model toward animal output.
+- **Impact:** Human characters now generate as humans. Reference images attached via explicit IDs. All callers benefit without prompt token changes.
+- **Risk:** Low — resolver backward compatible; existing token flow unchanged; new characterIds field is optional
+
 ## 2026-04-30 S1
 
 ### fix: children-planner character DB persistence (BUG-03)

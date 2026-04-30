@@ -42,6 +42,34 @@ function resolveVoiceDefaults(role: string, gender: string, ageRange: string) {
 }
 
 // ── LLM prompt ────────────────────────────────────────────────────────────────
+
+// BUG-02 Fix C: helper to detect human role from story context or explicit hints
+function isHumanRole(storyText: string, name: string): boolean {
+  const lower = storyText.toLowerCase();
+  const nameLower = name.toLowerCase();
+  // Explicit human indicators near the character name
+  const humanKeywords = ["human", "person", "man", "woman", "boy", "girl", "teacher", "student",
+    "doctor", "officer", "farmer", "priest", "king", "queen", "prince", "princess",
+    "soldier", "warrior", "merchant", "scientist", "engineer", "nurse"];
+  for (const kw of humanKeywords) {
+    if (lower.includes(`${nameLower} ${kw}`) || lower.includes(`${kw} ${nameLower}`) ||
+        lower.includes(`${nameLower} is a ${kw}`) || lower.includes(`${nameLower} was a ${kw}`)) {
+      return true;
+    }
+  }
+  // No clear animal indicators near name
+  const animalKeywords = ["rabbit", "lion", "cat", "dog", "fox", "wolf", "bear", "tiger",
+    "elephant", "monkey", "horse", "duck", "pig", "owl", "frog"];
+  for (const kw of animalKeywords) {
+    if (lower.includes(`${nameLower} the ${kw}`) || lower.includes(`${kw} named ${nameLower}`) ||
+        lower.includes(`${nameLower} is a ${kw}`) || lower.includes(`${nameLower} was a ${kw}`)) {
+      return false; // explicitly an animal
+    }
+  }
+  // Default: if no explicit animal cue, lean human
+  return true;
+}
+
 function buildCharacterPrompt(
   name: string,
   storyText: string,
@@ -65,6 +93,24 @@ function buildCharacterPrompt(
       }\nDo NOT reuse the same species as any character listed above unless the story explicitly requires it.\n`
     : "";
 
+  // BUG-02 Fix C: detect if character is human from story context
+  const likelyHuman = isHumanRole(storyText, name);
+
+  // Species options: exclude bear/cartoon-animal for human characters
+  const speciesOptions = likelyHuman
+    ? `"human" — this character is human. Do NOT use bear, animal, or anthropomorphic anatomy.`
+    : `"human | rabbit | lion | cat | dog | fox | wolf | [other]" — what kind of character are they. Only use "bear" if the story text EXPLICITLY names this character as a bear.`;
+
+  // Human guard block — injected when character appears to be human
+  const humanGuard = likelyHuman
+    ? `\nCRITICAL: "${name}" appears to be a human character. Generate a FULLY HUMAN character profile:
+- species MUST be "human"
+- Do NOT add bear features, paws, snout, fur, or any animal anatomy
+- Do NOT use anthropomorphic or cartoon animal traits
+- skin tone should be a realistic human skin tone
+- face features should be human face features only\n`
+    : "";
+
   return `You are a character design director for an AI film studio.
 
 Story text:
@@ -75,7 +121,7 @@ ${storyText.slice(0, 3000)}
 Art style: ${styleHint}
 Language: ${language}
 Character to build: "${name}"
-${takenBlock}
+${takenBlock}${humanGuard}
 Read the story carefully and find every mention or description of "${name}".
 Build a complete character profile. If the story doesn't specify something, make a creative decision that:
 1. Fits the story world and this character's role
@@ -87,7 +133,7 @@ Return ONLY valid JSON (no markdown, no explanation):
   "roleType": "protagonist | antagonist | supporting | narrator | elder | child | comic_relief",
   "gender": "male | female | unknown",
   "ageRange": "child | teen | young_adult | adult | elder",
-  "species": "human | rabbit | lion | cat | dog | bear | fox | wolf | [other] — what kind of character are they",
+  "species": ${speciesOptions},
   "bodyBuild": "detailed body shape description",
   "colorDescription": "fur/skin/body colour — be specific and DIFFERENT from existing characters",
   "faceFeatures": "face, eyes, nose, ears, any glasses or facial features",
@@ -109,12 +155,14 @@ Return ONLY valid JSON (no markdown, no explanation):
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { characterName, storyText, artStyle, language, existingCharacters } = body as {
+    const { characterName, storyText, artStyle, language, existingCharacters, childSafe, role } = body as {
       characterName?: string;
       storyText?: string;
       artStyle?: string;
       language?: string;
       existingCharacters?: Array<{ name: string; species?: string; gender?: string; colorDescription?: string }>;
+      childSafe?: boolean;   // Fix E: when true, enforce human default + child-safe language
+      role?: string;         // Fix C: explicit role hint from caller ("human" enforces human anatomy)
     };
 
     if (!characterName || !storyText) {
@@ -125,9 +173,23 @@ export async function POST(req: NextRequest) {
     const lang = language || "English";
 
     const prompt = buildCharacterPrompt(characterName, storyText, style, lang, existingCharacters);
+    // BUG-02 Fix C+E: system prompt guard — prevents LLM defaulting to bear/animal anatomy for humans
+    // childSafe + explicit role="human" both strengthen the human-anatomy enforcement
+    const isExplicitHuman = role === "human" || childSafe === true;
+    const humanEnforcement = isExplicitHuman
+      ? "ABSOLUTE RULE: This character is HUMAN. " +
+        "species MUST be 'human'. No bear, no animal anatomy, no fur, no snout, no paws, no anthropomorphic traits. " +
+        "Generate a realistic human person with human skin, human face, and human clothing. "
+      : "CRITICAL RULE: If the character is described as human, or there is no explicit animal cue in the story, " +
+        "generate a FULLY HUMAN character. Do NOT use bear features, animal anatomy, fur, snout, paws, " +
+        "or any anthropomorphic characteristics unless the story text EXPLICITLY states the character is an animal. ";
+    const systemPrompt =
+      "You are a character design director. You read story text carefully and build rich, distinct character profiles. " +
+      "You respond ONLY with valid JSON. No markdown. No explanation. " +
+      humanEnforcement;
     const llmResult = await callLLM(
       prompt,
-      "You are a character design director. You read story text carefully and build rich, distinct character profiles. You respond ONLY with valid JSON. No markdown. No explanation.",
+      systemPrompt,
       { role: "quality" as const, maxTokens: 1400, temperature: 0.6 }
     );
 
@@ -184,10 +246,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Resolve voice defaults if not provided by LLM
-    const role = profile.roleType || "supporting";
+    const resolvedRole = profile.roleType || "supporting";
     const gender = profile.gender || "unknown";
     const age = profile.ageRange || "adult";
-    const voiceDefaults = resolveVoiceDefaults(role, gender, age);
+    const voiceDefaults = resolveVoiceDefaults(resolvedRole, gender, age);
 
     const character = {
       displayName: profile.displayName || characterName,

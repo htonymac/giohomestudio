@@ -207,3 +207,91 @@ export async function resolveCharacterTokens(prompt: string): Promise<ResolvedPr
     referenceImages: allRefImages,
   };
 }
+
+// ── CharacterResolveResult: return type for attachCharacterReferences ──────────
+
+export interface CharacterResolveResult {
+  enhancedPrompt: string;
+  referenceImages: string[];
+  resolvedCharacters: ResolvedCharacter[];
+}
+
+/**
+ * attachCharacterReferences — explicit-ID based character attachment.
+ *
+ * Unlike resolveCharacterTokens (which requires character ID tokens to be
+ * embedded in the prompt string), this function accepts a list of characterIds
+ * directly and looks them up from the DB. It then:
+ *  1. Prepends each character's visual description to the prompt
+ *  2. Collects all reference image URLs
+ *
+ * Use this whenever the caller already knows which characters are in the scene
+ * but has not embedded tokens in the prompt string (most callers).
+ */
+export async function attachCharacterReferences(
+  prompt: string,
+  characterIds: string[]
+): Promise<CharacterResolveResult> {
+  if (!characterIds || characterIds.length === 0) {
+    return { enhancedPrompt: prompt, referenceImages: [], resolvedCharacters: [] };
+  }
+
+  // Single DB query — match on characterId OR id field
+  const characters = await prisma.characterVoice.findMany({
+    where: {
+      OR: [
+        { characterId: { in: characterIds } },
+        { id: { in: characterIds } },
+      ],
+    },
+  });
+
+  if (characters.length === 0) {
+    return { enhancedPrompt: prompt, referenceImages: [], resolvedCharacters: [] };
+  }
+
+  const resolvedCharacters: ResolvedCharacter[] = [];
+  const allRefImages: string[] = [];
+  const descriptionParts: string[] = [];
+
+  for (const char of characters) {
+    const snippet = buildCharacterSnippet(char);
+    if (snippet) {
+      descriptionParts.push(`[Character: ${char.name} — ${snippet}]`);
+    }
+
+    const refUrls = extractImageUrls(char.referenceImages);
+    if (char.imageUrl) {
+      refUrls.unshift(normalizeStorageUrl(char.imageUrl));
+    }
+    allRefImages.push(...refUrls);
+
+    resolvedCharacters.push({
+      characterId: char.characterId || char.id,
+      displayName: char.name,
+      visualDescription: snippet,
+      referenceImageUrls: refUrls,
+      voiceId: char.voiceId || undefined,
+      continuityLocks: {
+        skinTone: char.culture || undefined,
+        hairStyle: char.hairstyle || undefined,
+        faceTraits: char.visualDescription || undefined,
+        bodyType: char.height || undefined,
+        wardrobeStyle: char.wardrobe || undefined,
+        specialTraits: char.personality || undefined,
+      },
+    });
+  }
+
+  // Prepend all character descriptions to the prompt for strong visual guidance
+  const characterContext = descriptionParts.join(" ");
+  const enhancedPrompt = characterContext
+    ? `${characterContext} ${prompt}`
+    : prompt;
+
+  return {
+    enhancedPrompt,
+    referenceImages: allRefImages,
+    resolvedCharacters,
+  };
+}
