@@ -451,7 +451,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       setCreatedProjId(proj.id);
 
       const res  = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
-      const data = await res.json() as { savedFiles?: typeof savedFiles; analysis?: Record<string, unknown>; warning?: string };
+      const data = await safeJson<{ savedFiles?: typeof savedFiles; analysis?: Record<string, unknown>; warning?: string }>(res, "commercial-mode2-analyze");
 
       setSavedFiles(data.savedFiles ?? []);
       if (data.analysis) {
@@ -481,7 +481,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = await res.json() as { script?: string; error?: string };
+      const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-generate-script");
       if (res.ok) {
         setScript(data.script ?? "");
         setStep("script");
@@ -506,7 +506,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         body: JSON.stringify({ filePaths: savedFiles.map(f => f.path), script }),
       });
       type BuildResult = CommercialProject & { slides: CommercialSlide[]; error?: string };
-      const data = await res.json() as BuildResult;
+      const data = await safeJson<BuildResult>(res, "commercial-mode2-build-slides");
       if (!res.ok) { setWarn(data.error ?? "Build failed"); return; }
       onOpenProject(data);
     } catch {
@@ -704,13 +704,19 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               <button
                 onClick={async () => {
                   setGenerating(true);
-                  const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(form),
-                  });
-                  const data = await res.json() as { script?: string };
-                  if (res.ok) setScript(data.script ?? "");
-                  setGenerating(false);
+                  try {
+                    const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(form),
+                    });
+                    const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-regen-script");
+                    if (res.ok) setScript(data.script ?? "");
+                    else setWarn(data.error ?? "Script regeneration failed");
+                  } catch (err) {
+                    setWarn(err instanceof Error ? err.message : "Network error regenerating script");
+                  } finally {
+                    setGenerating(false);
+                  }
                 }}
                 disabled={generating}
                 className="flex-1 py-2 bg-[#1a1a2e] border border-[#2a2a40] hover:border-[#7c5cfc]/50 text-[#6060a0] hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
