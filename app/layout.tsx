@@ -4,6 +4,7 @@ import Sidebar from "./components/Sidebar";
 import CommandPalette from "./components/CommandPalette";
 import { ToastProvider } from "./components/Toast";
 import { TopBar } from "./components/chrome/TopBar";
+import { CoordinatorProvider } from "./components/CoordinatorProvider";
 
 export const metadata: Metadata = {
   title: "GioHomeStudio",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         }}
       >
         <ToastProvider>
+          <CoordinatorProvider>
           <div className="flex h-screen overflow-hidden">
             {/* Sidebar */}
             <div className="shrink-0 h-full">
@@ -70,6 +72,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </div>
           </div>
           <CommandPalette />
+          </CoordinatorProvider>
         </ToastProvider>
       </body>
     </html>

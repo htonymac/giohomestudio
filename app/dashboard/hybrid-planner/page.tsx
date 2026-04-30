@@ -13,6 +13,7 @@ import { ds } from "../../../lib/designSystem";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
+import { useCoordinator } from "../../components/CoordinatorProvider";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -183,6 +184,7 @@ export default function HybridPlannerPage() {
 function HybridPlannerInner() {
   const params = useSearchParams();
   const { requireGate, GateModal } = useGate();
+  const { canAdvanceTo } = useCoordinator();
 
   // ── Workshop tab ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("overview");
@@ -1969,6 +1971,12 @@ function HybridPlannerInner() {
   }
 
   async function assembleScenes() {
+    // ── Coordinator guard (BUG-01): block assembly if story or scenes not complete ──
+    const coordinatorBlock = canAdvanceTo("assembly");
+    if (coordinatorBlock) {
+      setUiError(coordinatorBlock);
+      return;
+    }
     try { await requireGate(); } catch { return; }
     setAssembling(true); setAssemblyComplete(false); setAssembledVideoUrl(null); setUiError(null);
     const progress: Record<number, string> = {};

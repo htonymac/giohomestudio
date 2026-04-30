@@ -1,4 +1,28 @@
-# GHS Handoff — 2026-04-27
+# GHS Handoff — 2026-04-30 (S16 BUG-01)
+
+## S16 Status: DONE — AI Coordinator global Zustand store
+
+S16 (BUG-01) complete on branch `fix/ghs-bug-01-coordinator`. Slices S1–S16 all complete. Ready for final sweep + merge planning.
+
+### S16 files changed
+- `src/modules/coordinator/index.ts` — NEW: Zustand coordinator store with persist, canAdvanceTo guard
+- `app/components/CoordinatorProvider.tsx` — NEW: React wrapper + useCoordinator hook + pathname detection
+- `app/layout.tsx` — CoordinatorProvider added to layout tree
+- `app/api/hybrid/coordinator-status/route.ts` — NEW: GET endpoint for stage/section status + supervisor advice
+- `app/dashboard/hybrid-planner/page.tsx` — coordinator guard in assembleScenes (additive, non-breaking)
+- `update/uncomplete.md` — BUG-01 marked DONE
+- `HANDOFF.md`, `CHANGELOG.md` — updated
+
+### Next exact steps
+1. Boss: final sweep of all S1-S16 branches
+2. Merge order: S1 → S2 → ... → S16 (each branch targets main or prior branch)
+3. Run `npx next build` on merged main to verify zero compilation errors
+4. Run Playwright full-coverage suite
+5. Push to main and browser-verify live
+
+---
+
+# GHS Handoff — 2026-04-27 (archived)
 
 ## Where we are
 
