@@ -18,7 +18,20 @@ export interface AssetEntry {
   tags: string[];
   source: string;      // "generated", "uploaded", "trimmed", "stock"
   provider?: string;    // "segmind", "fal", "piper", etc.
+  license?: string;     // "cc0", "cc-by", "cc-by-nc", "pixabay", "unknown"
+  safeForAutoMode?: boolean; // true = CC0/CC-BY/Public-Domain/AI-generated; false = blocked in auto mode
+  attribution?: { title?: string; author?: string; license?: string };
   createdAt: string;
+}
+
+// Licences safe for auto-mode SFX (commercial-safe, no NC clause)
+const AUTO_SAFE_LICENSES = ["cc0", "cc-by", "public-domain", "pixabay", "cc by"];
+
+function computeSafeForAutoMode(license?: string): boolean {
+  if (!license) return false;
+  const l = license.toLowerCase().trim();
+  if (l.includes("nc") || l.includes("non-commercial") || l === "unknown" || l === "") return false;
+  return AUTO_SAFE_LICENSES.some(safe => l.startsWith(safe) || l === safe);
 }
 
 function loadAssets(): AssetEntry[] {
@@ -68,7 +81,21 @@ export async function GET(req: NextRequest) {
     if (fs.existsSync(sfxDir)) {
       const files = fs.readdirSync(sfxDir).filter(f => f.endsWith(".mp3") || f.endsWith(".wav"));
       for (const f of files) {
-        const name = f.replace(/\.(mp3|wav)$/, "").replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        const base = f.replace(/\.(mp3|wav)$/i, "");
+        const name = base.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+        // Derive license from filename prefix convention (e.g. "cc0_rain.mp3" → "cc0")
+        const lower = base.toLowerCase();
+        let license = "unknown";
+        for (const lic of AUTO_SAFE_LICENSES) {
+          const prefix = lic.replace(/[\s-]/g, "_");
+          if (lower.startsWith(prefix + "_") || lower.startsWith(lic + "_")) { license = lic; break; }
+        }
+        if (lower.startsWith("cc_by_nc") || lower.startsWith("cc-by-nc")) license = "cc-by-nc";
+        // Try sidecar JSON
+        const sidecarPath = path.join(sfxDir, `${base}.json`);
+        if (fs.existsSync(sidecarPath)) {
+          try { const m = JSON.parse(fs.readFileSync(sidecarPath, "utf-8")); license = m.license || license; } catch { /* ignore */ }
+        }
         assets.push({
           id: `sfx_${f}`,
           type: "sfx",
@@ -77,6 +104,8 @@ export async function GET(req: NextRequest) {
           filePath: path.join(sfxDir, f),
           tags: ["sfx", "stock"],
           source: "stock_sfx",
+          license,
+          safeForAutoMode: computeSafeForAutoMode(license),
           createdAt: new Date().toISOString(),
         });
       }
