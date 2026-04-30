@@ -12,6 +12,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { User, Music, Film, Settings, Check, X, Mic } from "../../components/icons";
+import { safeJson } from "../../../lib/api-utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -161,9 +162,9 @@ export default function SceneForgePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ imageUrl, topic, style, aspectRatio: aspect, duration, voice, addBroll, addMusic, tier, videoModel, imageModel }),
       });
-      const data = await res.json();
+      const data = await safeJson<{ jobId?: string; error?: string }>(res, "avatar/create");
       if (data.error) throw new Error(data.error);
-      setJobId(data.jobId);
+      setJobId(data.jobId ?? "");
     } catch (e) {
       setJob({ status: "error", step: "Failed", steps: [], error: e instanceof Error ? e.message : "Error" });
     }
@@ -397,7 +398,7 @@ export default function SceneForgePage() {
 
               {/* Error */}
               {isError && (
-                <div style={{ padding: "12px 16px", background: "rgba(255,122,69,.08)", borderRadius: 8, border: `1px solid rgba(255,122,69,.25)`, fontSize: 12, color: ds.color.coral }}>
+                <div data-testid="lip-sync-error" style={{ padding: "12px 16px", background: "rgba(255,122,69,.08)", borderRadius: 8, border: `1px solid rgba(255,122,69,.25)`, fontSize: 12, color: ds.color.coral }}>
                   {job.error}
                 </div>
               )}

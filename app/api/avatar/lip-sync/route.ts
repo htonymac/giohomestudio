@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
 
     let videoUrl: string | null = null;
     let usedProvider = "";
+    const providerErrors: string[] = [];
 
     // Try 1: Hedra Character (talking portrait, best quality)
     try {
@@ -92,7 +93,9 @@ export async function POST(req: NextRequest) {
       });
       usedProvider = "hedra";
     } catch (e) {
-      console.warn("[lip-sync] hedra failed, trying fal lip-sync:", e);
+      const msg = e instanceof Error ? e.message : String(e);
+      console.warn("[lip-sync] hedra failed, trying fal lip-sync:", msg);
+      providerErrors.push(`hedra: ${msg}`);
     }
 
     // Try 2: Generic FAL lip-sync
@@ -104,12 +107,18 @@ export async function POST(req: NextRequest) {
         });
         usedProvider = "fal-lip-sync";
       } catch (e) {
-        console.warn("[lip-sync] fal lip-sync also failed:", e);
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn("[lip-sync] fal lip-sync also failed:", msg);
+        providerErrors.push(`fal-lip-sync: ${msg}`);
       }
     }
 
     if (!videoUrl) {
-      return NextResponse.json({ error: "All lip-sync providers failed" }, { status: 503 });
+      const detail = providerErrors.join(" | ");
+      return NextResponse.json(
+        { error: `lip-sync failed: all providers exhausted. ${detail}` },
+        { status: 502 }
+      );
     }
 
     const outPath = await saveVideo(videoUrl, `lipsync_${usedProvider}`);
@@ -117,6 +126,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ videoUrl: relUrl, rawUrl: videoUrl, provider: usedProvider });
   } catch (e) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : "Lip-sync failed" }, { status: 500 });
+    const msg = e instanceof Error ? e.message : "Lip-sync failed";
+    console.error("[lip-sync] unhandled error:", msg);
+    return NextResponse.json({ error: `lip-sync failed: ${msg}` }, { status: 500 });
   }
 }
