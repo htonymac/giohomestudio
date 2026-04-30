@@ -126,7 +126,7 @@ The central AI supervisor/orchestrator that should coordinate each section from 
 
 ### BUG-02 — Character Identity Collapse: All Characters Showing Bears/Cartoon (CRITICAL)
 
-**STATUS: [FIXED 2026-04-30 S2] branch: fix/ghs-bug-02-bear-collapse**
+**STATUS: [FIXED 2026-04-30 S2] branch: fix/ghs-bug-02-bear-collapse commit: 5f3ff37**
 
 **Affects:** Movie, Children, Hybrid, Auto-Creator, all planners
 **Screenshot:** https://prnt.sc/DRI6Kbvo_geI
