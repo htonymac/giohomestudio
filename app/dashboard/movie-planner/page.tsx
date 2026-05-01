@@ -226,9 +226,9 @@ type WorkshopTab = "design" | "story" | "script" | "sound" | "characters" | "sce
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",     label: "Design" },
   { id: "story",      label: "Story & Draft" },
-  { id: "characters", label: "Cast" },
-  { id: "sound",      label: "Voice & Audio" },
   { id: "script",     label: "Screenplay" },
+  { id: "sound",      label: "Voice & Audio" },
+  { id: "characters", label: "Cast" },
   { id: "scenes",     label: "Scene Board" },
   { id: "assembly",   label: "Assembly" },
   { id: "overview",   label: "Overview" },
