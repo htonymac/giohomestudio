@@ -113,10 +113,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Try 3: sync-lipsync (most reliable FAL lip-sync model)
+    if (!videoUrl) {
+      try {
+        videoUrl = await falQueue("fal-ai/sync-lipsync", {
+          video_url: imageUrl,
+          audio_url: audioUrl,
+        });
+        // fal-ai/sync-lipsync returns { video: { url } } — falQueue already handles this via url path
+        usedProvider = "sync-lipsync";
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn("[lip-sync] sync-lipsync also failed:", msg);
+        providerErrors.push(`sync-lipsync: ${msg}`);
+      }
+    }
+
     if (!videoUrl) {
       const detail = providerErrors.join(" | ");
+      console.error("[lip-sync] all providers exhausted:", detail);
       return NextResponse.json(
-        { error: `lip-sync failed: all providers exhausted. ${detail}` },
+        {
+          error: "All lip-sync providers failed",
+          providers: {
+            hedra: providerErrors.find(e => e.startsWith("hedra:")) ?? "not tried",
+            "fal-lip-sync": providerErrors.find(e => e.startsWith("fal-lip-sync:")) ?? "not tried",
+            "sync-lipsync": providerErrors.find(e => e.startsWith("sync-lipsync:")) ?? "not tried",
+          },
+          detail,
+        },
         { status: 502 }
       );
     }
