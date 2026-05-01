@@ -298,6 +298,8 @@ function MoviePlannerInner() {
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
+  // ── Narration audio URLs (sceneNum → audioUrl) — populated when TTS is generated ──
+  const [sceneNarrationAudioUrls, setSceneNarrationAudioUrls] = useState<Record<number, string>>({});
 
   // ── Project persistence ──
   const [projectList, setProjectList] = useState<Array<{ id: string; title: string; genre: string | null; status: string; updatedAt: string; _count: { scenes: number } }>>([]);
@@ -1435,12 +1437,38 @@ function MoviePlannerInner() {
         setAssemblyProgress({ ...progress });
       }
 
+      // Build narration list from per-scene TTS audio — include all scenes with audio
+      const narrationList = assemblyScenes
+        .filter(s => sceneNarrationAudioUrls[s.scene])
+        .map((s, idx) => ({
+          audioUrl: sceneNarrationAudioUrls[s.scene],
+          // Offset each narration clip by cumulative scene duration (5s default per scene)
+          startTime: assemblyScenes.slice(0, idx).reduce((acc, prev) => acc + ((prev as { duration?: number }).duration ?? 5), 0),
+          volume: 1.0,
+        }));
+
+      // Collect any character voice audio from saved characters (if character has voiceId)
+      const characterVoices = selectedCast
+        .map(sc => {
+          const char = savedCharacters.find(c => c.id === sc.characterId);
+          return char?.voiceName ? { characterId: sc.characterId, voiceName: char.voiceName, role: sc.role } : null;
+        })
+        .filter(Boolean);
+
       const res = await fetch("/api/video/assemble", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId, title: assemblyName || title,
           scenes: assemblyScenes,
+          // Audio parameters — REQUIRED for narration/voice/SFX in output
+          narrationUrl: narrationList.length === 1 ? narrationList[0].audioUrl : undefined,
+          narrationList: narrationList.length > 1 ? narrationList : undefined,
+          musicUrl: selectedMusicUrl || undefined,
+          musicVolume: 0.35,
+          narrationVolume: 1.0,
+          sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
+          characterVoices: characterVoices.length > 0 ? characterVoices : undefined,
         }),
       });
       const data = await res.json();
@@ -1616,6 +1644,8 @@ function MoviePlannerInner() {
       });
       const data = await res.json();
       if (data.audioUrl || data.filePath) {
+        const audioUrl: string = data.audioUrl || `/api/media/${(data.filePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        setSceneNarrationAudioUrls(prev => ({ ...prev, [scene.scene]: audioUrl }));
         setLastAction(`Scene ${scene.scene} narration audio ready`);
       } else {
         setErrorMsg(data.error || "Narration generation failed");
