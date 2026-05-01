@@ -95,6 +95,16 @@ interface CommercialProject {
   slides: CommercialSlide[];
 }
 
+// ── SC: 5-Tier Sound Model Selector (binding architectural decision) ──────────
+const SOUND_TIERS_COMM = [
+  { id: "piper_free",      label: "Standard",      subtitle: "Built-in GHS",        cost: "Free",    badge: "DEFAULT" },
+  { id: "piper_extended",  label: "Start Plus",    subtitle: "Extended Piper",       cost: "Low",     badge: ""        },
+  { id: "ghs_karaoke",     label: "Sound Pro",     subtitle: "GHS Karaoke",          cost: "Mid",     badge: "PRO"     },
+  { id: "elevenlabs",      label: "Classic",       subtitle: "ElevenLabs",           cost: "Premium", badge: ""        },
+  { id: "gemini",          label: "Premium",       subtitle: "Gemini Audio",         cost: "Highest", badge: "BEST"    },
+] as const;
+type SoundTierCommId = typeof SOUND_TIERS_COMM[number]["id"];
+
 const ASPECT_DIMS: Record<string, { w: number; h: number; label: string }> = {
   "9:16": { w: 9, h: 16, label: "Reels / TikTok / Shorts" },
   "16:9": { w: 16, h: 9, label: "YouTube / Desktop" },
@@ -819,6 +829,15 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [readImageState, setReadImageState] = useState<{ slideId: string; caption: string; narration: string; loading: boolean; error?: string; details?: string[] } | null>(null);
   const [showCharacterPicker, setShowCharacterPicker] = useState(false);
   const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; gender: string | null; age: string | null; country: string | null; culture: string | null; imageUrl: string | null; visualDescription: string | null; voiceId: string | null; voiceName: string | null; voiceProvider: string | null; defaultSpeechStyle: string | null; role: string | null; personality: string | null } | null>(null);
+  // ── SD: Model settings ────────────────────────────────────────────────────
+  const [soundTier, setSoundTier] = useState<SoundTierCommId>("piper_free");
+  const [modelSettings, setModelSettings] = useState({
+    storyLLM:        "claude-haiku-4-5",
+    charImageModel:  "fal_flux_schnell",
+    sceneVideoModel: "kling_1_6_standard",
+    soundModel:      "piper_free" as SoundTierCommId,
+  });
+  const [showModelSettings, setShowModelSettings] = useState(false);
 
   // Handle characterId passed from character-voices page
   useEffect(() => {
@@ -2654,6 +2673,104 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               </p>
             </div>
           )}
+
+          {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, background: "#0f0f0f", padding: "12px 14px" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "#e5e5e5", margin: 0 }}>Sound Model</h3>
+              <span style={{ fontSize: 9, color: "#5a5a8a", fontWeight: 700, letterSpacing: 0.8 }}>
+                {SOUND_TIERS_COMM.find(t => t.id === soundTier)?.badge || "ACTIVE"}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {SOUND_TIERS_COMM.map((tier, idx) => {
+                const active = soundTier === tier.id;
+                return (
+                  <button
+                    key={tier.id}
+                    onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
+                    style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      padding: "7px 10px", borderRadius: 7, cursor: "pointer", border: "none",
+                      background: active ? "rgba(124,92,252,0.15)" : "rgba(255,255,255,0.03)",
+                      outline: active ? "1.5px solid rgba(124,92,252,0.5)" : "1px solid rgba(255,255,255,0.06)",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    <span style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <span style={{ fontSize: 10, color: active ? "#b090ff" : "#5a5a8a", fontWeight: 700, minWidth: 14 }}>{idx + 1}</span>
+                      <span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: active ? "#e0d0ff" : "#c0c0d0", display: "block" }}>{tier.label}</span>
+                        <span style={{ fontSize: 9, color: "#5a5a8a" }}>{tier.subtitle}</span>
+                      </span>
+                    </span>
+                    <span style={{
+                      fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4,
+                      background: active ? "rgba(124,92,252,0.25)" : "rgba(255,255,255,0.05)",
+                      color: active ? "#b090ff" : "#5a5a8a",
+                    }}>{tier.cost}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── SD: Model Settings Panel ── */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, background: "#0f0f0f", padding: "12px 14px" }}>
+            <button
+              onClick={() => setShowModelSettings(p => !p)}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+            >
+              <h3 style={{ fontSize: 13, fontWeight: 600, color: "#e5e5e5", margin: 0 }}>Model Settings</h3>
+              <span style={{ fontSize: 10, color: "#5a5a8a" }}>{showModelSettings ? "▲" : "▼"}</span>
+            </button>
+            {showModelSettings && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 10 }}>
+                {/* Story LLM */}
+                <div>
+                  <label style={{ fontSize: 9, fontWeight: 800, color: "#5a5a8a", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Story LLM</label>
+                  <select value={modelSettings.storyLLM} onChange={e => setModelSettings(p => ({ ...p, storyLLM: e.target.value }))}
+                    style={{ width: "100%", background: "#0d0d1a", border: "1px solid #2a2a40", color: "#c0c0d0", borderRadius: 6, padding: "5px 8px", fontSize: 11 }}>
+                    <option value="claude-haiku-4-5">Haiku 4.5</option>
+                    <option value="claude-sonnet-4-5">Sonnet 4.5</option>
+                    <option value="claude-opus-4-5">Opus 4.5</option>
+                    <option value="gpt-4o-mini">GPT Mini</option>
+                    <option value="gpt-4o">GPT-4o</option>
+                  </select>
+                </div>
+                {/* Character Image */}
+                <div>
+                  <label style={{ fontSize: 9, fontWeight: 800, color: "#5a5a8a", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Char Image</label>
+                  <select value={modelSettings.charImageModel} onChange={e => setModelSettings(p => ({ ...p, charImageModel: e.target.value }))}
+                    style={{ width: "100%", background: "#0d0d1a", border: "1px solid #2a2a40", color: "#c0c0d0", borderRadius: 6, padding: "5px 8px", fontSize: 11 }}>
+                    <option value="fal_flux_schnell">FLUX Schnell</option>
+                    <option value="fal_flux_dev">FLUX Dev</option>
+                    <option value="pruna_flux">Pruna FLUX</option>
+                  </select>
+                </div>
+                {/* Scene Video */}
+                <div>
+                  <label style={{ fontSize: 9, fontWeight: 800, color: "#5a5a8a", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Scene Video</label>
+                  <select value={modelSettings.sceneVideoModel} onChange={e => setModelSettings(p => ({ ...p, sceneVideoModel: e.target.value }))}
+                    style={{ width: "100%", background: "#0d0d1a", border: "1px solid #2a2a40", color: "#c0c0d0", borderRadius: 6, padding: "5px 8px", fontSize: 11 }}>
+                    <option value="kling_1_6_standard">Kling 1.6</option>
+                    <option value="kling_2_5_pro">Kling 2.5 Pro</option>
+                    <option value="runway_gen4">Runway Gen-4</option>
+                    <option value="veo2">Veo 2</option>
+                    <option value="wan_2_5">Wan 2.5</option>
+                  </select>
+                </div>
+                {/* Sound/SFX */}
+                <div>
+                  <label style={{ fontSize: 9, fontWeight: 800, color: "#5a5a8a", textTransform: "uppercase", letterSpacing: 0.8, display: "block", marginBottom: 4 }}>Sound/SFX</label>
+                  <select value={soundTier} onChange={e => { const v = e.target.value as SoundTierCommId; setSoundTier(v); setModelSettings(p => ({ ...p, soundModel: v })); }}
+                    style={{ width: "100%", background: "#0d0d1a", border: "1px solid #2a2a40", color: "#c0c0d0", borderRadius: 6, padding: "5px 8px", fontSize: 11 }}>
+                    {SOUND_TIERS_COMM.map(t => <option key={t.id} value={t.id}>{t.label} ({t.cost})</option>)}
+                  </select>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* SFX Library */}
           <div style={{ border: "1px solid #2a2a40", borderRadius: 8, background: "#0f0f0f", padding: "12px 14px" }}>

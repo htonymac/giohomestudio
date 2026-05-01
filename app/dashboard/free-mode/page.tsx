@@ -406,6 +406,16 @@ function HistoryCard({ item, onReuse, onDelete }: { item: HistoryItem; onReuse: 
   );
 }
 
+// ── SC: 5-Tier Sound Model Selector (binding architectural decision) ──────────
+const SOUND_TIERS_FREE = [
+  { id: "piper_free",      label: "Standard",  subtitle: "Built-in GHS",  cost: "Free"    },
+  { id: "piper_extended",  label: "Start Plus", subtitle: "Extended Piper", cost: "Low"    },
+  { id: "ghs_karaoke",     label: "Sound Pro",  subtitle: "GHS Karaoke",   cost: "Mid"     },
+  { id: "elevenlabs",      label: "Classic",    subtitle: "ElevenLabs",    cost: "Premium" },
+  { id: "gemini",          label: "Premium",    subtitle: "Gemini Audio",  cost: "Highest" },
+] as const;
+type SoundTierFreeId = typeof SOUND_TIERS_FREE[number]["id"];
+
 // ── Main component ─────────────────────────────────────────────────────────────
 function FreeModeInner() {
   const { requireGate, GateModal } = useGate();
@@ -431,6 +441,8 @@ function FreeModeInner() {
   const [aiModel,    setAiModel]    = useState<AIModel>("haiku");
   const [selectedVideoModel, setSelectedVideoModel] = useState<string>(VIDEO_MODELS[2].id); // Seedance 2.0 default
   const [selectedImageModel, setSelectedImageModel] = useState<string>("segmind_flux"); // Segmind Flux default for Free Mode
+  // ── SC/SD: Sound model ────────────────────────────────────────────────────
+  const [soundTier, setSoundTier] = useState<SoundTierFreeId>("piper_free");
 
   // Multi-upload state (primary images or single video)
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
@@ -1228,6 +1240,33 @@ function FreeModeInner() {
                   accentColor={ds.color.sky}
                   compact
                 />
+              </div>
+              {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
+              <div style={{ gridColumn: "1 / -1" }}>
+                <label style={{ fontSize: 9, fontWeight: 800, color: ds.color.mute2, textTransform: "uppercase", letterSpacing: 1, display: "block", marginBottom: 5 }}>Sound Model</label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {SOUND_TIERS_FREE.map((tier, idx) => {
+                    const active = soundTier === tier.id;
+                    return (
+                      <button
+                        key={tier.id}
+                        onClick={() => setSoundTier(tier.id)}
+                        title={tier.subtitle}
+                        style={{
+                          display: "flex", flexDirection: "column", alignItems: "flex-start",
+                          padding: "6px 10px", borderRadius: 8, cursor: "pointer", border: "none",
+                          background: active ? `${ds.color.sky}18` : ds.color.paper,
+                          outline: active ? `1.5px solid ${ds.color.sky}50` : `1px solid ${ds.color.line}`,
+                          transition: "all 0.15s",
+                          minWidth: 72,
+                        }}
+                      >
+                        <span style={{ fontSize: 9, color: active ? ds.color.sky : ds.color.mute2, fontWeight: 700 }}>{idx + 1}. {tier.label}</span>
+                        <span style={{ fontSize: 8, color: active ? ds.color.sky : ds.color.mute2, opacity: 0.7 }}>{tier.cost}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}

@@ -207,6 +207,16 @@ const AID_IMAGE_MODELS = [
   { id:"fal_flux_pro_ultra",    name:"Flux Pro Ultra",       price:0.060, network:"FAL",     res:"2048px", color:"#f472b6", desc:"Highest resolution. Print quality." },
 ];
 
+// ── 5-Tier Sound Model Selector (binding) ──
+const SOUND_TIERS_MOVIE = [
+  { id: "piper_free",      label: "Standard (built-in GHS)", cost: "Free" },
+  { id: "piper_extended",  label: "Start Plus",              cost: "Low cost" },
+  { id: "ghs_karaoke",     label: "Sound Pro (GHS Karaoke)", cost: "Mid" },
+  { id: "elevenlabs",      label: "Classic",                 cost: "Premium" },
+  { id: "gemini",          label: "Premium",                 cost: "Highest" },
+] as const;
+type SoundTierMovieId = typeof SOUND_TIERS_MOVIE[number]["id"];
+
 // ── Workshop Tab Definitions ────────────────────────────────────────────
 
 type WorkshopTab = "design" | "story" | "characters" | "scenes" | "screenplay" | "audio" | "assembly" | "overview";
@@ -351,6 +361,16 @@ function MoviePlannerInner() {
   const [assemblyName, setAssemblyName] = useState("Main Cut");
   const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>([]);
   const [showCutsPanel, setShowCutsPanel] = useState(false);
+
+  // ── Sound tier & model settings (SD) ──
+  const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper_free");
+  const [modelSettings, setModelSettings] = useState({
+    storyLLM: "claude-haiku-4-5",
+    charImageModel: "fal_flux_schnell",
+    sceneVideoModel: "kling_1_6_standard",
+    soundModel: "piper_free" as SoundTierMovieId,
+  });
+  const [showModelSettings, setShowModelSettings] = useState(false);
 
   // ── Story AI provider ──
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
@@ -1974,6 +1994,75 @@ function MoviePlannerInner() {
               <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{moviePlan.summary}</p>
             </div>
           )}
+
+          {/* ── SD: Model Settings Panel ── */}
+          <div style={{ ...cardStyle, marginTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: showModelSettings ? 14 : 0 }}
+              onClick={() => setShowModelSettings(p => !p)}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Model Settings</p>
+              <span style={{ fontSize: 11, color: muted }}>{showModelSettings ? "Hide" : "Show"}</span>
+            </div>
+            {showModelSettings && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                {/* 1. Story LLM */}
+                <div>
+                  <p style={{ ...labelStyle }}>Story LLM</p>
+                  {([
+                    { id: "claude-haiku-4-5", label: "Haiku 4.5 — Fast (draft)" },
+                    { id: "claude-sonnet-4-6", label: "Sonnet 4.6 — Balanced" },
+                    { id: "claude-opus-4-7", label: "Opus 4.7 — Premium (final)" },
+                    { id: "gpt-4o-mini", label: "GPT Fast" },
+                    { id: "gpt-4o", label: "GPT Premium" },
+                  ] as const).map(m => (
+                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, storyLLM: m.id }))}
+                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.storyLLM === m.id ? accent : border}`, background: modelSettings.storyLLM === m.id ? `${accent}12` : "transparent", color: modelSettings.storyLLM === m.id ? accent : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {/* 2. Character Image Model */}
+                <div>
+                  <p style={{ ...labelStyle }}>Character Image</p>
+                  {([
+                    { id: "fal_flux_schnell", label: "Flux Schnell (default, fast)" },
+                    { id: "fal_flux_dev", label: "Flux Dev (quality)" },
+                    { id: "pruna_flux", label: "Pruna (optimized)" },
+                  ] as const).map(m => (
+                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, charImageModel: m.id }))}
+                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.charImageModel === m.id ? purple : border}`, background: modelSettings.charImageModel === m.id ? `${purple}12` : "transparent", color: modelSettings.charImageModel === m.id ? purple : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {/* 3. Scene Video Model */}
+                <div>
+                  <p style={{ ...labelStyle }}>Scene Video</p>
+                  {([
+                    { id: "kling_1_6_standard", label: "Kling 1.6 Standard" },
+                    { id: "kling_2_5_pro", label: "Kling 2.5 Pro" },
+                    { id: "runway_gen4", label: "Runway Gen-4" },
+                    { id: "veo2", label: "Veo 2" },
+                    { id: "fal_wan_lite", label: "Wan 2.5" },
+                  ] as const).map(m => (
+                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, sceneVideoModel: m.id }))}
+                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.sceneVideoModel === m.id ? gold : border}`, background: modelSettings.sceneVideoModel === m.id ? `${gold}12` : "transparent", color: modelSettings.sceneVideoModel === m.id ? gold : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+                {/* 4. Sound/SFX Model (synced with Audio tab 5-tier) */}
+                <div>
+                  <p style={{ ...labelStyle }}>Sound/SFX</p>
+                  {SOUND_TIERS_MOVIE.map(tier => (
+                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                      style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.soundModel === tier.id ? green : border}`, background: modelSettings.soundModel === tier.id ? `${green}12` : "transparent", color: modelSettings.soundModel === tier.id ? green : "#fff", fontSize: 10, cursor: "pointer" }}>
+                      <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -2895,6 +2984,21 @@ function MoviePlannerInner() {
                 style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${gold}30`, background: `${gold}06`, color: gold, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                 Auto Audio Plans
               </button>
+            </div>
+          </div>
+
+          {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${purple}30` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Sound Model</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+              {SOUND_TIERS_MOVIE.map((tier, idx) => (
+                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
+                  style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? purple : border}`, background: soundTier === tier.id ? `${purple}12` : "transparent", cursor: "pointer", minWidth: 100 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: soundTier === tier.id ? purple : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
+                  <span style={{ fontSize: 9, color: soundTier === tier.id ? purple : muted, fontFamily: "monospace" }}>{tier.cost}</span>
+                </button>
+              ))}
             </div>
           </div>
 
