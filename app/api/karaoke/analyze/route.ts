@@ -40,7 +40,7 @@ function runPythonAnalysis(audioPath: string): Promise<{ stdout: string; stderr:
       if (code === 0) {
         resolve({ stdout, stderr });
       } else {
-        reject(new Error(`Python exited with code ${code}. stderr: ${stderr.slice(0, 500)}`));
+        reject(new Error(`Python exited with code ${code}. stderr: ${stderr}`));
       }
     });
 
@@ -90,10 +90,11 @@ export async function POST(req: NextRequest) {
       const { stdout, stderr } = await runPythonAnalysis(audioPath);
       stderrLog = stderr;
 
-      // Parse JSON from stdout (last JSON object, in case Python prints logs before it)
-      const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+      // Parse JSON from stdout — use non-greedy match anchored to end of output to
+      // get the LAST JSON object (skips any debug lines printed before the result)
+      const jsonMatch = stdout.match(/\{[\s\S]*?\}\s*$/m);
       if (!jsonMatch) {
-        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 300)}\nstderr: ${stderr.slice(0, 300)}`);
+        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 300)}\nstderr: ${stderr}`);
       }
       analysisData = JSON.parse(jsonMatch[0]);
 

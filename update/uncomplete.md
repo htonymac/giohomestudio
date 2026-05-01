@@ -1,5 +1,984 @@
 # GioHomeStudio — Incomplete / Pending Tasks
-Updated: 2026-04-27
+Updated: 2026-04-30
+
+---
+
+## SESSION 2026-04-30 — Children Planner broken + Hybrid Planner flow audit
+
+**Audited by:** Thompson (Sonnet) via Playwright + code read
+**Scope:** Children Planner full UX flow + Hybrid Planner state flow audit
+
+---
+
+### CHILDREN PLANNER — BROKEN (do not ship)
+
+**File:** `app/dashboard/children-planner/page.tsx`
+
+#### Bug 1 — Scene plan API called with wrong payload (CRITICAL)
+- Line ~507-513 sends `{ expandedStory: { summary } }` to `POST /api/hybrid/scene-plan`
+- API expects `{ storyText: string }` — receives `undefined`, returns 400
+- Result: **No scenes ever generate**
+- Fix: change key to `storyText`, remove genre/tone/totalScenes/targetDuration from payload
+
+#### Bug 2 — Music generation API called with wrong payload (CRITICAL)
+- Line ~793-796 sends `{ mood, duration }` to `POST /api/music/generate`
+- API requires `{ prompt: string }` (zod schema, required field) — receives nothing, returns 400
+- Result: **Music generation silently fails**
+- Fix: build a prompt string from music choice + context, send as `prompt`; rename `duration` → `durationSeconds`
+
+#### Missing features vs Hybrid Planner (HIGH — incomplete build)
+- **No character image generation** — Hybrid calls `/api/hybrid/make-characters`. Children planner has zero character build flow.
+- **No scene image generation** — Hybrid calls `/api/hybrid/scene-image` per scene with character refs. Children planner never calls this.
+- **No scene board** — No visual scene grid, no per-scene image buttons, no arrangement.
+- **No assembly tab** — Hybrid has full Assembly tab. Children planner goes straight to review2.
+- **No character-to-scene reference** — Even if images were generated, children planner has no mechanism to pass character refs into scene image generation.
+
+#### Demo media missing (LOW — cosmetic)
+- `/api/media/demo/child_abc.png`, `child_colors.png`, `child_story.png` etc — all 404
+- `/api/media/demo/child_abc_scene.mp4` etc — all 404
+- These are homepage/overview sample images — need to be seeded or removed
+
+---
+
+### HYBRID PLANNER — WORKING (with notes)
+
+**File:** `app/dashboard/hybrid-planner/page.tsx` (~7,775 lines)
+
+#### What works
+- Story expand → AI expands and extracts characters ✅
+- Characters tab → character detection from expanded story ✅
+- Scene Board → scene plan via `/api/hybrid/scene-plan` (correct payload) ✅
+- Scene image generation → `/api/hybrid/scene-image` returns 200 ✅
+- State flows correctly within same browser session via React useState ✅
+
+#### Flow notes (not bugs, just how it works)
+- State lives in component memory — each tab switch is manual, not auto-triggered
+- After "Expand with AI", user must manually go to Characters tab and click "Make Characters"
+- After characters built, user must go to Scene Board and trigger scene plan separately
+- No automatic pipeline between tabs — all steps are intentionally manual
+
+#### Missing env keys (non-blocking — has fallback)
+- `KIE_AI_API_KEY` (Kie.ai / Suno) — NOT in .env → falls back to stock library
+- `MUBERT_PAT` — NOT in .env → falls back to stock library
+- `FAL_KEY` ✅ set — image generation works
+- `ELEVENLABS_API_KEY` ✅ set
+
+---
+
+### NEXT AGENT INSTRUCTIONS
+
+**Priority 1 — Fix Children Planner API payloads (2 lines to change):**
+1. `children-planner/page.tsx` line ~507: change payload key from `expandedStory.summary` → `storyText`
+2. `children-planner/page.tsx` line ~793: add `prompt` field, rename `duration` → `durationSeconds`
+
+**Priority 2 — Port missing features from Hybrid to Children Planner:**
+- Character image generation (copy make-characters flow)
+- Scene image generation (copy scene-image flow + character ref passing)
+- Scene board UI (visual grid with per-scene image buttons)
+- Assembly tab
+
+**Do not touch Hybrid Planner** — it is working. Fix children planner only.
+
+---
+
+## SESSION 2026-04-30 — MASTER BUG REPORT (Full System Recovery)
+
+**Compiled by:** Thompson from Henry's narration + files:
+- `C:\Users\USER\Documents\ERROR FOR CLAUDE CA\GHS_Critical_Bug_Report_For_Claude_Code.md`
+- `C:\Users\USER\Documents\ERROR FOR CLAUDE CA\ghs_technical_bug_handoff_for_claude_code (3).md`
+
+**Mandate:** Do NOT treat these as scattered UI fixes. This is a full system recovery task. Fix as a connected system.
+
+**Pre-fix reads required (do not skip):**
+- `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\MUSIC VIDEO Planner\ghs_music_vision_studio_rebranded_product_flow_and_implementation_canvas.md`
+- `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\LEGAL\SOUND_LICENSING.md`
+- `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\GHS Character, Scene, and Identity.txt`
+- `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update` (folder — music fixes)
+
+**Screenshot evidence (do not omit):**
+- https://prnt.sc/DRI6Kbvo_geI — character bear bug
+- https://prnt.sc/bF4g1FlKB_-y — free mode image model reference
+- https://prnt.sc/Fo2tDkFn96jI — viral video bad model suggestions
+- https://prnt.sc/V4C_D1Xut8Jf — commercial narration broken
+
+---
+
+### BUG-01 — Intelligent AI Coordinator Not Working (CRITICAL / Global)
+
+**Affects:** All sections
+
+The central AI supervisor/orchestrator that should coordinate each section from start to finish is not functioning.
+
+**Expected:**
+- AI reads user intent and routes through correct workflow (story → characters → scenes → voice → music → SFX → motion → assembly)
+- Carries user design/content/story/style/voice selections across all steps
+- Hands off state from one stage to the next
+- Supervises full pipeline from planning through assembly
+- Does not allow pages to operate independently
+
+**Current failure:**
+- Sections behave independently — no pipeline connection
+- User selections not passed forward between stages
+- AI supervisor, AI music picker, AI studio audio not coordinating
+- Workflows often lead nowhere after selection
+
+---
+
+### BUG-02 — Character Identity Collapse: All Characters Showing Bears/Cartoon (CRITICAL)
+
+**Affects:** Movie, Children, Hybrid, Auto-Creator, all planners
+**Screenshot:** https://prnt.sc/DRI6Kbvo_geI
+
+**Reported:** Characters are showing as bears and cartoons across different browser contexts. First-ever character was correct. Something is wrong with character identity, prompt handling, storage, or model routing.
+
+**Root cause investigation targets:**
+- Character identity/prompt is not persisting correctly between sessions
+- System may be falling back to a default bear/cartoon prompt
+- Character reference images not being passed to image generation correctly
+
+**Expected:**
+- Human characters stay human
+- Character identity consistent across browsers and sessions
+- Character prompts and saved references are not overwritten by defaults
+- Story-generated images, scene images, and video all use the same character identity
+
+---
+
+### BUG-03 — Characters and Scenes Not Saving (CRITICAL)
+
+**[FIXED 2026-04-30 S1] commit: 8a544ef**
+
+**Affects:** All planners, Movie, Children
+**Reference file:** `C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\GHS Character, Scene, and Identity.txt`
+
+**Reported:** All movies created had no saved character.
+
+**S1 Fix (children-planner):**
+- Added POST to /api/character-voices at `extractChildCharacters` and `expandStory` setSavedChars call sites
+- DB load on mount was already present (lines 866-881)
+- Error handling: if POST fails, character stays in local state, toast shows "Character saved locally — DB save failed"
+- Playwright verified: character-voices API called on reload → 200
+
+**Remaining (S2+):**
+- Scenes must also save to a dedicated scene page/store
+- Characters must be reusable across different movies (DB now populated — reuse layer needed)
+- Characters must be usable for movie intro narration
+- Characters must be usable for upcoming-movie ads
+- Characters must be able to speak about the movie
+- **Research:** Look in FAL for AI models that support interview-style narration, hand-gesture ads, or character-promo output using a character reference
+
+---
+
+### BUG-04 — Children / Hybrid / Movie Workflow Is Broken (CRITICAL)
+
+**Affects:** Children Planner, Movie Planner, Hybrid Planner integration
+
+**Henry's direct assessment:** "Children section Hybrid and Movie is rubbish — the workflow is nonsense — it was better but you destroyed it."
+
+**IMPORTANT NOTE:** This was working better before. A regression occurred. The workflow degraded — do not just patch forward, identify what broke.
+
+---
+
+#### BUG-04a — General Workflow Failure (All Three Planners)
+
+**Bug 1 — Selection leads to nothing:**
+- When a user makes a selection in Children, Hybrid, or Movie planner, the selection does not advance the workflow
+- User is left stranded after making a choice — nothing happens
+- The pipeline does not carry the selection forward to the next step
+
+**Bug 2 — Pages work independently with no direction:**
+- Each page/section behaves as if it knows nothing about the others
+- No data flows from one section to the next
+- Design choices made on one step are not known to the next step
+- Character choices made do not flow into scene generation
+- Scene content does not flow into audio/narration generation
+
+**Bug 3 — Character page is wrong design:**
+- The character section is a "main character" page — this is wrong
+- Henry does NOT want a main character page in this flow
+- What is needed: a character page that is scene-based, like Hybrid's character flow
+- Scene-level characters, not detached global main-character management
+
+**Bug 4 — AI Pick Music not working:**
+- AI automatic music selection is broken
+- Music must be selected or recommended by AI based on scene/story mood
+- This must work in all three planners
+
+**Bug 5 — AI Studio Audio not working:**
+- AI studio audio generation/selection not working in any of the three planners
+
+**Bug 6 — AI Supervisor not working:**
+- The AI supervisor that should oversee and coordinate each planner step is not functioning
+- Coordinator must guide the user through the full workflow
+- Coordinator must pass state between steps
+
+---
+
+#### BUG-04b — Required Workflow Order (Locked — Do Not Change)
+
+The correct tab/step order for Children and Movie planners must be:
+
+1. **Design** — first (style, visual identity, art direction)
+2. **Content and Story** — second (must USE the design selections, not work independently)
+3. **Characters** — scene-based (like Hybrid), not global main character page
+4. **Scene Board** — scenes linked to characters and story
+5. **Audio / SFX / Voice** — fed by scene content and character voices
+6. **Assembly** — combine all above
+7. **Overview** — LAST (not first as it currently is)
+
+**Critical rule:** Content and Story MUST read and apply design selections. They cannot work independently. If user chose "3D animation" in Design, Content generation must know this and generate accordingly.
+
+---
+
+#### BUG-04c — Style and Voice Pipeline Broken
+
+**Bug 7 — Style selections not flowing into content:**
+- User selects a visual style (3D, 2D, realistic, cartoon, etc.) but content generation ignores it
+- Style must be passed from Design step into every subsequent step
+
+**Bug 8 — Voice not properly piped:**
+- Voice selections are not flowing into content generation
+- Content must use the voice/narration settings the user selected
+- Style and voice must work together with content — not independently
+
+**Henry's exact words:** "How do style and voice get content to work with it — it must use content and selection made by user."
+
+---
+
+#### BUG-04d — Missing Features in Children + Movie vs Hybrid
+
+**Bug 9 — No SFX auto mode:**
+- There is no automatic SFX generation in Children or Movie planners
+- SFX auto mode must exist — Hybrid has this, Children and Movie do not
+
+**Bug 10 — Screen plan not connected to voice:**
+- Screen plan (scene arrangement) is not connected to narration/voice pipeline
+- First, second, and third part voice must be implemented via Piper or ElevenLabs
+- Screen plan must drive narration timing and content
+
+**Bug 11 — No character import dropdown in planner:**
+- No dropdown inside the planner to import saved characters
+- User must be able to select and import a saved character into the current workflow without leaving the planner
+- Same dropdown pattern used in Edit should apply here
+
+**Bug 12 — Character page dead-end:**
+- When user clicks to add/choose a character, they are taken to the character page
+- Flow ends there — no select and return behavior
+- Fix: character selection must return the user to their current position in the workflow
+
+---
+
+#### BUG-04e — Children Movie Has Same Problems
+
+**Henry confirmed:** "Children movie is the same" — all bugs listed above for children hybrid apply identically to children movie section. Both must be fixed, not just one.
+
+---
+
+#### BUG-04f — Final Version JSON Error in Children/Movie
+
+**Error reported in children/movie final version:**
+```
+Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+```
+
+**This is DIFFERENT from BUG-11 (ai-motion-video SSE error). These are two separate JSON parsing bugs.**
+
+**Root cause:** A fetch call in the children or movie final assembly step expects JSON but receives an HTML error page (likely a 404, 500, or redirect returning HTML).
+
+**Fix targets:**
+- Identify which API endpoint is returning HTML instead of JSON in the children/movie final step
+- Add proper error handling: check `Content-Type` before parsing
+- Return proper JSON error responses from API routes instead of letting Next.js render HTML error pages
+- Frontend must handle non-JSON responses gracefully and show meaningful errors
+
+---
+
+### BUG-05 — Movie Section Incomplete (CRITICAL)
+
+**Covers DOCX Sections 7.1 through 7.7**
+
+**Affects:** `/dashboard/movie-planner` or equivalent
+**Reference export:** `C:\Users\USER\Downloads\movie_export_1777444922263.mp4`
+
+---
+
+#### BUG-05a — Actor Still Bear / Wrong Character Output (DOCX 7.1)
+
+- In movie section, actor still shows as bear/cartoon
+- Character identity is not being preserved
+- Same root cause as BUG-02 (global bear/cartoon collapse) — must be fixed in movie section specifically as well
+
+---
+
+#### BUG-05b — Video Model On Scene Board Not Selectable (DOCX 7.2)
+
+- Video model selector on the movie scene board is not working
+- User cannot choose which video generation model to use per scene
+- Must be selectable — each scene should allow model choice
+
+---
+
+#### BUG-05c — No Character Making Flow (DOCX 7.3)
+
+- Movie section lacks the proper character-making flow
+- Children video has (or should have) a character creation flow — movie lacks even that
+- Character creation must be added to movie section
+- Without this, movie cannot assign consistent character identities to scenes
+
+---
+
+#### BUG-05d — Missing AI Planner (DOCX 7.4)
+
+- Movie section does not have an AI planner
+- Hybrid Planner has a full AI planner — Movie has nothing equivalent
+- Movie needs an AI planning step that reads the story and generates a structured production plan
+
+---
+
+#### BUG-05e — Missing Appropriate Plan Structure (DOCX 7.5)
+
+- Movie does not have an appropriate plan structure as Hybrid does
+- Movie must have a structured workflow: story → characters → scene plan → scene board → audio → assembly
+- This structure currently does not exist in Movie — it has no clear pipeline flow
+
+---
+
+#### BUG-05f — Missing Model Selection and AI Classification (DOCX 7.6)
+
+Movie section must have:
+- AI model selection (which image/video generation model to use)
+- Character creation with AI assistance
+- Movie classification options:
+  - 3D
+  - 2D
+  - Realistic
+  - Cartoon
+  - Other styles as appropriate
+
+None of these exist in Movie section currently.
+
+---
+
+#### BUG-05g — No Narration / No Voice / No SFX In Movie Output (DOCX 7.7)
+
+**Reference export:** `C:\Users\USER\Downloads\movie_export_1777444922263.mp4`
+
+**Reported result from watching the export:**
+- No narration
+- No voice
+- No SFX — completely silent except any background
+- Displays mixed cartoon and human visuals — wrong and inconsistent
+- Poor output quality overall — Henry's words: "it's rubbish"
+
+**Required for movie output:**
+- Narration must be present (tied to selected narration provider from BUG-09)
+- Voice/character dialogue must work
+- SFX must be included where the scene plan calls for it
+- Visual style must be consistent — not mixed cartoon/human
+
+---
+
+### BUG-06 — Story Not Partitioned by Scene / Scene Not Editable (HIGH)
+
+**Affects:** All story-based planners
+
+**Required behavior:**
+- After story is created, story is split into scenes
+- User can select a specific scene
+- User can call AI on that scene only (modify/upgrade/polish/add)
+- User can manually edit that scene section
+- AI must preserve the core idea of the selected scene
+
+**Example (Henry's):**
+- Original: `John jumped over the fence as the dogs chased him`
+- Valid polish: `John looked up, performed a clean stunt, leaped high and flew over the fence`
+- Invalid: AI invents a completely different scene or rewrites the whole story
+- **Rule: Polish must come FROM the scene, not create a new one**
+
+**Current state:** Scenes are locked and not individually editable.
+
+---
+
+### BUG-07 — Music and Music Video Pipeline Completely Broken (CRITICAL)
+
+**Affects:** Music Studio, Music Video Planner, Karaoke
+
+**AI Expansion not working at:** `http://localhost:3200/dashboard/music-video-planner`
+
+**Required pipeline (in order):**
+1. Default text-to-music → LLM-generated text prompt → music generation
+2. Karaoke form music → GHS Free (inbuilt karaoke path)
+3. Further/premium → Suno via KIE or FAL music text-to-music
+
+**Canvas to read and implement from:**
+`C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\MUSIC VIDEO Planner\ghs_music_vision_studio_rebranded_product_flow_and_implementation_canvas.md`
+
+**Reference folder for full music fix:**
+`C:\Users\USER\Desktop\CLAUDE\giohomestudio\update`
+
+---
+
+### BUG-08 — Karaoke Analysis Failure (CRITICAL)
+
+**Affects:** `/dashboard/karaoke-studio`, `scripts/karaoke_analyze.py`
+
+**Error:**
+```
+Analysis failed: Python exited with code 1.
+C:\Users\USER\Desktop\CLAUDE\giohomestudio\scripts\karaoke_analyze.py:106: UserWarning: PySoundFile failed. Trying audioread instead.
+y, sr = librosa.load(audio_path, sr=None, mono=True)
+C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\core\audio.py:184: FutureWarning:
+librosa.core.audio.__audioread_load Deprecated as of librosa version 0.10.0. It will be removed in librosa version 1.0.
+y, sr_native = __audioread_load(path, offset, duration, dtype)
+```
+
+**Root cause:** PySoundFile not installed or incompatible with Python 3.13. audioread fallback also broken. The real fatal error occurs after these warnings — capture and expose it.
+
+**Fix targets:**
+- Install `soundfile` package compatible with Python 3.13
+- Or replace librosa audio loading with a compatible backend
+- Karaoke analysis must return usable timing/lyrics/audio data to pipeline
+
+---
+
+### BUG-09 — Voice / Narration / Audio Provider Pipeline Failures (CRITICAL)
+
+**Covers DOCX Sections 2.1 through 2.5**
+
+---
+
+#### BUG-09a — Multi-Part Voice Pipeline Missing (DOCX 2.1)
+
+First, second, and third part voice must be implemented via Piper or ElevenLabs.
+
+**Required voice layers:**
+- First voice layer (e.g. narrator part 1)
+- Second voice layer (e.g. narrator part 2 / first character)
+- Third voice layer (e.g. second character or outro narration)
+- Voice pipeline must be selectable and properly routed through the system
+
+**Current state:** Multi-part voice pipeline not implemented. All voice collapses to single undifferentiated output.
+
+---
+
+#### BUG-09b — Provider Selection Not Working In All Sections (DOCX 2.2)
+
+In ALL narration, voice, and SFX sections, the user must be able to select which provider/voice class they need — same UX as AI model selection.
+
+**Required voice tiers:**
+| Tier Name | Provider | Type |
+|---|---|---|
+| Piper = free standard | Piper (inbuilt) | Free |
+| Karaoke classic = inbuilt/classic path | GHS Karaoke | Free |
+| FAL narrator = cheap tier | FAL Narrator | Cheap |
+| ElevenLabs = GHS premium | ElevenLabs | Subscription |
+| Gemini = GHS exclusive | Gemini via FAL | Premium |
+
+**Required behavior:**
+- User can pick the voice tier/provider in ALL relevant sections
+- The selected provider must ACTUALLY be used — system must not ignore the selection
+- If user selects ElevenLabs, ElevenLabs must be called — not Piper
+- If user selects Piper, Piper must be called — not ElevenLabs
+
+---
+
+#### BUG-09c — ElevenLabs Active Subscription Not Working (DOCX 2.3)
+
+**Reported by Henry:**
+- ElevenLabs subscription is active
+- Credits are available
+- It is NOT working inside the system
+
+**This requires provider integration debugging:**
+- Check API key configuration
+- Check API call format and authentication
+- Check response handling
+- Check if there is a code path that bypasses ElevenLabs even when selected
+
+---
+
+#### BUG-09d — Narration Not Working in Commercial Flow (DOCX 2.4)
+
+**Page:** `http://localhost:3200/dashboard/commercial`
+
+- Narration is not working in the commercial flow
+- See BUG-12a for full detail on commercial narration bugs
+
+**Additional requirement (also in BUG-12a):**
+- Fix intro and outro with text and phone number
+- Include `PLEASE CONTACT US AT`
+- Include `WHATSAPP AT`
+
+---
+
+#### BUG-09e — Movie Export Missing Narration / Voice / SFX (DOCX 2.5)
+
+**Reference file:** `C:\Users\USER\Downloads\movie_export_1777444922263.mp4`
+
+- Complete video from movie export has no narration
+- No voice
+- No SFX
+- Output is mixed cartoon/human and poor quality
+
+See BUG-05 for full movie section detail.
+
+---
+
+### BUG-10 — SFX Pipeline Missing / Sound Filter Not Implemented / Legal Not Enforced (HIGH)
+
+**Covers DOCX sections 1.5 (Sound Filter), 11.1, 11.2, 11.3**
+
+---
+
+#### BUG-10a — Sound Filter Implementation Missing
+
+**From DOCX Section 1.5 — listed as a standalone requirement:**
+- Sound filter implementation is missing or broken
+- This is separate from SFX generation — filters process existing audio
+- Sound filter must be implemented across audio/SFX pipeline
+
+---
+
+#### BUG-10b — Auto SFX Not Working
+
+- Auto SFX must work — system should automatically detect appropriate SFX from scene description
+- Currently not implemented or broken
+
+---
+
+#### BUG-10c — SFX Tier Structure Must Match Narration/Voice Tiers
+
+Henry's exact words: "inbuilt sfx we is free the same grade as narration and also look for cheap fal sfx and following the same"
+
+**SFX must follow the SAME tier grading as narration/voice:**
+| SFX Tier | Provider | Cost |
+|---|---|---|
+| Free | Inbuilt SFX (royalty-free library) | Free |
+| Classic | GHS inbuilt karaoke/classic | Free |
+| Cheap | FAL SFX (search for cheap FAL SFX option) | Cheap |
+| Premium | Additional providers as found | — |
+
+- User must be able to select SFX tier in all relevant sections
+- Same selector UX as voice/narration provider selector
+
+---
+
+#### BUG-10d — Inbuilt SFX Library Needs More Content
+
+**Agent must search online for additional SFX for GHS inbuilt library:**
+- Gun sounds (multiple types — pistol, rifle, etc.)
+- Helicopter
+- Car engine
+- Car crash
+- Plane takeoff
+- Airport noise / ambience
+- Common movie/commercial sound effects
+- Other credible, usable sounds
+
+This is for users who want to use GHS inbuilt SFX system.
+
+---
+
+#### BUG-10e — Legal Enforcement: Sound Licensing (MANDATORY — read file before any SFX work)
+
+**File to read before implementing any SFX:**
+`C:\Users\USER\Desktop\CLAUDE\giohomestudio\update\LEGAL\SOUND_LICENSING.md`
+
+**HARD BLOCK RULE:**
+```
+CC BY-NC sounds → BLOCKED from ALL commercial flows — No exceptions
+```
+
+All music and SFX must strictly follow the legal rules. Violating this risks a lawsuit.
+
+**Free/royalty-safe SFX sources to evaluate (only use sources that offer free commercial-safe paths):**
+- https://pixabay.com/
+- https://www.freesoundeffects.com/
+- https://www.epidemicsound.com/sound-effects/
+- https://vidpros.com/royalty-free-sound-effects-your-complete-guide/
+- https://www.bensound.com/
+
+Read each source's licensing terms — only use what is commercially permissible.
+
+---
+
+#### BUG-10f — Karaoke-Generated Music Must Be Unique
+
+- Music generated by GHS/Karaoke system must be UNIQUE
+- Must not duplicate or copy copyrighted material
+- GHS should generate original music, not replicate existing tracks
+
+---
+
+### BUG-11 — AI Motion Video JSON/SSE Parsing Error (HIGH)
+
+**Page:** `http://localhost:3200/dashboard/ai-motion-video`
+
+**Error:**
+```
+Unexpected token 'd', "data: {"ty"... is not valid JSON
+```
+
+**Root cause:** Frontend calls `JSON.parse()` on a Server-Sent Events stream. SSE frames begin with `data:` prefix — not valid JSON. Either:
+- Fix frontend to parse SSE correctly (`EventSource` or manual `data:` strip), OR
+- Fix backend to return normal JSON response instead of SSE stream
+
+---
+
+### BUG-12 — Commercial Section — THREE SEPARATE SECTIONS, EACH WITH MULTIPLE BUGS (HIGH)
+
+**Page:** `http://localhost:3200/dashboard/commercial`
+
+**IMPORTANT:** Commercial has 3 distinct sections. Each section has its own separate bugs. Do NOT merge or treat loosely. Debug each as an independent section.
+
+---
+
+#### BUG-12a — SECTION 1: Manual Commercial Section
+
+**Section identity:** This is the MANUAL commercial flow — first section on the commercial page.
+
+**Screenshot evidence:** https://prnt.sc/V4C_D1Xut8Jf
+
+**Bug 1 — Narration not working:**
+- Narration is completely non-functional in this section
+- This is a critical failure — the section purpose is narrated commercial creation
+
+**Bug 2 — Local LLM not reading uploaded images:**
+- AI text generation using local LLM is not working
+- Reading uploaded images and generating text from them is not working
+- When the user clicks AI order, AI must read ALL uploaded pictures
+- AI must create narration FROM those images
+- AI must build caption FROM those images
+- This requires the full image-to-text pipeline to work inside this section
+
+**Bug 3 — Existing pipeline needs to be made efficient:**
+- The process already exists and is partially piped
+- It is working only partly — must be made fully reliable and efficient
+- Do not rebuild from scratch — fix and complete the existing pipeline
+
+**Bug 4 — Intro and outro text not working:**
+- Intro must work with text and phone number
+- Outro must work with contact details
+- Required text fields:
+  - `PLEASE CONTACT US AT [phone number]`
+  - `WHATSAPP AT [number]`
+- These must appear in the rendered commercial output
+
+**Bug 5 — Upload not functioning correctly in this section:**
+- Upload of images for narration/commercial generation is broken
+- Must accept multiple image uploads and pass all of them to the AI reading pipeline
+
+---
+
+#### BUG-12b — SECTION 2: AI Ad Creator / Multi-AI Intelligence Section
+
+**Section identity:** This is the AI Ad Creator section — "AI Ad Creator Powered by multi-AI intelligence."
+
+**Bug 1 — AI Ad Creator redirects to Slide Ad Builder (WRONG):**
+- When user interacts with AI Ad Creator, the system sends them back to Slide Ad Builder
+- This is incorrect behavior — the AI Ad Creator must NOT redirect to Slide Ad Builder
+- These are two separate surfaces and should remain separate
+
+**Bug 2 — AI Ad Creator must render on the same page:**
+- The AI Ad Creator must render and function entirely on the commercial page
+- User must not be taken away from the commercial section
+- All output, options, and controls must appear inline on the same page
+
+**Bug 3 — Caption and text not working correctly:**
+- Caption generation is broken in this section
+- Text output is broken
+- These must be fixed as part of this section's repair
+
+**Bug 4 — Selection/check options must be available:**
+- AI Ad Creator should present selectable or checkable options to the user
+- User should be able to confirm, adjust, or select what AI has generated
+- This is a separate debugging task from the first manual section — do not conflate
+
+---
+
+#### BUG-12c — SECTION 3: AI Video Commercial Section
+
+**Section identity:** This is the AI Video Commercial section — the third distinct area on the commercial page.
+
+**Bug 1 — Upload not working:**
+- Upload functionality is broken in the AI Video Commercial section
+- User cannot upload source media for commercial video creation
+
+**Bug 2 — Preinstalled selections needed where appropriate:**
+- Some selections should be preinstalled where it makes sense
+- Do not force unnecessary manual filling when the system can guide or prefill intelligently
+- Only preinstall where helpful — do not over-automate
+
+**Bug 3 — Manual fill must also be available:**
+- Where preinstalled selections are not provided, manual fill must work
+- User must be able to complete the section without being blocked
+
+**IMPORTANT CLARIFICATION for Claude Code:**
+Section 3 is the area where image/upload issues were specifically reported. This must be debugged as completely separate from Section 1 (manual commercial narration) and Section 2 (AI Ad Creator). Three sections = three separate debugging tasks on the same page (`/dashboard/commercial`).
+
+---
+
+### BUG-13 — Free Mode Chat / UI / Cheap Inbuilt Path — Multiple Failures (HIGH)
+
+**Covers DOCX Sections 8.1 through 8.7**
+
+**Page:** Free Mode
+**Screenshot:** https://prnt.sc/bF4g1FlKB_-y
+
+---
+
+#### BUG-13a — Plus Button In Chat Text Area Not Working (DOCX 8.1)
+
+- The add image button (plus sign) in the free mode chat text area is not working
+- User cannot attach/add images to their chat prompt
+- Must be fixed — image attachment is a core free mode feature
+
+---
+
+#### BUG-13b — Free Mode Does Not Retain History Like Standard LLM UI (DOCX 8.2)
+
+- Free mode does not maintain one consistent character like Gemini or GPT on a chat area
+- Does not keep conversation history
+- Does not behave like a standard AI chat UI that retains history across prompts
+- Each prompt is treated as isolated — no context from prior messages
+
+---
+
+#### BUG-13c — Free Mode Should Be Simple Unified Chat Workflow (DOCX 8.3)
+
+**Henry's intended behavior:**
+- User writes ANYTHING in one chat area
+- LLM takes instruction for story, movie, music, image, ad, or any request
+- Use inbuilt system to make it happen with cheapest available route
+- No complicated settings-first barrier
+- AI coordinates everything from the single prompt — user does not set up modes manually
+
+---
+
+#### BUG-13d — Free Mode Generation Limits To Record (DOCX 8.4)
+
+**Record this — not final, prone to change:**
+- User has 2 limited videos per day — max 5 seconds each
+- User has 4 images per day
+- This is the current rule — must be recorded and enforced in the system
+- Flag as configurable for future change
+
+---
+
+#### BUG-13e — Free Mode Provider Defaults Wrong (DOCX 8.5)
+
+**Screenshot reference:** https://prnt.sc/bF4g1FlKB_-y
+
+**Current problem:**
+- Free mode currently uses ElevenLabs by default — this is wrong
+- Default should be Piper or GHS inbuilt
+
+**Required defaults:**
+- Voice: Piper or GHS inbuilt (NOT ElevenLabs)
+- Video: cheap WAN or Kling (future option: RunPod)
+- Image: Segmind Flux `$0.0003`–`$0.0005` per image OR Ideogram free image
+  - **NOT other image models — only Segmind or Ideogram free for now**
+  - If a model cheaper than current Pruna/Segmind path is found, install and use it
+
+---
+
+#### BUG-13f — Free Mode Prompt Workflow Wrong (DOCX 8.6)
+
+**Current wrong behavior:** Generate happens automatically or by default.
+
+**Required behavior:**
+1. User types prompt
+2. AI polishes the prompt IN THE SAME chat box (not in a separate area)
+3. A Generate button then appears
+4. User clicks Generate — generation happens only after this step
+- Remove any "generate by default" behavior
+- Free mode is for easy/casual users — prompt → polish → generate is the correct flow
+- A tiny button should appear after generation to send result to editor
+- User can add intro or outro in free mode chat with a button
+- User can also build ads as images in free mode
+
+---
+
+#### BUG-13g — Free Mode Consistent Images / Character / Auto SFX / Video (DOCX 8.7)
+
+**Required behavior:**
+- By default: generate consistent images using a maintained character identity
+- Maintain main character memory/consistency across the session
+- Allow text-to-video by model selection
+- Support auto SFX in generated content
+- Support voices in movie/scene output where 2 or more people speak
+- Free mode must coordinate this automatically — user should not configure it manually
+
+---
+
+**Free Mode Layout:**
+- Left panel: Chat history (like standard LLM — Gemini/GPT style)
+- Right panel: Generated output (images, video, music, ads)
+
+---
+
+### BUG-14 — Scene Forge Lip-Sync Failure (HIGH)
+
+**Error:**
+```
+Lip-sync failed: All lip-sync providers failed
+```
+
+**Required fix:**
+- Multi-provider fallback: if provider A fails, try B, then C
+- Error must show real per-provider failure reason (not just "all failed")
+- Piper/ElevenLabs/narration must connect to lip-sync pipeline
+
+---
+
+### BUG-15 — AI Content Creator Character Selection Dead-End (HIGH)
+
+**Bug:** Choosing a character takes user to Character page — flow ends there, nothing happens.
+
+**Fix:**
+- Add dropdown inside AI Content Creator to import/select character
+- Same dropdown in Edit and Planner
+- Character selection must return user to current workflow (not dead-end)
+- Match the dropdown-import pattern used in existing Edit section
+
+---
+
+### BUG-16 — Hybrid Planner Assembly Output Failures (HIGH)
+
+**Page:** `http://localhost:3200/dashboard/hybrid-planner`
+
+#### 16a — Assembled Video: Voice Issue + No SFX
+- Assembled video still has voice problem
+- No proper SFX in final result despite workflow expecting it
+
+#### 16b — Narrator and Actor Speak Simultaneously
+- When narrator and actor both have lines, all voices play at same time → noisy/unusable
+- Required: time-separate narration and character dialogue OR intentional voice ducking
+- Narrator must NOT talk over actor unless deliberately designed that way
+
+#### 16c — Subtitle System Not Working
+- Subtitles not appearing in Hybrid Planner output
+- Subtitle timing must align to narration/dialogue
+- Subtitle text design missing (also broken in Children flows)
+- Required: visible font treatment, placement, size, contrast defaults
+
+#### 16d — Image-Only Flow: Only Intro/Outro Show
+- When image-only flow selected, only intro and outro render
+- Body content images not displayed in assembled result
+- Image sequence must render across full content body
+
+---
+
+### BUG-17 — Project Persistence / State Loss on Refresh (HIGH)
+
+**Page:** `http://localhost:3200/dashboard/hybrid-planner`, Movie Planner, Auto-Creator
+
+**Reported:** Refresh destroys the project. User cannot go back to modify or upgrade.
+
+**Required:**
+- Projects saved persistently to server/DB (not just localStorage)
+- User can reopen existing project
+- User can modify, upgrade, and continue work later
+- Refresh must NOT destroy project state
+
+---
+
+### BUG-18 — Style Consistency Not Enforced Across Pipeline (HIGH)
+
+**Reported:** 3D style selected → some scene images still render as real human instead of 3D.
+
+**Required:** Style selection (3D, 2D, realistic, cartoon) must be enforced consistently across:
+- Character generation
+- Story images
+- Scene images
+- Video generation
+
+---
+
+### BUG-19 — Viral Video and Short Video Not Working (MEDIUM)
+
+**Screenshot:** https://prnt.sc/Fo2tDkFn96jI
+
+**Viral video:** Only suggests Seedance 2.0 and Kling 3 — model list must be broadened, not locked to 2 options.
+
+**Short video:** Also not working — needs full fix.
+
+---
+
+### BUG-20 — GPT Not Available in GHS Intelligent AI (MEDIUM)
+
+**Reported:** GHS Intelligent only has Haiku, Sonnet, Opus. Henry has GPT access and explicitly enabled it.
+
+**Required model tier structure:**
+- Standard 1 / Standard 2
+- Pro 1 / Pro 2
+- Premium 1 / Premium 2
+
+GPT must be available and selectable where configured. System must not ignore configured GPT access.
+
+---
+
+### BUG-21 — Multi-Image Generation Not Implemented (MEDIUM)
+
+- Generating more than one image at a time not properly implemented
+- Must work across planners and free mode
+
+---
+
+### BUG-22 — Continuous Motion Generation Not Implemented (MEDIUM)
+
+**Covers DOCX Section 1.3**
+
+- Continuous motion generation implementation is missing or broken
+- Timestamp and continuity logic must be implemented together
+- Without this, generated video sequences have no temporal continuity between frames/clips
+
+---
+
+### BUG-22b — Timestamp Text Implementation Missing (MEDIUM)
+
+**Covers DOCX Section 1.4 — listed separately from BUG-22**
+
+- Timestamp text overlay/implementation is missing or broken
+- This is distinct from continuous motion — it concerns text timestamp overlays on video frames
+- Must be implemented in the video generation and assembly pipeline
+- Required for scene timing, subtitle alignment, and editorial reference
+
+---
+
+### BUG-23 — Post-Assembly AI Editor Flow Missing (MEDIUM)
+
+**After assembly succeeds, user must be able to:**
+- Send video to editor OR video trim OR AI edit
+- Chat with AI to issue edit instructions (add intro, outro, captions, contact info, etc.)
+- Similar to Runway pipeline style
+
+**Rule: Must work end-to-end. Not half-implemented.**
+
+---
+
+### ACCEPTANCE CRITERIA — Work is complete when:
+
+- [ ] AI supervisor/orchestrator works across all major sections
+- [ ] Design selections feed into story/content
+- [ ] Story/content feeds into characters, scenes, voices, SFX, music, motion, rendering
+- [ ] Scene-based editing works (select scene → AI polishes that scene only)
+- [ ] Characters save to DB, persist across sessions, reusable across movies
+- [ ] Characters never collapse to bear/cartoon default
+- [ ] Movie, children, hybrid, free mode, music, commercial, viral video, short video, scene forge flows are connected and functional
+- [ ] Narration works with selectable providers (Piper → Karaoke → FAL → ElevenLabs → Gemini)
+- [ ] SFX works with legal licensing enforcement (CC BY-NC blocked from commercial)
+- [ ] Music pipeline works (LLM text → Karaoke/GHS Free → Suno/KIE/FAL)
+- [ ] Free mode: standard LLM chat UI with history, media output panel, 5s video limit
+- [ ] JSON/SSE parsing errors fixed
+- [ ] Commercial: image reading, captioning, narration, intro/outro, upload all work
+- [ ] Karaoke analysis works (PySoundFile/audioread/Python 3.13 fix)
+- [ ] Hybrid Planner: narrator/actor voices time-separated, subtitles working, image-only body renders
+- [ ] Project state persists across refresh
+- [ ] Style selection (3D/2D/realistic) enforced consistently across full pipeline
+- [ ] Post-assembly editor flow exists and works end-to-end
+
+---
 
 ## SESSION 2026-04-27 — Karaoke restructure (Final Master Canvas)
 
