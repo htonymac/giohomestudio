@@ -3247,7 +3247,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
   // ── Write current project state to DB (used before switching/creating) ──
   async function flushCurrentProject() {
-    const id = activeProjLocalId;
+    // Fall back to URL param or default slot — never silently skip
+    const id = activeProjLocalId
+      || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("projectId") : null)
+      || "ghs_hybrid_default";
     if (!id) return;
     const data = {
       projectId, projectTitle, projectPhase, idea, genre, tone,
@@ -4132,37 +4135,54 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         </div>
       )}
 
-      {/* ── Production Pipeline Progress Bar ── */}
+      {/* ── Production Pipeline Progress Bar — ordered, gated ── */}
       {(() => {
+        // Completion signals — each section has a clear "done" condition
+        const storyDone      = !!(expandedSummary || fullScript);
+        const scriptDone     = scriptSegments.length > 0;
+        const soundDone      = !!(selectedMusicUrl || narratorAudioUrl || Object.keys(characterAudioUrls).length > 0);
+        const charactersDone = characters.length > 0;
+        const scenesDone     = scenes.length > 0 && Object.keys(sceneImages).length > 0;
+        const assemblyDone   = !!assembledVideoUrl;
+
         const steps = [
-          { id: "story",      label: "Story",      icon: "1", done: !!idea && !!expandedSummary },
-          { id: "characters", label: "Characters",  icon: "2", done: characters.length > 0 },
-          { id: "scenes",     label: "Scenes",      icon: "3", done: scenes.length > 0 },
-          { id: "audio",      label: "Audio",       icon: "4", done: scenes.some(s => s.audioPlan?.musicMood) },
-          { id: "assembly",   label: "Assembly",    icon: "5", done: assemblyReadiness > 50 },
+          { id: "story",      label: "Story",      n: 1, done: storyDone,      unlocked: true },
+          { id: "script",     label: "Script",      n: 2, done: scriptDone,     unlocked: storyDone },
+          { id: "audio",      label: "Sound",       n: 3, done: soundDone,      unlocked: storyDone },
+          { id: "characters", label: "Characters",  n: 4, done: charactersDone, unlocked: storyDone },
+          { id: "scenes",     label: "Scenes",      n: 5, done: scenesDone,     unlocked: charactersDone },
+          { id: "assembly",   label: "Assembly",    n: 6, done: assemblyDone,   unlocked: scenesDone },
         ];
-        const currentStepIndex = steps.findIndex(s => !s.done);
-        const activeStepIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
         return (
           <div style={{ display: "flex", alignItems: "center", marginBottom: 12, padding: "10px 16px", background: "#080d10", borderRadius: 12, border: `1px solid ${border}`, gap: 0 }}>
             {steps.map((step, i) => {
-              const isActive = i === activeStepIndex;
+              const isActive = activeTab === step.id;
               const isDone = step.done;
+              const isLocked = !step.unlocked;
               const isLast = i === steps.length - 1;
-              const stepColor = isDone ? accent : isActive ? gold : muted;
+              const stepColor = isDone ? "#22c55e" : isActive ? gold : isLocked ? "#333" : muted;
               return (
                 <div key={step.id} style={{ display: "flex", alignItems: "center", flex: 1 }}>
-                  <button onClick={() => setActiveTab(step.id as WorkshopTab)}
-                    style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: "none", background: isActive ? `${gold}12` : "transparent", cursor: "pointer", flex: 1 }}>
+                  <button
+                    onClick={() => {
+                      if (isLocked) {
+                        const prev = steps[i - 1];
+                        setLastAction(`Complete "${prev?.label}" first`);
+                        return;
+                      }
+                      setActiveTab(step.id as WorkshopTab);
+                    }}
+                    title={isLocked ? `Complete ${steps[i-1]?.label} first` : step.label}
+                    style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4, padding: "6px 8px", borderRadius: 8, border: "none", background: isActive ? `${gold}12` : "transparent", cursor: isLocked ? "not-allowed" : "pointer", flex: 1, opacity: isLocked ? 0.4 : 1 }}>
                     <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
-                      background: isDone ? accent : isActive ? `${gold}20` : "#ffffff08",
-                      border: `2px solid ${stepColor}`, fontSize: 13 }}>
-                      {isDone ? <Icon.Check style={{ width:12, height:12 }} /> : step.icon}
+                      background: isDone ? "#22c55e" : isActive ? `${gold}20` : "#ffffff08",
+                      border: `2px solid ${stepColor}`, fontSize: 13, color: isDone ? "#000" : stepColor, fontWeight: 700 }}>
+                      {isDone ? "✓" : step.n}
                     </div>
                     <span style={{ fontSize: 9, fontWeight: isActive ? 700 : 500, color: stepColor, whiteSpace: "nowrap" as const }}>{step.label}</span>
                   </button>
                   {!isLast && (
-                    <div style={{ height: 2, flex: 1, background: i < activeStepIndex ? accent : "#ffffff10", marginTop: -10, maxWidth: 32 }} />
+                    <div style={{ height: 2, flex: 1, background: isDone ? "#22c55e50" : "#ffffff10", marginTop: -10, maxWidth: 32 }} />
                   )}
                 </div>
               );
@@ -4172,33 +4192,67 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       })()}
 
       {/* ── Workshop Tab Bar — v14 ── */}
-      <div style={{ display: "flex", gap: 0, background: ds.color.card, borderBottom: `1px solid ${ds.color.line}`, overflowX: "auto", marginBottom: 20 }}>
-        {WORKSHOP_TABS.map(tab => {
-          const isActive = activeTab === tab.id;
-          return (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              style={{
-                padding: "12px 14px", background: "none", border: "none",
-                color: isActive ? "#fff" : muted,
-                fontWeight: isActive ? 700 : 500, fontSize: 10,
-                cursor: "pointer", whiteSpace: "nowrap",
-                position: "relative", fontFamily: ds.font.mono,
-                textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 80,
-              }}>
-              {tab.label}
-              {tab.step !== undefined && !isActive && (
-                <span style={{ marginLeft: 4, fontSize: 8, background: `${purple}22`, color: purple, borderRadius: 8, padding: "1px 5px" }}>{tab.step}</span>
-              )}
-              {tab.id === "scenes" && scenes.length > 0 && !isActive && (
-                <span style={{ marginLeft: 4, fontSize: 8, background: `${accent}22`, color: accent, borderRadius: 8, padding: "1px 5px" }}>{scenes.length}</span>
-              )}
-              {isActive && (
-                <span style={{ position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc, #ff7a45)" }} />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {(() => {
+        const storyDone      = !!(expandedSummary || fullScript);
+        const scriptDone     = scriptSegments.length > 0;
+        const soundDone      = !!(selectedMusicUrl || narratorAudioUrl || Object.keys(characterAudioUrls).length > 0);
+        const charactersDone = characters.length > 0;
+        const scenesDone     = scenes.length > 0 && Object.keys(sceneImages).length > 0;
+        const assemblyDone   = !!assembledVideoUrl;
+        const tabDone: Record<string, boolean> = {
+          story: storyDone, script: scriptDone, audio: soundDone,
+          characters: charactersDone, scenes: scenesDone,
+          screenplay: scriptDone, assembly: assemblyDone,
+          overview: true, trends: true,
+        };
+        const tabUnlocked: Record<string, boolean> = {
+          story: true, script: storyDone, audio: storyDone,
+          characters: storyDone, scenes: charactersDone,
+          screenplay: scriptDone, assembly: scenesDone,
+          overview: true, trends: true,
+        };
+        return (
+          <div style={{ display: "flex", gap: 0, background: ds.color.card, borderBottom: `1px solid ${ds.color.line}`, overflowX: "auto", marginBottom: 20 }}>
+            {WORKSHOP_TABS.map(tab => {
+              const isActive = activeTab === tab.id;
+              const isDone = tabDone[tab.id] ?? false;
+              const isUnlocked = tabUnlocked[tab.id] ?? true;
+              return (
+                <button key={tab.id}
+                  onClick={() => {
+                    if (!isUnlocked) {
+                      setLastAction(`Complete previous steps before opening ${tab.label}`);
+                      return;
+                    }
+                    setActiveTab(tab.id);
+                  }}
+                  style={{
+                    padding: "12px 14px", background: "none", border: "none",
+                    color: isActive ? "#fff" : isDone ? "#22c55e" : isUnlocked ? muted : "#333",
+                    fontWeight: isActive ? 700 : isDone ? 600 : 500, fontSize: 10,
+                    cursor: isUnlocked ? "pointer" : "not-allowed",
+                    whiteSpace: "nowrap", position: "relative", fontFamily: ds.font.mono,
+                    textTransform: "uppercase", letterSpacing: "0.08em", minWidth: 80,
+                    opacity: isUnlocked ? 1 : 0.4,
+                  }}>
+                  {tab.label}
+                  {tab.step !== undefined && !isActive && (
+                    <span style={{ marginLeft: 4, fontSize: 8, background: isDone ? "#22c55e22" : `${purple}22`, color: isDone ? "#22c55e" : purple, borderRadius: 8, padding: "1px 5px" }}>
+                      {isDone ? "✓" : tab.step}
+                    </span>
+                  )}
+                  {tab.id === "scenes" && scenes.length > 0 && !isActive && !isDone && (
+                    <span style={{ marginLeft: 4, fontSize: 8, background: `${accent}22`, color: accent, borderRadius: 8, padding: "1px 5px" }}>{scenes.length}</span>
+                  )}
+                  {isActive && (
+                    <span style={{ position: "absolute", bottom: 0, left: 4, right: 4, height: 2, borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc, #ff7a45)" }} />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ── Error Banner ── */}
       {uiError && (
