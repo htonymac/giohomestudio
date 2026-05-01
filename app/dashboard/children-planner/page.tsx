@@ -283,6 +283,7 @@ function ChildrenPlannerInner() {
   // ── Scene Board state ──
   const [generatingScenesFromStory, setGeneratingScenesFromStory] = useState(false);
   const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
+  const [polishingScene, setPolishingScene] = useState<string | null>(null);
   const [sceneCharAssignments, setSceneCharAssignments] = useState<Record<string, string[]>>({});
 
   // ── Pre-flight check ──
@@ -756,6 +757,34 @@ function ChildrenPlannerInner() {
       setLastAction(`Image generation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ── Scene Polish — improve scene visual description via LLM ────────
+  async function handlePolishScene(sceneId: string, currentText: string, action: "polish" | "upgrade" | "add-detail") {
+    if (!currentText?.trim()) return;
+    setPolishingScene(sceneId);
+    try {
+      const res = await fetch("/api/hybrid/scene-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId, currentText, action }),
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        const sceneNum = parseInt(sceneId.replace("child_sc", ""), 10);
+        setChildScenes(prev => prev.map(s =>
+          s.scene === sceneNum ? { ...s, visualDescription: data.polishedText } : s
+        ));
+        setLastAction(`Scene ${sceneId}: description polished`);
+      } else if (data.error) {
+        setLastAction(`Polish failed: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("[handlePolishScene children] error:", err);
+      setLastAction("Scene polish failed — check console");
+    } finally {
+      setPolishingScene(null);
+    }
   }
 
   // ── Pre-flight check ──
@@ -2780,6 +2809,14 @@ function ChildrenPlannerInner() {
                         style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 8 }}
                         placeholder="Scene description (editable)..."
                       />
+                      {/* Polish button */}
+                      <button
+                        onClick={() => handlePolishScene(sceneId, scene.visualDescription, "polish")}
+                        disabled={polishingScene === sceneId}
+                        data-testid={`polish-btn-${sceneId}`}
+                        style={{ marginBottom: 8, padding: "5px 12px", borderRadius: 7, border: `1px solid #a855f750`, background: polishingScene === sceneId ? "#a855f708" : "transparent", color: polishingScene === sceneId ? muted : "#a855f7", fontSize: 9, fontWeight: 600, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>
+                        {polishingScene === sceneId ? "Polishing..." : "Polish"}
+                      </button>
                       {/* Character assignment */}
                       {savedChars.length > 0 && (
                         <div>

@@ -279,6 +279,7 @@ function MoviePlannerInner() {
   const [sceneViewMode, setSceneViewMode] = useState<"grid" | "list">("grid");
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
+  const [polishingScene, setPolishingScene] = useState<string | null>(null);
 
   // ── Narration ──
   const [narrationTexts, setNarrationTexts] = useState<Record<number, string>>({});
@@ -1494,6 +1495,32 @@ function MoviePlannerInner() {
       }
     } catch (err) {
       setErrorMsg(`Narration failed for Scene ${scene.scene}: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+  }
+
+  // ── Scene Polish — improve scene description via LLM ─────────────
+  async function handlePolishScene(sceneId: string, currentText: string, action: "polish" | "upgrade" | "add-detail") {
+    if (!currentText?.trim()) return;
+    setPolishingScene(sceneId);
+    try {
+      const res = await fetch("/api/hybrid/scene-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId, currentText, action }),
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        const sceneNum = parseInt(sceneId.replace("SC", ""), 10);
+        updateScene(sceneNum, { visualDescription: data.polishedText });
+        setLastAction(`Scene ${sceneId}: description polished`);
+      } else if (data.error) {
+        setLastAction(`Polish failed: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("[handlePolishScene movie] error:", err);
+      setLastAction("Scene polish failed — check console");
+    } finally {
+      setPolishingScene(null);
     }
   }
 
@@ -3089,6 +3116,13 @@ function MoviePlannerInner() {
                   <button onClick={() => generateSceneNarration(scene)} disabled={!scene.dialogue?.trim()}
                     style={{ flex: 1, fontSize: 9, padding: "6px 10px", borderRadius: 6, border: `1px solid ${accent}30`, background: `${accent}06`, color: accent, cursor: !scene.dialogue?.trim() ? "not-allowed" : "pointer", fontWeight: 600, opacity: !scene.dialogue?.trim() ? 0.5 : 1 }}>
                     Generate Audio
+                  </button>
+                  <button
+                    onClick={() => handlePolishScene(sceneId, scene.visualDescription || scene.goal, "polish")}
+                    disabled={polishingScene === sceneId}
+                    data-testid={`polish-btn-${sceneId}`}
+                    style={{ flex: 1, fontSize: 9, padding: "6px 10px", borderRadius: 6, border: `1px solid #a855f730`, background: polishingScene === sceneId ? "#a855f708" : `#a855f706`, color: polishingScene === sceneId ? muted : "#a855f7", cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    {polishingScene === sceneId ? "Polishing..." : "Polish"}
                   </button>
                 </div>
 

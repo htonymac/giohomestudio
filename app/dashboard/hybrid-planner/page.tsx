@@ -256,6 +256,7 @@ function HybridPlannerInner() {
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
   const [sceneImageModels, setSceneImageModels] = useState<Record<string, string>>({});
   const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
+  const [polishingScene, setPolishingScene] = useState<string | null>(null);
   const [sceneViewMode, setSceneViewMode] = useState<"grid" | "list">("grid");
   const [expandedSceneId, setExpandedSceneId] = useState<string | null>(null);
   const [previewMedia, setPreviewMedia] = useState<{ url: string; type: "image" | "video"; title: string } | null>(null);
@@ -1520,6 +1521,33 @@ function HybridPlannerInner() {
       setUiError(`Image generation failed for Scene ${scene.scene}. Please try again.`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ── Scene Polish — improve description text via LLM ───────────────
+  async function handlePolishScene(sceneId: string, currentText: string, action: "polish" | "upgrade" | "add-detail") {
+    if (!currentText?.trim()) return;
+    setPolishingScene(sceneId);
+    try {
+      const res = await fetch("/api/hybrid/scene-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId, currentText, action }),
+      });
+      const data = await res.json();
+      if (data.polishedText) {
+        setScenes(prev => prev.map(s =>
+          s.sceneId === sceneId ? { ...s, description: data.polishedText } : s
+        ));
+        setLastAction(`Scene ${sceneId}: description polished`);
+      } else if (data.error) {
+        setLastAction(`Polish failed: ${data.error}`);
+      }
+    } catch (err) {
+      console.error("[handlePolishScene] error:", err);
+      setLastAction("Scene polish failed — check console");
+    } finally {
+      setPolishingScene(null);
+    }
   }
 
   async function makeSceneVideo(scene: HybridScene, durationSecs?: number) {
@@ -4896,6 +4924,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <button onClick={() => setExpandedSceneId(expandedSceneId === scene.sceneId ? null : scene.sceneId)}
                             style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${border}`, background: expandedSceneId === scene.sceneId ? `${blue}10` : "transparent", color: expandedSceneId === scene.sceneId ? blue : muted, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
                             {expandedSceneId === scene.sceneId ? "Close" : "Edit"}
+                          </button>
+                          <button
+                            onClick={() => handlePolishScene(scene.sceneId, scene.description, "polish")}
+                            disabled={polishingScene === scene.sceneId}
+                            data-testid={`polish-btn-${scene.sceneId}`}
+                            style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${purple}50`, background: polishingScene === scene.sceneId ? `${purple}08` : "transparent", color: polishingScene === scene.sceneId ? muted : purple, fontSize: 9, fontWeight: 600, cursor: polishingScene === scene.sceneId ? "not-allowed" : "pointer" }}>
+                            {polishingScene === scene.sceneId ? "..." : "Polish"}
                           </button>
                         </div>
                       </div>
