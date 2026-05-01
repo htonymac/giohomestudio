@@ -336,11 +336,7 @@ function HybridPlannerInner() {
   const [aidSort, setAidSort] = useState<"cheapest" | "quality" | "expensive">("cheapest");
   const [selectedImageModelId, setSelectedImageModelId] = useState<string>("fal_flux_schnell");
   const [transparentBg, setTransparentBg] = useState(false); // Ideogram V3 transparent PNG mode
-  const [genSeed, setGenSeed] = useState<number | null>(() => {
-    if (typeof window === "undefined") return null;
-    const v = localStorage.getItem("ghs_hybrid_seed");
-    return v ? Number(v) : null;
-  });
+  const [genSeed, setGenSeed] = useState<number | null>(null);
   const [aiTier, setAiTier] = useState<AITier>("standard"); // GHS AI tier for story expansion
   // ── Generation progress bars (sceneId → live progress) ──
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string; type: "image" | "video" }>>({});
@@ -491,57 +487,22 @@ function HybridPlannerInner() {
   const [preflightResult, setPreflightResult] = useState<{ checks: HybridPreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
   const [preflightRunning, setPreflightRunning] = useState(false);
 
-  // suppressHydrationWarning on root div handles SSR/client localStorage mismatch without blocking render
+  // ── Persistent project storage key (DB-only, no localStorage) ──
+  const ACTIVE_PROJ_ID = "ghs_hybrid_default";
 
-  // ── Persistent project storage key (per movie title) ──
-  const STORAGE_KEY = "ghs_hybrid_workshop_v2";
-  const PROJECT_LIST_KEY = "ghs_hybrid_proj_list";
-  const ACTIVE_PROJ_KEY = "ghs_hybrid_active_proj";
-  const projDataKey = (id: string) => `ghs_hybrid_proj_${id}`;
-
-  // BUG-15: guard flag — while restoring from DB we must NOT write stale localStorage
+  // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
 
-  // ── Restore full project state — DB primary, localStorage fallback ──
+  // ── Restore full project state — DB only ──
   useEffect(() => {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
       try {
-      // Handle return from editor
-      const ret = localStorage.getItem("ghs_hybrid_planner_return");
-      if (ret) {
-        const d = JSON.parse(ret);
-        if (d.timestamp && Date.now() - d.timestamp < 3600000) {
-          if (d.projectId) setProjectId(d.projectId);
-          if (d.activeTab) setActiveTab(d.activeTab as WorkshopTab);
-        }
-        localStorage.removeItem("ghs_hybrid_planner_return");
-      }
-      // Library inbox
-      const inbox = localStorage.getItem("ghs_hybrid_inbox");
-      if (inbox) {
-        try {
-          const items = JSON.parse(inbox);
-          if (Array.isArray(items) && items.length > 0) setLibraryInbox(items);
-          localStorage.removeItem("ghs_hybrid_inbox");
-        } catch { /* ignore */ }
-      }
-      // Load project list
-      try {
-        const listRaw = localStorage.getItem(PROJECT_LIST_KEY);
-        if (listRaw) setProjectList(JSON.parse(listRaw));
-      } catch {}
-      // Get active project ID
-      let activeId = localStorage.getItem(ACTIVE_PROJ_KEY);
-      if (!activeId) {
-        activeId = `proj_${Date.now()}`;
-        localStorage.setItem(ACTIVE_PROJ_KEY, activeId);
-      }
+      const activeId = ACTIVE_PROJ_ID;
       setActiveProjLocalId(activeId);
 
-      // BUG-15: DB fetch completes first → set state → update localStorage.
-      // If DB returns nothing → fall back to localStorage (never overwrite fresh DB data).
+      // Load from DB
       let data: Record<string, unknown> | null = null;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
@@ -552,16 +513,7 @@ function HybridPlannerInner() {
             console.log("[restore] Loaded from DB:", activeId);
           }
         }
-      } catch { /* fall through to localStorage */ }
-
-      if (!data) {
-        // localStorage fallback — only used when DB has nothing
-        const savedRaw = localStorage.getItem(projDataKey(activeId))
-          || localStorage.getItem(STORAGE_KEY);
-        if (savedRaw) {
-          try { data = JSON.parse(savedRaw); } catch {}
-        }
-      }
+      } catch { /* DB unavailable — start fresh */ }
 
       // Guard: if component unmounted while we were fetching, abort state writes
       if (cancelled) return;
@@ -625,11 +577,6 @@ function HybridPlannerInner() {
           if (d.screenplayAuthor) setScreenplayAuthor(d.screenplayAuthor);
           if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
           if (d.musicVolume !== undefined) setMusicVolume(d.musicVolume);
-          // Mirror freshly-loaded DB data back to localStorage so offline fallback stays current
-          try {
-            localStorage.setItem(projDataKey(activeId), JSON.stringify(d));
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
-          } catch {}
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
@@ -643,7 +590,7 @@ function HybridPlannerInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Save full workshop state — DB primary, localStorage fallback ──
+  // ── Save full workshop state — DB only ──
   // BUG-15: skip save while restoring — prevents stale state from overwriting fresh DB data
   useEffect(() => {
     if (!activeProjLocalId) return;
@@ -664,21 +611,7 @@ function HybridPlannerInner() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ localId: activeProjLocalId, data }),
-    }).catch(() => { /* silent — localStorage fallback below */ });
-    // localStorage fallback (keeps working offline / if DB is slow)
-    try {
-      localStorage.setItem(projDataKey(activeProjLocalId), JSON.stringify(data));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {}
-    // Update project list
-    const thumbnail = (Object.values(sceneImages)[0] as string | undefined);
-    const entry = { id: activeProjLocalId, title: projectTitle, style: projectStyle, lastModified: Date.now(), sceneCount: scenes.length, characterCount: characters.length, thumbnail };
-    setProjectList(prev => {
-      const idx = prev.findIndex(p => p.id === activeProjLocalId);
-      const next = idx >= 0 ? [...prev.slice(0, idx), entry, ...prev.slice(idx + 1)] : [...prev, entry];
-      try { localStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
+    }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
 
@@ -2133,16 +2066,18 @@ function HybridPlannerInner() {
           || (scriptSegments.length > 0 ? scriptSegments.map(s => s.text).join(" ") : idea);
         if (narrationText.trim()) {
           // Try auto-generate ONLY if we have no narration at all and there's story text
-          // But check localStorage directly first — state may not have settled after page refresh
-          const localKey = `hybrid_proj_${activeProjLocalId}`;
-          let localNarrUrl: string | null = null;
+          // Check DB for narratorAudioUrl in case React state hasn't hydrated yet
+          let dbNarrUrl: string | null = null;
           try {
-            const raw = localStorage.getItem(localKey);
-            if (raw) localNarrUrl = JSON.parse(raw)?.narratorAudioUrl || null;
+            const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeProjLocalId)}`);
+            if (dbRes.ok) {
+              const dbData = await dbRes.json();
+              if (dbData.found && dbData.data?.narratorAudioUrl) dbNarrUrl = dbData.data.narratorAudioUrl;
+            }
           } catch { /* ignore */ }
-          if (localNarrUrl) {
-            // State race: localStorage has the URL but React state hasn't hydrated yet — use it directly
-            setNarratorAudioUrl(localNarrUrl);
+          if (dbNarrUrl) {
+            // DB has the URL but React state hasn't hydrated yet — use it directly
+            setNarratorAudioUrl(dbNarrUrl);
             await new Promise(r => setTimeout(r, 200));
           } else {
             // Truly no narration — auto-generate
@@ -3096,39 +3031,36 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     setLastAction(`"${archived.scene.title}" restored to assembly as ${newSceneId}`);
   }
 
-  // ── Write current project state directly to localStorage (used before switching/creating) ──
-  function flushCurrentProject() {
+  // ── Write current project state to DB (used before switching/creating) ──
+  async function flushCurrentProject() {
     const id = activeProjLocalId;
     if (!id) return;
+    const data = {
+      projectId, projectTitle, projectPhase, idea, genre, tone,
+      expandedSummary, characters, scenes, sceneImages, sceneVideos, sceneVideoVersions, lastAction,
+      projectStyle, savedCuts, archivedScenes, sceneIntelligence,
+      narratorAudioUrl, selectedMusicUrl, selectedMusicName, selectedVideoModelId,
+      subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
+      timestamp: Date.now(),
+    };
     try {
-      const data = {
-        projectId, projectTitle, projectPhase, idea, genre, tone,
-        expandedSummary, characters, scenes, sceneImages, sceneVideos, sceneVideoVersions, lastAction,
-        projectStyle, savedCuts, archivedScenes, sceneIntelligence,
-        narratorAudioUrl, selectedMusicUrl, selectedMusicName, selectedVideoModelId,
-        subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
-        timestamp: Date.now(),
-      };
-      localStorage.setItem(projDataKey(id), JSON.stringify(data));
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-      const thumbnail = (Object.values(sceneImages)[0] as string | undefined);
-      const entry = { id, title: projectTitle, style: projectStyle, lastModified: Date.now(), sceneCount: scenes.length, characterCount: characters.length, thumbnail };
-      const listRaw = localStorage.getItem(PROJECT_LIST_KEY);
-      const list: typeof projectList = listRaw ? JSON.parse(listRaw) : [];
-      const idx = list.findIndex(p => p.id === id);
-      if (idx >= 0) list[idx] = entry; else list.push(entry);
-      localStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(list));
-    } catch {}
+      await fetch("/api/hybrid/saved-state", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localId: id, data }),
+      });
+    } catch { /* silent */ }
   }
 
   // ── Load a saved project by its local ID ──
-  function loadProject(targetId: string) {
-    flushCurrentProject(); // save current before switching
+  async function loadProject(targetId: string) {
+    await flushCurrentProject(); // save current before switching
     try {
-      const raw = localStorage.getItem(projDataKey(targetId));
-      if (!raw) return;
-      const data = JSON.parse(raw);
-      localStorage.setItem(ACTIVE_PROJ_KEY, targetId);
+      const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(targetId)}`);
+      if (!dbRes.ok) return;
+      const dbData = await dbRes.json();
+      if (!dbData.found || !dbData.data) return;
+      const data = dbData.data;
       setActiveProjLocalId(targetId);
       setProjectId(data.projectId || null);
       setProjectTitle(data.projectTitle || "Untitled Hybrid Project");
@@ -3142,7 +3074,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       setScenes(loadedScenes);
       setSceneImages(data.sceneImages || {});
       // Only restore videos for sceneIds that exist in THIS project's scenes.
-      // Prevents old cross-project videos (same SC01..SCxx IDs) bleeding in.
       const validSceneIds = new Set(loadedScenes.map((s: { sceneId: string }) => s.sceneId));
       const filteredVideos = Object.fromEntries(
         Object.entries((data.sceneVideos || {}) as Record<string, string>).filter(([id]) => validSceneIds.has(id))
@@ -3865,12 +3796,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
               {/* Picker panel is rendered at root level (see bottom of component) to escape overflow:hidden on the hero banner */}
             </div>
-            <button onClick={() => {
+            <button onClick={async () => {
               // Save current project first — NO work is lost
-              flushCurrentProject();
+              await flushCurrentProject();
               // Generate a new project ID
               const newId = `proj_${Date.now()}`;
-              localStorage.setItem(ACTIVE_PROJ_KEY, newId);
               setActiveProjLocalId(newId);
               // ── Story & scene state ──
               setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
@@ -3901,10 +3831,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${gold}40`, background: showProjectSwitcher ? `${gold}15` : `${gold}08`, color: gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
               My Projects {projectList.length > 0 ? `(${projectList.length})` : ""}
             </button>
-            <button onClick={() => {
+            <button onClick={async () => {
               setSaving(true);
-              // Always flush to localStorage immediately — this is the reliable save
-              flushCurrentProject();
+              await flushCurrentProject();
               setLastAction(`"${projectTitle}" saved`);
               setTimeout(() => setSaving(false), 600);
             }}
@@ -3959,16 +3888,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <button onClick={e => {
                         e.stopPropagation();
                         if (confirm(`Delete "${proj.title || "Untitled"}"? This cannot be undone.`)) {
-                          localStorage.removeItem(projDataKey(proj.id));
-                          setProjectList(prev => {
-                            const next = prev.filter(p => p.id !== proj.id);
-                            localStorage.setItem(PROJECT_LIST_KEY, JSON.stringify(next));
-                            return next;
-                          });
+                          setProjectList(prev => prev.filter(p => p.id !== proj.id));
                           // If deleting the active project, start a new blank one
                           if (isActive) {
                             const newId = `proj_${Date.now()}`;
-                            localStorage.setItem(ACTIVE_PROJ_KEY, newId);
                             setActiveProjLocalId(newId);
                             setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
                             setIdea(""); setExpandedSummary(""); setCharacters([]); setCharactersMade(false);
@@ -4219,7 +4142,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             </a>
             <a href="/dashboard/collaborative-editor?from=hybrid-planner" style={{ textDecoration: "none" }}
-              onClick={() => { try { localStorage.setItem("ghs_hybrid_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
+              onClick={() => { /* return state now handled via URL params */ }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${accent}20` }}>
                 <Icon.Wand style={{ width: 24, height: 24 }} />
                 <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 6 }}>Open Editor</p>
@@ -4460,8 +4383,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   onChange={e => {
                     const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
                     setGenSeed(isNaN(v as number) ? null : v);
-                    if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_hybrid_seed", String(v));
-                    else localStorage.removeItem("ghs_hybrid_seed");
                   }}
                   style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
                 />
@@ -4470,7 +4391,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   onClick={() => {
                     const s = Math.floor(Math.random() * 1e9);
                     setGenSeed(s);
-                    localStorage.setItem("ghs_hybrid_seed", String(s));
                   }}
                   style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
                   🎲
@@ -4951,7 +4871,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             AI Model
                           </button>
                           <a href={`/dashboard/collaborative-editor?mode=ghs_hybrid&sceneId=${scene.sceneId}&from=hybrid-planner`} style={{ textDecoration: "none", display: "flex" }}
-                            onClick={() => { try { localStorage.setItem("ghs_hybrid_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
+                            onClick={() => { /* return state now handled via URL params */ }}>
                             <button style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
                               Editor
                             </button>

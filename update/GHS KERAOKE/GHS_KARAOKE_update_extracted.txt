@@ -1,0 +1,544 @@
+
+
+GHS KARAOKE / VOICE-TO-MUSIC
+
+FINAL MASTER SYSTEM CANVAS
+Full Production Version — Source of Truth
+
+1 — SYSTEM IDENTITY
+
+Product Name
+GHS Karaoke Studio — Voice-to-Music Intelligence System
+
+Product Type
+Voice-First AI-Assisted Music Production Platform
+
+System Identity
+This system is:
+Voice → Music → Production → Export
+Not:
+Random AI Music Generator
+
+Core Product Law
+User voice is the starting truth.
+Music must follow:
+
+rhythm
+
+phrasing
+
+emotion
+
+melody
+Never override it.
+
+System Philosophy
+AI assists.
+User directs.
+Assembly executes.
+
+2 — CORE MASTER WORKFLOW
+This is the official full system execution path.
+STEP 
+1  —
+ Voice Input
+STEP 
+2  —
+ Vocal Cleanup
+STEP 
+3  —
+ Audio Analysis
+STEP 
+4  —
+ Melody Extraction
+STEP 
+5  —
+ Lyrics Extraction
+STEP 
+6  —
+ Lyrics Intelligence
+STEP 
+7  —
+ Flow Profiling
+STEP 
+8  —
+ Beat Recommendation
+STEP 
+9  —
+ Production Brief Generation
+STEP 10 — Music Generation
+STEP 11 — Voice Enhancement
+STEP 12 — Audio Mixing
+STEP 13 — Review Interface
+STEP 14 — Version Comparison
+STEP 15 — Final Assembly
+STEP 16 — Export
+STEP 17 — Video Pipeline (Optional)
+STEP 18 — Storage Lifecycle Handling
+
+FLOW LOCK RULE
+Music generation must NOT start until:
+Tempo detected
+Melody extracted
+Lyrics processed
+Flow classified
+Production brief built
+No bypass allowed.
+
+3 — INPUT SYSTEM
+
+Accepted Inputs
+User may provide:
+
+Singing
+
+Humming
+
+Spoken rhythm
+
+Chant
+
+Freestyle
+
+Poem
+
+Melody idea
+
+Karaoke vocal
+
+Supported Formats
+MP3
+WAV
+M4A
+AAC
+OGG
+WEBM
+Max Size:
+50MB
+
+Recording Modes
+
+Mode A — Browser Recording
+Uses:
+Web Audio API
+Features:
+
+Live waveform
+
+Timer
+
+Preview
+
+Mode B — Upload
+Used for:
+Phone voice notes
+WhatsApp downloads
+
+4 — AUDIO CLEANUP ENGINE
+
+Tool
+
+Demucs
+
+Purpose:
+Remove noise
+Remove hum
+Separate vocals
+Isolate voice
+Output:
+clean_vocal.wav
+Required before analysis.
+Never skip.
+
+DO NOT
+Do not analyze noisy raw audio
+Do not skip cleanup stage
+Do not trust untreated recordings
+
+5 — AUDIO ANALYSIS ENGINE
+
+Tools
+Whisper
+
+librosa
+
+Basic Pitch
+These tools define core intelligence.
+
+ANALYSIS OUTPUT
+System detects:
+Tempo (BPM)
+Beat timing
+Pitch contour
+Energy level
+Brightness
+Musical key
+Duration
+Vocal quality
+Emotion profile
+
+Example:
+Tempo: 94 BPM
+Key: A minor
+Energy: Medium
+Mood: Emotional
+Genre Suggestion: Afro R&amp;B
+
+6 — MELODY EXTRACTION
+
+Tool
+Spotify Basic Pitch
+Purpose:
+Convert vocal melody → MIDI
+Output:
+Note events
+Pitch data
+Melody timing
+
+Core Rule
+Music must follow:
+User melody.
+Never generate without melody reference when available.
+
+7 — LYRICS EXTRACTION
+
+Tool
+Whisper
+Purpose:
+Extract:
+Words
+Timing
+Phrase boundaries
+Confidence score
+
+Output
+Raw transcript
+Timed lyrics
+Confidence indicators
+
+8 — LYRICS INTELLIGENCE ENGINE
+
+Tool
+Claude / GPT
+Purpose:
+Improve:
+Vocabulary
+Rhymes
+Structure
+Emotion
+Flow
+Meaning clarity
+
+Rewrite Levels:
+Improve lightly
+Strengthen wording
+Rewrite partially
+Rewrite fully
+Preserve original
+User selects.
+Never automatic overwrite.
+
+DO NOT
+Do not rewrite lyrics without approval
+Do not change meaning silently
+Do not remove user intent
+
+9 — FLOW PROFILING ENGINE
+Core behavior layer.
+Detect:
+Phrase spacing
+Pause timing
+Hook repetition
+Energy patterns
+Cadence
+Voice style
+Classifies:
+Singing
+Chanting
+Spoken rhythm
+Humming
+Mixed vocal
+
+Routing Logic
+IF humming → prioritize melody mapping
+
+IF spoken rhythm → prioritize cadence alignment
+
+IF singing → prioritize pitch contour
+
+IF chant → prioritize rhythm loop creation
+Mandatory.
+
+10 — BEAT RECOMMENDATION ENGINE
+Beat families include:
+Afro Light Groove
+Afro Dance
+Trap
+Drill
+Soft Piano
+Worship
+Acoustic Guitar
+Children Rhythm
+Cinematic
+Commercial Jingle
+Club Energy
+
+Beat Decision Logic
+Based on:
+Tempo
+Phrase gaps
+Energy level
+Emotional tone
+Voice spacing
+Never random.
+
+DO NOT
+Do not select beats randomly
+Do not ignore vocal timing
+Do not mismatch emotional tone
+
+11 — PRODUCTION BRIEF GENERATOR
+Mandatory stage.
+Builds structured music instructions.
+
+Example:
+Genre: Afro R&amp;B
+Tempo: 94 BPM
+Key: A minor
+Mood: Emotional
+Structure: Verse → Chorus → Bridge
+Duration: 180 seconds
+Energy Curve: Medium → High
+
+Music providers receive:
+Only this brief.
+Not raw guesswork.
+
+12 — MUSIC GENERATION ENGINE
+
+Providers
+Suno
+
+fal
+
+Approved APIs
+Used under:
+Commercial licenses.
+
+Modes:
+Backing track only
+Full production
+Alternate style versions
+
+DO NOT
+Do not generate music without brief
+Do not rely on single provider
+Do not ignore tempo alignment
+
+13 — VOICE ENHANCEMENT ENGINE
+Optional stage.
+
+Tool
+RVC
+Purpose:
+Improve vocal tone
+Enhance clarity
+Strengthen presence
+Not required for early builds.
+
+14 — MIXING ENGINE
+User controls:
+Voice volume
+Music volume
+Bass
+Brightness
+Reverb
+Clarity
+Energy
+Intro/Outro trim
+Simple controls only.
+Not complex DAW behavior.
+
+15 — REVIEW SYSTEM
+User sees:
+Waveform playback
+Lyrics editor
+Beat preview
+Music preview
+Voice settings
+Version comparison
+User must approve.
+Never auto-export.
+
+DO NOT
+Do not auto-publish output
+Do not hide edit stage
+Do not force final result
+
+16 — VERSION COMPARISON SYSTEM
+Allows:
+Compare beats
+Compare mixes
+Compare lyric versions
+User selects final version.
+
+17 — FINAL ASSEMBLY ENGINE
+
+Tool
+
+FFmpeg
+
+Purpose:
+Merge voice
+Merge music
+Align timing
+Balance audio
+Deterministic output only.
+
+18 — EXPORT SYSTEM
+Supported outputs:
+MP3
+WAV
+Vocal only
+Instrumental only
+Karaoke version
+Short clip
+Full song
+Hook segment
+Optional:
+Send to GHS Video Pipeline
+
+19 — STORAGE SYSTEM
+Voice is biometric data.
+Security mandatory.
+
+Encryption:
+AES-256 at rest
+TLS 1.3 in transit
+Required.
+
+Retention:
+Maximum: 30 days
+Auto purge after completion
+Required.
+
+DO NOT
+Do not store voices indefinitely
+Do not reuse voice data
+Do not train models without consent
+
+20 — INTELLECTUAL PROPERTY MODEL
+Ownership:
+User owns composition
+User owns lyrics
+User owns melody
+Platform:
+Provides production tool
+Platform attribution allowed:
+Produced with GHS Studio
+Ownership not transferred.
+
+21 — DEEPFAKE PREVENTION
+System blocks:
+Celebrity impersonation
+Unauthorized cloning
+Third-party voice abuse
+Optional:
+Voice similarity detection.
+Required:
+AI watermark metadata.
+
+22 — FAILURE HANDLING
+System must handle:
+Low-quality audio
+Provider failure
+Missing melody
+Invalid lyrics
+Audio corruption
+Timeout errors
+Fallback:
+Retry generation.
+Never crash pipeline.
+
+23 — PROVIDER ARCHITECTURE
+Multi-provider required.
+Never single dependency.
+Structure:
+Audio Cleanup Provider
+Audio Analysis Provider
+Lyrics Provider
+Music Generation Provider
+Assembly Provider
+
+24 — INFRASTRUCTURE MODEL
+Recommended architecture:
+Frontend → Cloudflare Pages
+Backend → VPS API Layer
+Storage → Object Storage
+Database → Metadata DB
+Processing → Worker Jobs
+
+25 — SCALING STRATEGY
+Growth stages:
+Low traffic → Single processing node
+Medium traffic → Worker queue
+High traffic → Distributed processing
+Auto scaling required.
+
+26 — FULL DO RULES
+Always clean audio first
+Always analyze before generation
+Always respect user melody
+Always allow user editing
+Always enforce encryption
+Always purge expired data
+Always require user approval
+Always use production brief
+Always keep deterministic assembly
+
+27 — FULL DO NOT RULES
+Do not skip cleanup
+Do not generate blindly
+Do not ignore melody
+Do not overwrite lyrics automatically
+Do not store biometric data permanently
+Do not impersonate voices
+Do not depend on one provider
+Do not auto-publish output
+Do not bypass review stage
+Do not train on user voice without consent
+Do not generate random music disconnected from user flow
+Do not replace user identity
+Do not degrade vocal authenticity
+Do not expose raw audio publicly
+Do not leak user metadata
+Do not weaken encryption standards
+
+28 — SUCCESS CRITERIA
+System succeeds if:
+User says:
+The system understood my voice
+The beat matches my rhythm
+The lyrics feel natural
+The music feels like mine
+The output sounds professional
+Not:
+It sounds random
+
+29 — FINAL MASTER RULE
+Voice is truth.
+Flow is authority.
+AI assists.
+User decides.
+System executes.
+
+FINAL VERDICT
+This canvas is now:
+✔ Unified
+✔ Flow-driven
+✔ Tool-driven
+✔ Safety-aligned
+✔ Implementation-ready
+✔ Full-version capable
+✔ Source-of-truth quality
+

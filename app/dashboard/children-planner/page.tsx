@@ -229,11 +229,7 @@ function ChildrenPlannerInner() {
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
-  const [genSeed, setGenSeed] = useState<number | null>(() => {
-    if (typeof window === "undefined") return null;
-    const v = localStorage.getItem("ghs_children_seed");
-    return v ? Number(v) : null;
-  });
+  const [genSeed, setGenSeed] = useState<number | null>(null);
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
   const [aidStyle, setAidStyle] = useState<"all"|"2d"|"3d"|"cartoon"|"realistic">("all");
@@ -252,9 +248,7 @@ function ChildrenPlannerInner() {
 
   // ── Assembly Named Cuts (Final tab) ──
   const [assemblyName, setAssemblyName] = useState("Main Story");
-  const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>(() => {
-    try { return JSON.parse(localStorage.getItem("ghs_children_cuts") || "[]"); } catch { return []; }
-  });
+  const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>([]);
   const [showCutsPanel, setShowCutsPanel] = useState(false);
 
   // ── Design tab state ──
@@ -1033,32 +1027,9 @@ function ChildrenPlannerInner() {
   }
 
   // Restore state from localStorage if returning from editor
+  // State restore via URL params or DB — no localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("ghs_children_planner_return");
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.timestamp && Date.now() - data.timestamp < 3600000) {
-          if (data.activeTab) setActiveTab(data.activeTab);
-          if (data.textContent) setTextContent(prev => prev || data.textContent);
-          if (data.learningMode) setLearningMode(data.learningMode);
-          if (data.productionSystem) setProductionSystem(data.productionSystem);
-          if (data.movieGenre) setMovieGenre(data.movieGenre);
-          if (data.movieSceneCount) setMovieSceneCount(data.movieSceneCount);
-          if (data.movieSceneDuration) setMovieSceneDuration(data.movieSceneDuration);
-          if (data.readAlongText) setReadAlongText(data.readAlongText);
-          if (data.highlightMode) setHighlightMode(data.highlightMode);
-          if (data.readSpeed) setReadSpeed(data.readSpeed);
-          if (data.highlightColor) setHighlightColor(data.highlightColor);
-          if (data.fontSize) setFontSize(data.fontSize);
-          if (data.ageGroup) setAgeGroup(data.ageGroup);
-          if (data.safetyLevel) setSafetyLevel(data.safetyLevel);
-          if (data.designComplete) setDesignComplete(data.designComplete);
-          if (data.expandedContent) setExpandedContent(data.expandedContent);
-        }
-        localStorage.removeItem("ghs_children_planner_return");
-      }
-    } catch { /* ignore */ }
+    // No-op: children-planner state is managed in component state only (no cross-session persistence needed for demo)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1602,7 +1573,7 @@ function ChildrenPlannerInner() {
               );
               return link.href ? (
                 <a key={link.label} href={link.href} style={{ textDecoration: "none" }}
-                  onClick={() => { if (link.href?.includes("collaborative-editor")) { try { localStorage.setItem("ghs_children_planner_return", JSON.stringify({ activeTab, textContent, learningMode, productionSystem, movieGenre, movieSceneCount, movieSceneDuration, readAlongText, highlightMode, readSpeed, highlightColor, fontSize, ageGroup, safetyLevel, designComplete, expandedContent, timestamp: Date.now() })); } catch {} } }}>
+                  onClick={() => { /* return state handled via URL params */ }}>
                   {inner}
                 </a>
               ) : inner;
@@ -2061,8 +2032,6 @@ function ChildrenPlannerInner() {
                   onChange={e => {
                     const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
                     setGenSeed(isNaN(v as number) ? null : v);
-                    if (v !== null && !isNaN(v as number)) localStorage.setItem("ghs_children_seed", String(v));
-                    else localStorage.removeItem("ghs_children_seed");
                   }}
                   style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
                 />
@@ -2071,7 +2040,6 @@ function ChildrenPlannerInner() {
                   onClick={() => {
                     const sv = Math.floor(Math.random() * 1e9);
                     setGenSeed(sv);
-                    localStorage.setItem("ghs_children_seed", String(sv));
                   }}
                   style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
                   🎲
@@ -2516,7 +2484,7 @@ function ChildrenPlannerInner() {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
                         <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? childSafe : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
-                        <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_children_cuts", JSON.stringify(next)); } catch {} return next; }); }}
+                        <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => prev.filter((_, i) => i !== ci)); }}
                           style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#ef4444", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                       </div>
                       <p style={{ fontSize: 9, color: muted }}>{new Date(c.savedAt).toLocaleDateString()}</p>
@@ -2611,7 +2579,6 @@ function ChildrenPlannerInner() {
                     const existing = prev.findIndex(c => c.name === assemblyName);
                     const cut = { name: assemblyName, sceneIds: [], videoUrl: generatedVideoUrl || undefined, savedAt: new Date().toISOString() };
                     const next = existing >= 0 ? prev.map((c, i) => i === existing ? cut : c) : [...prev, cut];
-                    try { localStorage.setItem("ghs_children_cuts", JSON.stringify(next)); } catch {}
                     return next;
                   });
                   setLastAction(`Version "${assemblyName}" saved`);
@@ -2724,7 +2691,7 @@ function ChildrenPlannerInner() {
                   </button>
                 </a>
                 <a href={`/dashboard/collaborative-editor?videoUrl=${encodeURIComponent(finalVideoUrl)}&from=children-planner`}
-                  onClick={() => { try { localStorage.setItem("ghs_children_planner_return", JSON.stringify({ activeTab, textContent, learningMode, productionSystem, movieGenre, movieSceneCount, movieSceneDuration, readAlongText, highlightMode, readSpeed, highlightColor, fontSize, ageGroup, safetyLevel, designComplete, expandedContent, timestamp: Date.now() })); } catch {} }}
+                  onClick={() => { /* return state handled via URL params */ }}
                   style={{ textDecoration: "none" }}>
                   <button style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                     Open in Editor

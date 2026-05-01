@@ -349,9 +349,7 @@ function MoviePlannerInner() {
   const [sendingToScenes, setSendingToScenes] = useState(false);
   const [sendToScenesResult, setSendToScenesResult] = useState("");
   const [assemblyName, setAssemblyName] = useState("Main Cut");
-  const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>(() => {
-    try { return JSON.parse(localStorage.getItem("ghs_movie_cuts") || "[]"); } catch { return []; }
-  });
+  const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>([]);
   const [showCutsPanel, setShowCutsPanel] = useState(false);
 
   // ── Story AI provider ──
@@ -466,19 +464,9 @@ function MoviePlannerInner() {
   // EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Restore state from localStorage if returning from editor
+  // State restore via URL params — no localStorage
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("ghs_movie_planner_return");
-      if (saved) {
-        const data = JSON.parse(saved);
-        if (data.timestamp && Date.now() - data.timestamp < 3600000) {
-          if (data.projectId) setProjectId(data.projectId);
-          if (data.activeTab) setActiveTab(data.activeTab);
-        }
-        localStorage.removeItem("ghs_movie_planner_return");
-      }
-    } catch { /* ignore */ }
+    // No-op: return state handled via URL params only
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1937,7 +1925,7 @@ function MoviePlannerInner() {
               </div>
             </a>
             <a href="/dashboard/collaborative-editor?from=movie-planner" style={{ textDecoration: "none" }}
-              onClick={() => { try { localStorage.setItem("ghs_movie_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
+              onClick={() => { /* return state handled via URL params */ }}>
               <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${accent}20` }}>
                 <Icon.Wand style={{ width: 24, height: 24, color: accent, marginBottom: 6 }} />
                 <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 6 }}>Open Editor</p>
@@ -2668,7 +2656,7 @@ function MoviePlannerInner() {
                       {/* Action buttons row 2: editor + move */}
                       <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
                         <a href={`/dashboard/collaborative-editor?mode=ghs_hybrid&sceneId=${sceneId}&from=movie-planner`} style={{ flex: 1, textDecoration: "none" }}
-                          onClick={() => { try { localStorage.setItem("ghs_movie_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
+                          onClick={() => { /* return state handled via URL params */ }}>
                           <button style={{ width: "100%", padding: "5px 8px", borderRadius: 8, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
                             Editor
                           </button>
@@ -3203,7 +3191,7 @@ function MoviePlannerInner() {
                       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
                         <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? gold : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
-                        <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => { const next = prev.filter((_, i) => i !== ci); try { localStorage.setItem("ghs_movie_cuts", JSON.stringify(next)); } catch {} return next; }); }}
+                        <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => prev.filter((_, i) => i !== ci)); }}
                           style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: red, cursor: "pointer", display:"flex", alignItems:"center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
                       </div>
                       <p style={{ fontSize: 9, color: muted }}>{c.sceneIds.length} scene{c.sceneIds.length !== 1 ? "s" : ""} · {new Date(c.savedAt).toLocaleDateString()}</p>
@@ -3229,7 +3217,6 @@ function MoviePlannerInner() {
                     const existing = prev.findIndex(c => c.name === assemblyName);
                     const cut = { name: assemblyName, sceneIds: assemblySelectedIds, videoUrl: assembledUrl ?? undefined, savedAt: new Date().toISOString() };
                     const next = existing >= 0 ? prev.map((c, i) => i === existing ? cut : c) : [...prev, cut];
-                    try { localStorage.setItem("ghs_movie_cuts", JSON.stringify(next)); } catch {}
                     return next;
                   });
                   setLastAction(`Cut "${assemblyName}" saved`);
@@ -3394,7 +3381,7 @@ function MoviePlannerInner() {
               </button>
             ) : (
               <a href="/dashboard/collaborative-editor?from=movie-planner" style={{ flex: 1, textDecoration: "none" }}
-                onClick={() => { try { localStorage.setItem("ghs_movie_planner_return", JSON.stringify({ projectId, activeTab, timestamp: Date.now() })); } catch {} }}>
+                onClick={() => { /* return state handled via URL params */ }}>
                 <button style={{ ...btnPrimary, width: "100%", background: purple, color: "#fff" }}>Open in Editor</button>
               </a>
             )}

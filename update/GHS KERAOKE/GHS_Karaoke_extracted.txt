@@ -1,0 +1,965 @@
+
+
+GHS Karaoke / Voice-to-Music Intelligence Plan
+
+Full Product Canvas for Claude Code
+
+Purpose
+This canvas defines how GHS Karaoke / Voice-to-Music should work.
+The goal is to let a user:
+
+record or upload their voice
+
+let GHS understand the user’s natural flow
+
+extract or improve lyrics
+
+suggest the right beat or music style
+
+build music around the user’s existing flow
+
+polish the sound
+
+export it as music, karaoke, or a production draft
+This should not be treated as simple “AI music generation.”
+It should be treated as a voice-first music production pipeline.
+
+1. Core Product Idea
+Some users are not musicians in the technical sense.
+They may not know:
+
+chords
+
+arrangement
+
+BPM
+
+music production terms
+
+vocal processing terms
+But they may already have:
+
+a melody in their head
+
+a rough song in their voice
+
+a freestyle flow
+
+a spoken rhythm
+
+a chant
+
+a hook
+
+a rough chorus idea
+
+So
+ GHS should start from the user’s voice and help shape it into music.
+
+Core Rule
+The user’s recorded voice flow is the starting truth.
+GHS should help shape music around that flow, not ignore it.
+
+2. Main Product Position
+GHS Karaoke / Voice-to-Music should work like this:
+Voice Input → Cleanup → Flow Analysis → Lyric Extraction/Polish → Beat Recommendation → Music Build → Polish/Mix → Export
+Not:
+Voice Input → Random music generation → Final output
+That difference is critical.
+
+3. Main Use Cases
+GHS Karaoke / Voice-to-Music should support:
+
+rough sung melody to polished music
+
+voice note to song draft
+
+spoken words to rhythm-backed music
+
+freestyle vocal to beat-matched demo
+
+chant to commercial or social music
+
+gospel/worship voice idea to music draft
+
+children learning song voice draft to simple music
+
+poem or lyric reading to musical arrangement
+
+karaoke vocal enhancement and export
+
+lyric polishing with better vocabulary
+
+4. Main Product Modes
+
+Mode A — Voice to Music
+User records or uploads a vocal idea.
+GHS builds music around it.
+
+Mode B — Voice to Karaoke
+User provides vocal or song.
+GHS creates a karaoke-friendly version with lyric timing and export options.
+
+Mode C — Voice to Polished Demo
+User records rough song.
+GHS polishes it into a stronger demo.
+
+Mode D — Voice to Lyrics + Music
+User’s audio is first understood as lyrics and structure, then music is built around it.
+
+Mode E — Voice to Beat Match
+User records a flow or chant.
+GHS suggests and applies the most suitable beat family.
+
+5. Core Product Principle
+This feature is not mainly about inventing music from nothing.
+It is about:
+
+understanding the user’s voice
+
+detecting the existing flow
+
+preserving the original expression
+
+improving it intelligently
+
+making the user feel like the song came from them
+That should be the product identity.
+
+6. Voice-to-Music Intelligence Layer
+GHS needs a dedicated Voice-to-Music Intelligence Layer.
+This is the missing intelligence system between audio input and music output.
+
+It should handle:
+
+vocal cleanup understanding
+
+phrase timing
+
+melody contour estimation
+
+rhythm 
+feel
+
+emotional tone
+
+repeated hooks
+
+possible chorus detection
+
+lyric extraction
+
+lyric improvement
+
+beat recommendation
+
+accompaniment planning
+
+mix guidance
+Without this layer, the result will feel random and disconnected from the user’s actual input.
+
+7. Full Workflow
+
+Step 1 — User Input
+The user records or uploads:
+
+voice 
+note
+
+sung melody
+
+freestyle vocal
+
+chant
+
+spoken poem
+
+rough hook
+
+rough chorus
+
+karaoke vocal
+
+voice plus light background sound
+
+Step 2 — Vocal Cleanup
+GHS cleans the audio before deeper work begins.
+
+Step 3 — Voice-Flow Analysis
+GHS analyzes the musical and rhythmic qualities of the user’s voice.
+
+Step 4 — Lyrics Extraction and Understanding
+GHS extracts words and interprets likely lyric structure.
+
+Step 5 — Lyrics Assistance
+GHS helps polish the words if the user wants.
+
+Step 6 — Beat / Music Recommendation
+GHS suggests the most suitable accompaniment style.
+
+Step 7 — Music Build
+GHS creates or requests music built around the user’s vocal flow.
+
+Step 8 — Polish / Mix
+GHS balances the voice, beat, and overall sound.
+
+Step 9 — Review
+The user reviews and edits.
+
+Step 10 — Export
+The user exports the desired version.
+
+8. Vocal Cleanup Engine
+This should be the first real audio-processing stage.
+
+Responsibilities
+
+reduce background noise
+
+remove room hum
+
+isolate voice where possible
+
+normalize loudness
+
+reduce accidental background interference
+
+prepare clean audio for analysis
+
+Why This Matters
+If the input is noisy or muddy, every later step becomes weaker:
+
+bad transcription
+
+weak lyric detection
+
+wrong flow analysis
+
+poor beat alignment
+
+poor mix quality
+
+Provider Direction
+A specialized provider can handle this stage better than a general LLM.
+
+9. Voice-Flow Analysis Engine
+This is one of the most important engines.
+
+Its job is to detect:
+
+phrase timing
+
+pauses
+
+flow rhythm
+
+rough tempo 
+feel
+
+repeated lines
+
+emphasis points
+
+hook candidates
+
+melody contour
+
+energy level
+
+whether the user is:
+
+singing
+
+chanting
+
+speaking rhythmically
+
+humming
+
+Why This Matters
+The beat and accompaniment must follow the flow that already exists in the user’s voice.
+If this step is weak, the output music will feel disconnected.
+
+10. Lyrics Extraction Engine
+GHS should try to understand what the user is saying or singing.
+
+It should extract:
+
+words
+
+repeated lines
+
+likely chorus line
+
+verse fragments
+
+unclear phrases
+
+filler words
+
+emotional language
+
+phrase boundaries
+
+Output
+This should produce:
+
+raw transcription
+
+cleaned lyric draft
+
+confidence indicators
+
+repeated section suggestions
+
+11. Lyrics Assistant
+This is where GPT/Claude-style language models become very useful.
+
+The Lyrics Assistant should help the user:
+
+polish weak lines
+
+improve vocabulary
+
+simplify wording
+
+make lyrics more emotional
+
+make lyrics more commercial
+
+make lyrics more poetic
+
+preserve the original meaning
+
+keep the natural flow
+
+improve rhyme if wanted
+
+suggest chorus improvements
+
+suggest verse/chorus structure
+
+Important Rule
+The assistant should not destroy the user’s original feeling.
+It should offer:
+
+improve
+
+simplify
+
+strengthen
+
+rewrite lightly
+
+rewrite more fully
+The user should choose the level of intervention.
+
+12. Beat Recommendation Engine
+Users should not need to understand music deeply before getting a result.
+GHS should recommend accompaniment styles based on the voice-flow profile.
+
+Example beat families
+
+soft piano bed
+
+afro light groove
+
+afro dance groove
+
+slow emotional bed
+
+worship/spiritual bed
+
+trap/drill bounce
+
+commercial jingle rhythm
+
+children learning rhythm
+
+cinematic background
+
+acoustic soft guitar bed
+
+club energy bed
+
+The engine should consider:
+
+user flow speed
+
+emotional tone
+
+vocal energy
+
+phrase spacing
+
+likely genre 
+feel
+
+whether the input sounds like a hook, verse, or chant
+
+Example suggestions
+
+“This sounds like a mid-tempo afro groove.”
+
+“Your melody fits a soft piano arrangement.”
+
+“This vocal feels more like spoken rhythm. Convert to chant style?”
+
+“This could work as a worship chorus.”
+
+“This sounds ideal for a 
+children
+ learning beat.”
+
+13. Accompaniment Builder
+Once the beat style is selected, GHS should build the music around the voice.
+
+Responsibilities
+
+choose arrangement direction
+
+generate or request beat/instrumental
+
+keep the beat aligned with the user’s flow
+
+avoid overpowering the user vocal
+
+support multiple style attempts if needed
+
+Important Rule
+Music generation should happen after analysis, not before it.
+The accompaniment must respect:
+
+voice rhythm
+
+phrase length
+
+emotional tone
+
+user-selected style
+
+14. Polish and Mix Engine
+After the beat and vocal are aligned, GHS should offer polish controls.
+
+User-editable controls
+
+vocal volume
+
+music volume
+
+bass up/down
+
+brightness/warmth
+
+reverb amount
+
+vocal clarity
+
+noise cleanup
+
+overall energy
+
+intro/outro trim
+
+vocal emphasis
+
+Why This Matters
+Many users do not want deep studio-level mixing.
+They want simple controls that make the result feel better.
+
+15. Karaoke Mode Logic
+GHS Karaoke should not only produce music.
+It should also support karaoke-style outputs.
+
+Karaoke outputs should support:
+
+timed lyrics
+
+vocal-led lyric extraction
+
+line-by-line lyric timing
+
+instrumental or reduced-vocal export
+
+sing-along format
+
+subtitle/overlay lyric mode
+
+social karaoke preview version
+
+Karaoke workflow
+
+input song or voice
+
+extract lyrics
+
+clean/transcribe
+
+align lyric timing
+
+create karaoke export
+
+optionally polish the music and vocal
+
+16. Export Types
+Users should be able to export:
+
+polished demo
+
+karaoke version
+
+vocal only
+
+instrumental only
+
+lyric-timed version
+
+short social clip
+
+full song draft
+
+chorus/hook snippet
+
+children/music-learning version if relevant
+
+17. Semi-AI Collaboration Support
+This feature should not be locked into full auto mode only.
+The user should also be able to collaborate with AI.
+
+The user should be able to:
+
+edit extracted lyrics
+
+choose alternate lyric suggestions
+
+approve or reject beat suggestions
+
+change genre style
+
+add/remove bass
+
+reduce noise
+
+change vocal emphasis
+
+switch narration/singing guidance mode
+
+regenerate music only
+
+keep the same vocal and try different accompaniment
+
+export different versions
+This makes the feature much more useful.
+
+18. Review Screen
+A dedicated review screen should show:
+
+voice waveform or playback area
+
+extracted lyrics
+
+cleaned lyric version
+
+beat recommendation
+
+style recommendation
+
+vocal settings
+
+music settings
+
+export options
+
+compare versions
+
+approval/apply buttons
+
+The review screen should let the user:
+
+listen to original input
+
+listen to cleaned version
+
+listen to beat suggestions
+
+compare accompaniment styles
+
+edit lyrics
+
+approve final result
+
+19. User Experience Goals
+The experience should feel like:
+
+“I just recorded my idea”
+
+“GHS understood my flow”
+
+“It helped me write better lyrics”
+
+“It found the right beat”
+
+“It polished my idea without taking it away from me”
+
+“I can still edit it”
+It should not feel like:
+
+random song generation
+
+generic AI replacement
+
+the user’s voice being ignored
+
+a tool only for trained musicians
+
+20. Provider Structure
+Claude Code should not look for one provider to do everything.
+This should be a multi-step provider architecture.
+
+Suggested provider roles
+
+A. Audio cleanup / separation provider
+Use for:
+
+voice cleanup
+
+stem separation
+
+noise removal
+
+vocal isolation
+
+B. Music generation provider
+Use for:
+
+accompaniment generation
+
+instrumental creation
+
+style-based music builds
+
+C. LLM provider
+Use for:
+
+lyric polishing
+
+structure suggestions
+
+wording improvement
+
+beat explanation
+
+user collaboration
+
+D. Assembly / export layer
+Use for:
+
+combining audio layers
+
+applying final timing
+
+exporting versions
+
+deterministic output handling
+
+21. Assembly Rule
+The final product should use a structured assembly pipeline.
+
+Core Rule
+AI plans. Assembly executes.
+The assembly layer should:
+
+line up voice and beat
+
+apply simple mix rules
+
+prepare karaoke timing
+
+export clean versions
+This should not be left to a random text-only prompt.
+
+22. Simple Decision Flow
+Claude Code should implement this decision logic:
+
+If user uploads rough vocal only
+
+clean vocal
+
+analyze flow
+
+extract lyrics
+
+recommend beat
+
+build accompaniment
+
+polish mix
+
+export
+
+If user uploads vocal with beat already
+
+separate or analyze mix
+
+preserve useful timing
+
+allow beat replacement or enhancement
+
+polish
+
+export
+
+If user uploads chant or spoken rhythm
+
+classify as chant/spoken rhythm
+
+recommend suitable rhythmic bed
+
+build music around cadence
+
+export
+
+If user uploads children-style singing
+
+route to children-safe music suggestions
+
+use simple, bright beats
+
+preserve lyric clarity
+
+23. Editable AI Help
+GHS should offer smart AI help during the process.
+
+Example suggestions
+
+“Your hook repeats here. Make it the chorus?”
+
+“These words are strong but can be polished.”
+
+“This phrase is too long for the melody. Shorten it?”
+
+“Your tone fits soft piano better than a heavy beat.”
+
+“This sounds more like spoken rhythm. Turn it into a chant track?”
+
+“Try a gospel version, an afro version, or a soft acoustic version?”
+That helps non-musicians without overwhelming them.
+
+24. User Controls
+The user should be able to control:
+
+original lyric preservation
+
+level of lyric rewrite
+
+beat family
+
+vocal prominence
+
+bass amount
+
+music intensity
+
+language
+
+export type
+
+karaoke timing
+
+whether to keep the same flow but try different beats
+
+25. Safety / Quality Rules
+Claude Code should build some quality controls.
+
+GHS should avoid:
+
+over-processing the user voice by default
+
+replacing the user identity without consent
+
+ignoring the user’s flow
+
+aggressive beat choices that break the natural vocal rhythm
+
+forcing random lyrics that do not match the original mood
+
+GHS should prioritize:
+
+preserving the user’s idea
+
+improving clarity
+
+better alignment
+
+controlled editing
+
+review before export
+
+26. Recommended Implementation Phases
+
+Phase 1 — Strong MVP
+Build:
+
+voice/audio upload and record
+
+cleanup
+
+transcription
+
+lyrics editor
+
+lyric polish assistant
+
+basic voice-flow analysis
+
+beat recommendation
+
+accompaniment generation
+
+simple vocal/music/bass controls
+
+karaoke export basics
+
+review screen
+
+Phase 2 — Better Music Intelligence
+Build:
+
+chorus/verse detection
+
+repeated hook detection
+
+stronger melody contour understanding
+
+multiple accompaniment suggestions
+
+genre routing
+
+compare different beat versions
+
+Phase 3 — Advanced Music Support
+Build:
+
+harmony suggestions
+
+ad-lib support
+
+backing vocal ideas
+
+stronger vocal polish
+
+more detailed arrangement options
+
+deeper karaoke/timed lyric tools
+
+27. What Claude Code Must Build First
+
+First Priority
+
+voice input pipeline
+
+cleanup engine integration
+
+voice-flow profile
+
+lyrics extraction
+
+lyrics assistant
+
+beat recommendation engine
+
+simple accompaniment builder
+
+review screen
+
+Second Priority
+
+simple polish controls
+
+export variants
+
+karaoke timing
+
+version comparison
+
+Third Priority
+
+advanced structure detection
+
+multiple beat alternatives
+
+stronger collaboration features
+
+28. What Claude Code Must Not Do
+
+do not build this as one-step random music generation
+
+do not ignore the user’s voice flow
+
+do not force users to think like musicians
+
+do not depend on one provider for all stages
+
+do not make the LLM responsible for raw audio processing
+
+do not skip cleanup before analysis
+
+do not regenerate everything blindly without preserving the user’s musical intent
+
+29. Main Clarification for Claude Code
+We need GHS Karaoke / Voice-to-Music to become a proper voice-first music system.
+The user may record:
+
+a rough song
+
+a melody
+
+a freestyle vocal
+
+a spoken rhythm
+
+a chant
+
+a voice 
+note
+ music idea
+GHS should not simply throw this into music generation.
+It should follow this structured pipeline:
+
+clean the vocal
+
+analyze the voice flow
+
+extract lyrics
+
+help polish lyrics
+
+recommend the best beat/music family
+
+build accompaniment around the user’s flow
+
+allow simple polish and editing
+
+let the user review and export
+Important rule:
+The user’s recorded voice flow is the starting truth.
+The AI should shape music around that flow, not ignore it.
+Please build this as a structured product system, not a one-step generation feature.
+
+30. Final Position
+GHS Karaoke / Voice-to-Music can become a very strong feature because it serves people who already have musical ideas but do not know how to produce them.
+If built correctly, it will let users:
+
+sing or speak their idea
+
+let GHS understand it
+
+improve the lyrics
+
+match the right beat
+
+polish the sound
+
+export a real music result
+That makes GHS feel helpful, intelligent, and accessible — especially for users who are creative but not technical musicians.
+
