@@ -6789,7 +6789,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Sound Browser</h3>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Sound Browser</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#16a34a12", border: "1px solid #16a34a30" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", flexShrink: 0 }} />
+                <span style={{ fontSize: 9, color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>GHS Inbuilt Library</span>
+                <span style={{ fontSize: 9, color: muted }}>— all CC0, safe for commercial use</span>
+              </div>
+            </div>
 
             {/* Tab row */}
             <div style={{ display: "flex", gap: 4, background: "#ffffff06", borderRadius: 8, padding: 3, marginBottom: 14, width: "fit-content" }}>

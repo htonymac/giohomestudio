@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import OverlayPanel from "../../components/OverlayPanel";
 import SFXPicker from "../../components/SFXPicker";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
@@ -13,10 +14,110 @@ import { Folder, Wand, Film, Music, X, Check } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 
 export default function VideoEditorPage() {
+  const searchParams = useSearchParams();
   const [videoPath, setVideoPath] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [overlayLayers, setOverlayLayers] = useState<OverlayLayer[]>([]);
+
+  // ── Post-assembly trim / intro / outro (FIX 3) ──
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(0);
+  const [introText, setIntroText] = useState("");
+  const [introDuration, setIntroDuration] = useState(3);
+  const [outroText, setOutroText] = useState("");
+  const [outroDuration, setOutroDuration] = useState(3);
+  const [trimming, setTrimming] = useState(false);
+  const [addingIntro, setAddingIntro] = useState(false);
+  const [addingOutro, setAddingOutro] = useState(false);
+  const [trimResult, setTrimResult] = useState<string | null>(null);
+  const [editMsg, setEditMsg] = useState<string | null>(null);
+  const [aiEditPrompt, setAiEditPrompt] = useState("");
+  const [aiEditing, setAiEditing] = useState(false);
+
+  // Load videoUrl from query param (?videoUrl=...)
+  useEffect(() => {
+    const qv = searchParams.get("videoUrl");
+    if (qv) {
+      setVideoUrl(decodeURIComponent(qv));
+      setVideoPath(decodeURIComponent(qv));
+    }
+  }, [searchParams]);
+
+  async function handleTrim() {
+    if (!videoPath || trimEnd <= trimStart) { setEditMsg("Set valid trim points first"); return; }
+    setTrimming(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/trim", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, startSec: trimStart, endSec: trimEnd }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { setTrimResult(data.outputUrl); setVideoUrl(data.outputUrl); setEditMsg("Trim complete"); }
+      else setEditMsg(data.error || "Trim failed");
+    } catch (err) { setEditMsg("Trim failed: " + String(err)); }
+    setTrimming(false);
+  }
+
+  async function handleAddIntro() {
+    if (!videoPath || !introText.trim()) { setEditMsg("Set video and intro text first"); return; }
+    setAddingIntro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-intro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, text: introText, duration: introDuration }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Intro added"); }
+      else setEditMsg(data.error || "Add intro failed");
+    } catch (err) { setEditMsg("Add intro failed: " + String(err)); }
+    setAddingIntro(false);
+  }
+
+  async function handleAddOutro() {
+    if (!videoPath || !outroText.trim()) { setEditMsg("Set video and outro text first"); return; }
+    setAddingOutro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-outro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, text: outroText, duration: outroDuration }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Outro added"); }
+      else setEditMsg(data.error || "Add outro failed");
+    } catch (err) { setEditMsg("Add outro failed: " + String(err)); }
+    setAddingOutro(false);
+  }
+
+  async function handleAiEdit() {
+    if (!aiEditPrompt.trim() || !videoPath) return;
+    setAiEditing(true); setEditMsg(null);
+    // Parse the instruction and call the right API
+    const inst = aiEditPrompt.toLowerCase();
+    try {
+      if (inst.includes("trim") || inst.includes("cut") || inst.includes("shorten")) {
+        // Extract time range from instruction
+        const matches = inst.match(/(\d+)\s*(?:second|sec|s)\b/g);
+        if (matches && matches.length >= 2) {
+          const start = parseInt(matches[0]);
+          const end = parseInt(matches[1]);
+          setTrimStart(start); setTrimEnd(end);
+          await handleTrim();
+        } else setEditMsg("Specify time range: e.g. 'trim from 5s to 30s'");
+      } else if (inst.includes("intro")) {
+        const textMatch = aiEditPrompt.match(/["']([^"']+)["']/);
+        if (textMatch) { setIntroText(textMatch[1]); await handleAddIntro(); }
+        else setEditMsg("Specify intro text in quotes: e.g. 'add intro \"My Film\"'");
+      } else if (inst.includes("outro")) {
+        const textMatch = aiEditPrompt.match(/["']([^"']+)["']/);
+        if (textMatch) { setOutroText(textMatch[1]); await handleAddOutro(); }
+        else setEditMsg("Specify outro text in quotes: e.g. 'add outro \"Subscribe now\"'");
+      } else {
+        setEditMsg("Supported: 'trim from Xs to Ys', 'add intro \"text\"', 'add outro \"text\"'");
+      }
+    } catch (err) { setEditMsg("AI edit failed: " + String(err)); }
+    setAiEditing(false);
+  }
   const [promptInput, setPromptInput] = useState("");
   const [polishedPrompt, setPolishedPrompt] = useState("");
   const [polishing, setPolishing] = useState(false);
@@ -281,6 +382,75 @@ export default function VideoEditorPage() {
             <h3 style={{ fontSize: 12, fontWeight: 700, color: ds.color.ink2, marginBottom: 6 }}>Sound Effects Library</h3>
             <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 10 }}>Browse and preview SFX. Click "Use" to add to your project.</p>
             <SFXPicker onSelect={(event, path) => { console.log(`[SFX] ${event} → ${path}`); }} />
+          </Card>
+
+          {/* ── Post-Assembly Tools: Trim / Intro / Outro / AI Edit (FIX 3) ── */}
+          <Card style={{ marginTop: 10 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2, marginBottom: 12 }}>Post-Assembly Tools</h3>
+
+            {editMsg && (
+              <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: trimResult ? `${ds.color.mint}10` : `${ds.color.coral}10`, border: `1px solid ${trimResult ? ds.color.mint : ds.color.coral}30`, fontSize: 11, color: trimResult ? ds.color.mint : ds.color.coral }}>
+                {editMsg}
+              </div>
+            )}
+
+            {/* AI Edit */}
+            <label style={microLabel}>AI Edit (natural language)</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <input value={aiEditPrompt} onChange={e => setAiEditPrompt(e.target.value)}
+                placeholder={"e.g. 'trim from 5s to 30s' or 'add intro \"My Film\"'"}
+                style={{ ...inputSt, flex: 1 }}
+                onKeyDown={e => e.key === "Enter" && handleAiEdit()} />
+              <button onClick={handleAiEdit} disabled={aiEditing || !videoPath}
+                style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: aiEditing ? ds.color.card : ds.color.lilac, color: "#000", fontSize: 12, fontWeight: 700, cursor: aiEditing ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                {aiEditing ? "Working..." : "Apply"}
+              </button>
+            </div>
+
+            {/* Trim */}
+            <label style={microLabel}>Trim</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 16, alignItems: "end" }}>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Start (seconds)</span>
+                <input type="number" min={0} value={trimStart} onChange={e => setTrimStart(Number(e.target.value))} style={inputSt} />
+              </div>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>End (seconds)</span>
+                <input type="number" min={0} value={trimEnd} onChange={e => setTrimEnd(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleTrim} disabled={trimming || !videoPath}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: trimming ? ds.color.card : ds.color.sky, color: "#000", fontSize: 12, fontWeight: 700, cursor: trimming ? "not-allowed" : "pointer" }}>
+                {trimming ? "..." : "Trim"}
+              </button>
+            </div>
+
+            {/* Intro */}
+            <label style={microLabel}>Add Intro Card</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, marginBottom: 16, alignItems: "end" }}>
+              <input value={introText} onChange={e => setIntroText(e.target.value)} placeholder="Intro text (e.g. A GioHomeStudio Film)" style={inputSt} />
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={10} value={introDuration} onChange={e => setIntroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddIntro} disabled={addingIntro || !videoPath}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: addingIntro ? ds.color.card : ds.color.gold, color: "#000", fontSize: 12, fontWeight: 700, cursor: addingIntro ? "not-allowed" : "pointer" }}>
+                {addingIntro ? "..." : "Add"}
+              </button>
+            </div>
+
+            {/* Outro */}
+            <label style={microLabel}>Add Outro Card</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
+              <input value={outroText} onChange={e => setOutroText(e.target.value)} placeholder="Outro text (e.g. Subscribe now)" style={inputSt} />
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={10} value={outroDuration} onChange={e => setOutroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddOutro} disabled={addingOutro || !videoPath}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: addingOutro ? ds.color.card : ds.color.mint, color: "#000", fontSize: 12, fontWeight: 700, cursor: addingOutro ? "not-allowed" : "pointer" }}>
+                {addingOutro ? "..." : "Add"}
+              </button>
+            </div>
           </Card>
 
           {/* Export / Assembly */}
