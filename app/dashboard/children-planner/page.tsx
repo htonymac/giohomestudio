@@ -175,20 +175,18 @@ const SOUND_TIERS = [
 type SoundTierId = typeof SOUND_TIERS[number]["id"];
 
 // ── Tab type ──
-type WorkshopTab = "overview" | "design" | "content" | "script" | "sound" | "style" | "characters" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
+type WorkshopTab = "overview" | "design" | "content" | "script" | "sound" | "style" | "characters" | "sceneBoard" | "screenplay" | "assembly" | "review1" | "preview" | "review2";
 
 // Design → Content(Story) → Script(Story Plan) → Sound(Voices & Sounds) → Characters(Character Friends) → Scene Board → Review → Overview
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",      label: "Design" },
-  { id: "content",     label: "Content" },
-  { id: "characters",  label: "Character Friends" },
+  { id: "content",     label: "Story" },
   { id: "script",      label: "Script & Story Plan" },
   { id: "sound",       label: "Voices & Sounds" },
+  { id: "characters",  label: "Character Friends" },
   { id: "sceneBoard",  label: "Scene Board" },
   { id: "screenplay",  label: "Screenplay" },
-  { id: "review1",     label: "Review 1" },
-  { id: "preview",     label: "Preview" },
-  { id: "review2",     label: "Final" },
+  { id: "assembly",    label: "Assembly" },
   { id: "overview",    label: "Overview" },
 ];
 

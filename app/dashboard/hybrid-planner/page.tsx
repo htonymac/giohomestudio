@@ -156,9 +156,9 @@ type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "script" | "
 // Story → Script → Audio & Shots → Characters → Scene Board → Assembly → Screenplay → Overview → Trends
 const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
   { id: "story",      label: "Story & Draft",  step: 1 },
-  { id: "characters", label: "Characters",      step: 2 },
-  { id: "script",     label: "Script",          step: 3 },
-  { id: "audio",      label: "Sound & SFX",     step: 4 },
+  { id: "script",     label: "Script",          step: 2 },
+  { id: "audio",      label: "Sound & SFX",     step: 3 },
+  { id: "characters", label: "Characters",      step: 4 },
   { id: "scenes",     label: "Scene Board",     step: 5 },
   { id: "screenplay", label: "Screenplay",      step: 6 },
   { id: "assembly",   label: "Assembly",        step: 7 },
