@@ -535,11 +535,8 @@ function MoviePlannerInner() {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
-      let activeId = urlProjectId;
-      if (!activeId) {
-        activeId = crypto.randomUUID();
-        router.replace(`/dashboard/movie-planner?projectId=${activeId}`);
-      }
+      const activeId = urlProjectId || "ghs_movie_default";
+      router.replace(`/dashboard/movie-planner?projectId=${encodeURIComponent(activeId)}`);
       activeProjectIdRef.current = activeId;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);

@@ -1175,11 +1175,8 @@ function ChildrenPlannerInner() {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
-      let activeId = urlProjectId;
-      if (!activeId) {
-        activeId = crypto.randomUUID();
-        router.replace(`/dashboard/children-planner?projectId=${activeId}`);
-      }
+      const activeId = urlProjectId || "ghs_children_default";
+      router.replace(`/dashboard/children-planner?projectId=${encodeURIComponent(activeId)}`);
       activeProjectIdRef.current = activeId;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
@@ -1238,7 +1235,7 @@ function ChildrenPlannerInner() {
       body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textContent, expandedContent, visualStyle, narrationStyle, musicChoice, ageGroup, safetyLevel,
+  }, [textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos, scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab]);
 

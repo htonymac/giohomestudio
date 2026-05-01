@@ -522,13 +522,10 @@ function HybridPlannerInner() {
     async function restoreState() {
       isRestoringRef.current = true;
       try {
-      // If no projectId in URL, generate a fresh one and push it to the URL.
-      // This means a bare /hybrid-planner URL always starts a NEW project.
-      let activeId = urlProjectId;
-      if (!activeId) {
-        activeId = crypto.randomUUID();
-        router.replace(`/dashboard/hybrid-planner?projectId=${activeId}`);
-      }
+      // If no projectId in URL, use the default slot (preserves existing saved data).
+      // "New Project" generates a fresh ID and pushes it to the URL.
+      let activeId = urlProjectId || "ghs_hybrid_default";
+      router.replace(`/dashboard/hybrid-planner?projectId=${encodeURIComponent(activeId)}`);
       setActiveProjLocalId(activeId);
 
       // Load from DB
@@ -642,7 +639,7 @@ function HybridPlannerInner() {
       body: JSON.stringify({ localId: activeProjLocalId, data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
+  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
 
   useEffect(() => {
     const characterId = params.get("characterId");
