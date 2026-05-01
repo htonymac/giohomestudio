@@ -170,16 +170,16 @@ test.describe("Free Mode — full coverage", () => {
 
     // Verify enhance body has mode
     expect(capturedEnhanceBody).not.toBeNull();
-    expect(capturedEnhanceBody?.mode).toBe("text_to_image");
+    expect((capturedEnhanceBody as unknown as Record<string, unknown>)?.mode).toBe("text_to_image");
 
     // Verify imageModel is sent in /api/generation/image body (PR #12 fix)
     expect(capturedImageBody).not.toBeNull();
     expect(capturedImageBody).toHaveProperty("modelId");
     // modelId should be the selected image model (default fal_flux_schnell)
-    expect(typeof capturedImageBody?.modelId).toBe("string");
-    expect((capturedImageBody?.modelId as string).length).toBeGreaterThan(0);
+    expect(typeof (capturedImageBody as unknown as Record<string, unknown>)?.modelId).toBe("string");
+    expect(((capturedImageBody as unknown as Record<string, unknown>)?.modelId as string).length).toBeGreaterThan(0);
 
-    console.log("[PR #12 VERIFY] imageModel sent:", capturedImageBody?.modelId);
+    console.log("[PR #12 VERIFY] imageModel sent:", (capturedImageBody as unknown as Record<string, unknown>)?.modelId);
     await page.screenshot({ path: `${SCREENSHOT_DIR}/free-mode-05-after-generate.png`, fullPage: true });
   });
 
@@ -230,11 +230,11 @@ test.describe("Free Mode — full coverage", () => {
     expect(capturedPipelineBody).not.toBeNull();
     expect(capturedPipelineBody).toHaveProperty("videoModelId");
     expect(capturedPipelineBody).toHaveProperty("imageModelId");
-    expect(typeof capturedPipelineBody?.videoModelId).toBe("string");
-    expect((capturedPipelineBody?.videoModelId as string).length).toBeGreaterThan(0);
+    expect(typeof (capturedPipelineBody as unknown as Record<string, unknown>)?.videoModelId).toBe("string");
+    expect(((capturedPipelineBody as unknown as Record<string, unknown>)?.videoModelId as string).length).toBeGreaterThan(0);
 
-    console.log("[PR #12 VERIFY] videoModelId sent:", capturedPipelineBody?.videoModelId);
-    console.log("[PR #12 VERIFY] imageModelId sent:", capturedPipelineBody?.imageModelId);
+    console.log("[PR #12 VERIFY] videoModelId sent:", (capturedPipelineBody as unknown as Record<string, unknown>)?.videoModelId);
+    console.log("[PR #12 VERIFY] imageModelId sent:", (capturedPipelineBody as unknown as Record<string, unknown>)?.imageModelId);
   });
 
   // ── 7. Video model dropdown state change ─────────────────────────────────────
