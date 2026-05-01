@@ -96,14 +96,29 @@ def main():
 
     try:
         import librosa
-        import soundfile as sf  # noqa: F401 — validates soundfile is installed
+        import soundfile as sf
     except ImportError as e:
         print(json.dumps({"error": f"Missing required dependency: {e}"}))
         sys.exit(1)
 
-    # ── Load audio ──────────────────────────────────────────────────────────
+    # ── Load audio — soundfile → librosa → audioread fallback chain ─────────
     try:
-        y, sr = librosa.load(audio_path, sr=None, mono=True)
+        try:
+            y, sr = sf.read(audio_path, dtype='float32', always_2d=False)
+            if y.ndim > 1:
+                y = y.mean(axis=1)  # stereo → mono
+        except Exception:
+            try:
+                y, sr = librosa.load(audio_path, sr=None, mono=True)
+            except Exception:
+                import audioread
+                with audioread.audio_open(audio_path) as f:
+                    sr = f.samplerate
+                    channels = f.channels
+                    raw = b''.join(f)
+                y = np.frombuffer(raw, dtype='<i2').astype(np.float32) / 32768.0
+                if channels > 1:
+                    y = y.reshape(-1, channels).mean(axis=1)
     except Exception as e:
         print(json.dumps({"error": f"Failed to load audio: {e}"}))
         sys.exit(1)
@@ -221,4 +236,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as _top_exc:
+        import traceback as _tb
+        print(json.dumps({"error": str(_top_exc), "traceback": _tb.format_exc()}))
+        sys.exit(1)

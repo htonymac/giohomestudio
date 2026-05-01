@@ -90,11 +90,10 @@ export async function POST(req: NextRequest) {
       const { stdout, stderr } = await runPythonAnalysis(audioPath);
       stderrLog = stderr;
 
-      // Parse JSON from stdout — use non-greedy match anchored to end of output to
-      // get the LAST JSON object (skips any debug lines printed before the result)
+      // Parse JSON from stdout (last JSON object, in case Python prints logs before it)
       const jsonMatch = stdout.match(/\{[\s\S]*?\}\s*$/m);
       if (!jsonMatch) {
-        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 300)}\nstderr: ${stderr}`);
+        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 300)}\nstderr: ${stderr.slice(0, 300)}`);
       }
       analysisData = JSON.parse(jsonMatch[0]);
 
