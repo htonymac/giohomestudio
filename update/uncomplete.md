@@ -3,6 +3,29 @@ Updated: 2026-04-30
 
 ---
 
+## SESSION 2026-04-30 — S16 BUG-01: AI Coordinator global Zustand store (fix/ghs-bug-01-coordinator)
+
+### COMPLETED
+
+- [x] **BUG-01 — AI Coordinator Zustand store** (`src/modules/coordinator/index.ts`): `useCoordinatorStore` with persist middleware (key: `ghs_coordinator`). Full `CoordinatorState` interface with per-section completion flags. `canAdvanceTo()` guard: story→requires design; characters/sound/scenes→require story; assembly→requires story+scenes; overview→requires assembly complete.
+- [x] **CoordinatorProvider** (`app/components/CoordinatorProvider.tsx`): React wrapper + `useCoordinator()` hook. Auto-detects `plannerType` from pathname on every route change. Exports `useCoordinator` alias.
+- [x] **Layout wiring** (`app/layout.tsx`): `<CoordinatorProvider>` wraps the dashboard subtree (inside ToastProvider, outside Sidebar/TopBar — scopes to all routes).
+- [x] **coordinator-status API** (`app/api/hybrid/coordinator-status/route.ts`): `GET ?projectId=&plannerType=&prompt=`. Returns `{currentStage, sections: {design,story,...}, supervisorAdvice}`. Calls `runSupervisor()` from existing supervisor module.
+- [x] **Hybrid-planner guard** (`app/dashboard/hybrid-planner/page.tsx`): `canAdvanceTo("assembly")` called at top of `assembleScenes()`. If blocked → `setUiError(block)` + return. Uses `useCoordinator()` hook (additive only, no existing code removed).
+- [x] **Zustand installed**: `npm install zustand@^5.0.12` (added to package.json).
+
+---
+
+## SESSION 2026-04-30 — S15 BUG-22 + BUG-22b: Model unlock (fix/ghs-bug-22-viral-model)
+
+### COMPLETED
+
+- [x] **BUG-22** — Viral Video model lock-in fixed. Step 2 now shows full VIDEO_MODELS list (6 models) with expand toggle, BUDGET→BEST badges, cost display, recommended-for-content-type section. ModelPicker in Step 3 now has live onVideoChange wired. Default image model: `fal_flux_schnell`.
+- [x] **BUG-22b** — Short Video model lock-in fixed. Replaced hardcoded `hailuo-fast` with `videoModel` state. Added `ModelPicker` with "AI Generation Models" label showing all 6 video + 5 image models. Default video: `muapi_wan_v2_1_720p`.
+- [x] Playwright 12/12 PASS on prod build port 3201.
+
+---
+
 ## BUG-13 — DONE 2026-04-30 | commit 7385bcd | Playwright PASS
 - [x] Free Mode: Segmind Flux (FREE) set as default image model (first in IMAGE_MODELS, hardcoded initial state)
 - [x] Free Mode: Ideogram Free added as second image model option

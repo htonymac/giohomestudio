@@ -1,3 +1,21 @@
+# GHS Handoff — 2026-04-30 (S16 BUG-01 — MERGED TO MAIN)
+
+## All 17 branches merged. S1–S16 complete.
+
+### S16 files (BUG-01: AI Coordinator)
+- `src/modules/coordinator/index.ts` — Zustand coordinator store with persist, canAdvanceTo guard
+- `app/components/CoordinatorProvider.tsx` — React wrapper + useCoordinator hook + pathname detection
+- `app/layout.tsx` — CoordinatorProvider added to layout tree
+- `app/api/hybrid/coordinator-status/route.ts` — GET endpoint for stage/section status + supervisor advice
+- `app/dashboard/hybrid-planner/page.tsx` — coordinator guard in assembleScenes (additive, non-breaking)
+
+### Next exact steps
+1. Run `npx next build` on merged main to verify zero compilation errors
+2. Run Playwright full-coverage suite
+3. Push to main and browser-verify live
+
+---
+
 # GHS Handoff — 2026-04-30 (S3)
 
 ## S3 — BUG-04a/c/f payload + JSON guard
@@ -9,8 +27,6 @@ Branch: `fix/ghs-bug-04-payload-json-guard`
 - `lib/api-utils.ts` created with `safeJson<T>()` — wraps 6 calls in children-planner + 1 in movie-planner
 - TypeScript clean (tsc --noEmit), next build green
 - Playwright: no JSON crash, bad payload returns JSON 400 (not HTML)
-
-**Next:** S4 — BUG-04b tab order + character picker (see uncomplete.md)
 
 ---
 
