@@ -88,24 +88,32 @@ export async function POST(req: NextRequest) {
 
     try {
       const { stdout, stderr } = await runPythonAnalysis(audioPath);
-      stderrLog = stderr;
+      stderrLog = stderr; // full stderr, no truncation
 
       // Parse JSON from stdout (last JSON object, in case Python prints logs before it)
-      const jsonMatch = stdout.match(/\{[\s\S]*?\}\s*$/m);
+      const jsonMatch = stdout.match(/\{[\s\S]*\}\s*$/m);
       if (!jsonMatch) {
-        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 300)}\nstderr: ${stderr.slice(0, 300)}`);
+        throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 500)}\nstderr: ${stderr.slice(0, 500)}`);
       }
       analysisData = JSON.parse(jsonMatch[0]);
 
       if (analysisData.error) {
         return NextResponse.json({ error: String(analysisData.error), stderr: stderrLog }, { status: 500 });
       }
+
+      // Detect soundfile deprecation / audioread fallback warnings and surface a friendly hint
+      const compatMode = stderrLog.includes("audioread") || stderrLog.includes("FutureWarning") || stderrLog.includes("soundfile backend unavailable");
+      if (compatMode) {
+        console.warn("[karaoke/analyze] running in compatibility mode — soundfile not available or audioread fallback triggered");
+        // attach non-fatal hint to response (caller can surface it)
+        analysisData._compatWarning = "Karaoke analysis running in compatibility mode — install soundfile for better performance.";
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       // Log to PROBLEM_AND_FIX.md if analysis fails
       try {
         const pfPath = path.resolve(process.cwd(), "PROBLEM_AND_FIX.md");
-        const entry = `\n\n## Karaoke Analysis Error — ${new Date().toISOString()}\n**Recording:** ${recordingId}\n**Error:** ${msg}\n**Stderr:** ${stderrLog.slice(0, 1000)}\n`;
+        const entry = `\n\n## Karaoke Analysis Error — ${new Date().toISOString()}\n**Recording:** ${recordingId}\n**Error:** ${msg}\n**Stderr (full):** ${stderrLog}\n`;
         fs.appendFileSync(pfPath, entry, "utf8");
       } catch { /* best effort */ }
 
