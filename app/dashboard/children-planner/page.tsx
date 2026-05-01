@@ -278,7 +278,7 @@ function ChildrenPlannerInner() {
   const [runningIntelligence, setRunningIntelligence] = useState(false);
 
   // ── Feature state: makeSceneVideo ──
-  interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string; characters?: string[] }
+  interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string; characters?: string[]; variantUrls?: string[] }
   const [childScenes, setChildScenes] = useState<ChildScene[]>([]);
   const [sceneVideos, setSceneVideos] = useState<Record<string, string>>({});
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
@@ -288,6 +288,7 @@ function ChildrenPlannerInner() {
   // ── Scene Board state ──
   const [generatingScenesFromStory, setGeneratingScenesFromStory] = useState(false);
   const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
+  const [generatingVariations, setGeneratingVariations] = useState<Set<string>>(new Set());
   const [polishingScene, setPolishingScene] = useState<string | null>(null);
   const [sceneCharAssignments, setSceneCharAssignments] = useState<Record<string, string[]>>({});
 
@@ -825,6 +826,67 @@ function ChildrenPlannerInner() {
       setLastAction(`Image generation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ── Generate 3 image variations for a scene (Scene Board) ──
+  async function generateSceneBoardImageVariations(scene: ChildScene) {
+    const sceneId = `child_sc${String(scene.scene).padStart(2, "0")}`;
+    if (generatingVariations.has(sceneId)) return;
+    setGeneratingVariations(prev => new Set(prev).add(sceneId));
+    try {
+      const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
+      const childStylePrefix = "children's book illustration, age-appropriate, friendly, colorful, ";
+      const seeds = [
+        Math.floor(Math.random() * 9000000) + 1000000,
+        Math.floor(Math.random() * 9000000) + 1000000,
+        Math.floor(Math.random() * 9000000) + 1000000,
+      ];
+      const results: string[] = [];
+      for (let i = 0; i < 3; i++) {
+        try {
+          const res = await fetch("/api/hybrid/scene-image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sceneId,
+              sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
+              characterIds: assignedChars,
+              projectStyle: visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook",
+              mood: "friendly, warm, safe",
+              modelId: selectedImageModelId,
+              seed: seeds[i],
+            }),
+          });
+          const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, `scene-variation-${i}`);
+          const url = data.imageUrl || data.imagePath || "";
+          if (url) results.push(url);
+        } catch {
+          // continue — collect as many as possible
+        }
+      }
+      if (results.length > 0) {
+        // First result becomes active; remaining go to implicit history via childScenes imageUrl history
+        const [first, ...rest] = results;
+        setSceneImages(prev => ({ ...prev, [sceneId]: first }));
+        setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: first } : s));
+        // Store extra variation URLs on the scene as variantUrls for thumbnail picker
+        setChildScenes(prev => prev.map(s =>
+          s.scene === scene.scene
+            ? { ...s, variantUrls: [first, ...rest] }
+            : s
+        ));
+        setLastAction(`Scene ${scene.scene}: ${results.length} variation${results.length > 1 ? "s" : ""} generated`);
+      } else {
+        setLastAction(`Variations failed for scene ${scene.scene}`);
+      }
+    } catch (err) {
+      setLastAction(`Variations failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+    setGeneratingVariations(prev => {
+      const next = new Set(prev);
+      next.delete(sceneId);
+      return next;
+    });
   }
 
   // ── Scene Polish — improve scene visual description via LLM ────────
@@ -3218,6 +3280,7 @@ function ChildrenPlannerInner() {
                 const sceneId = `child_sc${String(scene.scene).padStart(2, "0")}`;
                 const sceneImg = sceneImages[sceneId] || scene.imageUrl;
                 const isGenImg = generatingSceneImage === sceneId;
+                const isGenVar = generatingVariations.has(sceneId);
                 const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
                 return (
                   <div key={scene.scene} style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
@@ -3231,13 +3294,39 @@ function ChildrenPlannerInner() {
                       <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.7)", borderRadius: 6, padding: "3px 8px" }}>
                         <span style={{ fontSize: 9, fontWeight: 700, color: childAccent }}>{sceneId.toUpperCase()}</span>
                       </div>
-                      <button
-                        onClick={() => generateSceneBoardImage(scene)}
-                        disabled={isGenImg}
-                        style={{ position: "absolute", bottom: 8, right: 8, padding: "5px 10px", borderRadius: 7, border: "none", background: isGenImg ? "#2a2040" : sceneImg ? `${childAccent}20` : childAccent, color: isGenImg ? muted : sceneImg ? childAccent : "#000", fontSize: 9, fontWeight: 700, cursor: isGenImg ? "not-allowed" : "pointer" }}>
-                        {isGenImg ? "Generating..." : sceneImg ? "Regen Image" : "Generate Image"}
-                      </button>
+                      <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4 }}>
+                        <button
+                          onClick={() => generateSceneBoardImageVariations(scene)}
+                          disabled={isGenImg || isGenVar}
+                          title="Generate 3 variations"
+                          style={{ padding: "5px 9px", borderRadius: 7, border: "none", background: isGenVar ? "#2a2040" : "#7c3aed30", color: isGenVar ? muted : "#a78bfa", fontSize: 9, fontWeight: 700, cursor: isGenImg || isGenVar ? "not-allowed" : "pointer" }}>
+                          {isGenVar ? "Gen…" : "Gen 3"}
+                        </button>
+                        <button
+                          onClick={() => generateSceneBoardImage(scene)}
+                          disabled={isGenImg || isGenVar}
+                          style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: isGenImg ? "#2a2040" : sceneImg ? `${childAccent}20` : childAccent, color: isGenImg ? muted : sceneImg ? childAccent : "#000", fontSize: 9, fontWeight: 700, cursor: isGenImg || isGenVar ? "not-allowed" : "pointer" }}>
+                          {isGenImg ? "Generating..." : sceneImg ? "Regen" : "Generate"}
+                        </button>
+                      </div>
                     </div>
+                    {/* Variation thumbnails */}
+                    {scene.variantUrls && scene.variantUrls.length > 1 && (
+                      <div style={{ display: "flex", gap: 4, padding: "6px 8px", background: s2, borderTop: `1px solid ${border}` }}>
+                        {scene.variantUrls.map((url, vi) => (
+                          <button
+                            key={vi}
+                            onClick={() => {
+                              setSceneImages(prev => ({ ...prev, [sceneId]: url }));
+                              setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
+                            }}
+                            title={`Use variation ${vi + 1}`}
+                            style={{ padding: 0, border: `2px solid ${url === sceneImg ? childAccent : "transparent"}`, borderRadius: 5, overflow: "hidden", cursor: "pointer", background: "none", flexShrink: 0 }}>
+                            <img src={url} alt={`Var ${vi + 1}`} style={{ width: 44, height: 44, objectFit: "cover", display: "block" }} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Content area */}
                     <div style={{ padding: "12px 14px" }}>
