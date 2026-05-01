@@ -14,6 +14,7 @@ import { ds } from "../../../lib/designSystem";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import { safeJson } from "../../../lib/api-utils";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -900,9 +901,10 @@ function MoviePlannerInner() {
           projectId: projectId || undefined,
         }),
       });
-      const sceneData = await sceneRes.json();
-      if (sceneData.scenes?.length > 0) {
-        const planScenes: SceneCard[] = sceneData.scenes.map((s: Record<string, unknown>, i: number) => ({
+      const sceneData = await safeJson<{ scenes?: Record<string, unknown>[] }>(sceneRes, "scene-plan");
+      const movieScenes = sceneData.scenes ?? [];
+      if (movieScenes.length > 0) {
+        const planScenes: SceneCard[] = movieScenes.map((s: Record<string, unknown>, i: number) => ({
           scene: i + 1,
           title: (s.title as string) || `Scene ${i + 1}`,
           goal: (s.description as string) || (s.narrativeDescription as string) || "",

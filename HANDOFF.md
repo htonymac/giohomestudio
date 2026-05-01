@@ -1,3 +1,19 @@
+# GHS Handoff — 2026-04-30 (S3)
+
+## S3 — BUG-04a/c/f payload + JSON guard
+Branch: `fix/ghs-bug-04-payload-json-guard`
+
+**Done:**
+- children-planner scene-plan: payload rewritten to `{storyText, characters[], costPreference, targetDuration, projectId}`
+- children-planner music/generate: `{prompt, durationSeconds}` replaces `{mood, duration}`
+- `lib/api-utils.ts` created with `safeJson<T>()` — wraps 6 calls in children-planner + 1 in movie-planner
+- TypeScript clean (tsc --noEmit), next build green
+- Playwright: no JSON crash, bad payload returns JSON 400 (not HTML)
+
+**Next:** S4 — BUG-04b tab order + character picker (see uncomplete.md)
+
+---
+
 # GHS Handoff — 2026-04-27
 
 ## Where we are

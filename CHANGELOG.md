@@ -1,5 +1,21 @@
 # GHS Changelog
 
+## 2026-04-30 — S3: Children/Movie planner API payload fix + safeJson guard (fix/ghs-bug-04-payload-json-guard)
+
+### What
+- Fixed children-planner scene-plan payload: was sending `{expandedStory, genre, tone}` — now sends `{storyText, characters[], costPreference, targetDuration, projectId}` matching server schema.
+- Fixed children-planner music/generate payload: was sending `{mood, duration}` — now sends `{prompt, durationSeconds}` per zod schema.
+- Created `lib/api-utils.ts` with `safeJson<T>()` helper. Applied to 6 fetch calls in children-planner (story-expand, character-extract, scene-plan, scene-intelligence, invtext-story, assemble) + movie-planner scene-plan.
+- Movie-planner scene-plan already had correct payload; added safeJson guard and safeVar for `.scenes` access.
+
+### Why
+Children/movie planners were returning 400 errors silently or throwing "Unexpected token '<'" (HTML error page parsed as JSON). Scene generation never worked. Music generation silently failed.
+
+### Risk
+LOW. No DB changes. No new routes. Only payload shape + error handling improved.
+
+---
+
 ## 2026-04-27 — Karaoke Final Master Canvas (PR #24)
 
 ### What
