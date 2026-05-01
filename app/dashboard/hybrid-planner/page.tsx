@@ -149,17 +149,18 @@ const inputStyle: React.CSSProperties = { width: "100%", background: s2, border:
 const btnPrimary: React.CSSProperties = { padding: "12px 24px", borderRadius: 12, border: "none", background: accent, color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer" };
 const badgeStyle = (color: string): React.CSSProperties => ({ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${color}15`, color, fontWeight: 600, display: "inline-block" });
 
-type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "audio" | "assembly" | "trends" | "screenplay";
+type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "script" | "audio" | "assembly" | "trends" | "screenplay";
 
 // Tabs ordered to match the production pipeline:
-// Story → Characters → Scene Board → Audio & Shots → Assembly → Screenplay → Overview → Trends
+// Story → Script → Audio & Shots → Characters → Scene Board → Assembly → Screenplay → Overview → Trends
 const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
   { id: "story",      label: "Story & Draft",  step: 1 },
-  { id: "characters", label: "Characters",      step: 2 },
-  { id: "scenes",     label: "Scene Board",     step: 3 },
-  { id: "audio",      label: "Audio & Shots",   step: 4 },
-  { id: "screenplay", label: "Screenplay",      step: 5 },
-  { id: "assembly",   label: "Assembly",        step: 6 },
+  { id: "script",     label: "Script",          step: 2 },
+  { id: "audio",      label: "Sound & SFX",     step: 3 },
+  { id: "characters", label: "Characters",      step: 4 },
+  { id: "scenes",     label: "Scene Board",     step: 5 },
+  { id: "screenplay", label: "Screenplay",      step: 6 },
+  { id: "assembly",   label: "Assembly",        step: 7 },
   { id: "overview",   label: "Overview" },
   { id: "trends",     label: "Trends" },
 ];
@@ -697,12 +698,13 @@ function HybridPlannerInner() {
   const nextStepBanner: { message: string; color: string; targetTab: WorkshopTab; buttonLabel: string } | null = (() => {
     if (!idea) return { message: "Start by writing your story idea in the Story tab.", color: gold, targetTab: "story", buttonLabel: "Write Story" };
     if (!expandedSummary) return { message: "Your story idea is ready. Click 'Expand with AI' to extract characters and scenes.", color: gold, targetTab: "story", buttonLabel: "Go to Story" };
-    if (characters.length === 0) return { message: "Story expanded! Go to Characters tab to review extracted characters.", color: purple, targetTab: "characters", buttonLabel: "Go to Characters" };
+    if (scriptSegments.length === 0) return { message: "Story expanded! Go to Script tab to parse dialogue and narrator lines.", color: blue, targetTab: "script", buttonLabel: "Go to Script" };
+    if (characters.length === 0) return { message: "Script parsed! Go to Characters tab to build character portraits.", color: purple, targetTab: "characters", buttonLabel: "Go to Characters" };
     if (!charactersMade) return { message: "Characters extracted! Click 'Make Characters' to create their identities and voices.", color: purple, targetTab: "characters", buttonLabel: "Go to Characters" };
     if (charsWithoutImages > 0) return { message: `${charsWithoutImages} character(s) need portraits. Click 'Generate All Portraits' in the Characters tab.`, color: blue, targetTab: "characters", buttonLabel: "Go to Characters" };
     if (totalScenes === 0) return { message: "Characters ready! Go to Scene Board to view and generate scene images.", color: blue, targetTab: "scenes", buttonLabel: "Go to Scenes" };
     if (generatedImages < totalScenes) return { message: `${totalScenes - generatedImages} scene(s) need images. Click 'Generate All Images' in the Scene Board.`, color: blue, targetTab: "scenes", buttonLabel: "Go to Scenes" };
-    if (audioProgress < 100) return { message: "All scenes have images! Go to Audio tab to plan narration and music.", color: gold, targetTab: "audio", buttonLabel: "Go to Audio" };
+    if (audioProgress < 100) return { message: "All scenes have images! Go to Sound tab to plan narration and music.", color: gold, targetTab: "audio", buttonLabel: "Go to Sound" };
     if (assemblyReadiness >= 70) return { message: "Audio planned! Go to Assembly to validate and build your movie.", color: accent, targetTab: "assembly", buttonLabel: "Go to Assembly" };
     return null;
   })();
@@ -5839,9 +5841,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
               {/* Next step CTA */}
               <div style={{ display: "flex", gap: 8, paddingTop: 10, borderTop: `1px solid ${border}` }}>
-                <button onClick={() => setActiveTab("characters")}
-                  style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  → Step 2: Build Characters with AI
+                <button onClick={() => setActiveTab("script")}
+                  style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0066aa)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  → Step 2: Parse Script
                 </button>
                 <button onClick={() => setActiveTab("scenes")}
                   style={{ padding: "11px 18px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
@@ -6096,7 +6098,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       {generatingCharVoices ? "Generating..." : scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) ? "Regen Per-Line Voices" : "Generate Per-Line Voices"}
                     </button>
                     {scriptSegments.length === 0 && (
-                      <span style={{ fontSize: 10, color: gold }}>Parse your script first</span>
+                      <span style={{ fontSize: 10, color: gold }}>Parse script first (Script tab)</span>
                     )}
                     {scriptSegments.some(s => s.type === "dialogue" && s.audioUrl) && (
                       <span style={{ fontSize: 10, color: "#22c55e" }}>{scriptSegments.filter(s => s.type === "dialogue" && s.audioUrl).length} per-line clips ready</span>
@@ -6371,6 +6373,162 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             ) : (
               <p style={{ fontSize: 11, color: muted }}>{scenes.length === 0 ? "No scenes created yet." : "All scenes reviewed or approved!"}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCRIPT TAB — Parse story into segments, edit dialogue, lock script  */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "script" && (
+        <div>
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Script & Scene Breakdown</h2>
+            <p style={{ fontSize: 11, color: muted, marginBottom: 18 }}>
+              Parse your story into narrator lines and character dialogue. Edit segments, assign speakers, then lock the script before Sound.
+            </p>
+
+            {!(expandedSummary || idea.trim()) && (
+              <div style={{ padding: "20px 24px", borderRadius: 12, background: `${gold}08`, border: `1px solid ${gold}30`, textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: gold, fontWeight: 600, marginBottom: 8 }}>Write your story first</p>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>Go to the Story tab and write or expand your story idea before parsing.</p>
+                <button onClick={() => setActiveTab("story")}
+                  style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: gold, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Go to Story
+                </button>
+              </div>
+            )}
+
+            {(expandedSummary || idea.trim()) && (
+              <div>
+                {/* Parse button + status */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
+                      {scriptSegments.length > 0
+                        ? storyMode === "narration-only" ? "Narrator only — no character dialogue detected"
+                          : storyMode === "actors-only" ? "Actors only — no narration passages detected"
+                          : `Mixed — ${scriptSegments.filter(s => s.type === "narration").length} narrator + ${scriptSegments.filter(s => s.type === "dialogue").length} dialogue segments`
+                        : "Ready to parse"}
+                    </p>
+                    <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>
+                      Parse Script splits your story into narrator lines vs character dialogue.
+                    </p>
+                  </div>
+                  <button onClick={parseScript} disabled={parsingScript}
+                    style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const,
+                      background: parsingScript ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0066aa)`, color: "#fff" }}>
+                    {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-parse Script" : "Parse Story into Script"}
+                  </button>
+                </div>
+
+                {/* Story mode badges */}
+                {scriptSegments.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+                    {(["narration-only", "actors-only", "mixed"] as const).map(m => (
+                      <button key={m} onClick={() => setStoryMode(m)}
+                        style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${storyMode === m ? blue : border}`,
+                          background: storyMode === m ? `${blue}18` : "transparent",
+                          color: storyMode === m ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        {m === "narration-only" ? "Narrator Only" : m === "actors-only" ? "Actors Only" : "Mixed"}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Script segment list */}
+                {scriptSegments.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>Script Segments</p>
+                    </div>
+                    <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
+                      {scriptSegments.map((seg, i) => {
+                        const isNarration = seg.type === "narration";
+                        const charColor = isNarration ? blue : purple;
+                        const charObj = characters.find(c => c.displayName.toLowerCase() === seg.speaker.toLowerCase());
+                        return (
+                          <div key={seg.id} style={{ display: "flex", gap: 8, padding: "8px 10px", borderRadius: 8,
+                            background: isNarration ? `${blue}07` : `${purple}07`,
+                            border: `1px solid ${charColor}20` }}>
+                            <div style={{ flexShrink: 0, minWidth: 64 }}>
+                              <span style={{ fontSize: 8, fontWeight: 700, padding: "2px 7px", borderRadius: 20,
+                                background: `${charColor}20`, color: charColor }}>
+                                {isNarration ? "NARRATOR" : seg.speaker.toUpperCase()}
+                              </span>
+                              {charObj?.voiceType && (
+                                <p style={{ fontSize: 7, color: muted, marginTop: 3 }}>{charObj.voiceType}</p>
+                              )}
+                            </div>
+                            <textarea
+                              value={seg.text}
+                              onChange={e => setScriptSegments(prev => prev.map((s, j) => j === i ? { ...s, text: e.target.value } : s))}
+                              rows={2}
+                              style={{ ...inputStyle, fontSize: 11, flex: 1, resize: "vertical", fontStyle: isNarration ? "italic" : "normal" }}
+                            />
+                            {!isNarration && characters.length > 0 && (
+                              <select
+                                value={seg.speaker}
+                                onChange={e => setScriptSegments(prev => prev.map((s, j) => j === i ? { ...s, speaker: e.target.value } : s))}
+                                style={{ background: s2, border: `1px solid ${border}`, borderRadius: 6, color: "#fff",
+                                  fontSize: 9, padding: "2px 6px", cursor: "pointer", flexShrink: 0 }}>
+                                {characters.map((c, ci) => <option key={`${c.characterId}_${ci}`} value={c.displayName} style={{ background: surface }}>{c.displayName}</option>)}
+                                <option value="Unknown" style={{ background: surface }}>Unknown</option>
+                              </select>
+                            )}
+                            <button
+                              onClick={() => setScriptSegments(prev => prev.map((s, j) => j === i
+                                ? { ...s, type: s.type === "narration" ? "dialogue" : "narration", speaker: s.type === "narration" ? (characters[0]?.displayName || "Character") : "narrator" }
+                                : s))}
+                              title="Flip narration / dialogue"
+                              style={{ background: "transparent", border: `1px solid ${border}`, borderRadius: 6,
+                                color: muted, fontSize: 9, padding: "2px 7px", cursor: "pointer", flexShrink: 0 }}>
+                              ⇄
+                            </button>
+                            <button
+                              onClick={() => setScriptSegments(prev => prev.filter((_, j) => j !== i))}
+                              title="Delete segment"
+                              style={{ background: "transparent", border: `1px solid #ef444430`, borderRadius: 6,
+                                color: red, fontSize: 9, padding: "2px 7px", cursor: "pointer", flexShrink: 0 }}>
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lock Script → proceed to Sound */}
+                {scriptSegments.length > 0 && (
+                  <div style={{ display: "flex", gap: 10, paddingTop: 12, borderTop: `1px solid ${border}` }}>
+                    <button
+                      onClick={async () => {
+                        // Save scriptSegments to DB via saved-state
+                        if (projectId) {
+                          try {
+                            await fetch("/api/hybrid/saved-state", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ projectId, key: "scriptSegments", value: scriptSegments }),
+                            });
+                          } catch { /* non-blocking */ }
+                        }
+                        setActiveTab("audio");
+                      }}
+                      style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${blue}, #0066aa)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      Lock Script and go to Sound
+                    </button>
+                  </div>
+                )}
+
+                {scriptSegments.length === 0 && (
+                  <p style={{ fontSize: 11, color: muted, textAlign: "center", padding: "20px 0" }}>
+                    Click "Parse Story into Script" to begin.
+                  </p>
+                )}
+              </div>
             )}
           </div>
         </div>

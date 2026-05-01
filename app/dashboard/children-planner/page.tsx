@@ -174,14 +174,15 @@ const SOUND_TIERS = [
 type SoundTierId = typeof SOUND_TIERS[number]["id"];
 
 // ── Tab type ──
-type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "sound" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
+type WorkshopTab = "overview" | "design" | "content" | "script" | "sound" | "style" | "characters" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
 
+// Design → Content(Story) → Script(Story Plan) → Sound(Voices & Sounds) → Characters(Character Friends) → Scene Board → Review → Overview
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",      label: "Design" },
-  { id: "characters",  label: "Characters" },
   { id: "content",     label: "Content" },
-  { id: "style",       label: "Style & Voice" },
-  { id: "sound",       label: "Sound" },
+  { id: "script",      label: "Script & Story Plan" },
+  { id: "sound",       label: "Voices & Sounds" },
+  { id: "characters",  label: "Character Friends" },
   { id: "sceneBoard",  label: "Scene Board" },
   { id: "screenplay",  label: "Screenplay" },
   { id: "review1",     label: "Review 1" },
@@ -1619,7 +1620,7 @@ function ChildrenPlannerInner() {
                 <button onClick={() => {
                   if (!designComplete) setActiveTab("design");
                   else if (!textContent) setActiveTab("content");
-                  else if (styleProgress < 100) setActiveTab("style");
+                  else if (styleProgress < 100) setActiveTab("sound");
                   else if (!review1Done) setActiveTab("review1");
                   else if (!generatedVideoUrl) setActiveTab("preview");
                   else if (!review2Done) setActiveTab("review2");
@@ -1738,7 +1739,7 @@ function ChildrenPlannerInner() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "rgba(245,158,11,0.06)", marginBottom: 4 }}>
                   <span style={{ fontSize: 10, color: "#f59e0b" }}>!</span>
                   <p style={{ fontSize: 11, color: "#f59e0b", flex: 1 }}>Style configuration incomplete</p>
-                  <button onClick={() => setActiveTab("style")} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.3)", background: "transparent", color: "#f59e0b", fontSize: 8, cursor: "pointer" }}>Fix</button>
+                  <button onClick={() => setActiveTab("sound")} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.3)", background: "transparent", color: "#f59e0b", fontSize: 8, cursor: "pointer" }}>Fix</button>
                 </div>
               )}
               {!review1Done && generatedVideoUrl && (
@@ -2142,6 +2143,16 @@ function ChildrenPlannerInner() {
               </div>
             </div>
           </div>
+
+          {/* Next step CTA */}
+          {textContent && (
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button onClick={() => setActiveTab("script")}
+                style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                Next: Script & Story Plan
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -2875,25 +2886,21 @@ function ChildrenPlannerInner() {
             </div>
           </div>
 
-          {/* ── Parse Script ── */}
+          {/* ── Script status (parse in Script tab) ── */}
           <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Parse Script</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Split your story into narrator lines and character dialogue segments for per-character voice generation.</p>
-            <button
-              onClick={parseScript}
-              disabled={parsingScript}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: parsingScript ? "#2a2040" : childAccent, color: parsingScript ? muted : "#000", fontSize: 12, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
-              {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-Parse Script" : "Parse Script"}
-            </button>
-            {scriptSegments.length > 0 && (
-              <div style={{ marginTop: 12, maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column" as const, gap: 4 }}>
-                {scriptSegments.map((seg, i) => (
-                  <div key={i} style={{ padding: "6px 10px", borderRadius: 7, background: seg.type === "narration" ? `${ds.color.sky}09` : `${C2}09`, border: `1px solid ${seg.type === "narration" ? ds.color.sky : C2}20`, display: "flex", gap: 8 }}>
-                    <span style={{ fontSize: 8, fontWeight: 700, color: seg.type === "narration" ? ds.color.sky : C2, minWidth: 56, alignSelf: "center" }}>{seg.type === "narration" ? "NARRATOR" : seg.speaker?.toUpperCase() || "CHARACTER"}</span>
-                    <p style={{ fontSize: 10, color: "#ccc", lineHeight: 1.4, flex: 1 }}>{seg.text}</p>
-                  </div>
-                ))}
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Script Status</p>
+            {scriptSegments.length === 0 ? (
+              <div>
+                <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Parse your story into narrator and character lines in the Script tab first.</p>
+                <button onClick={() => setActiveTab("script")}
+                  style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                  Go to Script & Story Plan
+                </button>
               </div>
+            ) : (
+              <p style={{ fontSize: 11, color: childSafe }}>
+                {scriptSegments.filter(s => s.type === "narration").length} narrator + {scriptSegments.filter(s => s.type === "dialogue").length} character lines parsed
+              </p>
             )}
           </div>
 
@@ -2935,7 +2942,7 @@ function ChildrenPlannerInner() {
                 </div>
               ))}
               {savedChars.filter(c => selectedCharIds.includes(c.id)).length === 0 && (
-                <p style={{ fontSize: 11, color: muted }}>No characters selected. Go to Characters tab to add them to this video.</p>
+                <p style={{ fontSize: 11, color: muted }}>No characters selected. Go to Character Friends tab to add them to this video.</p>
               )}
             </div>
           )}
@@ -2966,6 +2973,86 @@ function ChildrenPlannerInner() {
                 Auto SFX: {autoSfx ? "ON" : "OFF"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCRIPT & STORY PLAN TAB                                             */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "script" && (
+        <div>
+          <div style={cardStyle}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Script & Story Plan</h2>
+            <p style={{ fontSize: 11, color: muted, marginBottom: 18 }}>
+              Parse your story into narrator lines and character parts. Edit the segments, then move on to Voices & Sounds.
+            </p>
+
+            {!textContent && (
+              <div style={{ padding: "20px 24px", borderRadius: 12, background: `${childAccent}08`, border: `1px solid ${childAccent}30`, textAlign: "center" }}>
+                <p style={{ fontSize: 13, color: childAccent, fontWeight: 600, marginBottom: 8 }}>Write your content first</p>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>Go to the Content tab and write your story before building the script.</p>
+                <button onClick={() => setActiveTab("content")}
+                  style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  Go to Content
+                </button>
+              </div>
+            )}
+
+            {textContent && (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+                  <p style={{ fontSize: 12, color: muted }}>
+                    {scriptSegments.length > 0
+                      ? `${scriptSegments.filter(s => s.type === "narration").length} narrator + ${scriptSegments.filter(s => s.type === "dialogue").length} character lines`
+                      : "Ready to parse your story into script segments"}
+                  </p>
+                  <button
+                    onClick={parseScript}
+                    disabled={parsingScript}
+                    style={{ padding: "9px 20px", borderRadius: 10, border: "none", background: parsingScript ? "#2a2040" : childAccent, color: parsingScript ? muted : "#000", fontSize: 12, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
+                    {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-Parse Script" : "Parse Story into Script"}
+                  </button>
+                </div>
+
+                {scriptSegments.length > 0 && (
+                  <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column" as const, gap: 4, marginBottom: 14 }}>
+                    {scriptSegments.map((seg, i) => (
+                      <div key={i} style={{ padding: "8px 10px", borderRadius: 8, background: seg.type === "narration" ? `${ds.color.sky}09` : `${C2}09`, border: `1px solid ${seg.type === "narration" ? ds.color.sky : C2}20`, display: "flex", gap: 8 }}>
+                        <span style={{ fontSize: 8, fontWeight: 700, color: seg.type === "narration" ? ds.color.sky : C2, minWidth: 56, alignSelf: "flex-start", paddingTop: 4 }}>{seg.type === "narration" ? "NARRATOR" : seg.speaker?.toUpperCase() || "CHARACTER"}</span>
+                        <textarea
+                          value={seg.text}
+                          onChange={e => setScriptSegments(prev => prev.map((s, j) => j === i ? { ...s, text: e.target.value } : s))}
+                          rows={2}
+                          style={{ flex: 1, background: "transparent", border: "none", color: "#ccc", fontSize: 10, lineHeight: 1.4, resize: "vertical", outline: "none" }}
+                        />
+                        <button
+                          onClick={() => setScriptSegments(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "transparent", border: "none", color: muted, fontSize: 12, cursor: "pointer", alignSelf: "flex-start" }}>
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {scriptSegments.length > 0 && (
+                  <div style={{ display: "flex", gap: 10, paddingTop: 10, borderTop: `1px solid ${ds.color.line}` }}>
+                    <button
+                      onClick={() => setActiveTab("sound")}
+                      style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      Go to Voices & Sounds
+                    </button>
+                  </div>
+                )}
+
+                {scriptSegments.length === 0 && (
+                  <p style={{ fontSize: 11, color: muted, textAlign: "center", padding: "20px 0" }}>
+                    Click "Parse Story into Script" to begin.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
