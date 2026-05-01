@@ -17,6 +17,7 @@ import CharacterPicker from "../../components/CharacterPicker";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
+import { safeJson } from "../../../lib/api-utils";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -450,7 +451,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       setCreatedProjId(proj.id);
 
       const res  = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
-      const data = await res.json() as { savedFiles?: typeof savedFiles; analysis?: Record<string, unknown>; warning?: string };
+      const data = await safeJson<{ savedFiles?: typeof savedFiles; analysis?: Record<string, unknown>; warning?: string }>(res, "commercial-mode2-analyze");
 
       setSavedFiles(data.savedFiles ?? []);
       if (data.analysis) {
@@ -480,7 +481,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
       });
-      const data = await res.json() as { script?: string; error?: string };
+      const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-generate-script");
       if (res.ok) {
         setScript(data.script ?? "");
         setStep("script");
@@ -505,7 +506,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         body: JSON.stringify({ filePaths: savedFiles.map(f => f.path), script }),
       });
       type BuildResult = CommercialProject & { slides: CommercialSlide[]; error?: string };
-      const data = await res.json() as BuildResult;
+      const data = await safeJson<BuildResult>(res, "commercial-mode2-build-slides");
       if (!res.ok) { setWarn(data.error ?? "Build failed"); return; }
       onOpenProject(data);
     } catch {
@@ -703,13 +704,19 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               <button
                 onClick={async () => {
                   setGenerating(true);
-                  const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(form),
-                  });
-                  const data = await res.json() as { script?: string };
-                  if (res.ok) setScript(data.script ?? "");
-                  setGenerating(false);
+                  try {
+                    const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(form),
+                    });
+                    const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-regen-script");
+                    if (res.ok) setScript(data.script ?? "");
+                    else setWarn(data.error ?? "Script regeneration failed");
+                  } catch (err) {
+                    setWarn(err instanceof Error ? err.message : "Network error regenerating script");
+                  } finally {
+                    setGenerating(false);
+                  }
                 }}
                 disabled={generating}
                 className="flex-1 py-2 bg-[#1a1a2e] border border-[#2a2a40] hover:border-[#7c5cfc]/50 text-[#6060a0] hover:text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
@@ -1019,12 +1026,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
 
   async function handleTranslateField(slideId: string, field: "caption" | "narration", text: string) {
     setTranslateState({ slideId, field, translated: "", loading: true, lang: translateLang });
-    const res  = await fetch("/api/translate", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, targetLanguage: translateLang }),
-    });
-    const data = await res.json();
-    setTranslateState({ slideId, field, translated: data.translated ?? "", loading: false, lang: translateLang });
+    try {
+      const res  = await fetch("/api/translate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, targetLanguage: translateLang }),
+      });
+      const data = await safeJson<{ translated?: string; error?: string }>(res, "commercial-translate");
+      setTranslateState({ slideId, field, translated: data.translated ?? "", loading: false, lang: translateLang });
+    } catch {
+      setTranslateState({ slideId, field, translated: "", loading: false, lang: translateLang });
+    }
   }
 
   // ── Project-level PATCH ─────────────────────────────────────────────────
@@ -1742,13 +1753,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const text = selectedSlide.captionOriginal?.trim();
                         if (!text) return;
                         setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: true });
+                        try {
                         const res  = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/polish`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, field: "caption", maxWords: project.captionMaxWords, maxChars: project.captionMaxChars }),
                         });
-                        const data = await res.json();
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished, loading: false });
+                        const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-caption-polish");
+                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished ?? "", loading: false });
                         else setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        } catch (err) {
+                          setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
+                        }
                       }}
                       className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -1889,13 +1904,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const text = selectedSlide.narrationLine?.trim();
                         if (!text) return;
                         setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: true });
+                        try {
                         const res  = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/polish`, {
                           method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, tone: "warm", field: "narration" }),
                         });
-                        const data = await res.json();
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished, loading: false });
+                        const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-narration-polish");
+                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished ?? "", loading: false });
                         else setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        } catch (err) {
+                          setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
+                        }
                       }}
                       className="text-[10px] font-medium px-2 py-0.5 rounded bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
@@ -2760,6 +2779,7 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
   const [brandStyle, setBrandStyle] = useState("");
   const [allowedClaims, setAllowedClaims] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
+  const [videoGenError, setVideoGenError] = useState<string | null>(null);
 
   // Step 2: AI-planned scenes
   const [plannedScenes, setPlannedScenes] = useState<CommercialScene[]>([]);
@@ -2786,9 +2806,9 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
     formData.append("file", file);
     try {
       const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
-      const data = await res.json();
+      const data = await safeJson<{ url?: string }>(res, "commercial-mode3-upload");
       if (data.url) setProductImageUrl(data.url);
-    } catch { /* upload failed */ }
+    } catch { /* upload failed — preview-only mode */ }
   };
 
   // Step 2: AI Planning — generate scene blueprints
@@ -2821,7 +2841,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: planPrompt, mode: "json" }),
       });
-      const data = await res.json();
+      const data = await safeJson<{ enhanced?: string; result?: string; text?: string }>(res, "commercial-mode3-plan");
       const raw = data.enhanced || data.result || data.text || "";
 
       // Parse the JSON array from the response
@@ -2891,6 +2911,7 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
     const approved = plannedScenes.filter(s => s.approved);
     if (approved.length === 0) return;
     setGenerating(true);
+    setVideoGenError(null);
 
     // Initialize progress
     const progress: Record<string, "pending" | "generating" | "done" | "error"> = {};
@@ -2922,16 +2943,18 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
             aspectRatio: "16:9",
           }),
         });
-        const data = await res.json();
-        if (data.outputUrl) {
-          outputs[scene.id] = data.outputUrl;
-          setSceneOutputs(prev => ({ ...prev, [scene.id]: data.outputUrl }));
+        const data = await safeJson<{ outputUrl?: string; videoUrl?: string; url?: string; error?: string }>(res, "commercial-mode3-generate");
+        const outputUrl = data.outputUrl ?? data.videoUrl ?? data.url;
+        if (outputUrl) {
+          outputs[scene.id] = outputUrl;
+          setSceneOutputs(prev => ({ ...prev, [scene.id]: outputUrl }));
           setSceneProgress(prev => ({ ...prev, [scene.id]: "done" }));
         } else {
           setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
         }
-      } catch {
+      } catch (err) {
         setSceneProgress(prev => ({ ...prev, [scene.id]: "error" }));
+        setVideoGenError(err instanceof Error ? err.message : "Video generation failed");
       }
     }
 
@@ -2939,6 +2962,8 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
     const firstOutput = Object.values(outputs)[0];
     if (firstOutput) {
       setResultUrl(firstOutput);
+    } else if (Object.keys(outputs).length === 0) {
+      setVideoGenError("All scenes failed to generate. Check your API keys in Settings.");
     }
     setGenerating(false);
   };
@@ -3208,6 +3233,15 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         <div style={{ background: "#0b0e18", border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
           <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 6 }}>Generate & Assemble</p>
           <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 16 }}>Rendering approved scenes. This may take a few minutes per scene.</p>
+          {videoGenError && (
+            <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div>
+                <p style={{ fontSize: 11, color: "#ef4444", fontWeight: 600, marginBottom: 2 }}>Generation error</p>
+                <p style={{ fontSize: 10, color: "#ef4444", opacity: 0.8 }}>{videoGenError}</p>
+              </div>
+              <button onClick={() => setVideoGenError(null)} style={{ background: "none", border: "none", color: "#5a7080", cursor: "pointer", fontSize: 14, lineHeight: 1 }}>✕</button>
+            </div>
+          )}
 
           {/* Per-scene progress */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
