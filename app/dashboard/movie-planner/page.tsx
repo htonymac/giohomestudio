@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import DurationPicker from "../../components/DurationPicker";
 import NarrationControls from "../../components/NarrationControls";
@@ -242,6 +242,7 @@ export default function MoviePlannerPage() {
 
 function MoviePlannerInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // ── Workshop tab ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
@@ -523,18 +524,25 @@ function MoviePlannerInner() {
   // EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const MOVIE_PROJ_ID = "ghs_movie_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  const urlProjectId = searchParams.get("projectId");
   // BUG-15 pattern: guard while restoring from DB
   const isRestoringRef = useRef(true);
+  const activeProjectIdRef = useRef<string>("");
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/movie-planner?projectId=${activeId}`);
+      }
+      activeProjectIdRef.current = activeId;
       try {
-        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(MOVIE_PROJ_ID)}`);
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
         if (dbRes.ok) {
           const dbData = await dbRes.json();
           if (dbData.found && dbData.data && !cancelled) {
@@ -587,7 +595,7 @@ function MoviePlannerInner() {
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ localId: MOVIE_PROJ_ID, data }),
+      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_movie_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, idea, expandedStory, genre, style, format, tone, savedCharacters, selectedCast,

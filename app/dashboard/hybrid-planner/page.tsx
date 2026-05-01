@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useGate } from "../../components/PreGenerationGate";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import NarrationControls from "../../components/NarrationControls";
 import SceneImagePanel from "../../components/SceneImagePanel";
@@ -185,6 +185,7 @@ export default function HybridPlannerPage() {
 
 function HybridPlannerInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const { requireGate, GateModal } = useGate();
   const { canAdvanceTo } = useCoordinator();
 
@@ -507,8 +508,10 @@ function HybridPlannerInner() {
   const [preflightResult, setPreflightResult] = useState<{ checks: HybridPreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
   const [preflightRunning, setPreflightRunning] = useState(false);
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const ACTIVE_PROJ_ID = "ghs_hybrid_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  // Each project gets its own UUID in the URL. Refreshing the same URL restores
+  // the same project. "New Project" navigates without ?projectId= → fresh UUID.
+  const urlProjectId = params.get("projectId");
 
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
@@ -519,7 +522,13 @@ function HybridPlannerInner() {
     async function restoreState() {
       isRestoringRef.current = true;
       try {
-      const activeId = ACTIVE_PROJ_ID;
+      // If no projectId in URL, generate a fresh one and push it to the URL.
+      // This means a bare /hybrid-planner URL always starts a NEW project.
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/hybrid-planner?projectId=${activeId}`);
+      }
       setActiveProjLocalId(activeId);
 
       // Load from DB
@@ -3265,6 +3274,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (!dbData.found || !dbData.data) return;
       const data = dbData.data;
       setActiveProjLocalId(targetId);
+      router.replace(`/dashboard/hybrid-planner?projectId=${targetId}`);
       setProjectId(data.projectId || null);
       setProjectTitle(data.projectTitle || "Untitled Hybrid Project");
       setProjectPhase(data.projectPhase || "STORY_INPUT");
@@ -4002,9 +4012,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <button onClick={async () => {
               // Save current project first — NO work is lost
               await flushCurrentProject();
-              // Generate a new project ID
+              // Generate a new project ID and push it into the URL
               const newId = `proj_${Date.now()}`;
               setActiveProjLocalId(newId);
+              router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
               // ── Story & scene state ──
               setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
               setIdea(""); setGenre(""); setTone(""); setExpandedSummary(""); setFullScript("");
@@ -4096,6 +4107,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           if (isActive) {
                             const newId = `proj_${Date.now()}`;
                             setActiveProjLocalId(newId);
+                            router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
                             setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
                             setIdea(""); setExpandedSummary(""); setCharacters([]); setCharactersMade(false);
                             setScenes([]); setSceneImages({}); setSceneVideos({});

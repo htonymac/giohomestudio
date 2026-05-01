@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import CharacterPicker from "../../components/CharacterPicker";
@@ -207,6 +207,7 @@ export default function ChildrenPlannerPage() {
 
 function ChildrenPlannerInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const branch = searchParams.get("branch") ?? "hybrid";
   const contentParam = searchParams.get("content") ?? "";
   const ageParam = searchParams.get("age") ?? "";
@@ -1162,18 +1163,26 @@ function ChildrenPlannerInner() {
     setGenerating(false);
   }
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const CHILDREN_PROJ_ID = "ghs_children_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  const urlProjectId = searchParams.get("projectId");
   // BUG-15 pattern: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
+  // Stable ref so save effect always uses current project ID
+  const activeProjectIdRef = useRef<string>("");
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/children-planner?projectId=${activeId}`);
+      }
+      activeProjectIdRef.current = activeId;
       try {
-        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(CHILDREN_PROJ_ID)}`);
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
         if (dbRes.ok) {
           const dbData = await dbRes.json();
           if (dbData.found && dbData.data && !cancelled) {
@@ -1226,7 +1235,7 @@ function ChildrenPlannerInner() {
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ localId: CHILDREN_PROJ_ID, data }),
+      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textContent, expandedContent, visualStyle, narrationStyle, musicChoice, ageGroup, safetyLevel,
