@@ -108,6 +108,16 @@ const cardStyle: React.CSSProperties = { background: ds.color.card, border: `1px
 const labelStyle: React.CSSProperties = { fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase" as const, color: ds.color.mute, marginBottom: 8, display: "block", fontFamily: ds.font.mono };
 const inputStyle: React.CSSProperties = { width: "100%", background: ds.color.paper, border: `1px solid ${ds.color.line2}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: ds.font.sans };
 
+// ── 5-Tier Sound Model Selector (binding) ──
+const SOUND_TIERS_MV = [
+  { id: "piper_free",      label: "Standard (built-in GHS)", cost: "Free" },
+  { id: "piper_extended",  label: "Start Plus",              cost: "Low cost" },
+  { id: "ghs_karaoke",     label: "Sound Pro (GHS Karaoke)", cost: "Mid" },
+  { id: "elevenlabs",      label: "Classic",                 cost: "Premium" },
+  { id: "gemini",          label: "Premium",                 cost: "Highest" },
+] as const;
+type SoundTierMvId = typeof SOUND_TIERS_MV[number]["id"];
+
 interface MvProject { id: string; title: string; videoMode: string | null; status: string; updatedAt: string }
 
 type MvTab = "overview" | "song" | "analysis" | "storyboard" | "screenplay" | "captions" | "audio" | "assembly";
@@ -183,6 +193,16 @@ export default function MusicVideoPlannerPage() {
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string }>>({});
 
   // ── FreeSound / SFX browser ──
+  // ── Sound tier & model settings (SC/SD) ──
+  const [soundTier, setSoundTier] = useState<SoundTierMvId>("piper_free");
+  const [modelSettings, setModelSettings] = useState({
+    storyLLM: "claude-haiku-4-5",
+    charImageModel: "fal_flux_schnell",
+    sceneVideoModel: "kling_1_6_standard",
+    soundModel: "piper_free" as SoundTierMvId,
+  });
+  const [showModelSettings, setShowModelSettings] = useState(false);
+
   const [soundTab, setSoundTab] = useState<"freesound" | "elevenlabs">("freesound");
   const [fsQuery, setFsQuery] = useState("");
   const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
@@ -1165,6 +1185,55 @@ export default function MusicVideoPlannerPage() {
               </div>
             ))}
           </div>
+
+          {/* ── SD: Model Settings Panel ── */}
+          <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 20, gridColumn: "1/-1" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: showModelSettings ? 14 : 0 }}
+              onClick={() => setShowModelSettings(p => !p)}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Model Settings</p>
+              <span style={{ fontSize: 11, color: "#5a7080" }}>{showModelSettings ? "Hide" : "Show"}</span>
+            </div>
+            {showModelSettings && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <div>
+                  <p style={{ ...labelStyle }}>Story LLM</p>
+                  {(["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "gpt-4o-mini", "gpt-4o"] as const).map(m => (
+                    <button key={m} onClick={() => setModelSettings(p => ({ ...p, storyLLM: m }))}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", marginBottom: 4, borderRadius: 7, border: `1px solid ${modelSettings.storyLLM === m ? "#7c5cfc" : "#1e2a35"}`, background: modelSettings.storyLLM === m ? "rgba(124,92,252,0.12)" : "transparent", color: modelSettings.storyLLM === m ? "#7c5cfc" : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <p style={{ ...labelStyle }}>Character Image</p>
+                  {(["fal_flux_schnell", "fal_flux_dev", "pruna_flux"] as const).map(m => (
+                    <button key={m} onClick={() => setModelSettings(p => ({ ...p, charImageModel: m }))}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", marginBottom: 4, borderRadius: 7, border: `1px solid ${modelSettings.charImageModel === m ? "#00d4ff" : "#1e2a35"}`, background: modelSettings.charImageModel === m ? "rgba(0,212,255,0.12)" : "transparent", color: modelSettings.charImageModel === m ? "#00d4ff" : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m.replace(/_/g, " ")}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <p style={{ ...labelStyle }}>Scene Video</p>
+                  {(["kling_1_6_standard", "kling_2_5_pro", "runway_gen4", "veo2", "fal_wan_lite"] as const).map(m => (
+                    <button key={m} onClick={() => setModelSettings(p => ({ ...p, sceneVideoModel: m }))}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", marginBottom: 4, borderRadius: 7, border: `1px solid ${modelSettings.sceneVideoModel === m ? "#ec4899" : "#1e2a35"}`, background: modelSettings.sceneVideoModel === m ? "rgba(236,72,153,0.12)" : "transparent", color: modelSettings.sceneVideoModel === m ? "#ec4899" : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
+                      {m.replace(/_/g, " ")}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  <p style={{ ...labelStyle }}>Sound/SFX</p>
+                  {SOUND_TIERS_MV.map(tier => (
+                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                      style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "5px 10px", marginBottom: 4, borderRadius: 7, border: `1px solid ${modelSettings.soundModel === tier.id ? "#22c55e" : "#1e2a35"}`, background: modelSettings.soundModel === tier.id ? "rgba(34,197,94,0.12)" : "transparent", color: modelSettings.soundModel === tier.id ? "#22c55e" : "#fff", fontSize: 10, cursor: "pointer" }}>
+                      <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1334,6 +1403,22 @@ export default function MusicVideoPlannerPage() {
       {activeTab === "audio" && (
         <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}><Icon.Mic style={{ width: 18, height: 18 }} /> Audio &amp; Narration</h2>
+
+          {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #7c5cfc30" }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#7c5cfc", marginBottom: 8 }}>Sound Model</p>
+            <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 10 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+              {SOUND_TIERS_MV.map((tier, idx) => (
+                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
+                  style={{ display: "flex", flexDirection: "column" as const, gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? "#7c5cfc" : "#1e2a35"}`, background: soundTier === tier.id ? "rgba(124,92,252,0.12)" : "transparent", cursor: "pointer" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: soundTier === tier.id ? "#7c5cfc" : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
+                  <span style={{ fontSize: 9, color: soundTier === tier.id ? "#7c5cfc" : "#5a7080", fontFamily: "monospace" }}>{tier.cost}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Narration Intro / Outro</p>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>

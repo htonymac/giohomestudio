@@ -163,14 +163,25 @@ const MOVIE_GENRES = ["Adventure", "Fantasy", "Animals", "Space", "Ocean", "Jung
 const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 
+// ── 5-Tier Sound Model Selector (binding) ──
+const SOUND_TIERS = [
+  { id: "piper_free",      label: "Standard (built-in GHS)", cost: "Free" },
+  { id: "piper_extended",  label: "Start Plus",              cost: "Low cost" },
+  { id: "ghs_karaoke",     label: "Sound Pro (GHS Karaoke)", cost: "Mid" },
+  { id: "elevenlabs",      label: "Classic",                 cost: "Premium" },
+  { id: "gemini",          label: "Premium",                 cost: "Highest" },
+] as const;
+type SoundTierId = typeof SOUND_TIERS[number]["id"];
+
 // ── Tab type ──
-type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
+type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "sound" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
 
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",      label: "Design" },
   { id: "characters",  label: "Characters" },
   { id: "content",     label: "Content" },
   { id: "style",       label: "Style & Voice" },
+  { id: "sound",       label: "Sound" },
   { id: "sceneBoard",  label: "Scene Board" },
   { id: "screenplay",  label: "Screenplay" },
   { id: "review1",     label: "Review 1" },
@@ -291,6 +302,16 @@ function ChildrenPlannerInner() {
   const [assemblyProgress, setAssemblyProgress] = useState<Record<number, string>>({});
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
+
+  // ── Sound tier & model settings ──
+  const [soundTier, setSoundTier] = useState<SoundTierId>("piper_free");
+  const [modelSettings, setModelSettings] = useState({
+    storyLLM: "claude-haiku-4-5",
+    charImageModel: "fal_flux_schnell",
+    sceneVideoModel: "fal_wan_lite",
+    soundModel: "piper_free" as SoundTierId,
+  });
+  const [showModelSettings, setShowModelSettings] = useState(false);
 
   // ── Feature state: FreeSound + ElevenLabs SFX ──
   const [soundTab, setSoundTab] = useState<"freesound" | "elevenlabs">("freesound");
@@ -1283,6 +1304,75 @@ function ChildrenPlannerInner() {
               );
             })}
           </div>
+        </div>
+
+        {/* ── SD: Model Settings Panel ── */}
+        <div style={{ ...cardStyle, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: showModelSettings ? 14 : 0, cursor: "pointer" }}
+            onClick={() => setShowModelSettings(p => !p)}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Model Settings</p>
+            <span style={{ fontSize: 11, color: muted }}>{showModelSettings ? "Hide" : "Show"}</span>
+          </div>
+          {showModelSettings && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              {/* 1. Story LLM */}
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Story LLM</p>
+                {([
+                  { id: "claude-haiku-4-5", label: "Haiku 4.5", badge: "Fast" },
+                  { id: "claude-sonnet-4-6", label: "Sonnet 4.6", badge: "Balanced" },
+                  { id: "claude-opus-4-7", label: "Opus 4.7", badge: "Premium" },
+                  { id: "gpt-4o-mini", label: "GPT Fast", badge: "GPT" },
+                  { id: "gpt-4o", label: "GPT Premium", badge: "GPT" },
+                ] as const).map(m => (
+                  <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, storyLLM: m.id }))}
+                    style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.storyLLM === m.id ? childAccent : ds.color.line}`, background: modelSettings.storyLLM === m.id ? `${childAccent}12` : "transparent", color: modelSettings.storyLLM === m.id ? childAccent : "#fff", fontSize: 10, cursor: "pointer" }}>
+                    <span>{m.label}</span><span style={{ opacity: 0.6 }}>{m.badge}</span>
+                  </button>
+                ))}
+              </div>
+              {/* 2. Character Image Model */}
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Character Image</p>
+                {([
+                  { id: "fal_flux_schnell", label: "Flux Schnell", badge: "Default" },
+                  { id: "fal_flux_dev", label: "Flux Dev", badge: "Quality" },
+                  { id: "pruna_flux", label: "Pruna", badge: "Optimized" },
+                ] as const).map(m => (
+                  <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, charImageModel: m.id }))}
+                    style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.charImageModel === m.id ? C2 : ds.color.line}`, background: modelSettings.charImageModel === m.id ? `${C2}12` : "transparent", color: modelSettings.charImageModel === m.id ? C2 : "#fff", fontSize: 10, cursor: "pointer" }}>
+                    <span>{m.label}</span><span style={{ opacity: 0.6 }}>{m.badge}</span>
+                  </button>
+                ))}
+              </div>
+              {/* 3. Scene Video Model */}
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Scene Video</p>
+                {([
+                  { id: "kling_1_6_standard", label: "Kling 1.6 Standard" },
+                  { id: "kling_2_5_pro", label: "Kling 2.5 Pro" },
+                  { id: "runway_gen4", label: "Runway Gen-4" },
+                  { id: "veo2", label: "Veo 2" },
+                  { id: "fal_wan_lite", label: "Wan 2.5" },
+                ] as const).map(m => (
+                  <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, sceneVideoModel: m.id }))}
+                    style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.sceneVideoModel === m.id ? C4 : ds.color.line}`, background: modelSettings.sceneVideoModel === m.id ? `${C4}12` : "transparent", color: modelSettings.sceneVideoModel === m.id ? C4 : "#fff", fontSize: 10, cursor: "pointer" }}>
+                    <span>{m.label}</span>
+                  </button>
+                ))}
+              </div>
+              {/* 4. Sound/SFX Model (synced with Sound tab) */}
+              <div>
+                <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Sound/SFX</p>
+                {SOUND_TIERS.map(tier => (
+                  <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                    style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.soundModel === tier.id ? childSafe : ds.color.line}`, background: modelSettings.soundModel === tier.id ? `${childSafe}12` : "transparent", color: modelSettings.soundModel === tier.id ? childSafe : "#fff", fontSize: 10, cursor: "pointer" }}>
+                    <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Confirm Button */}
@@ -2709,6 +2799,125 @@ function ChildrenPlannerInner() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SOUND TAB — SC: 5-tier model selector, parse script, narration     */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "sound" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Sound & SFX</h2>
+          </div>
+
+          {/* ── 5-Tier Sound Model Selector (binding) ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}06` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4 }}>Sound Model</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select audio quality tier for this project. Higher tiers = better quality + higher cost.</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+              {SOUND_TIERS.map(tier => (
+                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? childAccent : ds.color.line}`, background: soundTier === tier.id ? `${childAccent}12` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: soundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
+                  <span style={{ fontSize: 10, color: soundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono }}>{tier.cost}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Parse Script ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Parse Script</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Split your story into narrator lines and character dialogue segments for per-character voice generation.</p>
+            <button
+              onClick={parseScript}
+              disabled={parsingScript}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: parsingScript ? "#2a2040" : childAccent, color: parsingScript ? muted : "#000", fontSize: 12, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
+              {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-Parse Script" : "Parse Script"}
+            </button>
+            {scriptSegments.length > 0 && (
+              <div style={{ marginTop: 12, maxHeight: 240, overflowY: "auto", display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                {scriptSegments.map((seg, i) => (
+                  <div key={i} style={{ padding: "6px 10px", borderRadius: 7, background: seg.type === "narration" ? `${ds.color.sky}09` : `${C2}09`, border: `1px solid ${seg.type === "narration" ? ds.color.sky : C2}20`, display: "flex", gap: 8 }}>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: seg.type === "narration" ? ds.color.sky : C2, minWidth: 56, alignSelf: "center" }}>{seg.type === "narration" ? "NARRATOR" : seg.speaker?.toUpperCase() || "CHARACTER"}</span>
+                    <p style={{ fontSize: 10, color: "#ccc", lineHeight: 1.4, flex: 1 }}>{seg.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Voice Layers ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Voice Layers</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Layer 1 = Narrator (default: Piper free). Additional layers add secondary voice tracks.</p>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 11, color: "#fff", fontWeight: 600, minWidth: 60 }}>Layer 1</span>
+              <select value={narrationProvider} onChange={e => setNarrationProvider(e.target.value as typeof narrationProvider)}
+                style={{ flex: 1, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, outline: "none" }}>
+                <option value="piper">Piper (free local)</option>
+                <option value="fal-narrator">FAL Narrator (cloud)</option>
+                <option value="elevenlabs">ElevenLabs (premium)</option>
+                <option value="karaoke">Karaoke (browser)</option>
+              </select>
+            </div>
+            {/* Narrator playback */}
+            <button onClick={generateChildrenContent} disabled={generating}
+              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: generating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
+              {generating ? "Generating..." : "Play Narration Preview"}
+            </button>
+          </div>
+
+          {/* ── Character Voices ── */}
+          {savedChars.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Character Voices</p>
+              {savedChars.filter(c => selectedCharIds.includes(c.id)).map(char => (
+                <div key={char.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${ds.color.line}` }}>
+                  {char.imageUrl && <img src={char.imageUrl} alt={char.name} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />}
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#fff", minWidth: 80 }}>{char.name}</span>
+                  <select style={{ flex: 1, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "5px 8px", color: "#fff", fontSize: 10, outline: "none" }}>
+                    <option value="en_US-lessac-medium">Lessac (Neutral)</option>
+                    <option value="en_US-amy-medium">Amy (Female)</option>
+                    <option value="en_US-ryan-high">Ryan (Male)</option>
+                    <option value="en_GB-alan-medium">Alan (British)</option>
+                  </select>
+                </div>
+              ))}
+              {savedChars.filter(c => selectedCharIds.includes(c.id)).length === 0 && (
+                <p style={{ fontSize: 11, color: muted }}>No characters selected. Go to Characters tab to add them to this video.</p>
+              )}
+            </div>
+          )}
+
+          {/* ── Music ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Background Music</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Generate child-safe background music for this story.</p>
+            <button onClick={generateChildrenContent} disabled={generating}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: generating ? "#2a2040" : C4, color: "#000", fontSize: 12, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
+              {generating ? "Generating..." : "Generate Background Music"}
+            </button>
+            {generatedMusicUrl && (
+              <div style={{ marginTop: 10 }}>
+                <audio src={generatedMusicUrl} controls style={{ width: "100%", height: 32 }} />
+                {musicFallbackReason && <p style={{ fontSize: 9, color: muted, marginTop: 4 }}>{musicFallbackReason}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* ── SFX ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Sound Effects</p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <p style={{ fontSize: 10, color: muted }}>Auto-mode picks CC0 sounds for each scene mood.</p>
+              <button onClick={() => setAutoSfx(v => !v)}
+                style={{ padding: "6px 16px", borderRadius: 20, border: `1px solid ${autoSfx ? childSafe + "60" : ds.color.line}`, background: autoSfx ? `${childSafe}18` : "transparent", color: autoSfx ? childSafe : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                Auto SFX: {autoSfx ? "ON" : "OFF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {/* SCENE BOARD TAB — hybrid-style per-scene cards, children-adapted    */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "sceneBoard" && (
@@ -2773,6 +2982,21 @@ function ChildrenPlannerInner() {
                       <textarea
                         value={scene.visualDescription}
                         onChange={e => setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, visualDescription: e.target.value } : s))}
+                        onBlur={() => {
+                          // SE: auto-save scene text to DB on blur
+                          fetch("/api/hybrid/scene-plan", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              projectId: `children_${contentParam || "story"}_${topicParam || "default"}`,
+                              title: `Children Story — ${contentParam || "story"}`,
+                              scenes: childScenes.map(cs => ({
+                                sceneId: cs.scene, description: cs.visualDescription,
+                                title: cs.title,
+                              })),
+                            }),
+                          }).catch(() => null);
+                        }}
                         style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 8 }}
                         placeholder="Scene description (editable)..."
                       />
