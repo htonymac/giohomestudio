@@ -317,7 +317,7 @@ function HybridModal({
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
 
-    const secPerScene = Math.round(totalDuration / scenes.length);
+    const sceneDuration = totalDuration / scenes.length;
 
     try {
       // Step 1: timings
@@ -325,15 +325,34 @@ function HybridModal({
       await new Promise(r => setTimeout(r, 400));
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "done" } : x));
 
-      // Step 2-5: call hybrid assemble
+      // Step 2-5: call hybrid assemble with Auto-Timestamp
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "running" } : x));
+
+      // Auto-Timestamp: distribute scenes evenly across totalDuration
+      const timeline = scenes.map((sc, idx) => {
+        const startTime = idx * sceneDuration;
+        const endTime   = (idx + 1) * sceneDuration;
+        return {
+          sceneId:    sc.id,
+          startTime,
+          endTime,
+          duration:   sceneDuration,
+          // text overlay appears 0.5s after scene start
+          textOverlayAt: startTime + 0.5,
+          orderIndex:  idx,
+        };
+      });
+
       const scenePayload = scenes.map((sc, idx) => ({
-        sceneId:   sc.id,
-        title:     sc.title,
-        text:      sc.text,
-        mood:      sc.mood,
-        duration:  secPerScene,
+        sceneId:    sc.id,
+        title:      sc.title,
+        text:       sc.text,
+        mood:       sc.mood,
+        duration:   Math.round(sceneDuration),
         orderIndex: idx,
+        startTime:  timeline[idx].startTime,
+        endTime:    timeline[idx].endTime,
+        textOverlayAt: timeline[idx].textOverlayAt,
       }));
 
       const res = await fetch("/api/hybrid/assemble", {
@@ -341,6 +360,7 @@ function HybridModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           scenes: scenePayload,
+          timeline,
           totalDuration,
           mode: "free_mode_hybrid",
           addTextOverlay: true,
