@@ -100,7 +100,7 @@ export default function SceneForgePage() {
       try {
         const res = await fetch(`/api/avatar/create?jobId=${jobId}`);
         if (!res.ok) return;
-        const data = await res.json();
+        const data = await safeJson<{ status: JobState["status"]; step?: string; steps?: Step[]; result?: { videoUrl: string; script: string; audioUrl: string }; error?: string }>(res, "avatar/create poll");
 
         setJob({
           status: data.status,
@@ -113,7 +113,8 @@ export default function SceneForgePage() {
         if (data.status === "done" || data.status === "error") {
           stopPolling();
           if (data.status === "done" && data.result?.videoUrl) {
-            setHistory(h => [{ videoUrl: data.result.videoUrl, topic, ts: Date.now() }, ...h.slice(0, 9)]);
+            const resultRef = data.result;
+            setHistory(h => [{ videoUrl: resultRef.videoUrl, topic, ts: Date.now() }, ...h.slice(0, 9)]);
           }
         }
       } catch { /* ignore poll errors */ }
@@ -398,7 +399,7 @@ export default function SceneForgePage() {
 
               {/* Error */}
               {isError && (
-                <div data-testid="lip-sync-error" style={{ padding: "12px 16px", background: "rgba(255,122,69,.08)", borderRadius: 8, border: `1px solid rgba(255,122,69,.25)`, fontSize: 12, color: ds.color.coral }}>
+                <div data-testid="scene-forge-error" style={{ padding: "12px 16px", background: "rgba(255,122,69,.08)", borderRadius: 8, border: `1px solid rgba(255,122,69,.25)`, fontSize: 12, color: ds.color.coral }}>
                   {job.error}
                 </div>
               )}

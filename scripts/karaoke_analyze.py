@@ -10,6 +10,17 @@ import json
 import os
 import numpy as np
 
+# Force soundfile as primary backend for librosa on Windows (avoids audioread deprecation)
+os.environ["AUDIOREAD_CROSSCHECK"] = "1"
+
+# Pre-check soundfile DLL availability (libsndfile missing on some Windows setups)
+try:
+    import soundfile as _sf_check  # noqa: F401
+    SOUNDFILE_AVAILABLE = True
+except OSError:
+    SOUNDFILE_AVAILABLE = False
+    print("[WARN] soundfile backend unavailable (libsndfile DLL not found) — will use librosa fallback", file=sys.stderr)
+
 def suggest_genre(tempo: float, energy: float, brightness: float) -> str:
     """Nigeria-aware genre heuristic from tempo + brightness + energy."""
     bpm = float(tempo)
@@ -96,29 +107,35 @@ def main():
 
     try:
         import librosa
-        import soundfile as sf
     except ImportError as e:
         print(json.dumps({"error": f"Missing required dependency: {e}"}))
         sys.exit(1)
 
     # ── Load audio — soundfile → librosa → audioread fallback chain ─────────
     try:
-        try:
-            y, sr = sf.read(audio_path, dtype='float32', always_2d=False)
-            if y.ndim > 1:
-                y = y.mean(axis=1)  # stereo → mono
-        except Exception:
+        if SOUNDFILE_AVAILABLE:
+            try:
+                import soundfile as sf
+                y, sr = sf.read(audio_path, dtype='float32', always_2d=False)
+                if y.ndim > 1:
+                    y = y.mean(axis=1)  # stereo → mono
+                print("[INFO] Audio loaded via soundfile backend", file=sys.stderr)
+            except Exception as sf_err:
+                print(f"[WARN] soundfile read failed: {sf_err} — falling back to librosa", file=sys.stderr)
+                try:
+                    y, sr = librosa.load(audio_path, sr=None, mono=True)
+                    print("[INFO] Audio loaded via librosa backend", file=sys.stderr)
+                except Exception as lb_err:
+                    print(f"[WARN] librosa load also failed: {lb_err}", file=sys.stderr)
+                    raise
+        else:
+            # soundfile DLL missing — go straight to librosa
             try:
                 y, sr = librosa.load(audio_path, sr=None, mono=True)
-            except Exception:
-                import audioread
-                with audioread.audio_open(audio_path) as f:
-                    sr = f.samplerate
-                    channels = f.channels
-                    raw = b''.join(f)
-                y = np.frombuffer(raw, dtype='<i2').astype(np.float32) / 32768.0
-                if channels > 1:
-                    y = y.reshape(-1, channels).mean(axis=1)
+                print("[INFO] Audio loaded via librosa backend (soundfile unavailable)", file=sys.stderr)
+            except Exception as lb_err:
+                print(f"[WARN] librosa load failed: {lb_err}", file=sys.stderr)
+                raise
     except Exception as e:
         print(json.dumps({"error": f"Failed to load audio: {e}"}))
         sys.exit(1)
