@@ -164,13 +164,14 @@ const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 
 // ── Tab type ──
-type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "screenplay" | "review1" | "preview" | "review2";
+type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "sceneBoard" | "screenplay" | "review1" | "preview" | "review2";
 
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",      label: "Design" },
   { id: "characters",  label: "Characters" },
   { id: "content",     label: "Content" },
   { id: "style",       label: "Style & Voice" },
+  { id: "sceneBoard",  label: "Scene Board" },
   { id: "screenplay",  label: "Screenplay" },
   { id: "review1",     label: "Review 1" },
   { id: "preview",     label: "Preview" },
@@ -270,12 +271,22 @@ function ChildrenPlannerInner() {
   const [runningIntelligence, setRunningIntelligence] = useState(false);
 
   // ── Feature state: makeSceneVideo ──
-  interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string }
+  interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string; characters?: string[] }
   const [childScenes, setChildScenes] = useState<ChildScene[]>([]);
   const [sceneVideos, setSceneVideos] = useState<Record<string, string>>({});
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
   const [generatingSceneVideos, setGeneratingSceneVideos] = useState<Set<string>>(new Set());
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string }>>({});
+
+  // ── Scene Board state ──
+  const [generatingScenesFromStory, setGeneratingScenesFromStory] = useState(false);
+  const [generatingSceneImage, setGeneratingSceneImage] = useState<string | null>(null);
+  const [sceneCharAssignments, setSceneCharAssignments] = useState<Record<string, string[]>>({});
+
+  // ── Pre-flight check ──
+  interface PreflightCheck { id: string; label: string; status: "ok" | "warn" | "error"; detail?: string; autoFixAvailable: boolean; autoFixAction?: string; }
+  const [preflightResult, setPreflightResult] = useState<{ checks: PreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
+  const [preflightRunning, setPreflightRunning] = useState(false);
 
   // ── Feature state: assembleMovie ──
   const [assembling, setAssembling] = useState(false);
@@ -672,6 +683,104 @@ function ChildrenPlannerInner() {
       setLastAction(`Video generation failed for Scene ${scene.scene}.`);
     }
     setGeneratingSceneVideos(prev => { const s = new Set(prev); s.delete(sceneId); return s; });
+  }
+
+  // ── Generate Scenes from Story (Scene Board primary action) ──
+  async function generateScenesFromStory() {
+    const storyInput = textContent || readAlongText || "";
+    if (!storyInput.trim()) { setLastAction("Enter your story content first"); return; }
+    setGeneratingScenesFromStory(true);
+    setLastAction("AI is planning scenes from your story...");
+    try {
+      const storyText = `[Children Story — ${ageGroup} — ${visualStyle} style]\n${storyInput}\n${selectedCharIds.length > 0 ? `Characters: ${savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name).join(", ")}` : ""}`;
+      const res = await fetch("/api/hybrid/scene-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storyText, characters: savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ characterId: c.characterId || c.id, name: c.name })), costPreference: "balanced", targetDuration: "2-5", projectId: `children_${Date.now()}`, styleHint: `${visualStyle}, children's book illustration, age-appropriate, friendly, colorful` }),
+      });
+      const data = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(res, "scene-board-plan");
+      const planned = (data.scenes || []).map((s, i) => ({
+        scene: s.scene ?? i + 1,
+        title: s.title || `Scene ${i + 1}`,
+        visualDescription: s.visualDescription || "",
+        cameraDirection: s.cameraDirection || "",
+        characters: sceneCharAssignments[`child_sc${String(i + 1).padStart(2, "0")}`] || [],
+      }));
+      if (planned.length > 0) {
+        setChildScenes(planned);
+        setAssemblySelectedIds(planned.map((_, i) => `child_sc${String(i + 1).padStart(2, "0")}`));
+        setLastAction(`Scene Board ready — ${planned.length} scenes planned`);
+      } else {
+        setLastAction("No scenes returned — try expanding your story first");
+      }
+    } catch (err) {
+      setLastAction(`Scene planning failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+    setGeneratingScenesFromStory(false);
+  }
+
+  // ── Generate image for a single scene (Scene Board) ──
+  async function generateSceneBoardImage(scene: ChildScene) {
+    const sceneId = `child_sc${String(scene.scene).padStart(2, "0")}`;
+    setGeneratingSceneImage(sceneId);
+    try {
+      const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
+      const childStylePrefix = "children's book illustration, age-appropriate, friendly, colorful, ";
+      const res = await fetch("/api/hybrid/scene-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sceneId,
+          sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
+          characterIds: assignedChars,
+          projectStyle: visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook",
+          mood: "friendly, warm, safe",
+          modelId: selectedImageModelId,
+        }),
+      });
+      const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
+      if (data.error) {
+        setLastAction(`Image failed: ${data.error}`);
+        return;
+      }
+      const url = data.imageUrl || data.imagePath || "";
+      if (url) {
+        setSceneImages(prev => ({ ...prev, [sceneId]: url }));
+        setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
+        setLastAction(`Scene ${scene.scene} image generated`);
+      }
+    } catch (err) {
+      setLastAction(`Image generation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    }
+    setGeneratingSceneImage(null);
+  }
+
+  // ── Pre-flight check ──
+  async function runPreflight() {
+    setPreflightRunning(true);
+    try {
+      const sceneList = childScenes.map(s => {
+        const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
+        return { sceneId, imageUrl: sceneImages[sceneId] || s.imageUrl || null, videoUrl: sceneVideos[sceneId] || null, title: s.title };
+      });
+      const charList = savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ id: c.id, name: c.name, voiceId: c.characterId, voiceName: c.voiceName }));
+      const res = await fetch("/api/hybrid/pre-flight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectType: "children",
+          scenes: sceneList,
+          audioConfig: { narrationProvider: narrationSettings?.mode ? "piper" : undefined, narrationText: narrationText, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          characters: charList,
+        }),
+      });
+      const data = await safeJson<{ checks: PreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number }>(res, "pre-flight");
+      setPreflightResult(data);
+    } catch (err) {
+      console.error("preflight error:", err);
+    } finally {
+      setPreflightRunning(false);
+    }
   }
 
   // ── assembleMovie ──
@@ -1502,31 +1611,65 @@ function ChildrenPlannerInner() {
       {activeTab === "design" && renderDesign()}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* CHARACTERS TAB                                                      */}
+      {/* CHARACTERS TAB — Inline Registry (AI-first)                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "characters" && (
         <div>
           {/* Header */}
-          <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Characters</h2>
-              <p style={{ fontSize: 11, color: muted, marginTop: 4 }}>
-                Add characters from your library to include in this children video.
-                {selectedCharIds.length > 0 && <span style={{ color: childAccent, fontWeight: 600 }}> {selectedCharIds.length} selected</span>}
-              </p>
-            </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Characters ({savedChars.length})</h2>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowCharPicker(true)}
-                style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${childAccent}`, background: `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                + Import from Library
+              <button onClick={() => setShowCharPicker(prev => !prev)}
+                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                {showCharPicker ? "Hide Library" : "or import saved →"}
               </button>
-              <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                <button style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
-                  Create New
-                </button>
-              </a>
             </div>
           </div>
+
+          {/* ── PRIMARY ACTION: Build Story Characters with AI ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}08` }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+              <Icon.Star style={{ width: 18, height: 18, color: childAccent, flexShrink: 0 }} />
+              <div>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Build Story Characters with AI</p>
+                <p style={{ fontSize: 11, color: muted }}>AI reads your story, extracts characters, and builds their profiles — names, roles, descriptions, ready to use.</p>
+              </div>
+            </div>
+            <button
+              onClick={extractChildCharacters}
+              disabled={extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim())}
+              title={(!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "Enter your story content first" : ""}
+              style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: extractingChars !== "idle" ? "#1a2a1a" : (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${childAccent}, #059669)`, color: (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "not-allowed" : "pointer" }}>
+              {extractingChars === "building" ? "Building character profiles..." : extractingChars === "extracting" ? "Extracting characters from story..." : savedChars.length > 0 ? "Rebuild Story Characters with AI" : "Build Story Characters with AI"}
+            </button>
+            {(!expandedContent && !textContent.trim() && !readAlongText.trim()) && (
+              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Enter your story in the Content tab first, then come back here.</p>
+            )}
+          </div>
+
+          {/* ── Inline import from library (secondary, hidden by default) ── */}
+          {showCharPicker && (
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Import from Character Library</p>
+                <button onClick={() => setShowCharPicker(false)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                  Close
+                </button>
+              </div>
+              <CharacterPicker
+                onSelect={(char) => {
+                  setSavedChars(prev => {
+                    if (prev.some(c => c.id === char.id)) return prev;
+                    return [...prev, { id: char.id, name: char.name, role: char.role || "supporting", imageUrl: char.imageUrl || undefined, characterId: char.characterId || undefined, voiceName: char.voiceName || undefined, visualDescription: char.visualDescription || undefined }];
+                  });
+                  setSelectedCharIds(prev => prev.includes(char.id) ? prev : [...prev, char.id]);
+                  setLastAction(`Imported character "${char.name}"`);
+                }}
+                onCreateNew={() => { window.open("/dashboard/character-voices?returnTo=children-planner", "_blank"); }}
+                compact
+              />
+            </div>
+          )}
 
           {/* Character cards */}
           {loadingChars ? (
@@ -1534,24 +1677,13 @@ function ChildrenPlannerInner() {
               <p style={{ color: muted, fontSize: 12 }}>Loading characters...</p>
             </div>
           ) : savedChars.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: "center", padding: 40, borderStyle: "dashed" }}>
+            <div style={{ ...cardStyle, textAlign: "center", padding: 32, borderStyle: "dashed" }}>
               <Icon.User style={{ width: 28, height: 28, color: muted, marginBottom: 8 }} />
               <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>No characters yet</p>
-              <p style={{ fontSize: 10, color: muted, marginTop: 4, marginBottom: 16 }}>Create characters in the Character Voices section and import them here.</p>
-              <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: childAccent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Create Characters
-                  </button>
-                </a>
-                <button onClick={() => setShowCharPicker(true)}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 11, cursor: "pointer" }}>
-                  Import Existing
-                </button>
-              </div>
+              <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Click "Build Story Characters with AI" above, or import from your library.</p>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
               {savedChars.map(char => {
                 const isSelected = selectedCharIds.includes(char.id);
                 const hasVoice = !!char.voiceName;
@@ -1592,7 +1724,7 @@ function ChildrenPlannerInner() {
                       </div>
 
                       {/* Action buttons */}
-                      <div style={{ display: "flex", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <button onClick={() => {
                           const next = isSelected ? selectedCharIds.filter(id => id !== char.id) : [...selectedCharIds, char.id];
                           setSelectedCharIds(next);
@@ -1601,11 +1733,25 @@ function ChildrenPlannerInner() {
                           style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "none", background: isSelected ? `${childAccent}20` : childAccent, color: isSelected ? childAccent : "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                           {isSelected ? "Remove" : "Add to Video"}
                         </button>
-                        <a href={`/dashboard/character-voices?edit=${char.id}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
-                          <button style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                            Edit
-                          </button>
-                        </a>
+                        <button onClick={() => {
+                          fetch("/api/generation/image", { method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.visualDescription || ""}. Children's book illustration style, age-appropriate, friendly, colorful, front view.`, width: 768, height: 768 }) })
+                            .then(r => r.json()).then(d => {
+                              if (d.imageUrl || d.imagePath) {
+                                setSavedChars(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
+                                setLastAction(`Portrait generated for ${char.name}`);
+                              }
+                            }).catch((err) => { console.error("genChildCharImage:", err); });
+                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${childAccent}30`, background: `${childAccent}06`, color: childAccent, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
+                          Gen. Portrait
+                        </button>
+                        <button onClick={() => {
+                          setSavedChars(prev => prev.filter(c => c.id !== char.id));
+                          setSelectedCharIds(prev => prev.filter(id => id !== char.id));
+                          setLastAction(`Removed ${char.name}`);
+                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: "#ef4444", fontSize: 9, cursor: "pointer" }}>
+                          Remove
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -2404,6 +2550,40 @@ function ChildrenPlannerInner() {
             </div>
           </div>
 
+          {/* ── Pre-Flight AI Review ── */}
+          <div style={{ ...cardStyle, marginBottom: 12, borderColor: preflightResult ? (preflightResult.blockingErrors > 0 ? "#ef444440" : preflightResult.warnings > 0 ? "#f59e0b40" : `${childSafe}40`) : `${childAccent}30` }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.Star style={{ width: 15, height: 15, color: childAccent, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Assembly Review</p>
+              </div>
+              {preflightResult && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  {preflightResult.blockingErrors > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: "#ef444420", color: "#ef4444", fontWeight: 700 }}>{preflightResult.blockingErrors} error{preflightResult.blockingErrors !== 1 ? "s" : ""}</span>}
+                  {preflightResult.warnings > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: "#f59e0b20", color: "#f59e0b", fontWeight: 700 }}>{preflightResult.warnings} warning{preflightResult.warnings !== 1 ? "s" : ""}</span>}
+                  {preflightResult.canAssemble && preflightResult.warnings === 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${childSafe}20`, color: childSafe, fontWeight: 700 }}>Ready</span>}
+                </div>
+              )}
+            </div>
+            <button onClick={runPreflight} disabled={preflightRunning}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${childAccent}30`, background: preflightRunning ? "#2a2040" : `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
+              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+            </button>
+            {preflightResult && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {preflightResult.checks.map(check => (
+                  <div key={check.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 8, background: check.status === "ok" ? `${childSafe}08` : check.status === "warn" ? "#f59e0b08" : "#ef444408", border: `1px solid ${check.status === "ok" ? childSafe : check.status === "warn" ? "#f59e0b" : "#ef4444"}20` }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗"}</span>
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: check.status === "ok" ? childSafe : check.status === "warn" ? "#f59e0b" : "#ef4444" }}>{check.label}</p>
+                      {check.detail && <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{check.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Warning if preview not generated */}
           {!generatedVideoUrl && (
             <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
@@ -2484,6 +2664,106 @@ function ChildrenPlannerInner() {
                   </button>
                 </a>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCENE BOARD TAB — hybrid-style per-scene cards, children-adapted    */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "sceneBoard" && (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board</h2>
+            <span style={{ fontSize: 11, color: muted }}>{childScenes.length} scene{childScenes.length !== 1 ? "s" : ""}</span>
+          </div>
+
+          {/* Primary action: Generate from story */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}06` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 6 }}>Generate Scenes from Story</p>
+            <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>AI reads your story and plans {`per-scene cards with descriptions. Each scene gets its own image.`}</p>
+            <button
+              onClick={generateScenesFromStory}
+              disabled={generatingScenesFromStory || (!textContent.trim() && !readAlongText.trim())}
+              title={(!textContent.trim() && !readAlongText.trim()) ? "Add story content first" : ""}
+              style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: generatingScenesFromStory ? "#2a2040" : (!textContent.trim() && !readAlongText.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: (!textContent.trim() && !readAlongText.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: (generatingScenesFromStory || (!textContent.trim() && !readAlongText.trim())) ? "not-allowed" : "pointer" }}>
+              {generatingScenesFromStory ? "Planning scenes..." : childScenes.length > 0 ? "Regenerate Scenes from Story" : "Generate Scenes from Story"}
+            </button>
+            {!textContent.trim() && !readAlongText.trim() && (
+              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Add your story in the Content tab first.</p>
+            )}
+          </div>
+
+          {/* Scene cards */}
+          {childScenes.length === 0 ? (
+            <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
+              <Icon.Grid style={{ width: 32, height: 32, color: muted, margin: "0 auto 12px", opacity: 0.3 }} />
+              <p style={{ fontSize: 13, color: muted }}>No scenes yet. Click Generate Scenes from Story above.</p>
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 14 }}>
+              {childScenes.map(scene => {
+                const sceneId = `child_sc${String(scene.scene).padStart(2, "0")}`;
+                const sceneImg = sceneImages[sceneId] || scene.imageUrl;
+                const isGenImg = generatingSceneImage === sceneId;
+                const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
+                return (
+                  <div key={scene.scene} style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+                    {/* Image area */}
+                    <div style={{ height: 140, background: s2, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {sceneImg ? (
+                        <img src={sceneImg} alt={scene.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <Icon.Image style={{ width: 32, height: 32, color: muted, opacity: 0.3 }} />
+                      )}
+                      <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.7)", borderRadius: 6, padding: "3px 8px" }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: childAccent }}>{sceneId.toUpperCase()}</span>
+                      </div>
+                      <button
+                        onClick={() => generateSceneBoardImage(scene)}
+                        disabled={isGenImg}
+                        style={{ position: "absolute", bottom: 8, right: 8, padding: "5px 10px", borderRadius: 7, border: "none", background: isGenImg ? "#2a2040" : sceneImg ? `${childAccent}20` : childAccent, color: isGenImg ? muted : sceneImg ? childAccent : "#000", fontSize: 9, fontWeight: 700, cursor: isGenImg ? "not-allowed" : "pointer" }}>
+                        {isGenImg ? "Generating..." : sceneImg ? "Regen Image" : "Generate Image"}
+                      </button>
+                    </div>
+
+                    {/* Content area */}
+                    <div style={{ padding: "12px 14px" }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{scene.title}</p>
+                      <textarea
+                        value={scene.visualDescription}
+                        onChange={e => setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, visualDescription: e.target.value } : s))}
+                        style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 8 }}
+                        placeholder="Scene description (editable)..."
+                      />
+                      {/* Character assignment */}
+                      {savedChars.length > 0 && (
+                        <div>
+                          <p style={{ fontSize: 9, color: muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Characters in scene</p>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {savedChars.map(c => {
+                              const inScene = assignedChars.includes(c.id);
+                              return (
+                                <button
+                                  key={c.id}
+                                  onClick={() => setSceneCharAssignments(prev => {
+                                    const cur = prev[sceneId] || [];
+                                    const next = inScene ? cur.filter(id => id !== c.id) : [...cur, c.id];
+                                    return { ...prev, [sceneId]: next };
+                                  })}
+                                  style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${inScene ? childAccent : border}`, background: inScene ? `${childAccent}15` : "transparent", color: inScene ? childAccent : muted, fontSize: 9, cursor: "pointer", fontWeight: inScene ? 700 : 400 }}>
+                                  {c.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

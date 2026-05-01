@@ -467,6 +467,11 @@ function HybridPlannerInner() {
   const [charTabName, setCharTabName] = useState("");
   const [charTabCreating, setCharTabCreating] = useState(false);
 
+  // ── Pre-flight check ──────────────────────────────────────────────────────
+  interface HybridPreflightCheck { id: string; label: string; status: "ok" | "warn" | "error"; detail?: string; autoFixAvailable: boolean; autoFixAction?: string; }
+  const [preflightResult, setPreflightResult] = useState<{ checks: HybridPreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
+  const [preflightRunning, setPreflightRunning] = useState(false);
+
   // suppressHydrationWarning on root div handles SSR/client localStorage mismatch without blocking render
 
   // ── Persistent project storage key (per movie title) ──
@@ -1395,6 +1400,25 @@ function HybridPlannerInner() {
       }
     } catch (err) { console.error("makeCharacters failed:", err); setUiError("Character creation failed. Please try again."); }
     setMakingCharacters(false);
+  }
+
+  // ── Run pre-assembly preflight ────────────────────────────────────────────
+  async function runPreflight() {
+    setPreflightRunning(true);
+    try {
+      const res = await fetch("/api/hybrid/pre-flight", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectType: "hybrid",
+          scenes: scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || undefined, videoUrl: sceneVideos[s.sceneId] || undefined, title: s.title })),
+          audioConfig: { narrationProvider: narratorAudioUrl ? "piper" : undefined, narrationText: expandedSummary || idea, musicUrl: selectedMusicUrl || undefined, musicName: selectedMusicName || undefined },
+          characters: characters.map(c => ({ id: c.characterId, name: c.displayName, voiceId: c.voiceId, voiceName: c.voiceId || "" })),
+        }),
+      });
+      const data = await res.json();
+      setPreflightResult(data);
+    } catch (err) { console.error("preflight error:", err); }
+    setPreflightRunning(false);
   }
 
   async function makeSceneImage(scene: HybridScene) {
@@ -6454,6 +6478,40 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
           )}
 
+          {/* ── Pre-Flight AI Review (always visible at top of Assembly) ── */}
+          <div data-testid="pre-assembly-review" style={{ background: surface, border: `1px solid ${preflightResult ? (preflightResult.blockingErrors > 0 ? `${red}40` : preflightResult.warnings > 0 ? `${gold}40` : `${accent}40`) : `${purple}30`}`, borderRadius: 12, padding: "14px 16px", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Flight Review</p>
+              </div>
+              {preflightResult && (
+                <div style={{ display: "flex", gap: 6 }}>
+                  {preflightResult.blockingErrors > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${red}20`, color: red, fontWeight: 700 }}>{preflightResult.blockingErrors} error{preflightResult.blockingErrors !== 1 ? "s" : ""}</span>}
+                  {preflightResult.warnings > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${gold}20`, color: gold, fontWeight: 700 }}>{preflightResult.warnings} warning{preflightResult.warnings !== 1 ? "s" : ""}</span>}
+                  {preflightResult.canAssemble && preflightResult.warnings === 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${accent}20`, color: accent, fontWeight: 700 }}>Ready</span>}
+                </div>
+              )}
+            </div>
+            <button onClick={runPreflight} disabled={preflightRunning}
+              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
+              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+            </button>
+            {preflightResult && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {preflightResult.checks.map(check => (
+                  <div key={check.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 8, background: check.status === "ok" ? `${accent}08` : check.status === "warn" ? `${gold}08` : `${red}08`, border: `1px solid ${check.status === "ok" ? accent : check.status === "warn" ? gold : red}20` }}>
+                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗"}</span>
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: check.status === "ok" ? accent : check.status === "warn" ? gold : red }}>{check.label}</p>
+                      {check.detail && <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{check.detail}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {scenes.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
               <p style={{ fontSize: 14, color: muted, marginBottom: 12 }}>No scenes yet. Go to Scene Board to create scenes first.</p>
@@ -7204,6 +7262,41 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </button>
                       )}
                     </div>
+
+                    {/* ── Pre-Flight AI Review ── */}
+                    <div data-testid="pre-assembly-review" style={{ background: surface, border: `1px solid ${preflightResult ? (preflightResult.blockingErrors > 0 ? `${red}40` : preflightResult.warnings > 0 ? `${gold}40` : `${accent}40`) : `${purple}30`}`, borderRadius: 12, padding: "14px 16px", marginBottom: 12 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Flight Review</p>
+                        </div>
+                        {preflightResult && (
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {preflightResult.blockingErrors > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${red}20`, color: red, fontWeight: 700 }}>{preflightResult.blockingErrors} error{preflightResult.blockingErrors !== 1 ? "s" : ""}</span>}
+                            {preflightResult.warnings > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${gold}20`, color: gold, fontWeight: 700 }}>{preflightResult.warnings} warning{preflightResult.warnings !== 1 ? "s" : ""}</span>}
+                            {preflightResult.canAssemble && preflightResult.warnings === 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${accent}20`, color: accent, fontWeight: 700 }}>Ready</span>}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={runPreflight} disabled={preflightRunning}
+                        style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
+                        {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+                      </button>
+                      {preflightResult && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {preflightResult.checks.map(check => (
+                            <div key={check.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 8, background: check.status === "ok" ? `${accent}08` : check.status === "warn" ? `${gold}08` : `${red}08`, border: `1px solid ${check.status === "ok" ? accent : check.status === "warn" ? gold : red}20` }}>
+                              <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗"}</span>
+                              <div>
+                                <p style={{ fontSize: 11, fontWeight: 600, color: check.status === "ok" ? accent : check.status === "warn" ? gold : red }}>{check.label}</p>
+                                {check.detail && <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{check.detail}</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={() => {
                         if (assemblyOrder.length > 0) {

@@ -35,8 +35,23 @@ Updated: 2026-04-30
 - Fix: character-voices page wraps in Suspense, reads ?returnTo, shows banner + "← Return to Planner" button. SmartBuilderModal shows return button post-save.
 - Branch: fix/ghs-bug-04b-tab-order-character-picker
 
-### OPEN — BUG-04d (scene images), BUG-04e
-- BUG-04d (remaining): Scene images not generating in children-planner — S5+
+### [FIXED 2026-04-30 S4c] BUG — Movie Cast tab AI-first (was Import Existing only)
+- Was: Cast tab showed only "Import Existing" button as primary action
+- Fix: AI Cast Generator card added as primary; calls /api/hybrid/character-extract; auto-adds to savedCharacters + cast. "or import saved →" is secondary small link.
+- Branch: fix/ghs-s4c-sceneboard-cast-preflight
+
+### [FIXED 2026-04-30 S4c] BUG — Children Scene Board empty/missing
+- Was: No dedicated Scene Board tab in children-planner
+- Fix: New "Scene Board" tab added between Style and Screenplay. generateScenesFromStory() calls /api/hybrid/scene-plan. Per-scene cards: editable description, inline character assignment, per-scene image gen via /api/hybrid/scene-image. Children-safe style prefix always prepended to image prompts.
+- Branch: fix/ghs-s4c-sceneboard-cast-preflight
+
+### [FIXED 2026-04-30 S4c] BUG — No pre-assembly preflight in movie/children planners
+- Was: Assembly could fire without any quality check
+- Fix: "Run Pre-flight Review" button added to movie Assembly tab and children Final tab. Calls /api/hybrid/pre-flight (already existed). Shows green/yellow/red checklist. API also extended to cover movie-specific scene description check.
+- Branch: fix/ghs-s4c-sceneboard-cast-preflight
+
+### OPEN — BUG-04d (scene images children, full integration)
+- BUG-04d (remaining): Scene images in children Scene Board now work (S4c). makeSceneVideo requires image first — flow works. Full integration + video-from-image tested pending user content.
 - BUG-04e: Movie-planner same patterns (payload aligned, safeJson added) — DONE as part of S3
 
 ---
