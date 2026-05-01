@@ -39,7 +39,7 @@ export default function MusicStudioPage() {
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [genTitle, setGenTitle] = useState("");
   const [genLyrics, setGenLyrics] = useState("");
-  const [genResult, setGenResult] = useState<{ musicPath?: string; audioUrl?: string; source?: string; provider?: string; providerKey?: string; tier?: string; error?: string; note?: string } | null>(null);
+  const [genResult, setGenResult] = useState<{ musicPath?: string; audioUrl?: string; source?: string; provider?: string; providerKey?: string; tier?: string; error?: string; note?: string; fallbackReason?: string } | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genHistory, setGenHistory] = useState<Array<{ prompt: string; musicPath: string; provider: string; tier: string }>>([]);
   // Music Provider selector (persisted in localStorage)
@@ -281,6 +281,11 @@ export default function MusicStudioPage() {
                       <p style={{ color: ds.color.mint, fontWeight: 700 }}>Track generated</p>
                       <span style={{ fontSize: 9, background: ds.color.alert, padding: "2px 6px", borderRadius: 4, color: ds.color.lilac }}>{genResult.providerKey ?? genResult.provider}</span>
                     </div>
+                    {genResult.fallbackReason && (
+                      <div style={{ fontSize: 10, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 6, padding: "6px 10px", marginBottom: 8 }}>
+                        Mubert not configured — using stock library for tracks &gt;47s. Set MUBERT_PAT to enable.
+                      </div>
+                    )}
                     <p style={{ color: ds.color.mute, marginBottom: 8 }}>{(genResult.audioUrl ?? genResult.musicPath)?.split(/[\\/]/).pop()}</p>
                     {(genResult.audioUrl ?? genResult.musicPath) && (
                       <button onClick={() => playTrack((genResult.audioUrl ?? genResult.musicPath)!)}

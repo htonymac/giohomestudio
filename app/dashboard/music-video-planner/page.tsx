@@ -6,6 +6,7 @@ import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import { ds } from "../../../lib/designSystem";
+import { safeJson } from "@/lib/api-utils";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
@@ -170,6 +171,7 @@ export default function MusicVideoPlannerPage() {
 
   // ── expandStory pipeline ──
   const [expanding, setExpanding] = useState(false);
+  const [expandError, setExpandError] = useState<string | null>(null);
 
   // ── Scene Intelligence ──
   const [sceneIntelligence, setSceneIntelligence] = useState<Record<string, SceneIntelligenceData>>({});
@@ -546,6 +548,7 @@ export default function MusicVideoPlannerPage() {
     const storyInput = lyrics || songTitle;
     if (!storyInput.trim()) { setLastAction("Add song title or lyrics first"); return; }
     setExpanding(true);
+    setExpandError(null);
     setLastAction("AI is expanding your music video concept...");
     try {
       const expandRes = await fetch("/api/hybrid/story-expand", {
@@ -557,7 +560,7 @@ export default function MusicVideoPlannerPage() {
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
         }),
       });
-      const expandData = await expandRes.json();
+      const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "music-video expand");
 
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -566,8 +569,8 @@ export default function MusicVideoPlannerPage() {
           genre: "music-video", format: videoMode,
         }),
       });
-      const sceneData = await sceneRes.json();
-      const planned = sceneData.scenes as Array<{ title?: string; description?: string; visualDescription?: string; dialogue?: string }> | undefined;
+      const sceneData = await safeJson<{ scenes?: Array<{ title?: string; description?: string; visualDescription?: string; dialogue?: string }> }>(sceneRes, "music-video scene-plan");
+      const planned = sceneData.scenes;
       if (planned && planned.length > 0) {
         const baseScenes: Scene[] = planned.map((p, i) => ({
           scene: i + 1,
@@ -587,7 +590,11 @@ export default function MusicVideoPlannerPage() {
       } else {
         setLastAction("AI concept expanded — generate storyboard manually");
       }
-    } catch { setLastAction("AI expansion failed — try again"); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setExpandError(`Story expansion failed: ${msg}`);
+      setLastAction("AI expansion failed — see error below");
+    }
     setExpanding(false);
   }
 
@@ -1578,6 +1585,7 @@ export default function MusicVideoPlannerPage() {
               {expanding ? "AI Expanding..." : "Expand with AI Intelligence"}
             </button>
             {lastAction.includes("AI") && <p style={{ fontSize: 10, color: muted, marginTop: 6 }}>{lastAction}</p>}
+            {expandError && <div style={{ color: "#ef4444", fontSize: 11, marginTop: 8, padding: "8px 12px", background: "rgba(239,68,68,0.08)", borderRadius: 8, border: "1px solid rgba(239,68,68,0.25)" }}>{expandError}</div>}
           </div>
 
           <button onClick={() => setActiveTab("analysis")} disabled={!songTitle.trim()}

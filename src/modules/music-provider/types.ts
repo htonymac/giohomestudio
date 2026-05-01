@@ -16,6 +16,7 @@ export interface MusicGenerateOutput {
   costUsd: number;
   providerKey: string;
   modelName: string;
+  fallbackReason?: string; // set when automatic fallback to stock was triggered
 }
 
 export interface MusicProviderCapabilities {

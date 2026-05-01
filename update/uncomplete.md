@@ -50,6 +50,16 @@ Updated: 2026-04-30
 - Fix: "Run Pre-flight Review" button added to movie Assembly tab and children Final tab. Calls /api/hybrid/pre-flight (already existed). Shows green/yellow/red checklist. API also extended to cover movie-specific scene description check.
 - Branch: fix/ghs-s4c-sceneboard-cast-preflight
 
+### [FIXED 2026-04-30 S6] BUG-07 — Music-video-planner AI expansion silent failure
+- Was: expandStory caught all errors with empty catch `{ setLastAction("AI expansion failed — try again") }` — no error detail shown, no error state
+- Fix: (A) import safeJson from @/lib/api-utils; (B) replace bare res.json() calls with safeJson in both story-expand and scene-plan calls; (C) add expandError state + catch block surfacing error message; (D) render red error banner below expand button
+- Branch: fix/ghs-bug-07-music-pipeline | Playwright: 90s PASS
+
+### [FIXED 2026-04-30 S6] BUG-23 — Music provider dead branch + MUBERT_PAT env gap
+- Was: `>47s` branch had unreachable condition `FAL_KEY && durationSeconds <= 47` making Mubert unreachable. MUBERT_PAT not in .env.example. No UI feedback when stock fallback used.
+- Fix: (A) Remove dead FAL_KEY condition in >47s path; (B) Add pickAutomaticProviderWithReason() returning fallbackReason string; (C) generate route passes fallbackReason in response; (D) music-studio and children-planner show amber banner when fallbackReason set; (E) MUBERT_PAT + FAL_KEY added to .env.example; (F) SECRETS_AND_CONFIG.md created with full env var table
+- Branch: fix/ghs-bug-07-music-pipeline | Playwright: 90s PASS
+
 ### [FIXED 2026-04-30 S5] BUG-09 — Voice provider tiers + ElevenLabs error surfacing
 - Was: ElevenLabs errors silently swallowed (empty catch). No FAL Narrator tier. No provider selector UI in any planner. No voiceLayers state.
 - Fix: (A) `/api/tts/route.ts` — `provider` field routing, ElevenLabs error surface, FAL Narrator via `fal-ai/kokoro`, karaoke short-circuit. (B) New `/api/tts/fal-narrator/route.ts`. (C) Hybrid-planner permanent provider card + voiceLayers. (D) Children-planner STYLE & VOICE tab narrationProvider. (E) Movie-planner Audio tab narrationProvider.

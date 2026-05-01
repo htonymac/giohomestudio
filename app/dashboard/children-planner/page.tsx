@@ -338,6 +338,7 @@ function ChildrenPlannerInner() {
   // Generated content
   const [generatedVideoUrl, setGeneratedVideoUrl] = useState("");
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState("");
+  const [musicFallbackReason, setMusicFallbackReason] = useState<string | null>(null);
   const [generationProgress, setGenerationProgress] = useState("");
   const [generationError, setGenerationError] = useState("");
   const [contentImage, setContentImage] = useState<string | null>(null);
@@ -962,8 +963,10 @@ function ChildrenPlannerInner() {
             durationSeconds: 20,
           }),
         });
-        const musicData = await safeJson<{ url?: string; audioUrl?: string }>(musicRes, "music/generate");
+        const musicData = await safeJson<{ url?: string; audioUrl?: string; fallbackReason?: string }>(musicRes, "music/generate");
         if (musicData.url || musicData.audioUrl) setGeneratedMusicUrl(musicData.url ?? musicData.audioUrl ?? "");
+        if (musicData.fallbackReason) setMusicFallbackReason(musicData.fallbackReason);
+        else setMusicFallbackReason(null);
       } catch { /* music generation is optional */ }
 
       setGenerationProgress("Step 3/3: Assembling video...");
@@ -2414,6 +2417,11 @@ function ChildrenPlannerInner() {
                 )}
               </div>
 
+              {musicFallbackReason && (
+                <div style={{ fontSize: 10, color: "#fbbf24", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.25)", borderRadius: 8, padding: "8px 12px", marginBottom: 10 }}>
+                  Mubert not configured — using stock library for tracks &gt;47s. Set MUBERT_PAT to enable.
+                </div>
+              )}
               {generatedMusicUrl && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}`, marginBottom: 12 }}>
                   <Icon.Music style={{ width: 14, height: 14, flexShrink: 0 }} />

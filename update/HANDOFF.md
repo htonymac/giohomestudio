@@ -1,4 +1,4 @@
-# GHS HANDOFF — 2026-04-30 Session
+# GHS HANDOFF — 2026-04-30 Session (updated S6)
 
 ## Credit cap hit at ~11:54am UTC (10:54am PT). Resets 11:40am PT.
 
@@ -11,6 +11,7 @@
 | S3 | fix/ghs-bug-04-payload-json-guard | fe3ba2e | BUG-04a/c/f payload alignment, safeJson guard |
 | S4 | fix/ghs-bug-04b-tab-order-character-picker | 4a3caa0 | BUG-04b tab order (Overview last), design style flow, CharacterPicker inline |
 | S5 | fix/ghs-bug-09-voice-tiers | 6576960 | BUG-09 voice provider tiers, ElevenLabs error surface, FAL Narrator, voiceLayers |
+| S6 | fix/ghs-bug-07-music-pipeline | d433f2c | BUG-07 expansion error surface, BUG-23 Mubert dead branch fix, MUBERT_PAT docs, stock fallback banners |
 
 ## S4c — NOT completed (credit cap hit):
 - Movie planner Cast tab: replace "Import Existing" primary → AI-generate-cast-from-story
@@ -24,10 +25,9 @@
 4. Every correction and the full original narration is in uncomplete.md SESSION 2026-04-30
 
 ## Next steps when credits resume:
-1. S4c: Movie cast AI-from-story + children scene board + pre-assembly preflight
-2. S4d: Shared pre-assembly supervisor component (all planners)
-3. S5: Voice provider tiers (ElevenLabs error surface, FAL Narrator, multi-part pipeline)
-4. S6-S16: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+1. S7: Karaoke Python fix (next per plan)
+2. S6 DONE: BUG-07 expansion surface + BUG-23 Mubert dead branch + MUBERT_PAT docs + stock fallback banners — branch fix/ghs-bug-07-music-pipeline (4 commits, not yet merged to main)
+3. S8+: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
