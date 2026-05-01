@@ -1,6 +1,6 @@
 "use client";
 // S15 BUG-22 fix: full model unlock 2026-04-30
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
@@ -20,13 +20,39 @@ const CONTENT_TYPES = [
   { id: "product",   label: "Product Showcase",   desc: "Product-focused visuals",    color: ds.color.mint    },
 ];
 
-const MODEL_MAP: Record<string, Array<{ id: string; name: string; provider: string; best: string }>> = {
-  human:     [{ id: "kling3-pro", name: "Kling 3.0 Pro", provider: "Kling", best: "Most realistic humans" }, { id: "seedance", name: "SeeDance 2.0", provider: "ByteDance", best: "Natural movement" }],
-  animation: [{ id: "hailuo-pro", name: "Hailuo 2.3 Pro", provider: "MiniMax", best: "Creative animation" }, { id: "hailuo-fast", name: "Hailuo 2.3 Fast", provider: "MiniMax", best: "Quick drafts" }],
-  "3d":      [{ id: "kling3-pro", name: "Kling 3.0 Pro", provider: "Kling", best: "Cinematic 3D" }, { id: "runway", name: "Runway Gen-3", provider: "Runway", best: "Smooth 3D motion" }],
-  cinematic: [{ id: "kling3-pro", name: "Kling 3.0 Pro", provider: "Kling", best: "Top cinematic quality" }, { id: "seedance", name: "SeeDance 2.0", provider: "ByteDance", best: "Native audio + video" }],
-  dance:     [{ id: "seedance", name: "SeeDance 2.0", provider: "ByteDance", best: "Dance & choreography" }, { id: "kling2", name: "Kling 2.0", provider: "Kling", best: "Good motion" }],
-  product:   [{ id: "hailuo-pro", name: "Hailuo 2.3 Pro", provider: "MiniMax", best: "Product shots" }, { id: "kling2", name: "Kling 2.0", provider: "Kling", best: "Clean visuals" }],
+// MODEL_MAP uses IDs matching ModelPicker.VIDEO_MODELS exactly.
+// Default selection per content type = first entry (cheapest / best fit).
+const MODEL_MAP: Record<string, Array<{ id: string; name: string; provider: string; best: string; budget?: boolean }>> = {
+  human:     [
+    { id: "muapi_wan_v2_1_720p",    name: "Wan 2.1",       provider: "Wan",       best: "Balanced quality",      budget: true },
+    { id: "muapi_seedance_v2",      name: "Seedance 2.0",  provider: "ByteDance", best: "Natural movement" },
+    { id: "fal_kling_3_pro",        name: "Kling 3.0 Pro", provider: "Kling",     best: "Most realistic humans" },
+  ],
+  animation: [
+    { id: "fal_wan_lite",           name: "Wan Lite",      provider: "Wan",       best: "Fast animation draft",  budget: true },
+    { id: "muapi_seedance_v2",      name: "Seedance 2.0",  provider: "ByteDance", best: "2D/cartoon quality" },
+    { id: "fal_kling_2_5_standard", name: "Kling 2.5",     provider: "Kling",     best: "Smooth animation" },
+  ],
+  "3d":      [
+    { id: "muapi_wan_v2_1_720p",    name: "Wan 2.1",       provider: "Wan",       best: "Balanced 3D",           budget: true },
+    { id: "fal_kling_2_5_standard", name: "Kling 2.5",     provider: "Kling",     best: "Solid 3D realism" },
+    { id: "fal_kling_3_pro",        name: "Kling 3.0 Pro", provider: "Kling",     best: "Cinematic 3D" },
+  ],
+  cinematic: [
+    { id: "muapi_wan_v2_1_720p",    name: "Wan 2.1",       provider: "Wan",       best: "Good cinematic look",   budget: true },
+    { id: "fal_kling_2_5_turbo_pro",name: "Kling 2.5 Turbo", provider: "Kling",   best: "Premium cinematic" },
+    { id: "fal_kling_3_pro",        name: "Kling 3.0 Pro", provider: "Kling",     best: "Top cinematic quality" },
+  ],
+  dance:     [
+    { id: "fal_wan_lite",           name: "Wan Lite",      provider: "Wan",       best: "Quick draft",           budget: true },
+    { id: "muapi_seedance_v2",      name: "Seedance 2.0",  provider: "ByteDance", best: "Dance & choreography" },
+    { id: "fal_kling_2_5_standard", name: "Kling 2.5",     provider: "Kling",     best: "Good motion" },
+  ],
+  product:   [
+    { id: "fal_wan_lite",           name: "Wan Lite",      provider: "Wan",       best: "Budget product shot",   budget: true },
+    { id: "muapi_wan_v2_1_720p",    name: "Wan 2.1",       provider: "Wan",       best: "Clean product visuals" },
+    { id: "fal_kling_2_5_standard", name: "Kling 2.5",     provider: "Kling",     best: "Premium product shots" },
+  ],
 };
 
 const MUSIC_OPTIONS = [
@@ -78,6 +104,18 @@ export default function ViralVideoPage() {
 
   const models = MODEL_MAP[contentType] ?? [];
   const noMusic = musicChoice === "none";
+
+  // Auto-select cheapest model when content type changes (budget default)
+  const prevContentType = React.useRef(contentType);
+  React.useEffect(() => {
+    if (contentType && contentType !== prevContentType.current) {
+      prevContentType.current = contentType;
+      const map = MODEL_MAP[contentType];
+      if (map && map.length > 0) {
+        setSelectedModel(map[0].id); // first = cheapest
+      }
+    }
+  }, [contentType]);
 
   const saveSession = useCallback(() => {
     if (!prompt && !contentType) return;
@@ -311,14 +349,16 @@ export default function ViralVideoPage() {
           </p>
           <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 16 }}>Choose a video generation model. All {VIDEO_MODELS.length} models available — cheaper options save cost.</p>
 
-          {/* Recommended (content-type specific) */}
+          {/* Recommended (content-type specific) — cheapest first */}
           {models.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <p style={{ fontSize: 10, color: ds.color.mint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: ds.font.mono }}>Recommended for {CONTENT_TYPES.find(t => t.id === contentType)?.label}</p>
+              <p style={{ fontSize: 10, color: ds.color.mint, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8, fontFamily: ds.font.mono }}>Recommended for {CONTENT_TYPES.find(t => t.id === contentType)?.label} — cheapest first</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                 {models.map((m, i) => {
-                  const vm = VIDEO_MODELS.find(v => v.id === m.id || v.name.toLowerCase().includes(m.name.toLowerCase().split(" ")[0]));
+                  const vm = VIDEO_MODELS.find(v => v.id === m.id);
                   const costLabel = vm ? vm.cost : "";
+                  const isBudget = m.budget || i === 0;
+                  const isBest = i === models.length - 1;
                   return (
                     <button key={m.id} onClick={() => setSelectedModel(m.id)}
                       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderRadius: ds.radius.md, border: `1px solid ${selectedModel === m.id ? ds.color.coral : ds.color.line}`, background: selectedModel === m.id ? "rgba(255,122,69,0.06)" : "transparent", cursor: "pointer", textAlign: "left" }}>
@@ -331,7 +371,10 @@ export default function ViralVideoPage() {
                           <p style={{ fontSize: 11, color: ds.color.mute }}>{m.best}{costLabel ? ` · ${costLabel}` : ""}</p>
                         </div>
                       </div>
-                      {i === 0 && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(122,224,195,0.12)", color: ds.color.mint, fontWeight: 600 }}>Recommended</span>}
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        {isBudget && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(34,197,94,0.12)", color: "#22c55e", fontWeight: 700 }}>BUDGET</span>}
+                        {isBest  && <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 10, background: "rgba(255,122,69,0.12)", color: ds.color.coral, fontWeight: 700 }}>BEST</span>}
+                      </div>
                     </button>
                   );
                 })}

@@ -1460,10 +1460,13 @@ function ChildrenPlannerInner() {
           <span style={labelStyle}>Story AI Intelligence</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { value: "ollama",                           label: "Local LLM",  sub: "Ollama · Free · No cloud cost",                    color: childSafe,   badge: "FREE" },
-              { value: "claude:claude-haiku-4-5-20251001", label: "Standard",   sub: "Claude Haiku 4.5 · Fast · Low cost",               color: "#00d4ff",   badge: "FAST" },
-              { value: "claude:claude-sonnet-4-6",         label: "Pro",        sub: "Claude Sonnet 4.6 · Best balance · Recommended",   color: childAccent, badge: "REC" },
-              { value: "claude:claude-opus-4-7",           label: "Premium",    sub: "Claude Opus 4.7 · Highest quality · Most powerful", color: "#f59e0b",   badge: "TOP" },
+              { value: "ollama",                           label: "Local LLM",   sub: "Ollama · Free · No cloud cost",                     color: childSafe,   badge: "FREE" },
+              { value: "claude:claude-haiku-4-5-20251001", label: "Standard",    sub: "Claude Haiku 4.5 · Fast · Low cost",                color: "#00d4ff",   badge: "FAST" },
+              { value: "claude:claude-sonnet-4-6",         label: "Pro",         sub: "Claude Sonnet 4.6 · Best balance · Recommended",    color: childAccent, badge: "REC" },
+              { value: "claude:claude-opus-4-7",           label: "Premium",     sub: "Claude Opus 4.7 · Highest quality · Most powerful", color: "#f59e0b",   badge: "TOP" },
+              { value: "openai:gpt-4o-mini",               label: "GPT-4o Mini", sub: "OpenAI · Fast · Requires OPENAI_API_KEY",           color: "#fb923c",   badge: "GPT" },
+              { value: "openai:gpt-4o",                    label: "GPT-4o",      sub: "OpenAI · Best quality · Requires OPENAI_API_KEY",   color: "#f87171",   badge: "GPT+" },
+              { value: "openai:o1-mini",                   label: "o1-mini",     sub: "OpenAI reasoning model · Deep analysis",            color: "#f97316",   badge: "THINK" },
             ].map(tier => {
               const sel = storyAiProvider === tier.value;
               return (

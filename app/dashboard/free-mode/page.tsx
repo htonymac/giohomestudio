@@ -867,6 +867,8 @@ function FreeModeChat() {
   const [characters,     setCharacters]     = useState<Character[]>([]);
   const [charDrawer,     setCharDrawer]     = useState(false);
   const [selectedCharIds,setSelectedCharIds]= useState<string[]>([]);
+  const [plusMenuOpen,   setPlusMenuOpen]   = useState(false);
+  const plusMenuRef = useRef<HTMLDivElement>(null);
   const [limits,         setLimits]         = useState<DailyLimits>({
     imageCount: 0, videoCount: 0, imageLimit: 4, videoLimit: 2,
     imageRemaining: 4, videoRemaining: 2,
@@ -937,6 +939,18 @@ function FreeModeChat() {
       feedRef.current.scrollTop = feedRef.current.scrollHeight;
     }
   }, [messages.length, sending]);
+
+  // Close plus menu on outside click
+  useEffect(() => {
+    if (!plusMenuOpen) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (plusMenuRef.current && !plusMenuRef.current.contains(e.target as Node)) {
+        setPlusMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [plusMenuOpen]);
 
   // Persist session characters/intro/outro on change (debounced)
   const persistSession = useCallback(async (
@@ -1304,6 +1318,47 @@ function FreeModeChat() {
             display: "flex", alignItems: "center", gap: 6,
             marginBottom: 8, flexWrap: "wrap",
           }}>
+            {/* + button — consolidated menu for Add Character / Intro / Outro */}
+            <div ref={plusMenuRef} style={{ position: "relative" }}>
+              <button
+                onClick={() => setPlusMenuOpen(o => !o)}
+                style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  border: `1px solid ${plusMenuOpen ? C.sky + "80" : C.line}`,
+                  background: plusMenuOpen ? `${C.sky}18` : "transparent",
+                  color: plusMenuOpen ? C.sky : C.mute,
+                  fontSize: 18, fontWeight: 700, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  lineHeight: 1,
+                }}
+                title="Add character, intro, or outro"
+              >+</button>
+              {plusMenuOpen && (
+                <div style={{
+                  position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 50,
+                  background: C.card, border: `1px solid ${C.line}`, borderRadius: 10,
+                  overflow: "hidden", minWidth: 160,
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+                }}>
+                  {[
+                    { label: "Add Character", icon: "👤", action: () => { setCharDrawer(true); setPlusMenuOpen(false); } },
+                    { label: "Add Intro",     icon: "▶",  action: () => { setIntro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
+                    { label: "Add Outro",     icon: "⏹",  action: () => { setOutro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
+                  ].map(item => (
+                    <button key={item.label} onClick={item.action} style={{
+                      width: "100%", padding: "10px 14px", background: "transparent",
+                      border: "none", color: C.ink, fontSize: 12, fontWeight: 600,
+                      cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = `${C.sky}10`; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                      <span>{item.icon}</span>{item.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Character chips */}
             {characters.map(ch => (
               <div key={ch.id} style={{
