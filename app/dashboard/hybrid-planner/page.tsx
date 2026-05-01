@@ -428,7 +428,7 @@ function HybridPlannerInner() {
   }
   type StoryMode = "narration-only" | "actors-only" | "mixed";
   const [storyMode, setStoryMode] = useState<StoryMode>("mixed");
-  const [narratorVoice, setNarratorVoice] = useState<"piper" | "elevenlabs" | "none">("piper");
+  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "none">("piper");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
   const [narratorPiperSpeed, setNarratorPiperSpeed] = useState(0.75);
   const [scriptSegments, setScriptSegments] = useState<ScriptSegment[]>([]);
@@ -439,6 +439,22 @@ function HybridPlannerInner() {
   const [narratorAudioDuration, setNarratorAudioDuration] = useState<number>(0);
   const [piperNotInstalled, setPiperNotInstalled] = useState(false);
   const [piperDownloading, setPiperDownloading] = useState(false);
+  // ── Voice Layers — multi-part narrator voice stacking ────────────────────
+  // Each layer has its own provider + voiceId. Layer 1 = primary narrator.
+  // Layers 2+ are secondary (mixing deferred to S14 assembly endpoint wiring).
+  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "elevenlabs" | "karaoke"; voiceId: string; }
+  const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
+  function addVoiceLayer() {
+    setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
+  }
+  function updateVoiceLayer(layer: number, updates: Partial<VoiceLayer>) {
+    setVoiceLayers(prev => prev.map(l => l.layer === layer ? { ...l, ...updates } : l));
+  }
+  function removeVoiceLayer(layer: number) {
+    if (layer === 1) return; // can't remove primary
+    setVoiceLayers(prev => prev.filter(l => l.layer !== layer).map((l, i) => ({ ...l, layer: i + 1 })));
+  }
+
   // ── Per-character Piper voice assignment ─────────────────────────────────
   // Maps characterId → piper model name (e.g. "en_US-ryan-high")
   const [characterPiperVoices, setCharacterPiperVoices] = useState<Record<string, string>>({});
@@ -1616,7 +1632,7 @@ function HybridPlannerInner() {
     setParsingScript(false);
   }
 
-  // ── Narrator audio generation via Piper ──────────────────────────────────────
+  // ── Narrator audio generation — routes to the selected provider ─────────────
   async function generateNarrationPiper() {
     // Use the full story text so narrator covers the entire video duration.
     // Filtering to narration-only segments makes the audio shorter than the video
@@ -1627,6 +1643,39 @@ function HybridPlannerInner() {
     if (!narrationText.trim()) { setUiError("No narration text found. Parse your script first."); return; }
     setGeneratingNarration(true);
     setPiperDownloading(false);
+
+    // FAL Narrator and ElevenLabs go directly to /api/tts with the provider field
+    if (narratorVoice === "fal-narrator" || narratorVoice === "elevenlabs") {
+      setLastAction(`Generating narrator audio via ${narratorVoice === "fal-narrator" ? "FAL Narrator" : "ElevenLabs"}...`);
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: narrationText,
+            provider: narratorVoice,
+            speed: narratorPiperSpeed,
+          }),
+        });
+        const data = await res.json();
+        if (data.audioUrl) {
+          setNarratorAudioUrl(data.audioUrl);
+          setLastAction(`Narrator audio ready via ${data.engine || narratorVoice}`);
+        } else {
+          setUiError(data.error || `${narratorVoice} narration failed`);
+        }
+      } catch (err) { setUiError("Narration error: " + String(err)); }
+      setGeneratingNarration(false);
+      return;
+    }
+
+    // Karaoke provider — browser SpeechSynthesis (no server call needed)
+    if (narratorVoice === "karaoke") {
+      setUiError("Karaoke mode uses browser speech synthesis — no audio file generated. Playback happens in-browser only.");
+      setGeneratingNarration(false);
+      return;
+    }
+
+    // Piper (default) — uses existing narrate-piper endpoint
     setLastAction("Generating narrator audio with Piper...");
     try {
       const res = await fetch("/api/hybrid/narrate-piper", {
@@ -1636,6 +1685,7 @@ function HybridPlannerInner() {
           model: narratorPiperModel,
           speed: narratorPiperSpeed,
           voiceProvider: narratorVoice,
+          provider: narratorVoice,
           outputName: `narration_${projectId || "draft"}_${Date.now()}`,
         }),
       });
@@ -1644,8 +1694,6 @@ function HybridPlannerInner() {
         setPiperNotInstalled(true);
         setUiError("Piper binary not installed. See link below.");
       } else if (data.modelNotFound) {
-        // Should not happen now — auto-download handles this
-        // If it does, the download itself failed
         setUiError(data.error || `Model "${narratorPiperModel}" could not be downloaded. Check internet or HF_TOKEN.`);
       } else if (data.ok && data.audioUrl) {
         setNarratorAudioUrl(data.audioUrl);
@@ -5679,17 +5727,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
               )}
 
-              {/* Narrator voice selector — only shown after Parse Script has run */}
+              {/* Narrator voice / provider selector — only shown after Parse Script has run */}
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 10 }}>Narrator Voice</p>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                    {(["piper", "elevenlabs", "none"] as const).map(v => (
-                      <button key={v} onClick={() => setNarratorVoice(v)}
-                        style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v ? accent : border}`,
-                          background: narratorVoice === v ? `${accent}15` : "transparent",
-                          color: narratorVoice === v ? accent : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                        {v === "piper" ? "Piper (Local)" : v === "elevenlabs" ? "ElevenLabs" : "None"}
+                  <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Narration Provider</p>
+                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Narrator = cloud AI (requires FAL_KEY). ElevenLabs = premium (requires ELEVENLABS_API_KEY). Karaoke = browser speech.</p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
+                    {([
+                      { id: "piper",       label: "Piper (free)",    color: accent },
+                      { id: "fal-narrator", label: "FAL Narrator",   color: blue },
+                      { id: "elevenlabs",  label: "ElevenLabs",      color: purple },
+                      { id: "karaoke",     label: "Karaoke",         color: gold },
+                      { id: "none",        label: "None",            color: muted },
+                    ] as const).map(v => (
+                      <button key={v.id} onClick={() => setNarratorVoice(v.id)}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
+                          background: narratorVoice === v.id ? `${v.color}15` : "transparent",
+                          color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        {v.label}
                       </button>
                     ))}
                   </div>
@@ -5739,6 +5794,18 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     </div>
                   )}
 
+                  {narratorVoice === "fal-narrator" && (
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: `${blue}08`, border: `1px solid ${blue}20` }}>
+                      <p style={{ fontSize: 10, color: blue, fontWeight: 600 }}>FAL Narrator (fal-ai/kokoro)</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3, marginBottom: 10 }}>Cloud TTS via FAL AI. Requires FAL_KEY in .env. Natural, expressive voices.</p>
+                      <button onClick={generateNarrationPiper} disabled={generatingNarration}
+                        style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
+                          background: generatingNarration ? "#2a2a40" : blue, color: "#000" }}>
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (FAL)" : "Generate via FAL Narrator"}
+                      </button>
+                    </div>
+                  )}
+
                   {narratorVoice === "elevenlabs" && (
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: `${purple}08`, border: `1px solid ${purple}20` }}>
                       <p style={{ fontSize: 10, color: purple, fontWeight: 600 }}>ElevenLabs narrator</p>
@@ -5748,6 +5815,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           background: generatingNarration ? "#2a2a40" : purple, color: "#fff" }}>
                         {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (ElevenLabs)" : "Generate via ElevenLabs"}
                       </button>
+                    </div>
+                  )}
+
+                  {narratorVoice === "karaoke" && (
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: `${gold}08`, border: `1px solid ${gold}20` }}>
+                      <p style={{ fontSize: 10, color: gold, fontWeight: 600 }}>Karaoke / Browser Speech</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>Uses the browser Web Speech API (SpeechSynthesis). No API key needed. Playback is in-browser only — no audio file is saved.</p>
                     </div>
                   )}
 
@@ -5762,6 +5836,41 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   )}
                 </div>
               )}
+
+              {/* ── VOICE LAYERS — multi-part narrator stacking ── */}
+              <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: "#ffffff03", border: `1px solid ${border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>Voice Layers</p>
+                    <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>Layer 1 = primary narrator. Add layers for secondary voice tracks (mixing wired in S14).</p>
+                  </div>
+                  <button onClick={addVoiceLayer} disabled={voiceLayers.length >= 4}
+                    style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}08`, color: accent, fontSize: 10, fontWeight: 700, cursor: voiceLayers.length >= 4 ? "not-allowed" : "pointer", opacity: voiceLayers.length >= 4 ? 0.5 : 1 }}>
+                    + Layer
+                  </button>
+                </div>
+                {voiceLayers.map(layer => (
+                  <div key={layer.layer} style={{ display: "flex", gap: 8, alignItems: "center", padding: "8px 10px", borderRadius: 8, background: surface, border: `1px solid ${border}`, marginBottom: 6 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: muted, minWidth: 20 }}>L{layer.layer}</span>
+                    <select value={layer.providerId} onChange={e => updateVoiceLayer(layer.layer, { providerId: e.target.value as VoiceLayer["providerId"] })}
+                      style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "5px 8px" }}>
+                      <option value="piper" style={{ background: surface }}>Piper (free)</option>
+                      <option value="fal-narrator" style={{ background: surface }}>FAL Narrator</option>
+                      <option value="elevenlabs" style={{ background: surface }}>ElevenLabs</option>
+                      <option value="karaoke" style={{ background: surface }}>Karaoke</option>
+                    </select>
+                    <input value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
+                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "fal-narrator" ? "af_sky" : "voice-id"}
+                      style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }} />
+                    {layer.layer > 1 && (
+                      <button onClick={() => removeVoiceLayer(layer.layer)}
+                        style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid #ef444430`, background: "#ef444408", color: red, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                        X
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
 
               {/* ── CHARACTER VOICES — pick Piper model per character ── */}
               {(storyMode === "mixed" || storyMode === "actors-only") && characters.length > 0 && (
@@ -6133,6 +6242,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 11, fontWeight: 600, cursor: loadingShotPlan ? "not-allowed" : "pointer" }}>
                 {loadingShotPlan ? "Generating..." : "Auto Shot Plans"}
               </button>
+            </div>
+          </div>
+
+          {/* ── Narration Provider — global selector (always visible in Audio tab) ── */}
+          <div style={{ ...cardStyle, borderColor: `${accent}15`, marginBottom: 16 }} data-testid="narration-provider-card">
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Narration Provider</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Narrator = cloud AI (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech (no file).</p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {([
+                { id: "piper",       label: "Piper (free)",   color: accent },
+                { id: "fal-narrator", label: "FAL Narrator",  color: blue },
+                { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
+                { id: "karaoke",     label: "Karaoke",        color: gold },
+                { id: "none",        label: "None",           color: muted },
+              ] as const).map(v => (
+                <button key={v.id} onClick={() => setNarratorVoice(v.id)}
+                  data-provider={v.id}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
+                    background: narratorVoice === v.id ? `${v.color}15` : "transparent",
+                    color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                  {v.label}
+                </button>
+              ))}
             </div>
           </div>
 

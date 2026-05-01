@@ -211,6 +211,7 @@ function ChildrenPlannerInner() {
   const [lastAction, setLastAction] = useState("Workshop opened");
   const [textContent, setTextContent] = useState(topicPromptParam || "");
   const [narrationStyle, setNarrationStyle] = useState("gentle");
+  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [visualStyle, setVisualStyle] = useState("storybook");
   const [tone, setTone] = useState<"soft" | "active">("soft");
@@ -770,7 +771,7 @@ function ChildrenPlannerInner() {
         body: JSON.stringify({
           projectType: "children",
           scenes: sceneList,
-          audioConfig: { narrationProvider: narrationSettings?.mode ? "piper" : undefined, narrationText: narrationText, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          audioConfig: { narrationProvider: narrationProvider, narrationText: narrationText, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
           characters: charList,
         }),
       });
@@ -2051,6 +2052,24 @@ function ChildrenPlannerInner() {
                 style={{ padding: "10px 12px", borderRadius: 10, border: `1px solid ${narrationStyle === n.id ? childAccent : border}`, background: narrationStyle === n.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "left" }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: narrationStyle === n.id ? childAccent : "#fff" }}>{n.label}</p>
                 <p style={{ fontSize: 9, color: muted }}>{n.desc}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Narration provider selector */}
+          <p style={labelStyle}>Narration Provider</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 14 }}>
+            {([
+              { id: "piper",       label: "Piper (free)",   color: childSafe },
+              { id: "fal-narrator", label: "FAL Narrator",  color: C4 },
+              { id: "elevenlabs",  label: "ElevenLabs",     color: C2 },
+              { id: "karaoke",     label: "Karaoke",        color: childAccent },
+            ] as const).map(p => (
+              <button key={p.id} onClick={() => setNarrationProvider(p.id)}
+                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${narrationProvider === p.id ? p.color : border}`,
+                  background: narrationProvider === p.id ? `${p.color}12` : "transparent",
+                  color: narrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                {p.label}
               </button>
             ))}
           </div>

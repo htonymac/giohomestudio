@@ -50,6 +50,11 @@ Updated: 2026-04-30
 - Fix: "Run Pre-flight Review" button added to movie Assembly tab and children Final tab. Calls /api/hybrid/pre-flight (already existed). Shows green/yellow/red checklist. API also extended to cover movie-specific scene description check.
 - Branch: fix/ghs-s4c-sceneboard-cast-preflight
 
+### [FIXED 2026-04-30 S5] BUG-09 — Voice provider tiers + ElevenLabs error surfacing
+- Was: ElevenLabs errors silently swallowed (empty catch). No FAL Narrator tier. No provider selector UI in any planner. No voiceLayers state.
+- Fix: (A) `/api/tts/route.ts` — `provider` field routing, ElevenLabs error surface, FAL Narrator via `fal-ai/kokoro`, karaoke short-circuit. (B) New `/api/tts/fal-narrator/route.ts`. (C) Hybrid-planner permanent provider card + voiceLayers. (D) Children-planner STYLE & VOICE tab narrationProvider. (E) Movie-planner Audio tab narrationProvider.
+- Branch: fix/ghs-bug-09-voice-tiers | Playwright: 17/17 PASS 90s
+
 ### OPEN — BUG-04d (scene images children, full integration)
 - BUG-04d (remaining): Scene images in children Scene Board now work (S4c). makeSceneVideo requires image first — flow works. Full integration + video-from-image tested pending user content.
 - BUG-04e: Movie-planner same patterns (payload aligned, safeJson added) — DONE as part of S3

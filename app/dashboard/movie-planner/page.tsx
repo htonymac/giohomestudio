@@ -284,6 +284,7 @@ function MoviePlannerInner() {
   const [narrationTexts, setNarrationTexts] = useState<Record<number, string>>({});
   const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
+  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
 
   // ── Project persistence ──
   const [projectList, setProjectList] = useState<Array<{ id: string; title: string; genre: string | null; status: string; updatedAt: string; _count: { scenes: number } }>>([]);
@@ -1194,7 +1195,7 @@ function MoviePlannerInner() {
         body: JSON.stringify({
           projectType: "movie",
           scenes: sceneList,
-          audioConfig: { narrationProvider: "piper", musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          audioConfig: { narrationProvider: narrationProvider, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
           characters: charList,
         }),
       });
@@ -1471,14 +1472,18 @@ function MoviePlannerInner() {
   async function generateSceneNarration(scene: SceneCard) {
     const text = scene.dialogue;
     if (!text?.trim()) { setErrorMsg(`Scene ${scene.scene} has no narration text. Add text first.`); return; }
-    setLastAction(`Generating narration audio for Scene ${scene.scene}...`);
+    setLastAction(`Generating narration audio for Scene ${scene.scene} via ${narrationProvider}...`);
     try {
-      const res = await fetch("/api/hybrid/narrate-piper", {
+      // Route to /api/tts for cloud providers, narrate-piper for local
+      const endpoint = (narrationProvider === "fal-narrator" || narrationProvider === "elevenlabs")
+        ? "/api/tts"
+        : "/api/hybrid/narrate-piper";
+      const payload = (narrationProvider === "fal-narrator" || narrationProvider === "elevenlabs")
+        ? { text, provider: narrationProvider, speed: 0.85 }
+        : { text, sceneId: `SC${String(scene.scene).padStart(2, "0")}`, model: "en_US-lessac-medium", speed: 0.85, provider: narrationProvider };
+      const res = await fetch(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text, sceneId: `SC${String(scene.scene).padStart(2, "0")}`,
-          model: "en_US-lessac-medium", speed: 0.85,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.audioUrl || data.filePath) {
@@ -2849,6 +2854,27 @@ function MoviePlannerInner() {
                 style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${gold}30`, background: `${gold}06`, color: gold, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                 Auto Audio Plans
               </button>
+            </div>
+          </div>
+
+          {/* ── Narration Provider Selector ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Narration Provider</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select the TTS engine for all scene narrations in this project.</p>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {([
+                { id: "piper",       label: "Piper (free)",   color: accent },
+                { id: "fal-narrator", label: "FAL Narrator",  color: blue },
+                { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
+                { id: "karaoke",     label: "Karaoke",        color: gold },
+              ] as const).map(p => (
+                <button key={p.id} onClick={() => setNarrationProvider(p.id)}
+                  style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${narrationProvider === p.id ? p.color : border}`,
+                    background: narrationProvider === p.id ? `${p.color}12` : "transparent",
+                    color: narrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                  {p.label}
+                </button>
+              ))}
             </div>
           </div>
 
