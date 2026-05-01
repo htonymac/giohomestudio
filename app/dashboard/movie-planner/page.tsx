@@ -404,6 +404,17 @@ function MoviePlannerInner() {
   const [sceneIntelligence, setSceneIntelligence] = useState<Record<string, SceneIntelligenceData>>({});
   const [runningIntelligence, setRunningIntelligence] = useState(false);
 
+  // ── Continuous Motion ──────────────────────────────────────────────────────
+  const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
+  const [cmTotalDuration, setCmTotalDuration] = useState(15);
+  const [cmSegmentDuration, setCmSegmentDuration] = useState(5);
+  const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
+  const [cmRunning, setCmRunning] = useState(false);
+  const [cmStatus, setCmStatus] = useState<string | null>(null);
+  const [cmSceneId, setCmSceneId] = useState<string | null>(null);
+  const [cmFinalVideoUrl, setCmFinalVideoUrl] = useState<string | null>(null);
+  const [cmError, setCmError] = useState<string | null>(null);
+
   // ── Derived stats ──
   const scenes = moviePlan?.scenes ?? [];
   const totalScenes = scenes.length;
@@ -710,6 +721,48 @@ function MoviePlannerInner() {
       setErrorMsg(`Failed to generate image for Scene ${scene.scene}: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ── Continuous Motion ─────────────────────────────────────────────────────
+  async function startContinuousMotion() {
+    const prompt = expandedStory || idea || "";
+    if (!prompt.trim()) { setCmError("Write a story first — Continuous Motion needs a prompt."); return; }
+    setCmRunning(true); setCmStatus("Submitting plan..."); setCmError(null); setCmFinalVideoUrl(null); setCmSceneId(null);
+    try {
+      const res = await fetch("/api/continuous-motion/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          totalDuration: cmTotalDuration,
+          segmentDuration: Math.min(cmSegmentDuration, 10),
+          providerKey: cmProvider,
+          projectId: projectId ?? "movie_draft",
+        }),
+      });
+      const data = await res.json() as { sceneId?: string; status?: string; finalVideoUrl?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      const sid = data.sceneId ?? "";
+      setCmSceneId(sid);
+      setCmStatus(data.status ?? "GENERATING");
+      if (data.status === "COMPLETE" || data.status === "DONE") {
+        setCmFinalVideoUrl(data.finalVideoUrl ?? null); setCmStatus("DONE"); setCmRunning(false); return;
+      }
+      if (sid) {
+        const poll = setInterval(async () => {
+          try {
+            const pr = await fetch(`/api/continuous-motion/scene/${sid}`);
+            const pd = await pr.json() as { status?: string; finalVideoUrl?: string };
+            setCmStatus(pd.status ?? "…");
+            if (pd.status === "COMPLETE" || pd.status === "DONE") {
+              clearInterval(poll); setCmFinalVideoUrl(pd.finalVideoUrl ?? data.finalVideoUrl ?? null); setCmStatus("DONE"); setCmRunning(false);
+            } else if (pd.status === "FAILED") {
+              clearInterval(poll); setCmError("Generation failed. Check logs."); setCmRunning(false);
+            }
+          } catch { /* keep polling */ }
+        }, 3000);
+      } else { setCmStatus(data.status ?? "PLANNING"); setCmRunning(false); }
+    } catch (err) { setCmError(err instanceof Error ? err.message : "Continuous Motion failed"); setCmRunning(false); }
   }
 
   // ── Generate All Scene Images (batch) ──
@@ -2546,6 +2599,66 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "scenes" && (
         <div>
+          {/* ── CONTINUOUS MOTION TOGGLE ──────────────────────────────────── */}
+          <div style={{ ...cardStyle, marginBottom: 12, borderColor: continuousMotionEnabled ? `${accent}50` : border, background: continuousMotionEnabled ? `${accent}06` : undefined }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={continuousMotionEnabled}
+                onChange={e => { setContinuousMotionEnabled(e.target.checked); setCmError(null); setCmStatus(null); setCmFinalVideoUrl(null); }}
+                style={{ width: 16, height: 16, accentColor: accent }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: continuousMotionEnabled ? accent : "#fff" }}>
+                Continuous Motion — chain scenes into one seamless action sequence
+              </span>
+            </label>
+            {continuousMotionEnabled && (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
+                  AI will treat your scenes as one continuous action. Enable this when your story has unbroken physical action (chase, fall, fight, explosion chain).
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Total Duration (seconds)</label>
+                    <input type="number" min={5} max={120} value={cmTotalDuration}
+                      onChange={e => setCmTotalDuration(Math.max(5, Number(e.target.value)))}
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Segment Duration (sec, max 10)</label>
+                    <input type="number" min={3} max={10} value={cmSegmentDuration}
+                      onChange={e => setCmSegmentDuration(Math.min(10, Math.max(3, Number(e.target.value))))}
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Video Provider</label>
+                    <select value={cmProvider} onChange={e => setCmProvider(e.target.value as "wan" | "kling_std")}
+                      style={{ ...inputStyle, fontSize: 12 }}>
+                      <option value="wan">Wan 2.5</option>
+                      <option value="kling_std">Kling Standard</option>
+                    </select>
+                  </div>
+                </div>
+                {cmError && <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 10 }}>{cmError}</p>}
+                {cmStatus && cmStatus !== "DONE" && (
+                  <p style={{ fontSize: 11, color: accent, marginBottom: 10 }}>Status: {cmStatus}{cmRunning && " — polling every 3s..."}</p>
+                )}
+                {cmFinalVideoUrl && (
+                  <div style={{ marginBottom: 14 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", marginBottom: 8 }}>Continuous Motion ready</p>
+                    <video src={cmFinalVideoUrl} controls style={{ width: "100%", maxHeight: 260, borderRadius: 8, background: "#000", marginBottom: 8 }} />
+                  </div>
+                )}
+                <button
+                  onClick={startContinuousMotion}
+                  disabled={cmRunning}
+                  style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: cmRunning ? "#2a2040" : accent, color: "#fff", fontSize: 13, fontWeight: 700, cursor: cmRunning ? "not-allowed" : "pointer" }}>
+                  {cmRunning ? `Generating… (${cmStatus ?? "starting"})` : "Generate Continuous Motion"}
+                </button>
+              </div>
+            )}
+          </div>
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board ({totalScenes} scenes)</h2>
             <div style={{ display: "flex", gap: 8 }}>

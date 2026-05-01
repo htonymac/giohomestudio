@@ -346,6 +346,17 @@ function HybridPlannerInner() {
   // ── New Scene Duration (user sets seconds) ──
   const [newSceneDuration, setNewSceneDuration] = useState(5);
 
+  // ── Continuous Motion ──────────────────────────────────────────────────────
+  const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
+  const [cmTotalDuration, setCmTotalDuration] = useState(15);
+  const [cmSegmentDuration, setCmSegmentDuration] = useState(5);
+  const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
+  const [cmRunning, setCmRunning] = useState(false);
+  const [cmStatus, setCmStatus] = useState<string | null>(null);
+  const [cmSceneId, setCmSceneId] = useState<string | null>(null);
+  const [cmFinalVideoUrl, setCmFinalVideoUrl] = useState<string | null>(null);
+  const [cmError, setCmError] = useState<string | null>(null);
+
   // ── Assembly scene selection + reorder ──
   const [selectedSceneIds, setSelectedSceneIds] = useState<string[]>([]);
   const [assemblyOrder, setAssemblyOrder] = useState<string[]>([]);
@@ -423,6 +434,7 @@ function HybridPlannerInner() {
     characterId?: string; // matched character ID for dialogue lines
     sceneId?: string;     // which scene this segment belongs to
     audioUrl?: string;    // per-line audio clip (new lip-sync system)
+    durationMs?: number | null; // actual measured audio duration (from TTS route)
     estimatedStartMs?: number; // calculated placement time in the final video
   }
   type StoryMode = "narration-only" | "actors-only" | "mixed";
@@ -1800,17 +1812,24 @@ function HybridPlannerInner() {
   // ~13 chars/sec at Piper speed 0.75; scales linearly with speed setting.
   // Only narration segments advance the narrator clock — dialogue slots are
   // silent gaps in the narrator audio that character clips fill.
-  function estimateSegmentTimings(segments: ScriptSegment[], piperSpeed: number): number[] {
+  // buildTimings: uses actual durationMs when measured; falls back to text-length estimate.
+  // Replaces old estimateSegmentTimings().
+  function buildTimings(segments: ScriptSegment[], piperSpeed: number): number[] {
     const charsPerSec = 13 * (piperSpeed / 0.75);
     const startTimes: number[] = [];
     let elapsed = 0;
     for (const seg of segments) {
       startTimes.push(elapsed);
-      const dur = seg.text.length / charsPerSec;
-      elapsed += seg.type === "narration" ? dur + 0.3 : dur + 0.2;
+      const durSec = seg.durationMs
+        ? seg.durationMs / 1000
+        : seg.text.length / charsPerSec;
+      elapsed += durSec + (seg.type === "narration" ? 0.3 : 0.2);
     }
     return startTimes;
   }
+  // Keep alias so external call sites in assembleScenes / runAutoTimestamp still compile
+  // (they're updated below, but alias guards against any missed reference)
+  const estimateSegmentTimings = buildTimings;
 
   // ── Generate per-line dialogue audio (one clip per dialogue segment) ──────
   // Falls back to generateCharacterVoices() if no parsed dialogue segments exist.
@@ -1827,7 +1846,7 @@ function HybridPlannerInner() {
     setGeneratingCharVoices(true);
     setCharVoiceLog("");
     const updatedSegments = [...scriptSegments];
-    const timings = estimateSegmentTimings(scriptSegments, narratorPiperSpeed);
+    const timings = buildTimings(scriptSegments, narratorPiperSpeed);
 
     for (const seg of dialogueSegs) {
       const char = characters.find(c =>
@@ -1856,6 +1875,7 @@ function HybridPlannerInner() {
           updatedSegments[seg.idx] = {
             ...updatedSegments[seg.idx],
             audioUrl: data.audioUrl,
+            durationMs: data.durationMs ?? null,
             estimatedStartMs: Math.round(timings[seg.idx] * 1000),
           };
           setCharVoiceLog(`Line ${seg.idx + 1} done`);
@@ -1917,6 +1937,77 @@ function HybridPlannerInner() {
       else setUiError(data.error || "SFX generation failed");
     } catch { setUiError("SFX generation failed"); }
     finally { setSfxGenerating(false); }
+  }
+
+  // ── Continuous Motion — generate a multi-segment chained action video ──────
+  async function startContinuousMotion() {
+    const prompt = expandedSummary || idea;
+    if (!prompt.trim()) { setCmError("Write a story first — Continuous Motion needs a prompt."); return; }
+    setCmRunning(true); setCmStatus("Submitting plan..."); setCmError(null); setCmFinalVideoUrl(null); setCmSceneId(null);
+
+    try {
+      const res = await fetch("/api/continuous-motion/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          totalDuration: cmTotalDuration,
+          segmentDuration: Math.min(cmSegmentDuration, 10),
+          providerKey: cmProvider,
+          projectId: projectId || "hybrid_draft",
+        }),
+      });
+      const data = await res.json() as { sceneId?: string; status?: string; finalVideoUrl?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+
+      const sid = data.sceneId ?? "";
+      setCmSceneId(sid);
+      setCmStatus(data.status ?? "GENERATING");
+
+      // If already done (synchronous completion), finish immediately
+      if (data.status === "COMPLETE" || data.status === "DONE") {
+        setCmFinalVideoUrl(data.finalVideoUrl ?? null);
+        setCmStatus("DONE");
+        setCmRunning(false);
+        return;
+      }
+
+      // Poll until DONE or FAILED
+      if (sid) {
+        const poll = setInterval(async () => {
+          try {
+            const pr = await fetch(`/api/continuous-motion/scene/${sid}`);
+            const pd = await pr.json() as { status?: string; finalVideoUrl?: string };
+            setCmStatus(pd.status ?? "…");
+            if (pd.status === "COMPLETE" || pd.status === "DONE") {
+              clearInterval(poll);
+              setCmFinalVideoUrl(pd.finalVideoUrl ?? data.finalVideoUrl ?? null);
+              setCmStatus("DONE");
+              setCmRunning(false);
+            } else if (pd.status === "FAILED") {
+              clearInterval(poll);
+              setCmError("Generation failed. Check logs.");
+              setCmRunning(false);
+            }
+          } catch { /* poll error — keep trying */ }
+        }, 3000);
+      } else {
+        // No sceneId returned — treat as plan-only (no FAL_KEY)
+        setCmStatus(data.status ?? "PLANNING");
+        setCmRunning(false);
+      }
+    } catch (err) {
+      setCmError(err instanceof Error ? err.message : "Continuous Motion failed");
+      setCmRunning(false);
+    }
+  }
+
+  function useContinuousMotionVideo() {
+    if (!cmFinalVideoUrl) return;
+    // Save to assembly — find or create a scene slot for the CM video
+    const cmSceneKey = "SC_CONTINUOUS";
+    setSceneVideos(prev => ({ ...prev, [cmSceneKey]: cmFinalVideoUrl! }));
+    setLastAction("Continuous Motion video added to assembly");
   }
 
   async function generateAudioPlans() {
@@ -2233,7 +2324,7 @@ function HybridPlannerInner() {
       if (storyMode !== "narration-only") {
         if (hasPerLineClips) {
           // Per-line system: place each clip at its scene's start + position within that scene
-          const textTimings = estimateSegmentTimings(scriptSegments, narratorPiperSpeed);
+          const textTimings = buildTimings(scriptSegments, narratorPiperSpeed);
           for (let i = 0; i < scriptSegments.length; i++) {
             const seg = scriptSegments[i];
             if (seg.type === "dialogue" && seg.audioUrl) {
@@ -4182,6 +4273,80 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "scenes" && (
         <div>
+          {/* ── CONTINUOUS MOTION TOGGLE ──────────────────────────────────── */}
+          <div style={{ ...cardStyle, marginBottom: 12, borderColor: continuousMotionEnabled ? `${accent}50` : `${border}`, background: continuousMotionEnabled ? `${accent}06` : undefined }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}>
+              <input
+                type="checkbox"
+                checked={continuousMotionEnabled}
+                onChange={e => { setContinuousMotionEnabled(e.target.checked); setCmError(null); setCmStatus(null); setCmFinalVideoUrl(null); }}
+                style={{ width: 16, height: 16, accentColor: accent }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: continuousMotionEnabled ? accent : "#fff" }}>
+                Continuous Motion — chain scenes into one seamless action sequence
+              </span>
+            </label>
+            {continuousMotionEnabled && (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
+                  AI will treat your scenes as one continuous action. Enable this when your story has unbroken physical action (chase, fall, fight, explosion chain).
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 9 }}>Total Duration (seconds)</label>
+                    <input
+                      type="number" min={5} max={120} value={cmTotalDuration}
+                      onChange={e => setCmTotalDuration(Math.max(5, Number(e.target.value)))}
+                      style={{ ...inputStyle, fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 9 }}>Segment Duration (sec, max 10)</label>
+                    <input
+                      type="number" min={3} max={10} value={cmSegmentDuration}
+                      onChange={e => setCmSegmentDuration(Math.min(10, Math.max(3, Number(e.target.value))))}
+                      style={{ ...inputStyle, fontSize: 12 }}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, fontSize: 9 }}>Video Provider</label>
+                    <select value={cmProvider} onChange={e => setCmProvider(e.target.value as "wan" | "kling_std")}
+                      style={{ ...inputStyle, fontSize: 12 }}>
+                      <option value="wan">Wan 2.5</option>
+                      <option value="kling_std">Kling Standard</option>
+                    </select>
+                  </div>
+                </div>
+                {cmError && (
+                  <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 10 }}>{cmError}</p>
+                )}
+                {cmStatus && cmStatus !== "DONE" && (
+                  <p style={{ fontSize: 11, color: accent, marginBottom: 10 }}>
+                    Status: {cmStatus}
+                    {cmRunning && " — polling every 3s..."}
+                  </p>
+                )}
+                {cmFinalVideoUrl && (
+                  <div style={{ marginBottom: 14 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", marginBottom: 8 }}>Continuous Motion ready</p>
+                    <video src={cmFinalVideoUrl} controls style={{ width: "100%", maxHeight: 260, borderRadius: 8, background: "#000", marginBottom: 8 }} />
+                    <button
+                      onClick={useContinuousMotionVideo}
+                      style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: "#4ade80", color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      Use This Video
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={startContinuousMotion}
+                  disabled={cmRunning}
+                  style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: cmRunning ? "#2a2040" : `linear-gradient(135deg, ${accent}, ${purple})`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: cmRunning ? "not-allowed" : "pointer" }}>
+                  {cmRunning ? `Generating… (${cmStatus ?? "starting"})` : "Generate Continuous Motion"}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* ── CAST PANEL — Characters locked to this project ── */}
           <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${purple}25` }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>

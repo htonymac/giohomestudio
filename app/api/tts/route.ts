@@ -1,6 +1,6 @@
 // POST /api/tts — Generate speech audio from text
 // Provider chain: piper (free local) → fal-narrator → elevenlabs → windows-sapi → placeholder
-// Returns { audioUrl, engine, duration } or { error }
+// Returns { audioUrl, engine, durationMs } or { error }
 // Accepts `provider` field: "piper" | "fal-narrator" | "elevenlabs" | "karaoke"
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,7 +8,34 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { env } from "@/config/env";
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
+
+// ── Measure audio duration after generation ───────────────────────────────────
+// Tries FFprobe first; falls back to file-size heuristics for WAV/MP3.
+function getAudioDurationMs(filePath: string, engine: "piper" | "wav" | "mp3" | "sapi" = "wav"): number {
+  // 1. FFprobe (accurate)
+  try {
+    const out = execSync(
+      `ffprobe -v quiet -print_format json -show_format "${filePath}"`,
+      { timeout: 5000 }
+    ).toString();
+    const data = JSON.parse(out) as { format?: { duration?: string } };
+    const dur = parseFloat(data.format?.duration ?? "0");
+    if (dur > 0) return Math.round(dur * 1000);
+  } catch { /* ffprobe not available */ }
+
+  // 2. File-size fallback
+  try {
+    const sizeBytes = fs.statSync(filePath).size;
+    if (engine === "mp3") {
+      // approx 64 kbps for Piper/kokoro output
+      return Math.round((sizeBytes / (64 * 125)) * 1000);
+    }
+    // WAV at 22050 Hz, 16-bit mono (Piper default) or SAPI (16-bit, 16kHz mono)
+    const sampleRate = engine === "sapi" ? 16000 : 22050;
+    return Math.round((sizeBytes / (sampleRate * 2)) * 1000);
+  } catch { return 0; }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,7 +97,8 @@ export async function POST(req: NextRequest) {
 
         if (fs.existsSync(outFile) && fs.statSync(outFile).size > 1000) {
           const url = `/api/media/audio/tts/${path.basename(outFile)}`;
-          return NextResponse.json({ audioUrl: url, engine: "piper", text: text.slice(0, 100) });
+          const durationMs = getAudioDurationMs(outFile, "wav");
+          return NextResponse.json({ audioUrl: url, engine: "piper", text: text.slice(0, 100), durationMs });
         }
       }
     } catch { /* Piper failed */ }
@@ -109,7 +137,8 @@ export async function POST(req: NextRequest) {
             const buffer = Buffer.from(await falAudioRes.arrayBuffer());
             fs.writeFileSync(mp3File, buffer);
             const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
-            return NextResponse.json({ audioUrl: url, engine: "fal-narrator", text: text.slice(0, 100) });
+            const durationMs = getAudioDurationMs(mp3File, "mp3");
+            return NextResponse.json({ audioUrl: url, engine: "fal-narrator", text: text.slice(0, 100), durationMs });
           }
         }
       } catch (err) {
@@ -148,7 +177,8 @@ export async function POST(req: NextRequest) {
         const buffer = Buffer.from(await elevenLabsRes.arrayBuffer());
         fs.writeFileSync(mp3File, buffer);
         const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
-        return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100) });
+        const durationMs = getAudioDurationMs(mp3File, "mp3");
+        return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100), durationMs });
       } catch (err) {
         console.error("ElevenLabs TTS failed:", JSON.stringify(err instanceof Error ? err.message : err));
         // If ElevenLabs was explicitly requested, return the error — don't fall through
@@ -175,7 +205,8 @@ $synth.Dispose()
         execFileSync("powershell", ["-NoProfile", "-Command", psScript], { timeout: 30000 });
         if (fs.existsSync(wavFile) && fs.statSync(wavFile).size > 1000) {
           const url = `/api/media/audio/tts/${path.basename(wavFile)}`;
-          return NextResponse.json({ audioUrl: url, engine: "windows-sapi", text: text.slice(0, 100) });
+          const durationMs = getAudioDurationMs(wavFile, "sapi");
+          return NextResponse.json({ audioUrl: url, engine: "windows-sapi", text: text.slice(0, 100), durationMs });
         }
       } catch { /* Windows SAPI failed */ }
     }
