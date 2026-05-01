@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, Suspense } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useGate } from "../../components/PreGenerationGate";
 import { useSearchParams } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
@@ -497,9 +497,14 @@ function HybridPlannerInner() {
   const ACTIVE_PROJ_KEY = "ghs_hybrid_active_proj";
   const projDataKey = (id: string) => `ghs_hybrid_proj_${id}`;
 
+  // BUG-15: guard flag — while restoring from DB we must NOT write stale localStorage
+  const isRestoringRef = useRef(true);
+
   // ── Restore full project state — DB primary, localStorage fallback ──
   useEffect(() => {
+    let cancelled = false;
     async function restoreState() {
+      isRestoringRef.current = true;
       try {
       // Handle return from editor
       const ret = localStorage.getItem("ghs_hybrid_planner_return");
@@ -533,7 +538,8 @@ function HybridPlannerInner() {
       }
       setActiveProjLocalId(activeId);
 
-      // ── Try DB first, fall back to localStorage ──
+      // BUG-15: DB fetch completes first → set state → update localStorage.
+      // If DB returns nothing → fall back to localStorage (never overwrite fresh DB data).
       let data: Record<string, unknown> | null = null;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
@@ -547,13 +553,16 @@ function HybridPlannerInner() {
       } catch { /* fall through to localStorage */ }
 
       if (!data) {
-        // localStorage fallback
+        // localStorage fallback — only used when DB has nothing
         const savedRaw = localStorage.getItem(projDataKey(activeId))
           || localStorage.getItem(STORAGE_KEY);
         if (savedRaw) {
           try { data = JSON.parse(savedRaw); } catch {}
         }
       }
+
+      // Guard: if component unmounted while we were fetching, abort state writes
+      if (cancelled) return;
 
       if (data) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -614,17 +623,29 @@ function HybridPlannerInner() {
           if (d.screenplayAuthor) setScreenplayAuthor(d.screenplayAuthor);
           if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
           if (d.musicVolume !== undefined) setMusicVolume(d.musicVolume);
+          // Mirror freshly-loaded DB data back to localStorage so offline fallback stays current
+          try {
+            localStorage.setItem(projDataKey(activeId), JSON.stringify(d));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+          } catch {}
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
+    finally {
+      // Restore complete — save effect may now write
+      isRestoringRef.current = false;
+    }
     } // end restoreState
     restoreState();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Save full workshop state — DB primary, localStorage fallback ──
+  // BUG-15: skip save while restoring — prevents stale state from overwriting fresh DB data
   useEffect(() => {
     if (!activeProjLocalId) return;
+    if (isRestoringRef.current) return;
     const data = {
       projectId, projectTitle, projectPhase, idea, genre, tone,
       expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, lastAction,
@@ -1662,11 +1683,14 @@ function HybridPlannerInner() {
 
   // ── Narrator audio generation — routes to the selected provider ─────────────
   async function generateNarrationPiper() {
-    // Use the full story text so narrator covers the entire video duration.
-    // Filtering to narration-only segments makes the audio shorter than the video
-    // because dialogue gaps (which character voices fill) are left silent.
-    const narrationText = fullScript || expandedSummary
-      || (scriptSegments.length > 0 ? scriptSegments.map(s => s.text).join(" ") : idea);
+    // BUG-16a: Pass ONLY narrator-typed segments to TTS — dialogue lines are handled
+    // separately by character voices. Sending the full script caused narrator audio
+    // to cover the entire script including dialogue, creating overlap.
+    // scriptSegments use type "narration" for narrator lines (per parse-script API)
+    const narratorSegments = scriptSegments.filter(s => s.type === "narration");
+    const narrationText = narratorSegments.length > 0
+      ? narratorSegments.map(s => s.text).join(" ")
+      : (fullScript || expandedSummary || idea);
 
     if (!narrationText.trim()) { setUiError("No narration text found. Parse your script first."); return; }
     setGeneratingNarration(true);
@@ -2154,32 +2178,39 @@ function HybridPlannerInner() {
 
       const assembleSceneList = scenesToAssemble.map((s, i) => {
         const videoUrl = sceneVideos[s.sceneId];   // generated video
-        const imageUrl = sceneImages[s.sceneId];   // still image
+        // BUG-16c: resolve imageUrl from runtime state (sceneImages is the authoritative store)
+        const imageUrl = sceneImages[s.sceneId] ?? null;
         const modeOverride = sceneModeOverrides[s.sceneId]; // user's explicit choice
 
         // Decide what to use: explicit override > auto (video preferred if available)
+        // BUG-16c: when scene has imageUrl and no videoUrl, use image mode (not gradient)
         let mediaUrl: string;
         if (modeOverride === "image") {
           mediaUrl = imageUrl ? `img:${imageUrl}` : (videoUrl || `bg:linear-gradient(135deg,#a855f720,#0a0d14)`);
         } else if (modeOverride === "video") {
           mediaUrl = videoUrl || (imageUrl ? `img:${imageUrl}` : `bg:linear-gradient(135deg,#a855f720,#0a0d14)`);
         } else {
-          // Auto: prefer video if available
+          // Auto: prefer video, fall back to image, last resort gradient
           mediaUrl = videoUrl || (imageUrl ? `img:${imageUrl}` : `bg:linear-gradient(135deg,#a855f720,#0a0d14)`);
         }
 
-        console.log(`[assemble] ${s.sceneId}: mode=${modeOverride || "auto"} video=${videoUrl || "none"} image=${imageUrl ? "yes" : "none"} → ${mediaUrl.slice(0, 60)}`);
+        // Derive effective mode for downstream payload
+        const effectiveMode = (modeOverride === "image" || (!videoUrl && imageUrl))
+          ? "image"
+          : (videoUrl ? "video" : "image");
 
-        // Text overlay: full narration script (first 2 sentences max)
-        const rawText = s.narrationScript || s.title || s.description || "";
-        const cleanText = rawText.replace(/\r?\n+/g, " ").replace(/\s{2,}/g, " ").trim();
-        // Take first 2 sentences (up to ~200 chars) for subtitle display
-        const sentenceMatch = cleanText.match(/^([^.!?]*[.!?]){1,2}/);
-        const overlayText = sentenceMatch ? sentenceMatch[0].trim() : cleanText.slice(0, 180).trim();
+        console.log(`[assemble] ${s.sceneId}: mode=${effectiveMode} video=${videoUrl || "none"} image=${imageUrl ? "yes" : "none"} → ${mediaUrl.slice(0, 60)}`);
+
+        // BUG-16b: subtitle source = full scene narration script, NOT first-N-sentences truncation.
+        // Truncation cut subtitles to 1-2 sentences; use fullScript / full narrationScript instead.
+        const rawText = s.narrationScript || fullScript || s.description || s.title || "";
+        const overlayText = rawText.replace(/\r?\n+/g, " ").replace(/\s{2,}/g, " ").trim();
 
         return {
           scene: i + 1,
           videoUrl: mediaUrl,
+          imageUrl: imageUrl ?? undefined,
+          mode: effectiveMode,
           duration: s.motionDuration || 5,
           text: overlayText,
           animation: "none" as const,

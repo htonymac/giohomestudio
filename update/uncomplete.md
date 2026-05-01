@@ -4829,3 +4829,36 @@ Total: 50+ documents across all folders
 - [ ] fal_hailuo adapter
 - [ ] fal_veo adapter
 - [ ] fal_seedance adapter
+
+---
+
+## SESSION S13 — 2026-04-30 (fix/ghs-bug-11-14-motion-lipsync, commit: ad805ef)
+
+### BUG-11: AI Motion Video HTML/JSON guard
+- [x] Created `lib/api-utils.ts` with `safeJson<T>()` utility (2026-04-30, ad805ef)
+- [x] Replaced 4 bare `.json()` calls in `ai-motion-video/page.tsx` with `safeJson<T>` (2026-04-30, ad805ef)
+- [x] Added `data-testid="motion-video-error"` to error banner for Playwright targeting (2026-04-30, ad805ef)
+- [x] Guarded `avatar/create` fetch in `scene-forge/page.tsx` with `safeJson<T>` (2026-04-30, ad805ef)
+
+### BUG-14: Scene Forge lip-sync explicit error surface
+- [x] `lip-sync/route.ts`: collect per-provider errors into `providerErrors[]`, surface in 502 body (2026-04-30, ad805ef)
+- [x] Outer catch logs full message + prefixes error string in JSON response (2026-04-30, ad805ef)
+- [x] `scene-forge/page.tsx`: error div gets `data-testid="lip-sync-error"` (2026-04-30, ad805ef)
+
+### BUG-15: Hybrid project persistence race on refresh — DONE (2026-04-30, branch: fix/ghs-bug-15-16-hybrid-assembly)
+- [x] Added `isRestoringRef` (useRef) — blocks save effect while DB restore is in-flight
+- [x] Added `cancelled` flag — guards unmount race in async restoreState
+- [x] DB fetch completes → state set → localStorage updated (correct order)
+- [x] If DB returns nothing → falls back to localStorage, never overwrites fresh DB data
+
+### BUG-16a: Narrator audio covers full script (including dialogue) — DONE (2026-04-30)
+- [x] `generateNarrationPiper()`: filters scriptSegments to `type === "narration"` only before TTS call
+- [x] Falls back to fullScript/expandedSummary/idea only when no parsed narrator segments exist
+
+### BUG-16b: Subtitles truncated to 2 sentences — DONE (2026-04-30)
+- [x] `assembleScenes()`: replaced `sentenceMatch` 2-sentence regex with full `s.narrationScript || fullScript`
+- [x] Subtitle overlay text = full scene narration script, not truncated
+
+### BUG-16c: Image-only assembly falls back to gradient instead of using imageUrl — DONE (2026-04-30)
+- [x] `assembleScenes()`: resolves imageUrl from `sceneImages[s.sceneId]` (authoritative runtime store)
+- [x] Passes `imageUrl` and `mode: "image"` fields in scene payload when imageUrl present and no videoUrl
