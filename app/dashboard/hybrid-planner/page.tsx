@@ -316,6 +316,8 @@ function HybridPlannerInner() {
   // ── Previous scene image versions — up to 3 per scene, so Regen is safe to try ──
   // When Regen is clicked the current image moves here before being replaced.
   const [prevSceneImages, setPrevSceneImages] = useState<Record<string, string[]>>({});
+  // ── Multi-image variations (3×) — sceneId → generating flag ──
+  const [generatingVariations, setGeneratingVariations] = useState<Set<string>>(new Set());
 
   // ── New Scene Creator state ──
   const [newSceneText, setNewSceneText] = useState("");
@@ -1492,6 +1494,81 @@ function HybridPlannerInner() {
       setUiError(`Image generation failed for Scene ${scene.scene}. Please try again.`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ── Generate 3 image variations for a scene with different seeds ──────────
+  async function makeSceneImageVariations(scene: HybridScene) {
+    try { await requireGate(); } catch { return; }
+    if (generatingVariations.has(scene.sceneId)) return;
+    setGeneratingVariations(prev => new Set(prev).add(scene.sceneId));
+    setLastAction(`Generating 3 variations for Scene ${scene.scene}...`);
+
+    const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
+    const characterOverrides = sceneChars.map(c => ({
+      characterId: c.characterId,
+      name: c.displayName,
+      visualDescription: buildVisualDescription(c),
+      imageUrl: c.imageUrl || null,
+      wardrobe: c.clothingDetails || c.wardrobeStyle || null,
+      hairstyle: c.hairStyle || null,
+    }));
+
+    const seeds = [Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9)];
+    const results: string[] = [];
+
+    for (let i = 0; i < 3; i++) {
+      try {
+        const res = await fetch("/api/hybrid/scene-image", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
+            characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
+            timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
+            projectStyle, characterOverrides,
+            modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
+            transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
+            seed: seeds[i],
+          }),
+        });
+        const data = await res.json();
+        if (data.imageUrl || data.imagePath) {
+          const url = data.imageUrl || `/api/media/${(data.imagePath as string).replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+          results.push(url);
+        }
+      } catch (err) {
+        console.error(`[makeSceneImageVariations] variation ${i + 1} failed:`, err);
+      }
+    }
+
+    if (results.length > 0) {
+      // First result becomes active image; rest go into prevSceneImages as chooseable versions
+      const [first, ...rest] = results;
+      setSceneImages(prev => {
+        const old = prev[scene.sceneId];
+        if (old) {
+          setPrevSceneImages(p => {
+            const existing = p[scene.sceneId] || [];
+            return { ...p, [scene.sceneId]: [...rest, old, ...existing].slice(0, 3) };
+          });
+        } else {
+          setPrevSceneImages(p => ({
+            ...p,
+            [scene.sceneId]: rest.slice(0, 3),
+          }));
+        }
+        return { ...prev, [scene.sceneId]: first };
+      });
+      updateScene(scene.scene, { status: "generated" as const });
+      setLastAction(`Scene ${scene.scene}: ${results.length} variations ready — pick from history below`);
+    } else {
+      setUiError(`Variation generation failed for Scene ${scene.scene}.`);
+    }
+
+    setGeneratingVariations(prev => {
+      const n = new Set(prev);
+      n.delete(scene.sceneId);
+      return n;
+    });
   }
 
   // ── Scene Polish — improve description text via LLM ───────────────
@@ -4703,9 +4780,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
                                 Full Preview
                               </button>
-                              <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
+                              <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId || generatingVariations.has(scene.sceneId)}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
                                 {generatingSceneImage === scene.sceneId ? "Regenerating..." : "Regen"}
+                              </button>
+                              <button
+                                onClick={() => makeSceneImageVariations(scene)}
+                                disabled={generatingVariations.has(scene.sceneId) || generatingSceneImage === scene.sceneId}
+                                title="Generate 3 variations with different seeds — pick from history"
+                                style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid rgba(168,85,247,0.4)`, background: generatingVariations.has(scene.sceneId) ? "#2a2a40" : "rgba(168,85,247,0.15)", color: generatingVariations.has(scene.sceneId) ? muted : "#a855f7", fontSize: 9, fontWeight: 700, cursor: generatingVariations.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                {generatingVariations.has(scene.sceneId) ? "3×..." : "Gen 3"}
                               </button>
                             </div>
                           </>
@@ -4718,10 +4802,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 <span style={{ fontSize: 10, color: "#aaa" }}>Transparent Background (PNG)</span>
                               </label>
                             )}
-                            <button onClick={() => makeSceneImage(scene)}
-                              style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#00d4ff,#0084ff)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                              Generate Image
-                            </button>
+                            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                              <button onClick={() => makeSceneImage(scene)} disabled={generatingVariations.has(scene.sceneId)}
+                                style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: "linear-gradient(135deg,#00d4ff,#0084ff)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                                Generate Image
+                              </button>
+                              <button
+                                onClick={() => makeSceneImageVariations(scene)}
+                                disabled={generatingVariations.has(scene.sceneId)}
+                                title="Generate 3 variations — pick which one to use"
+                                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid rgba(168,85,247,0.4)`, background: "rgba(168,85,247,0.15)", color: "#a855f7", fontSize: 10, fontWeight: 700, cursor: generatingVariations.has(scene.sceneId) ? "not-allowed" : "pointer" }}>
+                                {generatingVariations.has(scene.sceneId) ? "3×..." : "Gen 3"}
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
