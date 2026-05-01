@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useGate } from "../../components/PreGenerationGate";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import NarrationControls from "../../components/NarrationControls";
 import SceneImagePanel from "../../components/SceneImagePanel";
@@ -185,7 +185,6 @@ export default function HybridPlannerPage() {
 
 function HybridPlannerInner() {
   const params = useSearchParams();
-  const router = useRouter();
   const { requireGate, GateModal } = useGate();
   const { canAdvanceTo } = useCoordinator();
 
@@ -524,8 +523,14 @@ function HybridPlannerInner() {
       try {
       // If no projectId in URL, use the default slot (preserves existing saved data).
       // "New Project" generates a fresh ID and pushes it to the URL.
-      let activeId = urlProjectId || "ghs_hybrid_default";
-      router.replace(`/dashboard/hybrid-planner?projectId=${encodeURIComponent(activeId)}`);
+      const activeId = urlProjectId || "ghs_hybrid_default";
+      // Use history API directly — no React router re-render, no risk of resetting isRestoringRef
+      if (typeof window !== "undefined") {
+        const newUrl = `/dashboard/hybrid-planner?projectId=${encodeURIComponent(activeId)}`;
+        if (window.location.search !== `?projectId=${encodeURIComponent(activeId)}`) {
+          window.history.replaceState(null, "", newUrl);
+        }
+      }
       setActiveProjLocalId(activeId);
 
       // Load from DB
@@ -3271,7 +3276,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (!dbData.found || !dbData.data) return;
       const data = dbData.data;
       setActiveProjLocalId(targetId);
-      router.replace(`/dashboard/hybrid-planner?projectId=${targetId}`);
+      window.history.replaceState(null, "", `/dashboard/hybrid-planner?projectId=${encodeURIComponent(targetId)}`);
       setProjectId(data.projectId || null);
       setProjectTitle(data.projectTitle || "Untitled Hybrid Project");
       setProjectPhase(data.projectPhase || "STORY_INPUT");
@@ -3988,6 +3993,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         <HeroTitle kicker="Production Workshop" title="Hybrid" italic="Planner" sub="Your production control center. Plan, create, review, and assemble." />
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
             <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
+              onBlur={() => flushCurrentProject()}
               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none" }}
               placeholder="Movie Title" />
             {/* ── Visual Style Picker — click to see what each style looks like ── */}
@@ -4012,7 +4018,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               // Generate a new project ID and push it into the URL
               const newId = `proj_${Date.now()}`;
               setActiveProjLocalId(newId);
-              router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
+              window.history.replaceState(null, "", `/dashboard/hybrid-planner?projectId=${encodeURIComponent(newId)}`);
               // ── Story & scene state ──
               setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
               setIdea(""); setGenre(""); setTone(""); setExpandedSummary(""); setFullScript("");
@@ -4104,7 +4110,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           if (isActive) {
                             const newId = `proj_${Date.now()}`;
                             setActiveProjLocalId(newId);
-                            router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
+                            window.history.replaceState(null, "", `/dashboard/hybrid-planner?projectId=${encodeURIComponent(newId)}`);
                             setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
                             setIdea(""); setExpandedSummary(""); setCharacters([]); setCharactersMade(false);
                             setScenes([]); setSceneImages({}); setSceneVideos({});
@@ -8358,7 +8364,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               const isSelected = projectStyle === style.id;
               return (
                 <div key={style.id}
-                  onClick={() => { setProjectStyle(style.id); setLastAction(`Art style set to ${style.name}`); setShowStylePicker(false); }}
+                  onClick={() => {
+                    setProjectStyle(style.id);
+                    setLastAction(`Art style set to ${style.name}`);
+                    setShowStylePicker(false);
+                    // Force-save immediately so style persists even if nothing else changes
+                    setTimeout(() => flushCurrentProject(), 100);
+                  }}
                   style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 10, marginBottom: 4, cursor: "pointer", border: `1px solid ${isSelected ? style.color : "transparent"}`, background: isSelected ? `${style.color}10` : "transparent", transition: "all 0.15s" }}
                   onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.04)"; }}
                   onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = "transparent"; }}>

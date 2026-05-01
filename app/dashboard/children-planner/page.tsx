@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import CharacterPicker from "../../components/CharacterPicker";
@@ -207,7 +207,6 @@ export default function ChildrenPlannerPage() {
 
 function ChildrenPlannerInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const branch = searchParams.get("branch") ?? "hybrid";
   const contentParam = searchParams.get("content") ?? "";
   const ageParam = searchParams.get("age") ?? "";
@@ -1176,7 +1175,12 @@ function ChildrenPlannerInner() {
     async function restoreState() {
       isRestoringRef.current = true;
       const activeId = urlProjectId || "ghs_children_default";
-      router.replace(`/dashboard/children-planner?projectId=${encodeURIComponent(activeId)}`);
+      if (typeof window !== "undefined") {
+        const target = `/dashboard/children-planner?projectId=${encodeURIComponent(activeId)}`;
+        if (window.location.search !== `?projectId=${encodeURIComponent(activeId)}`) {
+          window.history.replaceState(null, "", target);
+        }
+      }
       activeProjectIdRef.current = activeId;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import DurationPicker from "../../components/DurationPicker";
 import NarrationControls from "../../components/NarrationControls";
@@ -242,7 +242,6 @@ export default function MoviePlannerPage() {
 
 function MoviePlannerInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // ── Workshop tab ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
@@ -536,7 +535,12 @@ function MoviePlannerInner() {
     async function restoreState() {
       isRestoringRef.current = true;
       const activeId = urlProjectId || "ghs_movie_default";
-      router.replace(`/dashboard/movie-planner?projectId=${encodeURIComponent(activeId)}`);
+      if (typeof window !== "undefined") {
+        const target = `/dashboard/movie-planner?projectId=${encodeURIComponent(activeId)}`;
+        if (window.location.search !== `?projectId=${encodeURIComponent(activeId)}`) {
+          window.history.replaceState(null, "", target);
+        }
+      }
       activeProjectIdRef.current = activeId;
       try {
         const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
