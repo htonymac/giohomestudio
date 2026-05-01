@@ -2982,6 +2982,21 @@ function ChildrenPlannerInner() {
                       <textarea
                         value={scene.visualDescription}
                         onChange={e => setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, visualDescription: e.target.value } : s))}
+                        onBlur={() => {
+                          // SE: auto-save scene text to DB on blur
+                          fetch("/api/hybrid/scene-plan", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              projectId: `children_${contentParam || "story"}_${topicParam || "default"}`,
+                              title: `Children Story — ${contentParam || "story"}`,
+                              scenes: childScenes.map(cs => ({
+                                sceneId: cs.scene, description: cs.visualDescription,
+                                title: cs.title,
+                              })),
+                            }),
+                          }).catch(() => null);
+                        }}
                         style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 8 }}
                         placeholder="Scene description (editable)..."
                       />

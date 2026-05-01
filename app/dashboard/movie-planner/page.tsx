@@ -2772,6 +2772,7 @@ function MoviePlannerInner() {
                             <div>
                               <p style={{ ...labelStyle, fontSize: 9 }}>Visual Description</p>
                               <textarea value={scene.visualDescription} onChange={e => updateScene(scene.scene, { visualDescription: e.target.value })}
+                                onBlur={() => saveProject()}
                                 rows={2} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                             </div>
                             <div>
@@ -2782,6 +2783,7 @@ function MoviePlannerInner() {
                             <div>
                               <p style={{ ...labelStyle, fontSize: 9 }}>Dialogue / Narration</p>
                               <textarea value={scene.dialogue} onChange={e => updateScene(scene.scene, { dialogue: e.target.value })}
+                                onBlur={() => saveProject()}
                                 rows={2} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                             </div>
                             <div>
