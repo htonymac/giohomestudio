@@ -167,7 +167,6 @@ const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 type WorkshopTab = "overview" | "design" | "characters" | "content" | "style" | "screenplay" | "review1" | "preview" | "review2";
 
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
-  { id: "overview",    label: "Overview" },
   { id: "design",      label: "Design" },
   { id: "characters",  label: "Characters" },
   { id: "content",     label: "Content" },
@@ -176,6 +175,7 @@ const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "review1",     label: "Review 1" },
   { id: "preview",     label: "Preview" },
   { id: "review2",     label: "Final" },
+  { id: "overview",    label: "Overview" },
 ];
 
 // ── Character type ──
@@ -206,7 +206,7 @@ function ChildrenPlannerInner() {
   const characterIdParam = searchParams.get("characterId") ?? "";
 
   // ── State ──
-  const [activeTab, setActiveTab] = useState<WorkshopTab>("overview");
+  const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
   const [lastAction, setLastAction] = useState("Workshop opened");
   const [textContent, setTextContent] = useState(topicPromptParam || "");
   const [narrationStyle, setNarrationStyle] = useState("gentle");
@@ -548,10 +548,12 @@ function ChildrenPlannerInner() {
         }
       }
 
+      const styleLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label || visualStyle;
+      const storyWithStyle = `${summary || storyInput}\n\nVisual style: ${styleLabel}`;
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storyText: summary || storyInput,
+          storyText: storyWithStyle,
           characters: savedChars.map(c => ({
             characterId: c.id,
             displayName: c.name,
@@ -560,6 +562,7 @@ function ChildrenPlannerInner() {
           costPreference: "budget",
           targetDuration: movieSceneDuration,
           projectId: `children_${Date.now()}`,
+          styleHint: styleLabel,
         }),
       });
       const sceneData = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(sceneRes, "scene-plan");
@@ -1517,7 +1520,7 @@ function ChildrenPlannerInner() {
                 style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${childAccent}`, background: `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                 + Import from Library
               </button>
-              <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+              <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                 <button style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
                   Create New
                 </button>
@@ -1536,7 +1539,7 @@ function ChildrenPlannerInner() {
               <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>No characters yet</p>
               <p style={{ fontSize: 10, color: muted, marginTop: 4, marginBottom: 16 }}>Create characters in the Character Voices section and import them here.</p>
               <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                <a href="/dashboard/character-voices?returnTo=children-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                   <button style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: childAccent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                     Create Characters
                   </button>

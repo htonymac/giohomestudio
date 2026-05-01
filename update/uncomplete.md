@@ -20,9 +20,23 @@ Updated: 2026-04-30
 - Fix: `safeJson<T>(res, context)` in lib/api-utils.ts, applied to 6+1 fetch calls
 - Branch: fix/ghs-bug-04-payload-json-guard
 
-### OPEN — BUG-04b, BUG-04d, BUG-04e
-- BUG-04b: Tab order + character picker — see S4
-- BUG-04d: Scene images not generating in children-planner — S4+
+### [FIXED 2026-04-30 S4] BUG-04b — Tab order wrong (Overview first) + no CharacterPicker inline
+- Was: overview at index 0, default activeTab="overview", no inline CharacterPicker in movie-planner
+- Fix: children-planner WORKSHOP_TABS reordered (design first, overview last), default="design". movie-planner: inline CharacterPicker toggle in Characters tab, removed standalone modal. returnTo param on all character-voices links. character-voices page handles returnTo with banner + return button.
+- Branch: fix/ghs-bug-04b-tab-order-character-picker
+
+### [FIXED 2026-04-30 S4] BUG-04d sub-bug 11 — CharacterPicker not wired in children/movie planners
+- Was: character link went to dead-end character-voices page with no return
+- Fix: Inline CharacterPicker in movie-planner Characters tab. children-planner already had showCharPicker modal. All character-voices links have ?returnTo= param.
+- Branch: fix/ghs-bug-04b-tab-order-character-picker
+
+### [FIXED 2026-04-30 S4] BUG-04d sub-bug 12 — Character selection returns user to dead-end
+- Was: "Create New" → /dashboard/character-voices with no way back
+- Fix: character-voices page wraps in Suspense, reads ?returnTo, shows banner + "← Return to Planner" button. SmartBuilderModal shows return button post-save.
+- Branch: fix/ghs-bug-04b-tab-order-character-picker
+
+### OPEN — BUG-04d (scene images), BUG-04e
+- BUG-04d (remaining): Scene images not generating in children-planner — S5+
 - BUG-04e: Movie-planner same patterns (payload aligned, safeJson added) — DONE as part of S3
 
 ---

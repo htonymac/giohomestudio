@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { generateCharacterId } from "@/lib/character-id";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { ds } from "../../../lib/designSystem";
@@ -881,7 +882,7 @@ function getFieldsForType(type: string) {
 }
 
 // ── Smart Builder Modal ──────────────────────────────────────
-function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function SmartBuilderModal({ onClose, onCreated, returnUrl }: { onClose: () => void; onCreated: () => void; returnUrl?: string | null }) {
   const [mode, setMode] = useState<"free" | "guided">("free");
   const [freePrompt, setFreePrompt] = useState("");
   const [charType, setCharType] = useState("");
@@ -1062,6 +1063,17 @@ function SmartBuilderModal({ onClose, onCreated }: { onClose: () => void; onCrea
               >
                 Build Another
               </button>
+              {/* Return to planner button (shown when navigated from a planner via ?returnTo=) */}
+              {returnUrl && (
+                <a href={returnUrl} style={{ textDecoration: "none" }}>
+                  <button style={{
+                    background: "#0ea5e920", color: "#0ea5e9", border: "1px solid #0ea5e940",
+                    borderRadius: ds.radius.sm, padding: "10px 20px", fontSize: 13, cursor: "pointer", fontWeight: 600,
+                  }}>
+                    ← Return to Planner
+                  </button>
+                </a>
+              )}
               {/* Export dropdown */}
               <select
                 defaultValue=""
@@ -1368,6 +1380,18 @@ function CharacterPreviewModal({ character, onClose }: { character: CharacterVoi
 }
 
 export default function CharacterVoicesPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, color: "#5a7080" }}>Loading Characters...</div>}>
+      <CharacterVoicesInner />
+    </Suspense>
+  );
+}
+
+function CharacterVoicesInner() {
+  const searchParams = useSearchParams();
+  const returnTo = searchParams.get("returnTo");
+  const returnUrl = returnTo ? `/dashboard/${returnTo}` : null;
+
   const [voices, setVoices] = useState<CharacterVoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1466,6 +1490,17 @@ export default function CharacterVoicesPage() {
 
   return (
     <div style={{ maxWidth: 900, fontFamily: ds.font.sans }}>
+      {/* Return-to-planner banner — shown when user arrived via ?returnTo= link */}
+      {returnUrl && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, padding: "10px 16px", borderRadius: 10, background: "#0ea5e910", border: "1px solid #0ea5e930" }}>
+          <span style={{ fontSize: 12, color: "#0ea5e9" }}>Creating a character for your planner. After saving, click "Return to Planner".</span>
+          <a href={returnUrl} style={{ textDecoration: "none" }}>
+            <button style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e920", color: "#0ea5e9", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+              ← Return to Planner
+            </button>
+          </a>
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <HeroTitle kicker="Character Studio" title="Characters" italic="& Voices" sub="Manage actors, voices, and character profiles for consistent casting" />
         <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 8 }}>
@@ -1623,6 +1658,7 @@ VILLAIN_WORLD [commanding]: "Nobody leaves this city today."`}
         <SmartBuilderModal
           onClose={() => setShowSmartBuilder(false)}
           onCreated={() => load()}
+          returnUrl={returnUrl}
         />
       )}
 

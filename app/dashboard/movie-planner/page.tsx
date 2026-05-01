@@ -830,15 +830,17 @@ function MoviePlannerInner() {
     setLastAction("AI is reading your story and building the full production plan...");
     try {
       // STEP 1: Story Expansion
+      const storyInputWithStyle = style ? `${idea.trim()}\n\nVisual style: ${style}` : idea.trim();
       const expandRes = await fetch("/api/hybrid/story-expand", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storyInput: idea.trim(),
+          storyInput: storyInputWithStyle,
           genre: genre || undefined,
           tone: tone || undefined,
           language,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
+          styleHint: style || undefined,
         }),
       });
       const expandData = await expandRes.json();
@@ -893,12 +895,14 @@ function MoviePlannerInner() {
       }
 
       // STEP 3: Scene Breakdown
+      const sceneSummary = style ? `${storySummary}\n\nVisual style: ${style}` : storySummary;
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          storyText: storySummary,
+          storyText: sceneSummary,
           characters: extractedChars.map(c => ({ characterId: c.id, displayName: c.name, role: c.role })),
           projectId: projectId || undefined,
+          styleHint: style || undefined,
         }),
       });
       const sceneData = await safeJson<{ scenes?: Record<string, unknown>[] }>(sceneRes, "scene-plan");
@@ -1641,20 +1645,6 @@ function MoviePlannerInner() {
         );
       })()}
 
-      {showCharacterPicker && (
-        <CharacterPicker
-          onSelect={(char) => {
-            setSavedCharacters(prev => {
-              if (prev.some(c => c.id === char.id)) return prev;
-              return [...prev, { id: char.id, name: char.name, role: char.role || "supporting", description: char.visualDescription || "", imageUrl: char.imageUrl || "", characterId: char.characterId || "", voiceName: char.voiceName || "" }];
-            });
-            addToCast(char.id);
-            setShowCharacterPicker(false);
-            setLastAction(`Imported character "${char.name}"`);
-          }}
-        />
-      )}
-
       {/* AI Planning loading overlay */}
       {planning && (
         <div style={{ ...cardStyle, padding: "48px 40px", marginBottom: 16 }}>
@@ -2174,24 +2164,48 @@ function MoviePlannerInner() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Cast ({selectedCast.length} selected)</h2>
             <div style={{ display: "flex", gap: 8 }}>
-              <a href="/dashboard/character-voices" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+              <a href="/dashboard/character-voices?returnTo=movie-planner" target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
                 <button style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${accent}30`, background: "transparent", color: accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                   + Create New
                 </button>
               </a>
-              <button onClick={() => setShowCharacterPicker(true)}
-                style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${purple}30`, background: "transparent", color: purple, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                Import Existing
+              <button onClick={() => setShowCharacterPicker(prev => !prev)}
+                style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${purple}30`, background: showCharacterPicker ? `${purple}10` : "transparent", color: purple, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                {showCharacterPicker ? "Hide Picker" : "Import Existing"}
               </button>
             </div>
           </div>
+
+          {/* Inline CharacterPicker — always visible in Characters tab */}
+          {showCharacterPicker && (
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Import from Character Library</p>
+                <button onClick={() => setShowCharacterPicker(false)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                  Close
+                </button>
+              </div>
+              <CharacterPicker
+                onSelect={(char) => {
+                  setSavedCharacters(prev => {
+                    if (prev.some(c => c.id === char.id)) return prev;
+                    return [...prev, { id: char.id, name: char.name, role: char.role || "supporting", description: char.visualDescription || "", imageUrl: char.imageUrl || "", characterId: char.characterId || "", voiceName: char.voiceName || "" }];
+                  });
+                  addToCast(char.id);
+                  setLastAction(`Imported character "${char.name}"`);
+                }}
+                onCreateNew={() => { window.open(`/dashboard/character-voices?returnTo=movie-planner`, "_blank"); }}
+                compact
+              />
+            </div>
+          )}
 
           {loadingChars ? (
             <p style={{ color: muted, fontSize: 13 }}>Loading characters...</p>
           ) : savedCharacters.length === 0 ? (
             <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
               <p style={{ fontSize: 14, color: muted, marginBottom: 12 }}>No saved characters yet.</p>
-              <a href="/dashboard/character-voices" style={{ fontSize: 12, color: accent, textDecoration: "none" }}>Create characters first</a>
+              <a href="/dashboard/character-voices?returnTo=movie-planner" style={{ fontSize: 12, color: accent, textDecoration: "none" }}>Create characters first</a>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12, marginBottom: 24 }}>
