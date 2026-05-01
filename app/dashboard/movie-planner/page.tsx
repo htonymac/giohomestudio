@@ -219,16 +219,16 @@ type SoundTierMovieId = typeof SOUND_TIERS_MOVIE[number]["id"];
 
 // ── Workshop Tab Definitions ────────────────────────────────────────────
 
-type WorkshopTab = "design" | "story" | "characters" | "scenes" | "screenplay" | "audio" | "assembly" | "overview";
+type WorkshopTab = "design" | "story" | "script" | "sound" | "characters" | "scenes" | "assembly" | "overview";
 
-// Design → Story → Cast → Scene Board → Screenplay → Audio → Assembly → Overview
+// Design → Story → Script(Screenplay) → Sound(Voice & Audio) → Cast → Scene Board → Assembly → Overview
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",     label: "Design" },
   { id: "story",      label: "Story & Draft" },
+  { id: "script",     label: "Screenplay" },
+  { id: "sound",      label: "Voice & Audio" },
   { id: "characters", label: "Cast" },
   { id: "scenes",     label: "Scene Board" },
-  { id: "screenplay", label: "Screenplay" },
-  { id: "audio",      label: "Audio & Shots" },
   { id: "assembly",   label: "Assembly" },
   { id: "overview",   label: "Overview" },
 ];
@@ -444,7 +444,7 @@ function MoviePlannerInner() {
     }).length;
     if (pendingImages > 0) return { text: `Generate scene images from the Scene Board (${pendingImages} pending)`, color: blue, targetTab: "scenes" as WorkshopTab };
     const hasAudio = moviePlan.scenes.every(s => s.dialogue || s.musicCue);
-    if (!hasAudio) return { text: "Plan audio for each scene in the Audio tab", color: gold, targetTab: "audio" as WorkshopTab };
+    if (!hasAudio) return { text: "Plan audio for each scene in the Voice & Audio tab", color: gold, targetTab: "sound" as WorkshopTab };
     return { text: "Your movie is ready! Go to Assembly to build it.", color: green, targetTab: "assembly" as WorkshopTab };
   })();
 
@@ -2935,7 +2935,7 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* SCREENPLAY TAB                                                       */}
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "screenplay" && (
+      {activeTab === "script" && (
         <div>
           {/* Setup / Generate */}
           {!screenplay && !generatingScreenplay && (
@@ -3012,7 +3012,7 @@ function MoviePlannerInner() {
                 <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
                   <Icon.Check style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
                   <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
-                  <button onClick={() => setActiveTab("audio")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Audio</button>
+                  <button onClick={() => setActiveTab("sound")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Voice & Audio</button>
                 </div>
               )}
 
@@ -3074,7 +3074,7 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* AUDIO & SHOTS TAB                                                   */}
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "audio" && (
+      {activeTab === "sound" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Audio & Shots</h2>

@@ -120,16 +120,17 @@ type SoundTierMvId = typeof SOUND_TIERS_MV[number]["id"];
 
 interface MvProject { id: string; title: string; videoMode: string | null; status: string; updatedAt: string }
 
-type MvTab = "overview" | "song" | "analysis" | "storyboard" | "screenplay" | "captions" | "audio" | "assembly";
+type MvTab = "overview" | "song" | "analysis" | "storyboard" | "script" | "captions" | "sound" | "assembly";
+// Song Input → Mode & AI → Storyboard → Script(Song Script) → Captions → Sound(Vocal Mix) → Assembly
 const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
   { id: "overview",   label: "Overview" },
-  { id: "song",       label: "Song Input", step: 1 },
-  { id: "analysis",   label: "Mode & AI",  step: 2 },
-  { id: "storyboard", label: "Storyboard", step: 3 },
-  { id: "screenplay", label: "Screenplay", step: 4 },
-  { id: "captions",   label: "Captions",   step: 5 },
-  { id: "audio",      label: "Audio",      step: 6 },
-  { id: "assembly",   label: "Assembly",   step: 7 },
+  { id: "song",       label: "Song Input",  step: 1 },
+  { id: "analysis",   label: "Mode & AI",   step: 2 },
+  { id: "storyboard", label: "Storyboard",  step: 3 },
+  { id: "script",     label: "Song Script", step: 4 },
+  { id: "captions",   label: "Captions",    step: 5 },
+  { id: "sound",      label: "Vocal Mix",   step: 6 },
+  { id: "assembly",   label: "Assembly",    step: 7 },
 ];
 
 export default function MusicVideoPlannerPage() {
@@ -1238,7 +1239,7 @@ export default function MusicVideoPlannerPage() {
       )}
 
       {/* ═══ SCREENPLAY TAB ═══ */}
-      {activeTab === "screenplay" && (
+      {activeTab === "script" && (
         <div>
           {!screenplay && !generatingScreenplay && (
             <div style={{ ...cardStyle, borderColor: "rgba(168,85,247,0.2)", marginBottom: 16 }}>
@@ -1400,7 +1401,7 @@ export default function MusicVideoPlannerPage() {
       )}
 
       {/* Audio tab */}
-      {activeTab === "audio" && (
+      {activeTab === "sound" && (
         <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}><Icon.Mic style={{ width: 18, height: 18 }} /> Audio &amp; Narration</h2>
 
