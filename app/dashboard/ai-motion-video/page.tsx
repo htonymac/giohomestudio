@@ -16,6 +16,7 @@ import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { ds } from "../../../lib/designSystem";
+import { safeJson } from "../../../lib/api-utils";
 
 const cardStyle: React.CSSProperties = {
   background: ds.color.card,
@@ -141,7 +142,7 @@ export default function AiMotionVideoPage() {
         const fd = new FormData();
         fd.append("file", imageFile!);
         const upRes = await fetch("/api/upload/logo", { method: "POST", body: fd });
-        const upData = await upRes.json();
+        const upData = await safeJson<{ url?: string; path?: string }>(upRes, "upload/logo");
         const imgUrl = upData.url || upData.path;
 
         setProgress("Generating video with AI...");
@@ -161,7 +162,7 @@ export default function AiMotionVideoPage() {
             motionDescription: prompt || undefined,
           }),
         });
-        const data = await res.json();
+        const data = await safeJson<{ videoUrl?: string; error?: string }>(res, "hybrid/scene-video");
         if (data.videoUrl) {
           setResultUrl(data.videoUrl);
           setProgress("");
@@ -180,7 +181,7 @@ export default function AiMotionVideoPage() {
           method: "POST",
           body: fd,
         });
-        const data = await res.json();
+        const data = await safeJson<{ contentItemId?: string; error?: string }>(res, "video-tools/motion-transfer");
         if (data.contentItemId) {
           setProgress(`Processing (ID: ${data.contentItemId}) — check Review Queue for result`);
           setResultUrl(`/dashboard/review`);
@@ -210,7 +211,7 @@ export default function AiMotionVideoPage() {
             imageUrl: character.imageUrl ? assetUrl(character.imageUrl) : undefined,
           }),
         });
-        const data = await res.json();
+        const data = await safeJson<{ videoUrl?: string; videoPath?: string; error?: string }>(res, "generation/video");
         if (data.videoUrl || data.videoPath) {
           const url = data.videoUrl || `/api/media/${(data.videoPath as string).replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
           setResultUrl(url);
@@ -447,7 +448,7 @@ export default function AiMotionVideoPage() {
 
       {/* Error */}
       {error && (
-        <div style={{ padding: "10px 14px", borderRadius: ds.radius.sm, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", marginBottom: 12 }}>
+        <div data-testid="motion-video-error" style={{ padding: "10px 14px", borderRadius: ds.radius.sm, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", marginBottom: 12 }}>
           <p style={{ fontSize: 11, color: "#ef4444" }}>{error}</p>
         </div>
       )}
