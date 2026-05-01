@@ -788,6 +788,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [narrationEnabled, setNarrationEnabled] = useState(true);
   const [enhancingNarration, setEnhancingNarration] = useState(false);
 
+  // ── Intro / Outro contact fields (AI Order) ──────────────────────────────
+  const [introPhone, setIntroPhone]       = useState("");
+  const [introWhatsapp, setIntroWhatsapp] = useState("");
+  const [introText, setIntroText]         = useState("");
+  const [outroText, setOutroText]         = useState("");
+  const [aiOrdering, setAiOrdering]       = useState(false);
+
   // Piper TTS voice selection
   const piperVoices = [
     { id: "en_US-lessac-medium",   name: "Lessac (US Female)" },
@@ -2554,6 +2561,85 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             )}
           </div>
 
+          {/* ── AI Order — full narration with intro/outro contact ── */}
+          <div style={{ border: "1px solid rgba(255,107,53,0.2)", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold" style={{ color: "#ff6b35" }}>AI Order — Full Narration</p>
+              <button
+                type="button"
+                disabled={aiOrdering || project.slides.length === 0}
+                onClick={async () => {
+                  setAiOrdering(true);
+                  try {
+                    // Step 1: get image URLs from slides
+                    const imageUrls = project.slides
+                      .filter(s => s.imagePath)
+                      .map(s => {
+                        const rel = (s.imagePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "");
+                        return `/api/media/${rel}`;
+                      });
+                    // Step 2: call enhance-narration with image context in payload
+                    const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ imageUrls, includeImages: true }),
+                    });
+                    const data = await safeJson<{ narration?: string; error?: string }>(res, "commercial-ai-order");
+                    if (data.narration) {
+                      // Build intro + outro with contact info
+                      const contactParts: string[] = [];
+                      if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
+                      if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
+                      const contactLine = contactParts.join(". ");
+                      const builtIntro = introText
+                        ? (contactLine ? `${introText} ${contactLine}.` : introText)
+                        : (contactLine ? `${contactLine}.` : "");
+                      const builtOutro = outroText
+                        ? (contactLine ? `${outroText} ${contactLine}.` : outroText)
+                        : (contactLine ? `${contactLine}.` : "");
+                      const fullNarration = [builtIntro, data.narration, builtOutro].filter(Boolean).join(" ");
+                      await patchProject({ narrationScript: fullNarration });
+                      const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                      const slides = project.slides;
+                      for (let i = 0; i < slides.length; i++) {
+                        const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
+                        await patchSlide(slides[i].id, { narrationLine: line });
+                      }
+                    }
+                  } catch (err) {
+                    console.error("[commercial] AI Order failed:", err instanceof Error ? err.message : err);
+                  }
+                  setAiOrdering(false);
+                }}
+                className="text-[10px] font-semibold px-3 py-1 rounded-lg transition-colors disabled:opacity-40"
+                style={{ background: "rgba(255,107,53,0.15)", color: "#ff6b35", border: "1px solid rgba(255,107,53,0.3)" }}
+              >
+                {aiOrdering ? "Ordering..." : "AI Order"}
+              </button>
+            </div>
+            <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>
+              AI reads all slide images + captions, generates narration, and wraps with your intro/outro contact info.
+            </p>
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div>
+                <label className={labelCls}>Phone number</label>
+                <input type="text" value={introPhone} onChange={e => setIntroPhone(e.target.value)} placeholder="+234 xxx xxxx" className={inputCls} />
+              </div>
+              <div>
+                <label className={labelCls}>WhatsApp number</label>
+                <input type="text" value={introWhatsapp} onChange={e => setIntroWhatsapp(e.target.value)} placeholder="+234 xxx xxxx" className={inputCls} />
+              </div>
+            </div>
+            <div className="mb-2">
+              <label className={labelCls}>Intro text (before narration)</label>
+              <input type="text" value={introText} onChange={e => setIntroText(e.target.value)} placeholder="e.g. Welcome! Check out our new product." className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Outro text (after narration)</label>
+              <input type="text" value={outroText} onChange={e => setOutroText(e.target.value)} placeholder="e.g. Don't miss this offer. Contact us today!" className={inputCls} />
+            </div>
+          </div>
+
           {/* Narration script preview + enhance button */}
           <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
             <div className="flex items-center justify-between mb-2">
@@ -2565,19 +2651,32 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   setEnhancingNarration(true);
                   try {
                     const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, { method: "POST" });
-                    const data = await res.json();
-                    if (res.ok && data.narration) {
+                    const data = await safeJson<{ narration?: string; error?: string; provider?: string }>(res, "commercial-enhance-narration");
+                    if (data.narration) {
+                      // Build intro/outro contact lines if provided
+                      let fullNarration = data.narration;
+                      if (introPhone || introWhatsapp) {
+                        const contactParts: string[] = [];
+                        if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
+                        if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
+                        const contactLine = contactParts.join(". ");
+                        const builtIntro = introText ? `${introText} ${contactLine}.` : `${contactLine}.`;
+                        const builtOutro = outroText ? `${outroText} ${contactLine}.` : `${contactLine}.`;
+                        fullNarration = `${builtIntro} ${fullNarration} ${builtOutro}`;
+                      }
                       // Save as project-level narration script
-                      await patchProject({ narrationScript: data.narration });
+                      await patchProject({ narrationScript: fullNarration });
                       // Also distribute across slides for per-slide editing
-                      const sentences = data.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                      const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
                       const slides = project.slides;
                       for (let i = 0; i < slides.length; i++) {
                         const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
                         await patchSlide(slides[i].id, { narrationLine: line });
                       }
                     }
-                  } catch { /* ignore */ }
+                  } catch (err) {
+                    console.error("[commercial] enhance-narration failed:", err instanceof Error ? err.message : err);
+                  }
                   setEnhancingNarration(false);
                 }}
                 className="text-[10px] font-medium px-3 py-1 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/30 disabled:opacity-40 transition-colors"
