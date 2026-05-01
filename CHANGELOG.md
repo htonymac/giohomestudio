@@ -1,6 +1,5 @@
 # GHS Changelog
 
-<<<<<<< HEAD
 ## 2026-04-30 — S14: BUG-15+16 Hybrid persistence race + Assembly narrator/subtitle/image fixes (branch: fix/ghs-bug-15-16-hybrid-assembly)
 
 ### What
