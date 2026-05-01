@@ -1,12 +1,14 @@
 // POST /api/generation/image — generate an image using the provider source layer
 // Character token auto-resolution: if prompt contains character IDs (e.g. JON_RABBIT848),
 // they are auto-resolved to full identity descriptions + reference images attached.
+// Fix B (BUG-02): explicit characterIds[] field — calls attachCharacterReferences()
+// so callers that know the characters but don't embed tokens still get visual descriptions.
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
 import { z } from "zod";
 import { env } from "@/config/env";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
-import { resolveCharacterTokens } from "@/lib/character-resolver";
+import { resolveCharacterTokens, attachCharacterReferences } from "@/lib/character-resolver";
 
 const schema = z.object({
   modelId: z.string().optional(),
@@ -15,6 +17,8 @@ const schema = z.object({
   width: z.number().int().min(256).max(2048).optional(),
   height: z.number().int().min(256).max(2048).optional(),
   seed: z.number().int().optional(),
+  // BUG-02 Fix B: explicit character IDs to attach — no prompt token embedding needed
+  characterIds: z.array(z.string()).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,11 +31,34 @@ export async function POST(req: NextRequest) {
   // Auto-resolve character tokens in prompt (e.g. JON_RABBIT848 → full description)
   let finalPrompt = parsed.data.prompt;
   let resolvedCharacters: Array<{ characterId: string; displayName: string }> = [];
+  let referenceImages: string[] = [];
+
   try {
     const resolved = await resolveCharacterTokens(parsed.data.prompt);
     finalPrompt = resolved.enrichedPrompt;
     resolvedCharacters = resolved.characters.map(c => ({ characterId: c.characterId, displayName: c.displayName }));
+    referenceImages = resolved.referenceImages;
   } catch { /* character resolution is best-effort */ }
+
+  // BUG-02 Fix B: if caller passes explicit characterIds, attach those too
+  // This covers all callers that know the characters but don't embed tokens in the prompt.
+  if (parsed.data.characterIds && parsed.data.characterIds.length > 0) {
+    try {
+      const attached = await attachCharacterReferences(finalPrompt, parsed.data.characterIds);
+      finalPrompt = attached.enhancedPrompt;
+      // Merge reference images (token-resolved + explicit IDs), deduplicate
+      const allRefImages = [...new Set([...referenceImages, ...attached.referenceImages])];
+      referenceImages = allRefImages;
+      // Merge resolved characters, avoid duplicates
+      const existingIds = new Set(resolvedCharacters.map(c => c.characterId));
+      for (const c of attached.resolvedCharacters) {
+        if (!existingIds.has(c.characterId)) {
+          resolvedCharacters.push({ characterId: c.characterId, displayName: c.displayName });
+          existingIds.add(c.characterId);
+        }
+      }
+    } catch { /* best-effort */ }
+  }
 
   const outputPath = path.join(env.storagePath, "images", `gen_${Date.now()}.png`);
 
@@ -75,5 +102,6 @@ export async function POST(req: NextRequest) {
     provider: result.model.provider_name,
     displayName: result.model.display_name,
     resolvedCharacters,
+    referenceImages,
   });
 }

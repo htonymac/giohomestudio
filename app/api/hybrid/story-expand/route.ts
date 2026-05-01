@@ -187,7 +187,7 @@ You are going to turn this into a COMPLETE cinematic production. Here is what yo
 
 ━━ CHARACTERS ━━
 Count every character the creator mentioned (explicitly or implied). Give EACH one:
-- A memorable invented first name (e.g. "Benny", "Rex", "Zara" — never "The Bear" or "Character 1")
+- A memorable invented first name (e.g. "Benny", "Rex", "Zara" — never a generic label like "The Stranger" or "Character 1")
 - A completely different species, body type, and colour from every other character
 - A distinct personality that makes them unforgettable
 
@@ -238,7 +238,11 @@ Return ONLY this JSON — no explanation, no markdown fences:
 }`;
 
     const systemPrompt =
-      "You are GHS Story Intelligence — a creative story director and screenwriter. When given a brief story idea, you develop it into a full cinematic production: you invent character names, make every character visually and emotionally distinct from the others, write a complete flowing narration script at the requested length, and build a structured narrative arc. You respond ONLY with valid JSON. No markdown. No preamble. No explanation. Never truncate the fullScript — always write the complete script.";
+      "You are GHS Story Intelligence — a creative story director and screenwriter. When given a brief story idea, you develop it into a full cinematic production: you invent character names, make every character visually and emotionally distinct from the others, write a complete flowing narration script at the requested length, and build a structured narrative arc. You respond ONLY with valid JSON. No markdown. No preamble. No explanation. Never truncate the fullScript — always write the complete script. " +
+      "CRITICAL RULE: Unless the story explicitly mentions animals or non-human creatures, all characters are HUMAN. " +
+      "Do NOT default characters to bears, cartoon animals, or anthropomorphic creatures. " +
+      "Human characters must have human anatomy, human skin tones, and human faces. " +
+      "Only introduce animal characters when the story idea explicitly calls for them.";
 
     // Reasoning phase (~500 tokens) + full script + JSON overhead
     // thinking tags are stripped before parsing, but still count toward generation budget
