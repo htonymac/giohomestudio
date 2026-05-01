@@ -14,6 +14,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import { useCoordinator } from "../../components/CoordinatorProvider";
+import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -155,9 +156,9 @@ type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "script" | "
 // Story → Script → Audio & Shots → Characters → Scene Board → Assembly → Screenplay → Overview → Trends
 const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
   { id: "story",      label: "Story & Draft",  step: 1 },
-  { id: "script",     label: "Script",          step: 2 },
-  { id: "audio",      label: "Sound & SFX",     step: 3 },
-  { id: "characters", label: "Characters",      step: 4 },
+  { id: "characters", label: "Characters",      step: 2 },
+  { id: "script",     label: "Script",          step: 3 },
+  { id: "audio",      label: "Sound & SFX",     step: 4 },
   { id: "scenes",     label: "Scene Board",     step: 5 },
   { id: "screenplay", label: "Screenplay",      step: 6 },
   { id: "assembly",   label: "Assembly",        step: 7 },
@@ -8312,6 +8313,32 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           </div>
         </div>
       )}
+
+      {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
+      <SupervisorStatusBar
+        plannerType="hybrid"
+        projectId={projectId}
+        designComplete={!!projectStyle}
+        storyComplete={!!expandedSummary || !!idea}
+        charactersComplete={characters.length > 0}
+        soundComplete={!!narratorAudioUrl || scriptSegments.length > 0}
+        scenesComplete={scenes.length > 0 && scenes.some(s => sceneImages[s.sceneId])}
+        assemblyComplete={!!assembledVideoUrl}
+        storyText={expandedSummary || idea}
+        onAutoFix={(section) => {
+          // Navigate to the relevant tab for auto-fix
+          const tabMap: Record<string, WorkshopTab> = {
+            design: "story",
+            story: "story",
+            characters: "characters",
+            sound: "audio",
+            scenes: "scenes",
+            assembly: "assembly",
+          };
+          const target = tabMap[section] as WorkshopTab;
+          if (target) setActiveTab(target);
+        }}
+      />
     </div>
   );
 }

@@ -123,7 +123,6 @@ interface MvProject { id: string; title: string; videoMode: string | null; statu
 type MvTab = "overview" | "song" | "analysis" | "storyboard" | "script" | "captions" | "sound" | "assembly";
 // Song Input → Mode & AI → Storyboard → Script(Song Script) → Captions → Sound(Vocal Mix) → Assembly
 const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
-  { id: "overview",   label: "Overview" },
   { id: "song",       label: "Song Input",  step: 1 },
   { id: "analysis",   label: "Mode & AI",   step: 2 },
   { id: "storyboard", label: "Storyboard",  step: 3 },
@@ -131,11 +130,12 @@ const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
   { id: "captions",   label: "Captions",    step: 5 },
   { id: "sound",      label: "Vocal Mix",   step: 6 },
   { id: "assembly",   label: "Assembly",    step: 7 },
+  { id: "overview",   label: "Overview" },
 ];
 
 export default function MusicVideoPlannerPage() {
   const { requireGate, GateModal } = useGate();
-  const [activeTab, setActiveTab] = useState<MvTab>("overview");
+  const [activeTab, setActiveTab] = useState<MvTab>("song");
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectList, setProjectList] = useState<MvProject[]>([]);
   const [saving, setSaving] = useState(false);
@@ -583,11 +583,14 @@ export default function MusicVideoPlannerPage() {
       });
       const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "music-video expand");
 
+      const expandedSummary = expandData.expandedStory?.summary || expandData.summary || storyInput;
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          expandedStory: { summary: expandData.expandedStory?.summary || expandData.summary || storyInput, fullScript: lyrics },
-          genre: "music-video", format: videoMode,
+          storyText: `Music video: ${songTitle || "Untitled"}. Mode: ${videoMode}. Style: ${visualStyle}.\n\n${expandedSummary}\n\nLyrics:\n${lyrics.slice(0, 1000)}`,
+          characters: [],
+          costPreference: "balanced",
+          styleHint: `${visualStyle}, music video, cinematic`,
         }),
       });
       const sceneData = await safeJson<{ scenes?: Array<{ title?: string; description?: string; visualDescription?: string; dialogue?: string }> }>(sceneRes, "music-video scene-plan");

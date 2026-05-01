@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import DurationPicker from "../../components/DurationPicker";
@@ -15,6 +15,7 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
+import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -225,9 +226,9 @@ type WorkshopTab = "design" | "story" | "script" | "sound" | "characters" | "sce
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",     label: "Design" },
   { id: "story",      label: "Story & Draft" },
-  { id: "script",     label: "Screenplay" },
-  { id: "sound",      label: "Voice & Audio" },
   { id: "characters", label: "Cast" },
+  { id: "sound",      label: "Voice & Audio" },
+  { id: "script",     label: "Screenplay" },
   { id: "scenes",     label: "Scene Board" },
   { id: "assembly",   label: "Assembly" },
   { id: "overview",   label: "Overview" },
@@ -495,11 +496,76 @@ function MoviePlannerInner() {
   // EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // State restore via URL params — no localStorage
+  // ── Persistent project storage key (DB-only, no localStorage) ──
+  const MOVIE_PROJ_ID = "ghs_movie_default";
+  // BUG-15 pattern: guard while restoring from DB
+  const isRestoringRef = useRef(true);
+
+  // ── Restore full project state — DB only ──
   useEffect(() => {
-    // No-op: return state handled via URL params only
+    let cancelled = false;
+    async function restoreState() {
+      isRestoringRef.current = true;
+      try {
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(MOVIE_PROJ_ID)}`);
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          if (dbData.found && dbData.data && !cancelled) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const d = dbData.data as any;
+            if (d.title)           setTitle(d.title);
+            if (d.idea)            setIdea(d.idea);
+            if (d.expandedStory)   setExpandedStory(d.expandedStory);
+            if (d.genre)           setGenre(d.genre);
+            if (d.style)           setStyle(d.style);
+            if (d.format)          setFormat(d.format);
+            if (d.tone)            setTone(d.tone);
+            if (d.savedCharacters?.length > 0) setSavedCharacters(d.savedCharacters);
+            if (d.selectedCast?.length > 0) setSelectedCast(d.selectedCast);
+            if (d.moviePlan)       setMoviePlan(d.moviePlan);
+            if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
+            if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
+            if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
+            if (d.screenplay)      setScreenplay(d.screenplay);
+            if (d.selectedMusicUrl) setSelectedMusicUrl(d.selectedMusicUrl);
+            if (d.selectedMusicName) setSelectedMusicName(d.selectedMusicName);
+            if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
+            if (d.soundTier)       setSoundTier(d.soundTier);
+            if (d.modelSettings)   setModelSettings(d.modelSettings);
+            if (d.savedCuts?.length > 0) setSavedCuts(d.savedCuts);
+            if (d.activeTab)       setActiveTab(d.activeTab);
+          }
+        }
+      } catch { /* DB unavailable — start fresh */ }
+      finally {
+        isRestoringRef.current = false;
+      }
+    }
+    restoreState();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Save project state — DB only ──
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    const data = {
+      title, idea, expandedStory, genre, style, format, tone,
+      savedCharacters, selectedCast, moviePlan,
+      sceneImages, sceneVideos, scriptSegments, screenplay,
+      selectedMusicUrl, selectedMusicName, narrationProvider,
+      soundTier, modelSettings, savedCuts, activeTab,
+      timestamp: Date.now(),
+    };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: MOVIE_PROJ_ID, data }),
+    }).catch(() => { /* silent on DB error */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, idea, expandedStory, genre, style, format, tone, savedCharacters, selectedCast,
+      moviePlan, sceneImages, sceneVideos, scriptSegments, screenplay, selectedMusicUrl,
+      selectedMusicName, narrationProvider, soundTier, modelSettings, savedCuts, activeTab]);
 
   // Load project list + check for continue
   useEffect(() => {
@@ -3612,6 +3678,31 @@ function MoviePlannerInner() {
       )}
 
       </div>
+
+      {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
+      <SupervisorStatusBar
+        plannerType="movie"
+        projectId={projectId}
+        designComplete={!!(genre || style || format)}
+        storyComplete={!!(expandedStory || idea)}
+        charactersComplete={savedCharacters.length > 0}
+        soundComplete={!!(narrationProvider && narrationProvider !== "piper") || autoSfx}
+        scenesComplete={(moviePlan?.scenes ?? []).length > 0}
+        assemblyComplete={!!assembledUrl}
+        storyText={expandedStory || idea}
+        onAutoFix={(section) => {
+          const tabMap: Record<string, WorkshopTab> = {
+            design: "design",
+            story: "story",
+            characters: "characters",
+            sound: "sound",
+            scenes: "scenes",
+            assembly: "assembly",
+          };
+          const target = tabMap[section] as WorkshopTab;
+          if (target) setActiveTab(target);
+        }}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
@@ -12,6 +12,7 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
+import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -180,9 +181,9 @@ type WorkshopTab = "overview" | "design" | "content" | "script" | "sound" | "sty
 const WORKSHOP_TABS: { id: WorkshopTab; label: string }[] = [
   { id: "design",      label: "Design" },
   { id: "content",     label: "Content" },
+  { id: "characters",  label: "Character Friends" },
   { id: "script",      label: "Script & Story Plan" },
   { id: "sound",       label: "Voices & Sounds" },
-  { id: "characters",  label: "Character Friends" },
   { id: "sceneBoard",  label: "Scene Board" },
   { id: "screenplay",  label: "Screenplay" },
   { id: "review1",     label: "Review 1" },
@@ -1101,12 +1102,76 @@ function ChildrenPlannerInner() {
     setGenerating(false);
   }
 
-  // Restore state from localStorage if returning from editor
-  // State restore via URL params or DB — no localStorage
+  // ── Persistent project storage key (DB-only, no localStorage) ──
+  const CHILDREN_PROJ_ID = "ghs_children_default";
+  // BUG-15 pattern: guard flag — while restoring from DB we must NOT trigger the save effect
+  const isRestoringRef = useRef(true);
+
+  // ── Restore full project state — DB only ──
   useEffect(() => {
-    // No-op: children-planner state is managed in component state only (no cross-session persistence needed for demo)
+    let cancelled = false;
+    async function restoreState() {
+      isRestoringRef.current = true;
+      try {
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(CHILDREN_PROJ_ID)}`);
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          if (dbData.found && dbData.data && !cancelled) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const d = dbData.data as any;
+            if (d.textContent)      setTextContent(d.textContent);
+            if (d.expandedContent)  setExpandedContent(d.expandedContent);
+            if (d.visualStyle)      setVisualStyle(d.visualStyle);
+            if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
+            if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
+            if (d.musicChoice)      setMusicChoice(d.musicChoice);
+            if (d.ageGroup)         setAgeGroup(d.ageGroup);
+            if (d.safetyLevel)      setSafetyLevel(d.safetyLevel);
+            if (d.learningMode)     setLearningMode(d.learningMode);
+            if (d.savedChars?.length > 0)   setSavedChars(d.savedChars);
+            if (d.selectedCharIds?.length > 0) setSelectedCharIds(d.selectedCharIds);
+            if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
+            if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
+            if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
+            if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
+            if (d.screenplay)       setScreenplay(d.screenplay);
+            if (d.selectedMusicUrl) setSelectedMusicUrl(d.selectedMusicUrl);
+            if (d.selectedMusicName) setSelectedMusicName(d.selectedMusicName);
+            if (d.soundTier)        setSoundTier(d.soundTier);
+            if (d.modelSettings)    setModelSettings(d.modelSettings);
+            if (d.activeTab)        setActiveTab(d.activeTab);
+          }
+        }
+      } catch { /* DB unavailable — start fresh */ }
+      finally {
+        isRestoringRef.current = false;
+      }
+    }
+    restoreState();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Save project state — DB only, debounced via useEffect deps ──
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    const data = {
+      textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
+      ageGroup, safetyLevel, learningMode,
+      savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
+      scriptSegments, screenplay, selectedMusicUrl, selectedMusicName,
+      soundTier, modelSettings, activeTab,
+      timestamp: Date.now(),
+    };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: CHILDREN_PROJ_ID, data }),
+    }).catch(() => { /* silent on DB error */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [textContent, expandedContent, visualStyle, narrationStyle, musicChoice, ageGroup, safetyLevel,
+      savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos, scriptSegments, screenplay,
+      selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab]);
 
   // Load characters from DB
   useEffect(() => {
@@ -3587,6 +3652,30 @@ function ChildrenPlannerInner() {
           </div>
         </div>
       )}
+
+      {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
+      <SupervisorStatusBar
+        plannerType="children"
+        designComplete={!!(ageGroup && visualStyle)}
+        storyComplete={!!(expandedContent || textContent)}
+        charactersComplete={savedChars.length > 0}
+        soundComplete={!!(narrationStyle && musicChoice)}
+        scenesComplete={childScenes.length > 0}
+        assemblyComplete={!!assembledUrl}
+        storyText={expandedContent || textContent}
+        onAutoFix={(section) => {
+          const tabMap: Record<string, WorkshopTab> = {
+            design: "design",
+            story: "content",
+            characters: "characters",
+            sound: "sound",
+            scenes: "sceneBoard",
+            assembly: "screenplay",
+          };
+          const target = tabMap[section] as WorkshopTab;
+          if (target) setActiveTab(target);
+        }}
+      />
     </div>
   );
 }
