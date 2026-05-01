@@ -325,8 +325,8 @@ function ChildrenPlannerInner() {
   });
   const [showModelSettings, setShowModelSettings] = useState(false);
 
-  // ── Feature state: FreeSound + ElevenLabs SFX ──
-  const [soundTab, setSoundTab] = useState<"freesound" | "elevenlabs">("freesound");
+  // ── Feature state: FreeSound + AI SFX ──
+  const [soundTab, setSoundTab] = useState<"freesound" | "ai-sfx">("freesound");
   const [fsQuery, setFsQuery] = useState("");
   const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
   const [fsSearching, setFsSearching] = useState(false);
@@ -2440,7 +2440,7 @@ function ChildrenPlannerInner() {
           <p style={labelStyle}>Sound Effects Studio</p>
           <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${border}`, marginBottom: 20 }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#0a0d14", borderRadius: 8, padding: 4 }}>
-              {([{ id: "freesound", label: "Sound Effects Browser" }, { id: "elevenlabs", label: "AI Audio Studio" }] as const).map(t => (
+              {([{ id: "freesound", label: "Sound Effects Browser" }, { id: "ai-sfx", label: "AI Audio Studio" }] as const).map(t => (
                 <button key={t.id} onClick={() => setSoundTab(t.id)}
                   style={{ flex: 1, padding: "7px 12px", borderRadius: 6, border: "none", background: soundTab === t.id ? childAccent : "transparent", color: soundTab === t.id ? "#000" : muted, fontSize: 11, fontWeight: soundTab === t.id ? 700 : 400, cursor: "pointer" }}>
                   {t.label}
@@ -2503,7 +2503,7 @@ function ChildrenPlannerInner() {
               </div>
             )}
 
-            {soundTab === "elevenlabs" && (
+            {soundTab === "ai-sfx" && (
               <div>
                 <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Describe a sound effect and AI generates it for you.</p>
                 <textarea value={sfxDesc} onChange={e => setSfxDesc(e.target.value)} rows={3}
@@ -2873,7 +2873,7 @@ function ChildrenPlannerInner() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Star style={{ width: 15, height: 15, color: childAccent, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Assembly Review</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>AI Audio & Audit</p>
               </div>
               {preflightResult && (
                 <div style={{ display: "flex", gap: 6 }}>
@@ -2885,7 +2885,7 @@ function ChildrenPlannerInner() {
             </div>
             <button onClick={runPreflight} disabled={preflightRunning}
               style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${childAccent}30`, background: preflightRunning ? "#2a2040" : `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+              {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
             </button>
             {preflightResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

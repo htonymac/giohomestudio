@@ -443,7 +443,7 @@ function HybridPlannerInner() {
   }
   type StoryMode = "narration-only" | "actors-only" | "mixed";
   const [storyMode, setStoryMode] = useState<StoryMode>("mixed");
-  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "none">("piper");
+  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "none">("piper");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
   const [narratorPiperSpeed, setNarratorPiperSpeed] = useState(0.75);
   const [scriptSegments, setScriptSegments] = useState<ScriptSegment[]>([]);
@@ -457,7 +457,7 @@ function HybridPlannerInner() {
   // ── Voice Layers — multi-part narrator voice stacking ────────────────────
   // Each layer has its own provider + voiceId. Layer 1 = primary narrator.
   // Layers 2+ are secondary (mixing deferred to S14 assembly endpoint wiring).
-  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "elevenlabs" | "karaoke"; voiceId: string; }
+  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke"; voiceId: string; }
   const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
   function addVoiceLayer() {
     setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
@@ -480,7 +480,7 @@ function HybridPlannerInner() {
   // ── Subtitle style ────────────────────────────────────────────────────────
   const [subtitleStyle, setSubtitleStyle] = useState<"classic" | "cinema" | "neon" | "minimal" | "bold" | "none">("classic");
   // ── Sound Browser (Audio tab) ─────────────────────────────────────────────
-  const [soundTab, setSoundTab] = useState<"freesound" | "elevenlabs" | "upload">("freesound");
+  const [soundTab, setSoundTab] = useState<"freesound" | "ai-sfx" | "upload">("freesound");
   const [fsQuery, setFsQuery] = useState("");
   const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
   const [fsSearching, setFsSearching] = useState(false);
@@ -491,6 +491,10 @@ function HybridPlannerInner() {
   const [sfxGenerating, setSfxGenerating] = useState(false);
   const [sfxGeneratedUrl, setSfxGeneratedUrl] = useState<string | null>(null);
   const [sfxPreviewId, setSfxPreviewId] = useState<number | string | null>(null);
+  // ── Auto SFX ──────────────────────────────────────────────────────────────
+  const [autoSfx, setAutoSfx] = useState(false);
+  const [autoSfxRunning, setAutoSfxRunning] = useState(false);
+  const [sceneSfxUrls, setSceneSfxUrls] = useState<Record<string, string>>({});
   // ── Build-all-characters queue state ──────────────────────────────────────
   const [buildingAllChars, setBuildingAllChars] = useState(false);
   const [buildAllProgress, setBuildAllProgress] = useState<string | null>(null);
@@ -1400,8 +1404,10 @@ function HybridPlannerInner() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectType: "hybrid",
+          story: expandedSummary || idea,
+          scriptSegments: scriptSegments,
           scenes: scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || undefined, videoUrl: sceneVideos[s.sceneId] || undefined, title: s.title })),
-          audioConfig: { narrationProvider: narratorAudioUrl ? "piper" : undefined, narrationText: expandedSummary || idea, musicUrl: selectedMusicUrl || undefined, musicName: selectedMusicName || undefined },
+          audioConfig: { narrationProvider: narratorAudioUrl ? narratorVoice : undefined, narrationAudioUrl: narratorAudioUrl || undefined, narrationText: expandedSummary || idea, musicUrl: selectedMusicUrl || undefined, musicName: selectedMusicName || undefined, characterVoices: Object.keys(characterAudioUrls) },
           characters: characters.map(c => ({ id: c.characterId, name: c.displayName, voiceId: c.voiceId, voiceName: c.voiceId || "" })),
         }),
       });
@@ -1723,9 +1729,10 @@ function HybridPlannerInner() {
     setGeneratingNarration(true);
     setPiperDownloading(false);
 
-    // FAL Narrator and ElevenLabs go directly to /api/tts with the provider field
-    if (narratorVoice === "fal-narrator" || narratorVoice === "elevenlabs") {
-      setLastAction(`Generating narrator audio via ${narratorVoice === "fal-narrator" ? "FAL Narrator" : "ElevenLabs"}...`);
+    // FAL Narrator, FAL Pro, and ElevenLabs go directly to /api/tts with the provider field
+    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs") {
+      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : "ElevenLabs";
+      setLastAction(`Generating narrator audio via ${providerLabel}...`);
       try {
         const res = await fetch("/api/tts", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -2017,6 +2024,31 @@ function HybridPlannerInner() {
       else setUiError(data.error || "SFX generation failed");
     } catch { setUiError("SFX generation failed"); }
     finally { setSfxGenerating(false); }
+  }
+
+  // ── Auto SFX — generate SFX for each scene from its description ───────────
+  async function runAutoSfxForAllScenes() {
+    if (scenes.length === 0) { setUiError("No scenes yet — create scenes first."); return; }
+    setAutoSfxRunning(true);
+    setLastAction(`Auto SFX: generating for ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}...`);
+    const results: Record<string, string> = {};
+    for (const scene of scenes) {
+      try {
+        const prompt = scene.description || scene.title || `scene ${scene.scene}`;
+        const res = await fetch("/api/sfx/generate", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: prompt.slice(0, 200), mode: "auto", autoSfx: true }),
+        });
+        const data = await res.json();
+        if (data.fileUrl) {
+          results[scene.sceneId] = data.fileUrl;
+          setLastAction(`Auto SFX: scene ${scene.sceneId} done`);
+        }
+      } catch { /* skip scene on error */ }
+    }
+    setSceneSfxUrls(prev => ({ ...prev, ...results }));
+    setLastAction(`Auto SFX complete — ${Object.keys(results).length}/${scenes.length} scenes have SFX`);
+    setAutoSfxRunning(false);
   }
 
   // ── Continuous Motion — generate a multi-segment chained action video ──────
@@ -5986,14 +6018,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Narration Provider</p>
-                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Narrator = cloud AI (requires FAL_KEY). ElevenLabs = premium (requires ELEVENLABS_API_KEY). Karaoke = browser speech.</p>
+                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Standard = kokoro-82m (FAL_KEY). FAL Pro = kokoro full model (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech.</p>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
                     {([
-                      { id: "piper",       label: "Piper (free)",    color: accent },
-                      { id: "fal-narrator", label: "FAL Narrator",   color: blue },
-                      { id: "elevenlabs",  label: "ElevenLabs",      color: purple },
-                      { id: "karaoke",     label: "Karaoke",         color: gold },
-                      { id: "none",        label: "None",            color: muted },
+                      { id: "piper",              label: "Piper (free)",       color: accent },
+                      { id: "fal-narrator",       label: "FAL Standard",       color: blue },
+                      { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
+                      { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
+                      { id: "karaoke",            label: "Karaoke",            color: gold },
+                      { id: "none",               label: "None",               color: muted },
                     ] as const).map(v => (
                       <button key={v.id} onClick={() => setNarratorVoice(v.id)}
                         style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
@@ -6110,12 +6143,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <select value={layer.providerId} onChange={e => updateVoiceLayer(layer.layer, { providerId: e.target.value as VoiceLayer["providerId"] })}
                       style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "5px 8px" }}>
                       <option value="piper" style={{ background: surface }}>Piper (free)</option>
-                      <option value="fal-narrator" style={{ background: surface }}>FAL Narrator</option>
+                      <option value="fal-narrator" style={{ background: surface }}>FAL Standard</option>
+                      <option value="fal-narrator-gemini" style={{ background: surface }}>FAL Pro</option>
                       <option value="elevenlabs" style={{ background: surface }}>ElevenLabs</option>
                       <option value="karaoke" style={{ background: surface }}>Karaoke</option>
                     </select>
                     <input value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
-                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "fal-narrator" ? "af_sky" : "voice-id"}
+                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "fal-narrator" ? "af_sky" : layer.providerId === "fal-narrator-gemini" ? "af_sky" : "voice-id"}
                       style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }} />
                     {layer.layer > 1 && (
                       <button onClick={() => removeVoiceLayer(layer.layer)}
@@ -6659,14 +6693,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* ── Narration Provider — global selector (always visible in Audio tab) ── */}
           <div style={{ ...cardStyle, borderColor: `${accent}15`, marginBottom: 16 }} data-testid="narration-provider-card">
             <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Narration Provider</p>
-            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Narrator = cloud AI (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech (no file).</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Standard = kokoro-82m (FAL_KEY). FAL Pro = kokoro full model (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech (no file).</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
               {([
-                { id: "piper",       label: "Piper (free)",   color: accent },
-                { id: "fal-narrator", label: "FAL Narrator",  color: blue },
-                { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
-                { id: "karaoke",     label: "Karaoke",        color: gold },
-                { id: "none",        label: "None",           color: muted },
+                { id: "piper",              label: "Piper (free)",       color: accent },
+                { id: "fal-narrator",       label: "FAL Standard",       color: blue },
+                { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
+                { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
+                { id: "karaoke",            label: "Karaoke",            color: gold },
+                { id: "none",              label: "None",                color: muted },
               ] as const).map(v => (
                 <button key={v.id} onClick={() => setNarratorVoice(v.id)}
                   data-provider={v.id}
@@ -6711,6 +6746,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
           )}
 
+          {/* ── Auto SFX toggle ── */}
+          <div data-testid="auto-sfx-toggle" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: surface, border: `1px solid ${autoSfx ? `${blue}40` : border}`, marginBottom: 16 }}>
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Auto SFX</p>
+              <p style={{ fontSize: 10, color: muted }}>AI picks SFX for each scene from its description. Searches local library first, then FAL stable-audio.</p>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+              {autoSfx && (
+                <button data-testid="run-auto-sfx-btn" onClick={runAutoSfxForAllScenes} disabled={autoSfxRunning || scenes.length === 0}
+                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${blue}40`, background: autoSfxRunning ? "#2a2a40" : `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: autoSfxRunning ? "not-allowed" : "pointer" }}>
+                  {autoSfxRunning ? "Generating..." : `Run Auto SFX (${scenes.length} scenes)`}
+                </button>
+              )}
+              <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
+                style={{ padding: "6px 16px", borderRadius: 8, border: `1px solid ${autoSfx ? `${blue}50` : border}`, background: autoSfx ? `${blue}20` : "transparent", color: autoSfx ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                {autoSfx ? "ON" : "OFF"}
+              </button>
+            </div>
+          </div>
+
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
             <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Sound Browser</h3>
@@ -6719,7 +6774,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ display: "flex", gap: 4, background: "#ffffff06", borderRadius: 8, padding: 3, marginBottom: 14, width: "fit-content" }}>
               {([
                 { id: "freesound",  label: "Freesound Library" },
-                { id: "elevenlabs", label: "Generate AI SFX" },
+                { id: "ai-sfx",    label: "AI Generate SFX" },
                 { id: "upload",     label: "Upload Custom" },
               ] as const).map(t => (
                 <button key={t.id} onClick={() => setSoundTab(t.id)}
@@ -6754,14 +6809,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   </button>
                 </div>
 
-                {/* Quick search tags */}
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
-                  {["rain", "wind", "crowd", "footsteps", "fire", "ocean", "birds", "thunder", "door", "engine"].map(tag => (
-                    <button key={tag} onClick={() => { setFsQuery(tag); searchFreesound(tag); }}
-                      style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
-                      {tag}
-                    </button>
-                  ))}
+                {/* Quick search tags — Standard */}
+                <div style={{ marginBottom: 6 }}>
+                  <p style={{ fontSize: 9, color: muted, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 5 }}>Standard</p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                    {["rain", "wind", "crowd", "footsteps", "fire", "ocean", "birds", "thunder", "door", "engine"].map(tag => (
+                      <button key={tag} onClick={() => { setFsQuery(tag); searchFreesound(tag); }}
+                        style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Quick search tags — Fun */}
+                <div style={{ marginBottom: 12 }}>
+                  <p style={{ fontSize: 9, color: gold, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 5 }}>Fun</p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                    {["cartoon", "boing", "whoosh", "pop", "laugh", "silly", "bounce", "squeak", "comedy", "funny"].map(tag => (
+                      <button key={tag} onClick={() => { setFsQuery(tag); searchFreesound(tag); }}
+                        style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${gold}40`, background: `${gold}08`, color: gold, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Results */}
@@ -6802,10 +6872,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             )}
 
-            {/* ── ELEVENLABS SFX ── */}
-            {soundTab === "elevenlabs" && (
+            {/* ── AI GENERATE SFX ── */}
+            {soundTab === "ai-sfx" && (
               <div>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Describe any sound in plain English — ElevenLabs generates it (~100 credits per effect). Requires ELEVENLABS_API_KEY.</p>
+                <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Describe any sound in plain English — AI generates it via FAL stable-audio (free with FAL_KEY) or ElevenLabs (~100 credits per effect).</p>
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
                   <input value={sfxDesc} onChange={e => setSfxDesc(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && generateElevenLabsSfx()}
@@ -7026,7 +7096,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Flight Review</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>AI Audio & Audit</p>
               </div>
               {preflightResult && (
                 <div style={{ display: "flex", gap: 6 }}>
@@ -7038,7 +7108,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
             <button onClick={runPreflight} disabled={preflightRunning}
               style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+              {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
             </button>
             {preflightResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -7811,7 +7881,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
-                          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Flight Review</p>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>AI Audio & Audit</p>
                         </div>
                         {preflightResult && (
                           <div style={{ display: "flex", gap: 6 }}>
@@ -7823,7 +7893,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </div>
                       <button onClick={runPreflight} disabled={preflightRunning}
                         style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-                        {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+                        {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
                       </button>
                       {preflightResult && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

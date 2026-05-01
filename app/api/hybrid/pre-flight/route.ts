@@ -13,9 +13,12 @@ interface SceneInput {
 
 interface AudioConfig {
   narrationProvider?: string;
+  narrationAudioUrl?: string;
   musicUrl?: string;
   musicName?: string;
   narrationText?: string;
+  characterVoices?: string[];
+  autoMusic?: boolean;
 }
 
 interface CharacterInput {
@@ -45,11 +48,49 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const projectType: string = body.projectType ?? "children";
+    const story: string = body.story ?? "";
+    const scriptSegments: Array<{ type?: string }> = Array.isArray(body.scriptSegments) ? body.scriptSegments : [];
     const scenes: SceneInput[] = Array.isArray(body.scenes) ? body.scenes : [];
     const audioConfig: AudioConfig = body.audioConfig ?? {};
     const characters: CharacterInput[] = Array.isArray(body.characters) ? body.characters : [];
 
     const checks: PreflightCheck[] = [];
+
+    // ── CHECK 0a: Story / idea present ─────────────────────────────────────
+    if (!story || story.trim().length < 10) {
+      checks.push({
+        id: "story_present",
+        label: "Story / idea",
+        status: "error",
+        detail: "No story found. Write or expand a story in the Story tab first.",
+        autoFixAvailable: false,
+      });
+    } else {
+      checks.push({
+        id: "story_present",
+        label: `Story present (${story.trim().length} chars)`,
+        status: "ok",
+        autoFixAvailable: false,
+      });
+    }
+
+    // ── CHECK 0b: Script segments parsed ────────────────────────────────────
+    if (scriptSegments.length === 0) {
+      checks.push({
+        id: "script_segments",
+        label: "Script segments",
+        status: "warn",
+        detail: "No script segments parsed yet. Run Parse Script in the Audio tab for narration-ready output.",
+        autoFixAvailable: false,
+      });
+    } else {
+      checks.push({
+        id: "script_segments",
+        label: `Script parsed (${scriptSegments.length} segment${scriptSegments.length !== 1 ? "s" : ""})`,
+        status: "ok",
+        autoFixAvailable: false,
+      });
+    }
 
     // ── CHECK 1: Scenes present ──────────────────────────────────────────────
     if (scenes.length === 0) {
@@ -99,16 +140,31 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── CHECK 3: Narration provider ───────────────────────────────────────────
-    const hasNarration =
-      audioConfig.narrationProvider ||
-      audioConfig.narrationText ||
-      false;
-    if (hasNarration) {
+    // ── CHECK 3: Narration / audio planned ───────────────────────────────────
+    const hasNarrationAudio = !!audioConfig.narrationAudioUrl;
+    const hasCharacterVoices = Array.isArray(audioConfig.characterVoices) && audioConfig.characterVoices.length > 0;
+    const hasNarrationProvider = !!audioConfig.narrationProvider;
+    const hasAnyAudio = hasNarrationAudio || hasCharacterVoices || hasNarrationProvider || !!audioConfig.narrationText;
+    if (hasNarrationAudio) {
       checks.push({
         id: "narration",
-        label: "Narration configured",
+        label: "Narrator audio ready",
         status: "ok",
+        autoFixAvailable: false,
+      });
+    } else if (hasCharacterVoices) {
+      checks.push({
+        id: "narration",
+        label: `Character audio ready (${audioConfig.characterVoices!.length} voice${audioConfig.characterVoices!.length !== 1 ? "s" : ""})`,
+        status: "ok",
+        autoFixAvailable: false,
+      });
+    } else if (hasNarrationProvider || hasAnyAudio) {
+      checks.push({
+        id: "narration",
+        label: "Narration provider configured (audio not yet generated)",
+        status: "warn",
+        detail: "Provider selected but no audio file generated yet. Run Generate Narration before assembly for voiceover.",
         autoFixAvailable: false,
       });
     } else {
@@ -123,11 +179,11 @@ export async function POST(req: NextRequest) {
     }
 
     // ── CHECK 4: Music ────────────────────────────────────────────────────────
-    const hasMusic = audioConfig.musicUrl || audioConfig.musicName || false;
+    const hasMusic = audioConfig.musicUrl || audioConfig.musicName || audioConfig.autoMusic || false;
     if (hasMusic) {
       checks.push({
         id: "music",
-        label: `Music selected (${audioConfig.musicName || "custom"})`,
+        label: audioConfig.autoMusic ? "Music: Auto-select enabled" : `Music selected (${audioConfig.musicName || "custom"})`,
         status: "ok",
         autoFixAvailable: false,
       });

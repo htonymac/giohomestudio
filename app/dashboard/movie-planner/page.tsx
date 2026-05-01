@@ -335,7 +335,7 @@ function MoviePlannerInner() {
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string }>>({});
 
   // ── FreeSound / SFX browser ──
-  const [soundTab, setSoundTab] = useState<"freesound" | "elevenlabs">("freesound");
+  const [soundTab, setSoundTab] = useState<"freesound" | "ai-sfx">("freesound");
   const [fsQuery, setFsQuery] = useState("");
   const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
   const [fsSearching, setFsSearching] = useState(false);
@@ -3250,7 +3250,7 @@ function MoviePlannerInner() {
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>SFX Library</p>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              {(["freesound", "elevenlabs"] as const).map(t => (
+              {(["freesound", "ai-sfx"] as const).map(t => (
                 <button key={t} onClick={() => setSoundTab(t)}
                   style={{ padding: "7px 16px", borderRadius: 8, border: `1px solid ${soundTab === t ? blue : border}`, background: soundTab === t ? `${blue}10` : "transparent", color: soundTab === t ? blue : muted, fontSize: 10, cursor: "pointer" }}>
                   {t === "freesound" ? "Freesound Library" : "AI Generate SFX"}
@@ -3301,9 +3301,9 @@ function MoviePlannerInner() {
               </div>
             )}
 
-            {soundTab === "elevenlabs" && (
+            {soundTab === "ai-sfx" && (
               <div>
-                <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Describe a sound effect and ElevenLabs AI will generate it.</p>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Describe a sound effect — AI generates it via FAL stable-audio (free with FAL_KEY) or ElevenLabs (premium).</p>
                 <input value={sfxDesc} onChange={e => setSfxDesc(e.target.value)}
                   placeholder="e.g. Heavy footsteps on wooden floor" style={{ ...inputStyle, marginBottom: 8 }} />
                 <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim()}
@@ -3547,7 +3547,7 @@ function MoviePlannerInner() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Icon.Star style={{ width: 15, height: 15, color: purple, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Pre-Assembly Review</p>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>AI Audio & Audit</p>
               </div>
               {preflightResult && (
                 <div style={{ display: "flex", gap: 6 }}>
@@ -3559,7 +3559,7 @@ function MoviePlannerInner() {
             </div>
             <button onClick={runPreflight} disabled={preflightRunning}
               style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-              {preflightRunning ? "Running pre-flight review..." : "Run Pre-flight Review"}
+              {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
             </button>
             {preflightResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
