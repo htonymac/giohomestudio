@@ -532,36 +532,10 @@ export default function MusicVideoPlannerPage() {
     setGeneratingImage(null);
   }
 
-  // ── Assemble music video ──
+  // ── Assemble music video (simple path — delegates to beat-sync assembleMovie) ──
   async function assembleMusicVideo() {
-    setAssembling(true);
-    setLastAction("Assembling music video...");
-    try {
-      const sceneList = storyboard.map(s => ({
-        sceneId: `mv_sc${s.scene}`,
-        imageUrl: sceneImages[s.scene] || "",
-        narration: s.caption,
-        duration: parseInt(s.duration) || 5,
-        musicStyle: analysis?.mood || videoMode,
-      }));
-      const res = await fetch("/api/hybrid/assemble", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId,
-          scenes: sceneList,
-          music: songUrl || musicStyle,
-          narrationStyle: "none",
-          title: `${songTitle} — Music Video`,
-        }),
-      });
-      const data = await res.json();
-      if (data.outputUrl) {
-        setAssembledUrl(data.outputUrl);
-        setLastAction("Music video assembled!");
-      }
-    } catch { setLastAction("Assembly failed"); }
-    setAssembling(false);
+    // Delegate to the full assembleMovie which handles narration, music, SFX correctly
+    await assembleMovie();
   }
 
   // ── expandStory pipeline ──
@@ -878,11 +852,13 @@ export default function MusicVideoPlannerPage() {
           musicVolume: mvMusicVolume,
           narrationVolume: mvNarrationVolume,
           narrationUrl: resolvedNarrationUrl,
+          // SFX: include generated SFX if available
+          sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
           captions: !!(mvScenes.some(s => s.caption)),
           captionStyle: "white",
         }),
       });
-      const data = await res.json();
+      const data = await safeJson<{ outputUrl?: string; duration?: number; error?: string }>(res, "music-video-assemble");
       if (data.outputUrl) {
         setAssembledUrl(data.outputUrl);
         setAssemblyComplete(true);

@@ -1,3 +1,47 @@
+# GHS Handoff — 2026-04-30 (critical pipeline fixes — branch: fix/ghs-pipeline-critical)
+
+## Completed this session
+1. **TASK 1 — Commercial narration (BUG-12 follow-up)**: safeJson on enhance-narration; AI Order section with phone/WhatsApp/intro/outro fields; reads slide imageUrls, builds contact-info narration
+2. **TASK 2 — Movie export audio**: assembleMovie() payload now includes narrationList, characterVoices, musicUrl, sfx. Added sceneNarrationAudioUrls state populated by generateSceneNarration()
+3. **TASK 3 — ElevenLabs**: confirmed working — key in .env.local, TTS route already has explicit error surfacing. Fixed music-video-planner broken assembly path
+4. **TASK 4 — Music video gaps**: assembleMusicVideo() delegated to assembleMovie(); safeJson added; sfx included
+5. **TASK 5 — Gen 3 variations**: both hybrid-planner and children-planner have Gen 3 button per scene card; variations function generates 3 images with different seeds; thumbnail strip shown for user to pick active
+
+## Commits on this branch
+- `fix(commercial): safeJson guards + narration AI order + intro/outro contact fields`
+- `fix(movie-assembly): include narration/voice/SFX in assemble payload`
+- `fix(elevenlabs): proper error surfacing + API key validation`
+- `feat(scene-board): multi-image variations (3 per scene, user picks)`
+
+## Next exact steps
+1. Merge fix/ghs-pipeline-critical to main
+2. Browser-verify commercial AI Order, movie export with audio, music-video assembly, Gen 3 buttons
+3. Continue: merge fix/ghs-db-persistence-pipeline (still pending from previous session)
+
+---
+
+# GHS Handoff — 2026-04-30 (DB persistence + tab order + supervisor bar)
+
+## Branch: fix/ghs-db-persistence-pipeline
+
+### Completed this session
+1. Tab order corrected — all 4 planners now follow binding: Story→Characters→Sound→Scene Board→Assembly→Overview
+2. DB persistence added to children-planner + movie-planner (BUG-15 pattern with isRestoringRef)
+3. music-video-planner scene-plan payload fixed (storyText vs expandedStory)
+4. SupervisorStatusBar component created + wired into hybrid/children/movie planners
+5. Build: clean (0 errors)
+
+### In progress / blockers
+- Branches S1–S16 are still unmutated on their feature branches (merger decision pending — see project_ghs_planner_corrections_apr30.md)
+- This branch (fix/ghs-db-persistence-pipeline) needs to be merged
+
+### Next exact steps
+1. Merge fix/ghs-db-persistence-pipeline to main
+2. Continue with slice SA (merge S1–S12 to main + bear fix verification)
+3. Then slices SB–SE per project_ghs_planner_corrections_apr30.md
+
+---
+
 # GHS Handoff — 2026-04-30 (S16 BUG-01 — MERGED TO MAIN)
 
 ## All 17 branches merged. S1–S16 complete.

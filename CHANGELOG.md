@@ -1,5 +1,47 @@
 # GHS Changelog
 
+## 2026-04-30 — Critical pipeline fixes: commercial narration, movie assembly audio, music-video, Gen 3 variations (branch: fix/ghs-pipeline-critical)
+
+### What
+1. **commercial/page.tsx** — safeJson guards on enhance-narration; AI Order section with intro/outro contact fields (phone, WhatsApp, intro text, outro text); reads slide imageUrls and builds structured narration
+2. **movie-planner/page.tsx** — assembleMovie() now sends narrationList (per-scene TTS URLs with start times), characterVoices, musicUrl/volume, sfx to /api/video/assemble; adds sceneNarrationAudioUrls state; fixes silent exports
+3. **music-video-planner/page.tsx** — assembleMusicVideo() broken path fixed (delegates to assembleMovie()); assembleMovie() uses safeJson + includes sfx param; ElevenLabs confirmed working
+4. **hybrid-planner/page.tsx + children-planner/page.tsx** — Gen 3 variations button per scene card; generates 3 images with different seeds; thumbnail strip for user to pick active image; variantUrls stored in state
+
+### Why
+Commercial page was crashing on HTML error responses. Movie exports had no audio (payload missing narration/music/sfx). Music-video assembly called wrong endpoint with wrong fields. No way to generate multiple image options per scene.
+
+### Impact
+- All 4 changes additive — no existing functions deleted
+- TypeScript clean (0 errors in app source; 10 pre-existing test file errors untouched)
+- Risk: low. All changes confined to UI state + payload construction.
+
+## 2026-04-30 — DB persistence, tab order, pipeline audit, supervisor bar (branch: fix/ghs-db-persistence-pipeline)
+
+### What
+- Tab order corrected in ALL planners (binding: Story→Characters→Sound→Scene Board→Assembly→Overview)
+  - hybrid-planner: Characters moved to step 2 (before Script/Audio)
+  - children-planner: Character Friends moved before Script/Sound
+  - movie-planner: Cast moved before Voice & Audio and Screenplay
+  - music-video-planner: Overview moved to last; default tab = "song"
+- DB persistence added to children-planner and movie-planner (isRestoringRef BUG-15 pattern)
+  - Covers: story, characters, scenes, sceneImages, sceneVideos, scriptSegments, screenplay, sound settings, modelSettings, activeTab
+  - Uses /api/hybrid/saved-state with localId "ghs_children_default" / "ghs_movie_default"
+  - hybrid-planner: already had full persistence from BUG-15 fix — no change needed
+- Pipeline fix: music-video-planner scene-plan call corrected from {expandedStory, genre, format} to {storyText, characters, costPreference}
+- New component: app/components/SupervisorStatusBar.tsx
+  - Cross-section AI consistency checker shown at bottom of hybrid, children, movie planners
+  - Calls /api/hybrid/coordinator-status; shows section pills, supervisor advice, Fix All button
+  - data-testid attrs for Playwright
+
+### Why
+State vanishing on refresh because children/movie planners had no DB persistence (no-op useEffect). Tab order violated binding doctrine. Music-video storyboard silently failed due to wrong payload shape.
+
+### Impact
+- No localStorage anywhere. All state = DB.
+- Build: clean (0 errors, 1 warning — pre-existing).
+- Risk: low. All DB saves are fire-and-forget. Restore guards prevent stale overwrites.
+
 ## 2026-04-30 — S14: BUG-15+16 Hybrid persistence race + Assembly narrator/subtitle/image fixes (branch: fix/ghs-bug-15-16-hybrid-assembly)
 
 ### What
