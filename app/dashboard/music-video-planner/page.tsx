@@ -300,6 +300,114 @@ export default function MusicVideoPlannerPage() {
   const [sendingToScenes, setSendingToScenes] = useState(false);
   const [sendToScenesResult, setSendToScenesResult] = useState("");
 
+  // ── Song Script tab ──
+  interface SongSection {
+    label: string;
+    lines: string[];
+    startTime: number;
+    endTime: number;
+    estimatedDuration: number;
+    mood: string;
+    visualPrompt: string;
+  }
+  const [songSections, setSongSections] = useState<SongSection[]>([]);
+  const [parsingSongSections, setParsingSongSections] = useState(false);
+  const [songScriptMode, setSongScriptMode] = useState<"sections" | "screenplay">("sections");
+
+  function buildSection(label: string, lines: string[], bpmVal: number, startSec: number): SongSection {
+    const secPerBeat = bpmVal > 0 ? 60 / bpmVal : 0.5;
+    const secPerBar  = secPerBeat * 4;
+    const lbl = label.toLowerCase();
+    const bars = lbl.includes("chorus") || lbl.includes("hook") ? 8
+      : lbl.includes("intro") || lbl.includes("outro") ? 4
+      : lbl.includes("bridge") ? 8
+      : 16; // verse default
+    const estimatedDuration = Math.round(secPerBar * bars);
+    const endTime = startSec + estimatedDuration;
+    const moodMap: Record<string, string> = {
+      chorus: "energetic, uplifting", hook: "catchy, vibrant", verse: "narrative, steady",
+      bridge: "transitional, reflective", intro: "building, anticipation", outro: "fading, resolution",
+    };
+    const key = Object.keys(moodMap).find(k => lbl.includes(k)) ?? "verse";
+    return {
+      label,
+      lines,
+      startTime: startSec,
+      endTime,
+      estimatedDuration,
+      mood: moodMap[key],
+      visualPrompt: `${label} — ${lines.slice(0, 2).join(" ")}`.slice(0, 100),
+    };
+  }
+
+  function parseSongSections() {
+    if (!lyrics.trim()) { setLastAction("Add lyrics first"); return; }
+    setParsingSongSections(true);
+    const bpmVal = analysis?.bpm ?? 120;
+    const SECTION_HEADER = /^\[?(verse|chorus|bridge|hook|intro|outro|pre-chorus|refrain|vamp|breakdown|drop)\]?[\s\d]*$/i;
+    const rawLines = lyrics.split("\n");
+
+    const built: SongSection[] = [];
+    let currentLabel = "Verse 1";
+    let currentLines: string[] = [];
+    let cursorSec = 0;
+
+    for (const line of rawLines) {
+      const trimmed = line.trim();
+      if (SECTION_HEADER.test(trimmed)) {
+        if (currentLines.filter(l => l.trim()).length > 0) {
+          const sec = buildSection(currentLabel, currentLines.filter(l => l.trim()), bpmVal, cursorSec);
+          built.push(sec);
+          cursorSec = sec.endTime;
+        }
+        currentLabel = trimmed.replace(/[\[\]]/g, "");
+        currentLines = [];
+      } else if (trimmed) {
+        currentLines.push(trimmed);
+      }
+    }
+    if (currentLines.filter(l => l.trim()).length > 0) {
+      const sec = buildSection(currentLabel, currentLines.filter(l => l.trim()), bpmVal, cursorSec);
+      built.push(sec);
+    }
+
+    // Fallback: split evenly if no section headers detected
+    if (built.length === 0) {
+      const allLines = rawLines.filter(l => l.trim());
+      const chunkSize = Math.max(4, Math.floor(allLines.length / 4));
+      const labels = ["Intro", "Verse 1", "Chorus", "Verse 2", "Chorus 2", "Bridge", "Outro"];
+      let cursor = 0;
+      for (let i = 0; i < allLines.length; i += chunkSize) {
+        const chunk = allLines.slice(i, i + chunkSize);
+        const label = labels[Math.floor(i / chunkSize)] ?? `Section ${Math.floor(i / chunkSize) + 1}`;
+        const sec = buildSection(label, chunk, bpmVal, cursor);
+        built.push(sec);
+        cursor = sec.endTime;
+      }
+    }
+
+    setSongSections(built);
+
+    // Auto-populate storyboard if empty
+    if (storyboard.length === 0) {
+      setStoryboard(built.map((sec, idx) => ({
+        scene: idx + 1,
+        section: sec.label,
+        duration: `${Math.round(sec.estimatedDuration)}s`,
+        prompt: sec.visualPrompt,
+        style: "cinematic",
+        movement: sec.label.toLowerCase().includes("chorus") ? "dynamic cut" : "slow pan",
+        caption: sec.lines.slice(0, 2).join(" / "),
+        genMethod: sec.label.toLowerCase().includes("chorus") ? "video-led" : "image-to-video",
+        status: "planned",
+      })));
+      setLastAction(`${built.length} sections parsed, storyboard populated.`);
+    } else {
+      setLastAction(`${built.length} sections parsed.`);
+    }
+    setParsingSongSections(false);
+  }
+
   // ── Assembly Named Cuts ──
   const [assemblyName, setAssemblyName] = useState("Main Cut");
   const [savedCuts, setSavedCuts] = useState<Array<{ name: string; sceneIds: string[]; videoUrl?: string; savedAt: string }>>(() => {
@@ -1217,10 +1325,126 @@ export default function MusicVideoPlannerPage() {
         </div>
       )}
 
-      {/* ═══ SCREENPLAY TAB ═══ */}
+      {/* ═══ SONG SCRIPT TAB ═══ */}
       {activeTab === "script" && (
         <div>
-          {!screenplay && !generatingScreenplay && (
+          {/* Mode toggle */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {(["sections", "screenplay"] as const).map(mode => (
+              <button key={mode} onClick={() => setSongScriptMode(mode)} style={{
+                padding: "8px 18px", borderRadius: 10, border: `1px solid ${songScriptMode === mode ? accent : border}`,
+                background: songScriptMode === mode ? `${accent}15` : "transparent",
+                color: songScriptMode === mode ? accent : muted, fontSize: 12, fontWeight: 700, cursor: "pointer",
+              }}>
+                {mode === "sections" ? "Song Sections" : "Screenplay"}
+              </button>
+            ))}
+          </div>
+
+          {/* Song Sections mode */}
+          {songScriptMode === "sections" && (
+            <div>
+              <div style={{ ...cardStyle, borderColor: "rgba(124,92,252,0.25)", marginBottom: 16 }}>
+                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Song Script — Lyric Section Parser</p>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>
+                  Paste lyrics with section headers like [Verse 1], [Chorus] in Song Input, then parse.
+                  Each section gets beat-timed visual prompts that feed the storyboard automatically.
+                </p>
+                {!lyrics.trim() && !songTitle.trim() ? (
+                  <div style={{ textAlign: "center", padding: "16px 0" }}>
+                    <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>Add lyrics in Song Input tab first.</p>
+                    <button onClick={() => setActiveTab("song")} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Go to Song Input</button>
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                    <button onClick={parseSongSections} disabled={parsingSongSections}
+                      style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: parsingSongSections ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #7c3aed)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: parsingSongSections ? "not-allowed" : "pointer" }}>
+                      {parsingSongSections ? "Parsing..." : "Parse Song Sections"}
+                    </button>
+                    <button onClick={detectBeats} disabled={detectingBeats || (!songUrl && !songFile)}
+                      style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
+                      {detectingBeats ? "Detecting..." : beats.length > 0 ? `${beats.length} beats detected` : "Detect Beats"}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {autoTimestampPlan && (
+                <div style={{ ...cardStyle, borderColor: "rgba(34,211,238,0.2)", marginBottom: 12 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#00d4ff", marginBottom: 8 }}>
+                    Auto Timestamp — {autoTimestampPlan.segmentCount} segments, {autoTimestampPlan.totalDuration.toFixed(1)}s
+                  </p>
+                  <div style={{ maxHeight: 120, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
+                    {autoTimestampPlan.segments.map(seg => (
+                      <div key={seg.id} style={{ display: "flex", gap: 10, padding: "3px 8px", borderRadius: 5, background: "rgba(0,212,255,0.06)", fontSize: 10 }}>
+                        <span style={{ color: "#00d4ff", fontWeight: 700, minWidth: 90 }}>{seg.startTime.toFixed(1)}s–{seg.endTime.toFixed(1)}s</span>
+                        <span style={{ color: "#ccc" }}>{seg.title}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {songSections.length > 0 && (
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>
+                      {songSections.length} sections — {Math.round(songSections[songSections.length - 1]?.endTime || 0)}s total
+                    </p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={runAutoTimestamp} disabled={loadingAutoTimestamp}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid rgba(34,211,238,0.4)`, background: "transparent", color: "#00d4ff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                        {loadingAutoTimestamp ? "Planning..." : "Auto Timestamp"}
+                      </button>
+                      <button onClick={() => {
+                        const newScenes: Scene[] = songSections.map((sec, i) => ({
+                          scene: i + 1, section: sec.label,
+                          duration: `${Math.round(sec.estimatedDuration)}s`,
+                          prompt: sec.visualPrompt, style: visualStyle || "cinematic",
+                          movement: sec.label.toLowerCase().includes("chorus") ? "dynamic cut" : "slow pan",
+                          caption: sec.lines.slice(0, 2).join(" / "),
+                          genMethod: sec.label.toLowerCase().includes("chorus") ? "video-led" : "image-to-video",
+                          status: "planned",
+                        }));
+                        setStoryboard(newScenes);
+                        setLastAction(`Storyboard: ${newScenes.length} song sections`);
+                        setActiveTab("storyboard");
+                      }} style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: "#22c55e", color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                        Send to Storyboard
+                      </button>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {songSections.map((sec, i) => (
+                      <div key={i} style={{ ...cardStyle, borderColor: sec.mood === "energetic" ? "rgba(239,68,68,0.25)" : "rgba(124,92,252,0.15)", padding: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 5 }}>
+                          <div>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}>{sec.label}</span>
+                            <span style={{ marginLeft: 10, fontSize: 10, color: muted }}>
+                              {sec.startTime.toFixed(1)}s – {sec.endTime.toFixed(1)}s ({sec.estimatedDuration.toFixed(1)}s)
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 9, padding: "3px 8px", borderRadius: 20, background: `${sec.mood === "energetic" ? "#ef4444" : accent}18`, color: sec.mood === "energetic" ? "#ef4444" : accent, fontWeight: 700, textTransform: "uppercase" as const }}>
+                            {sec.mood}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: 10, color: "#aaa", marginBottom: 5, fontStyle: "italic" }}>{sec.visualPrompt.slice(0, 120)}{sec.visualPrompt.length > 120 ? "..." : ""}</p>
+                        <div style={{ borderTop: `1px solid ${border}`, paddingTop: 5, maxHeight: 52, overflowY: "auto" }}>
+                          {sec.lines.slice(0, 3).map((line, j) => (
+                            <p key={j} style={{ fontSize: 10, color: muted, margin: "1px 0" }}>{line}</p>
+                          ))}
+                          {sec.lines.length > 3 && <p style={{ fontSize: 9, color: "#555" }}>+{sec.lines.length - 3} more lines</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Screenplay mode */}
+          {songScriptMode === "screenplay" && !screenplay && !generatingScreenplay && (
             <div style={{ ...cardStyle, borderColor: "rgba(168,85,247,0.2)", marginBottom: 16 }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Screenplay</p>
               <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a formatted screenplay from your song and storyboard, or paste your own script and parse it into narrator/dialogue segments.</p>
@@ -1252,15 +1476,14 @@ export default function MusicVideoPlannerPage() {
             </div>
           )}
 
-          {generatingScreenplay && (
+          {songScriptMode === "screenplay" && generatingScreenplay && (
             <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              
               <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
               <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
             </div>
           )}
 
-          {screenplay && !generatingScreenplay && (
+          {songScriptMode === "screenplay" && screenplay && !generatingScreenplay && (
             <>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>

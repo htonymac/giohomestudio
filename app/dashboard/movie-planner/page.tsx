@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import DurationPicker from "../../components/DurationPicker";
 import NarrationControls from "../../components/NarrationControls";
@@ -242,6 +242,7 @@ export default function MoviePlannerPage() {
 
 function MoviePlannerInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   // ── Workshop tab ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
@@ -337,7 +338,7 @@ function MoviePlannerInner() {
   // ── FreeSound / SFX browser ──
   const [soundTab, setSoundTab] = useState<"freesound" | "ai-sfx">("freesound");
   const [fsQuery, setFsQuery] = useState("");
-  const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
+  const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; licenseType?: string; safeForCommercial?: boolean; username: string; previewUrl: string; tags: string[] }>>([]);
   const [fsSearching, setFsSearching] = useState(false);
   const [fsSaving, setFsSaving] = useState<number | null>(null);
   const [fsSaved, setFsSaved] = useState<Set<number>>(new Set());
@@ -380,6 +381,31 @@ function MoviePlannerInner() {
 
   // ── Story expand pipeline ──
   const [expanding, setExpanding] = useState(false);
+
+  // ── AI Production Plan (FIX 2) ──
+  interface AiProductionPlan {
+    scenes: Array<{ id: string; title: string; description: string; duration: string }>;
+    musicMood: string;
+    visualStyle: string;
+    narratorTone: string;
+    sceneCount: number;
+    pacing: string;
+    generatedAt: string;
+  }
+  const [aiProductionPlan, setAiProductionPlan] = useState<AiProductionPlan | null>(null);
+  const [generatingProductionPlan, setGeneratingProductionPlan] = useState(false);
+  const [showProductionPlan, setShowProductionPlan] = useState(true);
+
+  // ── Character Style Classification (FIX 2) ──
+  const CHARACTER_STYLES = [
+    { id: "realistic",    label: "Realistic / Live Action" },
+    { id: "3d_animation", label: "3D Animation" },
+    { id: "2d_animation", label: "2D / Cartoon" },
+    { id: "cinematic",    label: "Cinematic / Film Noir" },
+    { id: "anime",        label: "Anime Style" },
+  ] as const;
+  type CharacterStyleId = typeof CHARACTER_STYLES[number]["id"];
+  const [movieCharacterStyle, setMovieCharacterStyle] = useState<CharacterStyleId>("realistic");
 
   // ── Music library ──
   const [musicLibrary, setMusicLibrary] = useState<MusicAsset[]>([]);
@@ -498,18 +524,25 @@ function MoviePlannerInner() {
   // EFFECTS
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const MOVIE_PROJ_ID = "ghs_movie_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  const urlProjectId = searchParams.get("projectId");
   // BUG-15 pattern: guard while restoring from DB
   const isRestoringRef = useRef(true);
+  const activeProjectIdRef = useRef<string>("");
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/movie-planner?projectId=${activeId}`);
+      }
+      activeProjectIdRef.current = activeId;
       try {
-        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(MOVIE_PROJ_ID)}`);
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
         if (dbRes.ok) {
           const dbData = await dbRes.json();
           if (dbData.found && dbData.data && !cancelled) {
@@ -562,7 +595,7 @@ function MoviePlannerInner() {
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ localId: MOVIE_PROJ_ID, data }),
+      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_movie_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, idea, expandedStory, genre, style, format, tone, savedCharacters, selectedCast,
@@ -1089,6 +1122,62 @@ function MoviePlannerInner() {
       setErrorMsg("Story expansion failed: " + String(err));
     }
     setExpanding(false);
+  }
+
+  // ── AI Production Plan (FIX 2) ──
+  async function generateProductionPlan() {
+    if (!idea.trim()) { setLastAction("Write your movie idea first"); return; }
+    setGeneratingProductionPlan(true);
+    setLastAction("AI is reading your story and building production plan...");
+    try {
+      // Try /api/movie/plan first; fall back to story-expand
+      const res = await fetch("/api/movie/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storyText: idea, mode: "movie-plan", genre: genre || "Drama", tone: tone || "Cinematic" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.scenes || data.plan) {
+          const plan = data.plan ?? data;
+          setAiProductionPlan({
+            scenes: plan.scenes ?? [],
+            musicMood: plan.musicMood ?? "Cinematic",
+            visualStyle: plan.visualStyle ?? style ?? "Cinematic",
+            narratorTone: plan.narratorTone ?? tone ?? "Neutral",
+            sceneCount: (plan.scenes ?? []).length,
+            pacing: plan.pacing ?? "Standard",
+            generatedAt: new Date().toISOString(),
+          });
+          setShowProductionPlan(true);
+          setLastAction(`AI Production Plan: ${(plan.scenes ?? []).length} scenes, ${plan.musicMood ?? ""} music mood`);
+          return;
+        }
+      }
+      // Fallback: use story-expand endpoint
+      const expandRes = await fetch("/api/hybrid/story-expand", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storyInput: idea, genre, tone, mode: "movie-plan" }),
+      });
+      const expandData = await expandRes.json();
+      const summary = expandData.expandedStory?.summary || expandData.summary || idea;
+      setAiProductionPlan({
+        scenes: [],
+        musicMood: genre?.toLowerCase().includes("action") ? "Intense / Dramatic" : "Cinematic / Emotional",
+        visualStyle: style || "Cinematic",
+        narratorTone: tone || "Neutral",
+        sceneCount: 0,
+        pacing: tone?.toLowerCase().includes("fast") ? "Fast" : "Standard",
+        generatedAt: new Date().toISOString(),
+      });
+      setExpandedStory(summary);
+      setShowProductionPlan(true);
+      setLastAction("AI Production Plan created — review below");
+    } catch (err) {
+      setLastAction("Production plan failed: " + String(err));
+    }
+    setGeneratingProductionPlan(false);
   }
 
   // ── Scene Intelligence ──
@@ -2313,6 +2402,75 @@ function MoviePlannerInner() {
             {expanding && <p style={{ fontSize: 10, color: accent, marginTop: 8, textAlign: "center" }}>Running 3-step pipeline: story expand → character extract → scene plan...</p>}
           </div>
 
+          {/* AI Production Plan button — shown after story is written */}
+          {idea.trim() && !aiProductionPlan && (
+            <div style={{ ...cardStyle, borderColor: `${gold}20`, marginBottom: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: gold, marginBottom: 4 }}>AI Production Plan</p>
+                  <p style={{ fontSize: 11, color: muted }}>Let AI read your genre, tone, and story — then suggest scene count, pacing, music mood, and visual style.</p>
+                </div>
+                <button onClick={generateProductionPlan} disabled={generatingProductionPlan}
+                  style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: generatingProductionPlan ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: "#000", fontSize: 12, fontWeight: 700, cursor: generatingProductionPlan ? "not-allowed" : "pointer", flexShrink: 0, marginLeft: 16 }}>
+                  {generatingProductionPlan ? "Planning..." : "Get AI Plan"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* AI Production Plan card — collapsible */}
+          {aiProductionPlan && (
+            <div style={{ ...cardStyle, borderColor: `${gold}30`, marginBottom: 0 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showProductionPlan ? 14 : 0 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: gold }}>
+                  AI Production Plan — {aiProductionPlan.sceneCount > 0 ? `${aiProductionPlan.sceneCount} scenes` : "Ready"}
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={generateProductionPlan} disabled={generatingProductionPlan}
+                    style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${gold}40`, background: "transparent", color: gold, fontSize: 10, cursor: "pointer" }}>
+                    Regenerate
+                  </button>
+                  <button onClick={() => setShowProductionPlan(p => !p)}
+                    style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                    {showProductionPlan ? "Collapse" : "Expand"}
+                  </button>
+                </div>
+              </div>
+              {showProductionPlan && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
+                    <p style={{ ...labelStyle, marginBottom: 4 }}>Music Mood</p>
+                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.musicMood}</p>
+                  </div>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
+                    <p style={{ ...labelStyle, marginBottom: 4 }}>Visual Style</p>
+                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.visualStyle}</p>
+                  </div>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
+                    <p style={{ ...labelStyle, marginBottom: 4 }}>Narrator Tone</p>
+                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.narratorTone}</p>
+                  </div>
+                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
+                    <p style={{ ...labelStyle, marginBottom: 4 }}>Pacing</p>
+                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.pacing}</p>
+                  </div>
+                  {aiProductionPlan.scenes.length > 0 && (
+                    <div style={{ gridColumn: "1 / -1", maxHeight: 200, overflowY: "auto" }}>
+                      <p style={labelStyle}>Suggested Scenes</p>
+                      {aiProductionPlan.scenes.map((sc, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, padding: "6px 10px", borderRadius: 6, background: `${accent}08`, marginBottom: 4, border: `1px solid ${border}` }}>
+                          <span style={{ fontSize: 10, color: accent, fontWeight: 700, minWidth: 60 }}>Scene {i + 1}</span>
+                          <span style={{ fontSize: 11, color: "#fff", flex: 1 }}>{sc.title}</span>
+                          <span style={{ fontSize: 10, color: muted }}>{sc.duration}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Expanded summary display */}
           {expandedStory && (
             <div style={{ ...cardStyle, borderColor: `${accent}20` }}>
@@ -2419,6 +2577,25 @@ function MoviePlannerInner() {
               </div>
             </div>
 
+            {/* Character Style Classification (FIX 2) */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>Character Visual Style</label>
+              <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>This style is applied to all character portrait generation prompts.</p>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                {CHARACTER_STYLES.map(cs => (
+                  <button key={cs.id} onClick={() => setMovieCharacterStyle(cs.id)}
+                    style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${movieCharacterStyle === cs.id ? purple : border}`, background: movieCharacterStyle === cs.id ? `${purple}15` : "transparent", color: movieCharacterStyle === cs.id ? "#fff" : muted, fontSize: 12, fontWeight: movieCharacterStyle === cs.id ? 700 : 400, cursor: "pointer" }}>
+                    {cs.label}
+                  </button>
+                ))}
+              </div>
+              {movieCharacterStyle !== "realistic" && (
+                <p style={{ fontSize: 10, color: muted, marginTop: 8 }}>
+                  Portrait prompt suffix: &quot;{movieCharacterStyle.replace(/_/g, " ")} style character portrait, high quality rendering&quot;
+                </p>
+              )}
+            </div>
+
             {/* Tone + Setting side by side */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
               <div>
@@ -2476,10 +2653,13 @@ function MoviePlannerInner() {
               <label style={labelStyle}>Story Expansion Intelligence</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {[
-                  { value: "ollama",                        label: "Local LLM",  sub: "Ollama · Free · No cloud cost",                      color: green,  badge: "FREE" },
-                  { value: "claude:claude-haiku-4-5-20251001", label: "Standard",   sub: "Claude Haiku 4.5 · Fast · Low cost",                 color: blue,   badge: "FAST" },
-                  { value: "claude:claude-sonnet-4-6",      label: "Pro",        sub: "Claude Sonnet 4.6 · Best balance · Recommended",      color: accent, badge: "REC" },
-                  { value: "claude:claude-opus-4-7",        label: "Premium",    sub: "Claude Opus 4.7 · Highest quality · Most powerful",   color: gold,   badge: "TOP" },
+                  { value: "ollama",                           label: "Local LLM",   sub: "Ollama · Free · No cloud cost",                     color: green,     badge: "FREE"  },
+                  { value: "claude:claude-haiku-4-5-20251001", label: "Standard",    sub: "Claude Haiku 4.5 · Fast · Low cost",                color: blue,      badge: "FAST"  },
+                  { value: "claude:claude-sonnet-4-6",         label: "Pro",         sub: "Claude Sonnet 4.6 · Best balance · Recommended",    color: accent,    badge: "REC"   },
+                  { value: "claude:claude-opus-4-7",           label: "Premium",     sub: "Claude Opus 4.7 · Highest quality · Most powerful", color: gold,      badge: "TOP"   },
+                  { value: "openai:gpt-4o-mini",               label: "GPT-4o Mini", sub: "OpenAI · Fast · Requires OPENAI_API_KEY",           color: "#fb923c", badge: "GPT"   },
+                  { value: "openai:gpt-4o",                    label: "GPT-4o",      sub: "OpenAI · Best quality · Requires OPENAI_API_KEY",   color: "#f87171", badge: "GPT+"  },
+                  { value: "openai:o1-mini",                   label: "o1-mini",     sub: "OpenAI reasoning model · Deep analysis",            color: "#f97316", badge: "THINK" },
                 ].map(tier => {
                   const sel = storyAiProvider === tier.value;
                   return (
@@ -2650,7 +2830,7 @@ function MoviePlannerInner() {
                         <button onClick={() => {
                           fetch("/api/generation/image", {
                             method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view.`, width: 768, height: 768, model: castPortraitModel }),
+                            body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, model: castPortraitModel }),
                           }).then(r => r.json()).then(d => {
                             if (d.imageUrl || d.imagePath) {
                               setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
@@ -3280,16 +3460,25 @@ function MoviePlannerInner() {
                       <div key={sound.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: s2, border: `1px solid ${fsSaved.has(sound.id) ? `${green}30` : border}` }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sound.name}</p>
-                          <p style={{ fontSize: 9, color: muted }}>{Math.round(sound.duration)}s · {sound.license.split("/").pop()}</p>
+                          <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 2 }}>
+                            <span style={{ fontSize: 9, color: muted }}>{Math.round(sound.duration)}s</span>
+                            {sound.licenseType === "CC0" && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 6, background: "#16a34a22", color: "#4ade80", fontWeight: 700 }}>Free</span>}
+                            {sound.licenseType === "CC-BY" && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 6, background: `${blue}22`, color: blue, fontWeight: 700 }}>Attribution</span>}
+                            {(sound.licenseType === "CC-BY-NC" || sound.licenseType === "OTHER") && <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 6, background: "#dc262622", color: "#f87171", fontWeight: 700, textDecoration: "line-through" }}>Commercial Blocked</span>}
+                            {!sound.licenseType && <span style={{ fontSize: 8, color: muted }}>{sound.license}</span>}
+                          </div>
                         </div>
                         <button onClick={() => setSfxPreviewId(sfxPreviewId === sound.id ? null : sound.id)}
                           style={{ fontSize: 9, padding: "3px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>
-                          {sfxPreviewId === sound.id ? "▐▐" : "▶"}
+                          {sfxPreviewId === sound.id ? "Stop" : "Play"}
                         </button>
                         {sfxPreviewId === sound.id && <audio src={sound.previewUrl} autoPlay onEnded={() => setSfxPreviewId(null)} style={{ display: "none" }} />}
-                        <button onClick={() => saveFreesound(sound)} disabled={fsSaving === sound.id || fsSaved.has(sound.id)}
-                          style={{ fontSize: 9, padding: "3px 10px", borderRadius: 6, border: `1px solid ${green}30`, background: fsSaved.has(sound.id) ? `${green}15` : "transparent", color: fsSaved.has(sound.id) ? green : muted, cursor: "pointer", fontWeight: 600 }}>
-                          {fsSaved.has(sound.id) ? "Saved" : fsSaving === sound.id ? "..." : "Save"}
+                        <button
+                          onClick={() => sound.safeForCommercial !== false && saveFreesound(sound)}
+                          disabled={fsSaving === sound.id || fsSaved.has(sound.id) || sound.safeForCommercial === false}
+                          title={sound.safeForCommercial === false ? "CC BY-NC — not safe for commercial use" : undefined}
+                          style={{ fontSize: 9, padding: "3px 10px", borderRadius: 6, border: `1px solid ${sound.safeForCommercial === false ? "#dc262630" : `${green}30`}`, background: sound.safeForCommercial === false ? "#dc262615" : fsSaved.has(sound.id) ? `${green}15` : "transparent", color: sound.safeForCommercial === false ? "#f87171" : fsSaved.has(sound.id) ? green : muted, cursor: (sound.safeForCommercial === false || fsSaved.has(sound.id)) ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                          {sound.safeForCommercial === false ? "Blocked" : fsSaved.has(sound.id) ? "Saved" : fsSaving === sound.id ? "..." : "Save"}
                         </button>
                       </div>
                     ))}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
 import CharacterPicker from "../../components/CharacterPicker";
@@ -207,6 +207,7 @@ export default function ChildrenPlannerPage() {
 
 function ChildrenPlannerInner() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const branch = searchParams.get("branch") ?? "hybrid";
   const contentParam = searchParams.get("content") ?? "";
   const ageParam = searchParams.get("age") ?? "";
@@ -1162,18 +1163,26 @@ function ChildrenPlannerInner() {
     setGenerating(false);
   }
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const CHILDREN_PROJ_ID = "ghs_children_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  const urlProjectId = searchParams.get("projectId");
   // BUG-15 pattern: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
+  // Stable ref so save effect always uses current project ID
+  const activeProjectIdRef = useRef<string>("");
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
     let cancelled = false;
     async function restoreState() {
       isRestoringRef.current = true;
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/children-planner?projectId=${activeId}`);
+      }
+      activeProjectIdRef.current = activeId;
       try {
-        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(CHILDREN_PROJ_ID)}`);
+        const dbRes = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(activeId)}`);
         if (dbRes.ok) {
           const dbData = await dbRes.json();
           if (dbData.found && dbData.data && !cancelled) {
@@ -1226,7 +1235,7 @@ function ChildrenPlannerInner() {
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ localId: CHILDREN_PROJ_ID, data }),
+      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [textContent, expandedContent, visualStyle, narrationStyle, musicChoice, ageGroup, safetyLevel,
@@ -1460,10 +1469,13 @@ function ChildrenPlannerInner() {
           <span style={labelStyle}>Story AI Intelligence</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[
-              { value: "ollama",                           label: "Local LLM",  sub: "Ollama · Free · No cloud cost",                    color: childSafe,   badge: "FREE" },
-              { value: "claude:claude-haiku-4-5-20251001", label: "Standard",   sub: "Claude Haiku 4.5 · Fast · Low cost",               color: "#00d4ff",   badge: "FAST" },
-              { value: "claude:claude-sonnet-4-6",         label: "Pro",        sub: "Claude Sonnet 4.6 · Best balance · Recommended",   color: childAccent, badge: "REC" },
-              { value: "claude:claude-opus-4-7",           label: "Premium",    sub: "Claude Opus 4.7 · Highest quality · Most powerful", color: "#f59e0b",   badge: "TOP" },
+              { value: "ollama",                           label: "Local LLM",   sub: "Ollama · Free · No cloud cost",                     color: childSafe,   badge: "FREE" },
+              { value: "claude:claude-haiku-4-5-20251001", label: "Standard",    sub: "Claude Haiku 4.5 · Fast · Low cost",                color: "#00d4ff",   badge: "FAST" },
+              { value: "claude:claude-sonnet-4-6",         label: "Pro",         sub: "Claude Sonnet 4.6 · Best balance · Recommended",    color: childAccent, badge: "REC" },
+              { value: "claude:claude-opus-4-7",           label: "Premium",     sub: "Claude Opus 4.7 · Highest quality · Most powerful", color: "#f59e0b",   badge: "TOP" },
+              { value: "openai:gpt-4o-mini",               label: "GPT-4o Mini", sub: "OpenAI · Fast · Requires OPENAI_API_KEY",           color: "#fb923c",   badge: "GPT" },
+              { value: "openai:gpt-4o",                    label: "GPT-4o",      sub: "OpenAI · Best quality · Requires OPENAI_API_KEY",   color: "#f87171",   badge: "GPT+" },
+              { value: "openai:o1-mini",                   label: "o1-mini",     sub: "OpenAI reasoning model · Deep analysis",            color: "#f97316",   badge: "THINK" },
             ].map(tier => {
               const sel = storyAiProvider === tier.value;
               return (

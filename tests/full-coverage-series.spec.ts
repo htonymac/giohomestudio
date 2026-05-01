@@ -80,7 +80,7 @@ test.describe("Series Wizard Page — Full Coverage", () => {
     // Look for the title input
     const titleInput = page.locator("input").first();
     if (await titleInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await titleInput.triple_click();
+      await titleInput.click({ clickCount: 3 });
       await titleInput.fill("Pidgin Tales");
       await page.waitForTimeout(300);
       const val = await titleInput.inputValue();
@@ -258,7 +258,7 @@ test.describe("Series Wizard Page — Full Coverage", () => {
     // Fill title
     const titleInput = page.locator("input").first();
     if (await titleInput.isVisible({ timeout: 3000 }).catch(() => false)) {
-      await titleInput.triple_click();
+      await titleInput.click({ clickCount: 3 });
       await titleInput.fill("Pidgin Tales");
       await page.waitForTimeout(300);
     }

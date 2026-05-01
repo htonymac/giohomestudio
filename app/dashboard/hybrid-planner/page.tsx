@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import { useGate } from "../../components/PreGenerationGate";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import NarrationControls from "../../components/NarrationControls";
 import SceneImagePanel from "../../components/SceneImagePanel";
@@ -185,6 +185,7 @@ export default function HybridPlannerPage() {
 
 function HybridPlannerInner() {
   const params = useSearchParams();
+  const router = useRouter();
   const { requireGate, GateModal } = useGate();
   const { canAdvanceTo } = useCoordinator();
 
@@ -482,7 +483,7 @@ function HybridPlannerInner() {
   // ── Sound Browser (Audio tab) ─────────────────────────────────────────────
   const [soundTab, setSoundTab] = useState<"freesound" | "ai-sfx" | "upload">("freesound");
   const [fsQuery, setFsQuery] = useState("");
-  const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; username: string; previewUrl: string; tags: string[] }>>([]);
+  const [fsResults, setFsResults] = useState<Array<{ id: number; name: string; duration: number; license: string; licenseType?: string; safeForCommercial?: boolean; username: string; previewUrl: string; tags: string[] }>>([]);
   const [fsSearching, setFsSearching] = useState(false);
   const [fsSaving, setFsSaving] = useState<number | null>(null);
   const [fsSaved, setFsSaved] = useState<Set<number>>(new Set());
@@ -507,8 +508,10 @@ function HybridPlannerInner() {
   const [preflightResult, setPreflightResult] = useState<{ checks: HybridPreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
   const [preflightRunning, setPreflightRunning] = useState(false);
 
-  // ── Persistent project storage key (DB-only, no localStorage) ──
-  const ACTIVE_PROJ_ID = "ghs_hybrid_default";
+  // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
+  // Each project gets its own UUID in the URL. Refreshing the same URL restores
+  // the same project. "New Project" navigates without ?projectId= → fresh UUID.
+  const urlProjectId = params.get("projectId");
 
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
@@ -519,7 +522,13 @@ function HybridPlannerInner() {
     async function restoreState() {
       isRestoringRef.current = true;
       try {
-      const activeId = ACTIVE_PROJ_ID;
+      // If no projectId in URL, generate a fresh one and push it to the URL.
+      // This means a bare /hybrid-planner URL always starts a NEW project.
+      let activeId = urlProjectId;
+      if (!activeId) {
+        activeId = crypto.randomUUID();
+        router.replace(`/dashboard/hybrid-planner?projectId=${activeId}`);
+      }
       setActiveProjLocalId(activeId);
 
       // Load from DB
@@ -3265,6 +3274,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (!dbData.found || !dbData.data) return;
       const data = dbData.data;
       setActiveProjLocalId(targetId);
+      router.replace(`/dashboard/hybrid-planner?projectId=${targetId}`);
       setProjectId(data.projectId || null);
       setProjectTitle(data.projectTitle || "Untitled Hybrid Project");
       setProjectPhase(data.projectPhase || "STORY_INPUT");
@@ -4002,9 +4012,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <button onClick={async () => {
               // Save current project first — NO work is lost
               await flushCurrentProject();
-              // Generate a new project ID
+              // Generate a new project ID and push it into the URL
               const newId = `proj_${Date.now()}`;
               setActiveProjLocalId(newId);
+              router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
               // ── Story & scene state ──
               setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
               setIdea(""); setGenre(""); setTone(""); setExpandedSummary(""); setFullScript("");
@@ -4096,6 +4107,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           if (isActive) {
                             const newId = `proj_${Date.now()}`;
                             setActiveProjLocalId(newId);
+                            router.replace(`/dashboard/hybrid-planner?projectId=${newId}`);
                             setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
                             setIdea(""); setExpandedSummary(""); setCharacters([]); setCharactersMade(false);
                             setScenes([]); setSceneImages({}); setSceneVideos({});
@@ -5850,18 +5862,39 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <label style={{ ...labelStyle, fontSize: 9, marginBottom: 0 }}>Story AI</label>
-                  <button title="Free = Local LLM (no cost) · Standard = Claude Haiku (low cost) · Pro = Claude Sonnet (billed)"
+                  <button title="Free = Local LLM · Standard = Claude Haiku · Pro = Claude Sonnet · GPT models require OPENAI_API_KEY"
                     style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>ⓘ</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 4 }}>
                   {([
-                    { tier: "free",     label: "GHS Free",     badge: "FREE", color: "#22c55e", provider: "ollama",                      desc: "Local · No cost" },
-                    { tier: "standard", label: "GHS Standard", badge: "STD",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low cost" },
-                    { tier: "pro",      label: "GHS Pro",      badge: "PRO",  color: "#a855f7", provider: "claude:claude-sonnet-4-6",     desc: "Best quality" },
+                    { badge: "FREE",   color: "#22c55e", provider: "ollama",                          desc: "Local · Free" },
+                    { badge: "HAIKU",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low $" },
+                    { badge: "SONNET", color: "#a855f7", provider: "claude:claude-sonnet-4-6",         desc: "Balanced" },
                   ] as const).map(t => {
                     const isActive = storyAiProvider === t.provider;
                     return (
-                      <button key={t.tier} onClick={() => setStoryAiProvider(t.provider)}
+                      <button key={t.badge} onClick={() => setStoryAiProvider(t.provider)}
+                        style={{
+                          padding: "7px 4px", borderRadius: 8, border: `1px solid ${isActive ? t.color : "#ffffff15"}`,
+                          background: isActive ? `${t.color}18` : "#ffffff06", cursor: "pointer",
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                        }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, color: t.color, letterSpacing: "0.5px" }}>{t.badge}</span>
+                        <span style={{ fontSize: 8, color: isActive ? "#e0dcff" : "#6060a0", textAlign: "center" as const }}>{t.desc}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* GPT row */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                  {([
+                    { badge: "4o MINI", color: "#f59e0b", provider: "openai:gpt-4o-mini", desc: "GPT Fast" },
+                    { badge: "GPT-4o",  color: "#fb923c", provider: "openai:gpt-4o",      desc: "GPT Best" },
+                    { badge: "o1-mini", color: "#f87171", provider: "openai:o1-mini",      desc: "Reasoning" },
+                  ] as const).map(t => {
+                    const isActive = storyAiProvider === t.provider;
+                    return (
+                      <button key={t.badge} onClick={() => setStoryAiProvider(t.provider)}
                         style={{
                           padding: "7px 4px", borderRadius: 8, border: `1px solid ${isActive ? t.color : "#ffffff15"}`,
                           background: isActive ? `${t.color}18` : "#ffffff06", cursor: "pointer",
@@ -6768,7 +6801,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Sound Browser</h3>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Sound Browser</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 8, background: "#16a34a12", border: "1px solid #16a34a30" }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#4ade80", flexShrink: 0 }} />
+                <span style={{ fontSize: 9, color: "#4ade80", fontWeight: 700, fontFamily: "monospace" }}>GHS Inbuilt Library</span>
+                <span style={{ fontSize: 9, color: muted }}>— all CC0, safe for commercial use</span>
+              </div>
+            </div>
 
             {/* Tab row */}
             <div style={{ display: "flex", gap: 4, background: "#ffffff06", borderRadius: 8, padding: 3, marginBottom: 14, width: "fit-content" }}>
@@ -6842,19 +6882,33 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", marginBottom: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sound.name}</p>
                         <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
                           <span style={{ fontSize: 9, color: muted }}>{sound.duration}s</span>
-                          <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: sound.license === "CC0" ? `${accent}20` : `${blue}20`, color: sound.license === "CC0" ? accent : blue, fontWeight: 700 }}>{sound.license}</span>
+                          {sound.licenseType === "CC0" && (
+                            <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: "#16a34a22", color: "#4ade80", fontWeight: 700 }}>Free</span>
+                          )}
+                          {sound.licenseType === "CC-BY" && (
+                            <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: `${blue}22`, color: blue, fontWeight: 700 }}>Attribution</span>
+                          )}
+                          {(sound.licenseType === "CC-BY-NC" || sound.licenseType === "OTHER") && (
+                            <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: "#dc262622", color: "#f87171", fontWeight: 700, textDecoration: "line-through" }}>Commercial Blocked</span>
+                          )}
+                          {!sound.licenseType && (
+                            <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: `${blue}20`, color: blue, fontWeight: 700 }}>{sound.license}</span>
+                          )}
                           <span style={{ fontSize: 9, color: muted }}>by {sound.username}</span>
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
                           {/* Preview */}
                           <button onClick={() => setSfxPreviewId(sfxPreviewId === sound.id ? null : sound.id)}
                             style={{ flex: 1, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: sfxPreviewId === sound.id ? `${blue}20` : "transparent", color: sfxPreviewId === sound.id ? blue : muted, fontSize: 10, cursor: "pointer", fontWeight: 600 }}>
-                            {sfxPreviewId === sound.id ? "⏹ Stop" : "▶ Preview"}
+                            {sfxPreviewId === sound.id ? "Stop" : "Preview"}
                           </button>
-                          {/* Save */}
-                          <button onClick={() => saveFreesound(sound)} disabled={fsSaved.has(sound.id) || fsSaving === sound.id}
-                            style={{ flex: 1, padding: "5px 8px", borderRadius: 7, border: "none", background: fsSaved.has(sound.id) ? `${accent}20` : fsSaving === sound.id ? "#2a2a40" : accent, color: fsSaved.has(sound.id) ? accent : "#000", fontSize: 10, cursor: fsSaved.has(sound.id) || fsSaving === sound.id ? "not-allowed" : "pointer", fontWeight: 700 }}>
-                            {fsSaved.has(sound.id) ? "Saved" : fsSaving === sound.id ? "Saving..." : "Save"}
+                          {/* Save — blocked for CC BY-NC */}
+                          <button
+                            onClick={() => sound.safeForCommercial !== false && saveFreesound(sound)}
+                            disabled={fsSaved.has(sound.id) || fsSaving === sound.id || sound.safeForCommercial === false}
+                            title={sound.safeForCommercial === false ? "CC BY-NC — not safe for commercial use" : undefined}
+                            style={{ flex: 1, padding: "5px 8px", borderRadius: 7, border: "none", background: sound.safeForCommercial === false ? "#dc262622" : fsSaved.has(sound.id) ? `${accent}20` : fsSaving === sound.id ? "#2a2a40" : accent, color: sound.safeForCommercial === false ? "#f87171" : fsSaved.has(sound.id) ? accent : "#000", fontSize: 10, cursor: (fsSaved.has(sound.id) || fsSaving === sound.id || sound.safeForCommercial === false) ? "not-allowed" : "pointer", fontWeight: 700 }}>
+                            {sound.safeForCommercial === false ? "Blocked" : fsSaved.has(sound.id) ? "Saved" : fsSaving === sound.id ? "Saving..." : "Save"}
                           </button>
                         </div>
                         {/* Hidden audio player — plays when preview active */}
@@ -7966,7 +8020,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <a href={assembledVideoUrl} download style={{ flex: 1, textDecoration: "none" }}>
                             <button style={{ ...btnPrimary, width: "100%", background: accent }}>⬇ Download</button>
                           </a>
-                          <a href="/dashboard/collaborative-editor?from=hybrid-planner" style={{ flex: 1, textDecoration: "none" }}>
+                          <a href={`/dashboard/video-editor?videoUrl=${encodeURIComponent(assembledVideoUrl)}`} style={{ flex: 1, textDecoration: "none" }}>
                             <button style={{ ...btnPrimary, width: "100%", background: purple }}>Open in Editor</button>
                           </a>
                           <button onClick={() => setActiveTab("screenplay")}

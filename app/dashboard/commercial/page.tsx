@@ -3529,6 +3529,8 @@ function CommercialPageInner() {
   const characterIdParam = searchParams.get("characterId") ?? "";
   const [view,    setViewRaw]    = useState<View>("list");
   const [project, setProject] = useState<CommercialProject | null>(null);
+  // Track which view opened the editor so back navigates correctly (mode2 → back to mode2, not list)
+  const [editorSource, setEditorSource] = useState<View>("list");
 
   // Sidebar click forces page reload (handled in Sidebar component) which resets state
 
@@ -3561,7 +3563,11 @@ function CommercialPageInner() {
   if (view === "editor" && project) {
     return (
       <div className="w-full p-1">
-        <CommercialEditor initialProject={project} onBack={() => { setProject(null); setView("list"); }} initialCharacterId={characterIdParam || undefined} />
+        <CommercialEditor
+          initialProject={project}
+          onBack={() => { setProject(null); setView(editorSource === "mode2" ? "mode2" : "list"); }}
+          initialCharacterId={characterIdParam || undefined}
+        />
       </div>
     );
   }
@@ -3571,7 +3577,7 @@ function CommercialPageInner() {
       <div className="w-full p-1">
         <AiAdBuilder
           onBack={() => setView("list")}
-          onOpenProject={p => { setProject(p); setView("editor"); }}
+          onOpenProject={p => { setProject(p); setEditorSource("mode2"); setView("editor"); }}
         />
       </div>
     );
@@ -3629,7 +3635,7 @@ function CommercialPageInner() {
       </div>
       <ProjectList
         onOpen={p => {
-          fetch(`/api/commercial/projects/${p.id}`).then(r => r.json()).then(full => { setProject(full); setView("editor"); });
+          fetch(`/api/commercial/projects/${p.id}`).then(r => r.json()).then(full => { setProject(full); setEditorSource("list"); setView("editor"); });
         }}
         onNew={() => setView("new")}
       />

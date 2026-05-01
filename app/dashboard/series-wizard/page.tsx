@@ -121,6 +121,16 @@ const SCENE_TYPES = [
 
 const SCENE_TYPE_MAP = Object.fromEntries(SCENE_TYPES.map(t => [t.id, t]));
 
+// 5-Tier Sound Model Selector (binding pattern — same as Hybrid Planner)
+const SERIES_SOUND_TIERS = [
+  { id: "piper_free",     label: "Standard",   subtitle: "Built-in GHS",    cost: "Free",    badge: "DEFAULT", provider: "piper",       model: "en_US-lessac-medium" },
+  { id: "piper_extended", label: "Start Plus", subtitle: "Extended Piper",  cost: "Low",     badge: "",        provider: "piper",       model: "en_US-libritts-high" },
+  { id: "ghs_karaoke",   label: "Sound Pro",  subtitle: "GHS Karaoke",     cost: "Mid",     badge: "PRO",     provider: "piper",       model: "en_US-ryan-high" },
+  { id: "elevenlabs",    label: "Classic",    subtitle: "ElevenLabs",      cost: "Premium", badge: "",        provider: "elevenlabs",  model: "" },
+  { id: "gemini",        label: "Premium",    subtitle: "Gemini Audio",    cost: "Highest", badge: "BEST",    provider: "gemini",      model: "" },
+] as const;
+type SeriesSoundTierId = typeof SERIES_SOUND_TIERS[number]["id"];
+
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
 const AID_VIDEO_MODELS: Array<{
@@ -253,6 +263,7 @@ function SeriesPlannerInner() {
   const [globalNarration, setGlobalNarration] = useState("narrator");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
   const [narratorVoiceProvider, setNarratorVoiceProvider] = useState<"piper" | "elevenlabs">("piper");
+  const [soundTierId, setSoundTierId] = useState<SeriesSoundTierId>("piper_free");
 
   // ── Assembly ──
   const [assembling, setAssembling] = useState(false);
@@ -1058,18 +1069,21 @@ function SeriesPlannerInner() {
     setAiPickingMusic(false);
   }
 
-  // ── Generate narration audio per scene ──
+  // ── Generate narration audio per scene (uses selected sound tier) ──
   async function generateSceneNarration(scene: SeriesScene) {
     const text = scene.narrationScript;
     if (!text?.trim()) { setErrorMsg(`Scene ${scene.scene} has no narration text. Add text first.`); return; }
     setLastAction(`Generating narration audio for Scene ${scene.scene}...`);
+    const tier = SERIES_SOUND_TIERS.find(t => t.id === soundTierId) ?? SERIES_SOUND_TIERS[0];
     try {
       const res = await fetch("/api/hybrid/narrate-piper", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text, sceneId: scene.sceneId,
-          model: narratorPiperModel, speed: 0.85,
-          voiceProvider: narratorVoiceProvider,
+          model: tier.model || narratorPiperModel,
+          speed: 0.85,
+          voiceProvider: tier.provider,
+          soundTier: tier.id,
         }),
       });
       const data = await res.json();
@@ -1954,6 +1968,38 @@ function SeriesPlannerInner() {
               Import Music
             </button>
           </a>
+        </div>
+
+        {/* ── 5-Tier Sound Model Selector ── */}
+        <div style={{ ...card, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Narration Voice Tier</p>
+          <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>Select the TTS engine for scene narration. Free = built-in Piper. Premium = ElevenLabs / Gemini.</p>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+            {SERIES_SOUND_TIERS.map(t => {
+              const isActive = soundTierId === t.id;
+              return (
+                <button key={t.id} onClick={() => setSoundTierId(t.id)}
+                  style={{
+                    flex: "1 0 80px", padding: "10px 6px", borderRadius: 10,
+                    border: `1px solid ${isActive ? accent : border}`,
+                    background: isActive ? `${accent}12` : surface,
+                    cursor: "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2,
+                  }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: isActive ? accent : muted, letterSpacing: "0.5px" }}>
+                    {t.badge || t.label.toUpperCase()}
+                  </span>
+                  <span style={{ fontSize: 8, color: isActive ? "#e0dcff" : muted, textAlign: "center" as const }}>{t.subtitle}</span>
+                  <span style={{ fontSize: 8, color: isActive ? gold : muted }}>{t.cost}</span>
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ fontSize: 9, color: muted, marginTop: 8 }}>
+            Active: <span style={{ color: accent, fontWeight: 700 }}>
+              {SERIES_SOUND_TIERS.find(t => t.id === soundTierId)?.label}
+              {SERIES_SOUND_TIERS.find(t => t.id === soundTierId)?.model ? ` — ${SERIES_SOUND_TIERS.find(t => t.id === soundTierId)?.model}` : ""}
+            </span>
+          </p>
         </div>
 
         {/* ── SFX Library ── */}

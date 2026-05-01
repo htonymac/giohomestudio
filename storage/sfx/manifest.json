@@ -1,0 +1,74 @@
+[
+  {
+    "id": "inbuilt_helicopter",
+    "event": "helicopter",
+    "filename": "helicopter.mp3",
+    "description": "Helicopter rotor blades overhead",
+    "category": "vehicle",
+    "tags": ["helicopter", "aircraft", "rotor", "aerial", "vehicle", "sky"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  },
+  {
+    "id": "inbuilt_car_engine",
+    "event": "car_engine",
+    "filename": "car_engine.mp3",
+    "description": "Car engine starting and idling",
+    "category": "vehicle",
+    "tags": ["car", "engine", "vehicle", "motor", "drive", "auto"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  },
+  {
+    "id": "inbuilt_car_crash",
+    "event": "car_crash",
+    "filename": "car_crash.mp3",
+    "description": "Car collision / metal crash impact",
+    "category": "impact",
+    "tags": ["crash", "car", "collision", "impact", "accident", "smash"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  },
+  {
+    "id": "inbuilt_plane_engine",
+    "event": "plane_engine",
+    "filename": "plane_engine.mp3",
+    "description": "Airplane engine roar during flight",
+    "category": "vehicle",
+    "tags": ["plane", "airplane", "jet", "engine", "aircraft", "flight"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  },
+  {
+    "id": "inbuilt_airport_ambience",
+    "event": "airport_ambience",
+    "filename": "airport_ambience.mp3",
+    "description": "Airport terminal crowd and announcement ambience",
+    "category": "urban",
+    "tags": ["airport", "terminal", "crowd", "announcement", "travel", "ambience"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  },
+  {
+    "id": "inbuilt_gunshot",
+    "event": "gunshot_inbuilt",
+    "filename": "gunshot_inbuilt.mp3",
+    "description": "Single gunshot — sharp crack",
+    "category": "weapon",
+    "tags": ["gunshot", "gun", "shot", "weapon", "bang", "pistol"],
+    "license": "CC0",
+    "licenseType": "CC0",
+    "source": "ghs_inbuilt",
+    "available": false
+  }
+]

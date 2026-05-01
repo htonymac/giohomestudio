@@ -67,22 +67,45 @@ export async function GET(req: NextRequest) {
 
   const data = await res.json() as { count: number; results: FreesoundResult[] };
 
+  const SAFE_AUTO_LICENSES = ["CC0", "CC-BY"];
+
+  function normalizeLicense(raw: string): { label: string; type: "CC0" | "CC-BY" | "CC-BY-NC" | "OTHER" } {
+    const u = (raw || "").toLowerCase();
+    if (u.includes("/zero/") || u.includes("/publicdomain/") || u.includes("cc0")) {
+      return { label: "CC0", type: "CC0" };
+    }
+    if (u.includes("nc")) {
+      return { label: "CC BY-NC", type: "CC-BY-NC" };
+    }
+    if (u.includes("/by/") || u.includes("/by-sa/") || u.includes("/by-nd/")) {
+      return { label: "CC BY", type: "CC-BY" };
+    }
+    return { label: "CC", type: "OTHER" };
+  }
+
+  const mapped = (data.results || []).map(r => {
+    const { label, type } = normalizeLicense(r.license || "");
+    return {
+      id: r.id,
+      name: r.name,
+      duration: Math.round(r.duration),
+      license: label,
+      licenseType: type,
+      licenseUrl: r.license,
+      safeForCommercial: SAFE_AUTO_LICENSES.includes(type),
+      username: r.username,
+      description: (r.description || "").slice(0, 100),
+      tags: (r.tags || []).slice(0, 5),
+      previewUrl: r.previews?.["preview-hq-mp3"] || r.previews?.["preview-lq-mp3"] || "",
+    };
+  });
+
   return NextResponse.json({
     ok: true,
     query: q,
     page,
     count: data.count,
-    results: (data.results || []).map(r => ({
-      id: r.id,
-      name: r.name,
-      duration: Math.round(r.duration),
-      license: r.license?.includes("0") ? "CC0" : r.license?.includes("by/4") ? "CC-BY" : "CC",
-      licenseUrl: r.license,
-      username: r.username,
-      description: (r.description || "").slice(0, 100),
-      tags: (r.tags || []).slice(0, 5),
-      previewUrl: r.previews?.["preview-hq-mp3"] || r.previews?.["preview-lq-mp3"] || "",
-    })),
+    results: mapped,
   });
 }
 

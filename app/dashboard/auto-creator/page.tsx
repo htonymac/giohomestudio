@@ -164,46 +164,62 @@ export default function AIContentCreatorPage() {
   const [burningCaptions, setBurningCaptions] = useState(false);
   const [captionedVideoUrl, setCaptionedVideoUrl] = useState<string | null>(null);
 
-  // ── Session recovery (localStorage) ──
-  const STORAGE_KEY = "ghs_ai_creator_session";
+  // ── Session recovery (DB-persisted, no localStorage) ──
+  const AUTO_CREATOR_PROJECT_ID = "ghs_auto_creator_default";
   const [showResume, setShowResume] = useState(false);
+  const dbSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Save session on every meaningful state change
+  // Load saved state on mount
+  useEffect(() => {
+    async function loadSavedState() {
+      try {
+        const res = await fetch(`/api/hybrid/saved-state?localId=${AUTO_CREATOR_PROJECT_ID}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (!json.found || !json.data) return;
+        const session = json.data as Record<string, unknown>;
+        const savedAt = typeof session.savedAt === "number" ? session.savedAt : 0;
+        const age = Date.now() - savedAt;
+        if (age < 24 * 60 * 60 * 1000 && typeof session.step === "number" && session.step > 1) {
+          setShowResume(true);
+        }
+      } catch { /* ignore */ }
+    }
+    loadSavedState();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Debounced save to DB on every meaningful state change
   useEffect(() => {
     if (step === 1 && !selectedPlatform) return; // don't save empty state
-    const session = {
-      step,
-      selectedPlatform,
-      selectedFormat,
-      aiTier,
-      // Save media metadata + server URLs for resume (File objects can't be stored)
-      mediaItems: media.map(m => ({ id: m.id, name: m.name, type: m.type, serverUrl: m.serverUrl || "" })),
-      detectedActivities,
-      suggestions,
-      selectedSuggestion,
-      draft,
-      sugProvider,
-      musicUrl,
-      narrationAudioUrl,
-      assembledVideoUrl,
-      savedAt: Date.now(),
-    };
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(session)); } catch { /* ignore */ }
-  }, [step, selectedPlatform, selectedFormat, aiTier, media, detectedActivities, suggestions, selectedSuggestion, draft, sugProvider]);
-
-  // Check for saved session on mount
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const session = JSON.parse(raw);
-      // Only show resume if session is less than 24 hours old and past step 1
-      const age = Date.now() - (session.savedAt ?? 0);
-      if (age < 24 * 60 * 60 * 1000 && session.step > 1) {
-        setShowResume(true);
-      }
-    } catch { /* ignore */ }
-  }, []);
+    if (dbSaveTimerRef.current) clearTimeout(dbSaveTimerRef.current);
+    dbSaveTimerRef.current = setTimeout(async () => {
+      const session = {
+        step,
+        selectedPlatform,
+        selectedFormat,
+        aiTier,
+        mediaItems: media.map(m => ({ id: m.id, name: m.name, type: m.type, serverUrl: m.serverUrl || "" })),
+        detectedActivities,
+        suggestions,
+        selectedSuggestion,
+        draft,
+        sugProvider,
+        musicUrl,
+        narrationAudioUrl,
+        assembledVideoUrl,
+        savedAt: Date.now(),
+      };
+      try {
+        await fetch("/api/hybrid/saved-state", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ localId: AUTO_CREATOR_PROJECT_ID, data: session }),
+        });
+      } catch { /* ignore — non-blocking */ }
+    }, 1200);
+    return () => { if (dbSaveTimerRef.current) clearTimeout(dbSaveTimerRef.current); };
+  }, [step, selectedPlatform, selectedFormat, aiTier, media, detectedActivities, suggestions, selectedSuggestion, draft, sugProvider, musicUrl, narrationAudioUrl, assembledVideoUrl]);
 
   // Pick up selected music from SFX Library (select+return flow)
   useEffect(() => {
@@ -215,64 +231,77 @@ export default function AIContentCreatorPage() {
         setMusicUrl(selected.url);
         localStorage.removeItem("ghs_selected_music");
         // Auto-resume session if we came from select mode
-        const sessionRaw = localStorage.getItem(STORAGE_KEY);
-        if (sessionRaw) {
-          const s = JSON.parse(sessionRaw);
-          if (s.step >= 6) {
-            resumeSession();
-          }
-        }
+        fetch(`/api/hybrid/saved-state?localId=${AUTO_CREATOR_PROJECT_ID}`)
+          .then(r => r.json())
+          .then((json) => {
+            if (json.found && json.data && json.data.step >= 6) {
+              resumeFromData(json.data);
+            }
+          })
+          .catch(() => { /* ignore */ });
       }
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  function resumeSession() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      if (s.selectedPlatform) setSelectedPlatform(s.selectedPlatform);
-      if (s.selectedFormat) setSelectedFormat(s.selectedFormat);
-      if (s.detectedActivities) setDetectedActivities(s.detectedActivities);
-      if (s.suggestions) setSuggestions(s.suggestions);
-      if (s.selectedSuggestion) setSelectedSuggestion(s.selectedSuggestion);
-      if (s.draft) setDraft(s.draft);
-      if (s.sugProvider) setSugProvider(s.sugProvider);
-      if (s.aiTier) setAiTier(s.aiTier);
-      if (s.musicUrl) setMusicUrl(s.musicUrl);
-      if (s.narrationAudioUrl) setNarrationAudioUrl(s.narrationAudioUrl);
-      if (s.assembledVideoUrl) setAssembledVideoUrl(s.assembledVideoUrl);
-      // Restore media from server URLs — create MediaItem stubs with serverUrl as display URL
-      if (s.mediaItems?.length > 0) {
-        const restored: MediaItem[] = s.mediaItems
-          .filter((m: { serverUrl?: string }) => m.serverUrl)
-          .map((m: { id: string; name: string; type: string; serverUrl: string }) => ({
-            id: m.id,
-            name: m.name,
-            type: m.type as "image" | "video",
-            url: m.serverUrl, // use server URL for display
-            serverUrl: m.serverUrl,
-            file: new File([], m.name), // stub File — Build Video will use serverUrl
-          }));
-        if (restored.length > 0) {
-          setMedia(restored);
-          setMediaOrder(restored.map((m: MediaItem) => m.id));
-        }
+  function resumeFromData(s: Record<string, unknown>) {
+    if (s.selectedPlatform) setSelectedPlatform(s.selectedPlatform as string);
+    if (s.selectedFormat) setSelectedFormat(s.selectedFormat as string);
+    if (s.detectedActivities) setDetectedActivities(s.detectedActivities as DetectedActivity[]);
+    if (s.suggestions) setSuggestions(s.suggestions as Suggestion[]);
+    if (s.selectedSuggestion) setSelectedSuggestion(s.selectedSuggestion as Suggestion);
+    if (s.draft) setDraft(s.draft as Draft);
+    if (s.sugProvider) setSugProvider(s.sugProvider as string);
+    if (s.aiTier) setAiTier(s.aiTier as AITier);
+    if (s.musicUrl) setMusicUrl(s.musicUrl as string);
+    if (s.narrationAudioUrl) setNarrationAudioUrl(s.narrationAudioUrl as string);
+    if (s.assembledVideoUrl) setAssembledVideoUrl(s.assembledVideoUrl as string);
+    const mediaItems = s.mediaItems as Array<{ id: string; name: string; type: string; serverUrl: string }> | undefined;
+    if (mediaItems && mediaItems.length > 0) {
+      const restored: MediaItem[] = mediaItems
+        .filter(m => m.serverUrl)
+        .map(m => ({
+          id: m.id,
+          name: m.name,
+          type: m.type as "image" | "video",
+          url: m.serverUrl,
+          serverUrl: m.serverUrl,
+          file: new File([], m.name),
+        }));
+      if (restored.length > 0) {
+        setMedia(restored);
+        setMediaOrder(restored.map(m => m.id));
       }
-      const resumeStep = s.step <= 2 ? (s.selectedPlatform ? 2 : 1) : s.step;
-      setStep(resumeStep as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8);
-      setShowResume(false);
-    } catch { setShowResume(false); }
+    }
+    const rawStep = typeof s.step === "number" ? s.step : 1;
+    const resumeStep = rawStep <= 2 ? (s.selectedPlatform ? 2 : 1) : rawStep;
+    setStep(resumeStep as 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8);
+    setShowResume(false);
+  }
+
+  function resumeSession() {
+    fetch(`/api/hybrid/saved-state?localId=${AUTO_CREATOR_PROJECT_ID}`)
+      .then(r => r.json())
+      .then((json) => {
+        if (json.found && json.data) {
+          resumeFromData(json.data as Record<string, unknown>);
+        } else {
+          setShowResume(false);
+        }
+      })
+      .catch(() => { setShowResume(false); });
   }
 
   function dismissResume() {
     setShowResume(false);
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
   }
 
   function clearSession() {
-    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: AUTO_CREATOR_PROJECT_ID, data: { step: 1, savedAt: 0 } }),
+    }).catch(() => { /* ignore */ });
   }
 
   // ── Helpers ──

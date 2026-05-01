@@ -7,6 +7,29 @@ import ModelPicker from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { ds } from "../../../lib/designSystem";
+import { safeJson } from "../../../lib/api-utils";
+
+// Model ID mapping: ModelPicker UI values → /api/video/generate model keys
+const VIDEO_MODEL_MAP: Record<string, string> = {
+  // MuAPI variants → route to seedance (MuAPI provider)
+  "muapi_wan_v2_1_720p": "wan25",
+  "muapi_wan_v2_1_1080p": "wan25-pro",
+  "muapi_seedance_v2": "seedance",
+  // Pass-through for already-valid IDs
+  "wan25": "wan25",
+  "wan25-pro": "wan25-pro",
+  "kling2": "kling2",
+  "kling25-turbo": "kling25-turbo",
+  "kling3-pro": "kling3-pro",
+  "seedance": "seedance",
+  "hailuo-pro": "hailuo-pro",
+  "hailuo-fast": "hailuo-fast",
+  "runway": "runway",
+};
+
+function resolveVideoModel(uiModel: string): string {
+  return VIDEO_MODEL_MAP[uiModel] ?? "wan25"; // safe default
+}
 
 // Short Video Creator — Quick social content with proper flow
 
@@ -51,7 +74,7 @@ export default function ShortVideoPage() {
   const [assignedCharacter, setAssignedCharacter] = useState<{ id: string; characterId: string | null; name: string; visualDescription: string | null } | null>(null);
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [videoModel, setVideoModel] = useState("muapi_wan_v2_1_720p");
+  const [videoModel, setVideoModel] = useState("wan25");
   const [imageModel, setImageModel] = useState("fal_flux_schnell");
 
   const saveSession = useCallback(() => {
@@ -106,42 +129,48 @@ export default function ShortVideoPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: `${musicMood} background music, ${duration}`, mood: musicMood, tier: aiTier, durationSeconds: parseInt(duration) || 30 }),
         });
-        if (!musicRes.ok) {
-          const e = await musicRes.json().catch(() => ({}));
-          setErrorMsg(`Music generation failed: ${e.error || `HTTP ${musicRes.status}`}`);
+        try {
+          const musicData = await safeJson<{ musicPath?: string; error?: string }>(musicRes, "music/generate");
+          if (musicData.musicPath) musicUrl = `/api/media/${musicData.musicPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        } catch (e) {
+          setErrorMsg(`Music generation failed: ${e instanceof Error ? e.message : "HTTP error"}`);
           setGenerating(false);
           return;
         }
-        const musicData = await musicRes.json();
-        if (musicData.musicPath) musicUrl = `/api/media/${musicData.musicPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
       }
 
       const ar = format.includes("9:16") ? "9:16" : format.includes("1:1") ? "1:1" : "16:9";
+      // Resolve UI model ID to valid API model key before sending
+      const resolvedModel = resolveVideoModel(videoModel);
       const videoRes = await fetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.${assignedCharacter?.visualDescription ? ` Character: ${assignedCharacter.visualDescription}.` : ""}`, model: videoModel, imageModel, aspectRatio: ar, llmModel: getModelForTier(aiTier).llmValue }),
+        body: JSON.stringify({ prompt: `${prompt}. Style: ${contentType}. Duration: ${duration}.${assignedCharacter?.visualDescription ? ` Character: ${assignedCharacter.visualDescription}.` : ""}`, model: resolvedModel, imageModel, aspectRatio: ar, llmModel: getModelForTier(aiTier).llmValue }),
       });
-      if (!videoRes.ok) {
-        const e = await videoRes.json().catch(() => ({}));
-        setErrorMsg(`Video generation failed: ${e.error || `HTTP ${videoRes.status}`}`);
+      let videoData: { outputUrl?: string; error?: string };
+      try {
+        videoData = await safeJson<{ outputUrl?: string; error?: string }>(videoRes, "video/generate");
+      } catch (e) {
+        setErrorMsg(`Video generation failed: ${e instanceof Error ? e.message : "HTTP error"}`);
         setGenerating(false);
         return;
       }
-      const videoData = await videoRes.json();
 
-      if (videoData.outputUrl) {
+      if (videoData.error) {
+        setErrorMsg(`Video generation failed: ${videoData.error}`);
+      } else if (videoData.outputUrl) {
         if (musicUrl) {
           const assembleRes = await fetch("/api/video/assemble", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: `Short: ${prompt.slice(0, 30)}`, scenes: [{ scene: 1, videoUrl: videoData.outputUrl }], musicUrl }),
           });
-          if (!assembleRes.ok) {
-            setResultUrl(videoData.outputUrl);
-          } else {
-            const assembleData = await assembleRes.json();
-            setResultUrl(assembleData.outputUrl ?? videoData.outputUrl);
+          try {
+            const assembleData = await safeJson<{ outputUrl?: string }>(assembleRes, "video/assemble");
+            setResultUrl(assembleData.outputUrl ?? videoData.outputUrl!);
+          } catch {
+            // assemble failed but we have the raw video — use it
+            setResultUrl(videoData.outputUrl!);
           }
         } else {
           setResultUrl(videoData.outputUrl);
@@ -318,7 +347,7 @@ export default function ShortVideoPage() {
 
         {/* Error */}
         {errorMsg && (
-          <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: ds.radius.sm, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
+          <div data-testid="short-video-error" style={{ marginTop: 14, padding: "12px 16px", borderRadius: ds.radius.sm, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontSize: 13 }}>
             {errorMsg}
           </div>
         )}
