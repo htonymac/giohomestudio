@@ -19,7 +19,7 @@ import type { MusicProviderKey } from "@/modules/music-provider";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { recordingId, brief: briefOverride, mode: modeOverride } = body;
+    const { recordingId, brief: briefOverride, mode: modeOverride, providerKey: providerKeyOverride } = body;
 
     if (!recordingId) {
       return NextResponse.json({ error: "recordingId required" }, { status: 400 });
@@ -90,7 +90,11 @@ export async function POST(req: NextRequest) {
     let providerKey: MusicProviderKey;
     let hasLyrics = false;
 
-    if (isInstrumental) {
+    if (providerKeyOverride && ["stock", "stable_audio", "kie", "mubert"].includes(providerKeyOverride)) {
+      // Explicit tier override from UI
+      providerKey = providerKeyOverride as MusicProviderKey;
+      hasLyrics = providerKey === "kie";
+    } else if (isInstrumental) {
       // Mode E — instrumental only
       hasLyrics = false;
       if (durationSec <= 47) {

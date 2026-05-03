@@ -1,6 +1,6 @@
 "use client";
 // S15 BUG-22b fix: full model unlock 2026-04-30
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
@@ -46,8 +46,7 @@ const DURATIONS = ["15 sec", "30 sec", "45 sec", "60 sec"];
 const FORMATS = ["9:16 Vertical", "1:1 Square", "16:9 Horizontal"];
 const MUSIC_MOODS = ["Upbeat", "Calm", "Dramatic", "Romantic", "Hip Hop", "Electronic", "Cinematic", "No Music"];
 
-const SESSION_KEY = "ghs_short_session";
-const SESSION_TTL = 24 * 60 * 60 * 1000;
+const SHORT_DB_KEY = "ghs_shortvideo_session";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -77,42 +76,54 @@ export default function ShortVideoPage() {
   const [videoModel, setVideoModel] = useState("wan25");
   const [imageModel, setImageModel] = useState("fal_flux_schnell");
 
+  const restoredRef = useRef(false);
+
+  // ── Restore state on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/hybrid/saved-state?localId=${SHORT_DB_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.found || !d.data) return;
+        const s = d.data as Record<string, unknown>;
+        if (s.prompt !== undefined) setPrompt(s.prompt as string);
+        if (s.contentType !== undefined) setContentType(s.contentType as string);
+        if (s.duration !== undefined) setDuration(s.duration as string);
+        if (s.format !== undefined) setFormat(s.format as string);
+        if (s.musicMood !== undefined) setMusicMood(s.musicMood as string);
+        if (s.aiTier !== undefined) setAiTier(s.aiTier as AITier);
+        if (s.resultUrl !== undefined) setResultUrl(s.resultUrl as string | null);
+        if (s.videoModel !== undefined) setVideoModel(s.videoModel as string);
+        if (s.imageModel !== undefined) setImageModel(s.imageModel as string);
+        if ((s.prompt as string) || (s.contentType as string)) setShowResume(true);
+      })
+      .catch(() => {})
+      .finally(() => { restoredRef.current = true; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save state on changes ─────────────────────────────────────────────
   const saveSession = useCallback(() => {
-    if (!prompt && !contentType) return;
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        prompt, contentType, duration, format, musicMood, resultUrl, savedAt: Date.now(),
-      }));
-    } catch { /* quota */ }
-  }, [prompt, contentType, duration, format, musicMood, resultUrl]);
+    if (!restoredRef.current) return;
+    const draft = { prompt, contentType, duration, format, musicMood, aiTier, resultUrl, videoModel, imageModel };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: SHORT_DB_KEY, data: draft }),
+    }).catch(() => {});
+  }, [prompt, contentType, duration, format, musicMood, aiTier, resultUrl, videoModel, imageModel]);
 
   useEffect(() => { saveSession(); }, [saveSession]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      if (Date.now() - s.savedAt > SESSION_TTL) { localStorage.removeItem(SESSION_KEY); return; }
-      if (s.prompt || s.contentType) setShowResume(true);
-    } catch { /* corrupted */ }
-  }, []);
-
   function resumeSession() {
-    try {
-      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
-      if (s.prompt) setPrompt(s.prompt);
-      if (s.contentType) setContentType(s.contentType);
-      if (s.duration) setDuration(s.duration);
-      if (s.format) setFormat(s.format);
-      if (s.musicMood) setMusicMood(s.musicMood);
-      if (s.resultUrl) setResultUrl(s.resultUrl);
-    } catch { /* ignore */ }
     setShowResume(false);
   }
 
   function startFresh() {
-    localStorage.removeItem(SESSION_KEY);
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: SHORT_DB_KEY, data: {} }),
+    }).catch(() => {});
     setShowResume(false);
   }
 

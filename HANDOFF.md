@@ -1,3 +1,25 @@
+# GHS Handoff — 2026-05-02 (Smart Builder auto-refresh fix)
+
+## Done this session
+- **Smart Builder character not appearing in list** — fixed `app/dashboard/character-voices/page.tsx` L919 (handleBuild fires `onCreated()` right after `setResult(data)`) + L955 (X close button refreshes if a character was built). Logged in PROBLEM_AND_FIX.md entry #0.
+- Dev server confirmed up on port 3200, character-voices page returns 200.
+- Port audit clean: 3040=Marabiz, 3050=stale HMKSync local, 3060=HMKSync preview tunnel, 3200=GHS.
+
+## Branch / commit
+- Working tree edits only — NOT committed yet. Two-line fix in one file.
+
+## Next exact steps
+1. Browser-test: open `http://localhost:3200/dashboard/character-voices`, run Smart Builder, confirm new character shows in list immediately (no Done click needed).
+2. If green → commit on a feature branch (`fix/character-voices-auto-refresh`) and merge to main.
+3. Resume the broader GHS Apr30 list (`project_ghs_planner_corrections_apr30.md`): tab order, Sound tab 5-tier model selector, scene inline edit, bear fix S1-S12 not merged, slices SA-SE.
+
+## Open from prior sessions (still pending)
+- Merge `fix/ghs-db-persistence-pipeline` (was pending Apr 30)
+- Items from `project_ghs_session_apr24.md`: model selector in Ad Editor → model name chips → tab reorganization
+- Finance Phase 2
+
+---
+
 # GHS Handoff — 2026-04-30 (critical pipeline fixes — branch: fix/ghs-pipeline-critical)
 
 ## Completed this session

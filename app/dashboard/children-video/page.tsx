@@ -535,40 +535,23 @@ export default function ChildrenVideoPage() {
             </p>
             <div style={{ display: "flex", gap: 12, overflowX: "auto", paddingBottom: 4 }}>
               {[
-                { src: "/api/media/demo/children_final_demo.mp4", title: "ABC + Counting + Colors", type: "Full Demo", badge: "Text + Voice + Music" },
-                { src: "/api/media/demo/children_hybrid_demo.mp4", title: "Storybook Style", type: "Read-Along", badge: "Hybrid" },
-                { src: "/api/media/demo/image_story_demo.mp4", title: "Image Story", type: "Budget", badge: "Hybrid" },
+                { title: "ABC + Counting + Colors", type: "Full Demo", badge: "Text + Voice + Music" },
+                { title: "Storybook Style", type: "Read-Along", badge: "Hybrid" },
+                { title: "Image Story", type: "Budget", badge: "Hybrid" },
               ].map(v => (
-                <div key={v.title} style={{ flexShrink: 0, width: 220, borderRadius: 14, overflow: "hidden", border: `1px solid ${playingVideo === v.src ? childAccent : border}`, background: surface, cursor: "pointer", position: "relative" }}>
-                  {playingVideo === v.src ? (
-                    <div>
-                      <video src={v.src} controls autoPlay style={{ width: "100%", maxHeight: 200 }}
-                        onEnded={() => setPlayingVideo(null)} />
-                      <button onClick={() => setPlayingVideo(null)}
-                        style={{ position: "absolute", top: 6, right: 6, fontSize: 9, padding: "3px 8px", borderRadius: 6, background: "rgba(0,0,0,0.7)", color: "#fff", border: "none", cursor: "pointer", zIndex: 10 }}>
-                        Close
-                      </button>
+                <div key={v.title} style={{ flexShrink: 0, width: 220, borderRadius: 14, overflow: "hidden", border: `1px solid ${border}`, background: surface, position: "relative" }}>
+                  <div style={{ height: 120, background: "rgba(168,85,247,0.06)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(168,85,247,0.15)", border: `1px solid rgba(168,85,247,0.3)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ color: "rgba(168,85,247,0.6)", fontSize: 16 }}>▶</span>
                     </div>
-                  ) : (
-                    <div onClick={() => setPlayingVideo(v.src)}>
-                      <div style={{ position: "relative", height: 120 }}>
-                        <video src={v.src} muted style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          onMouseEnter={e => (e.target as HTMLVideoElement).play()}
-                          onMouseLeave={e => { const vid = e.target as HTMLVideoElement; vid.pause(); vid.currentTime = 0; }} />
-                        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-                          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(168,85,247,0.8)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 15px rgba(168,85,247,0.4)" }}>
-                            <span style={{ color: "#fff", fontSize: 16, marginLeft: 2 }}>▶</span>
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ position: "absolute", top: 6, left: 6, fontSize: 7, padding: "2px 6px", borderRadius: 6, background: v.badge === "Hybrid" ? "rgba(34,197,94,0.85)" : "rgba(168,85,247,0.85)", color: "#fff", fontWeight: 700 }}>{v.badge}</span>
-                      <div style={{ padding: "10px 12px" }}>
-                        <p style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{v.title}</p>
-                        <p style={{ fontSize: 9, color: muted }}>{v.type}</p>
-                        <p style={{ fontSize: 8, color: childAccent, marginTop: 4 }}>Click to play with sound</p>
-                      </div>
-                    </div>
-                  )}
+                    <span style={{ fontSize: 9, color: "#6b7280", fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Demo Coming Soon</span>
+                  </div>
+                  <span style={{ position: "absolute", top: 6, left: 6, fontSize: 7, padding: "2px 6px", borderRadius: 6, background: v.badge === "Hybrid" ? "rgba(34,197,94,0.85)" : "rgba(168,85,247,0.85)", color: "#fff", fontWeight: 700 }}>{v.badge}</span>
+                  <div style={{ padding: "10px 12px" }}>
+                    <p style={{ fontSize: 12, color: "#fff", fontWeight: 600 }}>{v.title}</p>
+                    <p style={{ fontSize: 9, color: muted }}>{v.type}</p>
+                    <p style={{ fontSize: 8, color: "#6b7280", marginTop: 4 }}>Sample videos coming soon — use the planner to create your own children&apos;s story</p>
+                  </div>
                 </div>
               ))}
             </div>

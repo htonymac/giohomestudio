@@ -234,6 +234,7 @@ function SeriesPlannerInner() {
   const [tone, setTone] = useState("");
   const [platform, setPlatform] = useState("YouTube");
   const [visualStyle, setVisualStyle] = useState("Cinematic");
+  const [projectStyle, setProjectStyle] = useState("realistic");
   const [targetAudience, setTargetAudience] = useState("General");
   const [saving, setSaving] = useState(false);
   const [lastAction, setLastAction] = useState("Project created");
@@ -485,7 +486,7 @@ function SeriesPlannerInner() {
       const chars = characters.filter(c => scene.characterIds.includes(c.characterId));
       const charRefs = chars.map(c => `[${c.characterId}] ${c.displayName}: ${c.colorDescription || ""} ${c.clothingDetails || ""}`).join(", ");
       const prompt = `Scene: ${scene.title}. ${scene.description}. Location: ${scene.location}. Mood: ${scene.mood}. Time: ${scene.timeOfDay}. Characters: ${charRefs || "no specific characters"}. Style: ${visualStyle}. Series genre: ${genre}.`;
-      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt, style: visualStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
+      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneText: prompt, projectStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));
@@ -1272,6 +1273,23 @@ function SeriesPlannerInner() {
               <div><span style={lbl}>Platform</span><select style={inp} value={platform} onChange={e => setPlatform(e.target.value)}>{PLATFORMS.map(p => <option key={p}>{p}</option>)}</select></div>
               <div><span style={lbl}>Visual Style</span><select style={inp} value={visualStyle} onChange={e => setVisualStyle(e.target.value)}>{VISUAL_STYLES.map(s => <option key={s}>{s}</option>)}</select></div>
               <div><span style={lbl}>Audience</span><input style={inp} value={targetAudience} onChange={e => setTargetAudience(e.target.value)} /></div>
+            </div>
+            <div style={{ marginTop: 14 }}>
+              <span style={lbl}>Art Render Style</span>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginTop: 6 }}>
+                {[
+                  { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899" },
+                  { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff" },
+                  { id: "2d-cartoon",   icon: "2D", name: "2D Cartoon",   color: "#f59e0b" },
+                  { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7" },
+                  { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e" },
+                ].map(s => (
+                  <button key={s.id} onClick={() => setProjectStyle(s.id)}
+                    style={{ padding: "6px 14px", borderRadius: 100, border: `1px solid ${projectStyle === s.id ? s.color : border}`, background: projectStyle === s.id ? `${s.color}18` : "transparent", color: projectStyle === s.id ? s.color : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                    <span style={{ fontSize: 9, opacity: 0.7 }}>{s.icon}</span>{s.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>

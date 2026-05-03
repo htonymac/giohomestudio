@@ -112,10 +112,13 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 
 // ── Main page ──────────────────────────────────────────────────────────────────
 
+const KARAOKE_CREATOR_DB_KEY = "ghs_karaoke_creator_session";
+
 export default function KaraokeMusicCreatorPage() {
   const router = useRouter();
 
   const [selectedMode, setSelectedMode] = useState<KaraokeMode | null>(null);
+  const restoredRef = useRef(false);
   const [toastMsg, setToastMsg] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
@@ -161,6 +164,32 @@ export default function KaraokeMusicCreatorPage() {
   useEffect(() => {
     loadRecent();
   }, [loadRecent]);
+
+  // ── Restore mode on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/hybrid/saved-state?localId=${KARAOKE_CREATOR_DB_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.found || !d.data) return;
+        const s = d.data as Record<string, unknown>;
+        if (s.activeMode && ["A","B","C","D","E"].includes(s.activeMode as string)) {
+          setSelectedMode(s.activeMode as KaraokeMode);
+        }
+      })
+      .catch(() => {})
+      .finally(() => { restoredRef.current = true; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Persist selected mode on change ──────────────────────────────────────
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: KARAOKE_CREATOR_DB_KEY, data: { activeMode: selectedMode ?? null } }),
+    }).catch(() => {});
+  }, [selectedMode]);
 
   // ── Upload and route to planner ─────────────────────────────────────────────
 
@@ -274,6 +303,19 @@ export default function KaraokeMusicCreatorPage() {
       }}
     >
       {toastMsg && <Toast message={toastMsg} onDismiss={() => setToastMsg("")} />}
+
+      {/* Karaoke status banner */}
+      <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12, padding: "12px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+        <span style={{ fontSize: 20 }}>🎵</span>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", margin: "0 0 4px" }}>Karaoke Studio — Setup In Progress</p>
+          <p style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, margin: 0 }}>
+            <strong style={{ color: "#d1d5db" }}>Working now:</strong> Voice recording, audio analysis, lyrics extraction, music generation (&#x2264;47s tracks via FAL).<br/>
+            <strong style={{ color: "#d1d5db" }}>Coming soon:</strong> Kie.ai/Suno lyrical music, Mubert long-form tracks, vocal isolation, and voice enhancement (requires server migration).<br/>
+            For full video production now, use the <strong style={{ color: "#f59e0b" }}>Hybrid Planner</strong> or <strong style={{ color: "#f59e0b" }}>Movie Planner</strong>.
+          </p>
+        </div>
+      </div>
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <div>

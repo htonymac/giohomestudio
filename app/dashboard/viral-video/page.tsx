@@ -1,6 +1,6 @@
 "use client";
 // S15 BUG-22 fix: full model unlock 2026-04-30
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier, getModelForTier } from "../../components/AITierSelector";
@@ -61,8 +61,7 @@ const MUSIC_OPTIONS = [
   { id: "none",     label: "No Music"           },
 ];
 
-const SESSION_KEY = "ghs_viral_session";
-const SESSION_TTL = 24 * 60 * 60 * 1000;
+const VIRAL_DB_KEY = "ghs_viralvideo_session";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -104,6 +103,7 @@ export default function ViralVideoPage() {
 
   const models = MODEL_MAP[contentType] ?? [];
   const noMusic = musicChoice === "none";
+  const restoredRef = useRef(false);
 
   // Auto-select cheapest model when content type changes (budget default)
   const prevContentType = React.useRef(contentType);
@@ -117,46 +117,55 @@ export default function ViralVideoPage() {
     }
   }, [contentType]);
 
+  // ── Restore state on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/hybrid/saved-state?localId=${VIRAL_DB_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.found || !d.data) return;
+        const s = d.data as Record<string, unknown>;
+        if (s.prompt !== undefined) setPrompt(s.prompt as string);
+        if (s.contentType !== undefined) setContentType(s.contentType as string);
+        if (s.selectedModel !== undefined) setSelectedModel(s.selectedModel as string);
+        if (s.imageModel !== undefined) setImageModel(s.imageModel as string);
+        if (s.duration !== undefined) setDuration(s.duration as string);
+        if (s.viralStyle !== undefined) setViralStyle(s.viralStyle as string);
+        if (s.platform !== undefined) setPlatform(s.platform as string);
+        if (s.musicChoice !== undefined) setMusicChoice(s.musicChoice as string);
+        if (s.musicPrompt !== undefined) setMusicPrompt(s.musicPrompt as string);
+        if (s.aiTier !== undefined) setAiTier(s.aiTier as AITier);
+        if (s.step !== undefined) setStep(s.step as 1 | 2 | 3);
+        if (s.resultUrl !== undefined) setResultUrl(s.resultUrl as string | null);
+        if ((s.prompt as string) || (s.contentType as string)) setShowResume(true);
+      })
+      .catch(() => {})
+      .finally(() => { restoredRef.current = true; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save state on changes ─────────────────────────────────────────────
   const saveSession = useCallback(() => {
-    if (!prompt && !contentType) return;
-    try {
-      localStorage.setItem(SESSION_KEY, JSON.stringify({
-        prompt, contentType, selectedModel, viralStyle, platform, musicChoice, musicPrompt, step, resultUrl,
-        savedAt: Date.now(),
-      }));
-    } catch { /* quota exceeded */ }
-  }, [prompt, contentType, selectedModel, viralStyle, platform, musicChoice, musicPrompt, step, resultUrl]);
+    if (!restoredRef.current) return;
+    const draft = { prompt, contentType, selectedModel, imageModel, duration, viralStyle, platform, musicChoice, musicPrompt, aiTier, step, resultUrl };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: VIRAL_DB_KEY, data: draft }),
+    }).catch(() => {});
+  }, [prompt, contentType, selectedModel, imageModel, duration, viralStyle, platform, musicChoice, musicPrompt, aiTier, step, resultUrl]);
 
   useEffect(() => { saveSession(); }, [saveSession]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(SESSION_KEY);
-      if (!raw) return;
-      const s = JSON.parse(raw);
-      if (Date.now() - s.savedAt > SESSION_TTL) { localStorage.removeItem(SESSION_KEY); return; }
-      if (s.prompt || s.contentType) setShowResume(true);
-    } catch { /* corrupted */ }
-  }, []);
-
   function resumeSession() {
-    try {
-      const s = JSON.parse(localStorage.getItem(SESSION_KEY) || "{}");
-      if (s.prompt) setPrompt(s.prompt);
-      if (s.contentType) setContentType(s.contentType);
-      if (s.selectedModel) setSelectedModel(s.selectedModel);
-      if (s.viralStyle) setViralStyle(s.viralStyle);
-      if (s.platform) setPlatform(s.platform);
-      if (s.musicChoice) setMusicChoice(s.musicChoice);
-      if (s.musicPrompt) setMusicPrompt(s.musicPrompt);
-      if (s.step) setStep(s.step);
-      if (s.resultUrl) setResultUrl(s.resultUrl);
-    } catch { /* ignore */ }
     setShowResume(false);
   }
 
   function startFresh() {
-    localStorage.removeItem(SESSION_KEY);
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: VIRAL_DB_KEY, data: {} }),
+    }).catch(() => {});
     setShowResume(false);
   }
 

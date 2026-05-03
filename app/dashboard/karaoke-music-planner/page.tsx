@@ -111,7 +111,7 @@ const STEP_DEFS: StepDef[] = [
   { num: 7, title: "Flow Profiling", subtitle: "Classify voice type · Detect phrase gaps · Hook candidates" },
   { num: 8, title: "Beat Recommendation", subtitle: "Top 3 beat families from 11 options based on your flow" },
   { num: 9, title: "Production Brief", subtitle: "AI builds structured music instructions from all analysis" },
-  { num: 10, title: "Music Generation", subtitle: "Kie.ai / Stable Audio / Mubert / Stock — follows your brief", skipForModes: ["E"] },
+  { num: 10, title: "Music Generation", subtitle: "Kie.ai / Stable Audio / Mubert / Stock — follows your brief" },
   { num: 11, title: "Voice Enhancement", subtitle: "RVC — professional vocal quality polish", postLinux: true },
   { num: 12, title: "Audio Mixing", subtitle: "Voice + music blend controls — Web Audio API" },
   { num: 13, title: "Review Interface", subtitle: "Waveform + lyrics overlay + lyric-time markers" },
@@ -182,6 +182,13 @@ function KaraokeMusicPlannerInner() {
 
   const [activeRecordingId, setActiveRecordingId] = useState<string | null>(qRecordingId);
   const [activeMode, setActiveMode] = useState<KaraokeMode>(qMode);
+
+  // Sync URL param → state (handles Next.js hydration race where useState initializes before searchParams resolves)
+  useEffect(() => {
+    if (qRecordingId && activeRecordingId !== qRecordingId) {
+      setActiveRecordingId(qRecordingId);
+    }
+  }, [qRecordingId, activeRecordingId]);
   const [recording, setRecording] = useState<Recording | null>(null);
   const [allTakes, setAllTakes] = useState<Recording[]>([]);
   const [steps, setSteps] = useState<Record<number, StepState>>(() => {
@@ -197,6 +204,7 @@ function KaraokeMusicPlannerInner() {
   const showToast = useCallback((msg: string) => setToastMsg(msg), []);
 
   // Step-specific state
+  const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
   const [lyricLines, setLyricLines] = useState<{ id: string; text: string }[]>([]);
   const [flowProfile, setFlowProfile] = useState<FlowProfile | null>(null);
   const [beatRecs, setBeatRecs] = useState<BeatRec[]>([]);
@@ -294,6 +302,41 @@ function KaraokeMusicPlannerInner() {
       loadRecording(activeRecordingId);
     }
   }, [activeRecordingId, loadAllTakes, loadRecording]);
+
+  // ── Auto-restore from localStorage on mount (ghs_karaoke_planner_draft) ────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("ghs_karaoke_planner_draft");
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.activeMode !== undefined) setActiveMode(d.activeMode as KaraokeMode);
+      if (Array.isArray(d.lyricLines)) setLyricLines(d.lyricLines);
+      if (d.flowProfile !== undefined && d.flowProfile !== null) setFlowProfile(d.flowProfile as FlowProfile);
+      if (Array.isArray(d.beatRecs)) setBeatRecs(d.beatRecs as BeatRec[]);
+      if (d.selectedBeatFamily !== undefined) setSelectedBeatFamily(d.selectedBeatFamily);
+      if (d.productionBrief !== undefined && d.productionBrief !== null) setProductionBrief(d.productionBrief as ProductionBrief);
+      if (d.briefInstructions !== undefined) setBriefInstructions(d.briefInstructions);
+      if (d.generatedMusicUrl !== undefined) setGeneratedMusicUrl(d.generatedMusicUrl);
+      if (d.exportFormat !== undefined) setExportFormat(d.exportFormat);
+      if (Array.isArray(d.exportUrls)) setExportUrls(d.exportUrls);
+      if (d.mixedOutputUrl !== undefined) setMixedOutputUrl(d.mixedOutputUrl);
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save to localStorage (ghs_karaoke_planner_draft) ─────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draft = {
+      activeMode, lyricLines, flowProfile, beatRecs, selectedBeatFamily,
+      productionBrief, briefInstructions, generatedMusicUrl, exportFormat,
+      exportUrls, mixedOutputUrl,
+    };
+    try {
+      localStorage.setItem("ghs_karaoke_planner_draft", JSON.stringify(draft));
+    } catch { /* quota — ignore */ }
+  }, [activeMode, lyricLines, flowProfile, beatRecs, selectedBeatFamily, productionBrief, briefInstructions, generatedMusicUrl, exportFormat, exportUrls, mixedOutputUrl]);
 
   const setStepStatus = (num: number, status: StepStatus, output?: Record<string, unknown>, error?: string) => {
     setSteps((prev) => ({ ...prev, [num]: { status, output, error } }));
@@ -427,7 +470,12 @@ function KaraokeMusicPlannerInner() {
   const runMusicGeneration = useCallback(async () => {
     if (!activeRecordingId) return;
     if (isFlowLocked()) {
-      showToast("Complete Analysis, Lyrics, Flow, Brief first. (canvas §2 flow lock)");
+      const missing: string[] = [];
+      if (steps[3]?.status !== "done") missing.push("Step 3: Run Analysis");
+      if (steps[5]?.status !== "done") missing.push("Step 5: Extract Lyrics (auto after Analysis)");
+      if (steps[7]?.status !== "done") missing.push("Step 7: Run Flow Profile");
+      if (steps[9]?.status !== "done") missing.push("Step 9: Build Production Brief");
+      showToast("Complete first: " + missing.join(" · "));
       return;
     }
     setStepStatus(10, "running");
@@ -436,6 +484,13 @@ function KaraokeMusicPlannerInner() {
         ? { ...productionBrief, instructions: briefInstructions }
         : undefined;
 
+      const tierProviderMap: Record<"stock" | "ghs_pro" | "ghs_classic", string> = {
+        stock: "stock",
+        ghs_pro: "stable_audio",
+        ghs_classic: "kie",
+      };
+      const providerKey = tierProviderMap[musicTier];
+
       const res = await fetch("/api/karaoke/generate-music", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -443,6 +498,7 @@ function KaraokeMusicPlannerInner() {
           recordingId: activeRecordingId,
           brief: briefWithOverride,
           mode: activeMode,
+          providerKey,
         }),
       });
       const data = await res.json();
@@ -635,6 +691,19 @@ function KaraokeMusicPlannerInner() {
           maxWidth: 800,
         }}
       >
+        {/* Karaoke status banner */}
+        <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12, padding: "12px 16px", marginBottom: 0, display: "flex", gap: 12, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 20 }}>🎵</span>
+          <div>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b", marginBottom: 4, margin: "0 0 4px" }}>Karaoke Studio — Setup In Progress</p>
+            <p style={{ fontSize: 11, color: "#9ca3af", lineHeight: 1.5, margin: 0 }}>
+              <strong style={{ color: "#d1d5db" }}>Working now:</strong> Voice recording, audio analysis, lyrics extraction, music generation (&#x2264;47s tracks via FAL).<br/>
+              <strong style={{ color: "#d1d5db" }}>Coming soon:</strong> Kie.ai/Suno lyrical music, Mubert long-form tracks, vocal isolation, and voice enhancement (requires server migration).<br/>
+              For full video production now, use the <strong style={{ color: "#f59e0b" }}>Hybrid Planner</strong> or <strong style={{ color: "#f59e0b" }}>Movie Planner</strong>.
+            </p>
+          </div>
+        </div>
+
         {/* Header */}
         <div>
           <h1
@@ -1092,10 +1161,88 @@ function KaraokeMusicPlannerInner() {
                         )}
                       </div>
                     )}
+
+                    {/* Tier selector */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+                      <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, color: "#55555a", textTransform: "uppercase", letterSpacing: "0.15em", fontFamily: "'JetBrains Mono', monospace" }}>
+                        Music Source
+                      </p>
+
+                      {/* GHS Standard */}
+                      <button
+                        data-testid="music-tier-stock"
+                        onClick={() => setMusicTier("stock")}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${musicTier === "stock" ? "#a78bfa" : "rgba(255,255,255,0.07)"}`,
+                          background: musicTier === "stock" ? "rgba(167,139,250,0.1)" : "#151518",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "stock" ? "#a78bfa" : "#c5c5c8" }}>GHS Standard</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Stock Library — always available</p>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#7ae0c3", fontFamily: "'JetBrains Mono', monospace", background: "rgba(122,224,195,0.08)", border: "1px solid rgba(122,224,195,0.2)", borderRadius: 4, padding: "2px 6px" }}>FREE</span>
+                      </button>
+
+                      {/* GHS Pro */}
+                      <button
+                        data-testid="music-tier-ghs-pro"
+                        onClick={() => setMusicTier("ghs_pro")}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${musicTier === "ghs_pro" ? "#7cc4ff" : "rgba(255,255,255,0.07)"}`,
+                          background: musicTier === "ghs_pro" ? "rgba(124,196,255,0.08)" : "#151518",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_pro" ? "#7cc4ff" : "#c5c5c8" }}>GHS Pro</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>FAL Stable Audio — instrumental, max 47s. Best for Mode E.</p>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#7cc4ff", fontFamily: "'JetBrains Mono', monospace", background: "rgba(124,196,255,0.08)", border: "1px solid rgba(124,196,255,0.2)", borderRadius: 4, padding: "2px 6px" }}>MID</span>
+                      </button>
+
+                      {/* GHS Classic */}
+                      <button
+                        data-testid="music-tier-ghs-classic"
+                        onClick={() => setMusicTier("ghs_classic")}
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${musicTier === "ghs_classic" ? "#ff9a3c" : "rgba(255,255,255,0.07)"}`,
+                          background: musicTier === "ghs_classic" ? "rgba(255,154,60,0.08)" : "#151518",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 10,
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_classic" ? "#ff9a3c" : "#c5c5c8" }}>GHS Classic</p>
+                          <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Suno via Kie.ai — full lyrical songs. Best for Modes A / C / D.</p>
+                          <p style={{ margin: "4px 0 0", fontSize: 10, color: "#ffb347", lineHeight: 1.4 }}>KIE_AI_API_KEY not configured — will use stock library</p>
+                        </div>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: "#ff9a3c", fontFamily: "'JetBrains Mono', monospace", background: "rgba(255,154,60,0.08)", border: "1px solid rgba(255,154,60,0.2)", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" }}>PREMIUM</span>
+                      </button>
+                    </div>
+
                     <button
                       data-testid="run-music-gen-btn"
                       onClick={runMusicGeneration}
-                      disabled={steps[10]?.status === "running" || (isFlowLocked() && activeRecordingId !== null)}
+                      disabled={steps[10]?.status === "running"}
                       style={{
                         padding: "9px 22px",
                         borderRadius: 7,
@@ -1108,7 +1255,7 @@ function KaraokeMusicPlannerInner() {
                         color: isFlowLocked() ? "#ff7a45" : "#fff",
                         fontWeight: 700,
                         fontSize: 13,
-                        cursor: isFlowLocked() || steps[10]?.status === "running" ? "not-allowed" : "pointer",
+                        cursor: steps[10]?.status === "running" ? "not-allowed" : "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
@@ -1118,7 +1265,7 @@ function KaraokeMusicPlannerInner() {
                       {steps[10]?.status === "running"
                         ? "Generating music…"
                         : isFlowLocked()
-                          ? "Complete analysis, lyrics, flow, brief first"
+                          ? "Generate Music (steps pending)"
                           : "Generate Music"}
                     </button>
                   </div>

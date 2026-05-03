@@ -219,6 +219,7 @@ function CommercialPlannerInner() {
 
   // ── Design ──
   const [brandVisualStyle, setBrandVisualStyle] = useState<"luxury" | "energetic" | "minimal" | "bold" | "warm" | "corporate" | "fun" | "emotional">("minimal");
+  const [projectStyle, setProjectStyle] = useState("realistic");
   const [productCategory, setProductCategory] = useState("");
   const [designComplete, setDesignComplete] = useState(false);
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
@@ -287,6 +288,13 @@ function CommercialPlannerInner() {
   const [assemblyProgress, setAssemblyProgress] = useState<Record<number, string>>({});
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
+
+  // ── Narration (TTS per scene) ──
+  const [voNarrationUrls, setVoNarrationUrls] = useState<Record<string, string>>({});
+  const [generatingVo, setGeneratingVo] = useState(false);
+
+  // ── AI Pre-Flight checks ──
+  const [preFlightChecks, setPreFlightChecks] = useState<Array<{ id: string; label: string; status: "ok" | "warn" | "error"; note?: string }>>([]);
 
   // ── Color swatches ──
   const [brandSwatches, setBrandSwatches] = useState<string[]>(["#FF4500"]);
@@ -516,21 +524,31 @@ function CommercialPlannerInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt,
-          style: brief.budget === "premium" ? "cinematic-premium" : "clean-commercial",
+          sceneText: prompt,
+          projectStyle,
           sceneType: scene.sceneType === "video" ? "video-led" : "image-led",
           modelId: sceneImgModel,
           transparentBg: useTransparent,
           productImages: (brief.productImages || []).filter(Boolean),
         }),
       });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        setLastAction(`Image API error ${res.status}: ${errText.slice(0, 80)}`);
+        setGeneratingSceneImage(null);
+        return;
+      }
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));
         updateScene(scene.sceneId, { status: "generated" });
         setLastAction(`Scene ${scene.scene} image generated`);
       }
-    } catch { setLastAction("Image generation failed"); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setLastAction(`Image failed: ${msg.slice(0, 60)}`);
+      console.error("makeSceneImage error:", err);
+    }
     setGeneratingSceneImage(null);
   }
 
@@ -544,6 +562,86 @@ function CommercialPlannerInner() {
       if (d.outputUrl) { setAssembledUrl(d.outputUrl); setLastAction("Commercial assembled"); }
     } catch { setLastAction("Assembly failed"); }
     setAssembling(false);
+  }
+
+  // ── Narration TTS generation ──
+  async function generateAllNarration() {
+    const voScenes = scenes.filter(s => s.voiceoverScript);
+    if (voScenes.length === 0) { setLastAction("No voiceover scripts to convert"); return; }
+    setGeneratingVo(true);
+    setLastAction("Generating narration audio...");
+    for (const sc of voScenes) {
+      try {
+        const res = await fetch("/api/tts", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: sc.voiceoverScript.slice(0, 3000),
+            provider: "piper",
+            engine: "piper",
+            speed: 1.0,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.audioUrl) {
+            setVoNarrationUrls(prev => ({ ...prev, [sc.sceneId]: data.audioUrl }));
+          }
+        }
+      } catch (err) {
+        console.error("Narration gen failed for scene", sc.sceneId, err);
+      }
+    }
+    setLastAction("Narration generation complete");
+    setGeneratingVo(false);
+  }
+
+  // ── AI Pre-Flight check ──
+  async function runPreFlight() {
+    const ids = assemblySelectedIds.length > 0 ? assemblySelectedIds : scenes.map(s => s.sceneId);
+    const selectedScenes = scenes.filter(s => ids.includes(s.sceneId));
+    const missingImages = selectedScenes.filter(s => !sceneImages[s.sceneId]).length;
+    const missingVoText = selectedScenes.filter(s => !s.voiceoverScript).length;
+    const missingNarration = selectedScenes.filter(s => s.voiceoverScript && !voNarrationUrls[s.sceneId]).length;
+    const checks: Array<{ id: string; label: string; status: "ok" | "warn" | "error"; note?: string }> = [
+      {
+        id: "images",
+        label: "Scene Images",
+        status: missingImages === 0 ? "ok" : "error",
+        note: missingImages > 0 ? `${missingImages} scene(s) missing images` : undefined,
+      },
+      {
+        id: "vo-text",
+        label: "VO Scripts",
+        status: missingVoText === 0 ? "ok" : "warn",
+        note: missingVoText > 0 ? `${missingVoText} scene(s) missing VO script` : undefined,
+      },
+      {
+        id: "narration",
+        label: "Narration Audio",
+        status: missingNarration === 0 ? "ok" : "warn",
+        note: missingNarration > 0 ? `${missingNarration} scene(s) not converted to audio yet` : undefined,
+      },
+      {
+        id: "music",
+        label: "Background Music",
+        status: selectedMusicUrl ? "ok" : "warn",
+        note: !selectedMusicUrl ? "No music track selected" : undefined,
+      },
+    ];
+    // Try API first, fall back to local checks
+    try {
+      const res = await fetch("/api/hybrid/pre-flight", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId, checks }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.checks) { setPreFlightChecks(data.checks); return; }
+      }
+    } catch { /* fall through to local */ }
+    setPreFlightChecks(checks);
   }
 
   // ── Screenplay functions ──
@@ -800,8 +898,32 @@ function CommercialPlannerInner() {
     try {
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, title: `${brief.brandName} — ${brief.productName} ${brief.format}`, scenes: assemblyScenes, stickers: commStickers.length > 0 ? commStickers : undefined }),
+        body: JSON.stringify({
+          projectId,
+          title: `${brief.brandName} — ${brief.productName} ${brief.format}`,
+          scenes: assemblyScenes,
+          stickers: commStickers.length > 0 ? commStickers : undefined,
+          musicUrl: selectedMusicUrl || undefined,
+          musicVolume: musicVolume / 100,
+          narrationList: (() => {
+            const list: Array<{ audioUrl: string; startTime: number; volume: number }> = [];
+            let t = 0;
+            for (const s of selectedScenes) {
+              const audioUrl = voNarrationUrls[s.sceneId];
+              if (audioUrl) list.push({ audioUrl, startTime: t, volume: 1.0 });
+              t += s.duration;
+            }
+            return list.length > 0 ? list : undefined;
+          })(),
+          aspectRatio: brief.aspectRatio || "16:9",
+        }),
       });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        setLastAction(`Assembly error ${res.status}: ${errText.slice(0, 80)}`);
+        setAssembling(false);
+        return;
+      }
       const data = await res.json();
       if (data.outputUrl) { setAssembledUrl(data.outputUrl); setAssemblyComplete(true); setLastAction("Commercial assembled"); }
       else setLastAction(data.error || "Assembly failed");
@@ -952,6 +1074,24 @@ function CommercialPlannerInner() {
                 <div style={{ color: brandVisualStyle === v.id ? orange : "#fff", fontWeight: 700, fontSize: 12 }}>{v.label}</div>
                 <div style={{ color: muted, fontSize: 10, marginTop: 2 }}>{v.desc}</div>
               </div>
+            ))}
+          </div>
+        </div>
+
+        <div style={card}>
+          <span style={lbl}>Art Render Style</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+            {[
+              { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899" },
+              { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff" },
+              { id: "2d-cartoon",   icon: "2D", name: "2D Cartoon",   color: "#f59e0b" },
+              { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7" },
+              { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e" },
+            ].map(s => (
+              <button key={s.id} onClick={() => setProjectStyle(s.id)}
+                style={{ padding: "7px 14px", borderRadius: 100, border: `1px solid ${projectStyle === s.id ? s.color : border}`, background: projectStyle === s.id ? `${s.color}18` : "transparent", color: projectStyle === s.id ? s.color : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 9, opacity: 0.7 }}>{s.icon}</span>{s.name}
+              </button>
             ))}
           </div>
         </div>
@@ -1356,6 +1496,23 @@ function CommercialPlannerInner() {
             {Object.keys(sceneIntelligence).length} scenes have sound environment data
           </p>
         )}
+
+        {/* ── Art Style Quick Picker ── */}
+        <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 9, color: muted, fontFamily: ds.font.mono, letterSpacing: "0.15em", textTransform: "uppercase" }}>Art Style:</span>
+          {[
+            { id: "realistic", label: "Realistic", color: "#ec4899" },
+            { id: "3d-cinematic", label: "3D", color: "#00d4ff" },
+            { id: "2d-cartoon", label: "2D", color: "#f59e0b" },
+            { id: "anime", label: "Anime", color: "#a855f7" },
+            { id: "storybook", label: "Storybook", color: "#22c55e" },
+          ].map(s => (
+            <button key={s.id} onClick={() => setProjectStyle(s.id)}
+              style={{ padding: "3px 10px", borderRadius: 20, border: `1px solid ${projectStyle === s.id ? s.color : border}`, background: projectStyle === s.id ? `${s.color}15` : "transparent", color: projectStyle === s.id ? s.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
 
         {/* ── AID Model Picker ── */}
         <div style={{ ...card, padding: "12px 16px", marginBottom: 12 }}>
@@ -1796,6 +1953,33 @@ function CommercialPlannerInner() {
             {!scenes.some(s => s.voiceoverScript) && <div style={{ color: muted, fontSize: 12 }}>No voiceover scripts yet — add them in Script & Scenes tab</div>}
             <div style={{ marginTop: 10, fontSize: 11, color: muted }}>Total VO duration: ~{Math.round(scenes.reduce((s, sc) => s + sc.duration, 0))}s</div>
           </div>
+
+          {/* ── Narration Generation ── */}
+          <div style={{ ...card, gridColumn: "1/-1" }}>
+            <div style={lbl}>Narration Audio (TTS)</div>
+            <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Convert per-scene voiceover scripts to audio using Piper TTS. Required for narration in Assembly.</p>
+            <button
+              onClick={generateAllNarration}
+              disabled={generatingVo || !scenes.some(s => s.voiceoverScript)}
+              style={{ ...btn(purple), opacity: generatingVo ? 0.6 : 1, marginBottom: 12 }}
+            >
+              {generatingVo ? "Generating Narration..." : "Generate All Narration"}
+            </button>
+            {scenes.filter(s => s.voiceoverScript).map(sc => (
+              <div key={sc.sceneId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${border}` }}>
+                <span style={badge(SECTION_COLORS[sc.sceneSection] || muted)}>{sc.sceneSection}</span>
+                <span style={{ fontSize: 11, color: "#ddd", flex: 1 }}>{sc.title}</span>
+                {voNarrationUrls[sc.sceneId] ? (
+                  <span style={{ color: accent, fontSize: 11, fontWeight: 700, flexShrink: 0 }}>✓</span>
+                ) : (
+                  <span style={{ color: muted, fontSize: 10, flexShrink: 0 }}>pending</span>
+                )}
+                {voNarrationUrls[sc.sceneId] && (
+                  <audio src={voNarrationUrls[sc.sceneId]} controls style={{ height: 28, maxWidth: 160, flexShrink: 0 }} />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
         <div style={{ marginTop: 16, display: "flex", gap: 12 }}>
@@ -1930,6 +2114,38 @@ function CommercialPlannerInner() {
                 onChange={setCommStickers}
                 accentColor="#ef4444"
               />
+            </div>
+          )}
+        </div>
+
+        {/* ── AI Pre-Flight ── */}
+        <div style={{ ...card, marginBottom: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: "#fff", fontSize: 13 }}>AI Pre-Flight Check</div>
+              <div style={{ fontSize: 11, color: muted }}>Verify all pipeline requirements before assembling</div>
+            </div>
+            <button
+              onClick={runPreFlight}
+              style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+            >
+              Run AI Pre-Flight
+            </button>
+          </div>
+          {preFlightChecks.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {preFlightChecks.map(chk => {
+                const col = chk.status === "ok" ? accent : chk.status === "warn" ? gold : red;
+                return (
+                  <div key={chk.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${col}20`, color: col, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.1em", flexShrink: 0 }}>
+                      {chk.status === "ok" ? "✓ OK" : chk.status === "warn" ? "⚠ WARN" : "✕ FAIL"}
+                    </span>
+                    <span style={{ fontSize: 12, color: "#ddd" }}>{chk.label}</span>
+                    {chk.note && <span style={{ fontSize: 10, color: muted }}>{chk.note}</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

@@ -10,6 +10,40 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(req: NextRequest) {
+  // List projects (optional prefix filter: ?list=true&prefix=ghs_children)
+  if (req.nextUrl.searchParams.get("list") === "true") {
+    const prefix = req.nextUrl.searchParams.get("prefix") || "";
+    try {
+      const rows = prefix
+        ? await prisma.$queryRaw<Array<{ localId: string; data: Record<string, unknown>; updatedAt: Date }>>`
+            SELECT "localId", data, "updatedAt" FROM hybrid_saved_states
+            WHERE "localId" LIKE ${prefix + "%"} ORDER BY "updatedAt" DESC
+          `
+        : await prisma.$queryRaw<Array<{ localId: string; data: Record<string, unknown>; updatedAt: Date }>>`
+            SELECT "localId", data, "updatedAt" FROM hybrid_saved_states ORDER BY "updatedAt" DESC
+          `;
+      const projects = rows.map(row => {
+        const d = row.data as Record<string, unknown>;
+        const scenes = (d.scenes as unknown[] | undefined) || (d.childScenes as unknown[] | undefined) || [];
+        const chars  = (d.characters as unknown[] | undefined) || (d.savedChars as unknown[] | undefined) || [];
+        const imgs   = (d.sceneImages as Record<string, string> | undefined) || {};
+        const thumb  = Object.values(imgs)[0] || null;
+        return {
+          id: row.localId,
+          title: (d.projectTitle as string) || "Untitled",
+          style: (d.projectStyle as string) || (d.visualStyle as string) || "",
+          lastModified: new Date(row.updatedAt).getTime(),
+          sceneCount: scenes.length,
+          characterCount: chars.length,
+          thumbnail: thumb,
+        };
+      });
+      return NextResponse.json({ projects });
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "DB error" }, { status: 500 });
+    }
+  }
+
   const localId = req.nextUrl.searchParams.get("localId");
   if (!localId) return NextResponse.json({ error: "localId required" }, { status: 400 });
 

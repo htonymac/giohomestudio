@@ -11,6 +11,7 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
+import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -120,17 +121,18 @@ type SoundTierMvId = typeof SOUND_TIERS_MV[number]["id"];
 
 interface MvProject { id: string; title: string; videoMode: string | null; status: string; updatedAt: string }
 
-type MvTab = "overview" | "song" | "analysis" | "storyboard" | "script" | "captions" | "sound" | "assembly";
-// Song Input → Mode & AI → Storyboard → Script(Song Script) → Captions → Sound(Vocal Mix) → Assembly
+type MvTab = "overview" | "song" | "analysis" | "storyboard" | "characters" | "script" | "captions" | "sound" | "assembly";
+// Song Input → Mode & AI → Storyboard → Characters → Script → Captions → Sound(Vocal Mix) → Assembly
 const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
-  { id: "song",       label: "Song Input",  step: 1 },
-  { id: "analysis",   label: "Mode & AI",   step: 2 },
-  { id: "storyboard", label: "Storyboard",  step: 3 },
-  { id: "script",     label: "Song Script", step: 4 },
-  { id: "captions",   label: "Captions",    step: 5 },
-  { id: "sound",      label: "Vocal Mix",   step: 6 },
-  { id: "assembly",   label: "Assembly",    step: 7 },
-  { id: "overview",   label: "Overview" },
+  { id: "song",        label: "Song Input",  step: 1 },
+  { id: "analysis",    label: "Mode & AI",   step: 2 },
+  { id: "storyboard",  label: "Scene Board", step: 3 },
+  { id: "characters",  label: "Characters",  step: 4 },
+  { id: "script",      label: "Song Script", step: 5 },
+  { id: "captions",    label: "Captions",    step: 6 },
+  { id: "sound",       label: "Vocal Mix",   step: 7 },
+  { id: "assembly",    label: "Assembly",    step: 8 },
+  { id: "overview",    label: "Overview" },
 ];
 
 export default function MusicVideoPlannerPage() {
@@ -158,6 +160,7 @@ export default function MusicVideoPlannerPage() {
   // Step 2: Mode + style
   const [videoMode, setVideoMode] = useState("");
   const [visualStyle, setVisualStyle] = useState("");
+  const [projectStyle, setProjectStyle] = useState("3d-cinematic");
   const [artistName, setArtistName] = useState("");
 
   // Step 3: AI analysis result
@@ -242,6 +245,31 @@ export default function MusicVideoPlannerPage() {
   // Narration controls
   const [narrationText, setNarrationText] = useState("");
   const [narrationSettings, setNarrationSettings] = useState<Partial<NarrationSettings>>({});
+
+  // Subtitle + intro/outro
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "social", textColor: "#00d4ff" });
+  const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [outroUrl, setOutroUrl] = useState<string | null>(null);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [generatingOutro, setGeneratingOutro] = useState(false);
+
+  // Characters (imported from character library)
+  interface ImportedCharacter { id: string; name: string; imageUrl?: string; voiceName?: string; voiceId?: string }
+  const [importedCharacters, setImportedCharacters] = useState<ImportedCharacter[]>([]);
+  const [loadingCharacters, setLoadingCharacters] = useState(false);
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [characterLibrary, setCharacterLibrary] = useState<ImportedCharacter[]>([]);
+
+  // ── Continuous Motion ──
+  const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
+  const [cmTotalDuration, setCmTotalDuration] = useState(30);
+  const [cmSegmentDuration, setCmSegmentDuration] = useState(5);
+  const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
+  const [cmRunning, setCmRunning] = useState(false);
+  const [cmStatus, setCmStatus] = useState<string | null>(null);
+  const [cmError, setCmError] = useState<string | null>(null);
+  const [cmFinalVideoUrl, setCmFinalVideoUrl] = useState<string | null>(null);
+  const [cmSceneId, setCmSceneId] = useState<string | null>(null);
 
   // ── Auto Time Stamp ──
   const [loadingAutoTimestamp, setLoadingAutoTimestamp] = useState(false);
@@ -545,6 +573,14 @@ export default function MusicVideoPlannerPage() {
     } catch { /* ignore */ }
   }
 
+  // ── New Project — clear all state ──
+  async function newProject() {
+    await saveProject(); // save current first
+    setProjectId(null); setSongTitle(""); setLyrics(""); setVideoMode(""); setVisualStyle(""); setArtistName("");
+    setAnalysis(null); setStoryboard([]);
+    setActiveTab("song"); setLastAction("New project started"); setShowProjects(false);
+  }
+
   async function generateStoryboard() {
     if (!analysis) { setLastAction("Analyze song first"); return; }
     setStoryboardLoading(true);
@@ -624,8 +660,8 @@ export default function MusicVideoPlannerPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: `${scene.prompt}. Style: ${scene.style}. Music video for: ${songTitle} by ${artistName || "artist"}. Mood: ${analysis?.mood || "cinematic"}.`,
-          style: visualStyle || "cinematic",
+          sceneText: `${scene.prompt}. Style: ${scene.style}. Music video for: ${songTitle} by ${artistName || "artist"}. Mood: ${analysis?.mood || "cinematic"}.`,
+          projectStyle,
           sceneType: scene.genMethod === "video-led" ? "video-led" : "image-led",
           seed: genSeed !== null ? genSeed : undefined,
         }),
@@ -892,47 +928,74 @@ export default function MusicVideoPlannerPage() {
     setGeneratingSceneVideos(prev => { const s = new Set(prev); s.delete(sceneId); return s; });
   }
 
-  // ── assembleMovie — beat-sync music video assembly ──
+  // ── Continuous Motion ─────────────────────────────────────────────────────
+  async function startContinuousMotion() {
+    const prompt = songTitle || lyrics?.slice(0, 300) || "";
+    if (!prompt.trim()) { setCmError("Add a song title or lyrics first — Continuous Motion needs a prompt."); return; }
+    setCmRunning(true); setCmStatus("Submitting plan..."); setCmError(null); setCmFinalVideoUrl(null); setCmSceneId(null);
+    try {
+      const res = await fetch("/api/continuous-motion/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          totalDuration: cmTotalDuration,
+          segmentDuration: Math.min(cmSegmentDuration, 10),
+          providerKey: cmProvider,
+          projectId: `mv_${songTitle.replace(/\s+/g, "_").slice(0, 30)}_${Date.now()}`,
+        }),
+      });
+      const data = await res.json() as { sceneId?: string; status?: string; finalVideoUrl?: string; error?: string };
+      if (!res.ok || data.error) throw new Error(data.error || `HTTP ${res.status}`);
+      const sid = data.sceneId ?? "";
+      setCmSceneId(sid);
+      setCmStatus(data.status ?? "GENERATING");
+      if (data.status === "COMPLETE" || data.status === "DONE") {
+        setCmFinalVideoUrl(data.finalVideoUrl ?? null); setCmStatus("DONE"); setCmRunning(false); return;
+      }
+      if (sid) {
+        const poll = setInterval(async () => {
+          try {
+            const pr = await fetch(`/api/continuous-motion/scene/${sid}`);
+            const pd = await pr.json() as { status?: string; finalVideoUrl?: string };
+            setCmStatus(pd.status ?? "…");
+            if (pd.status === "COMPLETE" || pd.status === "DONE") {
+              clearInterval(poll); setCmFinalVideoUrl(pd.finalVideoUrl ?? data.finalVideoUrl ?? null); setCmStatus("DONE"); setCmRunning(false);
+            } else if (pd.status === "FAILED") {
+              clearInterval(poll); setCmError("Generation failed."); setCmRunning(false);
+            }
+          } catch { /* keep polling */ }
+        }, 3000);
+      } else { setCmStatus(data.status ?? "PLANNING"); setCmRunning(false); }
+    } catch (err) { setCmError(err instanceof Error ? err.message : "Continuous Motion failed"); setCmRunning(false); }
+  }
+
+  // ── assembleMovie — routes through /api/video/assemble (handles images + videos + audio correctly) ──
   async function assembleMovie() {
     setAssembling(true); setAssemblyComplete(false);
     const ids = assemblySelectedIds.length > 0 ? assemblySelectedIds : storyboard.map(s => `mv_sc${s.scene}`);
     const selectedScenes = storyboard.filter(s => ids.includes(`mv_sc${s.scene}`));
 
-    // Build section timing from analysis if available
-    let sections: Array<{ label: string; startSec: number; durationSec: number }> | undefined;
-    if (analysis?.sections) {
-      const lines = analysis.sections.split("\n").filter(Boolean);
-      let cursor = 0;
-      sections = lines.map((line, i) => {
-        const match = line.match(/(\d+)\s*s/i);
-        const dur = match ? parseInt(match[1]) : 15;
-        const sec = { label: `section_${i}`, startSec: cursor, durationSec: dur };
-        cursor += dur;
-        return sec;
-      });
-    }
-
-    // Map scenes to their video/image sources
-    const mvScenes = selectedScenes.map((s, i) => {
+    // Map scenes — distinguish image vs video sources
+    const assemblyScenes = selectedScenes.map((s) => {
       const sceneId = `mv_sc${s.scene}`;
-      const videoUrl = sceneVideos[sceneId] || s.outputUrl || "";
-      const imageUrl = sceneImages[s.scene] || "";
-      // Parse duration from "5s" format
+      const videoUrl = sceneVideos[sceneId] || s.outputUrl || null;
+      const imageUrl = sceneImages[s.scene] || null;
       const durNum = parseInt(s.duration) || 5;
       return {
         scene: s.scene,
-        videoUrl: videoUrl || imageUrl || "",
-        sectionLabel: sections?.[i]?.label,
-        targetDurationSec: sections?.[i]?.durationSec || durNum,
-        caption: s.caption || "",
+        videoUrl: videoUrl || undefined,
+        imageUrl: videoUrl ? undefined : (imageUrl || undefined),
+        duration: durNum,
+        text: s.caption || s.section || "",
       };
-    }).filter(s => s.videoUrl);
+    }).filter(s => s.videoUrl || s.imageUrl);
 
-    if (mvScenes.length === 0) { setLastAction("No scenes have video or images yet"); setAssembling(false); return; }
+    if (assemblyScenes.length === 0) { setLastAction("No scenes have video or images yet"); setAssembling(false); return; }
 
-    setLastAction(`Assembling ${mvScenes.length} scenes with beat-sync…`);
+    setLastAction(`Assembling ${assemblyScenes.length} scenes…`);
 
-    // Generate narration TTS if narrationText is set
+    // Auto-generate narration TTS if text set
     let resolvedNarrationUrl: string | undefined;
     if (narrationText.trim()) {
       try {
@@ -941,36 +1004,50 @@ export default function MusicVideoPlannerPage() {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: narrationText.trim(), voiceId: narrationSettings?.voiceId }),
         });
-        const ttsData = await ttsRes.json();
-        if (ttsData.audioUrl) resolvedNarrationUrl = ttsData.audioUrl;
-      } catch { /* narration optional — continue without */ }
-      setLastAction(`Assembling ${mvScenes.length} scenes with beat-sync…`);
+        if (ttsRes.ok) {
+          const ttsData = await ttsRes.json();
+          if (ttsData.audioUrl) resolvedNarrationUrl = ttsData.audioUrl;
+        }
+      } catch { /* optional */ }
+      setLastAction(`Assembling ${assemblyScenes.length} scenes…`);
     }
 
     try {
-      const res = await fetch("/api/music-video/assemble", {
+      const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId,
-          title: `${songTitle} — Music Video`,
-          songUrl: songUrl || selectedMusicUrl || undefined,
-          songPath: undefined,
-          scenes: mvScenes,
-          sections,
+          projectId: projectId || `mv_${songTitle.replace(/\s+/g, "_").slice(0, 30)}_${Date.now()}`,
+          title: `${songTitle || "Music Video"} — Music Video`,
+          scenes: assemblyScenes,
+          musicUrl: songUrl || selectedMusicUrl || undefined,
           musicVolume: mvMusicVolume,
-          narrationVolume: mvNarrationVolume,
           narrationUrl: resolvedNarrationUrl,
-          // SFX: include generated SFX if available
+          narrationVolume: mvNarrationVolume,
           sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
-          captions: !!(mvScenes.some(s => s.caption)),
-          captionStyle: "white",
+          subtitleConfig,
+          introUrl: introUrl || undefined,
+          outroUrl: outroUrl || undefined,
+          aspectRatio: "16:9",
         }),
       });
-      const data = await safeJson<{ outputUrl?: string; duration?: number; error?: string }>(res, "music-video-assemble");
+      if (!res.ok) {
+        const errText = await res.text();
+        setLastAction(`Assembly error (${res.status}): ${errText.slice(0, 200)}`);
+        setAssembling(false);
+        return;
+      }
+      const data = await safeJson<{ outputUrl?: string; duration?: number; error?: string }>(res, "mv-assemble");
       if (data.outputUrl) {
         setAssembledUrl(data.outputUrl);
         setAssemblyComplete(true);
         setLastAction(`Music video assembled! (${Math.round(data.duration || 0)}s)`);
+        // Save to asset library
+        try {
+          await fetch("/api/assets", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title: songTitle || "Music Video", type: "video", url: data.outputUrl, projectId, metadata: { videoMode, visualStyle } }),
+          });
+        } catch { /* best effort */ }
       } else {
         setLastAction(data.error || "Assembly failed — check server logs");
       }
@@ -1167,6 +1244,19 @@ export default function MusicVideoPlannerPage() {
 
   const sceneImageCount = Object.keys(sceneImages).length;
 
+  async function loadCharacters() {
+    setLoadingCharacters(true);
+    try {
+      const res = await fetch("/api/characters");
+      const data = await res.json();
+      const chars: ImportedCharacter[] = (data.characters || data || []).map((c: { id: string; name: string; imageUrl?: string; voiceName?: string; voiceId?: string }) => ({
+        id: c.id, name: c.name, imageUrl: c.imageUrl, voiceName: c.voiceName, voiceId: c.voiceId,
+      }));
+      setCharacterLibrary(chars);
+    } catch { /* best effort */ }
+    setLoadingCharacters(false);
+  }
+
   return (
     <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
       <GateModal />
@@ -1184,8 +1274,12 @@ export default function MusicVideoPlannerPage() {
       <div style={{ padding: "12px 32px 0", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as const }}>
         <span style={{ fontSize: 12, color: ds.color.ink, fontWeight: 600 }}>{songTitle || "New Project"}</span>
         {lastAction && <span style={{ fontSize: 11, color: ds.color.mint, marginLeft: 8 }}>{lastAction}</span>}
+        <button onClick={() => newProject()}
+          style={{ marginLeft: "auto", fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid rgba(255,255,255,0.1)`, background: "transparent", color: "#5a7080", cursor: "pointer" }}>
+          New Project
+        </button>
         <button onClick={() => saveProject()} disabled={saving}
-          style={{ marginLeft: "auto", fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: `${ds.color.lilac}10`, color: ds.color.lilac, cursor: "pointer", fontWeight: 600 }}>
+          style={{ fontSize: 11, padding: "5px 12px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: `${ds.color.lilac}10`, color: ds.color.lilac, cursor: "pointer", fontWeight: 600 }}>
           {saving ? "Saving..." : "Save"}
         </button>
         <button onClick={() => setShowProjects(!showProjects)}
@@ -1910,6 +2004,22 @@ export default function MusicVideoPlannerPage() {
             ))}
           </div>
 
+          <label style={labelStyle}>Video Art Style</label>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 20 }}>
+            {[
+              { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff" },
+              { id: "2d-cartoon",   icon: "2D", name: "2D Cartoon",   color: "#f59e0b" },
+              { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7" },
+              { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899" },
+              { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e" },
+            ].map(s => (
+              <button key={s.id} onClick={() => setProjectStyle(s.id)}
+                style={{ padding: "7px 14px", borderRadius: 100, border: `1px solid ${projectStyle === s.id ? s.color : border}`, background: projectStyle === s.id ? `${s.color}15` : "transparent", color: projectStyle === s.id ? s.color : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.7 }}>{s.icon}</span>{s.name}
+              </button>
+            ))}
+          </div>
+
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Artist / Brand Name (optional)</label>
             <input value={artistName} onChange={e => setArtistName(e.target.value)} placeholder="For title cards and branding" style={inputStyle} />
@@ -2459,6 +2569,75 @@ export default function MusicVideoPlannerPage() {
         </div>
       )}
 
+      {/* ═══ CHARACTERS TAB ═══ */}
+      {activeTab === "characters" && (
+        <div style={cardStyle}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Cast & Characters</h2>
+          <p style={{ fontSize: 11, color: muted, marginBottom: 20 }}>Import saved characters to appear in your music video scenes. Characters are generated from your story in the hybrid planner or character builder.</p>
+
+          {/* Imported cast */}
+          {importedCharacters.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Cast ({importedCharacters.length})</p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
+                {importedCharacters.map(char => (
+                  <div key={char.id} style={{ background: "#080b10", borderRadius: 10, border: "1px solid #1e2a35", padding: 10, display: "flex", flexDirection: "column" as const, gap: 6, alignItems: "center", position: "relative" as const }}>
+                    <button onClick={() => setImportedCharacters(prev => prev.filter(c => c.id !== char.id))}
+                      style={{ position: "absolute" as const, top: 6, right: 6, background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 10 }}>✕</button>
+                    {char.imageUrl ? (
+                      <img src={char.imageUrl} alt={char.name} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: 64, height: 64, borderRadius: 8, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: muted }}>?</div>
+                    )}
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center" as const }}>{char.name}</p>
+                    {char.voiceName && <p style={{ fontSize: 9, color: muted }}>{char.voiceName}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Import from library */}
+          <div style={{ marginBottom: 16 }}>
+            <button onClick={() => { setShowCharacterPicker(p => !p); if (!showCharacterPicker && characterLibrary.length === 0) loadCharacters(); }}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(124,92,252,0.4)", background: "rgba(124,92,252,0.1)", color: "#7c5cfc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              {showCharacterPicker ? "Close Library" : "Import Existing Character"}
+            </button>
+            {loadingCharacters && <span style={{ fontSize: 11, color: muted, marginLeft: 10 }}>Loading…</span>}
+          </div>
+
+          {showCharacterPicker && (
+            <div style={{ background: "#080b10", borderRadius: 12, border: "1px solid #1e2a35", padding: 12, maxHeight: 280, overflowY: "auto" as const, marginBottom: 16 }}>
+              {characterLibrary.length === 0 && !loadingCharacters && (
+                <p style={{ fontSize: 11, color: muted }}>No characters found. Create characters in the Hybrid Planner first.</p>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+                {characterLibrary.map(char => {
+                  const already = importedCharacters.some(c => c.id === char.id);
+                  return (
+                    <div key={char.id} onClick={() => { if (!already) { setImportedCharacters(prev => [...prev, char]); } setShowCharacterPicker(false); }}
+                      style={{ background: already ? "rgba(34,197,94,0.08)" : "#0d1117", borderRadius: 8, border: `1px solid ${already ? "rgba(34,197,94,0.3)" : "#1e2a35"}`, padding: 8, cursor: already ? "default" : "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4 }}>
+                      {char.imageUrl ? (
+                        <img src={char.imageUrl} alt={char.name} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover" }} />
+                      ) : (
+                        <div style={{ width: 48, height: 48, borderRadius: 6, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: muted }}>?</div>
+                      )}
+                      <p style={{ fontSize: 10, fontWeight: 700, color: already ? "#22c55e" : "#fff", textAlign: "center" as const }}>{char.name}</p>
+                      {already && <span style={{ fontSize: 8, color: "#22c55e" }}>Added</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <button onClick={() => setActiveTab("script")}
+            style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "#ec4899", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+            Next → Song Script
+          </button>
+        </div>
+      )}
+
       {/* ═══ ASSEMBLY TAB ═══ */}
       {activeTab === "assembly" && (
         <div style={cardStyle}>
@@ -2580,6 +2759,66 @@ export default function MusicVideoPlannerPage() {
             </div>
           ))}
 
+          {/* ── Continuous Motion ── */}
+          <div style={{ ...cardStyle, marginBottom: 12, borderColor: continuousMotionEnabled ? "rgba(0,212,255,0.3)" : border, background: continuousMotionEnabled ? "rgba(0,212,255,0.04)" : undefined }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={continuousMotionEnabled}
+                onChange={e => { setContinuousMotionEnabled(e.target.checked); setCmError(null); setCmStatus(null); setCmFinalVideoUrl(null); }}
+                style={{ width: 16, height: 16, accentColor: "#00d4ff" }}
+              />
+              <span style={{ fontSize: 13, fontWeight: 700, color: continuousMotionEnabled ? "#00d4ff" : "#fff" }}>
+                Continuous Motion — chain scenes into one seamless action sequence
+              </span>
+            </label>
+            {continuousMotionEnabled && (
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
+                  AI treats your storyboard as one continuous performance — ideal for dance sequences, live concert visuals, and unbroken action.
+                </p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <p style={{ fontSize: 9, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Total Duration (s)</p>
+                    <input type="number" min={5} max={120} value={cmTotalDuration}
+                      onChange={e => setCmTotalDuration(Math.max(5, Number(e.target.value)))}
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 9, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Segment (s, max 10)</p>
+                    <input type="number" min={3} max={10} value={cmSegmentDuration}
+                      onChange={e => setCmSegmentDuration(Math.min(10, Math.max(3, Number(e.target.value))))}
+                      style={{ ...inputStyle, fontSize: 12 }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: 9, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Video Provider</p>
+                    <select value={cmProvider} onChange={e => setCmProvider(e.target.value as "wan" | "kling_std")}
+                      style={{ ...inputStyle, fontSize: 12 }}>
+                      <option value="wan">Wan 2.5</option>
+                      <option value="kling_std">Kling Standard</option>
+                    </select>
+                  </div>
+                </div>
+                {cmError && <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 10 }}>{cmError}</p>}
+                {cmStatus && cmStatus !== "DONE" && (
+                  <p style={{ fontSize: 11, color: "#00d4ff", marginBottom: 10 }}>Status: {cmStatus}{cmRunning && " — polling every 3s..."}</p>
+                )}
+                {cmFinalVideoUrl && (
+                  <div style={{ marginBottom: 14 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "#4ade80", marginBottom: 8 }}>Continuous Motion ready</p>
+                    <video src={cmFinalVideoUrl} controls style={{ width: "100%", maxHeight: 260, borderRadius: 8, background: "#000", marginBottom: 8 }} />
+                  </div>
+                )}
+                <button
+                  onClick={startContinuousMotion}
+                  disabled={cmRunning}
+                  style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: cmRunning ? "#2a2040" : "#00d4ff", color: cmRunning ? "#fff" : "#000", fontSize: 13, fontWeight: 700, cursor: cmRunning ? "not-allowed" : "pointer" }}>
+                  {cmRunning ? `Generating… (${cmStatus ?? "starting"})` : "Generate Continuous Motion"}
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* ── Review Checkpoint before render ── */}
           {reviewCheckpoint === "storyboard" && !reviewPassed["storyboard"] ? (
             <div style={{ marginTop: 16, padding: "16px 18px", borderRadius: 12, background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.3)" }}>
@@ -2668,7 +2907,61 @@ export default function MusicVideoPlannerPage() {
               </div>
             </div>
 
-            {/* Primary assembleMovie (uses scene videos + images) */}
+            {/* Subtitle Style */}
+            <div style={{ marginBottom: 12 }}>
+              <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor="#00d4ff" />
+            </div>
+
+            {/* AI Intro / Outro */}
+            <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: `1px solid ${border}`, background: "rgba(255,255,255,0.02)" }}>
+              <p style={{ fontSize: 10, color: muted, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>AI Intro / Outro</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  {introUrl
+                    ? <div style={{ position: "relative" }}>
+                        <video src={introUrl} style={{ width: "100%", borderRadius: 8, maxHeight: 80 }} muted />
+                        <button onClick={() => setIntroUrl(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: 4, color: "#fff", fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>✕</button>
+                      </div>
+                    : <button
+                        onClick={async () => {
+                          setGeneratingIntro(true);
+                          try {
+                            const res = await fetch("/api/video/title-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", studioName: "GIO HOME AI STUDIO", title: songTitle || "Music Video", duration: 4 }) });
+                            const d = await res.json();
+                            if (d.videoUrl) setIntroUrl(d.videoUrl);
+                          } catch { /* ignore */ } finally { setGeneratingIntro(false); }
+                        }}
+                        disabled={generatingIntro}
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 11, fontWeight: 700, cursor: generatingIntro ? "not-allowed" : "pointer" }}>
+                        {generatingIntro ? "Generating…" : "Generate AI Intro"}
+                      </button>
+                  }
+                </div>
+                <div>
+                  {outroUrl
+                    ? <div style={{ position: "relative" }}>
+                        <video src={outroUrl} style={{ width: "100%", borderRadius: 8, maxHeight: 80 }} muted />
+                        <button onClick={() => setOutroUrl(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: 4, color: "#fff", fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>✕</button>
+                      </div>
+                    : <button
+                        onClick={async () => {
+                          setGeneratingOutro(true);
+                          try {
+                            const res = await fetch("/api/video/title-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", studioName: "GIO HOME AI STUDIO", title: songTitle || "Music Video", director: artistName || undefined, duration: 5 }) });
+                            const d = await res.json();
+                            if (d.videoUrl) setOutroUrl(d.videoUrl);
+                          } catch { /* ignore */ } finally { setGeneratingOutro(false); }
+                        }}
+                        disabled={generatingOutro}
+                        style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 11, fontWeight: 700, cursor: generatingOutro ? "not-allowed" : "pointer" }}>
+                        {generatingOutro ? "Generating…" : "Generate AI Outro"}
+                      </button>
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* Primary assembleMovie (uses scene videos + images via /api/video/assemble) */}
             <button
               onClick={assembleMovie}
               disabled={assembling || storyboard.length === 0}
@@ -2676,17 +2969,7 @@ export default function MusicVideoPlannerPage() {
               {assembling ? "Assembling Music Video..." : assemblyComplete ? "Re-assemble Music Video" : `Assemble Music Video (${assemblySelectedIds.length || storyboard.length} scenes)`}
             </button>
 
-            {/* Legacy image-based assembly */}
-            {sceneImageCount > 0 && (
-              <button
-                onClick={assembleMusicVideo}
-                disabled={assembling}
-                style={{ width: "100%", padding: 12, borderRadius: 12, border: "none", background: assembling ? "#2a2a40" : "#ec4899", color: "#fff", fontSize: 13, fontWeight: 700, cursor: assembling ? "not-allowed" : "pointer", marginBottom: 8 }}>
-                {assembling ? "..." : `Image Slideshow Assembly (${sceneImageCount} images + music)`}
-              </button>
-            )}
-
-            {sceneImageCount === 0 && storyboard.length === 0 && (
+            {storyboard.length === 0 && sceneImageCount === 0 && (
               <p style={{ fontSize: 12, color: muted, textAlign: "center" }}>Generate scene images or render scenes first.</p>
             )}
             <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Merges scenes with your music track. Auto-saved to Asset Library.</p>

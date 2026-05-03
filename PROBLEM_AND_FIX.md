@@ -5,6 +5,17 @@ When the same problem appears again, check here first before debugging from scra
 
 ---
 
+## 0. Smart Builder character not appearing in list (2026-05-02)
+
+**Problem:** Henry creates character via Smart Builder modal at `/dashboard/character-voices`. Character WAS saved to DB (`prisma.characterVoice.create`), but list only refreshed when user clicked "Done — Character Saved" button. Closing with X or clicking away → list looked empty next visit/refresh until reload.
+**Root cause:** `handleBuild()` in `app/dashboard/character-voices/page.tsx` SmartBuilderModal called `setResult(data)` after successful POST `/api/character/smart-build`, but `onCreated()` callback (which reloads parent list) was only fired by the explicit Done button click. X close button only called `onClose()` without triggering refresh.
+**Fix:** Two edits to `app/dashboard/character-voices/page.tsx`:
+- L919 (handleBuild): added `onCreated();` immediately after `setResult(data);` so list refreshes the instant build succeeds
+- L955 (X close button): changed onClick to `() => { if (result) onCreated(); onClose(); }` so closing also refreshes if a character was built
+**Prevention:** Any modal that creates a DB row must fire parent-refresh callback at the moment of creation success, NOT only on explicit "Done" click. User can close any way they want — DB write already happened.
+
+---
+
 ## 1. Narration truncated at 48s (assembly cuts audio short)
 
 **Problem:** Assembled video had narration only for the first 48s, then silence for the remaining 120s+.
@@ -478,3 +489,17 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
   y, sr_native = __audioread_load(path, offset, duration, dtype)
 
 **Stderr:** 
+
+
+## Karaoke Analysis Error — 2026-05-01T18:19:03.684Z
+**Recording:** 7aaea769-9fa9-4339-a49d-4c0d6e21b4fe
+**Error:** Python exited with code 1. stderr: [WARN] soundfile read failed: Error opening 'storage\\karaoke\\7aaea769-9fa9-4339-a49d-4c0d6e21b4fe.webm': Format not recognised. � falling back to librosa
+C:\Users\USER\Desktop\CLAUDE\giohomestudio\scripts\karaoke_analyze.py:126: UserWarning: PySoundFile failed. Trying audioread instead.
+  y, sr = librosa.load(audio_path, sr=None, mono=True)
+C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\core\audio.py:184: FutureWarning: librosa.core.audio.__audioread_load
+	Deprecated as of librosa version 0.10.0.
+	It will be removed in librosa version 1.0.
+  y, sr_native = __audioread_load(path, offset, duration, dtype)
+[WARN] librosa load also failed: 
+
+**Stderr (full):** 

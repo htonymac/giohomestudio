@@ -59,6 +59,19 @@ interface StickerItem {
   strokeWidth: number;
 }
 
+// Rich subtitle configuration (from SubtitleStyler component)
+interface SubtitleConfig {
+  mode: "dialogue" | "highlight" | "kids" | "dramatic" | "social";
+  fontFamily: "sans" | "serif" | "mono" | "display";
+  fontSize: number;
+  textColor: string;
+  highlightColor: string;
+  bgBox: boolean;
+  bgOpacity: number;
+  position: "bottom" | "center" | "top";
+  animation: "none" | "fade" | "pop" | "bounce" | "slide" | "karaoke";
+}
+
 interface AssemblyRequest {
   projectId?: string;
   title?: string;
@@ -73,8 +86,11 @@ interface AssemblyRequest {
   captionPosition?: "top" | "center" | "bottom";
   outputFormat?: "mp4" | "webm";
   aspectRatio?: "16:9" | "9:16" | "1:1";
-  subtitleStyle?: "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
+  subtitleStyle?: "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"; // legacy
+  subtitleConfig?: SubtitleConfig; // rich subtitle config (overrides subtitleStyle)
   stickers?: StickerItem[]; // animated sticker overlays
+  introUrl?: string;     // optional intro clip prepended before scenes
+  outroUrl?: string;     // optional outro clip appended after scenes
 }
 
 // FFmpeg drawtext animation expressions
@@ -134,13 +150,31 @@ export async function POST(req: NextRequest) {
 
     const ffmpeg = env.ffmpegPath;
 
+    // Resolve subtitle: rich config takes priority over legacy style string
+    const subtitleCfg: SubtitleConfig | SubtitleStyle = (body.subtitleConfig as SubtitleConfig | undefined) ?? (body.subtitleStyle ?? "classic") as SubtitleStyle;
+    const subtitleEnabled = body.subtitleConfig
+      ? (body.subtitleConfig.mode as string) !== "none"
+      : body.subtitleStyle !== "none";
+
     // ── Step 1: Process ALL scenes IN PARALLEL — massive speed improvement ──
     // Each scene writes to its own temp file so there is no conflict.
     async function processScene(scene: AssemblyScene): Promise<string | null> {
       if (scene.videoUrl.startsWith("img:")) {
         // ── Image scene — polished video slide with motion, brightness, text wrapping ──
         const imageUrl = scene.videoUrl.slice(4);
-        const imagePath = resolveMediaPath(imageUrl);
+        let imagePath = resolveMediaPath(imageUrl);
+        // Download external URLs (FAL, CDN, etc.) to temp before FFmpeg
+        if (!imagePath && (imageUrl.startsWith("http://") || imageUrl.startsWith("https://"))) {
+          const ext = imageUrl.split("?")[0].split(".").pop()?.toLowerCase() || "jpg";
+          const localDest = path.join(tempDir, `scene_img_${scene.scene}.${ext}`);
+          try {
+            await downloadToLocal(imageUrl, localDest);
+            imagePath = localDest;
+          } catch (err) {
+            console.warn(`[assemble] Scene ${scene.scene} download failed: ${err}`);
+            return null;
+          }
+        }
         if (!imagePath || !fs.existsSync(imagePath)) {
           console.warn(`[assemble] Scene ${scene.scene} image not found: ${imageUrl}`);
           return null;
@@ -201,11 +235,11 @@ export async function POST(req: NextRequest) {
 
         // Generate subtitle PNG overlay via Sharp/SVG — bypasses FFmpeg font issues entirely
         let subPngFile: string | null = null;
-        if (slideText && body.subtitleStyle !== "none") {
+        if (slideText && subtitleEnabled) {
           const subText = buildSubtitleText(slideText);
           if (subText) {
             subPngFile = path.join(tempDir, `sub_${scene.scene}.png`);
-            try { await generateSubtitlePng(subText, subPngFile, "bottom", 52, body.subtitleStyle ?? "classic"); }
+            try { await generateSubtitlePng(subText, subPngFile, "bottom", 52, subtitleCfg); }
             catch { subPngFile = null; }
           }
         }
@@ -303,9 +337,9 @@ export async function POST(req: NextRequest) {
 
           // Generate subtitle PNG (centered for bg slides) — Sharp/SVG, no drawtext
           let bgSubPng: string | null = null;
-          if (bgSubText && body.subtitleStyle !== "none") {
+          if (bgSubText && subtitleEnabled) {
             bgSubPng = path.join(tempDir, `bgsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", 64, body.subtitleStyle ?? "classic"); }
+            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", 64, subtitleCfg); }
             catch { bgSubPng = null; }
           }
 
@@ -357,7 +391,18 @@ export async function POST(req: NextRequest) {
           }
         // (drawtext pipeline above handles everything)
       } else {
-        const videoPath = resolveMediaPath(scene.videoUrl);
+        let videoPath = resolveMediaPath(scene.videoUrl);
+        // Download external video URLs to temp
+        if (!videoPath && (scene.videoUrl.startsWith("http://") || scene.videoUrl.startsWith("https://"))) {
+          const ext = scene.videoUrl.split("?")[0].split(".").pop()?.toLowerCase() || "mp4";
+          const localDest = path.join(tempDir, `scene_vid_${scene.scene}.${ext}`);
+          try {
+            await downloadToLocal(scene.videoUrl, localDest);
+            videoPath = localDest;
+          } catch (err) {
+            console.warn(`[assemble] Scene ${scene.scene} video download failed: ${err}`);
+          }
+        }
         if (!videoPath || !fs.existsSync(videoPath)) {
           // Video file not found — fall back to gradient slide (with subtitle if any)
           console.warn(`[assemble] Scene ${scene.scene} video not found (${scene.videoUrl}) — falling back to gradient slide`);
@@ -366,9 +411,9 @@ export async function POST(req: NextRequest) {
           const fps = 25;
           const fallbackSubText = buildSubtitleText(scene.text || "");
           let fallbackSubPng: string | null = null;
-          if (fallbackSubText && body.subtitleStyle !== "none") {
+          if (fallbackSubText && subtitleEnabled) {
             fallbackSubPng = path.join(tempDir, `fbsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", 52, body.subtitleStyle ?? "classic"); }
+            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", 52, subtitleCfg); }
             catch { fallbackSubPng = null; }
           }
           const fallbackArgs: string[] = [
@@ -396,14 +441,14 @@ export async function POST(req: NextRequest) {
           // Video found — normalize audio + apply subtitle PNG overlay in one pass
           const normFile = path.join(tempDir, `norm_${scene.scene}.mp4`);
           const subText = buildSubtitleText(scene.text || "");
-          console.log(`[assemble] scene ${scene.scene} subText="${subText.slice(0, 60)}" style="${body.subtitleStyle}"`);
+          console.log(`[assemble] scene ${scene.scene} subText="${subText.slice(0, 60)}" style="${typeof subtitleCfg === 'object' ? subtitleCfg.mode : subtitleCfg}"`);
 
           // Generate subtitle PNG via Sharp/SVG — no drawtext font dependency
           let vidSubPng: string | null = null;
-          if (subText && body.subtitleStyle !== "none") {
+          if (subText && subtitleEnabled) {
             vidSubPng = path.join(tempDir, `vsub_${scene.scene}.png`);
             try {
-              await generateSubtitlePng(subText, vidSubPng, "bottom", 52, body.subtitleStyle ?? "classic");
+              await generateSubtitlePng(subText, vidSubPng, "bottom", 52, subtitleCfg);
               console.log(`[assemble] scene ${scene.scene} subtitle PNG OK: ${vidSubPng}`);
             } catch (subErr) {
               console.error(`[assemble] scene ${scene.scene} subtitle PNG FAILED:`, subErr);
@@ -549,19 +594,17 @@ export async function POST(req: NextRequest) {
     // Falls back to sequential passes only when narration has multiple tracks with delays.
     let finalPath = concatOutput;
 
-    const musicPath = body.musicUrl ? resolveMediaPath(body.musicUrl) : null;
-    const validMusicPath = musicPath && fs.existsSync(musicPath) ? musicPath : null;
+    const validMusicPath = await resolveOrDownload(body.musicUrl, tempDir, "music");
     const musicVol = body.musicVolume ?? 0.85;
 
     // Resolve single narration source (narrator at t=0, or single narrationUrl)
     const singleNarrItem = body.narrationList?.length === 1 && (body.narrationList[0].startTime || 0) < 1
       ? body.narrationList[0] : null;
-    const singleNarrPath = singleNarrItem
-      ? resolveMediaPath(singleNarrItem.audioUrl)
-      : (body.narrationUrl ? resolveMediaPath(body.narrationUrl) : null);
+    const rawNarrUrl = singleNarrItem?.audioUrl ?? body.narrationUrl ?? null;
+    const singleNarrPath = await resolveOrDownload(rawNarrUrl, tempDir, "narr");
     const narrVol = singleNarrItem?.volume ?? body.narrationVolume ?? 1.0;
 
-    const canCombine = validMusicPath && singleNarrPath && fs.existsSync(singleNarrPath);
+    const canCombine = !!(validMusicPath && singleNarrPath);
 
     if (canCombine) {
       // ── FAST PATH: music + narration in one pass ──
@@ -623,7 +666,7 @@ export async function POST(req: NextRequest) {
       ? body.narrationList : [];
     for (let ni = 0; ni < multiNarrItems.length; ni++) {
       const narrItem = multiNarrItems[ni];
-      const narrPath = resolveMediaPath(narrItem.audioUrl);
+      const narrPath = await resolveOrDownload(narrItem.audioUrl, tempDir, `narrtrack${ni}`);
       if (!narrPath) continue;
       const narrOutput = path.join(tempDir, `with_narr_${ni}.mp4`);
       const delayMs = Math.round((narrItem.startTime || 0) * 1000);
@@ -650,7 +693,7 @@ export async function POST(req: NextRequest) {
 
     // ── SEQUENTIAL FALLBACK: single narrationUrl (no music) ──
     if (!canCombine && !multiNarrItems.length && body.narrationUrl) {
-      const narrationPath = resolveMediaPath(body.narrationUrl);
+      const narrationPath = await resolveOrDownload(body.narrationUrl, tempDir, "narr_single");
       if (narrationPath) {
         const narrationOutput = path.join(tempDir, "with_narration.mp4");
         const nVol = body.narrationVolume ?? 1.0;
@@ -682,8 +725,8 @@ export async function POST(req: NextRequest) {
     // ── Step 5b: Mix SFX at timestamps if provided ──
     if (body.sfx?.length) {
       for (const sfxItem of body.sfx) {
-        const sfxPath = resolveMediaPath(sfxItem.sourceUrl);
-        if (!sfxPath || !fs.existsSync(sfxPath)) continue;
+        const sfxPath = await resolveOrDownload(sfxItem.sourceUrl, tempDir, `sfx_${sfxItem.startTime}`);
+        if (!sfxPath) continue;
 
         const sfxOutput = path.join(tempDir, `with_sfx_${Date.now()}.mp4`);
         const delayMs = Math.round((sfxItem.startTime || 0) * 1000);
@@ -843,6 +886,35 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Step 5e: Prepend intro / append outro clips if provided ──
+    {
+      const introPath = await resolveOrDownload(body.introUrl, tempDir, "intro");
+      const outroPath = await resolveOrDownload(body.outroUrl, tempDir, "outro");
+      if (introPath || outroPath) {
+        const clipParts: string[] = [];
+        if (introPath) clipParts.push(introPath);
+        clipParts.push(finalPath);
+        if (outroPath) clipParts.push(outroPath);
+
+        if (clipParts.length > 1) {
+          const withBumpers = path.join(tempDir, "with_bumpers.mp4");
+          const bumperConcat = path.join(tempDir, "bumper_concat.txt");
+          fs.writeFileSync(bumperConcat, clipParts.map(f => `file '${path.resolve(f).replace(/\\/g, "/")}'`).join("\n"));
+          try {
+            await execFileAsync(ffmpeg, [
+              "-f", "concat", "-safe", "0", "-i", bumperConcat,
+              "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+              "-c:a", "aac", "-b:a", "192k",
+              "-movflags", "+faststart", "-y", withBumpers,
+            ], { timeout: 300000 });
+            finalPath = withBumpers;
+          } catch (bumperErr) {
+            console.warn("[assemble] Intro/outro concat failed, skipping:", bumperErr instanceof Error ? bumperErr.message.slice(0, 200) : bumperErr);
+          }
+        }
+      }
+    }
+
     // ── Step 6: Copy final to output directory ──
     const finalFilename = `movie_${body.projectId ?? "export"}_${Date.now()}.mp4`;
     const outputPath = path.join(outDir, finalFilename);
@@ -937,7 +1009,7 @@ export async function POST(req: NextRequest) {
 // ── Generate subtitle PNG overlay via Sharp/SVG ──
 // Uses Sharp + SVG text rendering — no FFmpeg font dependency, no text_w issues.
 // Position: "bottom" = lower-third bar, "center" = vertically centered bar.
-// style: controls visual appearance of the subtitle.
+// Accepts either legacy SubtitleStyle string OR rich SubtitleConfig object.
 type SubtitleStyle = "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
 
 async function generateSubtitlePng(
@@ -945,26 +1017,44 @@ async function generateSubtitlePng(
   outputPath: string,
   position: "bottom" | "center",
   fontSize: number,
-  style: SubtitleStyle = "classic",
+  style: SubtitleStyle | SubtitleConfig = "classic",
 ): Promise<void> {
-  // "none" style = skip generating any subtitle PNG
-  if (style === "none") return;
+  // Resolve config: if style is a string, convert to SubtitleConfig
+  const cfg: SubtitleConfig = (typeof style === "object")
+    ? style
+    : styleStringToConfig(style, position, fontSize);
+
+  if ((cfg.mode as string) === "none") return;
 
   const sharp = (await import("sharp")).default;
   const W = 1920, H = 1080;
-  const lineH = Math.round(fontSize * 1.35);     // line spacing
-  const lines = wrapTextIntoLines(text, 52);      // wrap into max 3 lines
+  const fs_px = cfg.fontSize ?? fontSize;
+  const lineH = Math.round(fs_px * 1.4);
+  const lines = wrapTextIntoLines(text, Math.round(52 * 48 / fs_px));
   const numLines = Math.max(lines.length, 1);
-  const boxH = Math.round(lineH * numLines + fontSize * 0.8); // pad top+bottom
-  const boxY = position === "center"
+  const boxH = Math.round(lineH * numLines + fs_px * 0.9);
+  const pos = cfg.position ?? (position === "center" ? "center" : "bottom");
+  const boxY = pos === "center"
     ? Math.round(H / 2 - boxH / 2)
-    : H - boxH - 90;                              // 90px gap — clears letterbox bars baked into AI videos
-  const firstLineY = boxY + Math.round(fontSize * 0.9 + (boxH - lineH * numLines) / 2);
+    : pos === "top"
+      ? 60
+      : H - boxH - 90;
+  const firstLineY = boxY + Math.round(fs_px * 0.95 + (boxH - lineH * numLines) / 2);
 
-  // XML-escape each line
   const escape = (s: string) => s
     .replace(/&/g, "&amp;").replace(/</g, "&lt;")
     .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  const fontFamilyMap: Record<string, string> = {
+    sans:    "Arial,Helvetica,sans-serif",
+    serif:   "Georgia,'Times New Roman',serif",
+    mono:    "'Courier New',Courier,monospace",
+    display: "'Arial Black',Impact,sans-serif",
+  };
+  const fontFamily = fontFamilyMap[cfg.fontFamily ?? "sans"] ?? fontFamilyMap.sans;
+  const textColor = cfg.textColor ?? "#ffffff";
+  const highlightColor = cfg.highlightColor ?? "#f59e0b";
+  const bgOpacity = cfg.bgOpacity ?? 0.75;
 
   const tspans = lines.map((line, i) =>
     `<tspan x="${W / 2}" dy="${i === 0 ? 0 : lineH}">${escape(line)}</tspan>`
@@ -972,100 +1062,130 @@ async function generateSubtitlePng(
 
   let svg: string;
 
-  switch (style) {
-    case "cinema": {
-      // Thin black bar only as wide as the text (centered), white text, elegant
-      const approxTextW = Math.min(lines.reduce((max, l) => Math.max(max, l.length), 0) * fontSize * 0.55 + 48, W - 80);
-      const cinemaBoxX = Math.round((W - approxTextW) / 2);
+  switch (cfg.mode) {
+    case "highlight": {
+      // Highlight first word of each line in highlight color; rest in textColor
+      const hlTspans = lines.map((line, i) => {
+        const words = line.split(" ");
+        const first = escape(words[0] ?? "");
+        const rest = escape(words.slice(1).join(" "));
+        return `<tspan x="${W / 2}" dy="${i === 0 ? 0 : lineH}">` +
+          `<tspan fill="${highlightColor}" font-weight="900">${first} </tspan>` +
+          (rest ? `<tspan fill="${textColor}">${rest}</tspan>` : "") +
+          `</tspan>`;
+      }).join("");
+      const bgFill = cfg.bgBox ? `rgba(0,0,0,${bgOpacity})` : "none";
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-        <rect x="${cinemaBoxX}" y="${boxY}" width="${approxTextW}" height="${boxH}" rx="4" fill="rgba(0,0,0,0.82)"/>
+        <rect x="0" y="${boxY}" width="${W}" height="${boxH}" rx="4" fill="${bgFill}"/>
         <text x="${W / 2}" y="${firstLineY}"
           text-anchor="middle"
-          font-family="Georgia,Times New Roman,serif"
-          font-size="${fontSize}"
-          font-weight="normal"
-          fill="white"
-          letter-spacing="0.5">${tspans}</text>
+          font-family="${fontFamily}"
+          font-size="${fs_px}"
+          font-weight="700"
+          letter-spacing="1">${hlTspans}</text>
       </svg>`;
       break;
     }
 
-    case "neon": {
+    case "kids": {
+      const bgFill = cfg.bgBox ? `rgba(76,29,149,${bgOpacity})` : "none";
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
         <defs>
-          <filter id="glow">
-            <feGaussianBlur stdDeviation="3" result="blur"/>
+          <filter id="kidsglow">
+            <feGaussianBlur stdDeviation="4" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
           </filter>
         </defs>
-        <rect x="0" y="${boxY}" width="${W}" height="${boxH}" rx="6" fill="rgba(0,10,20,0.85)"/>
+        <rect x="20" y="${boxY}" width="${W - 40}" height="${boxH}" rx="16" fill="${bgFill}"
+          stroke="${highlightColor}" stroke-width="3"/>
         <text x="${W / 2}" y="${firstLineY}"
           text-anchor="middle"
-          font-family="Arial,Helvetica,sans-serif"
-          font-size="${fontSize}"
-          font-weight="bold"
-          fill="#00d4ff"
-          filter="url(#glow)"
-          letter-spacing="2">${tspans}</text>
-      </svg>`;
-      break;
-    }
-
-    case "minimal": {
-      // No background box — white text with dark drop-shadow
-      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-        <defs>
-          <filter id="shadow">
-            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.9"/>
-          </filter>
-        </defs>
-        <text x="${W / 2}" y="${firstLineY}"
-          text-anchor="middle"
-          font-family="Arial,Helvetica,sans-serif"
-          font-size="${fontSize}"
-          font-weight="600"
-          fill="white"
-          filter="url(#shadow)"
-          letter-spacing="1">${tspans}</text>
-      </svg>`;
-      break;
-    }
-
-    case "bold": {
-      // Two text elements: black stroke underneath, white fill on top
-      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-        <text x="${W / 2}" y="${firstLineY}"
-          text-anchor="middle"
-          font-family="Arial Black,Arial,Helvetica,sans-serif"
-          font-size="${Math.round(fontSize * 1.15)}"
+          font-family="${fontFamily}"
+          font-size="${Math.round(fs_px * 1.05)}"
           font-weight="900"
           fill="none"
-          stroke="black"
-          stroke-width="8"
+          stroke="rgba(0,0,0,0.9)"
+          stroke-width="6"
+          stroke-linejoin="round">${tspans}</text>
+        <text x="${W / 2}" y="${firstLineY}"
+          text-anchor="middle"
+          font-family="${fontFamily}"
+          font-size="${Math.round(fs_px * 1.05)}"
+          font-weight="900"
+          fill="${highlightColor}"
+          filter="url(#kidsglow)">${tspans}</text>
+      </svg>`;
+      break;
+    }
+
+    case "dramatic": {
+      const approxTextW = Math.min(lines.reduce((max, l) => Math.max(max, l.length), 0) * fs_px * 0.58 + 80, W - 80);
+      const dBoxX = Math.round((W - approxTextW) / 2);
+      const bgFill = cfg.bgBox ? `rgba(0,0,0,${bgOpacity})` : "none";
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+        <rect x="${dBoxX}" y="${boxY}" width="${approxTextW}" height="${boxH}" rx="2" fill="${bgFill}"/>
+        <line x1="${dBoxX + 20}" y1="${boxY + 3}" x2="${dBoxX + approxTextW - 20}" y2="${boxY + 3}" stroke="${textColor}" stroke-width="1" stroke-opacity="0.5"/>
+        <line x1="${dBoxX + 20}" y1="${boxY + boxH - 3}" x2="${dBoxX + approxTextW - 20}" y2="${boxY + boxH - 3}" stroke="${textColor}" stroke-width="1" stroke-opacity="0.5"/>
+        <text x="${W / 2}" y="${firstLineY}"
+          text-anchor="middle"
+          font-family="${fontFamily}"
+          font-size="${fs_px}"
+          font-weight="400"
+          fill="${textColor}"
+          letter-spacing="5">${tspans}</text>
+      </svg>`;
+      break;
+    }
+
+    case "social": {
+      const bgFill = cfg.bgBox ? `rgba(0,0,0,${bgOpacity})` : "none";
+      svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+        <defs>
+          <filter id="socialglow">
+            <feGaussianBlur stdDeviation="5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <rect x="0" y="${boxY}" width="${W}" height="${boxH}" rx="8" fill="${bgFill}"/>
+        <text x="${W / 2}" y="${firstLineY}"
+          text-anchor="middle"
+          font-family="${fontFamily}"
+          font-size="${Math.round(fs_px * 1.1)}"
+          font-weight="900"
+          fill="none"
+          stroke="rgba(0,0,0,0.95)"
+          stroke-width="7"
           stroke-linejoin="round"
           letter-spacing="2">${tspans}</text>
         <text x="${W / 2}" y="${firstLineY}"
           text-anchor="middle"
-          font-family="Arial Black,Arial,Helvetica,sans-serif"
-          font-size="${Math.round(fontSize * 1.15)}"
+          font-family="${fontFamily}"
+          font-size="${Math.round(fs_px * 1.1)}"
           font-weight="900"
-          fill="white"
+          fill="${textColor}"
+          filter="url(#socialglow)"
           letter-spacing="2">${tspans}</text>
       </svg>`;
       break;
     }
 
-    case "classic":
+    case "dialogue":
     default: {
-      // Semi-transparent black bar full width, white bold text, letter-spacing 1.5
+      const bgFill = cfg.bgBox ? `rgba(0,0,0,${bgOpacity})` : "none";
       svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
-        <rect x="0" y="${boxY}" width="${W}" height="${boxH}" rx="6" fill="rgba(0,0,0,0.75)"/>
+        <defs>
+          <filter id="txtshadow">
+            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.85"/>
+          </filter>
+        </defs>
+        <rect x="0" y="${boxY}" width="${W}" height="${boxH}" rx="6" fill="${bgFill}"/>
         <text x="${W / 2}" y="${firstLineY}"
           text-anchor="middle"
-          font-family="Arial,Helvetica,sans-serif"
-          font-size="${fontSize}"
-          font-weight="bold"
-          fill="white"
+          font-family="${fontFamily}"
+          font-size="${fs_px}"
+          font-weight="700"
+          fill="${textColor}"
+          filter="${cfg.bgBox ? "none" : "url(#txtshadow)"}"
           letter-spacing="1.5">${tspans}</text>
       </svg>`;
       break;
@@ -1073,6 +1193,30 @@ async function generateSubtitlePng(
   }
 
   await sharp(Buffer.from(svg)).png().toFile(outputPath);
+}
+
+// Convert legacy SubtitleStyle string → SubtitleConfig
+function styleStringToConfig(style: SubtitleStyle, position: "bottom" | "center", fontSize: number): SubtitleConfig {
+  const base: SubtitleConfig = {
+    mode: "dialogue",
+    fontFamily: "sans",
+    fontSize,
+    textColor: "#ffffff",
+    highlightColor: "#f59e0b",
+    bgBox: true,
+    bgOpacity: 0.75,
+    position: position === "center" ? "center" : "bottom",
+    animation: "fade",
+  };
+  switch (style) {
+    case "cinema":  return { ...base, mode: "dramatic", fontFamily: "serif",   bgOpacity: 0.82 };
+    case "neon":    return { ...base, mode: "social",   textColor: "#00d4ff",  bgOpacity: 0.85 };
+    case "minimal": return { ...base, mode: "dialogue", bgBox: false };
+    case "bold":    return { ...base, mode: "social",   fontFamily: "display", bgOpacity: 0.7 };
+    case "none":    return { ...base, mode: "none" as SubtitleConfig["mode"] };
+    case "classic":
+    default:        return base;
+  }
 }
 
 // ── Build safe subtitle lines: wrap full text into lines of ~55 chars ──
@@ -1119,6 +1263,44 @@ function resolveMediaPath(url: string): string | null {
   if (fs.existsSync(url)) return url;
   const storagePath = path.join(env.storagePath, url);
   if (fs.existsSync(storagePath)) return storagePath;
+  return null;
+}
+
+async function downloadToLocal(url: string, destPath: string): Promise<void> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(60000) });
+  if (!res.ok) throw new Error(`Download failed ${res.status}: ${url}`);
+  const buf = await res.arrayBuffer();
+  fs.writeFileSync(destPath, Buffer.from(buf));
+}
+
+async function resolveOrDownload(url: string | undefined | null, tempDir: string, prefix: string): Promise<string | null> {
+  if (!url) return null;
+  const local = resolveMediaPath(url);
+  if (local && fs.existsSync(local)) return local;
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    const ext = (url.split("?")[0].split(".").pop()?.toLowerCase() || "mp3").slice(0, 4);
+    const dest = path.join(tempDir, `${prefix}_dl_${Date.now()}.${ext}`);
+    try {
+      await downloadToLocal(url, dest);
+      return dest;
+    } catch (err) {
+      console.warn(`[assemble] resolveOrDownload failed for ${prefix}: ${err}`);
+      return null;
+    }
+  }
+  // Relative /api/... URL — fetch from local Next.js server
+  if (url.startsWith("/api/") || url.startsWith("/media/")) {
+    const port = process.env.PORT || "3200";
+    const absoluteUrl = `http://localhost:${port}${url}`;
+    const ext = (url.split("?")[0].split(".").pop()?.toLowerCase() || "mp3").slice(0, 4);
+    const dest = path.join(tempDir, `${prefix}_local_${Date.now()}.${ext}`);
+    try {
+      await downloadToLocal(absoluteUrl, dest);
+      if (fs.existsSync(dest) && fs.statSync(dest).size > 0) return dest;
+    } catch (err) {
+      console.warn(`[assemble] resolveOrDownload local fetch failed for ${prefix} (${url}): ${err}`);
+    }
+  }
   return null;
 }
 

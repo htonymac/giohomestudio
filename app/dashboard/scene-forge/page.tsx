@@ -13,6 +13,7 @@ import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { User, Music, Film, Settings, Check, X, Mic } from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
+import CharacterPicker from "../../components/CharacterPicker";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,6 +61,8 @@ const inputSt = (): React.CSSProperties => ({
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const SCENE_FORGE_DB_KEY = "ghs_sceneforge_session";
+
 export default function SceneForgePage() {
   const { requireGate, GateModal } = useGate();
   // Inputs
@@ -84,7 +87,47 @@ export default function SceneForgePage() {
   // History
   const [history, setHistory] = useState<{ videoUrl: string; topic: string; ts: number }[]>([]);
 
+  const [polishing, setPolishing] = useState(false);
+  const [showCharPicker, setShowCharPicker] = useState(false);
+  const [autoGenPortrait, setAutoGenPortrait] = useState(false);
+
   const fileRef = useRef<HTMLInputElement>(null);
+  const restoredRef = useRef(false);
+
+  // ── Restore state on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/hybrid/saved-state?localId=${SCENE_FORGE_DB_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.found || !d.data) return;
+        const s = d.data as Record<string, unknown>;
+        if (s.topic)    setTopic(s.topic as string);
+        if (s.style)    setStyle(s.style as Style);
+        if (s.aspect)   setAspect(s.aspect as AspectRatio);
+        if (s.duration) setDuration(s.duration as number);
+        if (s.voice)    setVoice(s.voice as string);
+        if (typeof s.addMusic === "boolean") setAddMusic(s.addMusic);
+        if (typeof s.addBroll === "boolean") setAddBroll(s.addBroll);
+        if (s.tier)       setTier(s.tier as AITier);
+        if (s.videoModel) setVideoModel(s.videoModel as string);
+        if (s.imageModel) setImageModel(s.imageModel as string);
+        if (Array.isArray(s.history)) setHistory(s.history as { videoUrl: string; topic: string; ts: number }[]);
+      })
+      .catch(() => {})
+      .finally(() => { restoredRef.current = true; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save state on changes ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const draft = { topic, style, aspect, duration, voice, addMusic, addBroll, tier, videoModel, imageModel, history: history.slice(0, 20) };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: SCENE_FORGE_DB_KEY, data: draft }),
+    }).catch(() => {});
+  }, [topic, style, aspect, duration, voice, addMusic, addBroll, tier, videoModel, imageModel, history]);
 
   // ── Polling ────────────────────────────────────────────────────────────────
 
@@ -230,7 +273,12 @@ export default function SceneForgePage() {
                 transition: "border-color 0.2s",
               }}
             >
-              {imagePreview ? (
+              {autoGenPortrait ? (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 36, height: 36, border: `3px solid ${ds.color.lilac}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                  <p style={{ margin: 0, fontSize: 11, color: ds.color.lilac, textAlign: "center" }}>Generating portrait...</p>
+                </div>
+              ) : imagePreview ? (
                 <img src={imagePreview} alt="Character" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               ) : (
                 <>
@@ -262,6 +310,42 @@ export default function SceneForgePage() {
               placeholder="https://..."
               style={inputSt()}
             />
+          </div>
+
+          {/* OR: pick from Characters library */}
+          <div>
+            <button
+              onClick={() => setShowCharPicker(v => !v)}
+              style={{ width: "100%", padding: "9px 14px", borderRadius: ds.radius.sm, border: `1px solid ${ds.color.line2}`, background: showCharPicker ? `${ds.color.lilac}12` : ds.color.card, color: showCharPicker ? ds.color.lilac : ds.color.mute, fontSize: 11, fontWeight: 700, cursor: "pointer", letterSpacing: "0.04em" }}
+            >
+              {showCharPicker ? "▲ Close Characters" : "▼ Pick from Characters Library"}
+            </button>
+            {showCharPicker && (
+              <div style={{ marginTop: 8 }}>
+                <CharacterPicker
+                  compact
+                  onSelect={async char => {
+                    setShowCharPicker(false);
+                    const url = char.imageUrl ?? "";
+                    const normalized = url.startsWith("http") || url.startsWith("/api/") || url.startsWith("blob:") || url.startsWith("data:")
+                      ? url
+                      : url ? `/api/media/${url.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}` : "";
+                    if (normalized) {
+                      setImageUrl(normalized);
+                      setImagePreview(normalized);
+                    } else if (char.id) {
+                      // No image — auto-generate portrait using visualDescription
+                      setAutoGenPortrait(true);
+                      try {
+                        const res = await fetch(`/api/character-voices/${char.id}/generate-portrait`, { method: "POST" });
+                        const d = await res.json() as { imageUrl?: string; error?: string };
+                        if (d.imageUrl) { setImageUrl(d.imageUrl); setImagePreview(d.imageUrl); }
+                      } catch { /* ignore */ } finally { setAutoGenPortrait(false); }
+                    }
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Style */}
@@ -351,9 +435,32 @@ export default function SceneForgePage() {
               rows={4}
               style={{ ...inputSt(), resize: "vertical", minHeight: 100, lineHeight: 1.6 }}
             />
-            <p style={{ margin: "6px 0 0", fontSize: 11, color: ds.color.mute2 }}>
-              GHS AI writes the script from your description. The avatar lip-syncs to it.
-            </p>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 6 }}>
+              <p style={{ margin: 0, fontSize: 11, color: ds.color.mute2 }}>
+                GHS AI writes the script from your description. The avatar lip-syncs to it.
+              </p>
+              <button
+                onClick={async () => {
+                  if (!topic.trim() || polishing) return;
+                  setPolishing(true);
+                  try {
+                    const res = await fetch("/api/free-mode/enhance", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ rawPrompt: `Rewrite this as a clear, punchy, engaging description for a ${style} style talking avatar video. Keep it concise and compelling. Original: ${topic}`, mode: "text_to_video" }),
+                    });
+                    if (res.ok) {
+                      const d = await res.json() as { enhanced?: string; result?: string };
+                      const polished = d.enhanced || d.result;
+                      if (polished) setTopic(polished);
+                    }
+                  } catch { /* ignore */ } finally { setPolishing(false); }
+                }}
+                disabled={!topic.trim() || polishing}
+                style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${ds.color.lilac}`, background: "rgba(160,100,220,0.1)", color: ds.color.lilac, fontSize: 11, fontWeight: 700, cursor: (!topic.trim() || polishing) ? "not-allowed" : "pointer", whiteSpace: "nowrap", flexShrink: 0, marginLeft: 10 }}>
+                {polishing ? "Polishing…" : "✨ AI Polish"}
+              </button>
+            </div>
           </div>
 
           {/* Generate button */}

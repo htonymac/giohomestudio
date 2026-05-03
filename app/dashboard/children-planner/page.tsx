@@ -13,6 +13,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
+import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -201,6 +202,47 @@ interface ChildCharacter {
   visualDescription?: string;
 }
 
+// ── Full Character Identity (hybrid-style registry) ──
+interface CharacterIdentity {
+  characterId: string;
+  displayName: string;
+  roleType: string;
+  gender: string;
+  ageRange: string;
+  skinTone: string;
+  hairStyle: string;
+  wardrobeStyle: string;
+  speechStyle: string;
+  accentType: string;
+  emotionProfile: string;
+  voiceId: string;
+  language: string;
+  tags: string[];
+  imageUrl?: string;
+  hasVoice?: boolean;
+  hasImage?: boolean;
+  voiceType?: string;
+  intonation?: string;
+  species?: string;
+  bodyBuild?: string;
+  colorDescription?: string;
+  faceFeatures?: string;
+  clothingDetails?: string;
+  accessories?: string;
+  distinctiveFeatures?: string;
+  ageAppearance?: string;
+  imageLocked?: boolean;
+  visualDescription?: string;
+}
+
+// ── normalizeImageUrl ──
+function normalizeImageUrl(url: string | null | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("http") || url.startsWith("/api/") || url.startsWith("blob:") || url.startsWith("data:")) return url;
+  const cleaned = url.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "");
+  return `/api/media/${cleaned}`;
+}
+
 export default function ChildrenPlannerPage() {
   return <Suspense fallback={<div style={{ padding: 40, color: muted }}>Loading Child Video Planner...</div>}><ChildrenPlannerInner /></Suspense>;
 }
@@ -220,17 +262,25 @@ function ChildrenPlannerInner() {
   // ── State ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
   const [lastAction, setLastAction] = useState("Workshop opened");
+  const [projectTitle, setProjectTitle] = useState("Untitled Children Project");
+  const [showProjects, setShowProjects] = useState(false);
+  const [projectsList, setProjectsList] = useState<Array<{ id: string; title: string; style: string; lastModified: number; sceneCount: number; characterCount: number }>>([]);
   const [textContent, setTextContent] = useState(topicPromptParam || "");
   const [narrationStyle, setNarrationStyle] = useState("gentle");
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [visualStyle, setVisualStyle] = useState("storybook");
+  const [projectStyle, setProjectStyle] = useState("storybook"); // maps to STYLE_PRESETS in scene-image API
+  const [narrationSpeed, setNarrationSpeed] = useState(0.75);
+  const [characterVoices, setCharacterVoices] = useState<Record<string, string>>({});
   const [tone, setTone] = useState<"soft" | "active">("soft");
   const [review1Done, setReview1Done] = useState(false);
   const [review2Done, setReview2Done] = useState(false);
   const [planning, setPlanning] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [narrationGenerating, setNarrationGenerating] = useState(false);
+  const [musicGenerating, setMusicGenerating] = useState(false);
   const [narrationText, setNarrationText] = useState("");
   const [narrationSettings, setNarrationSettings] = useState<Partial<NarrationSettings>>({ mode: "children" });
 
@@ -291,6 +341,9 @@ function ChildrenPlannerInner() {
   const [generatingVariations, setGeneratingVariations] = useState<Set<string>>(new Set());
   const [polishingScene, setPolishingScene] = useState<string | null>(null);
   const [sceneCharAssignments, setSceneCharAssignments] = useState<Record<string, string[]>>({});
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [sceneDurations, setSceneDurations] = useState<Record<string, "short" | "medium" | "long">>({});
+  const importFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // ── Continuous Motion ──────────────────────────────────────────────────────
   const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
@@ -314,9 +367,22 @@ function ChildrenPlannerInner() {
   const [assemblyProgress, setAssemblyProgress] = useState<Record<number, string>>({});
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
+  const [assemblyMediaPrefs, setAssemblyMediaPrefs] = useState<Record<string, "image" | "video">>({});
+  const [aiSupervisorRunning, setAiSupervisorRunning] = useState(false);
+  const [aiSupervisorReport, setAiSupervisorReport] = useState<{ ok: boolean; summary: string; issues: string[]; fixed: string[] } | null>(null);
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "kids", highlightColor: "#34d399" });
+  const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [outroUrl, setOutroUrl] = useState<string | null>(null);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [generatingOutro, setGeneratingOutro] = useState(false);
+  const [writtenBy, setWrittenBy] = useState("");
+  const [madeBy, setMadeBy] = useState("");
+  const [ideaFrom, setIdeaFrom] = useState("");
+  const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok"|"warn"|"checking"; note: string } | null>(null);
 
   // ── Sound tier & model settings ──
   const [soundTier, setSoundTier] = useState<SoundTierId>("piper_free");
+  const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
     charImageModel: "fal_flux_schnell",
@@ -347,6 +413,8 @@ function ChildrenPlannerInner() {
   const [selectedMusicName, setSelectedMusicName] = useState("");
   const [aiPickingMusic, setAiPickingMusic] = useState(false);
   const [aiMusicPickLog, setAiMusicPickLog] = useState("");
+  const [narratorAudioUrl, setNarratorAudioUrl] = useState<string | null>(null);
+  const [previewScene, setPreviewScene] = useState<{ url: string; type: "image" | "video"; title: string } | null>(null);
 
   // Learning mode + production system
   const [learningMode, setLearningMode] = useState<"storybook" | "word" | "sentence" | "poem" | "phonics" | "video_lesson" | "read_along">("storybook");
@@ -377,6 +445,30 @@ function ChildrenPlannerInner() {
   const [selectedCharIds, setSelectedCharIds] = useState<string[]>([]);
   const [showCharPicker, setShowCharPicker] = useState(false);
   const [loadingChars, setLoadingChars] = useState(false);
+
+  // Character Registry (full hybrid-style)
+  const [characters, setCharacters] = useState<CharacterIdentity[]>([]);
+  const [visionProvider, setVisionProvider] = useState<"auto" | "ollama" | "claude" | "gpt">("auto");
+  const [buildingAllChars, setBuildingAllChars] = useState(false);
+  const [buildAllProgress, setBuildAllProgress] = useState<string | null>(null);
+  const [charTabName, setCharTabName] = useState("");
+  const [charTabCreating, setCharTabCreating] = useState(false);
+  const [batchPortraitProgress, setBatchPortraitProgress] = useState<string | null>(null);
+  const [editingCharId, setEditingCharId] = useState<string | null>(null);
+  const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
+  const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
+  const [savingCharacter, setSavingCharacter] = useState<string | null>(null);
+  const [savedCharacter, setSavedCharacter] = useState<string | null>(null);
+  const [imagePickerForCharId, setImagePickerForCharId] = useState<string | null>(null);
+  const [imagePickerAssets, setImagePickerAssets] = useState<Array<{ id: string; name: string; fileUrl?: string; filePath?: string; source?: string }>>([]);
+  const [imagePickerLoading, setImagePickerLoading] = useState(false);
+  const [showCharacterPicker, setShowCharacterPicker] = useState(false);
+  const [inlinePreview, setInlinePreview] = useState<CharacterIdentity | null>(null);
+  const [importingFromPhoto, setImportingFromPhoto] = useState(false);
+  const [photoImportLog, setPhotoImportLog] = useState("");
+  const [photoImportName, setPhotoImportName] = useState("");
+  const [photoDragOver, setPhotoDragOver] = useState(false);
+  const [uiError, setUiError] = useState<string | null>(null);
 
   // Final export
   const [finalVideoUrl, setFinalVideoUrl] = useState("");
@@ -513,6 +605,330 @@ function ChildrenPlannerInner() {
       }
     } catch { /* ignore */ }
     setExtractingChars("idle");
+  }
+
+  // ── Character Registry functions ──
+
+  function buildVisualDescription(char: CharacterIdentity): string {
+    const parts: string[] = [];
+    if (char.species) parts.push(char.species);
+    if (char.bodyBuild) parts.push(char.bodyBuild);
+    if (char.ageAppearance) parts.push(char.ageAppearance);
+    if (char.colorDescription) parts.push(char.colorDescription);
+    if (char.faceFeatures) parts.push(char.faceFeatures);
+    if (char.clothingDetails) parts.push(`wearing: ${char.clothingDetails}`);
+    if (char.accessories) parts.push(`accessories: ${char.accessories}`);
+    if (char.distinctiveFeatures) parts.push(char.distinctiveFeatures);
+    if (parts.length === 0) {
+      if (char.skinTone) parts.push(char.skinTone);
+      if (char.hairStyle) parts.push(char.hairStyle);
+      if (char.wardrobeStyle) parts.push(char.wardrobeStyle);
+      if (char.gender) parts.push(char.gender);
+      if (char.ageRange) parts.push(char.ageRange);
+    }
+    return parts.join(", ");
+  }
+
+  async function buildAllStoryCharacters() {
+    const storyRichText = expandedContent || textContent || readAlongText || "";
+    if (!storyRichText.trim()) { setUiError("Write or expand your story first."); return; }
+    setBuildingAllChars(true);
+    setBuildAllProgress("Detecting characters from story...");
+    try {
+      const detectRes = await fetch("/api/hybrid/character-extract", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expandedStory: { summary: storyRichText, characterList: [] }, language: "English" }),
+      });
+      const detectData = await detectRes.json();
+      const detected: Array<{ name: string; description?: string }> = detectData.characters || detectData.names || [];
+      if (detected.length === 0) { setUiError("No characters detected in story."); setBuildingAllChars(false); setBuildAllProgress(null); return; }
+      const builtSoFar: Array<{ name: string; species?: string; gender?: string; colorDescription?: string }> = [
+        ...characters.filter(c => c.species && c.colorDescription).map(c => ({ name: c.displayName, species: c.species, gender: c.gender, colorDescription: c.colorDescription })),
+      ];
+      let built = 0;
+      for (const det of detected) {
+        const name = det.name || (det as unknown as string);
+        if (!name) continue;
+        const existingChar = characters.find(c => c.displayName.toLowerCase() === name.toLowerCase());
+        if (existingChar && existingChar.species && existingChar.colorDescription) { built++; continue; }
+        setBuildAllProgress(`Building ${name}... (${built + 1}/${detected.length})`);
+        try {
+          const res = await fetch("/api/hybrid/character-build", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              characterName: name,
+              storyText: storyRichText,
+              artStyle: visualStyle || "storybook",
+              language: "English",
+              childSafe: true,
+              ageGroup,
+              existingCharacters: builtSoFar,
+            }),
+          });
+          const data = await res.json();
+          if (data.ok && data.character) {
+            const c = data.character;
+            const newId = `CC_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+            const builtChar: CharacterIdentity = {
+              characterId: newId, displayName: c.displayName || name,
+              roleType: c.roleType || "supporting", gender: c.gender || "unknown",
+              ageRange: c.ageRange || "child", skinTone: c.skinTone || "",
+              hairStyle: "", wardrobeStyle: c.wardrobeStyle || "",
+              speechStyle: c.speechStyle || "normal", accentType: "",
+              emotionProfile: c.emotionProfile || "", voiceId: c.voiceId || "",
+              voiceType: c.voiceType || "childlike", intonation: c.intonation || "playful",
+              language: "English", tags: [], hasVoice: !!c.voiceId, hasImage: false,
+              species: c.species || "", bodyBuild: c.bodyBuild || "",
+              colorDescription: c.colorDescription || "", faceFeatures: c.faceFeatures || "",
+              clothingDetails: c.clothingDetails || "", accessories: c.accessories || "",
+              distinctiveFeatures: c.distinctiveFeatures || "", ageAppearance: c.ageAppearance || "",
+            };
+            setCharacters(prev => {
+              const existingIdx = prev.findIndex(x => x.displayName.toLowerCase() === builtChar.displayName.toLowerCase());
+              return existingIdx >= 0
+                ? prev.map((x, i) => i === existingIdx ? { ...x, ...builtChar, characterId: x.characterId, imageUrl: x.imageUrl } : x)
+                : [...prev, builtChar];
+            });
+            builtSoFar.push({ name: builtChar.displayName, species: builtChar.species, gender: builtChar.gender, colorDescription: builtChar.colorDescription });
+          }
+        } catch { /* skip */ }
+        built++;
+        if (built < detected.length) await new Promise(r => setTimeout(r, 800));
+      }
+      setBuildAllProgress(null);
+      setLastAction(`${built} characters built — review in Characters tab`);
+    } catch (err) { setUiError("Character build failed: " + String(err)); }
+    setBuildingAllChars(false);
+    setBuildAllProgress(null);
+  }
+
+  async function buildCharacterInline(name: string) {
+    const text = expandedContent || textContent || readAlongText || "";
+    if (!name.trim()) return;
+    setCharTabCreating(true);
+    setInlinePreview(null);
+    try {
+      const res = await fetch("/api/hybrid/character-build", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          characterName: name,
+          storyText: text,
+          artStyle: visualStyle || "storybook",
+          language: "English",
+          childSafe: true,
+          ageGroup,
+          existingCharacters: characters.map(c => ({ name: c.displayName, species: c.species, gender: c.gender, colorDescription: c.colorDescription })),
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.character) {
+        const c = data.character;
+        const newId = `CC${String(characters.length + 1).padStart(2, "0")}`;
+        const built: CharacterIdentity = {
+          characterId: newId, displayName: c.displayName || name,
+          roleType: c.roleType || "supporting", gender: c.gender || "unknown",
+          ageRange: c.ageRange || "child", skinTone: c.skinTone || "",
+          hairStyle: "", wardrobeStyle: c.wardrobeStyle || "",
+          speechStyle: c.speechStyle || "normal", accentType: "",
+          emotionProfile: c.emotionProfile || "", voiceId: c.voiceId || "",
+          voiceType: c.voiceType || "childlike", intonation: c.intonation || "playful",
+          language: "English", tags: [], hasVoice: !!c.voiceId, hasImage: false,
+          species: c.species || "", bodyBuild: c.bodyBuild || "",
+          colorDescription: c.colorDescription || "", faceFeatures: c.faceFeatures || "",
+          clothingDetails: c.clothingDetails || "", accessories: c.accessories || "",
+          distinctiveFeatures: c.distinctiveFeatures || "", ageAppearance: c.ageAppearance || "",
+        };
+        setInlinePreview(built);
+      } else {
+        setLastAction(`Could not build character "${name}" — try again`);
+      }
+    } catch {
+      setLastAction(`Character build failed for "${name}"`);
+    }
+    setCharTabCreating(false);
+  }
+
+  function acceptInlineCharacter() {
+    if (!inlinePreview) return;
+    const alreadyExists = characters.some(c => c.characterId === inlinePreview.characterId);
+    if (!alreadyExists) {
+      setCharacters(prev => [...prev, inlinePreview]);
+      setLastAction(`${inlinePreview.displayName} added to cast`);
+    }
+    setInlinePreview(null);
+    setPhotoImportLog("");
+  }
+
+  async function generateCharacterPortrait(char: CharacterIdentity) {
+    setGeneratingPortrait(char.characterId);
+    const visualDescFull = buildVisualDescription(char);
+    const visualDesc = visualDescFull.slice(0, 1200);
+    const styleLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label || "storybook";
+    const portraitPrompt = [
+      `children's story illustration, ${styleLabel} art style, age-appropriate, friendly, colorful, warm`,
+      `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
+      visualDesc || `${char.displayName}, ${char.gender} ${char.ageRange}`,
+      "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
+      "Show the character clearly from head to toe. Friendly and safe for children.",
+      "Consistent design, professional quality.",
+    ].filter(Boolean).join(". ");
+    try {
+      const res = await fetch("/api/generation/image", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: portraitPrompt, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
+      });
+      const d = await res.json();
+      if (d.error) { setUiError(`Portrait failed: ${d.error}`); setGeneratingPortrait(null); return; }
+      const url = d.imageUrl || (d.imagePath ? normalizeImageUrl(d.imagePath) : null);
+      if (url) {
+        setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: url, hasImage: true, imageLocked: false } : c));
+        setLastAction(`Portrait generated for ${char.displayName} — AI reading image...`);
+        analyzeCharacterImage(char.characterId, url);
+      }
+    } catch (err) {
+      setUiError(`Portrait generation failed for ${char.displayName}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setGeneratingPortrait(null);
+  }
+
+  async function analyzeCharacterImage(charId: string, imageUrl: string) {
+    setAnalyzingCharacter(charId);
+    try {
+      const res = await fetch("/api/hybrid/analyze-character", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, characterName: charId, preferredProvider: visionProvider }),
+      });
+      if (!res.ok) { setLastAction(`AI Read Look failed — server error ${res.status}.`); return; }
+      const data = await res.json();
+      if (data.noVisionAvailable) { setLastAction(`No vision AI available. Install Ollama + llava or add ANTHROPIC_API_KEY.`); return; }
+      if (!data.success || !data.analysis) { setLastAction(`AI Read Look: could not parse image. Try different Vision AI.`); return; }
+      const a = data.analysis;
+      setCharacters(prev => prev.map(c => {
+        if (c.characterId !== charId) return c;
+        return {
+          ...c,
+          species: c.species || a.species || "",
+          bodyBuild: c.bodyBuild || a.bodyBuild || "",
+          colorDescription: c.colorDescription || a.colorDescription || "",
+          faceFeatures: c.faceFeatures || a.faceFeatures || "",
+          clothingDetails: c.clothingDetails || a.clothingDetails || "",
+          accessories: c.accessories || a.accessories || "",
+          distinctiveFeatures: c.distinctiveFeatures || a.distinctiveFeatures || "",
+          ageAppearance: c.ageAppearance || a.ageAppearance || "",
+          gender: c.gender || (a.gender !== "unknown" ? a.gender : ""),
+        };
+      }));
+      setLastAction(`AI read the image — visual fields filled for ${charId}.`);
+    } catch (err) {
+      setLastAction(`AI Read Look error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setAnalyzingCharacter(null);
+    }
+  }
+
+  async function saveCharacterToRegistry(char: CharacterIdentity) {
+    setSavingCharacter(char.characterId);
+    setSavedCharacter(null);
+    const payload = {
+      name: char.displayName, characterId: char.characterId, gender: char.gender,
+      role: char.roleType, age: char.ageRange, voiceId: char.voiceId || null,
+      language: char.language || null, imageUrl: char.imageUrl || null,
+      visualDescription: [char.species, char.colorDescription, char.clothingDetails, char.distinctiveFeatures].filter(Boolean).join(", ") || null,
+      defaultSpeechStyle: char.speechStyle || null, personality: char.emotionProfile || null,
+    };
+    try {
+      const createRes = await fetch("/api/character-voices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (createRes.status === 201 || createRes.ok) {
+        setSavedCharacter(char.characterId);
+        setLastAction(`${char.displayName} saved to Character Registry.`);
+        setTimeout(() => setSavedCharacter(null), 3000);
+        return;
+      }
+      if (createRes.status === 409) {
+        setSavedCharacter(char.characterId);
+        setLastAction(`${char.displayName} already in Character Registry.`);
+        setTimeout(() => setSavedCharacter(null), 3000);
+        return;
+      }
+      setLastAction(`Save failed (${createRes.status})`);
+    } catch (err) {
+      setLastAction(`Save error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSavingCharacter(null);
+    }
+  }
+
+  async function openImagePicker(charId: string) {
+    setImagePickerForCharId(charId);
+    setImagePickerLoading(true);
+    setImagePickerAssets([]);
+    try {
+      const [assetsRes, charsRes] = await Promise.all([fetch("/api/assets?type=image"), fetch("/api/character-voices")]);
+      const combined: Array<{ id: string; name: string; fileUrl?: string; filePath?: string; source?: string }> = [];
+      if (assetsRes.ok) {
+        const d = await assetsRes.json();
+        (d.assets || []).forEach((a: { id: string; name: string; fileUrl?: string; filePath?: string }) => { if (a.fileUrl || a.filePath) combined.push(a); });
+      }
+      if (charsRes.ok) {
+        const d = await charsRes.json();
+        (d.voices || []).forEach((v: { id: string; name: string; imageUrl?: string }) => {
+          if (v.imageUrl) combined.push({ id: `cv_${v.id}`, name: v.name, fileUrl: v.imageUrl.startsWith("http") || v.imageUrl.startsWith("/api/") ? v.imageUrl : `/api/media/${v.imageUrl.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`, source: "character_registry" });
+        });
+      }
+      setImagePickerAssets(combined);
+    } catch { setImagePickerAssets([]); }
+    setImagePickerLoading(false);
+  }
+
+  function assignImageToCharacter(charId: string, imageUrl: string) {
+    setCharacters(prev => prev.map(c => c.characterId === charId ? { ...c, imageUrl, hasImage: true, imageLocked: false } : c));
+    setImagePickerForCharId(null);
+    setLastAction(`Image assigned — AI reading look...`);
+    analyzeCharacterImage(charId, imageUrl);
+  }
+
+  async function importCharacterFromPhoto(file: File, nameOverride?: string) {
+    setImportingFromPhoto(true);
+    setPhotoImportLog("Uploading image…");
+    setInlinePreview(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const uploadRes = await fetch("/api/character-voices/upload-image", { method: "POST", body: form });
+      const uploadData = await uploadRes.json();
+      if (!uploadData.url) throw new Error(uploadData.error || "Upload failed");
+      const imageUrl: string = uploadData.url;
+      setPhotoImportLog("Reading photo with AI vision…");
+      const analyzeRes = await fetch("/api/hybrid/analyze-character", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl, characterName: nameOverride || "imported", preferredProvider: visionProvider }),
+      });
+      const analyzeData = await analyzeRes.json();
+      if (!analyzeData.ok && !analyzeData.analysis) throw new Error(analyzeData.error || "Vision analysis failed");
+      const a = analyzeData.analysis || {};
+      const newId = `CC${String(characters.length + 1).padStart(2, "0")}_PH`;
+      const displayName = nameOverride?.trim() || a.suggestedName || "Imported Character";
+      const built: CharacterIdentity = {
+        characterId: newId, displayName,
+        roleType: a.suggestedRole || "supporting", gender: a.gender || "unknown",
+        ageRange: a.ageAppearance || "child", skinTone: a.colorDescription || "",
+        hairStyle: "", wardrobeStyle: a.clothingDetails || "",
+        speechStyle: "normal", accentType: "", emotionProfile: a.distinctiveFeatures || "",
+        voiceId: "", voiceType: "childlike", intonation: "playful", language: "English",
+        tags: ["photo-import"], hasVoice: false, hasImage: true, imageUrl,
+        imageLocked: true,
+        species: a.species || "human", bodyBuild: a.bodyBuild || "",
+        colorDescription: a.colorDescription || "", faceFeatures: a.faceFeatures || "",
+        clothingDetails: a.clothingDetails || "", accessories: a.accessories || "",
+        distinctiveFeatures: a.distinctiveFeatures || "", ageAppearance: a.ageAppearance || "",
+      };
+      setInlinePreview(built);
+      setPhotoImportLog(`"${displayName}" ready — click "Add to Cast" to confirm`);
+      setPhotoImportName("");
+    } catch (err) {
+      setPhotoImportLog(`[!] ${err instanceof Error ? err.message : "Import failed"}`);
+    }
+    setImportingFromPhoto(false);
   }
 
   // ── expandStory: 3-step AI pipeline ──
@@ -675,7 +1091,7 @@ function ChildrenPlannerInner() {
           sceneId, projectId,
           sceneText: `${scene.title}. ${scene.visualDescription}`,
           imageUrl: existingImage,
-          duration: 5,
+          duration: continuousMotionEnabled ? 10 : 5,
           motionDescription: scene.cameraDirection || "",
           seed: genSeed !== null ? genSeed : undefined,
         }),
@@ -806,7 +1222,7 @@ function ChildrenPlannerInner() {
           sceneId,
           sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
           characterIds: assignedChars,
-          projectStyle: visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook",
+          projectStyle,
           mood: "friendly, warm, safe",
           modelId: selectedImageModelId,
         }),
@@ -840,9 +1256,10 @@ function ChildrenPlannerInner() {
         Math.floor(Math.random() * 9000000) + 1000000,
         Math.floor(Math.random() * 9000000) + 1000000,
         Math.floor(Math.random() * 9000000) + 1000000,
+        Math.floor(Math.random() * 9000000) + 1000000,
       ];
       const results: string[] = [];
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 4; i++) {
         try {
           const res = await fetch("/api/hybrid/scene-image", {
             method: "POST",
@@ -902,10 +1319,17 @@ function ChildrenPlannerInner() {
       const data = await res.json();
       if (data.polishedText) {
         const sceneNum = parseInt(sceneId.replace("child_sc", ""), 10);
-        setChildScenes(prev => prev.map(s =>
-          s.scene === sceneNum ? { ...s, visualDescription: data.polishedText } : s
-        ));
-        setLastAction(`Scene ${sceneId}: description polished`);
+        let updatedScene: ChildScene | undefined;
+        setChildScenes(prev => {
+          const next = prev.map(s => s.scene === sceneNum ? { ...s, visualDescription: data.polishedText } : s);
+          updatedScene = next.find(s => s.scene === sceneNum);
+          return next;
+        });
+        setLastAction(`Scene ${sceneId}: polished — regenerating image...`);
+        // Auto-regen image with the new polished description
+        if (updatedScene) {
+          await generateSceneBoardImage({ ...updatedScene, visualDescription: data.polishedText });
+        }
       } else if (data.error) {
         setLastAction(`Polish failed: ${data.error}`);
       }
@@ -914,6 +1338,95 @@ function ChildrenPlannerInner() {
       setLastAction("Scene polish failed — check console");
     } finally {
       setPolishingScene(null);
+    }
+  }
+
+  // ── AI Supervisor — checks video/audio authenticity before assembly (runs unlimited times) ──
+  async function runAiSupervisor() {
+    setAiSupervisorRunning(true);
+    setAiSupervisorReport(null);
+    const issues: string[] = [];
+    const fixed: string[] = [];
+    try {
+      // ── 1. Scene check ──
+      const sceneReports = childScenes.map(s => {
+        const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
+        return {
+          sceneId,
+          title: s.title,
+          text: s.title || s.visualDescription || "",
+          hasImage: !!(sceneImages[sceneId] || s.imageUrl),
+          hasVideo: !!sceneVideos[sceneId],
+          isSelected: assemblySelectedIds.includes(sceneId),
+        };
+      });
+      const selectedScenes = sceneReports.filter(r => r.isSelected);
+      const missingMedia = selectedScenes.filter(r => !r.hasImage && !r.hasVideo);
+      if (selectedScenes.length === 0) issues.push("No scenes selected — tick scenes in Assembly before assembling.");
+      if (missingMedia.length > 0) issues.push(`${missingMedia.length} scene(s) missing image/video: ${missingMedia.map(r => r.sceneId).join(", ")}`);
+      if (selectedScenes.length > 0 && missingMedia.length === 0) fixed.push(`${selectedScenes.length} scene(s) ready.`);
+
+      // ── 2. Narration check + auto-generate (always re-runs) ──
+      const storyForTTS = (narrationText || readAlongText || textContent || "").trim();
+      if (storyForTTS.length > 10) {
+        try {
+          fixed.push("Generating narration (Piper TTS)...");
+          const ttsRes = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: "piper", engine: "en_US-lessac-medium", speed: 0.9 }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json() as { audioUrl?: string };
+            if (ttsData.audioUrl) {
+              setNarratorAudioUrl(ttsData.audioUrl);
+              fixed[fixed.length - 1] = "Narration generated (Piper TTS).";
+            } else {
+              fixed[fixed.length - 1] = "";
+              issues.push("Narration TTS returned no audio URL.");
+            }
+          } else { fixed[fixed.length - 1] = ""; issues.push(`Narration TTS failed (HTTP ${ttsRes.status}).`); }
+        } catch (ttsErr) { issues.push(`Narration TTS error: ${ttsErr instanceof Error ? ttsErr.message : "unknown"}`); }
+      } else { issues.push("No story text found — write your story in the Content tab first."); }
+
+      // ── 3. Music check + auto-generate if missing ──
+      if (!selectedMusicUrl && !generatedMusicUrl) {
+        try {
+          fixed.push("Generating background music...");
+          const musicRes = await fetch("/api/music/generate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: `calm children's story background music, gentle and warm`, durationSeconds: 30 }),
+          });
+          if (musicRes.ok) {
+            const mData = await musicRes.json() as { url?: string; audioUrl?: string };
+            const mUrl = mData.url ?? mData.audioUrl ?? "";
+            if (mUrl) { setGeneratedMusicUrl(mUrl); setSelectedMusicUrl(mUrl); fixed[fixed.length - 1] = "Background music auto-generated."; }
+            else { fixed[fixed.length - 1] = ""; issues.push("Music generation returned no URL — add manually in Sound tab."); }
+          } else { fixed[fixed.length - 1] = ""; issues.push("Music generation failed — add manually in Sound tab."); }
+        } catch { issues.push("Music generation error — add manually in Sound tab."); }
+      } else { fixed.push(`Background music ready.`); }
+
+      // ── 4. SFX check ──
+      if (!sfxGeneratedUrl && fsResults.length === 0) {
+        issues.push("No SFX — optional but recommended. Search sound effects in Sound tab.");
+      } else { fixed.push("SFX available."); }
+
+      // ── 5. Subtitle check ──
+      if ((subtitleConfig.mode as string) === "none") {
+        issues.push("Subtitles disabled — enable a style in Assembly for better accessibility.");
+      } else { fixed.push(`Subtitles: "${subtitleConfig.mode}" mode, ${subtitleConfig.position} position.`); }
+
+      const blockingIssues = issues.filter(i => !i.startsWith("No SFX") && !i.startsWith("Subtitles disabled"));
+      const ok = missingMedia.length === 0 && selectedScenes.length > 0 && blockingIssues.length === 0;
+      const summary = ok
+        ? `All checks passed — ${selectedScenes.length} scene(s) ready to assemble.`
+        : `${blockingIssues.length} blocking issue(s). ${fixed.filter(f => f).length} item(s) fixed/confirmed.`;
+      setAiSupervisorReport({ ok, summary, issues: issues.filter(Boolean), fixed: fixed.filter(Boolean) });
+    } catch (err) {
+      setAiSupervisorReport({ ok: false, summary: "Supervisor check failed", issues: [`Error: ${err instanceof Error ? err.message : "unknown"}`], fixed: [] });
+    } finally {
+      setAiSupervisorRunning(false);  // always reset — guaranteed by finally
     }
   }
 
@@ -962,7 +1475,14 @@ function ChildrenPlannerInner() {
         const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
         const videoUrl = sceneVideos[sceneId];
         const imageUrl = sceneImages[sceneId] || s.imageUrl;
-        if (videoUrl) {
+        const pref = assemblyMediaPrefs[sceneId] || "auto";
+        // user chose video explicitly
+        if (pref === "video" && videoUrl) {
+          assemblyScenes.push({ scene: s.scene, videoUrl });
+        } else if (pref === "image" && imageUrl) {
+          assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
+        } else if (videoUrl) {
+          // auto: prefer video if available
           assemblyScenes.push({ scene: s.scene, videoUrl });
         } else if (imageUrl) {
           assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
@@ -978,18 +1498,45 @@ function ChildrenPlannerInner() {
         setAssemblyProgress({ ...progress });
       }
 
-      const projectId = `children_${Date.now()}`;
+      const assembleProjectId = urlProjectId || `children_${contentParam || "story"}_${topicParam || "default"}`;
+      const narrationList = narratorAudioUrl ? [{ startTime: 0, audioUrl: narratorAudioUrl, volume: 1.0 }] : [];
+      // Collect SFX: AI-generated SFX + any saved freesound picks
+      const sfxList: Array<{ sourceUrl: string; startTime: number; volume: number }> = [];
+      if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
+      // Attach scene text so assembly route can render subtitles
+      const scenesWithText = assemblyScenes.map((s, i) => ({
+        ...s,
+        text: scenesToAssemble[i]?.title ? `${scenesToAssemble[i].title}: ${scenesToAssemble[i].visualDescription || ""}` : "",
+      }));
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId, title: `Children Story — ${contentParam || "story"}`, scenes: assemblyScenes }),
+        body: JSON.stringify({
+          projectId: assembleProjectId,
+          title: `Children Story — ${contentParam || "story"}`,
+          scenes: scenesWithText,
+          musicUrl: selectedMusicUrl || generatedMusicUrl || undefined,
+          musicVolume: 0.75,
+          narrationList,
+          sfx: sfxList.length > 0 ? sfxList : undefined,
+          aspectRatio: "16:9",
+          subtitleConfig,
+          introUrl: introUrl || undefined,
+          outroUrl: outroUrl || undefined,
+        }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        setLastAction(`Assembly error (${res.status}): ${errText.slice(0, 200)}`);
+        setAssembling(false);
+        return;
+      }
       const data = await res.json();
       if (data.error) { setLastAction(`Assembly error: ${data.error}`); }
       else if (data.outputUrl) {
         setAssembledUrl(data.outputUrl);
         setGeneratedVideoUrl(data.outputUrl);
         try {
-          await fetch("/api/asset-library", {
+          await fetch("/api/assets", {
             method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ title: `Children Story — ${contentParam || "story"}`, type: "children-video", videoUrl: data.outputUrl, status: "review", metadata: { ageGroup, learningMode, visualStyle, scenes: assemblyScenes.length } }),
           });
@@ -997,7 +1544,7 @@ function ChildrenPlannerInner() {
         setAssemblyComplete(true);
         setLastAction("Story assembled successfully");
       }
-    } catch { setLastAction("Assembly failed — try again"); }
+    } catch (err) { setLastAction(`Assembly failed — ${err instanceof Error ? err.message : "try again"}`); }
     setAssembling(false);
   }
 
@@ -1093,6 +1640,84 @@ function ChildrenPlannerInner() {
     setAiPickingMusic(false);
   }
 
+  // ── Narration-only TTS generation ──
+  async function generateNarration() {
+    const text = textContent?.trim() || narrationText?.trim();
+    if (!text) { setUiError("Write your story first before generating narration."); return; }
+    setNarrationGenerating(true);
+    setUiError("");
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text.slice(0, 3000),
+          provider: narrationProvider,
+          engine: narrationProvider,
+          speed: narrationSpeed,
+          voiceId: narrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => res.statusText);
+        throw new Error(`TTS error ${res.status}: ${errBody}`);
+      }
+      const data = await res.json() as { audioUrl?: string; error?: string };
+      if (data.error) throw new Error(data.error);
+      if (data.audioUrl) {
+        setNarratorAudioUrl(data.audioUrl);
+        setLastAction("Narration generated");
+      } else {
+        throw new Error("No audio URL returned");
+      }
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : "Narration generation failed");
+    }
+    setNarrationGenerating(false);
+  }
+
+  // ── Music-only generation ──
+  async function generateChildrenMusic() {
+    setMusicGenerating(true);
+    setUiError("");
+    try {
+      const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
+      const tierProviderMap: Record<"stock" | "ghs_pro" | "ghs_classic", string> = {
+        stock: "stock",
+        ghs_pro: "stable_audio",
+        ghs_classic: "kie",
+      };
+      const res = await fetch("/api/music/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `${musicMood} background music for a children's story`,
+          durationSeconds: 20,
+          providerKey: tierProviderMap[musicTier],
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => res.statusText);
+        throw new Error(`Music error ${res.status}: ${errBody}`);
+      }
+      const data = await res.json() as { url?: string; audioUrl?: string; fallbackReason?: string; error?: string };
+      if (data.error) throw new Error(data.error);
+      if (data.url || data.audioUrl) {
+        const musicUrl = data.url ?? data.audioUrl ?? "";
+        setGeneratedMusicUrl(musicUrl);
+        setSelectedMusicUrl(musicUrl);   // auto-select so assembly includes it
+        if (data.fallbackReason) setMusicFallbackReason(data.fallbackReason);
+        else setMusicFallbackReason(null);
+        setLastAction("Background music generated");
+      } else {
+        throw new Error("No music URL returned");
+      }
+    } catch (err) {
+      setUiError(err instanceof Error ? err.message : "Music generation failed");
+    }
+    setMusicGenerating(false);
+  }
+
   async function generateChildrenContent() {
     setGenerating(true);
     setGenerationError("");
@@ -1124,7 +1749,11 @@ function ChildrenPlannerInner() {
           }),
         });
         const musicData = await safeJson<{ url?: string; audioUrl?: string; fallbackReason?: string }>(musicRes, "music/generate");
-        if (musicData.url || musicData.audioUrl) setGeneratedMusicUrl(musicData.url ?? musicData.audioUrl ?? "");
+        if (musicData.url || musicData.audioUrl) {
+          const mUrl = musicData.url ?? musicData.audioUrl ?? "";
+          setGeneratedMusicUrl(mUrl);
+          setSelectedMusicUrl(mUrl);  // auto-select
+        }
         if (musicData.fallbackReason) setMusicFallbackReason(musicData.fallbackReason);
         else setMusicFallbackReason(null);
       } catch { /* music generation is optional */ }
@@ -1189,6 +1818,7 @@ function ChildrenPlannerInner() {
           if (dbData.found && dbData.data && !cancelled) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const d = dbData.data as any;
+            if (d.projectTitle)     setProjectTitle(d.projectTitle);
             if (d.textContent)      setTextContent(d.textContent);
             if (d.expandedContent)  setExpandedContent(d.expandedContent);
             if (d.visualStyle)      setVisualStyle(d.visualStyle);
@@ -1200,6 +1830,7 @@ function ChildrenPlannerInner() {
             if (d.learningMode)     setLearningMode(d.learningMode);
             if (d.savedChars?.length > 0)   setSavedChars(d.savedChars);
             if (d.selectedCharIds?.length > 0) setSelectedCharIds(d.selectedCharIds);
+            if (d.characters?.length > 0)   setCharacters(d.characters);
             if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
             if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
             if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
@@ -1226,40 +1857,33 @@ function ChildrenPlannerInner() {
   useEffect(() => {
     if (isRestoringRef.current) return;
     const data = {
+      projectTitle,
       textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
       ageGroup, safetyLevel, learningMode,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       scriptSegments, screenplay, selectedMusicUrl, selectedMusicName,
       soundTier, modelSettings, activeTab,
+      characters,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_draft", data }),
+      body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_default", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
+  }, [projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos, scriptSegments, screenplay,
-      selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab]);
+      selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters]);
 
-  // Load characters from DB
+  // ── Load project list for "My Projects" panel ──
   useEffect(() => {
-    setLoadingChars(true);
-    fetch("/api/character-voices").then(r => r.json()).then(d => {
-      if (d.voices?.length > 0) {
-        setSavedChars(d.voices.map((v: Record<string, unknown>) => ({
-          id: v.id as string,
-          name: v.name as string,
-          role: (v.role || "") as string,
-          imageUrl: v.imageUrl as string | null,
-          characterId: v.characterId as string | null,
-          voiceName: v.voiceName as string | null,
-          visualDescription: v.visualDescription as string | null,
-        })));
-      }
-    }).catch(() => {}).finally(() => setLoadingChars(false));
+    fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children")
+      .then(r => r.json())
+      .then(d => { if (d.projects) setProjectsList(d.projects); })
+      .catch(() => {});
   }, []);
+
 
   // Pre-populate content from a character deep-link
   useEffect(() => {
@@ -1567,6 +2191,36 @@ function ChildrenPlannerInner() {
           )}
         </div>
 
+        {/* Video Art Style — controls scene image rendering */}
+        <div style={{ ...cardStyle, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Video Art Style</p>
+          <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Controls how all scene images look. Applied during image generation.</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {[
+              { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e", example: "Like: children's picture books, Peppa Pig",   desc: "Soft, warm and painterly. Gentle and cozy." },
+              { id: "2d-cartoon",   icon: "2D", name: "2D Cartoon",   color: "#f59e0b", example: "Like: SpongeBob, old Disney, cartoon shows",   desc: "Flat bold colors with thick outlines. Fun and simple." },
+              { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff", example: "Like: Toy Story, Moana, Kung Fu Panda",         desc: "3D animated movie quality. Rich lighting and depth." },
+              { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia",  desc: "Japanese animation style. Big expressive eyes." },
+              { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899", example: "Like: a real film or Netflix drama",            desc: "Photorealistic — looks like an actual photograph." },
+            ].map(s => {
+              const isSel = projectStyle === s.id;
+              return (
+                <div key={s.id} onClick={() => { setProjectStyle(s.id); setLastAction(`Art style: ${s.name}`); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: "pointer", border: `1px solid ${isSel ? s.color : border}`, background: isSel ? `${s.color}10` : "transparent" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: s.color, minWidth: 26, flexShrink: 0 }}>{s.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isSel ? s.color : "#fff" }}>{s.name}</span>
+                      {isSel && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 6, background: s.color, color: "#000", fontWeight: 800 }}>ACTIVE</span>}
+                      <span style={{ fontSize: 9, color: s.color }}>{s.example}</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Confirm Button */}
         <div style={{ ...cardStyle, display: "flex", gap: 12, alignItems: "center" }}>
           <button
@@ -1580,6 +2234,86 @@ function ChildrenPlannerInner() {
         </div>
       </div>
     );
+  }
+
+  // ── Explicit project flush (used by Save button + New Project) ──
+  async function flushCurrentProject() {
+    const id = activeProjectIdRef.current || "ghs_children_default";
+    const data = {
+      projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
+      ageGroup, safetyLevel, learningMode, savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
+      scriptSegments, screenplay, selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab,
+      characters,
+      timestamp: Date.now(),
+    };
+    try {
+      await fetch("/api/hybrid/saved-state", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localId: id, data }),
+      });
+      // Refresh project list
+      const listRes = await fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children");
+      const listData = await listRes.json();
+      if (listData.projects) setProjectsList(listData.projects);
+    } catch { /* silent */ }
+  }
+
+  // ── New Project — save current then start fresh ──
+  async function newProject() {
+    isRestoringRef.current = true;
+    await flushCurrentProject();
+    const newKey = `ghs_children_${Date.now()}`;
+    activeProjectIdRef.current = newKey;
+    window.history.replaceState(null, "", `/dashboard/children-planner?projectId=${encodeURIComponent(newKey)}`);
+    setProjectTitle("Untitled Children Project");
+    setTextContent(""); setExpandedContent(""); setVisualStyle("storybook"); setNarrationStyle("gentle");
+    setMusicChoice("soft_story"); setAgeGroup("preschool"); setSafetyLevel("high"); setLearningMode("storybook");
+    setSavedChars([]); setSelectedCharIds([]); setCharacters([]); setChildScenes([]); setSceneImages({}); setSceneVideos({});
+    setScriptSegments([]); setScreenplay(""); setSelectedMusicUrl(null); setSelectedMusicName("");
+    setSavedCuts([]); setActiveTab("design"); setLastAction("New project started");
+    setShowProjects(false);
+    isRestoringRef.current = false;
+  }
+
+  // ── Load an existing children project ──
+  async function loadChildProject(id: string) {
+    isRestoringRef.current = true;
+    activeProjectIdRef.current = id;
+    window.history.replaceState(null, "", `/dashboard/children-planner?projectId=${encodeURIComponent(id)}`);
+    try {
+      const res = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(id)}`);
+      const dbData = await res.json();
+      if (dbData.found && dbData.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const d = dbData.data as any;
+        if (d.projectTitle)     setProjectTitle(d.projectTitle);
+        if (d.textContent)      setTextContent(d.textContent);
+        if (d.expandedContent)  setExpandedContent(d.expandedContent);
+        if (d.visualStyle)      setVisualStyle(d.visualStyle);
+        if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
+        if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
+        if (d.musicChoice)      setMusicChoice(d.musicChoice);
+        if (d.ageGroup)         setAgeGroup(d.ageGroup);
+        if (d.safetyLevel)      setSafetyLevel(d.safetyLevel);
+        if (d.learningMode)     setLearningMode(d.learningMode);
+        if (d.savedChars?.length > 0)   setSavedChars(d.savedChars);
+        if (d.selectedCharIds?.length > 0) setSelectedCharIds(d.selectedCharIds);
+        if (d.characters?.length > 0)   setCharacters(d.characters);
+        if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
+        if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
+        if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
+        if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
+        if (d.screenplay)       setScreenplay(d.screenplay);
+        if (d.selectedMusicUrl) setSelectedMusicUrl(d.selectedMusicUrl);
+        if (d.selectedMusicName) setSelectedMusicName(d.selectedMusicName);
+        if (d.soundTier)        setSoundTier(d.soundTier);
+        if (d.modelSettings)    setModelSettings(d.modelSettings);
+        if (d.activeTab)        setActiveTab(d.activeTab);
+        setLastAction(`Loaded: "${d.projectTitle || "project"}"`);
+      }
+    } catch { /* silent */ }
+    setShowProjects(false);
+    isRestoringRef.current = false;
   }
 
   // ── Progress Bar Component ──
@@ -1610,11 +2344,51 @@ function ChildrenPlannerInner() {
       </div>
 
       {/* ── Project toolbar ── */}
-      <div style={{ padding: "12px 32px 0", display: "flex", gap: 10, alignItems: "center" }}>
-        <a href="/dashboard/children-video" style={{ fontSize: 12, color: ds.color.mute, textDecoration: "none", padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card }}>
+      <div style={{ padding: "12px 32px 0", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
+          onBlur={() => flushCurrentProject()}
+          style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none", fontFamily: ds.font.sans }}
+          placeholder="Project Title" />
+        <button onClick={async () => { await newProject(); }}
+          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid rgba(255,255,255,0.1)`, background: "transparent", color: "#5a7080", fontSize: 11, cursor: "pointer" }}>
+          New Project
+        </button>
+        <button onClick={async () => { setSaving(true); await flushCurrentProject(); setLastAction("Saved"); setTimeout(() => setSaving(false), 600); }} disabled={saving}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
+          {saving ? "Saved" : "Save"}
+        </button>
+        <button onClick={() => setShowProjects(p => !p)}
+          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.gold}40`, background: showProjects ? `${ds.color.gold}15` : `${ds.color.gold}08`, color: ds.color.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+          My Projects {projectsList.length > 0 ? `(${projectsList.length})` : ""}
+        </button>
+        <a href="/dashboard/children-video" style={{ fontSize: 12, color: ds.color.mute, textDecoration: "none", padding: "8px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.card, marginLeft: "auto" }}>
           Children Video
         </a>
       </div>
+
+      {/* ── My Projects Panel ── */}
+      {showProjects && (
+        <div style={{ margin: "12px 32px 0", background: ds.color.card, border: `2px solid ${ds.color.gold}30`, borderRadius: 16, padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: ds.color.gold, marginBottom: 12 }}>My Children Projects</p>
+          {projectsList.length === 0
+            ? <p style={{ fontSize: 11, color: ds.color.mute }}>No saved projects yet. Your current work is auto-saved.</p>
+            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+                {projectsList.sort((a, b) => b.lastModified - a.lastModified).map(proj => {
+                  const isActive = proj.id === (activeProjectIdRef.current || "ghs_children_default");
+                  return (
+                    <div key={proj.id} onClick={() => isActive ? setShowProjects(false) : loadChildProject(proj.id)}
+                      style={{ borderRadius: 12, border: `2px solid ${isActive ? ds.color.gold : ds.color.line}`, background: isActive ? `${ds.color.gold}08` : ds.color.paper, cursor: "pointer", padding: "12px 14px" }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: isActive ? ds.color.gold : "#fff", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title || "Untitled"}</p>
+                      <p style={{ fontSize: 9, color: ds.color.mute }}>{proj.sceneCount} scenes · {proj.characterCount} chars</p>
+                      <p style={{ fontSize: 8, color: ds.color.mute, marginTop: 4 }}>{new Date(proj.lastModified).toLocaleDateString()}</p>
+                      {isActive && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 6, background: ds.color.gold, color: "#000", fontWeight: 800, display: "inline-block", marginTop: 4 }}>OPEN</span>}
+                    </div>
+                  );
+                })}
+              </div>
+          }
+        </div>
+      )}
 
       {/* ── v14 Tab Bar ── */}
       <div style={{ display: "flex", gap: 0, borderBottom: `1px solid ${ds.color.line}`, background: ds.color.paper, overflowX: "auto", marginTop: 16 }}>
@@ -1901,166 +2675,460 @@ function ChildrenPlannerInner() {
       {/* CHARACTERS TAB — Inline Registry (AI-first)                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "characters" && (
-        <div>
-          {/* Header */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Characters ({savedChars.length})</h2>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => setShowCharPicker(prev => !prev)}
-                style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                {showCharPicker ? "Hide Library" : "or import saved →"}
+        <div style={{ padding: "16px 32px 32px" }}>
+          {/* Header: Character Registry + Vision AI selector */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap" as const, gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Character Registry ({characters.length})</h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#ffffff08", border: "1px solid #ffffff15", borderRadius: 8, padding: "4px 10px" }}>
+                <span style={{ fontSize: 10, color: "#888", fontWeight: 600, letterSpacing: 0.5 }}>VISION AI</span>
+                {(["auto", "ollama", "claude", "gpt"] as const).map(p => (
+                  <button key={p} onClick={() => setVisionProvider(p)}
+                    style={{ padding: "3px 8px", borderRadius: 5, border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer",
+                      background: visionProvider === p ? (p === "ollama" ? "#16a34a" : p === "claude" ? "#7c3aed" : p === "gpt" ? "#0284c7" : childAccent) : "#ffffff10",
+                      color: visionProvider === p ? "#fff" : "#aaa" }}>
+                    {p === "auto" ? "Auto" : p === "ollama" ? "Local" : p === "claude" ? "Claude" : "GPT"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+              <button onClick={buildAllStoryCharacters} disabled={buildingAllChars || !( expandedContent || textContent.trim())}
+                style={{ padding: "10px 18px", borderRadius: 10, border: "none",
+                  background: buildingAllChars ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #059669)`,
+                  color: "#fff", fontSize: 11, fontWeight: 700, cursor: buildingAllChars ? "not-allowed" : "pointer" }}>
+                {buildAllProgress || (buildingAllChars ? "Building..." : "Build Story Characters with AI")}
+              </button>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input value={charTabName} onChange={e => setCharTabName(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter" && charTabName.trim()) { buildCharacterInline(charTabName.trim()).then(() => setCharTabName("")); }}}
+                  placeholder="Add character by name..."
+                  style={{ background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 11, outline: "none", width: 180 }} />
+                <button onClick={() => { if (charTabName.trim()) buildCharacterInline(charTabName.trim()).then(() => setCharTabName("")); }}
+                  disabled={!charTabName.trim() || charTabCreating}
+                  style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: charTabCreating ? "#2a2a40" : childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                  {charTabCreating ? "..." : "+ Add"}
+                </button>
+              </div>
+              {(() => {
+                const charsWithoutImages = characters.filter(c => !c.imageUrl && !c.hasImage);
+                return charsWithoutImages.length > 0 ? (
+                  <button disabled={!!batchPortraitProgress} onClick={async () => {
+                    let completed = 0;
+                    setBatchPortraitProgress(`0/${charsWithoutImages.length}`);
+                    for (const char of charsWithoutImages) {
+                      try { await generateCharacterPortrait(char); completed++; setBatchPortraitProgress(`${completed}/${charsWithoutImages.length}`); if (completed < charsWithoutImages.length) await new Promise(r => setTimeout(r, 1500)); } catch { /* continue */ }
+                    }
+                    setBatchPortraitProgress(null);
+                    setLastAction(`Batch: ${completed}/${charsWithoutImages.length} portraits generated`);
+                  }}
+                    style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: batchPortraitProgress ? "not-allowed" : "pointer", opacity: batchPortraitProgress ? 0.7 : 1 }}>
+                    {batchPortraitProgress ? `Generating ${batchPortraitProgress}...` : `Generate All Portraits (${charsWithoutImages.length})`}
+                  </button>
+                ) : null;
+              })()}
+              <button onClick={() => setShowCharacterPicker(true)}
+                style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${ds.color.lilac}30`, background: "transparent", color: ds.color.lilac, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                Import Existing
               </button>
             </div>
           </div>
 
-          {/* ── PRIMARY ACTION: Build Story Characters with AI ── */}
-          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}08` }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-              <Icon.Star style={{ width: 18, height: 18, color: childAccent, flexShrink: 0 }} />
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Build Story Characters with AI</p>
-                <p style={{ fontSize: 11, color: muted }}>AI reads your story, extracts characters, and builds their profiles — names, roles, descriptions, ready to use.</p>
-              </div>
-            </div>
-            <button
-              onClick={extractChildCharacters}
-              disabled={extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim())}
-              title={(!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "Enter your story content first" : ""}
-              style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: extractingChars !== "idle" ? "#1a2a1a" : (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "#1a1a2a" : `linear-gradient(135deg, ${childAccent}, #059669)`, color: (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? muted : "#fff", fontSize: 13, fontWeight: 700, cursor: extractingChars !== "idle" || (!expandedContent && !textContent.trim() && !readAlongText.trim()) ? "not-allowed" : "pointer" }}>
-              {extractingChars === "building" ? "Building character profiles..." : extractingChars === "extracting" ? "Extracting characters from story..." : savedChars.length > 0 ? "Rebuild Story Characters with AI" : "Build Story Characters with AI"}
-            </button>
-            {(!expandedContent && !textContent.trim() && !readAlongText.trim()) && (
-              <p style={{ fontSize: 10, color: muted, textAlign: "center", marginTop: 6 }}>Enter your story in the Content tab first, then come back here.</p>
-            )}
-          </div>
-
-          {/* ── Inline import from library (secondary, hidden by default) ── */}
-          {showCharPicker && (
-            <div style={{ ...cardStyle, marginBottom: 16 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Import from Character Library</p>
-                <button onClick={() => setShowCharPicker(false)} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
-                  Close
-                </button>
-              </div>
-              <CharacterPicker
-                onSelect={(char) => {
-                  setSavedChars(prev => {
-                    if (prev.some(c => c.id === char.id)) return prev;
-                    return [...prev, { id: char.id, name: char.name, role: char.role || "supporting", imageUrl: char.imageUrl || undefined, characterId: char.characterId || undefined, voiceName: char.voiceName || undefined, visualDescription: char.visualDescription || undefined }];
-                  });
-                  setSelectedCharIds(prev => prev.includes(char.id) ? prev : [...prev, char.id]);
-                  setLastAction(`Imported character "${char.name}"`);
-                }}
-                onCreateNew={() => { window.open("/dashboard/character-voices?returnTo=children-planner", "_blank"); }}
-                compact
-              />
+          {/* UI Error */}
+          {uiError && (
+            <div style={{ ...cardStyle, borderColor: "#ef444440", background: "#ef444410", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <p style={{ fontSize: 12, color: "#ef4444" }}>{uiError}</p>
+              <button onClick={() => setUiError(null)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>×</button>
             </div>
           )}
 
-          {/* Character cards */}
-          {loadingChars ? (
-            <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
-              <p style={{ color: muted, fontSize: 12 }}>Loading characters...</p>
+          {/* BUILD FROM PHOTO section */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ height: 1, flex: 1, background: "linear-gradient(90deg, #ffffff18, transparent)" }} />
+              <span style={{ fontSize: 9, fontWeight: 800, color: "#ffffff40", letterSpacing: 2, textTransform: "uppercase" as const }}>Build from Photo</span>
+              <div style={{ height: 1, flex: 1, background: "linear-gradient(270deg, #ffffff18, transparent)" }} />
             </div>
-          ) : savedChars.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: "center", padding: 32, borderStyle: "dashed" }}>
-              <Icon.User style={{ width: 28, height: 28, color: muted, marginBottom: 8 }} />
-              <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>No characters yet</p>
-              <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Click "Build Story Characters with AI" above, or import from your library.</p>
+            <div
+              onDragOver={e => { e.preventDefault(); setPhotoDragOver(true); }}
+              onDragLeave={() => setPhotoDragOver(false)}
+              onDrop={e => { e.preventDefault(); setPhotoDragOver(false); const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) importCharacterFromPhoto(file, photoImportName); else setPhotoImportLog("[!] Drop an image file (JPG, PNG, WebP)"); }}
+              style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 0, borderRadius: 14, overflow: "hidden", border: photoDragOver ? `2px solid ${childAccent}` : importingFromPhoto ? `2px solid ${ds.color.lilac}60` : "2px solid #ffffff14", background: "#0d0d1a", transition: "border-color 0.2s ease" }}>
+              <label style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", gap: 6, cursor: importingFromPhoto ? "not-allowed" : "pointer", background: photoDragOver ? `${childAccent}20` : importingFromPhoto ? `${ds.color.lilac}15` : "#ffffff06", padding: "18px 10px", borderRight: "1px solid #ffffff10", minHeight: 90 }}>
+                <div style={{ width: 48, height: 48, borderRadius: "50%", border: `2px solid ${photoDragOver ? childAccent : importingFromPhoto ? ds.color.lilac : "#ffffff25"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: photoDragOver ? `${childAccent}18` : "#ffffff08" }}>
+                  {importingFromPhoto ? "..." : photoDragOver ? "Drop" : "+"}
+                </div>
+                <span style={{ fontSize: 9, fontWeight: 700, color: photoDragOver ? childAccent : "#ffffff50", textTransform: "uppercase" as const, letterSpacing: 0.8 }}>
+                  {photoDragOver ? "Drop now" : importingFromPhoto ? "Reading…" : "Drop / Browse"}
+                </span>
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={importingFromPhoto}
+                  onChange={e => { const file = e.target.files?.[0]; if (file) importCharacterFromPhoto(file, photoImportName); e.target.value = ""; }} />
+              </label>
+              <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column" as const, justifyContent: "center", gap: 10 }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Import any photo</p>
+                  <p style={{ fontSize: 10, color: muted, margin: 0 }}>AI reads the image, extracts visual traits, and builds a full character identity automatically.</p>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={photoImportName} onChange={e => setPhotoImportName(e.target.value)} placeholder="Character name (optional)"
+                    style={{ background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 11px", color: "#fff", fontSize: 11, outline: "none", flex: 1 }}
+                    disabled={importingFromPhoto} />
+                  <label style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: importingFromPhoto ? "#1a1a2e" : `linear-gradient(135deg, ${childAccent}, #059669)`, color: importingFromPhoto ? "#444" : "#000", fontSize: 10, fontWeight: 800, cursor: importingFromPhoto ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, flexShrink: 0, display: "flex", alignItems: "center" }}>
+                    {importingFromPhoto ? "Importing..." : "Choose Photo"}
+                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={importingFromPhoto}
+                      onChange={e => { const file = e.target.files?.[0]; if (file) importCharacterFromPhoto(file, photoImportName); e.target.value = ""; }} />
+                  </label>
+                </div>
+                {photoImportLog && <span style={{ fontSize: 9, fontWeight: 700, color: photoImportLog.startsWith("[!]") ? childAccent : "#22c55e" }}>{photoImportLog}</span>}
+              </div>
+            </div>
+          </div>
+
+          {/* Inline preview card */}
+          {inlinePreview && (
+            <div style={{ ...cardStyle, borderColor: `${childAccent}40`, marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                {inlinePreview.imageUrl ? (
+                  <img src={inlinePreview.imageUrl} alt={inlinePreview.displayName} style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", border: `2px solid ${childAccent}40`, flexShrink: 0 }} />
+                ) : (
+                  <Icon.User style={{ width: 20, height: 20 }} />
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>{inlinePreview.displayName}</p>
+                    {inlinePreview.tags?.includes("photo-import") && <span style={{ fontSize: 9, fontWeight: 700, color: childAccent, background: `${childAccent}18`, padding: "2px 6px", borderRadius: 4 }}>FROM PHOTO</span>}
+                  </div>
+                  <p style={{ fontSize: 10, color: muted, margin: 0 }}>{inlinePreview.roleType} · {inlinePreview.gender} · {inlinePreview.ageRange}</p>
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button onClick={acceptInlineCharacter} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Add to Cast</button>
+                  <button onClick={() => { setInlinePreview(null); setPhotoImportLog(""); }} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: "#ef4444", fontSize: 11, cursor: "pointer" }}>
+                    <Icon.X style={{ width: 12, height: 12 }} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+                {([["Species", inlinePreview.species], ["Build", inlinePreview.bodyBuild], ["Colours", inlinePreview.colorDescription], ["Face", inlinePreview.faceFeatures], ["Clothing", inlinePreview.clothingDetails], ["Distinctive", inlinePreview.distinctiveFeatures]] as [string, string | undefined][])
+                  .filter(([, v]) => v && v !== "not specified").map(([label, value]) => (
+                  <div key={label} style={{ padding: "6px 8px", borderRadius: 6, background: "#ffffff05" }}>
+                    <p style={{ fontSize: 8, color: muted, fontWeight: 600, textTransform: "uppercase" as const, marginBottom: 2 }}>{label}</p>
+                    <p style={{ fontSize: 10, color: "#fff" }}>{(value as string).slice(0, 60)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {characters.length === 0 ? (
+            <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
+              <Icon.Users style={{ width: 28, height: 28, color: muted, marginBottom: 12 }} />
+              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 6 }}>No characters yet</p>
+              <p style={{ fontSize: 12, color: muted, marginBottom: 20 }}>
+                {(expandedContent || textContent.trim()) ? "Your story is ready — click above to let AI build all characters automatically." : "Write your story first, then AI will detect and build all characters for you."}
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" as const }}>
+                {(expandedContent || textContent.trim()) && (
+                  <button onClick={buildAllStoryCharacters} disabled={buildingAllChars}
+                    style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${childAccent}, #059669)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {buildAllProgress || "Build Story Characters with AI"}
+                  </button>
+                )}
+                <button onClick={() => setShowCharacterPicker(true)} style={{ padding: "12px 20px", borderRadius: 12, border: `1px solid ${ds.color.lilac}40`, background: "transparent", color: ds.color.lilac, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  Import from Registry
+                </button>
+                {!(expandedContent || textContent.trim()) && (
+                  <button onClick={() => setActiveTab("content")} style={{ padding: "12px 20px", borderRadius: 12, border: `1px solid ${childAccent}40`, background: "transparent", color: childAccent, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    ← Go to Story First
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 12, marginBottom: 12 }}>
-              {savedChars.map(char => {
-                const isSelected = selectedCharIds.includes(char.id);
-                const hasVoice = !!char.voiceName;
-                const hasImage = !!char.imageUrl;
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 14 }}>
+              {characters.map(char => {
+                const isEditing = editingCharId === char.characterId;
+                const isGenerating = generatingPortrait === char.characterId;
+                const hasVisual = !!(char.species || char.colorDescription || char.clothingDetails || char.distinctiveFeatures);
+                const visualDesc = buildVisualDescription(char);
+
                 return (
-                  <div key={char.id}
-                    style={{ background: surface, borderRadius: 14, border: `2px solid ${isSelected ? childAccent : border}`, overflow: "hidden", transition: "border-color 0.2s" }}>
-                    {/* Character image */}
-                    <div style={{ height: 120, background: s2, position: "relative", overflow: "hidden" }}>
-                      {char.imageUrl ? (
-                        <img src={char.imageUrl} alt={char.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon.User style={{ width: 40, height: 40, opacity: 0.3 }} />
+                  <div key={char.characterId} style={{ ...cardStyle, borderColor: char.imageLocked ? `${childAccent}40` : hasVisual ? `${ds.color.lilac}30` : `${border}` }}>
+                    {/* Top row */}
+                    <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
+                      <div style={{ position: "relative", width: 80, height: 80, borderRadius: 14, background: `${ds.color.lilac}20`, flexShrink: 0, overflow: "hidden", border: char.imageLocked ? `2px solid ${childAccent}` : `1px solid ${border}` }}>
+                        {char.imageUrl
+                          ? <img src={normalizeImageUrl(char.imageUrl)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.User style={{ width: 32, height: 32, color: muted }} /></div>
+                        }
+                        {char.imageLocked && <div style={{ position: "absolute", bottom: 2, right: 2, background: childAccent, borderRadius: 4, padding: "1px 4px", fontSize: 7, color: "#000", fontWeight: 800 }}>LOCKED</div>}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, justifyContent: "space-between" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{char.displayName}</p>
+                            {char.imageLocked
+                              ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}20`, color: childAccent, fontWeight: 700 }}>Look Locked</span>
+                              : hasVisual
+                              ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${ds.color.lilac}15`, color: ds.color.lilac, fontWeight: 600 }}>AI-described</span>
+                              : char.imageUrl
+                              ? <span onClick={() => analyzeCharacterImage(char.characterId, char.imageUrl!)} style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}10`, color: childAccent, fontWeight: 600, cursor: "pointer" }}>Click to AI-read image</span>
+                              : <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}10`, color: childAccent, fontWeight: 600 }}>Upload image first</span>
+                            }
+                          </div>
+                          <button
+                            onClick={() => { if (confirm(`Remove ${char.displayName} from cast?`)) setCharacters(prev => prev.filter(x => x.characterId !== char.characterId)); }}
+                            style={{ background: "#ef444415", border: "1px solid #ef444430", borderRadius: 6, color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer", padding: "3px 9px", flexShrink: 0 }}>
+                            × Remove
+                          </button>
                         </div>
+                        {visualDesc ? (
+                          <p style={{ fontSize: 9, color: "#aaa", lineHeight: 1.5, marginBottom: 4, background: `${ds.color.lilac}06`, padding: "4px 6px", borderRadius: 6, border: `1px solid ${ds.color.lilac}15` }}>
+                            <span style={{ color: ds.color.lilac, fontWeight: 600 }}>Visual: </span>{visualDesc.slice(0, 120)}{visualDesc.length > 120 ? "..." : ""}
+                          </p>
+                        ) : (
+                          <p style={{ fontSize: 9, color: childAccent, background: `${childAccent}08`, padding: "4px 6px", borderRadius: 6, marginBottom: 4 }}>
+                            Click "Define Appearance" to describe this character so scenes look consistent.
+                          </p>
+                        )}
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                          <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${ds.color.lilac}15`, color: ds.color.lilac, fontWeight: 600 }}>{char.roleType}</span>
+                          {char.gender && <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${C4}15`, color: C4, fontWeight: 600 }}>{char.gender}</span>}
+                          {char.voiceId && <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${childAccent}15`, color: childAccent, fontWeight: 600 }}>Voice</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: isEditing ? 12 : 0 }}>
+                      <button onClick={() => setEditingCharId(isEditing ? null : char.characterId)}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? ds.color.lilac : border}`, background: isEditing ? `${ds.color.lilac}15` : "transparent", color: isEditing ? ds.color.lilac : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                        {isEditing ? "Close Builder" : "Define Appearance"}
+                      </button>
+                      <button onClick={() => generateCharacterPortrait(char)} disabled={isGenerating}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
+                        {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
+                      </button>
+                      {char.imageUrl && (() => {
+                        const isAnalyzing = analyzingCharacter === char.characterId;
+                        return (
+                          <button onClick={() => { if (!isAnalyzing) analyzeCharacterImage(char.characterId, char.imageUrl!); }} disabled={isAnalyzing}
+                            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${ds.color.lilac}40`, background: isAnalyzing ? `${ds.color.lilac}20` : `${ds.color.lilac}08`, color: ds.color.lilac, fontSize: 10, fontWeight: 700, cursor: isAnalyzing ? "wait" : "pointer", opacity: isAnalyzing ? 0.8 : 1 }}>
+                            {isAnalyzing ? "Reading image..." : "AI Read Look"}
+                          </button>
+                        );
+                      })()}
+                      {(() => {
+                        const isSaving = savingCharacter === char.characterId;
+                        const isSaved = savedCharacter === char.characterId;
+                        return (
+                          <button onClick={() => { if (!isSaving) saveCharacterToRegistry(char); }} disabled={isSaving}
+                            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isSaved ? childAccent : "#e05c2040"}`, background: isSaved ? `${childAccent}18` : "#e05c2008", color: isSaved ? childAccent : "#e05c20", fontSize: 10, fontWeight: 700, cursor: isSaving ? "wait" : "pointer", opacity: isSaving ? 0.7 : 1 }}>
+                            {isSaving ? "Saving..." : isSaved ? "Saved!" : "Save Character"}
+                          </button>
+                        );
+                      })()}
+                      <button onClick={() => openImagePicker(char.characterId)}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e908", color: "#0ea5e9", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        Import Image
+                      </button>
+                      {char.imageUrl && !char.imageLocked && (
+                        <button onClick={() => { setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageLocked: true } : c)); setLastAction(`${char.displayName}'s look is LOCKED`); }}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Lock this Look
+                        </button>
                       )}
-                      {isSelected && (
-                        <div style={{ position: "absolute", top: 8, right: 8, background: childAccent, borderRadius: "50%", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <Icon.Check style={{ width: 12, height: 12, color: "#000" }} />
-                        </div>
+                      {char.imageLocked && (
+                        <button onClick={() => { setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageLocked: false } : c)); }}
+                          style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                          Unlock
+                        </button>
                       )}
                     </div>
 
-                    {/* Info */}
-                    <div style={{ padding: 12 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 2 }}>{char.name}</p>
-                      {char.characterId && <p style={{ fontSize: 9, color: childAccent, fontFamily: "monospace", marginBottom: 6 }}>{char.characterId}</p>}
-                      {char.visualDescription && <p style={{ fontSize: 10, color: muted, marginBottom: 8, lineHeight: 1.4 }}>{char.visualDescription}</p>}
-
-                      {/* Readiness badges */}
-                      <div style={{ display: "flex", gap: 4, marginBottom: 10 }}>
-                        <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 20, background: hasVoice ? `${childSafe}15` : "rgba(239,68,68,0.1)", color: hasVoice ? childSafe : "#ef4444", fontWeight: 600 }}>
-                          {hasVoice ? "Voice" : "No Voice"}
-                        </span>
-                        <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 20, background: hasImage ? `${childSafe}15` : "rgba(239,68,68,0.1)", color: hasImage ? childSafe : "#ef4444", fontWeight: 600 }}>
-                          {hasImage ? "Image" : "No Image"}
-                        </span>
+                    {/* Visual Identity Builder */}
+                    {isEditing && (
+                      <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${ds.color.lilac}20` }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, marginBottom: 10 }}>Visual Identity — fill in what makes this character unique</p>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Character Type / Species</label>
+                            <input value={char.species || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, species: e.target.value } : c))}
+                              placeholder='"rabbit", "human", "lion", "young boy"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Body Build / Size</label>
+                            <input value={char.bodyBuild || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, bodyBuild: e.target.value } : c))}
+                              placeholder='"small and round", "tall and slim"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Fur / Skin / Color Description</label>
+                            <input value={char.colorDescription || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, colorDescription: e.target.value } : c))}
+                              placeholder='"warm grey fur with white belly", "brown skin"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Face & Eyes</label>
+                            <input value={char.faceFeatures || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, faceFeatures: e.target.value } : c))}
+                              placeholder='"big round eyes, small button nose, wide smile"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Clothing (be specific)</label>
+                            <input value={char.clothingDetails || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, clothingDetails: e.target.value } : c))}
+                              placeholder='"red overalls, yellow shirt"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Accessories</label>
+                            <input value={char.accessories || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, accessories: e.target.value } : c))}
+                              placeholder='"small backpack, red hat"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Age / Posture</label>
+                            <input value={char.ageAppearance || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, ageAppearance: e.target.value } : c))}
+                              placeholder='"young child, age 6, cheerful expression"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                          <div style={{ gridColumn: "1 / -1" }}>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Distinctive Features</label>
+                            <input value={char.distinctiveFeatures || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, distinctiveFeatures: e.target.value } : c))}
+                              placeholder='"fluffy white tail, very big ears, always smiling"'
+                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
+                          </div>
+                        </div>
+                        {buildVisualDescription(char) && (
+                          <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: `${ds.color.lilac}08`, border: `1px solid ${ds.color.lilac}20` }}>
+                            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 600, marginBottom: 2 }}>→ This is what gets injected into every scene prompt:</p>
+                            <p style={{ fontSize: 9, color: "#ccc", lineHeight: 1.6, fontStyle: "italic" }}>
+                              CHARACTER {char.displayName.toUpperCase()} (EXACT FIXED APPEARANCE): {buildVisualDescription(char)}
+                            </p>
+                          </div>
+                        )}
+                        <button onClick={() => { generateCharacterPortrait(char); setEditingCharId(null); }} disabled={isGenerating}
+                          style={{ marginTop: 10, width: "100%", padding: "10px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          Generate Portrait from This Description →
+                        </button>
                       </div>
-
-                      {/* Action buttons */}
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                        <button onClick={() => {
-                          const next = isSelected ? selectedCharIds.filter(id => id !== char.id) : [...selectedCharIds, char.id];
-                          setSelectedCharIds(next);
-                          setLastAction(isSelected ? `Removed ${char.name}` : `Added ${char.name}`);
-                        }}
-                          style={{ flex: 1, padding: "6px 10px", borderRadius: 8, border: "none", background: isSelected ? `${childAccent}20` : childAccent, color: isSelected ? childAccent : "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          {isSelected ? "Remove" : "Add to Video"}
-                        </button>
-                        <button onClick={() => {
-                          fetch("/api/generation/image", { method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `Character portrait: ${char.name}. ${char.visualDescription || ""}. Children's book illustration style, age-appropriate, friendly, colorful, front view.`, width: 768, height: 768 }) })
-                            .then(r => r.json()).then(d => {
-                              if (d.imageUrl || d.imagePath) {
-                                setSavedChars(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
-                                setLastAction(`Portrait generated for ${char.name}`);
-                              }
-                            }).catch((err) => { console.error("genChildCharImage:", err); });
-                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${childAccent}30`, background: `${childAccent}06`, color: childAccent, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
-                          Gen. Portrait
-                        </button>
-                        <button onClick={() => {
-                          setSavedChars(prev => prev.filter(c => c.id !== char.id));
-                          setSelectedCharIds(prev => prev.filter(id => id !== char.id));
-                          setLastAction(`Removed ${char.name}`);
-                        }} style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: "#ef4444", fontSize: 9, cursor: "pointer" }}>
-                          Remove
-                        </button>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}
             </div>
           )}
 
-          {/* Selected summary */}
-          {selectedCharIds.length > 0 && (
-            <div style={{ ...cardStyle, marginTop: 12, borderColor: `${childAccent}30`, background: `${childAccent}05` }}>
-              <p style={{ fontSize: 11, color: childAccent, fontWeight: 600, marginBottom: 6 }}>
-                {selectedCharIds.length} character{selectedCharIds.length > 1 ? "s" : ""} will appear in this video
-              </p>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => (
-                  <span key={c.id} style={{ fontSize: 10, padding: "3px 10px", borderRadius: 20, background: `${childAccent}15`, color: childAccent, fontWeight: 600 }}>
-                    {c.name}
-                  </span>
-                ))}
+          {/* Next step CTA */}
+          {characters.length > 0 && (
+            <div style={{ ...cardStyle, borderColor: `${childAccent}20`, marginTop: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <p style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
+                    {characters.filter(c => c.voiceId).length}/{characters.length} characters fully built
+                  </p>
+                  <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>
+                    {characters.filter(c => !c.voiceId).length > 0
+                      ? `${characters.filter(c => !c.voiceId).length} still need AI build — click "Build Story Characters with AI" above`
+                      : "All characters ready — proceed to Scene Board"}
+                  </p>
+                </div>
+                <button onClick={() => setActiveTab("sceneBoard")}
+                  style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                  → Step 3: Scene Board
+                </button>
               </div>
             </div>
+          )}
+
+          {/* CharacterPicker modal for "Import Existing" */}
+          {showCharacterPicker && (
+            <>
+              <div onClick={() => setShowCharacterPicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299 }} />
+              <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 300, background: "#0f1117", border: "1px solid #ffffff18", borderRadius: 16, width: "min(680px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
+                <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #ffffff10", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Import from Character Registry</p>
+                  <button onClick={() => setShowCharacterPicker(false)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer" }}><Icon.X style={{ width: 16, height: 16 }} /></button>
+                </div>
+                <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+                  <CharacterPicker
+                    onSelect={(char) => {
+                      const newChar: CharacterIdentity = {
+                        characterId: char.characterId || char.id || `CC_IMP_${Date.now()}`,
+                        displayName: char.name,
+                        roleType: char.role || "supporting",
+                        gender: char.gender || "unknown",
+                        ageRange: "child",
+                        skinTone: "", hairStyle: "", wardrobeStyle: "",
+                        speechStyle: "normal", accentType: "",
+                        emotionProfile: "", voiceId: char.voiceId || "",
+                        voiceType: "childlike", intonation: "playful", language: "English",
+                        tags: ["imported"], hasVoice: !!char.voiceId, hasImage: !!char.imageUrl,
+                        imageUrl: char.imageUrl || undefined,
+                        visualDescription: char.visualDescription || undefined,
+                      };
+                      setCharacters(prev => prev.some(c => c.characterId === newChar.characterId) ? prev : [...prev, newChar]);
+                      setShowCharacterPicker(false);
+                      setLastAction(`Imported "${char.name}"`);
+                    }}
+                    onCreateNew={() => { window.open("/dashboard/character-voices?returnTo=children-planner", "_blank"); }}
+                    compact
+                  />
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Image Picker Modal */}
+          {imagePickerForCharId && (
+            <>
+              <div onClick={() => setImagePickerForCharId(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299 }} />
+              <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 300, background: "#0f1117", border: "1px solid #ffffff18", borderRadius: 16, width: "min(680px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
+                <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #ffffff10", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Import Image</p>
+                    <p style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pick an existing image for <strong style={{ color: "#0ea5e9" }}>{characters.find(c => c.characterId === imagePickerForCharId)?.displayName || imagePickerForCharId}</strong></p>
+                  </div>
+                  <button onClick={() => setImagePickerForCharId(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer" }}><Icon.X style={{ width: 16, height: 16 }} /></button>
+                </div>
+                <div style={{ padding: "12px 20px", borderBottom: "1px solid #ffffff08", background: "#ffffff04" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0ea5e9" }}>Upload from computer</span>
+                    <input type="file" accept="image/*" style={{ display: "none" }}
+                      onChange={async e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => { const dataUrl = ev.target?.result as string; if (dataUrl && imagePickerForCharId) assignImageToCharacter(imagePickerForCharId, dataUrl); };
+                        reader.readAsDataURL(file);
+                      }} />
+                    <span style={{ fontSize: 9, color: "#666" }}>JPG, PNG, WEBP</span>
+                  </label>
+                </div>
+                <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+                  {imagePickerLoading ? <p style={{ textAlign: "center", color: "#888", fontSize: 12, padding: 40 }}>Loading assets...</p>
+                  : imagePickerAssets.length === 0 ? <div style={{ textAlign: "center", color: "#666", fontSize: 12, padding: 40 }}><p>No images found. Generate portrait images first.</p></div>
+                  : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+                      {imagePickerAssets.map(asset => {
+                        const displayUrl = asset.fileUrl || (asset.filePath ? `/api/media/${asset.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}` : "");
+                        if (!displayUrl) return null;
+                        return (
+                          <div key={asset.id} onClick={() => imagePickerForCharId && assignImageToCharacter(imagePickerForCharId, displayUrl)}
+                            style={{ cursor: "pointer", borderRadius: 10, overflow: "hidden", border: "2px solid #ffffff10" }}>
+                            <img src={displayUrl} alt={asset.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            <div style={{ padding: "5px 6px", background: "#ffffff06" }}>
+                              <p style={{ fontSize: 9, color: "#ccc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{asset.name}</p>
+                              {asset.source === "character_registry" && <p style={{ fontSize: 8, color: "#7c3aed", marginTop: 1 }}>Character Registry</p>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  }
+                </div>
+              </div>
+            </>
           )}
         </div>
       )}
@@ -2329,10 +3397,7 @@ function ChildrenPlannerInner() {
                 />
                 <button
                   title="Randomize seed"
-                  onClick={() => {
-                    const sv = Math.floor(Math.random() * 1e9);
-                    setGenSeed(sv);
-                  }}
+                  onClick={() => setGenSeed(Math.floor(Math.random() * 1e9))}
                   style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
                   🎲
                 </button>
@@ -2518,11 +3583,33 @@ function ChildrenPlannerInner() {
 
             {soundTab === "ai-sfx" && (
               <div>
-                <p style={{ fontSize: 11, color: muted, marginBottom: 10 }}>Describe a sound effect and AI generates it for you.</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <p style={{ fontSize: 11, color: muted }}>Describe a sound effect and AI generates it for you.</p>
+                  <button
+                    onClick={async () => {
+                      const story = expandedContent || textContent || readAlongText;
+                      if (!story.trim()) { setLastAction("Write your story first, then auto-suggest will read it"); return; }
+                      setSfxDesc("Reading your story and scenes...");
+                      try {
+                        const sceneCtx = childScenes.length > 0
+                          ? `\nScenes:\n${childScenes.slice(0, 5).map((s, i) => `Scene ${i + 1}: ${s.title || ""} — ${(s.visualDescription || "").slice(0, 100)}`).join("\n")}`
+                          : "";
+                        const charCtx = savedChars.length > 0 ? `\nCharacters: ${savedChars.map(c => c.name).join(", ")}` : "";
+                        const prompt = `You are a children's video sound designer. Read this story carefully and write ONE specific sound effect description (15-25 words) that matches the actual events and mood in the story. Be specific to what happens — mention characters, actions, settings from the story.\n\nStory: ${story.slice(0, 900)}${sceneCtx}${charCtx}\nStyle: ${visualStyle || "children's illustration"}, Age: ${ageGroup || "3-8"}, Tone: ${tone || "playful"}\n\nReply with ONLY the sound effect description. No intro text, no quotes.`;
+                        const res = await fetch("/api/llm/chat", { method: "POST", headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ prompt, role: "fast", maxTokens: 80 }) });
+                        const d = await res.json();
+                        setSfxDesc((d.text || "").replace(/^["']|["']$/g, "").trim());
+                      } catch { setSfxDesc(""); setLastAction("Auto-suggest failed — type a description manually"); }
+                    }}
+                    style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                    ✨ Auto-suggest from story
+                  </button>
+                </div>
                 <textarea value={sfxDesc} onChange={e => setSfxDesc(e.target.value)} rows={3}
                   placeholder="e.g. Happy children laughing and playing, gentle bells ringing, magical sparkle sound..."
                   style={{ width: "100%", background: "#0a0d14", border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px", color: "#fff", fontSize: 12, outline: "none", fontFamily: "inherit", resize: "vertical" as const, marginBottom: 8 }} />
-                <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim()}
+                <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim() || sfxDesc === "AI is reading your story..."}
                   style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: (sfxGenerating || !sfxDesc.trim()) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: (sfxGenerating || !sfxDesc.trim()) ? "not-allowed" : "pointer" }}>
                   {sfxGenerating ? "Generating sound..." : "Generate Sound Effect"}
                 </button>
@@ -2751,6 +3838,513 @@ function ChildrenPlannerInner() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ASSEMBLY TAB — BUILD YOUR VIDEO                                     */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "assembly" && (
+        <div style={{ ...cardStyle, padding: 28 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+            <Icon.Film style={{ width: 22, height: 22, color: childAccent, flexShrink: 0 }} />
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Assemble Your Video</h2>
+              <p style={{ fontSize: 11, color: muted }}>Follow these steps to build your children&apos;s story video.</p>
+            </div>
+          </div>
+
+          {/* ── Step-by-step readiness checklist ── */}
+          <div style={{ ...cardStyle, marginBottom: 20, borderColor: `${childAccent}30`, padding: 20 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 14 }}>Where are you right now?</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 10 }}>
+
+              {/* Step 1 — story */}
+              {(() => {
+                const done = !!(expandedContent || textContent);
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: done ? `${childSafe}08` : `${childAccent}06`, border: `1px solid ${done ? childSafe : border}30` }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✓" : "○"}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: done ? childSafe : "#fff" }}>Step 1 — Create your story</p>
+                      {done
+                        ? <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>Story is written and ready.</p>
+                        : <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>You have not written a story yet. Go to the Story tab and type or generate your children&apos;s story first.</p>
+                      }
+                    </div>
+                    {!done && (
+                      <button onClick={() => setActiveTab("content")}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                        Go to Story
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Step 2 — scenes */}
+              {(() => {
+                const done = childScenes.length > 0;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: done ? `${childSafe}08` : `${childAccent}06`, border: `1px solid ${done ? childSafe : border}30` }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✓" : "○"}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: done ? childSafe : "#fff" }}>Step 2 — Generate scenes</p>
+                      {done
+                        ? <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{childScenes.length} scene{childScenes.length !== 1 ? "s" : ""} generated.</p>
+                        : <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>No scenes yet. Go to Scene Board and press &quot;Generate Scenes&quot; to turn your story into individual video scenes.</p>
+                      }
+                    </div>
+                    {!done && (
+                      <button onClick={() => setActiveTab("sceneBoard")}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                        Go to Scene Board
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Step 3 — select scenes */}
+              {(() => {
+                const scenesExist = childScenes.length > 0;
+                const done = assemblySelectedIds.length > 0;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: done ? `${childSafe}08` : `${childAccent}06`, border: `1px solid ${done ? childSafe : border}30` }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✓" : "○"}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: done ? childSafe : "#fff" }}>Step 3 — Pick scenes to include</p>
+                      {done
+                        ? <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{assemblySelectedIds.length} scene{assemblySelectedIds.length !== 1 ? "s" : ""} selected.</p>
+                        : scenesExist
+                          ? <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 2 }}>Check the boxes below next to the scenes you want in your video. You can include all of them or just some.</p>
+                          : <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>Complete Step 2 first.</p>
+                      }
+                    </div>
+                    {!done && scenesExist && (
+                      <button onClick={() => setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`))}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: childSafe, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                        Select All
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {/* Step 4 — assemble */}
+              {(() => {
+                const done = !!assembledUrl;
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 10, background: done ? `${childSafe}08` : `${childAccent}06`, border: `1px solid ${done ? childSafe : border}30` }}>
+                    <span style={{ fontSize: 18, flexShrink: 0 }}>{done ? "✓" : "○"}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: done ? childSafe : "#fff" }}>Step 4 — Press Assemble</p>
+                      {done
+                        ? <p style={{ fontSize: 10, color: childSafe, fontWeight: 600, marginTop: 2 }}>Video is ready! Scroll down to watch it.</p>
+                        : <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>When the scenes above are checked, scroll down and click the big Assemble button.</p>
+                      }
+                    </div>
+                  </div>
+                );
+              })()}
+
+            </div>
+          </div>
+
+          {/* ── Scene selection + assemble ── */}
+          {childScenes.length > 0 ? (
+            <div style={{ ...cardStyle, marginBottom: 20, borderColor: `${childAccent}30` }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon.Film style={{ width: 14, height: 14 }} /> Choose Your Scenes
+              </p>
+              <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>
+                Tick the scenes you want in the final video, then press Assemble. You can also make a video for each scene individually.
+              </p>
+
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 10 }}>
+                <button onClick={() => setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`))}
+                  style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${childSafe}`, background: "transparent", color: childSafe, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Select All</button>
+                <button onClick={() => setAssemblySelectedIds([])}
+                  style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>Deselect All</button>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 16 }}>
+                {childScenes.map(s => {
+                  const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
+                  const isSelected = assemblySelectedIds.includes(sceneId);
+                  const videoUrl = sceneVideos[sceneId];
+                  const imageUrl = sceneImages[sceneId] || s.imageUrl;
+                  const isGenerating = generatingSceneVideos.has(sceneId);
+                  const progress = sceneGenProgress[sceneId];
+                  const mediaPref = assemblyMediaPrefs[sceneId];
+                  const effectivePref: "image" | "video" = mediaPref ?? (videoUrl ? "video" : "image");
+                  return (
+                    <div key={s.scene} style={{ background: s2, borderRadius: 10, border: `1px solid ${isSelected ? childAccent : border}`, padding: "10px 12px" }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <input type="checkbox" checked={isSelected} onChange={e => setAssemblySelectedIds(prev => e.target.checked ? [...prev, sceneId] : prev.filter(id => id !== sceneId))}
+                          style={{ marginTop: 4, accentColor: childAccent, flexShrink: 0 }} />
+                        {/* Thumbnail */}
+                        {imageUrl && (
+                          <div style={{ width: 52, height: 52, borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                            <img src={imageUrl} alt={s.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 6, flexWrap: "wrap" as const }}>
+                            <div>
+                              <span style={{ fontSize: 10, fontWeight: 700, color: childAccent }}>SC{String(s.scene).padStart(2, "0")}</span>
+                              <p style={{ fontSize: 11, color: "#fff", margin: "2px 0" }}>{s.title}</p>
+                            </div>
+                            {/* Make Video button */}
+                            <button onClick={() => makeSceneVideo(s)} disabled={isGenerating}
+                              style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: isGenerating ? "#2a2a40" : videoUrl ? `${childSafe}20` : childAccent, color: isGenerating ? muted : videoUrl ? childSafe : "#000", fontSize: 9, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", flexShrink: 0 }}>
+                              {isGenerating ? "..." : videoUrl ? "Regen Vid" : "+ Make Video"}
+                            </button>
+                          </div>
+                          {/* Image / Video toggle — mirrors hybrid */}
+                          <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" as const }}>
+                            <span style={{ fontSize: 9, color: muted, alignSelf: "center" }}>USE IN ASSEMBLY:</span>
+                            <button
+                              onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "image" }))}
+                              disabled={!imageUrl}
+                              style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "image" ? childSafe : border}`, background: effectivePref === "image" && imageUrl ? `${childSafe}15` : "transparent", color: imageUrl ? (effectivePref === "image" ? childSafe : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "image" ? 700 : 400, cursor: imageUrl ? "pointer" : "not-allowed" }}>
+                              Image {effectivePref === "image" ? "SELECTED" : imageUrl ? "" : "(none)"}
+                            </button>
+                            <button
+                              onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "video" }))}
+                              disabled={!videoUrl}
+                              style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "video" ? "#f59e0b" : border}`, background: effectivePref === "video" && videoUrl ? "#f59e0b15" : "transparent", color: videoUrl ? (effectivePref === "video" ? "#f59e0b" : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "video" ? 700 : 400, cursor: videoUrl ? "pointer" : "not-allowed" }}>
+                              Video {effectivePref === "video" ? "SELECTED" : videoUrl ? "" : "(none)"}
+                            </button>
+                            {imageUrl && (
+                              <button onClick={() => setPreviewScene({ url: imageUrl, type: "image", title: s.title })}
+                                style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>
+                                Preview
+                              </button>
+                            )}
+                          </div>
+                          {progress && (
+                            <div style={{ marginTop: 4 }}>
+                              <div style={{ height: 3, borderRadius: 2, background: border }}>
+                                <div style={{ width: `${progress.percent}%`, height: "100%", borderRadius: 2, background: childAccent, transition: "width 0.3s" }} />
+                              </div>
+                              <p style={{ fontSize: 9, color: childAccent, marginTop: 2 }}>{progress.message}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Audio panel — always visible in Assembly, with quick-generate buttons */}
+              <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${childAccent}30`, padding: 14 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: childAccent, marginBottom: 10 }}>Audio for Video</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                  {/* Narration */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <p style={{ fontSize: 9, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, flex: 1 }}>Narration</p>
+                      <button
+                        onClick={async () => {
+                          const text = (narrationText || readAlongText || textContent || "").trim();
+                          if (!text) { setUiError("Write story content first"); return; }
+                          setLastAction("Generating narration...");
+                          try {
+                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: "piper", engine: "en_US-lessac-medium", speed: 0.9 }) });
+                            const d = await r.json() as { audioUrl?: string };
+                            if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
+                            else setLastAction("Narration generation failed");
+                          } catch { setLastAction("Narration error"); }
+                        }}
+                        style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: `${childAccent}20`, color: childAccent, fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                        {narratorAudioUrl ? "Regen" : "Generate"}
+                      </button>
+                    </div>
+                    {narratorAudioUrl
+                      ? <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 28 }} />
+                      : <p style={{ fontSize: 9, color: "#555", fontStyle: "italic" }}>Not generated yet</p>}
+                  </div>
+                  {/* Music */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <p style={{ fontSize: 9, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, flex: 1 }}>Background Music</p>
+                      <button
+                        onClick={async () => {
+                          setLastAction("Generating music...");
+                          try {
+                            const mood = tone || "calm";
+                            const r = await fetch("/api/music/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${mood} children's story background music, gentle and warm`, durationSeconds: 30 }) });
+                            const d = await r.json() as { url?: string; audioUrl?: string };
+                            const url = d.url ?? d.audioUrl ?? "";
+                            if (url) { setGeneratedMusicUrl(url); setSelectedMusicUrl(url); setLastAction("Music ready"); }
+                            else setLastAction("Music generation failed");
+                          } catch { setLastAction("Music error"); }
+                        }}
+                        style={{ padding: "2px 8px", borderRadius: 6, border: "none", background: "#a855f720", color: "#a855f7", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                        {selectedMusicUrl || generatedMusicUrl ? "Regen" : "Generate"}
+                      </button>
+                    </div>
+                    {(selectedMusicUrl || generatedMusicUrl)
+                      ? <audio src={selectedMusicUrl || generatedMusicUrl || ""} controls style={{ width: "100%", height: 28 }} />
+                      : <p style={{ fontSize: 9, color: "#555", fontStyle: "italic" }}>Not generated yet</p>}
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Supervisor — auto-checks + fixes audio before assembly */}
+              <div style={{ ...cardStyle, marginBottom: 12, borderColor: aiSupervisorReport?.ok ? `${childSafe}40` : "#7c3aed50", padding: 14, background: aiSupervisorRunning ? "#0a0010" : undefined }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#a78bfa", marginBottom: 2 }}>AI Supervisor</p>
+                    <p style={{ fontSize: 9, color: muted }}>Checks scenes, audio, music, SFX — auto-generates narration. Run anytime.</p>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    {aiSupervisorReport && !aiSupervisorRunning && (
+                      <button onClick={() => { setAiSupervisorReport(null); runAiSupervisor(); }}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid #7c3aed50`, background: "transparent", color: "#a78bfa", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        Run Again
+                      </button>
+                    )}
+                    <button onClick={runAiSupervisor} disabled={aiSupervisorRunning}
+                      style={{ padding: "8px 18px", borderRadius: 10, border: "none", background: aiSupervisorRunning ? "#2a2040" : "linear-gradient(135deg, #7c3aed, #a855f7)", color: aiSupervisorRunning ? muted : "#fff", fontSize: 11, fontWeight: 700, cursor: aiSupervisorRunning ? "not-allowed" : "pointer" }}>
+                      {aiSupervisorRunning ? "Checking + Fixing..." : aiSupervisorReport ? "Run AI Check Again" : "Run AI Check & Fix"}
+                    </button>
+                  </div>
+                </div>
+                {aiSupervisorReport && (
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: aiSupervisorReport.ok ? childSafe : "#f59e0b" }}>
+                      {aiSupervisorReport.ok ? "✓" : "⚠"} {aiSupervisorReport.summary}
+                    </p>
+                    {aiSupervisorReport.fixed.map((f, i) => (
+                      <p key={`fix-${i}`} style={{ fontSize: 10, color: childSafe, marginTop: 1 }}>✓ {f}</p>
+                    ))}
+                    {aiSupervisorReport.issues.map((issue, i) => {
+                      const lower = issue.toLowerCase();
+                      const fixLabel = lower.includes("sfx") || lower.includes("sound effect") ? "→ Sound tab" :
+                        lower.includes("music") ? "→ Sound tab" :
+                        lower.includes("narration") ? "→ Generate Narration" :
+                        lower.includes("subtitle") ? "→ Subtitle Style" :
+                        lower.includes("scene") || lower.includes("image") ? "→ Scene Board" : null;
+                      const fixAction = lower.includes("sfx") || lower.includes("music") ? () => setActiveTab("sound") :
+                        lower.includes("narration") ? () => runAiSupervisor() :
+                        lower.includes("scene") || lower.includes("image") ? () => setActiveTab("sceneBoard") : null;
+                      return (
+                        <div key={`iss-${i}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 1, flex: 1 }}>⚠ {issue}</p>
+                          {fixLabel && fixAction && (
+                            <button onClick={fixAction} style={{ padding: "2px 8px", borderRadius: 6, border: "1px solid #f59e0b40", background: "#f59e0b15", color: "#f59e0b", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                              {fixLabel}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Subtitle style — rich configurator */}
+              <div style={{ marginBottom: 6 }}>
+                <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={childAccent} />
+              </div>
+
+              {/* Narration ↔ Subtitle match check */}
+              <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  onClick={async () => {
+                    setSubtitleMatchResult({ status: "checking", note: "Checking..." });
+                    try {
+                      const script = expandedContent || textContent || "";
+                      if (!script.trim()) { setSubtitleMatchResult({ status: "warn", note: "No story text to check against." }); return; }
+                      const res = await fetch("/api/free-mode/enhance", { method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ rawPrompt: `Check if these subtitle settings match the narration content. Subtitle mode: "${subtitleConfig.mode}", position: "${subtitleConfig.position}". Story: "${script.slice(0,300)}". Reply in one line: does the subtitle style match? Say MATCH or MISMATCH and why.`, mode: "text_to_video" }) });
+                      const d = await res.json() as { enhanced?: string };
+                      const result = (d.enhanced || "").toLowerCase();
+                      setSubtitleMatchResult({ status: result.includes("match") && !result.includes("mismatch") ? "ok" : "warn", note: d.enhanced || "Unable to check" });
+                    } catch { setSubtitleMatchResult({ status: "warn", note: "Check failed" }); }
+                  }}
+                  style={{ padding: "4px 12px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  Check Narration ↔ Subtitle Match
+                </button>
+                {subtitleMatchResult && (
+                  <p style={{ fontSize: 9, color: subtitleMatchResult.status === "ok" ? childSafe : subtitleMatchResult.status === "checking" ? muted : "#f59e0b", flex: 1 }}>
+                    {subtitleMatchResult.status === "ok" ? "✓" : subtitleMatchResult.status === "checking" ? "…" : "⚠"} {subtitleMatchResult.note.slice(0,120)}
+                  </p>
+                )}
+              </div>
+
+              {/* Intro / Outro — AI generated title cards */}
+              <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Intro & Outro</p>
+                <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>AI generates a cinematic title card. Prepended/appended to your video.</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {/* Intro */}
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>Intro</span>
+                      {introUrl && <button onClick={() => setIntroUrl(null)} style={{ background: "none", border: "none", color: "#ef4444", fontSize: 9, cursor: "pointer" }}>Remove</button>}
+                    </div>
+                    {introUrl ? (
+                      <video src={introUrl} controls style={{ width: "100%", maxHeight: 80, borderRadius: 6 }} />
+                    ) : (
+                      <div style={{ height: 60, background: s2, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", border: `1px dashed ${border}` }}>
+                        <span style={{ fontSize: 9, color: muted }}>No intro</span>
+                      </div>
+                    )}
+                    <button
+                      disabled={generatingIntro}
+                      onClick={async () => {
+                        setGeneratingIntro(true);
+                        try {
+                          const res = await fetch("/api/video/title-card", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              type: "intro",
+                              studioName: "GIO HOME AI STUDIO",
+                              title: contentParam || "My Story",
+                              duration: 4,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.videoUrl) setIntroUrl(data.videoUrl);
+                          else setLastAction(`Intro failed: ${data.error ?? "unknown"}`);
+                        } catch (err) {
+                          setLastAction(`Intro error: ${err instanceof Error ? err.message : "unknown"}`);
+                        } finally {
+                          setGeneratingIntro(false);
+                        }
+                      }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${childAccent}50`, background: generatingIntro ? "#0a0020" : `${childAccent}15`, color: generatingIntro ? muted : childAccent, fontSize: 9, fontWeight: 700, cursor: generatingIntro ? "not-allowed" : "pointer" }}>
+                      {generatingIntro ? "Generating Intro..." : introUrl ? "Regen Intro" : "Generate AI Intro"}
+                    </button>
+                  </div>
+                  {/* Outro */}
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "#fff" }}>Outro</span>
+                      {outroUrl && <button onClick={() => setOutroUrl(null)} style={{ background: "none", border: "none", color: "#ef4444", fontSize: 9, cursor: "pointer" }}>Remove</button>}
+                    </div>
+                    {outroUrl ? (
+                      <video src={outroUrl} controls style={{ width: "100%", maxHeight: 80, borderRadius: 6 }} />
+                    ) : (
+                      <div style={{ height: 60, background: s2, borderRadius: 6, display: "flex", alignItems: "center", justifyContent: "center", border: `1px dashed ${border}` }}>
+                        <span style={{ fontSize: 9, color: muted }}>No outro</span>
+                      </div>
+                    )}
+                    <button
+                      disabled={generatingOutro}
+                      onClick={async () => {
+                        setGeneratingOutro(true);
+                        try {
+                          const castList = characters
+                            .filter(c => c.voiceId)
+                            .map(c => ({ characterName: c.displayName, actorName: c.voiceId || c.displayName }))
+                            .slice(0, 6);
+                          const res = await fetch("/api/video/title-card", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              type: "outro",
+                              studioName: "GIO HOME AI STUDIO",
+                              title: contentParam || "My Story",
+                              cast: castList,
+                              director: writtenBy || undefined,
+                              producer: madeBy || undefined,
+                              username: ideaFrom || undefined,
+                              duration: 5,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.videoUrl) setOutroUrl(data.videoUrl);
+                          else setLastAction(`Outro failed: ${data.error ?? "unknown"}`);
+                        } catch (err) {
+                          setLastAction(`Outro error: ${err instanceof Error ? err.message : "unknown"}`);
+                        } finally {
+                          setGeneratingOutro(false);
+                        }
+                      }}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid #34d39950`, background: generatingOutro ? "#0a0020" : "#34d39915", color: generatingOutro ? muted : "#34d399", fontSize: 9, fontWeight: 700, cursor: generatingOutro ? "not-allowed" : "pointer" }}>
+                      {generatingOutro ? "Generating Outro..." : outroUrl ? "Regen Outro" : "Generate AI Outro"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Credits — Written by / Made by / Idea from */}
+              <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Story Credits</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                  <div>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Written by</label>
+                    <input value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Your name"
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Made by</label>
+                    <input value={madeBy} onChange={e => setMadeBy(e.target.value)} placeholder="Studio / creator"
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Idea from</label>
+                    <input value={ideaFrom} onChange={e => setIdeaFrom(e.target.value)} placeholder="Original idea by..."
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Status / readiness banner */}
+              {assemblySelectedIds.length === 0 ? (
+                <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                  <p style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>⚠ No scenes selected yet.</p>
+                  <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Check the boxes next to the scenes above to choose which ones go into your video. You can select all of them or just a few.</p>
+                </div>
+              ) : (
+                <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: `${childSafe}08`, border: `1px solid ${childSafe}30` }}>
+                  <p style={{ fontSize: 12, color: childSafe, fontWeight: 700 }}>Ready to assemble {assemblySelectedIds.length} scene{assemblySelectedIds.length !== 1 ? "s" : ""} into your video!</p>
+                  <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Press the button below when you are ready. This may take a minute.</p>
+                </div>
+              )}
+
+              {/* Big assemble button */}
+              <button onClick={assembleMovie} disabled={assembling || assemblySelectedIds.length === 0}
+                style={{ width: "100%", padding: "16px 20px", borderRadius: 14, border: "none", background: (assembling || assemblySelectedIds.length === 0) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: assemblySelectedIds.length === 0 ? muted : "#fff", fontSize: 16, fontWeight: 800, cursor: (assembling || assemblySelectedIds.length === 0) ? "not-allowed" : "pointer", marginBottom: 12, letterSpacing: 0.3 }}>
+                {assembling
+                  ? "Assembling your story video... please wait"
+                  : assembledUrl
+                    ? "Assemble Again (overwrite)"
+                    : assemblySelectedIds.length === 0
+                      ? "Select scenes above to assemble"
+                      : `Assemble ${assemblySelectedIds.length} Scene${assemblySelectedIds.length !== 1 ? "s" : ""} into Story Video`}
+              </button>
+
+              {assembledUrl && (
+                <div style={{ padding: "14px 16px", borderRadius: 12, background: `${childSafe}08`, border: `1px solid ${childSafe}30`, marginTop: 4 }}>
+                  <p style={{ fontSize: 12, color: childSafe, fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Icon.Check style={{ width: 14, height: 14 }} /> Your story video is ready!
+                  </p>
+                  <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 240, borderRadius: 10 }} />
+                  <p style={{ fontSize: 10, color: muted, marginTop: 8 }}>Happy with the result? Go to <strong style={{ color: "#fff" }}>Final Check</strong> tab to review and approve it before exporting.</p>
+                  <button onClick={() => setActiveTab("review2")}
+                    style={{ marginTop: 8, padding: "8px 18px", borderRadius: 10, border: "none", background: childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                    Go to Final Check
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ padding: "24px 20px", borderRadius: 14, background: `${childAccent}06`, border: `1px dashed ${border}`, textAlign: "center", marginBottom: 20 }}>
+              <p style={{ fontSize: 14, color: muted, marginBottom: 12 }}>No scenes yet. You need scenes before you can assemble a video.</p>
+              <button onClick={() => setActiveTab("sceneBoard")}
+                style={{ padding: "10px 22px", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                Go to Scene Board
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {/* REVIEW 2 TAB — MANDATORY FINAL SAFETY CHECK                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "review2" && (
@@ -2787,72 +4381,21 @@ function ChildrenPlannerInner() {
             </div>
           )}
 
-          {/* ── Scene Video Generation (when scenes are planned) ── */}
-          {childScenes.length > 0 && (
-            <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${childAccent}30` }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4, display: "flex", alignItems: "center", gap: 6 }}><Icon.Film style={{ width: 14, height: 14 }} /> Scene Videos</p>
-              <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Generate video for each scene, then assemble into the final children story video.</p>
-
-              {/* Scene selection */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 10 }}>
-                <button onClick={() => setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`))}
-                  style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${childSafe}`, background: "transparent", color: childSafe, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>Select All</button>
-                <button onClick={() => setAssemblySelectedIds([])}
-                  style={{ padding: "5px 12px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>Deselect All</button>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 12 }}>
-                {childScenes.map(s => {
-                  const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
-                  const isSelected = assemblySelectedIds.includes(sceneId);
-                  const videoUrl = sceneVideos[sceneId];
-                  const isGenerating = generatingSceneVideos.has(sceneId);
-                  const progress = sceneGenProgress[sceneId];
-                  return (
-                    <div key={s.scene} style={{ background: s2, borderRadius: 10, border: `1px solid ${isSelected ? childAccent : border}`, padding: "10px 12px" }}>
-                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                        <input type="checkbox" checked={isSelected} onChange={e => setAssemblySelectedIds(prev => e.target.checked ? [...prev, sceneId] : prev.filter(id => id !== sceneId))}
-                          style={{ marginTop: 4, accentColor: childAccent, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: childAccent }}>SC{String(s.scene).padStart(2, "0")}</span>
-                            <div style={{ display: "flex", gap: 4 }}>
-                              {videoUrl && <span style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: `${childSafe}15`, color: childSafe, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}><Icon.Check style={{ width: 8, height: 8 }} /> Video</span>}
-                              <button onClick={() => makeSceneVideo(s)} disabled={isGenerating}
-                                style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: isGenerating ? "#2a2a40" : videoUrl ? `${childSafe}20` : childAccent, color: isGenerating ? muted : videoUrl ? childSafe : "#000", fontSize: 9, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer" }}>
-                                {isGenerating ? "..." : videoUrl ? "Regen" : "Make Video"}
-                              </button>
-                            </div>
-                          </div>
-                          <p style={{ fontSize: 11, color: "#fff", marginBottom: 2 }}>{s.title}</p>
-                          <p style={{ fontSize: 9, color: muted }}>{s.visualDescription.substring(0, 80)}{s.visualDescription.length > 80 ? "..." : ""}</p>
-                          {progress && (
-                            <div style={{ marginTop: 6 }}>
-                              <div style={{ height: 4, borderRadius: 2, background: border }}>
-                                <div style={{ width: `${progress.percent}%`, height: "100%", borderRadius: 2, background: childAccent, transition: "width 0.3s" }} />
-                              </div>
-                              <p style={{ fontSize: 9, color: childAccent, marginTop: 3 }}>{progress.message}</p>
-                            </div>
-                          )}
-                          {videoUrl && <video src={videoUrl} controls style={{ width: "100%", maxHeight: 100, marginTop: 6, borderRadius: 6 }} />}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Assemble button */}
-              <button onClick={assembleMovie} disabled={assembling || assemblySelectedIds.length === 0}
-                style={{ width: "100%", padding: "12px 20px", borderRadius: 12, border: "none", background: (assembling || assemblySelectedIds.length === 0) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: (assembling || assemblySelectedIds.length === 0) ? "not-allowed" : "pointer", marginBottom: 8 }}>
-                {assembling ? "Assembling story..." : assemblyComplete ? "Story Assembled" : `Assemble ${assemblySelectedIds.length} Scene${assemblySelectedIds.length !== 1 ? "s" : ""} into Story`}
+          {/* ── Assembly status summary (scene selection moved to Assembly tab) ── */}
+          {assembledUrl && (
+            <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${childSafe}30`, padding: "14px 16px" }}>
+              <p style={{ fontSize: 12, color: childSafe, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Icon.Check style={{ width: 14, height: 14 }} /> Video assembled ({assemblySelectedIds.length} scene{assemblySelectedIds.length !== 1 ? "s" : ""})
+              </p>
+              <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 180, borderRadius: 8 }} />
+            </div>
+          )}
+          {!assembledUrl && (
+            <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: `${childAccent}06`, border: `1px solid ${border}` }}>
+              <p style={{ fontSize: 12, color: muted }}>No video assembled yet. Go to the <strong style={{ color: "#fff" }}>Assembly</strong> tab first to build your video, then come back here for the final check.</p>
+              <button onClick={() => setActiveTab("assembly")} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                Go to Assembly
               </button>
-              {assembledUrl && (
-                <div style={{ padding: "10px 14px", borderRadius: 10, background: `${childSafe}08`, border: `1px solid ${childSafe}25`, marginTop: 4 }}>
-                  <p style={{ fontSize: 11, color: childSafe, fontWeight: 600, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 11, height: 11 }} /> Story assembled</p>
-                  <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 200, borderRadius: 8 }} />
-                </div>
-              )}
             </div>
           )}
 
@@ -3056,42 +4599,113 @@ function ChildrenPlannerInner() {
                 <option value="karaoke">Karaoke (browser)</option>
               </select>
             </div>
-            {/* Narrator playback */}
-            <button onClick={generateChildrenContent} disabled={generating}
-              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: generating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
-              {generating ? "Generating..." : "Play Narration Preview"}
+            {/* Speed + generate row */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
+                  <span style={{ fontSize: 10, color: muted }}>Speed</span>
+                  <span style={{ fontSize: 10, color: "#fff", fontWeight: 700 }}>{narrationSpeed.toFixed(2)}x</span>
+                </div>
+                <input type="range" min={0.5} max={2.0} step={0.05} value={narrationSpeed}
+                  onChange={e => setNarrationSpeed(parseFloat(e.target.value))}
+                  style={{ width: "100%", accentColor: childSafe }} />
+              </div>
+            </div>
+            <button onClick={generateNarration} disabled={narrationGenerating || !textContent?.trim()}
+              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: narrationGenerating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: (narrationGenerating || !textContent?.trim()) ? "not-allowed" : "pointer", opacity: !textContent?.trim() ? 0.5 : 1 }}>
+              {narrationGenerating ? "Generating narration..." : "Generate Narration"}
             </button>
+            {narratorAudioUrl && (
+              <div style={{ marginTop: 10 }}>
+                <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Narrator audio:</p>
+                <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 32 }} />
+              </div>
+            )}
           </div>
 
-          {/* ── Character Voices ── */}
-          {savedChars.length > 0 && (
-            <div style={{ ...cardStyle, marginBottom: 16 }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Character Voices</p>
-              {savedChars.filter(c => selectedCharIds.includes(c.id)).map(char => (
+          {/* ── Character Voices — only actors in THIS project, not the full library ── */}
+          <div style={{ ...cardStyle, marginBottom: 16 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Character Voices</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Assign a voice to each actor character for their dialogue lines.</p>
+            {(() => {
+              const projectChars = savedChars.filter(c => selectedCharIds.includes(c.id));
+              const inlineChars = characters.filter(c => !projectChars.some(p => p.characterId === c.characterId));
+              const allActors = [
+                ...projectChars.map(c => ({ id: c.id, name: c.name, imageUrl: c.imageUrl || null })),
+                ...inlineChars.map(c => ({ id: c.characterId, name: c.displayName, imageUrl: c.imageUrl || null })),
+              ];
+              if (allActors.length === 0) {
+                return (
+                  <div style={{ padding: "12px 0", textAlign: "center" as const }}>
+                    <p style={{ fontSize: 11, color: muted }}>No actor characters added to this project yet.</p>
+                    <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Add characters in the Characters tab, then assign their dialogue voices here.</p>
+                  </div>
+                );
+              }
+              return allActors.map(char => (
                 <div key={char.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${ds.color.line}` }}>
-                  {char.imageUrl && <img src={char.imageUrl} alt={char.name} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />}
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "#fff", minWidth: 80 }}>{char.name}</span>
-                  <select style={{ flex: 1, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "5px 8px", color: "#fff", fontSize: 10, outline: "none" }}>
-                    <option value="en_US-lessac-medium">Lessac (Neutral)</option>
-                    <option value="en_US-amy-medium">Amy (Female)</option>
+                  {char.imageUrl
+                    ? <img src={char.imageUrl} alt={char.name} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${childAccent}30`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 11, color: childAccent, fontWeight: 700 }}>{char.name[0]}</span></div>
+                  }
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", flex: 1 }}>{char.name}</span>
+                  <select value={characterVoices[char.id] || "en_US-lessac-medium"}
+                    onChange={e => setCharacterVoices(prev => ({ ...prev, [char.id]: e.target.value }))}
+                    style={{ flex: 2, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "5px 8px", color: "#fff", fontSize: 10, outline: "none" }}>
+                    <option value="en_US-lessac-medium">Lessac (Neutral Male)</option>
+                    <option value="en_US-amy-medium">Amy (Neutral Female)</option>
                     <option value="en_US-ryan-high">Ryan (Male)</option>
-                    <option value="en_GB-alan-medium">Alan (British)</option>
+                    <option value="en_GB-alan-medium">Alan (British Male)</option>
+                    <option value="en_US-libritts_r-medium">LibriTTS (Expressive)</option>
+                    <option value="en_US-kathleen-low">Kathleen (Female, Low)</option>
+                    <option value="en_US-danny-low">Danny (Male, Low)</option>
+                    <option value="en_US-joe-medium">Joe (Male, Warm)</option>
                   </select>
                 </div>
-              ))}
-              {savedChars.filter(c => selectedCharIds.includes(c.id)).length === 0 && (
-                <p style={{ fontSize: 11, color: muted }}>No characters selected. Go to Character Friends tab to add them to this video.</p>
-              )}
-            </div>
-          )}
+              ));
+            })()}
+          </div>
 
           {/* ── Music ── */}
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Background Music</p>
             <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Generate child-safe background music for this story.</p>
-            <button onClick={generateChildrenContent} disabled={generating}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: generating ? "#2a2040" : C4, color: "#000", fontSize: 12, fontWeight: 700, cursor: generating ? "not-allowed" : "pointer" }}>
-              {generating ? "Generating..." : "Generate Background Music"}
+
+            {/* GHS Music Tier Selection */}
+            <p style={{ fontSize: 11, fontWeight: 600, color: muted, marginBottom: 8 }}>Music Source</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, marginBottom: 12 }}>
+              {/* GHS Standard */}
+              <button data-testid="music-tier-stock" onClick={() => setMusicTier("stock")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "stock" ? "#a78bfa" : "rgba(255,255,255,0.07)"}`, background: musicTier === "stock" ? "rgba(167,139,250,0.1)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "stock" ? "#a78bfa" : "#c5c5c8" }}>GHS Standard</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Stock Library — always available</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#7ae0c3", fontFamily: "'JetBrains Mono', monospace", background: "rgba(122,224,195,0.08)", border: "1px solid rgba(122,224,195,0.2)", borderRadius: 4, padding: "2px 6px" }}>FREE</span>
+              </button>
+              {/* GHS Pro */}
+              <button data-testid="music-tier-ghs-pro" onClick={() => setMusicTier("ghs_pro")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_pro" ? "#7cc4ff" : "rgba(255,255,255,0.07)"}`, background: musicTier === "ghs_pro" ? "rgba(124,196,255,0.08)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_pro" ? "#7cc4ff" : "#c5c5c8" }}>GHS Pro</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>FAL Stable Audio — instrumental, up to 47s</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#7cc4ff", fontFamily: "'JetBrains Mono', monospace", background: "rgba(124,196,255,0.08)", border: "1px solid rgba(124,196,255,0.2)", borderRadius: 4, padding: "2px 6px" }}>MID</span>
+              </button>
+              {/* GHS Classic */}
+              <button data-testid="music-tier-ghs-classic" onClick={() => setMusicTier("ghs_classic")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_classic" ? "#ff9a3c" : "rgba(255,255,255,0.07)"}`, background: musicTier === "ghs_classic" ? "rgba(255,154,60,0.08)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_classic" ? "#ff9a3c" : "#c5c5c8" }}>GHS Classic</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Suno via Kie.ai — full lyrical songs</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#ff9a3c", fontFamily: "'JetBrains Mono', monospace", background: "rgba(255,154,60,0.08)", border: "1px solid rgba(255,154,60,0.2)", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" as const }}>PREMIUM</span>
+              </button>
+            </div>
+
+            <button onClick={generateChildrenMusic} disabled={musicGenerating}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: musicGenerating ? "#2a2040" : C4, color: "#000", fontSize: 12, fontWeight: 700, cursor: musicGenerating ? "not-allowed" : "pointer" }}>
+              {musicGenerating ? "Generating music..." : "Generate Background Music"}
             </button>
             {generatedMusicUrl && (
               <div style={{ marginTop: 10 }}>
@@ -3297,8 +4911,30 @@ function ChildrenPlannerInner() {
                 const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
                 return (
                   <div key={scene.scene} style={{ ...cardStyle, padding: 0, overflow: "hidden" }}>
+                    {/* Hidden file input for Import */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={el => { importFileRefs.current[sceneId] = el; }}
+                      style={{ display: "none" }}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          const url = ev.target?.result as string;
+                          if (url) {
+                            setSceneImages(prev => ({ ...prev, [sceneId]: url }));
+                            setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
+                          }
+                        };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }}
+                    />
                     {/* Image area */}
-                    <div style={{ height: 140, background: s2, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div style={{ height: 150, background: s2, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", cursor: sceneImg ? "pointer" : "default" }}
+                      onClick={() => sceneImg && setLightboxImage(sceneImg)}>
                       {sceneImg ? (
                         <img src={sceneImg} alt={scene.title} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
@@ -3307,16 +4943,34 @@ function ChildrenPlannerInner() {
                       <div style={{ position: "absolute", top: 8, left: 8, background: "rgba(0,0,0,0.7)", borderRadius: 6, padding: "3px 8px" }}>
                         <span style={{ fontSize: 9, fontWeight: 700, color: childAccent }}>{sceneId.toUpperCase()}</span>
                       </div>
+                      {/* Top-right: Preview + Import */}
+                      <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
+                        {sceneImg && (
+                          <button
+                            onClick={e => { e.stopPropagation(); setLightboxImage(sceneImg); }}
+                            title="Preview full-size"
+                            style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                            Preview
+                          </button>
+                        )}
+                        <button
+                          onClick={e => { e.stopPropagation(); importFileRefs.current[sceneId]?.click(); }}
+                          title="Import image from file"
+                          style={{ padding: "4px 8px", borderRadius: 6, border: "none", background: "rgba(0,0,0,0.7)", color: "#a78bfa", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                          Import
+                        </button>
+                      </div>
+                      {/* Bottom-right: Gen 4 + Regen */}
                       <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4 }}>
                         <button
-                          onClick={() => generateSceneBoardImageVariations(scene)}
+                          onClick={e => { e.stopPropagation(); generateSceneBoardImageVariations(scene); }}
                           disabled={isGenImg || isGenVar}
-                          title="Generate 3 variations"
+                          title="Generate 4 variations"
                           style={{ padding: "5px 9px", borderRadius: 7, border: "none", background: isGenVar ? "#2a2040" : "#7c3aed30", color: isGenVar ? muted : "#a78bfa", fontSize: 9, fontWeight: 700, cursor: isGenImg || isGenVar ? "not-allowed" : "pointer" }}>
-                          {isGenVar ? "Gen…" : "Gen 3"}
+                          {isGenVar ? "Gen…" : "Gen 4"}
                         </button>
                         <button
-                          onClick={() => generateSceneBoardImage(scene)}
+                          onClick={e => { e.stopPropagation(); generateSceneBoardImage(scene); }}
                           disabled={isGenImg || isGenVar}
                           style={{ padding: "5px 10px", borderRadius: 7, border: "none", background: isGenImg ? "#2a2040" : sceneImg ? `${childAccent}20` : childAccent, color: isGenImg ? muted : sceneImg ? childAccent : "#000", fontSize: 9, fontWeight: 700, cursor: isGenImg || isGenVar ? "not-allowed" : "pointer" }}>
                           {isGenImg ? "Generating..." : sceneImg ? "Regen" : "Generate"}
@@ -3347,55 +5001,98 @@ function ChildrenPlannerInner() {
                       <textarea
                         value={scene.visualDescription}
                         onChange={e => setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, visualDescription: e.target.value } : s))}
-                        onBlur={() => {
-                          // SE: auto-save scene text to DB on blur
-                          fetch("/api/hybrid/scene-plan", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              projectId: `children_${contentParam || "story"}_${topicParam || "default"}`,
-                              title: `Children Story — ${contentParam || "story"}`,
-                              scenes: childScenes.map(cs => ({
-                                sceneId: cs.scene, description: cs.visualDescription,
-                                title: cs.title,
-                              })),
-                            }),
-                          }).catch(() => null);
-                        }}
-                        style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 8 }}
+                        style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 6 }}
                         placeholder="Scene description (editable)..."
                       />
-                      {/* Polish button */}
-                      <button
-                        onClick={() => handlePolishScene(sceneId, scene.visualDescription, "polish")}
-                        disabled={polishingScene === sceneId}
-                        data-testid={`polish-btn-${sceneId}`}
-                        style={{ marginBottom: 8, padding: "5px 12px", borderRadius: 7, border: `1px solid #a855f750`, background: polishingScene === sceneId ? "#a855f708" : "transparent", color: polishingScene === sceneId ? muted : "#a855f7", fontSize: 9, fontWeight: 600, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>
-                        {polishingScene === sceneId ? "Polishing..." : "Polish"}
-                      </button>
-                      {/* Character assignment */}
-                      {savedChars.length > 0 && (
-                        <div>
-                          <p style={{ fontSize: 9, color: muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Characters in scene</p>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {savedChars.map(c => {
-                              const inScene = assignedChars.includes(c.id);
-                              return (
-                                <button
-                                  key={c.id}
-                                  onClick={() => setSceneCharAssignments(prev => {
-                                    const cur = prev[sceneId] || [];
-                                    const next = inScene ? cur.filter(id => id !== c.id) : [...cur, c.id];
-                                    return { ...prev, [sceneId]: next };
-                                  })}
-                                  style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${inScene ? childAccent : border}`, background: inScene ? `${childAccent}15` : "transparent", color: inScene ? childAccent : muted, fontSize: 9, cursor: "pointer", fontWeight: inScene ? 700 : 400 }}>
-                                  {c.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
+
+                      {/* Narration duration selector + OK Save */}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
+                        <span style={{ fontSize: 9, color: muted, fontWeight: 600, whiteSpace: "nowrap" as const }}>Narr Duration:</span>
+                        {(["short", "medium", "long"] as const).map(d => (
+                          <button key={d} onClick={() => setSceneDurations(prev => ({ ...prev, [sceneId]: d }))}
+                            style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid ${(sceneDurations[sceneId] || "medium") === d ? childAccent : border}`, background: (sceneDurations[sceneId] || "medium") === d ? `${childAccent}20` : "transparent", color: (sceneDurations[sceneId] || "medium") === d ? childAccent : muted, fontSize: 8, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" as const }}>
+                            {d}
+                          </button>
+                        ))}
+                        <div style={{ flex: 1 }} />
+                        <button
+                          onClick={() => {
+                            fetch("/api/hybrid/scene-plan", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                projectId: `children_${contentParam || "story"}_${topicParam || "default"}`,
+                                title: `Children Story — ${contentParam || "story"}`,
+                                scenes: childScenes.map(cs => ({
+                                  sceneId: cs.scene, description: cs.visualDescription, title: cs.title,
+                                })),
+                              }),
+                            }).catch(() => null);
+                            setLastAction(`Scene ${scene.scene} saved`);
+                          }}
+                          style={{ padding: "3px 10px", borderRadius: 5, border: `1px solid ${childSafe}40`, background: `${childSafe}10`, color: childSafe, fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                          OK Save
+                        </button>
+                      </div>
+
+                      {/* Action buttons row: AI Editor + Make Video */}
+                      <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" as const }}>
+                        <button
+                          onClick={() => handlePolishScene(sceneId, scene.visualDescription, "polish")}
+                          disabled={polishingScene === sceneId}
+                          data-testid={`polish-btn-${sceneId}`}
+                          style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid #a855f770`, background: polishingScene === sceneId ? "#a855f715" : "linear-gradient(135deg,#7c3aed20,#a855f720)", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer", flex: 1 }}>
+                          {polishingScene === sceneId ? "AI Editor: Polishing..." : "✨ AI Editor"}
+                        </button>
+                        <button
+                          onClick={() => makeSceneVideo(scene)}
+                          disabled={generatingSceneVideos.has(sceneId)}
+                          title="Generate a 10-second video from this scene image"
+                          style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${childSafe}50`, background: generatingSceneVideos.has(sceneId) ? `${childSafe}08` : `${childSafe}12`, color: generatingSceneVideos.has(sceneId) ? muted : childSafe, fontSize: 9, fontWeight: 700, cursor: generatingSceneVideos.has(sceneId) ? "not-allowed" : "pointer", flex: 1 }}>
+                          {generatingSceneVideos.has(sceneId) ? "Making Video..." : sceneVideos[sceneId] ? "▶ Vid ✓" : "▶ Make Video"}
+                        </button>
+                      </div>
+                      {/* Video preview if generated */}
+                      {sceneVideos[sceneId] && (
+                        <video src={sceneVideos[sceneId]} controls loop style={{ width: "100%", maxHeight: 120, borderRadius: 8, marginBottom: 8 }} />
                       )}
+                      {/* Characters in scene — only show ASSIGNED, not all */}
+                      <div>
+                        <p style={{ fontSize: 9, color: muted, marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: 1 }}>Characters in scene</p>
+                        <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, alignItems: "center" }}>
+                          {assignedChars.length === 0 && (
+                            <span style={{ fontSize: 9, color: muted, fontStyle: "italic" }}>None assigned</span>
+                          )}
+                          {assignedChars.map(charId => {
+                            const char = savedChars.find(c => c.id === charId);
+                            if (!char) return null;
+                            return (
+                              <span key={charId} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 6, background: `${childAccent}15`, border: `1px solid ${childAccent}50`, color: childAccent, fontSize: 9, fontWeight: 700 }}>
+                                {char.name}
+                                <button
+                                  onClick={() => setSceneCharAssignments(prev => ({ ...prev, [sceneId]: (prev[sceneId] || []).filter(id => id !== charId) }))}
+                                  style={{ background: "none", border: "none", color: childAccent, cursor: "pointer", padding: 0, fontSize: 11, lineHeight: 1, opacity: 0.7 }}>×</button>
+                              </span>
+                            );
+                          })}
+                          {savedChars.filter(c => !assignedChars.includes(c.id)).length > 0 && (
+                            <select
+                              onChange={e => {
+                                if (e.target.value) {
+                                  setSceneCharAssignments(prev => ({ ...prev, [sceneId]: [...(prev[sceneId] || []), e.target.value] }));
+                                  e.target.value = "";
+                                }
+                              }}
+                              defaultValue=""
+                              style={{ padding: "2px 6px", borderRadius: 6, background: s2, border: `1px solid ${border}`, color: muted, fontSize: 9, cursor: "pointer" }}>
+                              <option value="">+ Assign</option>
+                              {savedChars.filter(c => !assignedChars.includes(c.id)).map(c => (
+                                <option key={c.id} value={c.id}>{c.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
@@ -3770,12 +5467,45 @@ function ChildrenPlannerInner() {
             characters: "characters",
             sound: "sound",
             scenes: "sceneBoard",
-            assembly: "screenplay",
+            assembly: "assembly",
           };
           const target = tabMap[section] as WorkshopTab;
           if (target) setActiveTab(target);
         }}
       />
+
+      {/* ── Preview Scene Modal ── */}
+      {previewScene && (
+        <div onClick={() => setPreviewScene(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 640, width: "90%", background: "#111", borderRadius: 14, overflow: "hidden", boxShadow: "0 24px 80px rgba(0,0,0,0.8)" }}>
+            <div style={{ padding: "10px 14px", background: "#1a1a2e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>{previewScene.title}</span>
+              <button onClick={() => setPreviewScene(null)} style={{ background: "none", border: "none", color: "#888", fontSize: 18, cursor: "pointer" }}>×</button>
+            </div>
+            {previewScene.type === "video"
+              ? <video src={previewScene.url} controls autoPlay style={{ width: "100%", maxHeight: 420 }} />
+              : <img src={previewScene.url} alt={previewScene.title} style={{ width: "100%", maxHeight: 420, objectFit: "contain" }} />
+            }
+          </div>
+        </div>
+      )}
+
+      {/* ── Full-size Image Lightbox ─────────────────────────────────────────── */}
+      {lightboxImage && (
+        <div
+          onClick={() => setLightboxImage(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", cursor: "zoom-out" }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "90vh" }}>
+            <img src={lightboxImage} alt="Scene preview" style={{ maxWidth: "90vw", maxHeight: "88vh", objectFit: "contain", borderRadius: 10, boxShadow: "0 24px 80px rgba(0,0,0,0.9)" }} />
+            <button
+              onClick={() => setLightboxImage(null)}
+              style={{ position: "absolute", top: -14, right: -14, width: 32, height: 32, borderRadius: "50%", background: "#2a2040", border: "2px solid #444", color: "#fff", fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>
+              ×
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

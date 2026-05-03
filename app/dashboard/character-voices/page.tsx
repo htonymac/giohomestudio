@@ -576,6 +576,7 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
   onPreview?: (v: CharacterVoice) => void;
 }) {
   const roleColor = v.role ? (ROLE_BADGE_COLOR[v.role] ?? "#9090b0") : null;
+  const [genPortrait, setGenPortrait] = useState(false);
 
   if (editingId === v.id) {
     return (
@@ -677,6 +678,22 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
+          {!v.imageUrl && v.visualDescription && (
+            <button
+              disabled={genPortrait}
+              onClick={async () => {
+                setGenPortrait(true);
+                try {
+                  const res = await fetch(`/api/character-voices/${v.id}/generate-portrait`, { method: "POST" });
+                  const d = await res.json() as { imageUrl?: string; error?: string };
+                  if (d.imageUrl) onUpdate(v.id, { imageUrl: d.imageUrl });
+                } catch { /* ignore */ } finally { setGenPortrait(false); }
+              }}
+              style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: genPortrait ? "wait" : "pointer", fontFamily: ds.font.sans, opacity: genPortrait ? 0.6 : 1 }}
+            >
+              {genPortrait ? "Generating…" : "Generate Portrait"}
+            </button>
+          )}
           {v.imageUrl && (
             <a
               href={`/dashboard/collaborative-editor?mode=image_to_video&characterId=${v.id}`}
@@ -916,6 +933,7 @@ function SmartBuilderModal({ onClose, onCreated, returnUrl }: { onClose: () => v
         return;
       }
       setResult(data);
+      onCreated();   // refresh parent list immediately — character already in DB
     } catch {
       setBuildError("Network error. Check connection.");
     } finally {
@@ -951,7 +969,7 @@ function SmartBuilderModal({ onClose, onCreated, returnUrl }: { onClose: () => v
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => { if (result) onCreated(); onClose(); }}
             style={{ background: "none", border: "none", color: "#6a5a8a", fontSize: 22, cursor: "pointer", padding: "4px 8px" }}
           >
             x
@@ -1404,6 +1422,19 @@ function CharacterVoicesInner() {
   // Pack seeding state
   const [seedingPack, setSeedingPack] = useState<string | null>(null);
   const [seedMsgs, setSeedMsgs] = useState<Record<string, string>>({});
+  const [fixingPortraits, setFixingPortraits] = useState(false);
+  const [fixPortraitMsg, setFixPortraitMsg] = useState("");
+
+  async function autoFixAllPortraits() {
+    setFixingPortraits(true); setFixPortraitMsg("");
+    try {
+      const res = await fetch("/api/character-voices/auto-portraits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ limit: 20 }) });
+      const d = await res.json() as { generated?: number; failed?: number; queued?: number; error?: string };
+      if (d.error) { setFixPortraitMsg(`Error: ${d.error}`); }
+      else { setFixPortraitMsg(`Generated ${d.generated ?? 0} portraits, ${d.failed ?? 0} failed`); load(); }
+    } catch { setFixPortraitMsg("Failed to reach auto-portraits API"); }
+    setFixingPortraits(false);
+  }
 
   async function load() {
     setLoading(true);
@@ -1503,27 +1534,37 @@ function CharacterVoicesInner() {
       )}
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
         <HeroTitle kicker="Character Studio" title="Characters" italic="& Voices" sub="Manage actors, voices, and character profiles for consistent casting" />
-        <div style={{ display: "flex", gap: 8, flexShrink: 0, marginTop: 8 }}>
-          {!showForm && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+            {!showForm && (
+              <button
+                onClick={() => setShowForm(true)}
+                style={{ background: ds.color.card, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.sm, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: ds.font.sans }}
+              >
+                + Add Character
+              </button>
+            )}
             <button
-              onClick={() => setShowForm(true)}
-              style={{ background: ds.color.card, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.sm, padding: "8px 18px", fontSize: 13, cursor: "pointer", fontFamily: ds.font.sans }}
+              onClick={autoFixAllPortraits}
+              disabled={fixingPortraits}
+              style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.sm, padding: "8px 18px", fontSize: 13, cursor: fixingPortraits ? "wait" : "pointer", fontFamily: ds.font.sans, opacity: fixingPortraits ? 0.6 : 1 }}
             >
-              + Add Character
+              {fixingPortraits ? "Generating…" : "Auto-Fix All Portraits"}
             </button>
-          )}
-          <button
-            onClick={() => setShowSmartBuilder(true)}
-            style={{
-              background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
-              backgroundSize: "300% 100%",
-              color: "#fff", border: "none", borderRadius: ds.radius.sm,
-              padding: "8px 18px", fontSize: 13, cursor: "pointer",
-              fontWeight: 700, fontFamily: ds.font.sans,
-            }}
-          >
-            AI Smart Builder
-          </button>
+            <button
+              onClick={() => setShowSmartBuilder(true)}
+              style={{
+                background: `linear-gradient(120deg,${ds.color.btnA},${ds.color.btnB},${ds.color.btnC},${ds.color.btnD},${ds.color.btnA})`,
+                backgroundSize: "300% 100%",
+                color: "#fff", border: "none", borderRadius: ds.radius.sm,
+                padding: "8px 18px", fontSize: 13, cursor: "pointer",
+                fontWeight: 700, fontFamily: ds.font.sans,
+              }}
+            >
+              AI Smart Builder
+            </button>
+          </div>
+          {fixPortraitMsg && <p style={{ color: ds.color.mint, fontSize: 12, margin: 0 }}>{fixPortraitMsg}</p>}
         </div>
       </div>
 

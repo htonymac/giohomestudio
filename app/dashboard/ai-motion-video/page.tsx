@@ -10,7 +10,7 @@
 //
 // Character is MANDATORY. Without a character the motion has no subject to anchor to.
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import CharacterPicker from "../../components/CharacterPicker";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
@@ -79,6 +79,8 @@ function assetUrl(filePath: string): string {
   return `/api/media/${cleaned}`;
 }
 
+const AI_MOTION_DB_KEY = "ghs_aimotionvideo_session";
+
 export default function AiMotionVideoPage() {
   // Step state
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
@@ -86,7 +88,7 @@ export default function AiMotionVideoPage() {
   const [showCharPicker, setShowCharPicker] = useState(false);
   const [mode, setMode] = useState<Mode | null>(null);
 
-  // File state
+  // File state (files cannot be persisted, only previews if data URLs)
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -109,6 +111,44 @@ export default function AiMotionVideoPage() {
 
   const imageRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLInputElement>(null);
+  const restoredRef = useRef(false);
+
+  // ── Restore state on mount ─────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`/api/hybrid/saved-state?localId=${AI_MOTION_DB_KEY}`)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.found || !d.data) return;
+        const s = d.data as Record<string, unknown>;
+        if (s.mode)       setMode(s.mode as Mode);
+        if (s.prompt)     setPrompt(s.prompt as string);
+        if (s.duration)   setDuration(s.duration as number);
+        if (s.aiTier)     setAiTier(s.aiTier as AITier);
+        if (s.videoModel) setVideoModel(s.videoModel as string);
+        if (s.imageModel) setImageModel(s.imageModel as string);
+        if (s.resultUrl)  setResultUrl(s.resultUrl as string);
+        // Restore character minimal info (no file blobs — user must re-pick)
+        if (s.character)  { setCharacter(s.character as Character); setStep(s.mode ? 2 : 1); }
+      })
+      .catch(() => {})
+      .finally(() => { restoredRef.current = true; });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save state on changes ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    const draft = {
+      mode, prompt, duration, aiTier, videoModel, imageModel,
+      character: character ? { id: character.id, characterId: character.characterId, name: character.name, visualDescription: character.visualDescription } : null,
+      resultUrl,
+    };
+    fetch("/api/hybrid/saved-state", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ localId: AI_MOTION_DB_KEY, data: draft }),
+    }).catch(() => {});
+  }, [mode, prompt, duration, aiTier, videoModel, imageModel, character, resultUrl]);
 
   function pickImage(file: File) {
     setImageFile(file);

@@ -401,6 +401,32 @@ async function generateKlingDirect(prompt: string, aspectRatio: string, duration
 
 // ── Main Handler ────────────────────────────────────────────────────────────
 
+// Alias table: translates fal_* / muapi_* / segmind_* IDs from movie-planner MODEL list
+// to the canonical keys used by MODEL_ROUTES above.
+const MODEL_ALIAS: Record<string, string> = {
+  // FAL-prefixed
+  "fal_kling_3_pro":          "kling3-pro",
+  "fal_kling_2_5_standard":   "kling25-turbo",
+  "fal_kling_2_5_turbo_pro":  "kling25-turbo",
+  "fal_hailuo_standard":      "hailuo-fast",
+  "fal_hailuo_pro":           "hailuo-pro",
+  "fal_wan_pro":              "wan25-pro",
+  "fal_runway_gen4":          "kling3-pro",   // no Runway Gen-4 route; use best FAL quality
+  // Runway / Kling Direct
+  "runway_gen4_direct":       "runway",
+  "kling_direct_v1_5_std":    "kling-direct",
+  "kling_direct_v2_5_std":    "kling-direct",
+  "kling_direct_v2_5_pro":    "kling-direct",
+  // MuAPI-prefixed — map to closest canonical route
+  "muapi_wan_v2_1_480p":      "wan25",
+  "muapi_wan_v2_1_720p":      "wan25",
+  "muapi_seedance_v1_pro":    "seedance",
+  "muapi_seedance_v2":        "seedance",
+  "muapi_seedance_v2_1080p":  "seedance",
+  // Segmind / other
+  "segmind_pruna_video":      "wan25",
+};
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -416,11 +442,12 @@ export async function POST(req: NextRequest) {
     // If characters have reference images, use the first one as sourceImage for image-to-video
     const charRefImage = resolved.referenceImages[0] || imageUrl;
 
-    const modelId = model ?? "hailuo-fast";
+    const rawModelId = model ?? "hailuo-fast";
+    const modelId = MODEL_ALIAS[rawModelId] ?? rawModelId;
     const routes = MODEL_ROUTES[modelId];
 
     if (!routes) {
-      return NextResponse.json({ error: `Unknown model: ${modelId}` }, { status: 400 });
+      return NextResponse.json({ error: `Unknown model: ${rawModelId} (resolved: ${modelId})` }, { status: 400 });
     }
 
     const ar = aspectRatio ?? "16:9";

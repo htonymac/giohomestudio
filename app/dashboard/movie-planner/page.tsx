@@ -16,6 +16,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
+import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -260,6 +261,7 @@ function MoviePlannerInner() {
   const [language, setLanguage] = useState("English");
 
   // ── Design ──
+  const [projectStyle, setProjectStyle] = useState("realistic"); // maps to STYLE_PRESETS in scene-image API
   const [genre, setGenre] = useState("");
   const [style, setStyle] = useState("");
   const [format, setFormat] = useState("");
@@ -307,6 +309,9 @@ function MoviePlannerInner() {
   const [renderingScene, setRenderingScene] = useState<number | null>(null);
   const [assembling, setAssembling] = useState(false);
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
+  const [assemblyMediaPrefs, setAssemblyMediaPrefs] = useState<Record<string, "image" | "video">>({});
+  const [aiSupervisorRunning, setAiSupervisorRunning] = useState(false);
+  const [aiSupervisorReport, setAiSupervisorReport] = useState<{ ok: boolean; summary: string; issues: string[] } | null>(null);
 
   // ── Validation ──
   const [validation, setValidation] = useState<{ valid: boolean; errors: string[]; warnings: string[] } | null>(null);
@@ -354,6 +359,9 @@ function MoviePlannerInner() {
   // ── Screenplay ──
   const [screenplay, setScreenplay] = useState("");
   const [screenplayAuthor, setScreenplayAuthor] = useState("");
+  const [movieMadeBy, setMovieMadeBy] = useState("");
+  const [movieIdeaFrom, setMovieIdeaFrom] = useState("");
+  const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok"|"warn"|"checking"; note: string } | null>(null);
   const [screenplayError, setScreenplayError] = useState("");
   const [generatingScreenplay, setGeneratingScreenplay] = useState(false);
   const [parsingScript, setParsingScript] = useState(false);
@@ -367,6 +375,8 @@ function MoviePlannerInner() {
 
   // ── Sound tier & model settings (SD) ──
   const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper_free");
+  const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
+  const [musicGenerating, setMusicGenerating] = useState(false);
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
     charImageModel: "fal_flux_schnell",
@@ -414,6 +424,11 @@ function MoviePlannerInner() {
   const [selectedMusicName, setSelectedMusicName] = useState("");
   const [aiPickingMusic, setAiPickingMusic] = useState(false);
   const [aiMusicPickLog, setAiMusicPickLog] = useState("");
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "dramatic" });
+  const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [outroUrl, setOutroUrl] = useState<string | null>(null);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [generatingOutro, setGeneratingOutro] = useState(false);
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
@@ -661,7 +676,7 @@ function MoviePlannerInner() {
 
   // ── Save project to DB ──
   const saveProject = useCallback(async () => {
-    if (!moviePlan && !idea.trim()) return;
+    if (!moviePlan && !idea.trim() && !title.trim()) return;
     setSaving(true);
     try {
       const payload = {
@@ -697,6 +712,13 @@ function MoviePlannerInner() {
 
   // ── Load existing project ──
   async function loadProject(id: string) {
+    isRestoringRef.current = true;
+    // Each project gets its own save slot so auto-saves don't cross-contaminate
+    const slotKey = `ghs_movie_${id}`;
+    activeProjectIdRef.current = slotKey;
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `/dashboard/movie-planner?projectId=${encodeURIComponent(slotKey)}`);
+    }
     try {
       const res = await fetch(`/api/movie-planner/project/${id}`);
       const data = await res.json();
@@ -733,6 +755,8 @@ function MoviePlannerInner() {
     } catch (err) {
       console.error("loadProject error:", err);
       setErrorMsg(`Failed to load project: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      isRestoringRef.current = false;
     }
   }
 
@@ -741,6 +765,35 @@ function MoviePlannerInner() {
     await fetch(`/api/movie-planner/project/${id}`, { method: "DELETE" }).catch((err) => { console.error("deleteProject:", err); setErrorMsg(`Failed to delete project: ${err instanceof Error ? err.message : "Unknown error"}`); });
     setProjectList(prev => prev.filter(p => p.id !== id));
     if (projectId === id) { setProjectId(null); setActiveTab("design"); }
+  }
+
+  // ── New Project — save current slot, move to fresh slot ──
+  async function newProject() {
+    isRestoringRef.current = true;
+    const key = activeProjectIdRef.current || "ghs_movie_default";
+    try {
+      await fetch("/api/hybrid/saved-state", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ localId: key, data: {
+          title, idea, expandedStory, genre, style, format, tone,
+          savedCharacters, selectedCast, moviePlan, sceneImages, sceneVideos,
+          scriptSegments, screenplay, selectedMusicUrl, selectedMusicName,
+          narrationProvider, soundTier, modelSettings, savedCuts, activeTab,
+          timestamp: Date.now(),
+        }}),
+      });
+    } catch { /* silent */ }
+    const newKey = `ghs_movie_${Date.now()}`;
+    activeProjectIdRef.current = newKey;
+    window.history.replaceState(null, "", `/dashboard/movie-planner?projectId=${encodeURIComponent(newKey)}`);
+    setProjectId(null); setTitle(""); setIdea(""); setExpandedStory("");
+    setGenre(""); setStyle(""); setFormat(""); setProductionMode(""); setTone(""); setSetting("");
+    setSelectedCast([]); setGeneratedCast([]);
+    setMoviePlan(null); setSceneImages({}); setSceneVideos({});
+    setScriptSegments([]); setScreenplay(""); setSelectedMusicUrl(null); setSelectedMusicName("");
+    setSavedCuts([]); setActiveTab("design"); setProjectPhase("STORY_INPUT");
+    setLastAction("New project started");
+    isRestoringRef.current = false;
   }
 
   // ── Scene editing helpers ──
@@ -807,6 +860,7 @@ function MoviePlannerInner() {
           sceneId, projectId, sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
+          projectStyle,
         }),
       });
       const data = await res.json();
@@ -817,6 +871,26 @@ function MoviePlannerInner() {
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
         updateScene(scene.scene, { status: "generated" as const });
         setLastAction(`Scene ${scene.scene} image generated`);
+        // Save image to character profiles if they have no image yet
+        const sceneCharIds: string[] = scene.characters || [];
+        if (sceneCharIds.length) {
+          fetch("/api/character-voices")
+            .then(r => r.json())
+            .then((d: { voices?: Array<{ id: string; characterId: string | null; imageUrl: string | null }> }) => {
+              const voiceMap = new Map((d.voices || []).map(v => [v.characterId, v]));
+              sceneCharIds.forEach(cId => {
+                const voice = voiceMap.get(cId);
+                if (voice && !voice.imageUrl && voice.id) {
+                  fetch(`/api/character-voices/${voice.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imageUrl: url }),
+                  }).catch(() => {});
+                }
+              });
+            })
+            .catch(() => {});
+        }
       }
     } catch (err) {
       console.error("makeSceneImage error:", err);
@@ -1291,6 +1365,44 @@ function MoviePlannerInner() {
     setAiPickingMusic(false);
   }
 
+  // ── Generate Movie Music ──
+  async function generateMovieMusic() {
+    setMusicGenerating(true);
+    try {
+      const tierProviderMap: Record<"stock" | "ghs_pro" | "ghs_classic", string> = {
+        stock: "stock",
+        ghs_pro: "stable_audio",
+        ghs_classic: "kie",
+      };
+      const res = await fetch("/api/music/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: `${tone || "cinematic"} background score for a movie — ${genre || "drama"}`,
+          durationSeconds: 30,
+          providerKey: tierProviderMap[musicTier],
+        }),
+      });
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => res.statusText);
+        throw new Error(`Music error ${res.status}: ${errBody}`);
+      }
+      const data = await res.json() as { url?: string; audioUrl?: string; fallbackReason?: string; error?: string };
+      if (data.error) throw new Error(data.error);
+      const url = data.url ?? data.audioUrl ?? "";
+      if (url) {
+        setSelectedMusicUrl(url);
+        setSelectedMusicName(`AI Generated (${musicTier === "ghs_pro" ? "FAL Stable Audio" : musicTier === "ghs_classic" ? "Kie.ai" : "Stock"})`);
+        if (data.fallbackReason) setAiMusicPickLog(`Note: ${data.fallbackReason}`);
+      } else {
+        throw new Error("No music URL returned");
+      }
+    } catch (err) {
+      setAiMusicPickLog(`Music error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setMusicGenerating(false);
+  }
+
   // ── Generate Screenplay (AI) ──
   async function generateScreenplay() {
     if (!expandedStory && !idea.trim()) { setScreenplayError("Write or expand your story first."); return; }
@@ -1499,11 +1611,14 @@ function MoviePlannerInner() {
         const sceneId = `SC${String(s.scene).padStart(2, "0")}`;
         const imageUrl = sceneImages[sceneId];
 
-        if (videoUrl) {
+        const pref = assemblyMediaPrefs[sceneId];
+        const useVideo = pref === "video" ? !!videoUrl : pref === "image" ? false : !!videoUrl;
+        if (useVideo && videoUrl) {
           assemblyScenes.push({ scene: s.scene, videoUrl });
         } else if (imageUrl) {
-          // Use img: prefix so the assemble API knows to convert image to video segment
           assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
+        } else if (videoUrl) {
+          assemblyScenes.push({ scene: s.scene, videoUrl });
         } else {
           skipped.push(s.scene);
         }
@@ -1559,8 +1674,17 @@ function MoviePlannerInner() {
           narrationVolume: 1.0,
           sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
           characterVoices: characterVoices.length > 0 ? characterVoices : undefined,
+          subtitleConfig,
+          introUrl: introUrl || undefined,
+          outroUrl: outroUrl || undefined,
         }),
       });
+      if (!res.ok) {
+        const errText = await res.text();
+        setErrorMsg(`Assembly error (${res.status}): ${errText.slice(0, 200)}`);
+        setAssembling(false);
+        return;
+      }
       const data = await res.json();
       if (data.error) {
         setErrorMsg(`Assembly API error: ${data.error}`);
@@ -1568,7 +1692,7 @@ function MoviePlannerInner() {
         setAssembledUrl(data.outputUrl);
         // Save to asset library
         try {
-          await fetch("/api/asset-library", {
+          await fetch("/api/assets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1759,7 +1883,12 @@ function MoviePlannerInner() {
       if (data.polishedText) {
         const sceneNum = parseInt(sceneId.replace("SC", ""), 10);
         updateScene(sceneNum, { visualDescription: data.polishedText });
-        setLastAction(`Scene ${sceneId}: description polished`);
+        setLastAction(`Scene ${sceneId}: polished — regenerating image...`);
+        // Auto-regen image with polished description
+        const updatedScene = scenes.find(s => s.scene === sceneNum);
+        if (updatedScene) {
+          await makeSceneImage({ ...updatedScene, visualDescription: data.polishedText });
+        }
       } else if (data.error) {
         setLastAction(`Polish failed: ${data.error}`);
       }
@@ -1769,6 +1898,33 @@ function MoviePlannerInner() {
     } finally {
       setPolishingScene(null);
     }
+  }
+
+  // ── AI Supervisor — checks scene/audio readiness before assembly ──
+  async function runAiSupervisor() {
+    setAiSupervisorRunning(true);
+    setAiSupervisorReport(null);
+    try {
+      const selectedScenes = scenes.filter(s => assemblySelectedIds.includes(`SC${String(s.scene).padStart(2, "0")}`));
+      const issues: string[] = [];
+      const missingMedia = selectedScenes.filter(s => {
+        const sid = `SC${String(s.scene).padStart(2, "0")}`;
+        return !sceneImages[sid] && !sceneVideos[sid];
+      });
+      const imageOnly = selectedScenes.filter(s => {
+        const sid = `SC${String(s.scene).padStart(2, "0")}`;
+        return sceneImages[sid] && !sceneVideos[sid];
+      });
+      if (selectedScenes.length === 0) issues.push("No scenes selected for assembly.");
+      if (missingMedia.length > 0) issues.push(`${missingMedia.length} selected scene(s) have no media: ${missingMedia.map(s => `SC${String(s.scene).padStart(2, "0")}`).join(", ")}`);
+      if (imageOnly.length > 0) issues.push(`${imageOnly.length} scene(s) use still images — generate videos for cinematic output.`);
+      if (!selectedMusicUrl) issues.push("No background music selected.");
+      const ok = missingMedia.length === 0 && selectedScenes.length > 0;
+      setAiSupervisorReport({ ok, summary: ok ? `${selectedScenes.length} scenes ready.` : `${issues.length} issue(s) found.`, issues });
+    } catch {
+      setAiSupervisorReport({ ok: false, summary: "Supervisor check failed", issues: ["Could not run AI check."] });
+    }
+    setAiSupervisorRunning(false);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -1799,6 +1955,10 @@ function MoviePlannerInner() {
           <input value={title} onChange={e => setTitle(e.target.value)}
             style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 220, outline: "none", fontFamily: ds.font.sans }}
             placeholder="Project Title" />
+          <button onClick={async () => { await newProject(); }}
+            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid rgba(255,255,255,0.1)`, background: "transparent", color: "#5a7080", fontSize: 11, cursor: "pointer" }}>
+            New Project
+          </button>
           <button onClick={() => saveProject()} disabled={saving}
             style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", opacity: saving ? 0.6 : 1 }}>
             {saving ? "Saving..." : "Save"}
@@ -2682,6 +2842,36 @@ function MoviePlannerInner() {
               </div>
             </div>
 
+            {/* Video Art Style */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={labelStyle}>Video Art Style</label>
+              <p style={{ fontSize: 10, color: muted, marginBottom: 8 }}>Controls how scene images look. Applied to every generated image.</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {[
+                  { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899", example: "Like: a real film or Netflix drama",          desc: "Photorealistic — looks like an actual photograph." },
+                  { id: "3d-cinematic", icon: "3D", name: "3D Cinematic", color: "#00d4ff", example: "Like: Toy Story, Moana, Kung Fu Panda",        desc: "3D animated movie quality. Rich lighting and depth." },
+                  { id: "2d-cartoon",   icon: "2D", name: "2D Cartoon",   color: "#f59e0b", example: "Like: SpongeBob, old Disney, cartoon shows",    desc: "Flat bold colors with thick outlines. Fun and simple." },
+                  { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia",   desc: "Japanese animation style. Big expressive eyes." },
+                  { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e", example: "Like: children's picture books, Peppa Pig",    desc: "Soft, warm and painterly. Gentle and cozy." },
+                ].map(s => {
+                  const isSel = projectStyle === s.id;
+                  return (
+                    <div key={s.id} onClick={() => { setProjectStyle(s.id); setLastAction(`Art style: ${s.name}`); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: "pointer", border: `1px solid ${isSel ? s.color : border}`, background: isSel ? `${s.color}10` : "transparent" }}>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: s.color, minWidth: 26, flexShrink: 0 }}>{s.icon}</span>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: isSel ? s.color : "#fff" }}>{s.name}</span>
+                          {isSel && <span style={{ fontSize: 7, padding: "1px 5px", borderRadius: 6, background: s.color, color: "#000", fontWeight: 800 }}>ACTIVE</span>}
+                          <span style={{ fontSize: 9, color: s.color, marginLeft: 2 }}>{s.example}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Two-button CTA: confirm design → story, OR generate directly if story already written */}
             <div style={{ display: "flex", gap: 10 }}>
               {!idea.trim() ? (
@@ -3513,6 +3703,40 @@ function MoviePlannerInner() {
           {/* ── Music Library ── */}
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}><Icon.Music style={{ width: 14, height: 14, color: muted }} /> Background Music</p>
+
+            {/* GHS Music Tier Selection */}
+            <p style={{ fontSize: 11, fontWeight: 600, color: muted, marginBottom: 8 }}>Music Source</p>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, marginBottom: 12 }}>
+              <button data-testid="music-tier-stock" onClick={() => setMusicTier("stock")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "stock" ? "#a78bfa" : border}`, background: musicTier === "stock" ? "rgba(167,139,250,0.1)" : "transparent", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "stock" ? "#a78bfa" : "#c5c5c8" }}>GHS Standard</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Stock Library — always available</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#7ae0c3", fontFamily: "monospace", background: "rgba(122,224,195,0.08)", border: "1px solid rgba(122,224,195,0.2)", borderRadius: 4, padding: "2px 6px" }}>FREE</span>
+              </button>
+              <button data-testid="music-tier-ghs-pro" onClick={() => setMusicTier("ghs_pro")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_pro" ? "#7cc4ff" : border}`, background: musicTier === "ghs_pro" ? "rgba(124,196,255,0.08)" : "transparent", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_pro" ? "#7cc4ff" : "#c5c5c8" }}>GHS Pro</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>FAL Stable Audio — instrumental, up to 47s</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#7cc4ff", fontFamily: "monospace", background: "rgba(124,196,255,0.08)", border: "1px solid rgba(124,196,255,0.2)", borderRadius: 4, padding: "2px 6px" }}>MID</span>
+              </button>
+              <button data-testid="music-tier-ghs-classic" onClick={() => setMusicTier("ghs_classic")}
+                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_classic" ? "#ff9a3c" : border}`, background: musicTier === "ghs_classic" ? "rgba(255,154,60,0.08)" : "transparent", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_classic" ? "#ff9a3c" : "#c5c5c8" }}>GHS Classic</p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Suno via Kie.ai — full lyrical songs</p>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#ff9a3c", fontFamily: "monospace", background: "rgba(255,154,60,0.08)", border: "1px solid rgba(255,154,60,0.2)", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" as const }}>PREMIUM</span>
+              </button>
+            </div>
+            <button onClick={generateMovieMusic} disabled={musicGenerating}
+              style={{ padding: "9px 18px", borderRadius: 9, border: "none", background: musicGenerating ? "#2a2040" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: musicGenerating ? "not-allowed" : "pointer", marginBottom: 12 }}>
+              {musicGenerating ? "Generating…" : "Generate Music"}
+            </button>
+
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 10 }}>
               <button onClick={aiPickMusic} disabled={aiPickingMusic}
                 style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: aiPickingMusic ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: aiPickingMusic ? muted : "#000", fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
@@ -3829,9 +4053,26 @@ function MoviePlannerInner() {
                       <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sceneId}: {scene.title}</p>
                       <p style={{ fontSize: 9, color: muted }}>{scene.duration} · {scene.generationMethod}</p>
                     </div>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      {hasVid && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 10, background: `${accent}15`, color: accent }}>video</span>}
-                      {hasImg && !hasVid && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 10, background: `${blue}15`, color: blue }}>image</span>}
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                      {/* Image/Video toggle — mirrors hybrid assembly */}
+                      {(() => {
+                        const pref = assemblyMediaPrefs[sceneId];
+                        const eff: "image" | "video" = pref ?? (hasVid ? "video" : "image");
+                        return (
+                          <>
+                            <button onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "image" }))}
+                              disabled={!hasImg}
+                              style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, border: `1px solid ${eff === "image" ? green : border}`, background: eff === "image" && hasImg ? `${green}15` : "transparent", color: hasImg ? (eff === "image" ? green : muted) : "#333", cursor: hasImg ? "pointer" : "not-allowed", fontWeight: eff === "image" ? 700 : 400 }}>
+                              Image {eff === "image" ? "✓" : ""}
+                            </button>
+                            <button onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "video" }))}
+                              disabled={!hasVid}
+                              style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, border: `1px solid ${eff === "video" ? accent : border}`, background: eff === "video" && hasVid ? `${accent}15` : "transparent", color: hasVid ? (eff === "video" ? accent : muted) : "#333", cursor: hasVid ? "pointer" : "not-allowed", fontWeight: eff === "video" ? 700 : 400 }}>
+                              Video {eff === "video" ? "✓" : hasVid ? "" : "(none)"}
+                            </button>
+                          </>
+                        );
+                      })()}
                       {!hasImg && !hasVid && <span style={{ fontSize: 8, padding: "2px 6px", borderRadius: 10, background: `${red}10`, color: red }}>no media</span>}
                     </div>
                   </div>
@@ -3873,6 +4114,158 @@ function MoviePlannerInner() {
               </div>
             </div>
           )}
+
+          {/* Audio preview */}
+          {selectedMusicUrl && (
+            <div style={{ ...cardStyle, marginBottom: 12, padding: 14 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: accent, marginBottom: 8 }}>Audio Preview</p>
+              <p style={{ fontSize: 9, color: muted, marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: 1 }}>Background Music</p>
+              <audio src={selectedMusicUrl} controls style={{ width: "100%", height: 32 }} />
+            </div>
+          )}
+
+          {/* AI Supervisor */}
+          <div style={{ ...cardStyle, marginBottom: 12, padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: aiSupervisorReport ? 10 : 0 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, color: purple }}>AI Supervisor</p>
+              <button onClick={runAiSupervisor} disabled={aiSupervisorRunning}
+                style={{ padding: "5px 14px", borderRadius: 8, border: "none", background: aiSupervisorRunning ? "#2a2040" : `${purple}20`, color: aiSupervisorRunning ? muted : purple, fontSize: 10, fontWeight: 700, cursor: aiSupervisorRunning ? "not-allowed" : "pointer" }}>
+                {aiSupervisorRunning ? "Checking..." : "Run Check"}
+              </button>
+            </div>
+            {aiSupervisorReport && (
+              <div style={{ padding: "10px 12px", borderRadius: 8, background: aiSupervisorReport.ok ? `${green}08` : `${gold}06`, border: `1px solid ${aiSupervisorReport.ok ? green : gold}30` }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: aiSupervisorReport.ok ? green : gold, marginBottom: 4 }}>
+                  {aiSupervisorReport.ok ? "✓ Ready" : "⚠ Issues Found"} — {aiSupervisorReport.summary}
+                </p>
+                {aiSupervisorReport.issues.map((issue, i) => {
+                  const lower = issue.toLowerCase();
+                  const fixLabel = lower.includes("sfx") || lower.includes("sound effect") ? "→ Sound tab" :
+                    lower.includes("music") ? "→ Sound tab" :
+                    lower.includes("narration") || lower.includes("voice") ? "→ Generate Narration" :
+                    lower.includes("subtitle") ? "→ Subtitle Style" :
+                    lower.includes("scene") || lower.includes("image") ? "→ Scene Board" :
+                    lower.includes("cast") || lower.includes("character") ? "→ Cast" : null;
+                  const fixAction = lower.includes("sfx") || lower.includes("sound effect") || lower.includes("music") ? () => setActiveTab("sound") :
+                    lower.includes("narration") || lower.includes("voice") ? () => runAiSupervisor() :
+                    lower.includes("scene") || lower.includes("image") ? () => setActiveTab("scenes") :
+                    lower.includes("cast") || lower.includes("character") ? () => setActiveTab("characters") : null;
+                  return (
+                    <div key={`iss-${i}`} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 3 }}>
+                      <p style={{ fontSize: 10, color: gold, margin: 0, flex: 1 }}>⚠ {issue}</p>
+                      {fixLabel && fixAction && (
+                        <button onClick={fixAction} style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${gold}40`, background: `${gold}15`, color: gold, fontSize: 8, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          {fixLabel}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {!aiSupervisorReport && !aiSupervisorRunning && (
+              <p style={{ fontSize: 9, color: muted, marginTop: 6 }}>Run before assembly — checks scenes, audio, and media readiness.</p>
+            )}
+          </div>
+
+          {/* Subtitle Style */}
+          <div style={{ marginBottom: 12 }}>
+            <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={accent} />
+          </div>
+
+          {/* AI Intro / Outro */}
+          <div style={{ ...cardStyle, marginBottom: 12, padding: 14 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>AI Intro / Outro</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div>
+                {introUrl
+                  ? <div style={{ position: "relative" }}>
+                      <video src={introUrl} style={{ width: "100%", borderRadius: 8, maxHeight: 80 }} muted />
+                      <button onClick={() => setIntroUrl(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: 4, color: "#fff", fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>✕</button>
+                    </div>
+                  : <button
+                      onClick={async () => {
+                        setGeneratingIntro(true);
+                        try {
+                          const res = await fetch("/api/video/title-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", studioName: "GIO HOME AI STUDIO", title: title || "My Movie", director: screenplayAuthor || undefined, producer: movieMadeBy || undefined, username: movieIdeaFrom || undefined, duration: 4 }) });
+                          const d = await res.json();
+                          if (d.videoUrl) setIntroUrl(d.videoUrl);
+                        } catch { /* ignore */ } finally { setGeneratingIntro(false); }
+                      }}
+                      disabled={generatingIntro}
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: generatingIntro ? "not-allowed" : "pointer" }}>
+                      {generatingIntro ? "Generating…" : "Generate AI Intro"}
+                    </button>
+                }
+              </div>
+              <div>
+                {outroUrl
+                  ? <div style={{ position: "relative" }}>
+                      <video src={outroUrl} style={{ width: "100%", borderRadius: 8, maxHeight: 80 }} muted />
+                      <button onClick={() => setOutroUrl(null)} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.7)", border: "none", borderRadius: 4, color: "#fff", fontSize: 10, cursor: "pointer", padding: "2px 6px" }}>✕</button>
+                    </div>
+                  : <button
+                      onClick={async () => {
+                        setGeneratingOutro(true);
+                        try {
+                          const res = await fetch("/api/video/title-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", studioName: "GIO HOME AI STUDIO", title: title || "My Movie", director: screenplayAuthor || undefined, producer: movieMadeBy || undefined, username: movieIdeaFrom || undefined, duration: 5 }) });
+                          const d = await res.json();
+                          if (d.videoUrl) setOutroUrl(d.videoUrl);
+                        } catch { /* ignore */ } finally { setGeneratingOutro(false); }
+                      }}
+                      disabled={generatingOutro}
+                      style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: generatingOutro ? "not-allowed" : "pointer" }}>
+                      {generatingOutro ? "Generating…" : "Generate AI Outro"}
+                    </button>
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* Credits + Narration↔Subtitle match */}
+          <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Movie Credits</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div>
+                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Written by</label>
+                <input value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Screenplay author"
+                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Made by</label>
+                <input value={movieMadeBy} onChange={e => setMovieMadeBy(e.target.value)} placeholder="Studio / creator"
+                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Idea from</label>
+                <input value={movieIdeaFrom} onChange={e => setMovieIdeaFrom(e.target.value)} placeholder="Original idea by..."
+                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={async () => {
+                  setSubtitleMatchResult({ status: "checking", note: "Checking..." });
+                  try {
+                    const script = expandedStory || idea || "";
+                    if (!script.trim()) { setSubtitleMatchResult({ status: "warn", note: "No story text to check against." }); return; }
+                    const res = await fetch("/api/free-mode/enhance", { method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ rawPrompt: `Check if subtitle mode "${subtitleConfig.mode}" matches this story tone: "${script.slice(0,300)}". Reply MATCH or MISMATCH in one line.`, mode: "text_to_video" }) });
+                    const d = await res.json() as { enhanced?: string };
+                    const result = (d.enhanced || "").toLowerCase();
+                    setSubtitleMatchResult({ status: result.includes("match") && !result.includes("mismatch") ? "ok" : "warn", note: d.enhanced || "Unable to check" });
+                  } catch { setSubtitleMatchResult({ status: "warn", note: "Check failed" }); }
+                }}
+                style={{ padding: "4px 12px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                Check Narration ↔ Subtitle Match
+              </button>
+              {subtitleMatchResult && (
+                <p style={{ fontSize: 9, color: subtitleMatchResult.status === "ok" ? green : subtitleMatchResult.status === "checking" ? muted : "#f59e0b", flex: 1 }}>
+                  {subtitleMatchResult.status === "ok" ? "✓" : subtitleMatchResult.status === "checking" ? "…" : "⚠"} {subtitleMatchResult.note.slice(0,120)}
+                </p>
+              )}
+            </div>
+          </div>
 
           {/* Assemble / Editor buttons */}
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>

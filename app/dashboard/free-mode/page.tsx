@@ -875,8 +875,23 @@ function MessageBubble({
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 
+const FREE_MODE_SESSION_LS_KEY = "ghs_free_mode_sessionId";
+
+function getOrCreateSessionId(): string {
+  try {
+    const stored = localStorage.getItem(FREE_MODE_SESSION_LS_KEY);
+    if (stored) return stored;
+  } catch { /* ssr guard */ }
+  const fresh = genSessionId();
+  try { localStorage.setItem(FREE_MODE_SESSION_LS_KEY, fresh); } catch { /* ignore */ }
+  return fresh;
+}
+
 function FreeModeChat() {
-  const sessionId   = useRef<string>(genSessionId());
+  // Persist sessionId across page reloads so DB restore works
+  const sessionId   = useRef<string>(
+    typeof window !== "undefined" ? getOrCreateSessionId() : genSessionId()
+  );
   const feedRef     = useRef<HTMLDivElement>(null);
   const inputRef    = useRef<HTMLTextAreaElement>(null);
 
@@ -971,6 +986,40 @@ function FreeModeChat() {
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [plusMenuOpen]);
+
+  // ── Auto-restore from localStorage on mount (ghs_freemode_draft) ──────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem("ghs_freemode_draft");
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (Array.isArray(d.messages) && d.messages.length > 0) {
+        // Only restore if DB load hasn't already populated messages
+        setMessages(prev => prev.length === 0 ? d.messages : prev);
+      }
+      if (Array.isArray(d.selectedCharIds) && d.selectedCharIds.length > 0) {
+        setSelectedCharIds(prev => prev.length === 0 ? d.selectedCharIds : prev);
+      }
+      if (d.intro !== undefined && d.intro !== null) setIntro(d.intro as IntroOutroData);
+      if (d.outro !== undefined && d.outro !== null) setOutro(d.outro as IntroOutroData);
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Auto-save to localStorage (ghs_freemode_draft) ────────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const draft = {
+      messages: messages.slice(-50),
+      selectedCharIds,
+      intro,
+      outro,
+    };
+    try {
+      localStorage.setItem("ghs_freemode_draft", JSON.stringify(draft));
+    } catch { /* quota exceeded — ignore */ }
+  }, [messages, selectedCharIds, intro, outro]);
 
   // Persist session characters/intro/outro on change (debounced)
   const persistSession = useCallback(async (

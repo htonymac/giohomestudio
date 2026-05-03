@@ -168,6 +168,14 @@ export async function POST(req: NextRequest) {
     // ── STYLE LOCK (absolute first position) ──
     promptParts.push(stylePreset.prefix);
 
+    // ── HUMAN CHARACTER GUARD — prevents AI from defaulting to bears/animals ──
+    // Applied to ALL scenes. Only removed if sceneText explicitly mentions animal characters.
+    const sceneTextLower = (sceneText || "").toLowerCase();
+    const explicitAnimal = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|fur|paws|snout)\b/.test(sceneTextLower);
+    if (!explicitAnimal) {
+      promptParts.push("All characters in this scene are HUMAN BEINGS with human faces, human anatomy, normal skin texture. No bears, no animals, no fur-covered creatures, no snouts, no paws.");
+    }
+
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
     const CHAR_DESC_LIMIT = 400;
@@ -194,7 +202,8 @@ export async function POST(req: NextRequest) {
 
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
-    const negativePrompt = stylePreset.negative;
+    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, furry creature, snout, paws, animal head, anthropomorphic animal";
+    const negativePrompt = stylePreset.negative + bearNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

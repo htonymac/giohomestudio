@@ -1,5 +1,543 @@
 [
   {
+    "id": "movie_1777730325421",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 49s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777730325171.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T13:58:45.421Z"
+  },
+  {
+    "id": "lib_1777695099856_x48fmn",
+    "type": "children-video",
+    "name": "Children Video — story — 5/1/2026",
+    "description": "children-video — approved",
+    "filePath": "/api/media/video/assembled/movie_ghs_children_default_1777694990227.mp4",
+    "tags": [
+      "children-video",
+      "approved"
+    ],
+    "source": "planner_output",
+    "status": "approved",
+    "metadata": {
+      "contentType": "",
+      "ageGroup": "toddler",
+      "narrationStyle": "gentle",
+      "visualStyle": "storybook",
+      "musicChoice": "soft_story",
+      "bilingual": false,
+      "lang": "en",
+      "lang2": "",
+      "characters": [],
+      "review1": true,
+      "review2": true,
+      "createdAt": "2026-05-02T04:11:39.208Z"
+    },
+    "createdAt": "2026-05-02T04:11:39.856Z"
+  },
+  {
+    "id": "movie_1777694990399",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 40s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777694990227.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T04:09:50.399Z"
+  },
+  {
+    "id": "asset_1777692756396_1d5017",
+    "type": "image",
+    "name": "Scene: Close-up and wide-angle alternating shots of Johnn",
+    "description": "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation. All charact",
+    "filePath": "storage\\images\\scene_1777692745451_1777692745452.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "segmind",
+    "createdAt": "2026-05-02T03:32:36.396Z"
+  },
+  {
+    "id": "movie_1777691453372",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 40s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777691453171.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T03:10:53.372Z"
+  },
+  {
+    "id": "movie_1777691306779",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 40s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777691306587.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T03:08:26.779Z"
+  },
+  {
+    "id": "movie_1777690766961",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 40s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777690766743.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T02:59:26.961Z"
+  },
+  {
+    "id": "movie_1777690746616",
+    "type": "video",
+    "name": "Movie: Children Story — story",
+    "description": "8 scenes, 40s",
+    "filePath": "storage\\video\\assembled\\movie_ghs_children_default_1777690740818.mp4",
+    "tags": [
+      "movie",
+      "assembled",
+      "final"
+    ],
+    "source": "movie_planner",
+    "createdAt": "2026-05-02T02:59:06.616Z"
+  },
+  {
+    "id": "asset_1777690545917_7rfg5q",
+    "type": "video",
+    "name": "Scene Video: Maya Meets Pip. ",
+    "description": "Maya Meets Pip. . Smooth cinematic motion. Consistent characters and environment. Natural movement.",
+    "filePath": "storage\\videos\\scene_child_sc01_1777690372525.mp4",
+    "tags": [
+      "scene-video",
+      "hybrid",
+      "fal_hailuo_standard"
+    ],
+    "source": "scene-video-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-02T02:55:45.917Z"
+  },
+  {
+    "id": "sfx_fal_1777672356607",
+    "type": "sfx",
+    "name": "happy children laughing",
+    "description": "FAL AI SFX: happy children laughing",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\sfx\\fal_sfx_1777672354701.mp3",
+    "tags": [
+      "sfx",
+      "ai-generated",
+      "fal",
+      "stable-audio"
+    ],
+    "source": "fal_sfx",
+    "safeForAutoMode": true,
+    "createdAt": "2026-05-01T21:52:36.607Z"
+  },
+  {
+    "id": "asset_1777671920288_n0bukk",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Every Numbe",
+    "filePath": "storage\\images\\scene_child_sc08_1777671918449.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:45:20.288Z"
+  },
+  {
+    "id": "asset_1777671918421_sxyder",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Every Numbe",
+    "filePath": "storage\\images\\scene_child_sc08_1777671916537.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:45:18.421Z"
+  },
+  {
+    "id": "asset_1777671916510_jol906",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Every Numbe",
+    "filePath": "storage\\images\\scene_child_sc08_1777671913941.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:45:16.510Z"
+  },
+  {
+    "id": "asset_1777671773864_i1fein",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Jump One Hu",
+    "filePath": "storage\\images\\scene_child_sc07_1777671772181.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:53.864Z"
+  },
+  {
+    "id": "asset_1777671772124_88i5ci",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Jump One Hu",
+    "filePath": "storage\\images\\scene_child_sc07_1777671770360.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:52.124Z"
+  },
+  {
+    "id": "asset_1777671770312_m528e2",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Jump One Hu",
+    "filePath": "storage\\images\\scene_child_sc07_1777671768509.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:50.312Z"
+  },
+  {
+    "id": "asset_1777671766204_35sazw",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, One Hundred",
+    "filePath": "storage\\images\\scene_child_sc06_1777671763898.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:46.204Z"
+  },
+  {
+    "id": "asset_1777671760081_17xo8g",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Back on Her",
+    "filePath": "storage\\images\\scene_child_sc05_1777671757489.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:40.081Z"
+  },
+  {
+    "id": "asset_1777671725992_9jd97n",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Maya's Wobb",
+    "filePath": "storage\\images\\scene_child_sc04_1777671724292.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:05.992Z"
+  },
+  {
+    "id": "asset_1777671721390_cw7wv8",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Counting To",
+    "filePath": "storage\\images\\scene_child_sc03_1777671719659.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:42:01.390Z"
+  },
+  {
+    "id": "asset_1777671719621_lme9so",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Counting To",
+    "filePath": "storage\\images\\scene_child_sc03_1777671717734.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:59.621Z"
+  },
+  {
+    "id": "asset_1777671717696_a0vq4k",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Counting To",
+    "filePath": "storage\\images\\scene_child_sc03_1777671715226.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:57.696Z"
+  },
+  {
+    "id": "asset_1777671707872_5mk36g",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, The First J",
+    "filePath": "storage\\images\\scene_child_sc02_1777671705871.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:47.872Z"
+  },
+  {
+    "id": "asset_1777671705841_hdd7k2",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, The First J",
+    "filePath": "storage\\images\\scene_child_sc02_1777671704292.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:45.841Z"
+  },
+  {
+    "id": "asset_1777671704269_62yavr",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, The First J",
+    "filePath": "storage\\images\\scene_child_sc02_1777671701594.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:44.269Z"
+  },
+  {
+    "id": "asset_1777671694319_e4hog3",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Maya Meets ",
+    "filePath": "storage\\images\\scene_child_sc01_1777671692836.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:34.319Z"
+  },
+  {
+    "id": "asset_1777671692790_ef6jhf",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Maya Meets ",
+    "filePath": "storage\\images\\scene_child_sc01_1777671691268.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:32.790Z"
+  },
+  {
+    "id": "asset_1777671691236_ukt7lz",
+    "type": "image",
+    "name": "Scene: children's book illustration, age-appropriate, fri",
+    "description": "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art. children's book illustration, age-appropriate, friendly, colorful, Maya Meets ",
+    "filePath": "storage\\images\\scene_child_sc01_1777671688555.png",
+    "tags": [
+      "scene-image",
+      "hybrid"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T21:41:31.236Z"
+  },
+  {
+    "id": "asset_1777671260386_z3sf0f",
+    "type": "image",
+    "name": "Character portrait: NARR_ADULT. . Children's book illustrati",
+    "description": "Character portrait: NARR_ADULT. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671255715.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:20.386Z"
+  },
+  {
+    "id": "asset_1777671254996_yqnw2e",
+    "type": "image",
+    "name": "Character portrait: NARR_ELDER. . Children's book illustrati",
+    "description": "Character portrait: NARR_ELDER. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671248295.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:14.996Z"
+  },
+  {
+    "id": "asset_1777671253970_evez1p",
+    "type": "image",
+    "name": "Character portrait: NARR_ELDER. . Children's book illustrati",
+    "description": "Character portrait: NARR_ELDER. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671247633.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:13.970Z"
+  },
+  {
+    "id": "asset_1777671251557_6ufxdb",
+    "type": "image",
+    "name": "Character portrait: NARR_ELDER. . Children's book illustrati",
+    "description": "Character portrait: NARR_ELDER. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671246819.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:11.557Z"
+  },
+  {
+    "id": "asset_1777671247053_zguka4",
+    "type": "image",
+    "name": "Character portrait: NARR_ADULT. . Children's book illustrati",
+    "description": "Character portrait: NARR_ADULT. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671239855.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:07.053Z"
+  },
+  {
+    "id": "asset_1777671246240_8qxjlv",
+    "type": "image",
+    "name": "Character portrait: NARR_ADULT. . Children's book illustrati",
+    "description": "Character portrait: NARR_ADULT. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671239224.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:06.240Z"
+  },
+  {
+    "id": "asset_1777671243695_zcvl4i",
+    "type": "image",
+    "name": "Character portrait: NARR_ADULT. . Children's book illustrati",
+    "description": "Character portrait: NARR_ADULT. . Children's book illustration style, age-appropriate, friendly, colorful, front view.",
+    "filePath": "storage\\images\\gen_1777671237567.png",
+    "tags": [
+      "generated",
+      "segmind"
+    ],
+    "source": "generated",
+    "provider": "segmind",
+    "createdAt": "2026-05-01T21:34:03.695Z"
+  },
+  {
+    "id": "asset_1777663716342_6vmdej",
+    "type": "image",
+    "name": "Untitled Hybrid Project — SC10: The Empire's Strings Cut",
+    "description": "Wide shot of the arena from above — smoke rising from the battle below, Kael and Vyra standing amid fallen imperial sold",
+    "filePath": "https://v3b.fal.media/files/b/0a987ffe/YqCiYsrM1GcZ6_akZprch.jpg",
+    "tags": [
+      "scene-image",
+      "hybrid-planner",
+      "SC10",
+      "hopeful"
+    ],
+    "source": "hybrid_planner",
+    "createdAt": "2026-05-01T19:28:36.342Z"
+  },
+  {
+    "id": "asset_1777663716252_tn7wwv",
+    "type": "image",
+    "name": "Scene: The Empire's Strings Cut. Wide shot of the arena f",
+    "description": "Photorealistic, hyper-detailed, cinematic photography, professional lighting, 8K render. KAEL: yeti, stocky and muscular, medium height, young adult, stands upright with relaxed posture, light grey fu",
+    "filePath": "storage\\images\\scene_SC10_1777663713477.png",
+    "tags": [
+      "scene-image",
+      "hybrid",
+      "KAEL",
+      "VYRA"
+    ],
+    "source": "scene-generation",
+    "provider": "fal",
+    "createdAt": "2026-05-01T19:28:36.252Z"
+  },
+  {
     "id": "asset_1776573756048_ql0tp6",
     "type": "image",
     "name": "test sunset",
@@ -5115,5 +5653,117 @@
     ],
     "source": "scene_generated",
     "createdAt": "2026-04-17T03:27:22.017Z"
+  },
+  {
+    "id": "scene_vid_scene_SC03_1777585772733.mp4",
+    "type": "video",
+    "name": "Scene SC03 · 4/30/2026",
+    "description": "Generated scene clip — scene_SC03_1777585772733.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC03_1777585772733.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc03"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-30T21:49:32.733Z"
+  },
+  {
+    "id": "scene_vid_scene_SC07_1777507648347.mp4",
+    "type": "video",
+    "name": "Scene SC07 · 4/29/2026",
+    "description": "Generated scene clip — scene_SC07_1777507648347.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC07_1777507648347.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc07"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-30T00:07:28.347Z"
+  },
+  {
+    "id": "scene_vid_scene_SC04_1777444536564.mp4",
+    "type": "video",
+    "name": "Scene SC04 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC04_1777444536564.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC04_1777444536564.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc04"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:35:36.564Z"
+  },
+  {
+    "id": "scene_vid_scene_SC08_1777444376784.mp4",
+    "type": "video",
+    "name": "Scene SC08 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC08_1777444376784.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC08_1777444376784.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc08"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:32:56.784Z"
+  },
+  {
+    "id": "scene_vid_scene_SC07_1777444371475.mp4",
+    "type": "video",
+    "name": "Scene SC07 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC07_1777444371475.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC07_1777444371475.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc07"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:32:51.475Z"
+  },
+  {
+    "id": "scene_vid_scene_SC04_1777444336442.mp4",
+    "type": "video",
+    "name": "Scene SC04 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC04_1777444336442.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC04_1777444336442.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc04"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:32:16.442Z"
+  },
+  {
+    "id": "scene_vid_scene_SC02_1777444035248.mp4",
+    "type": "video",
+    "name": "Scene SC02 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC02_1777444035248.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC02_1777444035248.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc02"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:27:15.248Z"
+  },
+  {
+    "id": "scene_vid_scene_SC01_1777443790879.mp4",
+    "type": "video",
+    "name": "Scene SC01 · 4/28/2026",
+    "description": "Generated scene clip — scene_SC01_1777443790879.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_SC01_1777443790879.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "sc01"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-04-29T06:23:10.879Z"
   }
 ]

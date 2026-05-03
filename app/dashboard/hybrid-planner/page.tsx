@@ -646,6 +646,14 @@ function HybridPlannerInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
 
+  // ── Load project list for "My Projects" panel ──
+  useEffect(() => {
+    fetch("/api/hybrid/saved-state?list=true")
+      .then(r => r.json())
+      .then(d => { if (d.projects) setProjectList(d.projects); })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     const characterId = params.get("characterId");
     if (characterId) {
@@ -1503,6 +1511,25 @@ function HybridPlannerInner() {
             source: "hybrid_planner",
           }),
         }).catch(() => {});
+        // Save generated image to character profiles (if character has no image yet)
+        if (scene.characterIds?.length) {
+          fetch("/api/character-voices")
+            .then(r => r.json())
+            .then((d: { voices?: Array<{ id: string; characterId: string | null; imageUrl: string | null }> }) => {
+              const voiceMap = new Map((d.voices || []).map(v => [v.characterId, v]));
+              scene.characterIds.forEach(cId => {
+                const voice = voiceMap.get(cId);
+                if (voice && !voice.imageUrl && voice.id) {
+                  fetch(`/api/character-voices/${voice.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imageUrl: url }),
+                  }).catch(() => {});
+                }
+              });
+            })
+            .catch(() => {});
+        }
       }
     } catch (err) {
       clearInterval(progressTimer);
@@ -1600,10 +1627,17 @@ function HybridPlannerInner() {
       });
       const data = await res.json();
       if (data.polishedText) {
-        setScenes(prev => prev.map(s =>
-          s.sceneId === sceneId ? { ...s, description: data.polishedText } : s
-        ));
-        setLastAction(`Scene ${sceneId}: description polished`);
+        let updatedScene: HybridScene | undefined;
+        setScenes(prev => {
+          const next = prev.map(s => s.sceneId === sceneId ? { ...s, description: data.polishedText } : s);
+          updatedScene = next.find(s => s.sceneId === sceneId);
+          return next;
+        });
+        setLastAction(`Scene ${sceneId}: polished — regenerating image...`);
+        // Auto-regen image with polished description
+        if (updatedScene) {
+          await makeSceneImage({ ...updatedScene, description: data.polishedText });
+        }
       } else if (data.error) {
         setLastAction(`Polish failed: ${data.error}`);
       }
@@ -1632,7 +1666,7 @@ function HybridPlannerInner() {
           sceneId: scene.sceneId, projectId,
           sceneText: `${scene.title}. ${scene.description}`,
           imageUrl: existingImage,
-          duration: durationSecs ?? scene.motionDuration ?? 5,
+          duration: durationSecs ?? (continuousMotionEnabled ? 10 : (scene.motionDuration ?? 5)),
           motionDescription: scene.shots[0]?.cameraMovement || "",
           modelId: selectedVideoModelId !== "segmind_pruna_video" ? selectedVideoModelId : undefined,
           seed: genSeed !== null ? genSeed : undefined,
@@ -3266,6 +3300,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ localId: id, data }),
       });
+      // Refresh project list so My Projects panel stays current
+      fetch("/api/hybrid/saved-state?list=true")
+        .then(r => r.json())
+        .then(d => { if (d.projects) setProjectList(d.projects); })
+        .catch(() => {});
     } catch { /* silent */ }
   }
 
@@ -4987,7 +5026,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ background: `${purple}08`, borderBottom: `1px solid ${border}`, padding: 10 }}>
                         {hasVideo ? (
                           <>
-                            <video src={sceneVideos[scene.sceneId]} controls
+                            <video src={sceneVideos[scene.sceneId]} controls loop={continuousMotionEnabled}
                               style={{ width: "100%", borderRadius: 8, display: "block", maxHeight: 160, background: "#000", marginBottom: 8 }} />
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
                               <button onClick={() => setPreviewMedia({ url: sceneVideos[scene.sceneId], type: "video", title: `${scene.sceneId}: ${scene.title}` })}
@@ -5216,7 +5255,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             color: !hasImage ? muted : "#fff", fontSize: 9, fontWeight: 700,
                             cursor: (generatingSceneVideos.has(scene.sceneId) || !hasImage) ? "not-allowed" : "pointer",
                             whiteSpace: "nowrap" as const }}>
-                          {generatingSceneVideos.has(scene.sceneId) ? "Making..." : hasVideo ? "New Video" : "Make Video"}
+                          {generatingSceneVideos.has(scene.sceneId) ? "Making..." : hasVideo ? (continuousMotionEnabled ? "New 10s Video" : "New Video") : (continuousMotionEnabled ? "Make Video (10s)" : "Make Video")}
                         </button>
                         {/* Small buttons — all same height via alignItems stretch */}
                         <div style={{ display: "flex", gap: 4, alignItems: "stretch", flexShrink: 0 }}>
