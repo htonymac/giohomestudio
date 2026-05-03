@@ -165,13 +165,13 @@ const MOVIE_GENRES = ["Adventure", "Fantasy", "Animals", "Space", "Ocean", "Jung
 const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 
-// ── 5-Tier Sound Model Selector (binding) ──
+// ── 5-Tier Sound Model Selector (binding per GHS music tiers doc) ──
 const SOUND_TIERS = [
-  { id: "piper_free",      label: "Standard (built-in GHS)", cost: "Free" },
-  { id: "piper_extended",  label: "Start Plus",              cost: "Low cost" },
-  { id: "ghs_karaoke",     label: "Sound Pro (GHS Karaoke)", cost: "Mid" },
-  { id: "elevenlabs",      label: "Classic",                 cost: "Premium" },
-  { id: "gemini",          label: "Premium",                 cost: "Highest" },
+  { id: "piper_free",     label: "GHS Standard", desc: "Piper local TTS — always free",              cost: "Free" },
+  { id: "piper_extended", label: "GHS Plus",     desc: "Karaoke + stock mix — low cost",             cost: "Low cost" },
+  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "FAL Stable Audio ≤47s instrumental",         cost: "Mid" },
+  { id: "elevenlabs",     label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",       cost: "Premium" },
+  { id: "gemini",         label: "GHS Premium",  desc: "Gemini Lyria — waiting for public API",      cost: "Highest" },
 ] as const;
 type SoundTierId = typeof SOUND_TIERS[number]["id"];
 
@@ -4560,8 +4560,11 @@ function ChildrenPlannerInner() {
               {SOUND_TIERS.map(tier => (
                 <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
                   style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? childAccent : ds.color.line}`, background: soundTier === tier.id ? `${childAccent}12` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: soundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
-                  <span style={{ fontSize: 10, color: soundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono }}>{tier.cost}</span>
+                  <div>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: soundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
+                    <span style={{ display: "block", fontSize: 10, color: muted, marginTop: 2 }}>{tier.desc}</span>
+                  </div>
+                  <span style={{ fontSize: 10, color: soundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono, flexShrink: 0, marginLeft: 8 }}>{tier.cost}</span>
                 </button>
               ))}
             </div>
@@ -5451,28 +5454,43 @@ function ChildrenPlannerInner() {
       )}
 
       {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
-      <SupervisorStatusBar
-        plannerType="children"
-        designComplete={!!(ageGroup && visualStyle)}
-        storyComplete={!!(expandedContent || textContent)}
-        charactersComplete={savedChars.length > 0}
-        soundComplete={!!(narrationStyle && musicChoice)}
-        scenesComplete={childScenes.length > 0}
-        assemblyComplete={!!assembledUrl}
-        storyText={expandedContent || textContent}
-        onAutoFix={(section) => {
-          const tabMap: Record<string, WorkshopTab> = {
-            design: "design",
-            story: "content",
-            characters: "characters",
-            sound: "sound",
-            scenes: "sceneBoard",
-            assembly: "assembly",
-          };
-          const target = tabMap[section] as WorkshopTab;
-          if (target) setActiveTab(target);
-        }}
-      />
+      {(() => {
+        // Ordered flow — design → content → script → sound → characters → sceneBoard → screenplay → assembly
+        const FLOW: { id: WorkshopTab; label: string }[] = [
+          { id: "design",      label: "Story" },
+          { id: "content",     label: "Script & Story Plan" },
+          { id: "script",      label: "Voices & Sounds" },
+          { id: "sound",       label: "Character Friends" },
+          { id: "characters",  label: "Scene Board" },
+          { id: "sceneBoard",  label: "Screenplay" },
+          { id: "screenplay",  label: "Assembly" },
+          { id: "assembly",    label: "Overview" },
+        ];
+        const idx = FLOW.findIndex(t => t.id === activeTab);
+        const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx] : null;
+        return (
+          <SupervisorStatusBar
+            plannerType="children"
+            designComplete={!!(ageGroup && visualStyle)}
+            storyComplete={!!(expandedContent || textContent)}
+            charactersComplete={savedChars.length > 0}
+            soundComplete={!!(narrationStyle && musicChoice)}
+            scenesComplete={childScenes.length > 0}
+            assemblyComplete={!!assembledUrl}
+            storyText={expandedContent || textContent}
+            nextTabLabel={next?.label}
+            onNextTab={next ? () => setActiveTab(FLOW[idx + 1].id) : undefined}
+            onAutoFix={(section) => {
+              const tabMap: Record<string, WorkshopTab> = {
+                design: "design", story: "content", characters: "characters",
+                sound: "sound", scenes: "sceneBoard", assembly: "assembly",
+              };
+              const target = tabMap[section] as WorkshopTab;
+              if (target) setActiveTab(target);
+            }}
+          />
+        );
+      })()}
 
       {/* ── Preview Scene Modal ── */}
       {previewScene && (

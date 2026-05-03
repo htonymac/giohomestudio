@@ -138,7 +138,14 @@ async function generateBroll(topic: string, aspectRatio: string): Promise<string
 
 // ── Background music (optional) ───────────────────────────────────────────────
 
-async function generateMusic(style: string, durationSec: number): Promise<string | null> {
+const MUSIC_TIER_PROVIDER: Record<string, string> = {
+  standard: "stock",
+  plus: "stock",
+  pro: "stable_audio",
+  classic: "kie",
+};
+
+async function generateMusic(style: string, durationSec: number, musicTier = "standard"): Promise<string | null> {
   try {
     const styleMap: Record<string, string> = {
       interview: "calm ambient background",
@@ -146,10 +153,11 @@ async function generateMusic(style: string, durationSec: number): Promise<string
       story: "emotional cinematic underscore",
       explainer: "light corporate background music",
     };
+    const providerKey = MUSIC_TIER_PROVIDER[musicTier] ?? "stock";
     const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3200"}/api/music/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt: styleMap[style] || "ambient background", duration: durationSec, instrumental: true }),
+      body: JSON.stringify({ prompt: styleMap[style] || "ambient background", durationSeconds: durationSec, providerKey, instrumental: true }),
     });
     const data = await res.json();
     return data.audioUrl ?? data.url ?? null;
@@ -245,6 +253,7 @@ export async function POST(req: NextRequest) {
       addBroll = false,
       addMusic = true,
       tier = "pro" as AITier,
+      musicTier = "standard",
     } = body;
 
     if (!imageUrl) return NextResponse.json({ error: "imageUrl required" }, { status: 400 });
@@ -312,7 +321,7 @@ export async function POST(req: NextRequest) {
 
         if (addMusic) {
           parallel.push(
-            generateMusic(style, duration)
+            generateMusic(style, duration, musicTier)
               .then(url => { musicUrl = url; stepDone("Background music"); })
               .catch(() => stepFail("Background music"))
           );
@@ -328,6 +337,19 @@ export async function POST(req: NextRequest) {
         job.status = "done";
         job.step = "Complete";
         job.result = { videoUrl: finalUrl, script, audioUrl };
+
+        // Auto-save to content registry so it appears in All Content
+        try {
+          const { createContentItem } = await import("@/modules/content-registry");
+          await createContentItem({
+            originalInput: topic,
+            mode: "FREE",
+            durationSeconds: duration,
+            narrationScript: script,
+            requestedMusicProvider: musicTier,
+            outputMode: "avatar",
+          });
+        } catch { /* non-blocking */ }
 
       } catch (e) {
         job.status = "error";

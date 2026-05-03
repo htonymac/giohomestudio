@@ -74,6 +74,7 @@ export default function SceneForgePage() {
   const [duration, setDuration]         = useState<number>(30);
   const [voice, setVoice]               = useState<string>("default");
   const [addMusic, setAddMusic]         = useState<boolean>(true);
+  const [musicTier, setMusicTier]       = useState<"standard" | "pro" | "classic">("standard");
   const [addBroll, setAddBroll]         = useState<boolean>(false);
   const [tier, setTier]                 = useState<AITier>("pro");
   const [videoModel, setVideoModel]     = useState<string>("muapi_seedance_v2");
@@ -107,6 +108,7 @@ export default function SceneForgePage() {
         if (s.duration) setDuration(s.duration as number);
         if (s.voice)    setVoice(s.voice as string);
         if (typeof s.addMusic === "boolean") setAddMusic(s.addMusic);
+        if (s.musicTier) setMusicTier(s.musicTier as "standard" | "pro" | "classic");
         if (typeof s.addBroll === "boolean") setAddBroll(s.addBroll);
         if (s.tier)       setTier(s.tier as AITier);
         if (s.videoModel) setVideoModel(s.videoModel as string);
@@ -121,7 +123,7 @@ export default function SceneForgePage() {
   // ── Auto-save state on changes ─────────────────────────────────────────────
   useEffect(() => {
     if (!restoredRef.current) return;
-    const draft = { topic, style, aspect, duration, voice, addMusic, addBroll, tier, videoModel, imageModel, history: history.slice(0, 20) };
+    const draft = { topic, style, aspect, duration, voice, addMusic, musicTier, addBroll, tier, videoModel, imageModel, history: history.slice(0, 20) };
     fetch("/api/hybrid/saved-state", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -204,7 +206,7 @@ export default function SceneForgePage() {
       const res = await fetch("/api/avatar/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, topic, style, aspectRatio: aspect, duration, voice, addBroll, addMusic, tier, videoModel, imageModel }),
+        body: JSON.stringify({ imageUrl, topic, style, aspectRatio: aspect, duration, voice, addBroll, addMusic, musicTier, tier, videoModel, imageModel }),
       });
       const data = await safeJson<{ jobId?: string; error?: string }>(res, "avatar/create");
       if (data.error) throw new Error(data.error);
@@ -409,6 +411,29 @@ export default function SceneForgePage() {
             <ToggleChip label="Music" icon={<Music size={12} />} active={addMusic} onChange={setAddMusic} />
             <ToggleChip label="B-roll" icon={<Film size={12} />} active={addBroll} onChange={setAddBroll} />
           </div>
+
+          {/* Music tier selector */}
+          {addMusic && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.sans, letterSpacing: "0.05em", textTransform: "uppercase" }}>Music Source</label>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {([
+                  { id: "standard", label: "GHS Standard", desc: "Stock library — always free", badge: "FREE", color: ds.color.lilac },
+                  { id: "pro",      label: "GHS Pro",      desc: "FAL Stable Audio — up to 47s", badge: "MID",  color: "#7cc4ff" },
+                  { id: "classic",  label: "GHS Classic",  desc: "Suno via Kie.ai — full songs",  badge: "PREMIUM", color: "#ff9a3c" },
+                ] as const).map(opt => (
+                  <button key={opt.id} onClick={() => setMusicTier(opt.id)}
+                    style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${musicTier === opt.id ? opt.color : ds.color.line2}`, background: musicTier === opt.id ? `${opt.color}14` : ds.color.card, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === opt.id ? opt.color : ds.color.mute, fontFamily: ds.font.sans }}>{opt.label}</p>
+                      <p style={{ margin: 0, fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.sans }}>{opt.desc}</p>
+                    </div>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: opt.color, border: `1px solid ${opt.color}44`, borderRadius: 4, padding: "2px 6px", fontFamily: ds.font.mono }}>{opt.badge}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Video + Image models */}
           {addBroll && (

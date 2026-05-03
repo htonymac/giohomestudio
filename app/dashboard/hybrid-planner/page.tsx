@@ -8634,30 +8634,43 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       )}
 
       {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
-      <SupervisorStatusBar
-        plannerType="hybrid"
-        projectId={projectId}
-        designComplete={!!projectStyle}
-        storyComplete={!!expandedSummary || !!idea}
-        charactersComplete={characters.length > 0}
-        soundComplete={!!narratorAudioUrl || scriptSegments.length > 0}
-        scenesComplete={scenes.length > 0 && scenes.some(s => sceneImages[s.sceneId])}
-        assemblyComplete={!!assembledVideoUrl}
-        storyText={expandedSummary || idea}
-        onAutoFix={(section) => {
-          // Navigate to the relevant tab for auto-fix
-          const tabMap: Record<string, WorkshopTab> = {
-            design: "story",
-            story: "story",
-            characters: "characters",
-            sound: "audio",
-            scenes: "scenes",
-            assembly: "assembly",
-          };
-          const target = tabMap[section] as WorkshopTab;
-          if (target) setActiveTab(target);
-        }}
-      />
+      {(() => {
+        // Hybrid tab flow order
+        const FLOW: { id: WorkshopTab; label: string }[] = [
+          { id: "story",      label: "Script" },
+          { id: "script",     label: "Sound & SFX" },
+          { id: "audio",      label: "Characters" },
+          { id: "characters", label: "Scene Board" },
+          { id: "scenes",     label: "Screenplay" },
+          { id: "screenplay", label: "Assembly" },
+          { id: "assembly",   label: "Overview" },
+        ];
+        const idx = FLOW.findIndex(t => t.id === activeTab);
+        const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx] : null;
+        return (
+          <SupervisorStatusBar
+            plannerType="hybrid"
+            projectId={projectId}
+            designComplete={!!projectStyle}
+            storyComplete={!!expandedSummary || !!idea}
+            charactersComplete={characters.length > 0}
+            soundComplete={!!narratorAudioUrl || scriptSegments.length > 0}
+            scenesComplete={scenes.length > 0 && scenes.some(s => sceneImages[s.sceneId])}
+            assemblyComplete={!!assembledVideoUrl}
+            storyText={expandedSummary || idea}
+            nextTabLabel={next?.label}
+            onNextTab={next ? () => setActiveTab(FLOW[idx + 1].id) : undefined}
+            onAutoFix={(section) => {
+              const tabMap: Record<string, WorkshopTab> = {
+                design: "story", story: "story", characters: "characters",
+                sound: "audio", scenes: "scenes", assembly: "assembly",
+              };
+              const target = tabMap[section] as WorkshopTab;
+              if (target) setActiveTab(target);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

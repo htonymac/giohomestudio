@@ -44,6 +44,9 @@ export interface SupervisorStatusBarProps {
   storyText?: string;
   // Callback when user requests auto-fix
   onAutoFix?: (section: string) => void;
+  // Next-tab navigation — shown as a prominent button in the bar
+  nextTabLabel?: string;   // e.g. "Scene Board"
+  onNextTab?: () => void;  // fires setActiveTab(nextId)
   // Compact mode (single line) vs expanded
   compact?: boolean;
 }
@@ -72,6 +75,8 @@ export default function SupervisorStatusBar({
   assemblyComplete = false,
   storyText = "",
   onAutoFix,
+  nextTabLabel,
+  onNextTab,
   compact = false,
 }: SupervisorStatusBarProps) {
   const [status, setStatus] = useState<SupervisorStatus | null>(null);
@@ -146,14 +151,41 @@ export default function SupervisorStatusBar({
     <div
       data-testid="supervisor-status-bar"
       style={{
-        background: "rgba(10,13,20,0.85)",
-        borderTop: `2px solid ${barColor}20`,
+        background: "rgba(10,13,20,0.95)",
+        borderTop: `2px solid ${barColor}30`,
         position: "sticky",
         bottom: 0,
         zIndex: 40,
         fontSize: 12,
       }}
     >
+      {/* ── Next Tab Button — prominent CTA to guide users forward ── */}
+      {nextTabLabel && onNextTab && (
+        <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(90,112,128,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+          <span style={{ color: "#5a7080", fontSize: 12 }}>
+            {allGreen ? "All sections ready." : `${totalSections - completeSections} section${totalSections - completeSections !== 1 ? "s" : ""} remaining — you can continue.`}
+          </span>
+          <button
+            onClick={onNextTab}
+            style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 22px",
+              borderRadius: 10,
+              background: "linear-gradient(135deg, #a78bfa, #7c3aed)",
+              border: "none",
+              color: "#fff",
+              fontSize: 14,
+              fontWeight: 700,
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(124,58,237,0.4)",
+              flexShrink: 0,
+            }}
+          >
+            Next: {nextTabLabel} →
+          </button>
+        </div>
+      )}
+
       {/* ── Summary row ── */}
       <div
         style={{

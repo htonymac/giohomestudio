@@ -209,13 +209,13 @@ const AID_IMAGE_MODELS = [
   { id:"fal_flux_pro_ultra",    name:"Flux Pro Ultra",       price:0.060, network:"FAL",     res:"2048px", color:"#f472b6", desc:"Highest resolution. Print quality." },
 ];
 
-// ── 5-Tier Sound Model Selector (binding) ──
+// ── 5-Tier Sound Model Selector (binding per GHS music tiers doc) ──
 const SOUND_TIERS_MOVIE = [
-  { id: "piper_free",      label: "Standard (built-in GHS)", cost: "Free" },
-  { id: "piper_extended",  label: "Start Plus",              cost: "Low cost" },
-  { id: "ghs_karaoke",     label: "Sound Pro (GHS Karaoke)", cost: "Mid" },
-  { id: "elevenlabs",      label: "Classic",                 cost: "Premium" },
-  { id: "gemini",          label: "Premium",                 cost: "Highest" },
+  { id: "piper_free",     label: "GHS Standard", desc: "Piper local TTS — always free",              cost: "Free" },
+  { id: "piper_extended", label: "GHS Plus",     desc: "Karaoke + stock mix — low cost",             cost: "Low cost" },
+  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "FAL Stable Audio ≤47s instrumental",         cost: "Mid" },
+  { id: "elevenlabs",     label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",       cost: "Premium" },
+  { id: "gemini",         label: "GHS Premium",  desc: "Gemini Lyria — waiting for public API",      cost: "Highest" },
 ] as const;
 type SoundTierMovieId = typeof SOUND_TIERS_MOVIE[number]["id"];
 
@@ -4293,29 +4293,42 @@ function MoviePlannerInner() {
       </div>
 
       {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
-      <SupervisorStatusBar
-        plannerType="movie"
-        projectId={projectId}
-        designComplete={!!(genre || style || format)}
-        storyComplete={!!(expandedStory || idea)}
-        charactersComplete={savedCharacters.length > 0}
-        soundComplete={!!(narrationProvider && narrationProvider !== "piper") || autoSfx}
-        scenesComplete={(moviePlan?.scenes ?? []).length > 0}
-        assemblyComplete={!!assembledUrl}
-        storyText={expandedStory || idea}
-        onAutoFix={(section) => {
-          const tabMap: Record<string, WorkshopTab> = {
-            design: "design",
-            story: "story",
-            characters: "characters",
-            sound: "sound",
-            scenes: "scenes",
-            assembly: "assembly",
-          };
-          const target = tabMap[section] as WorkshopTab;
-          if (target) setActiveTab(target);
-        }}
-      />
+      {(() => {
+        const FLOW: { id: WorkshopTab; label: string }[] = [
+          { id: "design",     label: "Story & Draft" },
+          { id: "story",      label: "Screenplay" },
+          { id: "script",     label: "Voice & Audio" },
+          { id: "sound",      label: "Cast" },
+          { id: "characters", label: "Scene Board" },
+          { id: "scenes",     label: "Assembly" },
+          { id: "assembly",   label: "Overview" },
+        ];
+        const idx = FLOW.findIndex(t => t.id === activeTab);
+        const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx] : null;
+        return (
+          <SupervisorStatusBar
+            plannerType="movie"
+            projectId={projectId}
+            designComplete={!!(genre || style || format)}
+            storyComplete={!!(expandedStory || idea)}
+            charactersComplete={savedCharacters.length > 0}
+            soundComplete={!!(narrationProvider && narrationProvider !== "piper") || autoSfx}
+            scenesComplete={(moviePlan?.scenes ?? []).length > 0}
+            assemblyComplete={!!assembledUrl}
+            storyText={expandedStory || idea}
+            nextTabLabel={next?.label}
+            onNextTab={next ? () => setActiveTab(FLOW[idx + 1].id) : undefined}
+            onAutoFix={(section) => {
+              const tabMap: Record<string, WorkshopTab> = {
+                design: "design", story: "story", characters: "characters",
+                sound: "sound", scenes: "scenes", assembly: "assembly",
+              };
+              const target = tabMap[section] as WorkshopTab;
+              if (target) setActiveTab(target);
+            }}
+          />
+        );
+      })()}
     </div>
   );
 }

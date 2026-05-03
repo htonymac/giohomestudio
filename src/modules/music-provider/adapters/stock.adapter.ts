@@ -44,11 +44,10 @@ function getStockDir(): string {
 }
 
 function findFile(stockDir: string, candidates: string[]): string | null {
-  for (const filename of candidates) {
-    const p = path.join(stockDir, filename);
-    if (fs.existsSync(p)) return p;
-  }
-  return null;
+  const found = candidates.map(f => path.join(stockDir, f)).filter(p => fs.existsSync(p));
+  if (found.length === 0) return null;
+  // Randomize so same keyword doesn't always return the same track
+  return found[Math.floor(Math.random() * found.length)];
 }
 
 function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string): string | null {
