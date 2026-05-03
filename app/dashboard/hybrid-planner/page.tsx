@@ -6147,14 +6147,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Narration Provider</p>
-                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Standard = kokoro-82m (FAL_KEY). FAL Pro = kokoro full model (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech.</p>
+                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Standard = Piper TTS (free). Pro = GHS Karaoke built-in. Karaoke = FAL kokoro (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
                     {([
-                      { id: "piper",              label: "Piper (free)",       color: accent },
-                      { id: "fal-narrator",       label: "FAL Standard",       color: blue },
+                      { id: "piper",              label: "GHS Standard",       color: accent },
+                      { id: "karaoke",            label: "GHS Pro",            color: gold },
+                      { id: "fal-narrator",       label: "GHS Karaoke",        color: blue },
                       { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
                       { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
-                      { id: "karaoke",            label: "Karaoke",            color: gold },
                       { id: "none",               label: "None",               color: muted },
                     ] as const).map(v => (
                       <button key={v.id} onClick={() => setNarratorVoice(v.id)}
@@ -6822,14 +6822,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* ── Narration Provider — global selector (always visible in Audio tab) ── */}
           <div style={{ ...cardStyle, borderColor: `${accent}15`, marginBottom: 16 }} data-testid="narration-provider-card">
             <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Narration Provider</p>
-            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Piper = free local. FAL Standard = kokoro-82m (FAL_KEY). FAL Pro = kokoro full model (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY). Karaoke = browser speech (no file).</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Standard = Piper TTS (free). Pro = GHS Karaoke built-in. Karaoke = FAL kokoro (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
               {([
-                { id: "piper",              label: "Piper (free)",       color: accent },
-                { id: "fal-narrator",       label: "FAL Standard",       color: blue },
+                { id: "piper",              label: "GHS Standard",       color: accent },
+                { id: "karaoke",            label: "GHS Pro",            color: gold },
+                { id: "fal-narrator",       label: "GHS Karaoke",        color: blue },
                 { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
                 { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
-                { id: "karaoke",            label: "Karaoke",            color: gold },
                 { id: "none",              label: "None",                color: muted },
               ] as const).map(v => (
                 <button key={v.id} onClick={() => setNarratorVoice(v.id)}

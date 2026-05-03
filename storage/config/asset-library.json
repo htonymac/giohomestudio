@@ -5765,5 +5765,19 @@
     ],
     "source": "scene_generated",
     "createdAt": "2026-04-29T06:23:10.879Z"
+  },
+  {
+    "id": "scene_vid_scene_child_sc01_1777690372525.mp4",
+    "type": "video",
+    "name": "Scene scene_child_sc01_1777690372525 · 5/1/2026",
+    "description": "Generated scene clip — scene_child_sc01_1777690372525.mp4",
+    "filePath": "C:\\Users\\USER\\Desktop\\CLAUDE\\giohomestudio\\storage\\videos\\scene_child_sc01_1777690372525.mp4",
+    "tags": [
+      "video",
+      "scene",
+      "scene_child_sc01_1777690372525"
+    ],
+    "source": "scene_generated",
+    "createdAt": "2026-05-02T02:52:52.525Z"
   }
 ]

@@ -165,13 +165,13 @@ const MOVIE_GENRES = ["Adventure", "Fantasy", "Animals", "Space", "Ocean", "Jung
 const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 
-// ── 5-Tier Sound Model Selector (binding per GHS music tiers doc) ──
+// ── 5-Tier Sound Model Selector ──
 const SOUND_TIERS = [
-  { id: "piper_free",     label: "GHS Standard", desc: "Piper local TTS — always free",              cost: "Free" },
-  { id: "piper_extended", label: "GHS Plus",     desc: "Karaoke + stock mix — low cost",             cost: "Low cost" },
-  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "FAL Stable Audio ≤47s instrumental",         cost: "Mid" },
-  { id: "elevenlabs",     label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",       cost: "Premium" },
-  { id: "gemini",         label: "GHS Premium",  desc: "Gemini Lyria — waiting for public API",      cost: "Highest" },
+  { id: "piper",          label: "GHS Standard", desc: "Piper TTS — free, always available",      cost: "Free",    providerKey: "piper" },
+  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "GHS Karaoke built-in",                    cost: "Low",     providerKey: "karaoke" },
+  { id: "fal_karaoke",    label: "GHS Karaoke",  desc: "FAL karaoke music generation",            cost: "Mid",     providerKey: "stable_audio" },
+  { id: "kie_classic",    label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",   cost: "Premium", providerKey: "kie" },
+  { id: "kie_premium",    label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      cost: "Highest", providerKey: "kie" },
 ] as const;
 type SoundTierId = typeof SOUND_TIERS[number]["id"];
 

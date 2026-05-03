@@ -209,13 +209,13 @@ const AID_IMAGE_MODELS = [
   { id:"fal_flux_pro_ultra",    name:"Flux Pro Ultra",       price:0.060, network:"FAL",     res:"2048px", color:"#f472b6", desc:"Highest resolution. Print quality." },
 ];
 
-// ── 5-Tier Sound Model Selector (binding per GHS music tiers doc) ──
+// ── 5-Tier Sound Model Selector ──
 const SOUND_TIERS_MOVIE = [
-  { id: "piper_free",     label: "GHS Standard", desc: "Piper local TTS — always free",              cost: "Free" },
-  { id: "piper_extended", label: "GHS Plus",     desc: "Karaoke + stock mix — low cost",             cost: "Low cost" },
-  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "FAL Stable Audio ≤47s instrumental",         cost: "Mid" },
-  { id: "elevenlabs",     label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",       cost: "Premium" },
-  { id: "gemini",         label: "GHS Premium",  desc: "Gemini Lyria — waiting for public API",      cost: "Highest" },
+  { id: "piper",          label: "GHS Standard", desc: "Piper TTS — free, always available",      cost: "Free",    providerKey: "piper" },
+  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "GHS Karaoke built-in",                    cost: "Low",     providerKey: "karaoke" },
+  { id: "fal_karaoke",    label: "GHS Karaoke",  desc: "FAL karaoke music generation",            cost: "Mid",     providerKey: "stable_audio" },
+  { id: "kie_classic",    label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",   cost: "Premium", providerKey: "kie" },
+  { id: "kie_premium",    label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      cost: "Highest", providerKey: "kie" },
 ] as const;
 type SoundTierMovieId = typeof SOUND_TIERS_MOVIE[number]["id"];
 
