@@ -338,7 +338,12 @@ export async function POST(req: NextRequest) {
         job.step = "Complete";
         job.result = { videoUrl: finalUrl, script, audioUrl };
 
-        // Auto-save to content registry so it appears in All Content
+        // Auto-save to asset library + content registry so it appears in history
+        try {
+          const { saveVideoAsset } = await import("@/lib/save-video-asset");
+          const fsPath = path.join(env.storagePath, finalUrl.replace("/api/media/", ""));
+          saveVideoAsset({ filePath: fsPath, title: `Scene Forge: ${topic.slice(0, 60)}`, source: "scene_forge", durationSeconds: duration, tags: ["scene_forge", "avatar", "video"] });
+        } catch { /* non-blocking */ }
         try {
           const { createContentItem } = await import("@/modules/content-registry");
           await createContentItem({

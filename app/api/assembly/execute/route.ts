@@ -158,6 +158,16 @@ export async function POST(req: NextRequest) {
       assetUrl = `/api/media/${path.relative(env.storagePath, finalOutputPath).replace(/\\/g, "/")}`;
 
       try {
+        const { saveVideoAsset } = await import("@/lib/save-video-asset");
+        saveVideoAsset({
+          filePath: finalOutputPath,
+          title: assembly.title || "Assembled Video",
+          source: assembly.projectId?.includes("children") ? "children_planner" : assembly.projectId?.includes("movie") ? "movie_planner" : "hybrid_planner",
+          durationSeconds: finalDuration,
+          tags: ["assembled", "planner", "video"],
+        });
+      } catch { /* non-blocking */ }
+      try {
         const { prisma } = await import("@/lib/prisma");
         await prisma.contentItem.create({
           data: {
@@ -170,7 +180,7 @@ export async function POST(req: NextRequest) {
           },
         });
       } catch {
-        // Asset library save failed — output still usable
+        // DB save failed — output still usable
       }
 
       // Update Assembly Record

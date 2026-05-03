@@ -74,7 +74,7 @@ export default function SceneForgePage() {
   const [duration, setDuration]         = useState<number>(30);
   const [voice, setVoice]               = useState<string>("default");
   const [addMusic, setAddMusic]         = useState<boolean>(true);
-  const [musicTier, setMusicTier]       = useState<"standard" | "pro" | "classic">("standard");
+  const [musicTier, setMusicTier]       = useState<"standard" | "ghs_karaoke" | "pro" | "classic" | "premium">("standard");
   const [addBroll, setAddBroll]         = useState<boolean>(false);
   const [tier, setTier]                 = useState<AITier>("pro");
   const [videoModel, setVideoModel]     = useState<string>("muapi_seedance_v2");
@@ -108,7 +108,7 @@ export default function SceneForgePage() {
         if (s.duration) setDuration(s.duration as number);
         if (s.voice)    setVoice(s.voice as string);
         if (typeof s.addMusic === "boolean") setAddMusic(s.addMusic);
-        if (s.musicTier) setMusicTier(s.musicTier as "standard" | "pro" | "classic");
+        if (s.musicTier) setMusicTier(s.musicTier as "standard" | "ghs_karaoke" | "pro" | "classic" | "premium");
         if (typeof s.addBroll === "boolean") setAddBroll(s.addBroll);
         if (s.tier)       setTier(s.tier as AITier);
         if (s.videoModel) setVideoModel(s.videoModel as string);
@@ -418,9 +418,11 @@ export default function SceneForgePage() {
               <label style={{ fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.sans, letterSpacing: "0.05em", textTransform: "uppercase" }}>Music Source</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {([
-                  { id: "standard", label: "GHS Standard", desc: "Stock library — always free", badge: "FREE", color: ds.color.lilac },
-                  { id: "pro",      label: "GHS Pro",      desc: "FAL Stable Audio — up to 47s", badge: "MID",  color: "#7cc4ff" },
-                  { id: "classic",  label: "GHS Classic",  desc: "Suno via Kie.ai — full songs",  badge: "PREMIUM", color: "#ff9a3c" },
+                  { id: "standard",    label: "GHS Standard", desc: "Piper TTS — free, always available",      badge: "FREE",    color: ds.color.lilac },
+                  { id: "ghs_karaoke", label: "GHS Pro",      desc: "GHS Karaoke built-in",                   badge: "LOW",     color: "#22c55e" },
+                  { id: "pro",         label: "GHS Karaoke",  desc: "FAL Stable Audio — up to 47s",           badge: "MID",     color: "#7cc4ff" },
+                  { id: "classic",     label: "GHS Classic",  desc: "Suno via Kie.ai — full songs",           badge: "PREMIUM", color: "#ff9a3c" },
+                  { id: "premium",     label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      badge: "HIGHEST", color: "#a855f7" },
                 ] as const).map(opt => (
                   <button key={opt.id} onClick={() => setMusicTier(opt.id)}
                     style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${musicTier === opt.id ? opt.color : ds.color.line2}`, background: musicTier === opt.id ? `${opt.color}14` : ds.color.card, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
