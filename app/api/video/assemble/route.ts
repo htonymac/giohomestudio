@@ -948,20 +948,33 @@ export async function POST(req: NextRequest) {
 
     // ── Step 8b: Also save to Content Registry (All Content page) ──
     try {
-      const { createContentItem } = await import("@/modules/content-registry");
-      await createContentItem({
+      const { createContentItem, updateContentItem, createContentVersion } = await import("@/modules/content-registry");
+      const contentItem = await createContentItem({
         originalInput: body.title || "Assembled Video",
         mode: "FREE",
         aiAutoMode: true,
         aspectRatio: body.aspectRatio || "16:9",
+        durationSeconds: totalDuration || undefined,
         storyContext: JSON.stringify({
-          source: "video-assembler",
+          source: body.projectId?.includes("children") ? "children_planner" : body.projectId?.includes("movie") ? "movie_planner" : "hybrid_planner",
           scenes: body.scenes.length,
           duration: totalDuration,
           hasMusic: !!body.musicUrl,
           hasNarration: !!(body.narrationUrl || body.narrationList?.length),
           hasSfx: !!(body.sfx?.length),
         }),
+      });
+      // Mark as APPROVED with the output path so it shows in All Content
+      await updateContentItem(contentItem.id, {
+        status: "APPROVED",
+        mergedOutputPath: outputPath,
+        durationSeconds: totalDuration || undefined,
+      });
+      await createContentVersion({
+        contentItemId: contentItem.id,
+        status: "APPROVED",
+        mergedOutputPath: outputPath,
+        reason: `Auto-saved from video assembler — ${body.scenes.length} scenes`,
       });
     } catch { /* best effort */ }
 

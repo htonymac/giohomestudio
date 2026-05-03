@@ -205,6 +205,7 @@ interface ChildCharacter {
 // ── Full Character Identity (hybrid-style registry) ──
 interface CharacterIdentity {
   characterId: string;
+  dbId?: string;       // DB CUID from character-voices table — set when imported from registry
   displayName: string;
   roleType: string;
   gender: string;
@@ -381,13 +382,13 @@ function ChildrenPlannerInner() {
   const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok"|"warn"|"checking"; note: string } | null>(null);
 
   // ── Sound tier & model settings ──
-  const [soundTier, setSoundTier] = useState<SoundTierId>("piper_free");
+  const [soundTier, setSoundTier] = useState<SoundTierId>("piper");
   const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
     charImageModel: "fal_flux_schnell",
     sceneVideoModel: "fal_wan_lite",
-    soundModel: "piper_free" as SoundTierId,
+    soundModel: "piper" as SoundTierId,
   });
   const [showModelSettings, setShowModelSettings] = useState(false);
 
@@ -759,6 +760,19 @@ function ChildrenPlannerInner() {
     setPhotoImportLog("");
   }
 
+  // Persist portrait URL to character-voices DB so the image survives across projects/planners
+  async function persistPortraitToRegistry(char: CharacterIdentity, imageUrl: string) {
+    const dbId = char.dbId || savedChars.find(s => s.characterId === char.characterId)?.id;
+    if (!dbId) return;
+    try {
+      await fetch(`/api/character-voices/${dbId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+    } catch { /* best-effort */ }
+  }
+
   async function generateCharacterPortrait(char: CharacterIdentity) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
@@ -783,6 +797,7 @@ function ChildrenPlannerInner() {
       if (url) {
         setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: url, hasImage: true, imageLocked: false } : c));
         setLastAction(`Portrait generated for ${char.displayName} — AI reading image...`);
+        persistPortraitToRegistry(char, url);
         analyzeCharacterImage(char.characterId, url);
       }
     } catch (err) {
@@ -884,6 +899,8 @@ function ChildrenPlannerInner() {
     setCharacters(prev => prev.map(c => c.characterId === charId ? { ...c, imageUrl, hasImage: true, imageLocked: false } : c));
     setImagePickerForCharId(null);
     setLastAction(`Image assigned — AI reading look...`);
+    const char = characters.find(c => c.characterId === charId);
+    if (char) persistPortraitToRegistry(char, imageUrl);
     analyzeCharacterImage(charId, imageUrl);
   }
 
@@ -3056,6 +3073,7 @@ function ChildrenPlannerInner() {
                     onSelect={(char) => {
                       const newChar: CharacterIdentity = {
                         characterId: char.characterId || char.id || `CC_IMP_${Date.now()}`,
+                        dbId: char.id,
                         displayName: char.name,
                         roleType: char.role || "supporting",
                         gender: char.gender || "unknown",
@@ -3065,7 +3083,7 @@ function ChildrenPlannerInner() {
                         emotionProfile: "", voiceId: char.voiceId || "",
                         voiceType: "childlike", intonation: "playful", language: "English",
                         tags: ["imported"], hasVoice: !!char.voiceId, hasImage: !!char.imageUrl,
-                        imageUrl: char.imageUrl || undefined,
+                        imageUrl: char.imageUrl ? (char.imageUrl.startsWith("http") || char.imageUrl.startsWith("/api/") ? char.imageUrl : `/api/media/${char.imageUrl.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`) : undefined,
                         visualDescription: char.visualDescription || undefined,
                       };
                       setCharacters(prev => prev.some(c => c.characterId === newChar.characterId) ? prev : [...prev, newChar]);

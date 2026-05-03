@@ -374,14 +374,14 @@ function MoviePlannerInner() {
   const [showCutsPanel, setShowCutsPanel] = useState(false);
 
   // ── Sound tier & model settings (SD) ──
-  const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper_free");
+  const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper");
   const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
   const [musicGenerating, setMusicGenerating] = useState(false);
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
     charImageModel: "fal_flux_schnell",
     sceneVideoModel: "kling_1_6_standard",
-    soundModel: "piper_free" as SoundTierMovieId,
+    soundModel: "piper" as SoundTierMovieId,
   });
   const [showModelSettings, setShowModelSettings] = useState(false);
 
@@ -3003,7 +3003,7 @@ function MoviePlannerInner() {
                     <div style={{ height: 80, background: s2, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", cursor: "pointer" }}
                       onClick={() => inCast ? removeCast(char.id) : addToCast(char.id)}>
                       {char.imageUrl ? (
-                        <img src={char.imageUrl} alt={char.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        <img src={char.imageUrl.startsWith("http") || char.imageUrl.startsWith("/api/") ? char.imageUrl : `/api/media/${char.imageUrl.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`} alt={char.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                       ) : (
                         <Icon.User style={{ width: 32, height: 32, color: muted, opacity: 0.3 }} />
                       )}
@@ -3024,8 +3024,12 @@ function MoviePlannerInner() {
                             body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, model: castPortraitModel }),
                           }).then(r => r.json()).then(d => {
                             if (d.imageUrl || d.imagePath) {
-                              setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl || d.imagePath } : c));
+                              const raw = d.imageUrl || d.imagePath || "";
+                              const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+                              setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
                               setLastAction(`Portrait generated for ${char.name}`);
+                              // Persist portrait to character-voices DB so it's available across planners
+                              fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
                             }
                           }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
                         }}

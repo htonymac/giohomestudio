@@ -32,6 +32,7 @@ import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 
 interface CharacterIdentity {
   characterId: string;
+  dbId?: string;       // DB CUID from character-voices — set when imported from registry
   displayName: string;
   roleType: string;
   gender: string;
@@ -3142,6 +3143,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
   }
 
   // ── Generate portrait for a character using their full visual description ──
+  async function persistPortraitToRegistry(char: CharacterIdentity, imageUrl: string) {
+    if (!char.dbId) return;
+    try {
+      await fetch(`/api/character-voices/${char.dbId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl }),
+      });
+    } catch { /* best-effort */ }
+  }
+
   async function generateCharacterPortrait(char: CharacterIdentity) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
@@ -3192,6 +3204,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             : c
         ));
         setLastAction(`Portrait generated for ${char.displayName} — AI is now reading the image...`);
+        persistPortraitToRegistry(char, url);
         analyzeCharacterImage(char.characterId, url);
       } else {
         setUiError(`Portrait generated but image URL missing. Check server logs.`);
@@ -8558,6 +8571,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     if (prev.some(x => x.characterId === cid)) return prev;
                     return [...prev, {
                       characterId: cid,
+                      dbId: c.id,
                       displayName: movieName,
                       roleType: c.role || "supporting",
                       gender: c.gender || "",
@@ -8598,6 +8612,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     if (prev.some(x => x.characterId === cid)) return prev;
                     return [...prev, {
                       characterId: cid,
+                      dbId: c.id,
                       displayName: movieName,
                       roleType: c.role || "supporting",
                       gender: c.gender || "",
