@@ -699,7 +699,13 @@ export default function MusicVideoPlannerPage() {
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
         }),
       });
-      const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "music-video expand");
+      const expandData = await safeJson<{ ok?: boolean; error?: string; expandedStory?: { summary?: string }; summary?: string }>(expandRes, "music-video expand");
+
+      // API may return 200 with ok:false (e.g. parse failure at 422 is caught by safeJson, but
+      // a 200+ok:false would slip through — catch it explicitly so user sees the error)
+      if (expandData.ok === false) {
+        throw new Error(expandData.error || "Story AI returned ok:false — check API keys");
+      }
 
       const expandedSummary = expandData.expandedStory?.summary || expandData.summary || storyInput;
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
@@ -734,6 +740,7 @@ export default function MusicVideoPlannerPage() {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      console.error("[expandStory] failed:", msg);
       setExpandError(`Story expansion failed: ${msg}`);
       setLastAction("AI expansion failed — see error below");
     }
