@@ -787,6 +787,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
   const [enhancingNarration, setEnhancingNarration] = useState(false);
+  const [narrationEnhanceError, setNarrationEnhanceError] = useState<string | null>(null);
 
   // ── Intro / Outro contact fields (AI Order) ──────────────────────────────
   const [introPhone, setIntroPhone]       = useState("");
@@ -1785,8 +1786,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, field: "caption", maxWords: project.captionMaxWords, maxChars: project.captionMaxChars }),
                         });
                         const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-caption-polish");
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished ?? "", loading: false });
-                        else setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        if (data.error) setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: data.error });
+                        else setPolishState({ slideId: selectedSlide.id, field: "caption", polished: data.polished ?? "", loading: false });
                         } catch (err) {
                           setPolishState({ slideId: selectedSlide.id, field: "caption", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
                         }
@@ -1936,8 +1937,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                           body: JSON.stringify({ text, brandName: project.brandName ?? undefined, tone: "warm", field: "narration" }),
                         });
                         const data = await safeJson<{ polished?: string; error?: string }>(res, "commercial-narration-polish");
-                        if (res.ok) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished ?? "", loading: false });
-                        else setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: data.error ?? "LLM unavailable" });
+                        if (data.error) setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: data.error });
+                        else setPolishState({ slideId: selectedSlide.id, field: "narration", polished: data.polished ?? "", loading: false });
                         } catch (err) {
                           setPolishState({ slideId: selectedSlide.id, field: "narration", polished: "", loading: false, error: err instanceof Error ? err.message : "Polish request failed" });
                         }
@@ -2570,6 +2571,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 disabled={aiOrdering || project.slides.length === 0}
                 onClick={async () => {
                   setAiOrdering(true);
+                  setNarrationEnhanceError(null);
                   try {
                     // Step 1: get image URLs from slides
                     const imageUrls = project.slides
@@ -2584,7 +2586,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ imageUrls, includeImages: true }),
                     });
-                    const data = await safeJson<{ narration?: string; error?: string }>(res, "commercial-ai-order");
+                    if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
+                      const txt = await res.text();
+                      setNarrationEnhanceError(`AI Order failed: ${txt.slice(0, 200)}`);
+                      setAiOrdering(false);
+                      return;
+                    }
+                    const data = await res.json() as { narration?: string; error?: string };
+                    if (data.error) { setNarrationEnhanceError(data.error); setAiOrdering(false); return; }
                     if (data.narration) {
                       // Build intro + outro with contact info
                       const contactParts: string[] = [];
@@ -2605,9 +2614,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
                         await patchSlide(slides[i].id, { narrationLine: line });
                       }
+                    } else {
+                      setNarrationEnhanceError("AI Order returned no narration. Add slide content first.");
                     }
                   } catch (err) {
-                    console.error("[commercial] AI Order failed:", err instanceof Error ? err.message : err);
+                    setNarrationEnhanceError(err instanceof Error ? err.message : "AI Order failed");
                   }
                   setAiOrdering(false);
                 }}
@@ -2649,9 +2660,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 disabled={enhancingNarration || project.slides.length === 0}
                 onClick={async () => {
                   setEnhancingNarration(true);
+                  setNarrationEnhanceError(null);
                   try {
                     const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, { method: "POST" });
-                    const data = await safeJson<{ narration?: string; error?: string; provider?: string }>(res, "commercial-enhance-narration");
+                    if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
+                      const txt = await res.text();
+                      setNarrationEnhanceError(`Narration enhance failed: ${txt.slice(0, 200)}`);
+                      setEnhancingNarration(false);
+                      return;
+                    }
+                    const data = await res.json() as { narration?: string; error?: string; provider?: string };
+                    if (data.error) { setNarrationEnhanceError(data.error); setEnhancingNarration(false); return; }
                     if (data.narration) {
                       // Build intro/outro contact lines if provided
                       let fullNarration = data.narration;
@@ -2673,9 +2692,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                         const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
                         await patchSlide(slides[i].id, { narrationLine: line });
                       }
+                    } else {
+                      setNarrationEnhanceError("No narration returned. Add captions or slide content first.");
                     }
                   } catch (err) {
-                    console.error("[commercial] enhance-narration failed:", err instanceof Error ? err.message : err);
+                    setNarrationEnhanceError(err instanceof Error ? err.message : "Enhance narration failed");
                   }
                   setEnhancingNarration(false);
                 }}
@@ -2685,6 +2706,12 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               </button>
             </div>
             <p className="text-[10px] text-[#6060a0] mb-2">AI reads all slides, captions, and your ad title to write a cohesive voiceover. Edit per-slide narration lines above.</p>
+            {narrationEnhanceError && (
+              <div className="flex items-start justify-between gap-2 border border-orange-800/40 rounded-lg p-2 bg-orange-950/20 mb-2">
+                <p className="text-[10px] text-orange-300/80">{narrationEnhanceError}</p>
+                <button onClick={() => setNarrationEnhanceError(null)} className="text-[#6060a0] hover:text-white text-xs shrink-0">✕</button>
+              </div>
+            )}
             {narrationScriptLines.length > 0 ? (
               <div className="space-y-1">
                 {narrationScriptLines.map((line, i) => (
