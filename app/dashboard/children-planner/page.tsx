@@ -1387,17 +1387,19 @@ function ChildrenPlannerInner() {
       const storyForTTS = (narrationText || readAlongText || textContent || "").trim();
       if (storyForTTS.length > 10) {
         try {
-          fixed.push("Generating narration (Piper TTS)...");
+          // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
+          const autoProvider = narrationProvider || "piper";
+          fixed.push(`Generating narration (${autoProvider})...`);
           const ttsRes = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: "piper", engine: "en_US-lessac-medium", speed: 0.9 }),
+            body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: autoProvider, speed: 0.9 }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json() as { audioUrl?: string };
             if (ttsData.audioUrl) {
               setNarratorAudioUrl(ttsData.audioUrl);
-              fixed[fixed.length - 1] = "Narration generated (Piper TTS).";
+              fixed[fixed.length - 1] = `Narration generated (${autoProvider}).`;
             } else {
               fixed[fixed.length - 1] = "";
               issues.push("Narration TTS returned no audio URL.");
@@ -4070,7 +4072,8 @@ function ChildrenPlannerInner() {
                           if (!text) { setUiError("Write story content first"); return; }
                           setLastAction("Generating narration...");
                           try {
-                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: "piper", engine: "en_US-lessac-medium", speed: 0.9 }) });
+                            // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
+                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: narrationProvider || "piper", speed: 0.9 }) });
                             const d = await r.json() as { audioUrl?: string };
                             if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
                             else setLastAction("Narration generation failed");
