@@ -10,6 +10,7 @@ import type { NarrationSettings } from "../../components/NarrationControls";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import { ds } from "../../../lib/designSystem";
+import { safeJson } from "../../../lib/api-utils";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
@@ -1626,18 +1627,19 @@ function HybridPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneId, currentText, action }),
       });
-      const data = await res.json();
-      if (data.polishedText) {
+      const data = await safeJson<{ polishedText?: string; error?: string }>(res, "scene-polish");
+      const polishedText = data.polishedText;
+      if (polishedText) {
         let updatedScene: HybridScene | undefined;
         setScenes(prev => {
-          const next = prev.map(s => s.sceneId === sceneId ? { ...s, description: data.polishedText } : s);
+          const next = prev.map(s => s.sceneId === sceneId ? { ...s, description: polishedText } : s);
           updatedScene = next.find(s => s.sceneId === sceneId);
           return next;
         });
         setLastAction(`Scene ${sceneId}: polished — regenerating image...`);
         // Auto-regen image with polished description
         if (updatedScene) {
-          await makeSceneImage({ ...updatedScene, description: data.polishedText });
+          await makeSceneImage({ ...updatedScene, description: polishedText });
         }
       } else if (data.error) {
         setLastAction(`Polish failed: ${data.error}`);
