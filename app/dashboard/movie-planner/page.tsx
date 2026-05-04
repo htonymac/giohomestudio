@@ -1369,18 +1369,16 @@ function MoviePlannerInner() {
   async function generateMovieMusic() {
     setMusicGenerating(true);
     try {
-      const tierProviderMap: Record<"stock" | "ghs_pro" | "ghs_classic", string> = {
-        stock: "stock",
-        ghs_pro: "stable_audio",
-        ghs_classic: "kie",
-      };
+      // Resolve providerKey from the selected SOUND_TIERS_MOVIE entry
+      const activeTier = SOUND_TIERS_MOVIE.find(t => t.id === soundTier);
+      const resolvedProviderKey = activeTier?.providerKey ?? "stock";
       const res = await fetch("/api/music/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: `${tone || "cinematic"} background score for a movie — ${genre || "drama"}`,
           durationSeconds: 30,
-          providerKey: tierProviderMap[musicTier],
+          providerKey: resolvedProviderKey,
         }),
       });
       if (!res.ok) {
@@ -1392,7 +1390,7 @@ function MoviePlannerInner() {
       const url = data.url ?? data.audioUrl ?? "";
       if (url) {
         setSelectedMusicUrl(url);
-        setSelectedMusicName(`AI Generated (${musicTier === "ghs_pro" ? "FAL Stable Audio" : musicTier === "ghs_classic" ? "Kie.ai" : "Stock"})`);
+        setSelectedMusicName(`AI Generated (${activeTier?.label ?? "Stock"})`);
         if (data.fallbackReason) setAiMusicPickLog(`Note: ${data.fallbackReason}`);
       } else {
         throw new Error("No music URL returned");

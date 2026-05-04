@@ -1410,10 +1410,12 @@ function ChildrenPlannerInner() {
       if (!selectedMusicUrl && !generatedMusicUrl) {
         try {
           fixed.push("Generating background music...");
+          const supervisorTier = SOUND_TIERS.find(t => t.id === soundTier);
+          const supervisorProviderKey = supervisorTier?.providerKey ?? "stock";
           const musicRes = await fetch("/api/music/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: `calm children's story background music, gentle and warm`, durationSeconds: 30 }),
+            body: JSON.stringify({ prompt: `calm children's story background music, gentle and warm`, durationSeconds: 30, providerKey: supervisorProviderKey }),
           });
           if (musicRes.ok) {
             const mData = await musicRes.json() as { url?: string; audioUrl?: string };
@@ -1699,18 +1701,16 @@ function ChildrenPlannerInner() {
     setUiError("");
     try {
       const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
-      const tierProviderMap: Record<"stock" | "ghs_pro" | "ghs_classic", string> = {
-        stock: "stock",
-        ghs_pro: "stable_audio",
-        ghs_classic: "kie",
-      };
+      // Resolve providerKey from the selected SOUND_TIERS entry
+      const activeTier = SOUND_TIERS.find(t => t.id === soundTier);
+      const resolvedProviderKey = activeTier?.providerKey ?? "stock";
       const res = await fetch("/api/music/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: `${musicMood} background music for a children's story`,
           durationSeconds: 20,
-          providerKey: tierProviderMap[musicTier],
+          providerKey: resolvedProviderKey,
         }),
       });
       if (!res.ok) {
@@ -1757,12 +1757,15 @@ function ChildrenPlannerInner() {
       // Step 2: Generate background music
       try {
         const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
+        const activeTierForContent = SOUND_TIERS.find(t => t.id === soundTier);
+        const contentProviderKey = activeTierForContent?.providerKey ?? "stock";
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: `${musicMood} background music for a children's story`,
             durationSeconds: 20,
+            providerKey: contentProviderKey,
           }),
         });
         const musicData = await safeJson<{ url?: string; audioUrl?: string; fallbackReason?: string }>(musicRes, "music/generate");
@@ -4090,7 +4093,9 @@ function ChildrenPlannerInner() {
                           setLastAction("Generating music...");
                           try {
                             const mood = tone || "calm";
-                            const r = await fetch("/api/music/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${mood} children's story background music, gentle and warm`, durationSeconds: 30 }) });
+                            const assemblyTier = SOUND_TIERS.find(t => t.id === soundTier);
+                            const assemblyProviderKey = assemblyTier?.providerKey ?? "stock";
+                            const r = await fetch("/api/music/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${mood} children's story background music, gentle and warm`, durationSeconds: 30, providerKey: assemblyProviderKey }) });
                             const d = await r.json() as { url?: string; audioUrl?: string };
                             const url = d.url ?? d.audioUrl ?? "";
                             if (url) { setGeneratedMusicUrl(url); setSelectedMusicUrl(url); setLastAction("Music ready"); }
