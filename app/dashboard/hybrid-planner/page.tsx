@@ -2459,17 +2459,29 @@ function HybridPlannerInner() {
       // storyMode controls which audio tracks are included:
       //   narration-only → narrator only, no character voices
       //   actors-only    → character voices only, no narrator
-      //   mixed          → both
+      //   mixed          → both narrator (narration segments only) + character voices (dialogue segments)
       const narrationList: Array<{ audioUrl: string; startTime: number; volume: number }> = [];
-
-      // 1. Narrator audio starts at t=0 — only in narration-only or mixed mode
-      if (narratorAudioUrl && storyMode !== "actors-only") {
-        narrationList.push({ audioUrl: narratorAudioUrl, startTime: 0, volume: 1.0 });
-      }
 
       // 2. Character voice audio — only in actors-only or mixed mode
       // NEW: prefer per-line clips (scriptSegments[].audioUrl) over old per-character files
       const hasPerLineClips = scriptSegments.some(s => s.type === "dialogue" && s.audioUrl);
+
+      // 1. Narrator audio — only in narration-only or mixed mode
+      // BUG-15/16 fix: in mixed mode with per-line clips, narrator was added at t=0 full volume
+      // causing overlap with dialogue clips. Fix: in mixed mode, start narrator at the first
+      // narration segment's estimated start time so it doesn't play over actor dialogue.
+      // generateNarrationPiper() already filtered narrator audio to narration-only segments,
+      // so the audio itself is narration-text-only — we just need to place it correctly.
+      if (narratorAudioUrl && storyMode !== "actors-only") {
+        let narratorStartTime = 0;
+        if (storyMode === "mixed" && hasPerLineClips && scriptSegments.length > 0) {
+          // Find the first narration segment's start time in the full script timeline
+          const allTimings = buildTimings(scriptSegments, narratorPiperSpeed);
+          const firstNarrIdx = scriptSegments.findIndex(s => s.type === "narration");
+          narratorStartTime = firstNarrIdx >= 0 ? allTimings[firstNarrIdx] : 0;
+        }
+        narrationList.push({ audioUrl: narratorAudioUrl, startTime: narratorStartTime, volume: 1.0 });
+      }
 
       // Build scene start map — used for both per-line and fallback systems
       const sceneStartMapForChar: Record<string, number> = {};
