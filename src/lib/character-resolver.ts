@@ -89,8 +89,17 @@ function buildCharacterSnippet(char: {
  * 2. Queries the CharacterVoice table for matching characterId or name
  * 3. Builds enriched prompt with character descriptions injected
  * 4. Collects all reference images for visual consistency
+ *
+ * @param knownCharacterIds  Optional list of characterId/id values.  When
+ *   provided, reference images are attached for these characters even if their
+ *   tokens do not appear literally in the prompt string.  This fixes the
+ *   "characters collapse to bear" bug (BUG-02) where token-absent characters
+ *   were never getting their visual references forwarded to the image model.
  */
-export async function resolveCharacterTokens(prompt: string): Promise<ResolvedPrompt> {
+export async function resolveCharacterTokens(
+  prompt: string,
+  knownCharacterIds?: string[]
+): Promise<ResolvedPrompt> {
   // Extract potential tokens from the prompt (both bare and bracketed)
   const bareMatches = prompt.match(BARE_TOKEN) || [];
   const bracketMatches: string[] = [];
@@ -101,8 +110,12 @@ export async function resolveCharacterTokens(prompt: string): Promise<ResolvedPr
   }
   const uniqueTokens = [...new Set([...bareMatches, ...bracketMatches])];
 
-  // Early return if no tokens found
-  if (uniqueTokens.length === 0) {
+  // BUG-02 fix: if caller passes explicit knownCharacterIds, merge them into the
+  // lookup so reference images are attached by membership, not by literal token match.
+  const hasKnownIds = knownCharacterIds && knownCharacterIds.length > 0;
+
+  // Early return if no tokens AND no known IDs
+  if (uniqueTokens.length === 0 && !hasKnownIds) {
     return {
       displayPrompt: prompt,
       enrichedPrompt: prompt,
@@ -115,13 +128,19 @@ export async function resolveCharacterTokens(prompt: string): Promise<ResolvedPr
   const cleanedTokens = uniqueTokens.map(t => t.replace(/^\[|\]$/g, ""));
   const allTokens = [...new Set([...uniqueTokens, ...cleanedTokens])];
 
-  // Single DB query: find characters where characterId, id, or name matches any token
+  // Build DB query: token-matched + explicit knownCharacterIds (BUG-02 fix)
+  // Merge all lookup values into flat arrays so we can use a single IN query per field.
+  const allIdLookup = hasKnownIds
+    ? [...new Set([...allTokens, ...knownCharacterIds!])]
+    : allTokens;
+
+  // Single DB query: find characters by token match OR by explicit characterId membership
   const characters = await prisma.characterVoice.findMany({
     where: {
       OR: [
-        { characterId: { in: allTokens } },
-        { id: { in: allTokens } },
-        { name: { in: allTokens } },
+        { characterId: { in: allIdLookup } },
+        { id: { in: allIdLookup } },
+        ...(allTokens.length > 0 ? [{ name: { in: allTokens } }] : []),
       ],
     },
   });
@@ -198,6 +217,49 @@ export async function resolveCharacterTokens(prompt: string): Promise<ResolvedPr
         specialTraits: char.personality || undefined,
       },
     });
+  }
+
+  // BUG-02 fix: second pass for characters found via knownCharacterIds that had
+  // no matching token in the prompt.  They don't get prompt token replacement,
+  // but their visual descriptions are prepended and reference images are collected
+  // so the image model sees consistent character identity even without tokens.
+  if (hasKnownIds) {
+    const knownIdSet = new Set(knownCharacterIds);
+    for (const char of characters) {
+      if (processedCharIds.has(char.id)) continue; // already handled via token match
+      const matchedByKnown =
+        (char.characterId && knownIdSet.has(char.characterId)) ||
+        knownIdSet.has(char.id);
+      if (!matchedByKnown) continue;
+
+      processedCharIds.add(char.id);
+      const snippet = buildCharacterSnippet(char);
+      // Prepend character description to prompt (no token to replace)
+      const charBlock = `[Character: ${char.name} — ${snippet}]`;
+      enrichedPrompt = `${charBlock} ${enrichedPrompt}`;
+
+      const refUrls = extractImageUrls(char.referenceImages);
+      if (char.imageUrl) {
+        refUrls.unshift(normalizeStorageUrl(char.imageUrl));
+      }
+      allRefImages.push(...refUrls);
+
+      resolvedCharacters.push({
+        characterId: char.characterId || char.id,
+        displayName: char.name,
+        visualDescription: snippet,
+        referenceImageUrls: refUrls,
+        voiceId: char.voiceId || undefined,
+        continuityLocks: {
+          skinTone: char.culture || undefined,
+          hairStyle: char.hairstyle || undefined,
+          faceTraits: char.visualDescription || undefined,
+          bodyType: char.height || undefined,
+          wardrobeStyle: char.wardrobe || undefined,
+          specialTraits: char.personality || undefined,
+        },
+      });
+    }
   }
 
   return {

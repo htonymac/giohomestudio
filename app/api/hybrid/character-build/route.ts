@@ -75,7 +75,8 @@ function buildCharacterPrompt(
   storyText: string,
   artStyle: string,
   language: string,
-  existingCharacters?: Array<{ name: string; species?: string; gender?: string; colorDescription?: string }>
+  existingCharacters?: Array<{ name: string; species?: string; gender?: string; colorDescription?: string }>,
+  roleHint?: string
 ): string {
   const styleHint =
     artStyle === "3d-cinematic" ? "3D animated film style (like Pixar/DreamWorks)" :
@@ -93,13 +94,15 @@ function buildCharacterPrompt(
       }\nDo NOT reuse the same species as any character listed above unless the story explicitly requires it.\n`
     : "";
 
-  // BUG-02 Fix C: detect if character is human from story context
-  const likelyHuman = isHumanRole(storyText, name);
+  // BUG-02 Fix C: detect if character is human from story context or explicit roleHint
+  const likelyHuman = roleHint === "human" || isHumanRole(storyText, name);
 
-  // Species options: exclude bear/cartoon-animal for human characters
+  // Species options: exclude bear for human characters and for any non-explicit-animal role.
+  // BUG-02 fix: removed "bear" from non-human option list entirely — bear only valid when
+  // story text EXPLICITLY names the character as a bear and isHumanRole() returns false.
   const speciesOptions = likelyHuman
     ? `"human" — this character is human. Do NOT use bear, animal, or anthropomorphic anatomy.`
-    : `"human | rabbit | lion | cat | dog | fox | wolf | [other]" — what kind of character are they. Only use "bear" if the story text EXPLICITLY names this character as a bear.`;
+    : `"human | rabbit | lion | cat | dog | fox | wolf | [other]" — pick the species that the story explicitly calls out. Do NOT default to bear unless the story text EXPLICITLY names this character as a bear.`;
 
   // Human guard block — injected when character appears to be human
   const humanGuard = likelyHuman
@@ -172,7 +175,7 @@ export async function POST(req: NextRequest) {
     const style = artStyle || "3d-cinematic";
     const lang = language || "English";
 
-    const prompt = buildCharacterPrompt(characterName, storyText, style, lang, existingCharacters);
+    const prompt = buildCharacterPrompt(characterName, storyText, style, lang, existingCharacters, role);
     // BUG-02 Fix C+E: system prompt guard — prevents LLM defaulting to bear/animal anatomy for humans
     // childSafe + explicit role="human" both strengthen the human-anatomy enforcement
     const isExplicitHuman = role === "human" || childSafe === true;
