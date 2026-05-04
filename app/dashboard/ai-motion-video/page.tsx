@@ -116,7 +116,13 @@ export default function AiMotionVideoPage() {
   // ── Restore state on mount ─────────────────────────────────────────────────
   useEffect(() => {
     fetch(`/api/hybrid/saved-state?localId=${AI_MOTION_DB_KEY}`)
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok || !r.headers.get("content-type")?.includes("json")) {
+          const text = await r.text().catch(() => "(unreadable)");
+          return Promise.reject(new Error(`Server error ${r.status}: ${text.slice(0, 200)}`));
+        }
+        return r.json();
+      })
       .then(d => {
         if (!d.found || !d.data) return;
         const s = d.data as Record<string, unknown>;
