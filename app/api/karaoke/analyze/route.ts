@@ -40,7 +40,11 @@ function runPythonAnalysis(audioPath: string): Promise<{ stdout: string; stderr:
       if (code === 0) {
         resolve({ stdout, stderr });
       } else {
-        reject(new Error(`Python exited with code ${code}. stderr: ${stderr}`));
+        // Surface full stderr — caller wraps into JSON response
+        const err = new Error(`Python analysis failed`);
+        (err as NodeJS.ErrnoException & { stderr: string; exitCode: number }).stderr = stderr;
+        (err as NodeJS.ErrnoException & { stderr: string; exitCode: number }).exitCode = code ?? 1;
+        reject(err);
       }
     });
 
@@ -90,8 +94,9 @@ export async function POST(req: NextRequest) {
       const { stdout, stderr } = await runPythonAnalysis(audioPath);
       stderrLog = stderr; // full stderr, no truncation
 
-      // Parse JSON from stdout (last JSON object, in case Python prints logs before it)
-      const jsonMatch = stdout.match(/\{[\s\S]*\}\s*$/m);
+      // Parse JSON from stdout — non-greedy regex extracts the LAST JSON object
+      // (Python may print warnings/info lines before the final JSON blob)
+      const jsonMatch = stdout.match(/\{[\s\S]*\}(?=[^{]*$)/);
       if (!jsonMatch) {
         throw new Error(`No JSON in Python output. stdout: ${stdout.slice(0, 500)}\nstderr: ${stderr.slice(0, 500)}`);
       }
@@ -110,14 +115,22 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      // Extract structured properties set by the close handler
+      const structured = err as { stderr?: string; exitCode?: number };
+      const fullStderr = structured.stderr ?? stderrLog;
+      const exitCode = structured.exitCode ?? 1;
+
       // Log to PROBLEM_AND_FIX.md if analysis fails
       try {
         const pfPath = path.resolve(process.cwd(), "PROBLEM_AND_FIX.md");
-        const entry = `\n\n## Karaoke Analysis Error — ${new Date().toISOString()}\n**Recording:** ${recordingId}\n**Error:** ${msg}\n**Stderr (full):** ${stderrLog}\n`;
+        const entry = `\n\n## Karaoke Analysis Error — ${new Date().toISOString()}\n**Recording:** ${recordingId}\n**ExitCode:** ${exitCode}\n**Error:** ${msg}\n**Stderr (full):**\n\`\`\`\n${fullStderr}\n\`\`\`\n`;
         fs.appendFileSync(pfPath, entry, "utf8");
       } catch { /* best effort */ }
 
-      return NextResponse.json({ error: `Analysis failed: ${msg}`, stderr: stderrLog }, { status: 500 });
+      return NextResponse.json(
+        { error: "Python analysis failed", stderr: fullStderr, exitCode },
+        { status: 500 }
+      );
     }
 
     // Update DB

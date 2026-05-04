@@ -112,32 +112,40 @@ def main():
         sys.exit(1)
 
     # ── Load audio — soundfile → librosa → audioread fallback chain ─────────
+    y = None
+    sr = None
     try:
-        if SOUNDFILE_AVAILABLE:
+        import soundfile as sf
+        audio_sf, sr = sf.read(audio_path)
+        audio_sf = audio_sf.mean(axis=1) if audio_sf.ndim > 1 else audio_sf  # mono
+        y = audio_sf.astype(np.float32)
+        print("[INFO] Audio loaded via soundfile backend", file=sys.stderr)
+    except Exception as sf_err:
+        print(f"[WARN] soundfile read failed: {sf_err} — trying librosa", file=sys.stderr)
+        try:
+            y, sr = librosa.load(audio_path, sr=None, mono=True)
+            print("[INFO] Audio loaded via librosa backend", file=sys.stderr)
+        except Exception as lb_err:
+            print(f"[WARN] librosa load failed: {lb_err} — trying audioread", file=sys.stderr)
             try:
-                import soundfile as sf
-                y, sr = sf.read(audio_path, dtype='float32', always_2d=False)
-                if y.ndim > 1:
-                    y = y.mean(axis=1)  # stereo → mono
-                print("[INFO] Audio loaded via soundfile backend", file=sys.stderr)
-            except Exception as sf_err:
-                print(f"[WARN] soundfile read failed: {sf_err} — falling back to librosa", file=sys.stderr)
-                try:
-                    y, sr = librosa.load(audio_path, sr=None, mono=True)
-                    print("[INFO] Audio loaded via librosa backend", file=sys.stderr)
-                except Exception as lb_err:
-                    print(f"[WARN] librosa load also failed: {lb_err}", file=sys.stderr)
-                    raise
-        else:
-            # soundfile DLL missing — go straight to librosa
-            try:
-                y, sr = librosa.load(audio_path, sr=None, mono=True)
-                print("[INFO] Audio loaded via librosa backend (soundfile unavailable)", file=sys.stderr)
-            except Exception as lb_err:
-                print(f"[WARN] librosa load failed: {lb_err}", file=sys.stderr)
-                raise
-    except Exception as e:
-        print(json.dumps({"error": f"Failed to load audio: {e}"}))
+                import audioread
+                with audioread.audio_open(audio_path) as f:
+                    sr = f.samplerate
+                    raw = b"".join(f)
+                audio_ar = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768.0
+                # audioread may interleave channels — reshape and average
+                if f.channels > 1:
+                    audio_ar = audio_ar[: len(audio_ar) - len(audio_ar) % f.channels]
+                    audio_ar = audio_ar.reshape(-1, f.channels).mean(axis=1)
+                y = audio_ar
+                print("[INFO] Audio loaded via audioread fallback", file=sys.stderr)
+            except Exception as ar_err:
+                print(f"[ERROR] All audio backends failed. sf={sf_err} lb={lb_err} ar={ar_err}", file=sys.stderr)
+                print(json.dumps({"error": f"Failed to load audio — all backends failed: soundfile={sf_err}; librosa={lb_err}; audioread={ar_err}"}))
+                sys.exit(1)
+
+    if y is None or sr is None:
+        print(json.dumps({"error": "Audio load produced empty result"}))
         sys.exit(1)
 
     duration_seconds = float(len(y) / sr)
