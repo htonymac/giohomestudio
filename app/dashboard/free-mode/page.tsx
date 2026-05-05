@@ -75,17 +75,37 @@ function SceneCard({
   scene,
   index,
   onEdit,
+  onPolish,
 }: {
   scene: Scene;
   index: number;
   onEdit: (id: string, field: "title" | "text", value: string) => void;
+  onPolish?: (id: string, text: string) => void;
 }) {
+  const [polishing, setPolishing] = useState(false);
   const moodColor: Record<string, string> = {
     tense: C.coral, dramatic: C.pink, calm: C.mint, joyful: C.gold,
     mysterious: C.lilac, romantic: C.pink, neutral: C.mute,
     hopeful: C.sky, sad: C.sky, angry: C.coral, funny: C.gold,
   };
   const mc = moodColor[scene.mood.toLowerCase()] ?? C.sky;
+
+  async function handlePolish() {
+    if (!onPolish || polishing) return;
+    setPolishing(true);
+    try {
+      const res = await fetch("/api/hybrid/scene-polish", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId: scene.id, currentText: scene.text, action: "polish" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.polishedText) onPolish(scene.id, data.polishedText);
+      }
+    } catch { /* silent */ }
+    setPolishing(false);
+  }
 
   return (
     <div style={{
@@ -110,6 +130,15 @@ function SceneCard({
             textTransform: "capitalize",
           }}>{scene.mood}</span>
         </div>
+        {onPolish && (
+          <button onClick={handlePolish} disabled={polishing} style={{
+            padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
+            border: `1px solid ${C.lilac}40`, background: polishing ? `${C.lilac}10` : "transparent",
+            color: C.lilac, cursor: polishing ? "not-allowed" : "pointer",
+          }}>
+            {polishing ? "Polishing…" : "✨ Polish"}
+          </button>
+        )}
       </div>
       <div style={{ padding: "10px 14px" }}>
         <input
@@ -294,16 +323,23 @@ function VideoConfirmModal({
 function HybridModal({
   scenes,
   onClose,
+  characters,
+  imageModel,
 }: {
   scenes: Scene[];
   onClose: () => void;
+  characters?: Character[];
+  imageModel?: string;
 }) {
   const [totalDuration, setTotalDuration] = useState(30);
+  const [customDur, setCustomDur] = useState("");
   const [steps, setSteps] = useState<{ label: string; status: "pending" | "running" | "done" | "error" }[]>([]);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const effectiveDuration = customDur ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration)) : totalDuration;
 
   async function runHybrid() {
     setRunning(true);
@@ -317,7 +353,8 @@ function HybridModal({
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
 
-    const sceneDuration = totalDuration / scenes.length;
+    const sceneDuration = effectiveDuration / scenes.length;
+    const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
 
     try {
       // Step 1: timings
@@ -325,57 +362,71 @@ function HybridModal({
       await new Promise(r => setTimeout(r, 400));
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "done" } : x));
 
-      // Step 2-5: call hybrid assemble with Auto-Timestamp
+      // Step 2: generate one image per scene
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "running" } : x));
+      const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
-      // Auto-Timestamp: distribute scenes evenly across totalDuration
-      const timeline = scenes.map((sc, idx) => {
-        const startTime = idx * sceneDuration;
-        const endTime   = (idx + 1) * sceneDuration;
-        return {
-          sceneId:    sc.id,
-          startTime,
-          endTime,
-          duration:   sceneDuration,
-          // text overlay appears 0.5s after scene start
-          textOverlayAt: startTime + 0.5,
-          orderIndex:  idx,
-        };
-      });
+      for (let idx = 0; idx < scenes.length; idx++) {
+        const sc = scenes[idx];
+        const prompt = charContext
+          ? `${charContext}. ${sc.text}`
+          : sc.text;
+        try {
+          const imgRes = await fetch("/api/generation/image", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt,
+              modelId: imageModel || "segmind_flux",
+              width: 832, height: 1472,
+            }),
+          });
+          if (imgRes.ok) {
+            const imgData = await imgRes.json();
+            const videoUrl = imgData.imagePath
+              ? `/api/media/file?path=${encodeURIComponent(imgData.imagePath)}`
+              : (imgData.imageUrl ?? "");
+            if (videoUrl) {
+              assemblyScenes.push({ scene: idx, videoUrl, duration: sceneDuration, text: sc.title, animation: "fade_in" });
+            }
+          }
+        } catch { /* continue without this scene */ }
+      }
 
-      const scenePayload = scenes.map((sc, idx) => ({
-        sceneId:    sc.id,
-        title:      sc.title,
-        text:       sc.text,
-        mood:       sc.mood,
-        duration:   Math.round(sceneDuration),
-        orderIndex: idx,
-        startTime:  timeline[idx].startTime,
-        endTime:    timeline[idx].endTime,
-        textOverlayAt: timeline[idx].textOverlayAt,
-      }));
+      if (assemblyScenes.length === 0) throw new Error("No scene images could be generated");
+      setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      const res = await fetch("/api/hybrid/assemble", {
+      // Step 3: text overlays — handled by /api/video/assemble via scene.text
+      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
+      await new Promise(r => setTimeout(r, 200));
+      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
+
+      // Step 4: SFX — auto-matched inside assemble route via scene mood metadata
+      setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "running" } : x));
+      await new Promise(r => setTimeout(r, 200));
+      setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
+
+      // Step 5: assemble
+      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "running" } : x));
+      const res = await fetch("/api/video/assemble", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scenes: scenePayload,
-          timeline,
-          totalDuration,
-          mode: "free_mode_hybrid",
-          addTextOverlay: true,
-          addSfx: true,
+          scenes: assemblyScenes,
+          projectId: `free_${Date.now()}`,
+          aspectRatio: "9:16",
+          subtitleStyle: "minimal",
         }),
       });
 
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.error ?? "Hybrid assembly failed");
+        throw new Error(d.error ?? "Assembly failed");
       }
 
       const data = await res.json();
-      setSteps(s => s.map((x, i) => i >= 1 ? { ...x, status: "done" } : x));
-      setResultUrl(data.videoUrl ?? data.outputPath ?? null);
+      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
+      setResultUrl(data.outputUrl ?? data.videoUrl ?? null);
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly failed");
@@ -405,7 +456,10 @@ function HybridModal({
           🔀 Generate Hybrid Video
         </div>
         <p style={{ fontSize: 13, color: C.mute, margin: "0 0 16px", lineHeight: 1.6 }}>
-          AI will generate an image per scene, add text overlay, match SFX, and assemble one video.
+          AI generates an image per scene, adds text overlay, matches SFX, assembles one video.
+          {characters && characters.length > 0 && (
+            <span style={{ color: C.lilac }}> {characters.length} character{characters.length > 1 ? "s" : ""} included.</span>
+          )}
         </p>
 
         {!running && !done && (
@@ -413,18 +467,30 @@ function HybridModal({
             <label style={{ fontSize: 11, fontWeight: 700, color: C.mute2, display: "block", marginBottom: 6 }}>
               Total video length (seconds)
             </label>
-            <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
               {[15, 30, 60, 90].map(v => (
-                <button key={v} onClick={() => setTotalDuration(v)} style={{
+                <button key={v} onClick={() => { setTotalDuration(v); setCustomDur(""); }} style={{
                   flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  border: `1px solid ${totalDuration === v ? C.mint + "60" : C.line}`,
-                  background: totalDuration === v ? `${C.mint}18` : "transparent",
-                  color: totalDuration === v ? C.mint : C.mute, cursor: "pointer",
+                  border: `1px solid ${effectiveDuration === v && !customDur ? C.mint + "60" : C.line}`,
+                  background: effectiveDuration === v && !customDur ? `${C.mint}18` : "transparent",
+                  color: effectiveDuration === v && !customDur ? C.mint : C.mute, cursor: "pointer",
                 }}>{v}s</button>
               ))}
+              <input
+                value={customDur}
+                onChange={e => setCustomDur(e.target.value.replace(/\D/g, ""))}
+                placeholder="  sec"
+                style={{
+                  width: 52, padding: "7px 6px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  border: `1px solid ${customDur ? C.mint + "60" : C.line}`,
+                  background: customDur ? `${C.mint}18` : "transparent",
+                  color: customDur ? C.mint : C.mute, outline: "none",
+                  fontFamily: "inherit", textAlign: "center",
+                }}
+              />
             </div>
             <div style={{ fontSize: 11, color: C.mute2, marginBottom: 20 }}>
-              {scenes.length} scenes × ~{Math.round(totalDuration / scenes.length)}s each
+              {scenes.length} scenes × ~{Math.round(effectiveDuration / scenes.length)}s each
             </div>
           </>
         )}
@@ -509,10 +575,15 @@ function CharacterDrawer({
   const [newDesc, setNewDesc]       = useState("");
   const [saving, setSaving]         = useState(false);
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   useEffect(() => {
-    fetch("/api/character")
-      .then(r => r.ok ? r.json() : { characters: [] })
-      .then(d => setCharacters(d.characters ?? d.items ?? []))
+    fetch("/api/character-voices")
+      .then(r => r.ok ? r.json() : { voices: [] })
+      .then(d => setCharacters((d.voices ?? []).map((v: Character & { visualDescription?: string }) => ({
+        id: v.id, name: v.name, imageUrl: v.imageUrl, role: v.role,
+      })))
+      )
       .catch(() => setCharacters([]))
       .finally(() => setLoading(false));
   }, []);
@@ -528,21 +599,26 @@ function CharacterDrawer({
   async function createCharacter() {
     if (!newName.trim()) return;
     setSaving(true);
+    setCreateError(null);
     try {
-      const res = await fetch("/api/character", {
+      const res = await fetch("/api/character-voices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName.trim(), visualDescription: newDesc.trim(), role: "supporting" }),
+        body: JSON.stringify({ name: newName.trim(), visualDescription: newDesc.trim(), role: "supporting", isNarrator: false }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        const created = data.character ?? data;
-        setCharacters(prev => [created, ...prev]);
+      const data = await res.json();
+      if (!res.ok) {
+        setCreateError(data.error ?? "Failed to create character");
+      } else {
+        const created = data.voice ?? data;
+        setCharacters(prev => [{ id: created.id, name: created.name, imageUrl: created.imageUrl, role: created.role }, ...prev]);
         onSelect([...selectedIds, created.id]);
         setCreating(false);
         setNewName(""); setNewDesc("");
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      setCreateError(e instanceof Error ? e.message : "Network error");
+    }
     setSaving(false);
   }
 
@@ -646,8 +722,13 @@ function CharacterDrawer({
                       fontFamily: "inherit",
                     }}
                   />
+                  {createError && (
+                    <div style={{ fontSize: 11, color: C.coral, marginBottom: 8, padding: "6px 8px", background: `${C.coral}10`, borderRadius: 6 }}>
+                      {createError}
+                    </div>
+                  )}
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setCreating(false)} style={{
+                    <button onClick={() => { setCreating(false); setCreateError(null); }} style={{
                       flex: 1, padding: "8px 0", borderRadius: 8,
                       border: `1px solid ${C.line}`, background: "transparent",
                       color: C.mute, fontSize: 11, cursor: "pointer",
@@ -756,6 +837,7 @@ function MessageBubble({
   onGenImage,
   onGenVideo,
   onGenHybrid,
+  onPolishScene,
   limits,
   editMode,
   onToggleEdit,
@@ -767,6 +849,7 @@ function MessageBubble({
   onGenImage: (msgId: string) => void;
   onGenVideo: (msgId: string) => void;
   onGenHybrid: (msgId: string) => void;
+  onPolishScene: (msgId: string, sceneId: string, text: string) => void;
   limits: DailyLimits;
   editMode: Set<string>;
   onToggleEdit: (msgId: string) => void;
@@ -826,6 +909,7 @@ function MessageBubble({
               scene={scene}
               index={i}
               onEdit={(sceneId, field, value) => onEditScene(msg.id, sceneId, field, value)}
+              onPolish={(sceneId, text) => onPolishScene(msg.id, sceneId, text)}
             />
           ))}
 
@@ -916,6 +1000,22 @@ function FreeModeChat() {
   const [editModeSet,    setEditModeSet]    = useState<Set<string>>(new Set());
   const [imageResults,   setImageResults]   = useState<Record<string, string[]>>({});
   const [genImageFor,    setGenImageFor]    = useState<string | null>(null);
+
+  // ── Model + audio preferences (Customize tray) ──
+  const [showCustomize,  setShowCustomize]  = useState(false);
+  const [imageModel,     setImageModel]     = useState("segmind_flux");
+  const [videoModel,     setVideoModel]     = useState("wan_2_5_lite");
+  const [llmModel,       setLlmModel]       = useState("claude:claude-haiku-4-5-20251001");
+  const [musicTier,      setMusicTier]      = useState("piper");
+  const [sfxSource,      setSfxSource]      = useState("auto");
+  const [voiceProvider,  setVoiceProvider]  = useState("piper");
+
+  // ── Inline video generation picker ──
+  const [videoGenPicker, setVideoGenPicker] = useState<"text2vid" | "img2vid" | "motion" | null>(null);
+  const [videoGenImageUrl, setVideoGenImageUrl] = useState("");
+  const [videoGenModel, setVideoGenModel]   = useState("wan_2_5_lite");
+  const [videoGenPrompt, setVideoGenPrompt] = useState("");
+  const [videoGenRunning, setVideoGenRunning] = useState(false);
 
   // Load from DB on mount
   useEffect(() => {
@@ -1159,12 +1259,16 @@ function FreeModeChat() {
         const limData = await limitRes.json();
         setLimits(limData);
 
+        // Build prompt with character context if characters selected
+        const charPrefix = characters.length > 0
+          ? characters.map(c => c.name).join(", ") + ". "
+          : "";
         const imgRes = await fetch("/api/generation/image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt:  scene.text,
-            modelId: "segmind_flux",
+            prompt:  charPrefix + scene.text,
+            modelId: imageModel,
             width:   832, height: 1472,
           }),
         });
@@ -1179,6 +1283,13 @@ function FreeModeChat() {
 
     setImageResults(prev => ({ ...prev, [msgId]: urls }));
     setGenImageFor(null);
+  }
+
+  function polishScene(msgId: string, sceneId: string, polishedText: string) {
+    setMessages(prev => prev.map(m => {
+      if (m.id !== msgId || !m.scenes) return m;
+      return { ...m, scenes: m.scenes.map(s => s.id === sceneId ? { ...s, text: polishedText } : s) };
+    }));
   }
 
   function handleCharSelect(ids: string[]) {
@@ -1219,12 +1330,13 @@ function FreeModeChat() {
           body: JSON.stringify({
             rawInput:        sceneParts,
             outputMode:      "text_to_video",
-            llmModel:        "claude:claude-haiku-4-5-20251001",
-            videoModelId:    "wan_2_5_lite",
+            llmModel:        llmModel,
+            videoModelId:    videoModel,
             durationSeconds: duration,
             aspectRatio:     "9:16",
             aiAutoMode:      true,
-            audioMode:       "voice_music",
+            audioMode:       musicTier === "piper" ? "voice_music" : "music_only",
+            musicProvider:   musicTier,
           }),
         }).catch(() => null);
 
@@ -1251,6 +1363,8 @@ function FreeModeChat() {
         <HybridModal
           scenes={messages.find(m => m.id === hybridMsg)?.scenes ?? []}
           onClose={() => setHybridMsg(null)}
+          characters={characters}
+          imageModel={imageModel}
         />
       )}
       {charDrawer && (
@@ -1339,6 +1453,7 @@ function FreeModeChat() {
                 onGenImage={genImageForMsg}
                 onGenVideo={(msgId) => setVideoConfirm(msgId)}
                 onGenHybrid={(msgId) => setHybridMsg(msgId)}
+                onPolishScene={(msgId, sceneId, text) => polishScene(msgId, sceneId, text)}
                 limits={limits}
                 editMode={editModeSet}
                 onToggleEdit={toggleEdit}
@@ -1382,12 +1497,148 @@ function FreeModeChat() {
             <IntroOutroPanel type="outro" data={outro} onChange={updateOutro} onClose={() => { setOutro(null); persistSession(selectedCharIds, intro, null); }} />
           )}
 
+          {/* ── Customize tray (collapsible) ── */}
+          {showCustomize && (
+            <div style={{
+              marginBottom: 10, padding: "12px 14px", borderRadius: 12,
+              background: C.alert, border: `1px solid ${C.line}`,
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: C.mute2, marginBottom: 8, letterSpacing: 1 }}>CUSTOMIZE — session settings</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                {/* AI Brain */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>AI BRAIN</div>
+                  <select value={llmModel} onChange={e => setLlmModel(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="claude:claude-haiku-4-5-20251001">Haiku — Fast &amp; Free</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="claude:claude-sonnet-4-6">Sonnet — Smarter</option>
+                      <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
+                    </optgroup>
+                    <optgroup label="GHS Local">
+                      <option value="ollama:mistral">Ollama Mistral — Private</option>
+                      <option value="ollama:llama3">Ollama Llama 3 — Private</option>
+                    </optgroup>
+                  </select>
+                </div>
+                {/* Image Model */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>IMAGE MODEL</div>
+                  <select value={imageModel} onChange={e => setImageModel(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="segmind_flux">Segmind Flux — Free</option>
+                      <option value="fal_flux_schnell">FLUX Schnell — Fast</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="fal_flux_dev">FLUX Dev — Quality</option>
+                      <option value="ideogram_free">Ideogram — Creative</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="stable_diffusion_xl">Stable Diffusion XL</option>
+                      <option value="ideogram_v2">Ideogram V2 — Best</option>
+                    </optgroup>
+                  </select>
+                </div>
+                {/* Video Model */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VIDEO MODEL</div>
+                  <select value={videoModel} onChange={e => setVideoModel(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="wan_2_5_lite">Wan Lite — Fast</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
+                      <option value="kling_v2_5_standard">Kling Standard</option>
+                      <option value="hailuo_fast">Hailuo Fast</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="kling_v2_5_pro">Kling Pro — Best Quality</option>
+                      <option value="runway_gen4">Runway Gen-4</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
+                {/* Music */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>MUSIC</div>
+                  <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="stock">Stock Library — Free</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="fal_stable_audio">FAL Stable Audio</option>
+                    </optgroup>
+                    <optgroup label="GHS Karaoke">
+                      <option value="ghs_karaoke">GHS Karaoke Engine</option>
+                      <option value="fal_karaoke">FAL Karaoke</option>
+                    </optgroup>
+                    <optgroup label="GHS Classic">
+                      <option value="kie_classic">Kie.ai / Suno Style</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="kie_premium">Kie Premium — Best</option>
+                    </optgroup>
+                  </select>
+                </div>
+                {/* Voice */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VOICE / NARRATION</div>
+                  <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="piper">Piper TTS — Free</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="fal_narrator">FAL Narrator</option>
+                      <option value="ghs_karaoke">GHS Karaoke Voice</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="elevenlabs">ElevenLabs — Best</option>
+                    </optgroup>
+                  </select>
+                </div>
+                {/* SFX */}
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>SOUND EFFECTS</div>
+                  <select value={sfxSource} onChange={e => setSfxSource(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="auto">Auto Match — Scene Mood</option>
+                      <option value="local">Local Sound Library</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="elevenlabs">ElevenLabs SFX</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Toolbar */}
           <div style={{
             display: "flex", alignItems: "center", gap: 6,
             marginBottom: 8, flexWrap: "wrap",
           }}>
-            {/* + button — consolidated menu for Add Character / Intro / Outro */}
+            {/* + button — consolidated menu */}
             <div ref={plusMenuRef} style={{ position: "relative" }}>
               <button
                 onClick={() => setPlusMenuOpen(o => !o)}
@@ -1400,22 +1651,36 @@ function FreeModeChat() {
                   display: "flex", alignItems: "center", justifyContent: "center",
                   lineHeight: 1,
                 }}
-                title="Add character, intro, or outro"
+                title="Add character, intro, outro, image or video"
               >+</button>
               {plusMenuOpen && (
                 <div style={{
                   position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 50,
                   background: C.card, border: `1px solid ${C.line}`, borderRadius: 10,
-                  overflow: "hidden", minWidth: 160,
+                  overflow: "hidden", minWidth: 190,
                   boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
                 }}>
                   {[
                     { label: "Add Character", icon: "👤", action: () => { setCharDrawer(true); setPlusMenuOpen(false); } },
                     { label: "Add Intro",     icon: "▶",  action: () => { setIntro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
                     { label: "Add Outro",     icon: "⏹",  action: () => { setOutro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
+                    { label: "Image from Library", icon: "🗂️", action: () => {
+                        setPlusMenuOpen(false);
+                        fetch("/api/asset-library/list?type=image&limit=20")
+                          .then(r => r.ok ? r.json() : { items: [] })
+                          .then(d => {
+                            const items: Array<{ url: string; title: string }> = d.items ?? d.assets ?? [];
+                            if (items.length > 0) {
+                              const picked = items[0];
+                              setVideoGenImageUrl(picked.url);
+                              setVideoGenPicker("img2vid");
+                            }
+                          }).catch(() => null);
+                      }
+                    },
                   ].map(item => (
                     <button key={item.label} onClick={item.action} style={{
-                      width: "100%", padding: "10px 14px", background: "transparent",
+                      width: "100%", padding: "9px 14px", background: "transparent",
                       border: "none", color: C.ink, fontSize: 12, fontWeight: 600,
                       cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
                     }}
@@ -1451,31 +1716,30 @@ function FreeModeChat() {
               </div>
             ))}
 
-            {/* Add Character */}
-            <button onClick={() => setCharDrawer(true)} style={{
-              padding: "4px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700,
-              border: `1px solid ${C.line}`, background: "transparent",
-              color: C.mute, cursor: "pointer",
-            }}>+ Character</button>
-
-            {/* Add Intro */}
-            <button onClick={() => { if (!intro) setIntro({ text: "", phone: "", type: "contact" }); }} style={{
-              padding: "4px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700,
-              border: `1px solid ${intro ? C.mint + "50" : C.line}`,
-              background: intro ? `${C.mint}12` : "transparent",
-              color: intro ? C.mint : C.mute, cursor: "pointer",
-            }}>Intro</button>
-
-            {/* Add Outro */}
-            <button onClick={() => { if (!outro) setOutro({ text: "", phone: "", type: "contact" }); }} style={{
-              padding: "4px 10px", borderRadius: 20, fontSize: 10, fontWeight: 700,
-              border: `1px solid ${outro ? C.gold + "50" : C.line}`,
-              background: outro ? `${C.gold}12` : "transparent",
-              color: outro ? C.gold : C.mute, cursor: "pointer",
-            }}>Outro</button>
+            {/* Intro / Outro chips */}
+            {intro && (
+              <div style={{ padding: "3px 8px", borderRadius: 20, background: `${C.mint}12`, border: `1px solid ${C.mint}40`, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: C.mint, fontWeight: 700 }}>▶ Intro</span>
+                <button onClick={() => { setIntro(null); persistSession(selectedCharIds, null, outro); }} style={{ background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0 }}>×</button>
+              </div>
+            )}
+            {outro && (
+              <div style={{ padding: "3px 8px", borderRadius: 20, background: `${C.gold}12`, border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>⏹ Outro</span>
+                <button onClick={() => { setOutro(null); persistSession(selectedCharIds, intro, null); }} style={{ background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0 }}>×</button>
+              </div>
+            )}
 
             {/* Spacer */}
             <div style={{ flex: 1 }} />
+
+            {/* Customize toggle */}
+            <button onClick={() => setShowCustomize(v => !v)} style={{
+              padding: "4px 10px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+              border: `1px solid ${showCustomize ? C.sky + "60" : C.line}`,
+              background: showCustomize ? `${C.sky}12` : "transparent",
+              color: showCustomize ? C.sky : C.mute2, cursor: "pointer",
+            }}>⚙ {showCustomize ? "Hide" : "Customize"}</button>
 
             {/* Daily limit counters */}
             <div style={{ display: "flex", gap: 6 }}>
@@ -1498,6 +1762,184 @@ function FreeModeChat() {
             </div>
           </div>
 
+          {/* ── Video generation buttons ── */}
+          <div style={{
+            display: "flex", gap: 6, marginBottom: 8, alignItems: "center",
+            borderTop: `1px solid ${C.line}`, paddingTop: 8,
+          }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 0.8, marginRight: 4 }}>GENERATE:</span>
+            {(["text2vid", "img2vid", "motion"] as const).map(type => {
+              const labels: Record<string, { label: string; icon: string; desc: string }> = {
+                text2vid: { label: "Text → Video", icon: "🎬", desc: "Turn text idea into video" },
+                img2vid:  { label: "Image → Video", icon: "🖼️→🎬", desc: "Animate an image" },
+                motion:   { label: "Motion Video", icon: "🌀", desc: "Add motion to image" },
+              };
+              const item = labels[type];
+              const active = videoGenPicker === type;
+              return (
+                <button
+                  key={type}
+                  onClick={() => setVideoGenPicker(active ? null : type)}
+                  title={item.desc}
+                  style={{
+                    padding: "5px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    border: `1px solid ${active ? C.sky + "80" : C.line}`,
+                    background: active ? `${C.sky}15` : "transparent",
+                    color: active ? C.sky : C.mute2,
+                    display: "flex", alignItems: "center", gap: 4, transition: "all 0.15s",
+                  }}
+                >{item.icon} {item.label}</button>
+              );
+            })}
+          </div>
+
+          {/* ── Inline video gen picker ── */}
+          {videoGenPicker && (
+            <div style={{
+              marginBottom: 10, padding: "12px 14px", borderRadius: 10,
+              background: C.alert, border: `1px solid ${C.sky}40`,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontSize: 11, fontWeight: 800, color: C.sky }}>
+                  {videoGenPicker === "text2vid" ? "🎬 Text → Video" : videoGenPicker === "img2vid" ? "🖼️→🎬 Image → Video" : "🌀 Motion Video"}
+                </span>
+                <button onClick={() => setVideoGenPicker(null)} style={{ background: "none", border: "none", color: C.mute2, cursor: "pointer", fontSize: 14, padding: 0 }}>×</button>
+              </div>
+
+              {/* Model picker */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VIDEO MODEL</div>
+                  <select value={videoGenModel} onChange={e => setVideoGenModel(e.target.value)} style={{
+                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                  }}>
+                    <optgroup label="GHS Standard">
+                      <option value="wan_2_5_lite">Wan Lite — Fast &amp; Free</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
+                      <option value="kling_v2_5_standard">Kling Standard</option>
+                      <option value="hailuo_fast">Hailuo Fast</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="kling_v2_5_pro">Kling Pro — Best</option>
+                      <option value="runway_gen4">Runway Gen-4</option>
+                    </optgroup>
+                  </select>
+                </div>
+                {videoGenPicker === "text2vid" ? (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>PROMPT / IDEA</div>
+                    <input
+                      value={videoGenPrompt}
+                      onChange={e => setVideoGenPrompt(e.target.value)}
+                      placeholder="Describe the video you want…"
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                        color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>IMAGE URL OR PATH</div>
+                    <input
+                      value={videoGenImageUrl}
+                      onChange={e => setVideoGenImageUrl(e.target.value)}
+                      placeholder="Paste image URL…"
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                        color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={async () => {
+                    if (videoGenRunning) return;
+                    const isText = videoGenPicker === "text2vid";
+                    const isMotion = videoGenPicker === "motion";
+                    const promptVal = isText ? videoGenPrompt : videoGenImageUrl;
+                    if (!promptVal.trim()) return;
+                    setVideoGenRunning(true);
+                    try {
+                      const body = isText
+                        ? { prompt: promptVal, model: videoGenModel, duration: 5, aspectRatio: "9:16" }
+                        : { imageUrl: promptVal, model: videoGenModel, mode: isMotion ? "image_to_video" : "image_to_video", duration: isMotion ? 4 : 5, aspectRatio: "9:16" };
+                      const res = await fetch("/api/video/generate", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                      });
+                      const d = res.ok ? await res.json() : null;
+                      if (d?.outputUrl) {
+                        const icon = isText ? "🎬" : isMotion ? "🌀" : "🖼️→🎬";
+                        setMessages(prev => [...prev, {
+                          id: "a-" + genId(), role: "assistant" as const,
+                          content: `${icon} Video generated! [${d.outputUrl}]`, timestamp: Date.now(),
+                        }]);
+                        setVideoGenPicker(null);
+                        setVideoGenPrompt("");
+                        setVideoGenImageUrl("");
+                      } else {
+                        setMessages(prev => [...prev, {
+                          id: "a-" + genId(), role: "assistant" as const,
+                          content: "Video generation failed — check model settings or try again.", timestamp: Date.now(),
+                        }]);
+                      }
+                    } catch { /* silent */ }
+                    setVideoGenRunning(false);
+                  }}
+                  disabled={videoGenRunning}
+                  style={{
+                    padding: "7px 16px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer",
+                    border: "none",
+                    background: videoGenRunning ? C.mute : "linear-gradient(135deg, #8b5cf6, #06b6d4)",
+                    color: "#fff",
+                  }}
+                >{videoGenRunning ? "Generating…" : "Generate Now"}</button>
+                <button
+                  onClick={async () => {
+                    if (videoGenRunning) return;
+                    const isText = videoGenPicker === "text2vid";
+                    const defaultPrompt = isText ? (input.trim() || "A cinematic short scene") : videoGenImageUrl;
+                    if (!defaultPrompt) return;
+                    setVideoGenRunning(true);
+                    try {
+                      const body = isText
+                        ? { prompt: defaultPrompt, model: "wan_2_5_lite", duration: 5, aspectRatio: "9:16" }
+                        : { imageUrl: defaultPrompt, model: "wan_2_5_lite", mode: "image_to_video", duration: 4, aspectRatio: "9:16" };
+                      const res = await fetch("/api/video/generate", {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(body),
+                      });
+                      const d = res.ok ? await res.json() : null;
+                      if (d?.outputUrl) {
+                        setMessages(prev => [...prev, {
+                          id: "a-" + genId(), role: "assistant" as const,
+                          content: `🎬 Video ready! [${d.outputUrl}]`, timestamp: Date.now(),
+                        }]);
+                        setVideoGenPicker(null);
+                      }
+                    } catch { /* silent */ }
+                    setVideoGenRunning(false);
+                  }}
+                  disabled={videoGenRunning}
+                  style={{
+                    padding: "7px 14px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                    border: `1px solid ${C.line}`, background: "transparent", color: C.mute2,
+                  }}
+                >Use Default (Wan Lite)</button>
+              </div>
+            </div>
+          )}
+
           {/* Text input */}
           <div style={{ position: "relative" }}>
             <textarea
@@ -1517,7 +1959,7 @@ function FreeModeChat() {
                 width: "100%", boxSizing: "border-box",
                 background: C.alert, border: `1.5px solid ${C.line}`,
                 borderRadius: 12, color: C.ink, fontSize: 13,
-                padding: "11px 56px 11px 14px",
+                padding: "11px 96px 11px 14px",
                 resize: "none", outline: "none", lineHeight: 1.65,
                 fontFamily: "inherit", transition: "border-color 0.2s",
                 opacity: sending ? 0.6 : 1,
@@ -1525,6 +1967,32 @@ function FreeModeChat() {
               onFocus={e => (e.target.style.borderColor = C.sky + "80")}
               onBlur={e => (e.target.style.borderColor = C.line)}
             />
+            {/* Polish prompt button */}
+            <button
+              onClick={async () => {
+                if (!input.trim()) return;
+                const res = await fetch("/api/hybrid/scene-polish", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ sceneId: "prompt", currentText: input.trim(), action: "polish" }),
+                });
+                if (res.ok) {
+                  const d = await res.json();
+                  if (d.polishedText) setInput(d.polishedText);
+                }
+              }}
+              disabled={!input.trim() || sending}
+              title="Polish this prompt"
+              style={{
+                position: "absolute", bottom: 8, right: 50,
+                width: 32, height: 32, borderRadius: 8, border: "none",
+                background: input.trim() ? `${C.lilac}20` : "transparent",
+                color: input.trim() ? C.lilac : C.mute2,
+                fontSize: 14, cursor: input.trim() ? "pointer" : "not-allowed",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: "all 0.15s",
+              }}
+            >✨</button>
             <button
               onClick={() => handleSend()}
               disabled={!input.trim() || sending}
