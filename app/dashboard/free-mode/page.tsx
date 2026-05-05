@@ -11,6 +11,7 @@ interface Scene {
   text:     string;
   mood:     string;
   imageUrl?: string;
+  videoUrl?: string;
 }
 
 interface ChatMessage {
@@ -91,16 +92,37 @@ function SceneCard({
   onEdit,
   onPolish,
   onGenSceneImage,
+  onGenSceneVideo,
   generatingImage,
+  generatingVideo,
+  defaultImageModel,
+  defaultImageStyle,
+  defaultVideoModel,
+  imageRemaining,
+  videoRemaining,
 }: {
   scene: Scene;
   index: number;
   onEdit: (id: string, field: "title" | "text", value: string) => void;
   onPolish?: (id: string, text: string) => void;
-  onGenSceneImage?: (id: string) => void;
+  onGenSceneImage?: (id: string, imgModel: string, imgStyle: string) => void;
+  onGenSceneVideo?: (id: string, vidModel: string, duration: number) => void;
   generatingImage?: boolean;
+  generatingVideo?: boolean;
+  defaultImageModel?: string;
+  defaultImageStyle?: string;
+  defaultVideoModel?: string;
+  imageRemaining?: number;
+  videoRemaining?: number;
 }) {
-  const [polishing, setPolishing] = useState(false);
+  const [polishing,     setPolishing]     = useState(false);
+  const [showImgPicker, setShowImgPicker] = useState(false);
+  const [showVidPicker, setShowVidPicker] = useState(false);
+  const [localImgModel, setLocalImgModel] = useState(defaultImageModel ?? "segmind_flux");
+  const [localImgStyle, setLocalImgStyle] = useState(defaultImageStyle ?? "realistic");
+  const [localVidModel, setLocalVidModel] = useState(defaultVideoModel ?? "wan_2_5_lite");
+  const [localVidDur,   setLocalVidDur]   = useState(5);
+
   const moodColor: Record<string, string> = {
     tense: C.coral, dramatic: C.pink, calm: C.mint, joyful: C.gold,
     mysterious: C.lilac, romantic: C.pink, neutral: C.mute,
@@ -113,8 +135,7 @@ function SceneCard({
     setPolishing(true);
     try {
       const res = await fetch("/api/hybrid/scene-polish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sceneId: scene.id, currentText: scene.text, action: "polish" }),
       });
       if (res.ok) {
@@ -125,65 +146,206 @@ function SceneCard({
     setPolishing(false);
   }
 
+  const selStyle: React.CSSProperties = {
+    padding: "3px 5px", borderRadius: 6, fontSize: 9, fontWeight: 700,
+    border: `1px solid ${C.line}`, background: C.card, color: C.mute2,
+    outline: "none", fontFamily: "inherit", cursor: "pointer", width: "100%",
+    boxSizing: "border-box",
+  };
+
   return (
     <div style={{
-      borderRadius: 12, background: C.alert,
-      border: `1px solid ${C.line}`,
-      overflow: "hidden", marginBottom: 8,
-      animation: "fadeSlideUp 0.3s ease",
+      borderRadius: 12, background: C.alert, border: `1px solid ${C.line}`,
+      overflow: "hidden", marginBottom: 8, animation: "fadeSlideUp 0.3s ease",
     }}>
+      {/* Header */}
       <div style={{
-        padding: "8px 14px", borderBottom: `1px solid ${C.line}`,
+        padding: "8px 12px", borderBottom: `1px solid ${C.line}`,
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: `${mc}08`,
+        background: `${mc}08`, gap: 6, flexWrap: "wrap",
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 1, textTransform: "uppercase" }}>
+            Scene {index + 1}
+          </span>
           <span style={{
-            fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 1.2,
-            textTransform: "uppercase",
-          }}>Scene {index + 1}</span>
-          <span style={{
-            padding: "1px 7px", borderRadius: 20, fontSize: 9, fontWeight: 700,
-            background: `${mc}18`, color: mc, border: `1px solid ${mc}35`,
-            textTransform: "capitalize",
+            padding: "1px 6px", borderRadius: 20, fontSize: 9, fontWeight: 700,
+            background: `${mc}18`, color: mc, border: `1px solid ${mc}35`, textTransform: "capitalize",
           }}>{scene.mood}</span>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+
+        <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Gen Image button */}
           {onGenSceneImage && (
             <button
-              onClick={() => onGenSceneImage(scene.id)}
-              disabled={generatingImage}
-              title={scene.imageUrl ? "Regenerate image" : "Generate image for this scene"}
+              onClick={() => { setShowVidPicker(false); setShowImgPicker(v => !v); }}
               style={{
-                padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
-                border: `1px solid ${C.gold}40`,
-                background: generatingImage ? `${C.gold}10` : scene.imageUrl ? `${C.gold}15` : "transparent",
-                color: C.gold, cursor: generatingImage ? "not-allowed" : "pointer",
+                padding: "3px 9px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer",
+                border: `1px solid ${showImgPicker ? C.gold + "80" : C.gold + "40"}`,
+                background: showImgPicker ? `${C.gold}20` : scene.imageUrl ? `${C.gold}12` : "transparent",
+                color: (imageRemaining ?? 1) <= 0 ? C.mute2 : C.gold,
+                opacity: (imageRemaining ?? 1) <= 0 ? 0.45 : 1,
               }}
+              title={(imageRemaining ?? 1) <= 0 ? "Daily image limit reached" : scene.imageUrl ? "Regenerate scene image" : "Generate image for this scene"}
             >
-              {generatingImage ? "…" : scene.imageUrl ? "🖼 Regen" : "🖼 Gen Image"}
+              🖼 {scene.imageUrl ? "Regen" : "Image"} {showImgPicker ? "▲" : "▼"}
             </button>
           )}
+          {/* Gen Video button */}
+          {onGenSceneVideo && (
+            <button
+              onClick={() => { setShowImgPicker(false); setShowVidPicker(v => !v); }}
+              style={{
+                padding: "3px 9px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer",
+                border: `1px solid ${showVidPicker ? C.sky + "80" : C.sky + "40"}`,
+                background: showVidPicker ? `${C.sky}20` : "transparent",
+                color: (videoRemaining ?? 1) <= 0 ? C.mute2 : C.sky,
+                opacity: (videoRemaining ?? 1) <= 0 ? 0.45 : 1,
+              }}
+              title={(videoRemaining ?? 1) <= 0 ? "Daily video limit reached" : "Generate video for this scene"}
+            >
+              🎬 Video {showVidPicker ? "▲" : "▼"}
+            </button>
+          )}
+          {/* Polish */}
           {onPolish && (
             <button onClick={handlePolish} disabled={polishing} style={{
-              padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
+              padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
               border: `1px solid ${C.lilac}40`, background: polishing ? `${C.lilac}10` : "transparent",
               color: C.lilac, cursor: polishing ? "not-allowed" : "pointer",
             }}>
-              {polishing ? "…" : "✨ Polish"}
+              {polishing ? "…" : "✨"}
             </button>
           )}
         </div>
       </div>
 
-      {/* Scene image — shown directly under scene, persists across refresh */}
+      {/* ── Image picker (inline, expands below header) ── */}
+      {showImgPicker && onGenSceneImage && (
+        <div style={{
+          padding: "10px 12px", borderBottom: `1px solid ${C.line}`,
+          background: `${C.gold}06`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+        }}>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>IMAGE MODEL</div>
+            <select value={localImgModel} onChange={e => setLocalImgModel(e.target.value)} style={selStyle}>
+              <optgroup label="GHS Standard">
+                <option value="segmind_flux">Segmind Flux (Free)</option>
+                <option value="fal_flux_schnell">FLUX Schnell</option>
+              </optgroup>
+              <optgroup label="GHS Pro">
+                <option value="fal_flux_dev">FLUX Dev</option>
+                <option value="ideogram_free">Ideogram</option>
+              </optgroup>
+              <optgroup label="GHS Premium">
+                <option value="stable_diffusion_xl">SD XL</option>
+                <option value="ideogram_v2">Ideogram V2</option>
+              </optgroup>
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>VISUAL STYLE</div>
+            <select value={localImgStyle} onChange={e => setLocalImgStyle(e.target.value)} style={selStyle}>
+              {Object.entries(VISUAL_STYLES).map(([k, v]) => (
+                <option key={k} value={k}>{v.icon} {v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+            <button
+              onClick={() => {
+                if ((imageRemaining ?? 0) <= 0) return;
+                onGenSceneImage(scene.id, localImgModel, localImgStyle);
+                setShowImgPicker(false);
+              }}
+              disabled={generatingImage || (imageRemaining ?? 0) <= 0}
+              style={{
+                flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer",
+                border: "none",
+                background: generatingImage || (imageRemaining ?? 0) <= 0
+                  ? C.mute + "40"
+                  : `linear-gradient(135deg, ${C.gold}, ${C.coral})`,
+                color: generatingImage || (imageRemaining ?? 0) <= 0 ? C.mute2 : "#fff",
+              }}
+            >
+              {generatingImage ? "Generating…" : (imageRemaining ?? 0) <= 0 ? "Limit reached" : "Generate Image"}
+            </button>
+            <button onClick={() => setShowImgPicker(false)} style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 10, cursor: "pointer",
+              border: `1px solid ${C.line}`, background: "transparent", color: C.mute2,
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Video picker (inline) ── */}
+      {showVidPicker && onGenSceneVideo && (
+        <div style={{
+          padding: "10px 12px", borderBottom: `1px solid ${C.line}`,
+          background: `${C.sky}06`, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+        }}>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>VIDEO MODEL</div>
+            <select value={localVidModel} onChange={e => setLocalVidModel(e.target.value)} style={selStyle}>
+              <optgroup label="GHS Standard">
+                <option value="wan_2_5_lite">Wan Lite (Free)</option>
+              </optgroup>
+              <optgroup label="GHS Pro">
+                <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
+                <option value="kling_v2_5_standard">Kling Standard</option>
+                <option value="hailuo_fast">Hailuo Fast</option>
+              </optgroup>
+              <optgroup label="GHS Premium">
+                <option value="kling_v2_5_pro">Kling Pro</option>
+                <option value="runway_gen4">Runway Gen-4</option>
+              </optgroup>
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>DURATION</div>
+            <div style={{ display: "flex", gap: 4 }}>
+              {[5, 8, 10, 15].map(v => (
+                <button key={v} onClick={() => setLocalVidDur(v)} style={{
+                  flex: 1, padding: "4px 0", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer",
+                  border: `1px solid ${localVidDur === v ? C.sky + "70" : C.line}`,
+                  background: localVidDur === v ? `${C.sky}18` : "transparent",
+                  color: localVidDur === v ? C.sky : C.mute2,
+                }}>{v}s</button>
+              ))}
+            </div>
+          </div>
+          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 6 }}>
+            <button
+              onClick={() => {
+                if ((videoRemaining ?? 0) <= 0) return;
+                onGenSceneVideo(scene.id, localVidModel, localVidDur);
+                setShowVidPicker(false);
+              }}
+              disabled={generatingVideo || (videoRemaining ?? 0) <= 0}
+              style={{
+                flex: 1, padding: "6px 0", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer",
+                border: "none",
+                background: generatingVideo || (videoRemaining ?? 0) <= 0
+                  ? C.mute + "40"
+                  : `linear-gradient(135deg, ${C.sky}, ${C.mint})`,
+                color: generatingVideo || (videoRemaining ?? 0) <= 0 ? C.mute2 : "#fff",
+              }}
+            >
+              {generatingVideo ? "Generating…" : (videoRemaining ?? 0) <= 0 ? "Limit reached" : "Generate Video"}
+            </button>
+            <button onClick={() => setShowVidPicker(false)} style={{
+              padding: "6px 12px", borderRadius: 8, fontSize: 10, cursor: "pointer",
+              border: `1px solid ${C.line}`, background: "transparent", color: C.mute2,
+            }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Scene image preview */}
       {scene.imageUrl && (
         <div style={{ position: "relative", background: "#000" }}>
-          <img
-            src={scene.imageUrl}
-            alt={`Scene ${index + 1}`}
-            style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
-          />
+          <img src={scene.imageUrl} alt={`Scene ${index + 1}`}
+            style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block" }} />
           <span style={{
             position: "absolute", bottom: 6, left: 8, fontSize: 9, fontWeight: 800,
             color: "#fff", background: "rgba(0,0,0,0.55)", padding: "2px 6px", borderRadius: 4,
@@ -191,26 +353,40 @@ function SceneCard({
         </div>
       )}
 
-      {/* Generating placeholder */}
-      {generatingImage && !scene.imageUrl && (
-        <div style={{
-          height: 90, background: `${C.gold}08`, display: "flex",
-          alignItems: "center", justifyContent: "center",
-          fontSize: 11, color: C.gold,
-          animation: "blink 1.2s infinite",
-        }}>Generating image…</div>
+      {/* Scene video preview */}
+      {scene.videoUrl && (
+        <div style={{ padding: "6px 12px 0" }}>
+          <video
+            src={scene.videoUrl}
+            controls
+            style={{ width: "100%", borderRadius: 8, maxHeight: 180 }}
+          />
+        </div>
       )}
 
+      {/* Generating placeholders */}
+      {generatingImage && !scene.imageUrl && (
+        <div style={{
+          height: 70, background: `${C.gold}08`, display: "flex",
+          alignItems: "center", justifyContent: "center", fontSize: 11, color: C.gold,
+        }}>⟳ Generating image…</div>
+      )}
+      {generatingVideo && (
+        <div style={{
+          height: 70, background: `${C.sky}08`, display: "flex",
+          alignItems: "center", justifyContent: "center", fontSize: 11, color: C.sky,
+        }}>⟳ Generating video…</div>
+      )}
+
+      {/* Text body */}
       <div style={{ padding: "10px 14px" }}>
         <input
           value={scene.title}
           onChange={e => onEdit(scene.id, "title", e.target.value)}
           style={{
-            width: "100%", boxSizing: "border-box",
-            background: "transparent", border: "none",
-            color: C.ink, fontSize: 12, fontWeight: 700,
-            outline: "none", marginBottom: 6, padding: 0,
-            fontFamily: "inherit",
+            width: "100%", boxSizing: "border-box", background: "transparent", border: "none",
+            color: C.ink, fontSize: 12, fontWeight: 700, outline: "none", marginBottom: 6,
+            padding: 0, fontFamily: "inherit",
           }}
           placeholder="Scene title…"
         />
@@ -219,11 +395,9 @@ function SceneCard({
           onChange={e => onEdit(scene.id, "text", e.target.value)}
           rows={3}
           style={{
-            width: "100%", boxSizing: "border-box",
-            background: "transparent", border: "none",
-            color: C.ink, fontSize: 13, lineHeight: 1.65,
-            outline: "none", resize: "none", padding: 0,
-            fontFamily: "inherit",
+            width: "100%", boxSizing: "border-box", background: "transparent", border: "none",
+            color: C.ink, fontSize: 13, lineHeight: 1.65, outline: "none", resize: "none",
+            padding: 0, fontFamily: "inherit",
           }}
           placeholder="Scene description…"
         />
@@ -432,6 +606,11 @@ function HybridModal({
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
+        // Reuse existing scene image if already generated — avoids redundant generation
+        if (sc.imageUrl) {
+          assemblyScenes.push({ scene: idx, videoUrl: sc.imageUrl, duration: sceneDuration, text: sc.title, animation: "fade_in" });
+          continue;
+        }
         const prompt = charContext
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
@@ -903,7 +1082,12 @@ function MessageBubble({
   onGenHybrid,
   onPolishScene,
   onGenSceneImage,
+  onGenSceneVideo,
   generatingSceneId,
+  generatingVideoSceneId,
+  defaultImageModel,
+  defaultImageStyle,
+  defaultVideoModel,
   limits,
   editMode,
   onToggleEdit,
@@ -915,8 +1099,13 @@ function MessageBubble({
   onGenVideo: (msgId: string) => void;
   onGenHybrid: (msgId: string) => void;
   onPolishScene: (msgId: string, sceneId: string, text: string) => void;
-  onGenSceneImage: (msgId: string, sceneId: string) => void;
+  onGenSceneImage: (msgId: string, sceneId: string, imgModel: string, imgStyle: string) => void;
+  onGenSceneVideo: (msgId: string, sceneId: string, vidModel: string, duration: number) => void;
   generatingSceneId: string | null;
+  generatingVideoSceneId: string | null;
+  defaultImageModel: string;
+  defaultImageStyle: string;
+  defaultVideoModel: string;
   limits: DailyLimits;
   editMode: Set<string>;
   onToggleEdit: (msgId: string) => void;
@@ -976,8 +1165,15 @@ function MessageBubble({
               index={i}
               onEdit={(sceneId, field, value) => onEditScene(msg.id, sceneId, field, value)}
               onPolish={(sceneId, text) => onPolishScene(msg.id, sceneId, text)}
-              onGenSceneImage={(sceneId) => onGenSceneImage(msg.id, sceneId)}
+              onGenSceneImage={(sceneId, imgModel, imgStyle) => onGenSceneImage(msg.id, sceneId, imgModel, imgStyle)}
+              onGenSceneVideo={(sceneId, vidModel, duration) => onGenSceneVideo(msg.id, sceneId, vidModel, duration)}
               generatingImage={generatingSceneId === scene.id}
+              generatingVideo={generatingVideoSceneId === scene.id}
+              defaultImageModel={defaultImageModel}
+              defaultImageStyle={defaultImageStyle}
+              defaultVideoModel={defaultVideoModel}
+              imageRemaining={limits.imageRemaining}
+              videoRemaining={limits.videoRemaining}
             />
           ))}
 
@@ -1049,7 +1245,8 @@ function FreeModeChat() {
   const [hybridMsg,      setHybridMsg]      = useState<string | null>(null); // msgId
   const [editModeSet,      setEditModeSet]      = useState<Set<string>>(new Set());
   const [genImageFor,      setGenImageFor]      = useState<string | null>(null);
-  const [generatingSceneId,setGeneratingSceneId]= useState<string | null>(null);
+  const [generatingSceneId,     setGeneratingSceneId]     = useState<string | null>(null);
+  const [generatingVideoSceneId,setGeneratingVideoSceneId] = useState<string | null>(null);
   const [stylePromptOpen,  setStylePromptOpen]  = useState(false);
 
   // ── Visual style ──
@@ -1328,7 +1525,7 @@ function FreeModeChat() {
   }
 
   // Generate image for one scene — stores imageUrl IN the scene (survives refresh)
-  async function genSceneImage(msgId: string, sceneId: string) {
+  async function genSceneImage(msgId: string, sceneId: string, imgModel?: string, imgStyle?: string) {
     const msg = messages.find(m => m.id === msgId);
     const scene = msg?.scenes?.find(s => s.id === sceneId);
     if (!scene || limits.imageRemaining <= 0) return;
@@ -1343,14 +1540,16 @@ function FreeModeChat() {
       if (!limitRes.ok) return;
       setLimits(await limitRes.json());
 
-      const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
+      const usedStyle = imgStyle ?? imageStyle;
+      const usedModel = imgModel ?? imageModel;
+      const stylePrefix = VISUAL_STYLES[usedStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
       const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
       const imgRes = await fetch("/api/generation/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt:  stylePrefix + " " + charPrefix + scene.text,
-          modelId: imageModel,
+          modelId: usedModel,
           width:   832, height: 1472,
         }),
       });
@@ -1373,6 +1572,56 @@ function FreeModeChat() {
       }
     } catch { /* silent */ }
     setGeneratingSceneId(null);
+  }
+
+  // Generate video for one scene — stores videoUrl IN the scene (survives refresh)
+  async function genSceneVideo(msgId: string, sceneId: string, vidModel: string, duration: number) {
+    const msg = messages.find(m => m.id === msgId);
+    const scene = msg?.scenes?.find(s => s.id === sceneId);
+    if (!scene || limits.videoRemaining <= 0) return;
+
+    setGeneratingVideoSceneId(sceneId);
+    try {
+      const limitRes = await fetch("/api/free-mode/daily-limits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "video" }),
+      });
+      if (!limitRes.ok) return;
+      setLimits(await limitRes.json());
+
+      const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
+      const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
+      const prompt = stylePrefix + " " + charPrefix + scene.text;
+
+      const vidRes = await fetch("/api/video/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          imageUrl: scene.imageUrl ?? undefined,
+          model: vidModel,
+          mode: scene.imageUrl ? "image_to_video" : "text_to_video",
+          duration,
+          aspectRatio: "9:16",
+        }),
+      });
+      if (vidRes.ok) {
+        const vidData = await vidRes.json();
+        const url = vidData.outputUrl ?? vidData.videoUrl ?? null;
+        if (url) {
+          setMessages(prev => prev.map(m =>
+            m.id !== msgId ? m : {
+              ...m,
+              scenes: m.scenes?.map(s =>
+                s.id !== sceneId ? s : { ...s, videoUrl: url }
+              ),
+            }
+          ));
+        }
+      }
+    } catch { /* silent */ }
+    setGeneratingVideoSceneId(null);
   }
 
   // Batch: generate images for all scenes in a message (shows style picker first if unset)
@@ -1563,8 +1812,13 @@ function FreeModeChat() {
                 onGenVideo={(msgId) => setVideoConfirm(msgId)}
                 onGenHybrid={(msgId) => setHybridMsg(msgId)}
                 onPolishScene={(msgId, sceneId, text) => polishScene(msgId, sceneId, text)}
-                onGenSceneImage={genSceneImage}
+                onGenSceneImage={(msgId, sceneId, imgModel, imgStyle) => genSceneImage(msgId, sceneId, imgModel, imgStyle)}
+                onGenSceneVideo={genSceneVideo}
                 generatingSceneId={generatingSceneId}
+                generatingVideoSceneId={generatingVideoSceneId}
+                defaultImageModel={imageModel}
+                defaultImageStyle={imageStyle}
+                defaultVideoModel={videoModel}
                 limits={limits}
                 editMode={editModeSet}
                 onToggleEdit={toggleEdit}
