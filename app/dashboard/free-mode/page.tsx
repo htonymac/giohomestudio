@@ -1001,12 +1001,12 @@ function FreeModeChat() {
   const [imageResults,   setImageResults]   = useState<Record<string, string[]>>({});
   const [genImageFor,    setGenImageFor]    = useState<string | null>(null);
 
-  // ── Model + audio preferences (Customize tray) ──
+  // ── Model + audio preferences ──
   const [showCustomize,  setShowCustomize]  = useState(false);
   const [imageModel,     setImageModel]     = useState("segmind_flux");
   const [videoModel,     setVideoModel]     = useState("wan_2_5_lite");
   const [llmModel,       setLlmModel]       = useState("claude:claude-haiku-4-5-20251001");
-  const [musicTier,      setMusicTier]      = useState("piper");
+  const [musicTier,      setMusicTier]      = useState("stock");
   const [sfxSource,      setSfxSource]      = useState("auto");
   const [voiceProvider,  setVoiceProvider]  = useState("piper");
 
@@ -1016,6 +1016,12 @@ function FreeModeChat() {
   const [videoGenModel, setVideoGenModel]   = useState("wan_2_5_lite");
   const [videoGenPrompt, setVideoGenPrompt] = useState("");
   const [videoGenRunning, setVideoGenRunning] = useState(false);
+  const [videoGenDuration, setVideoGenDuration] = useState(5);
+  const [videoGenCustomDur, setVideoGenCustomDur] = useState("");
+
+  // ── All available characters (for compact picker) ──
+  const [allAvailableChars, setAllAvailableChars] = useState<Character[]>([]);
+  const imageUploadRef = useRef<HTMLInputElement>(null);
 
   // Load from DB on mount
   useEffect(() => {
@@ -1056,6 +1062,16 @@ function FreeModeChat() {
       .catch(() => null);
   }, []);
 
+  // Load all available characters (for compact picker)
+  useEffect(() => {
+    fetch("/api/character-voices")
+      .then(r => r.ok ? r.json() : { voices: [] })
+      .then(d => setAllAvailableChars((d.voices ?? []).map((v: Character) => ({
+        id: v.id, name: v.name, imageUrl: v.imageUrl, role: v.role,
+      }))))
+      .catch(() => null);
+  }, []);
+
   // Load selected characters detail
   useEffect(() => {
     if (selectedCharIds.length === 0) { setCharacters([]); return; }
@@ -1067,6 +1083,20 @@ function FreeModeChat() {
       })
       .catch(() => null);
   }, [selectedCharIds]);
+
+  // Handle local image upload → set as videoGenImageUrl and open img2vid picker
+  function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setVideoGenImageUrl(dataUrl);
+      setVideoGenPicker("img2vid");
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
 
   // Auto-scroll
   useEffect(() => {
@@ -1497,148 +1527,19 @@ function FreeModeChat() {
             <IntroOutroPanel type="outro" data={outro} onChange={updateOutro} onClose={() => { setOutro(null); persistSession(selectedCharIds, intro, null); }} />
           )}
 
-          {/* ── Customize tray (collapsible) ── */}
-          {showCustomize && (
-            <div style={{
-              marginBottom: 10, padding: "12px 14px", borderRadius: 12,
-              background: C.alert, border: `1px solid ${C.line}`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 800, color: C.mute2, marginBottom: 8, letterSpacing: 1 }}>CUSTOMIZE — session settings</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-                {/* AI Brain */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>AI BRAIN</div>
-                  <select value={llmModel} onChange={e => setLlmModel(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="claude:claude-haiku-4-5-20251001">Haiku — Fast &amp; Free</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="claude:claude-sonnet-4-6">Sonnet — Smarter</option>
-                      <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
-                    </optgroup>
-                    <optgroup label="GHS Local">
-                      <option value="ollama:mistral">Ollama Mistral — Private</option>
-                      <option value="ollama:llama3">Ollama Llama 3 — Private</option>
-                    </optgroup>
-                  </select>
-                </div>
-                {/* Image Model */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>IMAGE MODEL</div>
-                  <select value={imageModel} onChange={e => setImageModel(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="segmind_flux">Segmind Flux — Free</option>
-                      <option value="fal_flux_schnell">FLUX Schnell — Fast</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="fal_flux_dev">FLUX Dev — Quality</option>
-                      <option value="ideogram_free">Ideogram — Creative</option>
-                    </optgroup>
-                    <optgroup label="GHS Premium">
-                      <option value="stable_diffusion_xl">Stable Diffusion XL</option>
-                      <option value="ideogram_v2">Ideogram V2 — Best</option>
-                    </optgroup>
-                  </select>
-                </div>
-                {/* Video Model */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VIDEO MODEL</div>
-                  <select value={videoModel} onChange={e => setVideoModel(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="wan_2_5_lite">Wan Lite — Fast</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
-                      <option value="kling_v2_5_standard">Kling Standard</option>
-                      <option value="hailuo_fast">Hailuo Fast</option>
-                    </optgroup>
-                    <optgroup label="GHS Premium">
-                      <option value="kling_v2_5_pro">Kling Pro — Best Quality</option>
-                      <option value="runway_gen4">Runway Gen-4</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 10 }}>
-                {/* Music */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>MUSIC</div>
-                  <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="stock">Stock Library — Free</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="fal_stable_audio">FAL Stable Audio</option>
-                    </optgroup>
-                    <optgroup label="GHS Karaoke">
-                      <option value="ghs_karaoke">GHS Karaoke Engine</option>
-                      <option value="fal_karaoke">FAL Karaoke</option>
-                    </optgroup>
-                    <optgroup label="GHS Classic">
-                      <option value="kie_classic">Kie.ai / Suno Style</option>
-                    </optgroup>
-                    <optgroup label="GHS Premium">
-                      <option value="kie_premium">Kie Premium — Best</option>
-                    </optgroup>
-                  </select>
-                </div>
-                {/* Voice */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VOICE / NARRATION</div>
-                  <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="piper">Piper TTS — Free</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="fal_narrator">FAL Narrator</option>
-                      <option value="ghs_karaoke">GHS Karaoke Voice</option>
-                    </optgroup>
-                    <optgroup label="GHS Premium">
-                      <option value="elevenlabs">ElevenLabs — Best</option>
-                    </optgroup>
-                  </select>
-                </div>
-                {/* SFX */}
-                <div>
-                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>SOUND EFFECTS</div>
-                  <select value={sfxSource} onChange={e => setSfxSource(e.target.value)} style={{
-                    width: "100%", background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                    color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                  }}>
-                    <optgroup label="GHS Standard">
-                      <option value="auto">Auto Match — Scene Mood</option>
-                      <option value="local">Local Sound Library</option>
-                    </optgroup>
-                    <optgroup label="GHS Pro">
-                      <option value="elevenlabs">ElevenLabs SFX</option>
-                    </optgroup>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* ── Hidden file input for image upload ── */}
+          <input
+            ref={imageUploadRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleImageUpload}
+          />
 
-          {/* Toolbar */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6,
-            marginBottom: 8, flexWrap: "wrap",
-          }}>
-            {/* + button — consolidated menu */}
+          {/* ── Toolbar Row 1: actions ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+
+            {/* + menu: Intro / Outro only */}
             <div ref={plusMenuRef} style={{ position: "relative" }}>
               <button
                 onClick={() => setPlusMenuOpen(o => !o)}
@@ -1649,36 +1550,19 @@ function FreeModeChat() {
                   color: plusMenuOpen ? C.sky : C.mute,
                   fontSize: 18, fontWeight: 700, cursor: "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  lineHeight: 1,
                 }}
-                title="Add character, intro, outro, image or video"
               >+</button>
               {plusMenuOpen && (
                 <div style={{
                   position: "absolute", bottom: "calc(100% + 6px)", left: 0, zIndex: 50,
                   background: C.card, border: `1px solid ${C.line}`, borderRadius: 10,
-                  overflow: "hidden", minWidth: 190,
+                  overflow: "hidden", minWidth: 170,
                   boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
                 }}>
-                  {[
-                    { label: "Add Character", icon: "👤", action: () => { setCharDrawer(true); setPlusMenuOpen(false); } },
-                    { label: "Add Intro",     icon: "▶",  action: () => { setIntro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
-                    { label: "Add Outro",     icon: "⏹",  action: () => { setOutro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
-                    { label: "Image from Library", icon: "🗂️", action: () => {
-                        setPlusMenuOpen(false);
-                        fetch("/api/asset-library/list?type=image&limit=20")
-                          .then(r => r.ok ? r.json() : { items: [] })
-                          .then(d => {
-                            const items: Array<{ url: string; title: string }> = d.items ?? d.assets ?? [];
-                            if (items.length > 0) {
-                              const picked = items[0];
-                              setVideoGenImageUrl(picked.url);
-                              setVideoGenPicker("img2vid");
-                            }
-                          }).catch(() => null);
-                      }
-                    },
-                  ].map(item => (
+                  {([
+                    { label: "Add Intro",  icon: "▶", action: () => { setIntro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
+                    { label: "Add Outro",  icon: "⏹", action: () => { setOutro({ text: "", phone: "", type: "contact" }); setPlusMenuOpen(false); } },
+                  ] as { label: string; icon: string; action: () => void }[]).map(item => (
                     <button key={item.label} onClick={item.action} style={{
                       width: "100%", padding: "9px 14px", background: "transparent",
                       border: "none", color: C.ink, fontSize: 12, fontWeight: 600,
@@ -1693,74 +1577,255 @@ function FreeModeChat() {
               )}
             </div>
 
-            {/* Character chips */}
+            {/* Character compact dropdown */}
+            <select
+              value=""
+              onChange={e => {
+                if (e.target.value === "__new__") { setCharDrawer(true); }
+                else if (e.target.value && !selectedCharIds.includes(e.target.value)) {
+                  handleCharSelect([...selectedCharIds, e.target.value]);
+                }
+                e.target.value = "";
+              }}
+              style={{
+                padding: "4px 6px", borderRadius: 8, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: C.alert,
+                color: C.mute2, cursor: "pointer", outline: "none", fontFamily: "inherit",
+                maxWidth: 130,
+              }}
+            >
+              <option value="">👤 Cast ▾</option>
+              <option value="__new__">+ Create new…</option>
+              {allAvailableChars.filter(c => !selectedCharIds.includes(c.id)).map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+
+            {/* Selected character chips (compact) */}
             {characters.map(ch => (
               <div key={ch.id} style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "3px 10px 3px 4px", borderRadius: 20,
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "3px 8px 3px 4px", borderRadius: 20,
                 background: `${C.lilac}18`, border: `1px solid ${C.lilac}35`,
               }}>
-                {ch.imageUrl ? (
-                  <img src={ch.imageUrl} alt={ch.name} style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-                ) : (
-                  <div style={{
-                    width: 18, height: 18, borderRadius: "50%",
-                    background: C.lilac, display: "flex", alignItems: "center",
-                    justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800,
-                  }}>{ch.name.slice(0, 1)}</div>
-                )}
-                <span style={{ fontSize: 10, fontWeight: 600, color: C.lilac }}>{ch.name}</span>
+                <div style={{
+                  width: 16, height: 16, borderRadius: "50%",
+                  background: C.lilac, display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 8, color: "#fff", fontWeight: 800, flexShrink: 0,
+                }}>{ch.name.slice(0, 1)}</div>
+                <span style={{ fontSize: 10, fontWeight: 600, color: C.lilac, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.name}</span>
                 <button onClick={() => handleCharSelect(selectedCharIds.filter(id => id !== ch.id))} style={{
-                  background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0, lineHeight: 1, marginLeft: 2,
+                  background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0, lineHeight: 1,
                 }}>×</button>
               </div>
             ))}
 
             {/* Intro / Outro chips */}
             {intro && (
-              <div style={{ padding: "3px 8px", borderRadius: 20, background: `${C.mint}12`, border: `1px solid ${C.mint}40`, display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ padding: "3px 7px", borderRadius: 20, background: `${C.mint}12`, border: `1px solid ${C.mint}40`, display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 9, color: C.mint, fontWeight: 700 }}>▶ Intro</span>
                 <button onClick={() => { setIntro(null); persistSession(selectedCharIds, null, outro); }} style={{ background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0 }}>×</button>
               </div>
             )}
             {outro && (
-              <div style={{ padding: "3px 8px", borderRadius: 20, background: `${C.gold}12`, border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ padding: "3px 7px", borderRadius: 20, background: `${C.gold}12`, border: `1px solid ${C.gold}40`, display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ fontSize: 9, color: C.gold, fontWeight: 700 }}>⏹ Outro</span>
                 <button onClick={() => { setOutro(null); persistSession(selectedCharIds, intro, null); }} style={{ background: "none", border: "none", color: C.mute2, fontSize: 10, cursor: "pointer", padding: 0 }}>×</button>
               </div>
             )}
 
-            {/* Spacer */}
             <div style={{ flex: 1 }} />
 
-            {/* Customize toggle */}
+            {/* Upload image button */}
+            <button
+              onClick={() => imageUploadRef.current?.click()}
+              title="Upload image from computer"
+              style={{
+                padding: "4px 9px", borderRadius: 8, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: "transparent",
+                color: C.mute2, cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              }}
+            >📁 Upload</button>
+
+            {/* Limits */}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 6,
+              background: limits.imageRemaining <= 0 ? `${C.coral}12` : `${C.lilac}12`,
+              color: limits.imageRemaining <= 0 ? C.coral : C.lilac,
+              border: `1px solid ${limits.imageRemaining <= 0 ? C.coral + "40" : C.lilac + "30"}`,
+            }}>🖼 {limits.imageCount}/{limits.imageLimit}</span>
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "3px 7px", borderRadius: 6,
+              background: limits.videoRemaining <= 0 ? `${C.coral}12` : `${C.gold}12`,
+              color: limits.videoRemaining <= 0 ? C.coral : C.gold,
+              border: `1px solid ${limits.videoRemaining <= 0 ? C.coral + "40" : C.gold + "30"}`,
+            }}>🎬 {limits.videoCount}/{limits.videoLimit}</span>
+          </div>
+
+          {/* ── Toolbar Row 2: compact model selectors ── */}
+          <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, flexWrap: "wrap" }}>
+
+            {/* Image model */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700, whiteSpace: "nowrap" }}>🖼</span>
+              <select value={imageModel} onChange={e => setImageModel(e.target.value)} style={{
+                padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
+                outline: "none", fontFamily: "inherit", cursor: "pointer",
+              }}>
+                <optgroup label="GHS Standard">
+                  <option value="segmind_flux">Segmind (Free)</option>
+                  <option value="fal_flux_schnell">FLUX Schnell</option>
+                </optgroup>
+                <optgroup label="GHS Pro">
+                  <option value="fal_flux_dev">FLUX Dev</option>
+                  <option value="ideogram_free">Ideogram</option>
+                </optgroup>
+                <optgroup label="GHS Premium">
+                  <option value="stable_diffusion_xl">SD XL</option>
+                  <option value="ideogram_v2">Ideogram V2</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div style={{ width: 1, height: 16, background: C.line }} />
+
+            {/* Voice */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎙</span>
+              <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={{
+                padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
+                outline: "none", fontFamily: "inherit", cursor: "pointer",
+              }}>
+                <optgroup label="GHS Standard">
+                  <option value="piper">Piper (Free)</option>
+                </optgroup>
+                <optgroup label="GHS Pro">
+                  <option value="fal_narrator">FAL Narrator</option>
+                  <option value="ghs_karaoke">GHS Karaoke</option>
+                </optgroup>
+                <optgroup label="GHS Premium">
+                  <option value="elevenlabs">ElevenLabs</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div style={{ width: 1, height: 16, background: C.line }} />
+
+            {/* Music */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎵</span>
+              <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={{
+                padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
+                outline: "none", fontFamily: "inherit", cursor: "pointer",
+              }}>
+                <optgroup label="GHS Standard">
+                  <option value="stock">Stock (Free)</option>
+                </optgroup>
+                <optgroup label="GHS Pro">
+                  <option value="fal_stable_audio">FAL Stable Audio</option>
+                </optgroup>
+                <optgroup label="GHS Karaoke">
+                  <option value="ghs_karaoke">GHS Karaoke</option>
+                  <option value="fal_karaoke">FAL Karaoke</option>
+                </optgroup>
+                <optgroup label="GHS Classic">
+                  <option value="kie_classic">Kie.ai / Suno</option>
+                </optgroup>
+                <optgroup label="GHS Premium">
+                  <option value="kie_premium">Kie Premium</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div style={{ width: 1, height: 16, background: C.line }} />
+
+            {/* AI Brain (compact) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🧠</span>
+              <select value={llmModel} onChange={e => setLlmModel(e.target.value)} style={{
+                padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
+                outline: "none", fontFamily: "inherit", cursor: "pointer",
+              }}>
+                <optgroup label="GHS Standard">
+                  <option value="claude:claude-haiku-4-5-20251001">Haiku (Fast)</option>
+                </optgroup>
+                <optgroup label="GHS Pro">
+                  <option value="claude:claude-sonnet-4-6">Sonnet</option>
+                  <option value="openai:gpt-4o-mini">GPT-4o Mini</option>
+                </optgroup>
+                <optgroup label="GHS Local">
+                  <option value="ollama:mistral">Ollama Mistral</option>
+                  <option value="ollama:llama3">Ollama Llama 3</option>
+                </optgroup>
+              </select>
+            </div>
+
+            <div style={{ flex: 1 }} />
+
+            {/* ⚙ Customize toggle (optional expanded view) */}
             <button onClick={() => setShowCustomize(v => !v)} style={{
-              padding: "4px 10px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+              padding: "3px 8px", borderRadius: 7, fontSize: 9, fontWeight: 700,
               border: `1px solid ${showCustomize ? C.sky + "60" : C.line}`,
               background: showCustomize ? `${C.sky}12` : "transparent",
               color: showCustomize ? C.sky : C.mute2, cursor: "pointer",
-            }}>⚙ {showCustomize ? "Hide" : "Customize"}</button>
-
-            {/* Daily limit counters */}
-            <div style={{ display: "flex", gap: 6 }}>
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                background: limits.imageRemaining <= 0 ? `${C.coral}12` : `${C.lilac}12`,
-                color: limits.imageRemaining <= 0 ? C.coral : C.lilac,
-                border: `1px solid ${limits.imageRemaining <= 0 ? C.coral + "40" : C.lilac + "30"}`,
-              }}>
-                🖼️ {limits.imageCount}/{limits.imageLimit}
-              </span>
-              <span style={{
-                fontSize: 10, fontWeight: 700, padding: "3px 8px", borderRadius: 6,
-                background: limits.videoRemaining <= 0 ? `${C.coral}12` : `${C.gold}12`,
-                color: limits.videoRemaining <= 0 ? C.coral : C.gold,
-                border: `1px solid ${limits.videoRemaining <= 0 ? C.coral + "40" : C.gold + "30"}`,
-              }}>
-                🎬 {limits.videoCount}/{limits.videoLimit}
-              </span>
-            </div>
+            }}>⚙ {showCustomize ? "Less" : "More"}</button>
           </div>
+
+          {/* ── Optional expanded customize panel (SFX + video model defaults) ── */}
+          {showCustomize && (
+            <div style={{
+              marginBottom: 8, padding: "10px 12px", borderRadius: 10,
+              background: C.alert, border: `1px solid ${C.line}`,
+              display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end",
+            }}>
+              {/* Video model default */}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>DEFAULT VIDEO</div>
+                <select value={videoModel} onChange={e => setVideoModel(e.target.value)} style={{
+                  padding: "4px 6px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                  border: `1px solid ${C.line}`, background: C.card, color: C.mute2,
+                  outline: "none", fontFamily: "inherit",
+                }}>
+                  <optgroup label="GHS Standard">
+                    <option value="wan_2_5_lite">Wan Lite</option>
+                  </optgroup>
+                  <optgroup label="GHS Pro">
+                    <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
+                    <option value="kling_v2_5_standard">Kling Standard</option>
+                    <option value="hailuo_fast">Hailuo Fast</option>
+                  </optgroup>
+                  <optgroup label="GHS Premium">
+                    <option value="kling_v2_5_pro">Kling Pro</option>
+                    <option value="runway_gen4">Runway Gen-4</option>
+                  </optgroup>
+                </select>
+              </div>
+              {/* SFX */}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>SFX</div>
+                <select value={sfxSource} onChange={e => setSfxSource(e.target.value)} style={{
+                  padding: "4px 6px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                  border: `1px solid ${C.line}`, background: C.card, color: C.mute2,
+                  outline: "none", fontFamily: "inherit",
+                }}>
+                  <optgroup label="GHS Standard">
+                    <option value="auto">Auto Match</option>
+                    <option value="local">Local Library</option>
+                  </optgroup>
+                  <optgroup label="GHS Pro">
+                    <option value="elevenlabs">ElevenLabs SFX</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div style={{ fontSize: 9, color: C.mute2, alignSelf: "center" }}>
+                All settings apply to this session only
+              </div>
+            </div>
+          )}
 
           {/* ── Video generation buttons ── */}
           <div style={{
@@ -1806,8 +1871,8 @@ function FreeModeChat() {
                 <button onClick={() => setVideoGenPicker(null)} style={{ background: "none", border: "none", color: C.mute2, cursor: "pointer", fontSize: 14, padding: 0 }}>×</button>
               </div>
 
-              {/* Model picker */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              {/* Model + input grid */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>VIDEO MODEL</div>
                   <select value={videoGenModel} onChange={e => setVideoGenModel(e.target.value)} style={{
@@ -1815,7 +1880,7 @@ function FreeModeChat() {
                     color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
                   }}>
                     <optgroup label="GHS Standard">
-                      <option value="wan_2_5_lite">Wan Lite — Fast &amp; Free</option>
+                      <option value="wan_2_5_lite">Wan Lite (up to 21s)</option>
                     </optgroup>
                     <optgroup label="GHS Pro">
                       <option value="muapi_wan_v2_1_720p">Wan Pro 720p</option>
@@ -1823,7 +1888,7 @@ function FreeModeChat() {
                       <option value="hailuo_fast">Hailuo Fast</option>
                     </optgroup>
                     <optgroup label="GHS Premium">
-                      <option value="kling_v2_5_pro">Kling Pro — Best</option>
+                      <option value="kling_v2_5_pro">Kling Pro</option>
                       <option value="runway_gen4">Runway Gen-4</option>
                     </optgroup>
                   </select>
@@ -1844,18 +1909,56 @@ function FreeModeChat() {
                   </div>
                 ) : (
                   <div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>IMAGE URL OR PATH</div>
-                    <input
-                      value={videoGenImageUrl}
-                      onChange={e => setVideoGenImageUrl(e.target.value)}
-                      placeholder="Paste image URL…"
-                      style={{
-                        width: "100%", boxSizing: "border-box",
-                        background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
-                        color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
-                      }}
-                    />
+                    <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>IMAGE — URL or upload</div>
+                    <div style={{ display: "flex", gap: 4 }}>
+                      <input
+                        value={videoGenImageUrl}
+                        onChange={e => setVideoGenImageUrl(e.target.value)}
+                        placeholder="Paste URL or upload ↑"
+                        style={{
+                          flex: 1, boxSizing: "border-box",
+                          background: C.card, border: `1px solid ${C.line}`, borderRadius: 7,
+                          color: C.ink, fontSize: 10, padding: "5px 6px", outline: "none", fontFamily: "inherit",
+                        }}
+                      />
+                      <button
+                        onClick={() => imageUploadRef.current?.click()}
+                        title="Upload from computer"
+                        style={{
+                          padding: "5px 8px", borderRadius: 7, fontSize: 10, cursor: "pointer",
+                          border: `1px solid ${C.line}`, background: C.card, color: C.mute2,
+                        }}
+                      >📁</button>
+                    </div>
                   </div>
+                )}
+              </div>
+
+              {/* Duration row */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                <span style={{ fontSize: 9, fontWeight: 700, color: C.mute2 }}>DURATION:</span>
+                {(videoGenPicker === "motion" ? [5, 10, 16, 21] : [5, 10, 15, 30]).map(v => (
+                  <button key={v} onClick={() => { setVideoGenDuration(v); setVideoGenCustomDur(""); }} style={{
+                    padding: "4px 8px", borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    border: `1px solid ${videoGenDuration === v && !videoGenCustomDur ? C.sky + "60" : C.line}`,
+                    background: videoGenDuration === v && !videoGenCustomDur ? `${C.sky}15` : "transparent",
+                    color: videoGenDuration === v && !videoGenCustomDur ? C.sky : C.mute2,
+                  }}>{v}s</button>
+                ))}
+                <input
+                  value={videoGenCustomDur}
+                  onChange={e => setVideoGenCustomDur(e.target.value.replace(/\D/g, ""))}
+                  placeholder="sec"
+                  style={{
+                    width: 44, padding: "4px 6px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                    border: `1px solid ${videoGenCustomDur ? C.sky + "60" : C.line}`,
+                    background: videoGenCustomDur ? `${C.sky}15` : "transparent",
+                    color: videoGenCustomDur ? C.sky : C.mute2, outline: "none",
+                    fontFamily: "inherit", textAlign: "center",
+                  }}
+                />
+                {videoGenPicker === "motion" && (
+                  <span style={{ fontSize: 9, color: C.mute2 }}>Wan supports up to 21s</span>
                 )}
               </div>
 
@@ -1868,11 +1971,12 @@ function FreeModeChat() {
                     const isMotion = videoGenPicker === "motion";
                     const promptVal = isText ? videoGenPrompt : videoGenImageUrl;
                     if (!promptVal.trim()) return;
+                    const dur = videoGenCustomDur ? Math.min(Math.max(parseInt(videoGenCustomDur, 10), 1), isMotion ? 21 : 300) : videoGenDuration;
                     setVideoGenRunning(true);
                     try {
                       const body = isText
-                        ? { prompt: promptVal, model: videoGenModel, duration: 5, aspectRatio: "9:16" }
-                        : { imageUrl: promptVal, model: videoGenModel, mode: isMotion ? "image_to_video" : "image_to_video", duration: isMotion ? 4 : 5, aspectRatio: "9:16" };
+                        ? { prompt: promptVal, model: videoGenModel, duration: dur, aspectRatio: "9:16" }
+                        : { imageUrl: promptVal, model: videoGenModel, mode: "image_to_video", duration: dur, aspectRatio: "9:16" };
                       const res = await fetch("/api/video/generate", {
                         method: "POST", headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(body),
@@ -1908,13 +2012,14 @@ function FreeModeChat() {
                   onClick={async () => {
                     if (videoGenRunning) return;
                     const isText = videoGenPicker === "text2vid";
+                    const isMotion = videoGenPicker === "motion";
                     const defaultPrompt = isText ? (input.trim() || "A cinematic short scene") : videoGenImageUrl;
                     if (!defaultPrompt) return;
                     setVideoGenRunning(true);
                     try {
                       const body = isText
                         ? { prompt: defaultPrompt, model: "wan_2_5_lite", duration: 5, aspectRatio: "9:16" }
-                        : { imageUrl: defaultPrompt, model: "wan_2_5_lite", mode: "image_to_video", duration: 4, aspectRatio: "9:16" };
+                        : { imageUrl: defaultPrompt, model: "wan_2_5_lite", mode: "image_to_video", duration: isMotion ? 10 : 5, aspectRatio: "9:16" };
                       const res = await fetch("/api/video/generate", {
                         method: "POST", headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(body),
