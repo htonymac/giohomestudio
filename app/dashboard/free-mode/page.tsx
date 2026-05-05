@@ -6,10 +6,11 @@ import { ds } from "../../../lib/designSystem";
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Scene {
-  id:    string;
-  title: string;
-  text:  string;
-  mood:  string;
+  id:       string;
+  title:    string;
+  text:     string;
+  mood:     string;
+  imageUrl?: string;
 }
 
 interface ChatMessage {
@@ -89,11 +90,15 @@ function SceneCard({
   index,
   onEdit,
   onPolish,
+  onGenSceneImage,
+  generatingImage,
 }: {
   scene: Scene;
   index: number;
   onEdit: (id: string, field: "title" | "text", value: string) => void;
   onPolish?: (id: string, text: string) => void;
+  onGenSceneImage?: (id: string) => void;
+  generatingImage?: boolean;
 }) {
   const [polishing, setPolishing] = useState(false);
   const moodColor: Record<string, string> = {
@@ -143,16 +148,59 @@ function SceneCard({
             textTransform: "capitalize",
           }}>{scene.mood}</span>
         </div>
-        {onPolish && (
-          <button onClick={handlePolish} disabled={polishing} style={{
-            padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
-            border: `1px solid ${C.lilac}40`, background: polishing ? `${C.lilac}10` : "transparent",
-            color: C.lilac, cursor: polishing ? "not-allowed" : "pointer",
-          }}>
-            {polishing ? "Polishing…" : "✨ Polish"}
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {onGenSceneImage && (
+            <button
+              onClick={() => onGenSceneImage(scene.id)}
+              disabled={generatingImage}
+              title={scene.imageUrl ? "Regenerate image" : "Generate image for this scene"}
+              style={{
+                padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
+                border: `1px solid ${C.gold}40`,
+                background: generatingImage ? `${C.gold}10` : scene.imageUrl ? `${C.gold}15` : "transparent",
+                color: C.gold, cursor: generatingImage ? "not-allowed" : "pointer",
+              }}
+            >
+              {generatingImage ? "…" : scene.imageUrl ? "🖼 Regen" : "🖼 Gen Image"}
+            </button>
+          )}
+          {onPolish && (
+            <button onClick={handlePolish} disabled={polishing} style={{
+              padding: "2px 8px", borderRadius: 6, fontSize: 9, fontWeight: 700,
+              border: `1px solid ${C.lilac}40`, background: polishing ? `${C.lilac}10` : "transparent",
+              color: C.lilac, cursor: polishing ? "not-allowed" : "pointer",
+            }}>
+              {polishing ? "…" : "✨ Polish"}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Scene image — shown directly under scene, persists across refresh */}
+      {scene.imageUrl && (
+        <div style={{ position: "relative", background: "#000" }}>
+          <img
+            src={scene.imageUrl}
+            alt={`Scene ${index + 1}`}
+            style={{ width: "100%", maxHeight: 220, objectFit: "cover", display: "block" }}
+          />
+          <span style={{
+            position: "absolute", bottom: 6, left: 8, fontSize: 9, fontWeight: 800,
+            color: "#fff", background: "rgba(0,0,0,0.55)", padding: "2px 6px", borderRadius: 4,
+          }}>S{index + 1}</span>
+        </div>
+      )}
+
+      {/* Generating placeholder */}
+      {generatingImage && !scene.imageUrl && (
+        <div style={{
+          height: 90, background: `${C.gold}08`, display: "flex",
+          alignItems: "center", justifyContent: "center",
+          fontSize: 11, color: C.gold,
+          animation: "blink 1.2s infinite",
+        }}>Generating image…</div>
+      )}
+
       <div style={{ padding: "10px 14px" }}>
         <input
           value={scene.title}
@@ -854,10 +902,11 @@ function MessageBubble({
   onGenVideo,
   onGenHybrid,
   onPolishScene,
+  onGenSceneImage,
+  generatingSceneId,
   limits,
   editMode,
   onToggleEdit,
-  imageResults,
 }: {
   msg: ChatMessage;
   onEditScene: (msgId: string, sceneId: string, field: "title" | "text", value: string) => void;
@@ -866,10 +915,11 @@ function MessageBubble({
   onGenVideo: (msgId: string) => void;
   onGenHybrid: (msgId: string) => void;
   onPolishScene: (msgId: string, sceneId: string, text: string) => void;
+  onGenSceneImage: (msgId: string, sceneId: string) => void;
+  generatingSceneId: string | null;
   limits: DailyLimits;
   editMode: Set<string>;
   onToggleEdit: (msgId: string) => void;
-  imageResults: Record<string, string[]>;
 }) {
   const isUser = msg.role === "user";
   const isEdit = editMode.has(msg.id);
@@ -926,33 +976,17 @@ function MessageBubble({
               index={i}
               onEdit={(sceneId, field, value) => onEditScene(msg.id, sceneId, field, value)}
               onPolish={(sceneId, text) => onPolishScene(msg.id, sceneId, text)}
+              onGenSceneImage={(sceneId) => onGenSceneImage(msg.id, sceneId)}
+              generatingImage={generatingSceneId === scene.id}
             />
           ))}
-
-          {/* Image results */}
-          {imageResults[msg.id] && imageResults[msg.id].length > 0 && (
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
-              {imageResults[msg.id].map((url, i) => (
-                <div key={i} style={{ position: "relative" }}>
-                  <img src={url} alt={`Scene ${i + 1}`} style={{
-                    width: 120, height: 120, objectFit: "cover", borderRadius: 10,
-                    border: `1px solid ${C.line}`,
-                  }} />
-                  <span style={{
-                    position: "absolute", bottom: 4, left: 4,
-                    fontSize: 9, fontWeight: 700, color: "#fff",
-                    background: "rgba(0,0,0,0.6)", padding: "2px 5px", borderRadius: 4,
-                  }}>S{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* 4 action buttons */}
           <div style={{
             background: C.card, borderRadius: 12,
             border: `1px solid ${C.line}`,
             overflow: "hidden",
+            marginTop: 4,
           }}>
             <ActionButtons
               scenes={msg.scenes}
@@ -1013,9 +1047,10 @@ function FreeModeChat() {
   const [videoConfirm,   setVideoConfirm]   = useState<string | null>(null); // msgId
   const [genVideoState,  setGenVideoState]  = useState(false);
   const [hybridMsg,      setHybridMsg]      = useState<string | null>(null); // msgId
-  const [editModeSet,    setEditModeSet]    = useState<Set<string>>(new Set());
-  const [imageResults,   setImageResults]   = useState<Record<string, string[]>>({});
-  const [genImageFor,    setGenImageFor]    = useState<string | null>(null);
+  const [editModeSet,      setEditModeSet]      = useState<Set<string>>(new Set());
+  const [genImageFor,      setGenImageFor]      = useState<string | null>(null);
+  const [generatingSceneId,setGeneratingSceneId]= useState<string | null>(null);
+  const [stylePromptOpen,  setStylePromptOpen]  = useState(false);
 
   // ── Visual style ──
   const [imageStyle, setImageStyle] = useState("realistic");
@@ -1245,6 +1280,10 @@ function FreeModeChat() {
         timestamp: Date.now(),
       };
       setMessages(prev => [...prev, aiMsg]);
+      // Prompt user to pick a style if scenes were generated
+      if (aiMsg.scenes && aiMsg.scenes.length > 0) {
+        setStylePromptOpen(true);
+      }
     } catch (err) {
       const errMsg: ChatMessage = {
         id:        "a-" + genId(),
@@ -1288,50 +1327,69 @@ function FreeModeChat() {
     setEditModeSet(prev => { const next = new Set(prev); next.delete(msgId); return next; });
   }
 
-  async function genImageForMsg(msgId: string) {
+  // Generate image for one scene — stores imageUrl IN the scene (survives refresh)
+  async function genSceneImage(msgId: string, sceneId: string) {
     const msg = messages.find(m => m.id === msgId);
-    if (!msg?.scenes || limits.imageRemaining <= 0) return;
+    const scene = msg?.scenes?.find(s => s.id === sceneId);
+    if (!scene || limits.imageRemaining <= 0) return;
 
-    setGenImageFor(msgId);
-    const urls: string[] = [];
+    setGeneratingSceneId(sceneId);
+    try {
+      const limitRes = await fetch("/api/free-mode/daily-limits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "image" }),
+      });
+      if (!limitRes.ok) return;
+      setLimits(await limitRes.json());
 
-    for (const scene of msg.scenes.slice(0, limits.imageRemaining)) {
-      try {
-        // Increment usage first
-        const limitRes = await fetch("/api/free-mode/daily-limits", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ type: "image" }),
-        });
-        if (!limitRes.ok) break; // limit reached
-
-        const limData = await limitRes.json();
-        setLimits(limData);
-
-        // Build prompt: style prefix + character context + scene text
-        const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
-        const charPrefix = characters.length > 0
-          ? characters.map(c => c.name).join(", ") + ". "
-          : "";
-        const imgRes = await fetch("/api/generation/image", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt:  stylePrefix + " " + charPrefix + scene.text,
-            modelId: imageModel,
-            width:   832, height: 1472,
-          }),
-        });
-        if (imgRes.ok) {
-          const imgData = await imgRes.json();
-          if (imgData.imagePath) {
-            urls.push(`/api/media/file?path=${encodeURIComponent(imgData.imagePath)}`);
-          }
+      const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
+      const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
+      const imgRes = await fetch("/api/generation/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt:  stylePrefix + " " + charPrefix + scene.text,
+          modelId: imageModel,
+          width:   832, height: 1472,
+        }),
+      });
+      if (imgRes.ok) {
+        const imgData = await imgRes.json();
+        const url = imgData.imagePath
+          ? `/api/media/file?path=${encodeURIComponent(imgData.imagePath)}`
+          : (imgData.imageUrl ?? null);
+        if (url) {
+          // Store imageUrl IN the scene object → auto-saved to localStorage with messages
+          setMessages(prev => prev.map(m =>
+            m.id !== msgId ? m : {
+              ...m,
+              scenes: m.scenes?.map(s =>
+                s.id !== sceneId ? s : { ...s, imageUrl: url }
+              ),
+            }
+          ));
         }
-      } catch { /* continue */ }
+      }
+    } catch { /* silent */ }
+    setGeneratingSceneId(null);
+  }
+
+  // Batch: generate images for all scenes in a message (shows style picker first if unset)
+  async function genImageForMsg(msgId: string) {
+    // If still on default style and no images yet, prompt user to pick a style first
+    const msg = messages.find(m => m.id === msgId);
+    if (!msg?.scenes) return;
+    const hasAnyImage = msg.scenes.some(s => s.imageUrl);
+    if (!hasAnyImage && imageStyle === "realistic") {
+      // Style already set to Realistic — fine, continue. If it ever was unset we'd open picker.
     }
 
-    setImageResults(prev => ({ ...prev, [msgId]: urls }));
+    setGenImageFor(msgId);
+    for (const scene of msg.scenes) {
+      if (limits.imageRemaining <= 0) break;
+      await genSceneImage(msgId, scene.id);
+    }
     setGenImageFor(null);
   }
 
@@ -1505,10 +1563,11 @@ function FreeModeChat() {
                 onGenVideo={(msgId) => setVideoConfirm(msgId)}
                 onGenHybrid={(msgId) => setHybridMsg(msgId)}
                 onPolishScene={(msgId, sceneId, text) => polishScene(msgId, sceneId, text)}
+                onGenSceneImage={genSceneImage}
+                generatingSceneId={generatingSceneId}
                 limits={limits}
                 editMode={editModeSet}
                 onToggleEdit={toggleEdit}
-                imageResults={imageResults}
               />
             ))}
             {(sending || genImageFor) && (
@@ -1848,6 +1907,22 @@ function FreeModeChat() {
             </div>
           )}
 
+          {/* ── Style prompt banner (shown once if user hasn't picked a style) ── */}
+          {stylePromptOpen && (
+            <div style={{
+              marginBottom: 8, padding: "8px 12px", borderRadius: 10,
+              background: `${C.gold}10`, border: `1px solid ${C.gold}50`,
+              display: "flex", alignItems: "center", gap: 8,
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: C.gold }}>
+                👇 Pick a visual style before generating images — it affects every scene below
+              </span>
+              <button onClick={() => setStylePromptOpen(false)} style={{
+                marginLeft: "auto", background: "none", border: "none", color: C.mute2, cursor: "pointer", fontSize: 14,
+              }}>×</button>
+            </div>
+          )}
+
           {/* ── Visual style selector ── */}
           <div style={{
             display: "flex", gap: 5, marginBottom: 6, alignItems: "center",
@@ -1859,7 +1934,7 @@ function FreeModeChat() {
               return (
                 <button
                   key={key}
-                  onClick={() => setImageStyle(key)}
+                  onClick={() => { setImageStyle(key); setStylePromptOpen(false); }}
                   title={s.label}
                   style={{
                     padding: "4px 9px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer",
