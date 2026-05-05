@@ -52,6 +52,19 @@ function genSessionId(): string {
   return "fms_" + genId();
 }
 
+// ── Visual style map ───────────────────────────────────────────────────────────
+const VISUAL_STYLES: Record<string, { label: string; icon: string; prefix: string }> = {
+  realistic:    { label: "Realistic",     icon: "📷", prefix: "photorealistic, real photograph, 8K, professional photography, natural lighting," },
+  cinematic:    { label: "Cinematic",     icon: "🎬", prefix: "cinematic film still, professional cinematography, dramatic lighting, movie quality, anamorphic lens," },
+  dark_real:    { label: "Dark Cinematic",icon: "🌑", prefix: "dark noir cinematic, dramatic shadows, moody atmosphere, high contrast, film photography," },
+  "3d_anim":    { label: "3D Animation",  icon: "🎮", prefix: "high quality 3D animation, Pixar CGI style, smooth rendering, vibrant colors, detailed 3D render," },
+  "2d_cartoon": { label: "2D Cartoon",    icon: "🎨", prefix: "2D cartoon animation, colorful flat illustration, animated series style, clean line art," },
+  anime:        { label: "Anime",         icon: "⛩️", prefix: "anime style, Japanese animation, detailed anime illustration, vibrant colors, expressive characters," },
+  comic:        { label: "Comic Book",    icon: "💥", prefix: "comic book illustration, bold ink lines, graphic novel style, cel shaded, dynamic poses," },
+  documentary:  { label: "Documentary",   icon: "🌿", prefix: "documentary photography, natural candid lighting, realistic, journalistic photography style," },
+  watercolor:   { label: "Watercolor Art",icon: "🖌️", prefix: "beautiful watercolor painting, soft brush strokes, artistic illustration, painterly style," },
+};
+
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const C = {
   bg:     ds.color.paper,
@@ -325,11 +338,13 @@ function HybridModal({
   onClose,
   characters,
   imageModel,
+  imageStyle,
 }: {
   scenes: Scene[];
   onClose: () => void;
   characters?: Character[];
   imageModel?: string;
+  imageStyle?: string;
 }) {
   const [totalDuration, setTotalDuration] = useState(30);
   const [customDur, setCustomDur] = useState("");
@@ -355,6 +370,7 @@ function HybridModal({
 
     const sceneDuration = effectiveDuration / scenes.length;
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
+    const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
 
     try {
       // Step 1: timings
@@ -369,8 +385,8 @@ function HybridModal({
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
         const prompt = charContext
-          ? `${charContext}. ${sc.text}`
-          : sc.text;
+          ? `${stylePrefix} ${charContext}. ${sc.text}`
+          : `${stylePrefix} ${sc.text}`;
         try {
           const imgRes = await fetch("/api/generation/image", {
             method: "POST",
@@ -1001,6 +1017,9 @@ function FreeModeChat() {
   const [imageResults,   setImageResults]   = useState<Record<string, string[]>>({});
   const [genImageFor,    setGenImageFor]    = useState<string | null>(null);
 
+  // ── Visual style ──
+  const [imageStyle, setImageStyle] = useState("realistic");
+
   // ── Model + audio preferences ──
   const [showCustomize,  setShowCustomize]  = useState(false);
   const [imageModel,     setImageModel]     = useState("segmind_flux");
@@ -1289,7 +1308,8 @@ function FreeModeChat() {
         const limData = await limitRes.json();
         setLimits(limData);
 
-        // Build prompt with character context if characters selected
+        // Build prompt: style prefix + character context + scene text
+        const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
         const charPrefix = characters.length > 0
           ? characters.map(c => c.name).join(", ") + ". "
           : "";
@@ -1297,7 +1317,7 @@ function FreeModeChat() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            prompt:  charPrefix + scene.text,
+            prompt:  stylePrefix + " " + charPrefix + scene.text,
             modelId: imageModel,
             width:   832, height: 1472,
           }),
@@ -1395,6 +1415,7 @@ function FreeModeChat() {
           onClose={() => setHybridMsg(null)}
           characters={characters}
           imageModel={imageModel}
+          imageStyle={imageStyle}
         />
       )}
       {charDrawer && (
@@ -1827,10 +1848,38 @@ function FreeModeChat() {
             </div>
           )}
 
+          {/* ── Visual style selector ── */}
+          <div style={{
+            display: "flex", gap: 5, marginBottom: 6, alignItems: "center",
+            flexWrap: "wrap", borderTop: `1px solid ${C.line}`, paddingTop: 8,
+          }}>
+            <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 0.8, marginRight: 2 }}>STYLE:</span>
+            {Object.entries(VISUAL_STYLES).map(([key, s]) => {
+              const active = imageStyle === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => setImageStyle(key)}
+                  title={s.label}
+                  style={{
+                    padding: "4px 9px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                    border: `1px solid ${active ? C.sky + "90" : C.line}`,
+                    background: active ? `${C.sky}20` : "transparent",
+                    color: active ? C.sky : C.mute2,
+                    display: "flex", alignItems: "center", gap: 4, transition: "all 0.12s",
+                    outline: "none",
+                  }}
+                >
+                  <span style={{ fontSize: 12 }}>{s.icon}</span>
+                  <span>{s.label}</span>
+                </button>
+              );
+            })}
+          </div>
+
           {/* ── Video generation buttons ── */}
           <div style={{
             display: "flex", gap: 6, marginBottom: 8, alignItems: "center",
-            borderTop: `1px solid ${C.line}`, paddingTop: 8,
           }}>
             <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 0.8, marginRight: 4 }}>GENERATE:</span>
             {(["text2vid", "img2vid", "motion"] as const).map(type => {
