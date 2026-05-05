@@ -561,22 +561,39 @@ function HybridModal({
   characters,
   imageModel,
   imageStyle,
+  initMusicTier,
+  initSfxSource,
+  initVoiceProvider,
 }: {
   scenes: Scene[];
   onClose: () => void;
   characters?: Character[];
   imageModel?: string;
   imageStyle?: string;
+  initMusicTier?: string;
+  initSfxSource?: string;
+  initVoiceProvider?: string;
 }) {
-  const [totalDuration, setTotalDuration] = useState(30);
-  const [customDur, setCustomDur] = useState("");
+  const [totalDuration,  setTotalDuration]  = useState(30);
+  const [customDur,      setCustomDur]      = useState("");
+  const [musicTier,      setMusicTier]      = useState(initMusicTier ?? "stock");
+  const [sfxSource,      setSfxSource]      = useState(initSfxSource ?? "auto");
+  const [voiceProvider,  setVoiceProvider]  = useState(initVoiceProvider ?? "piper");
   const [steps, setSteps] = useState<{ label: string; status: "pending" | "running" | "done" | "error" }[]>([]);
   const [running, setRunning] = useState(false);
-  const [done, setDone] = useState(false);
+  const [done,    setDone]    = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error,     setError]     = useState<string | null>(null);
 
-  const effectiveDuration = customDur ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration)) : totalDuration;
+  const effectiveDuration = customDur
+    ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration))
+    : totalDuration;
+
+  const selStyle: React.CSSProperties = {
+    width: "100%", padding: "5px 7px", borderRadius: 7, fontSize: 11, fontWeight: 600,
+    border: `1px solid ${C.line}`, background: C.alert, color: C.ink,
+    outline: "none", fontFamily: "inherit", cursor: "pointer",
+  };
 
   async function runHybrid() {
     setRunning(true);
@@ -586,6 +603,7 @@ function HybridModal({
       "Generate scene images",
       "Add text overlays",
       "Match SFX from scene mood",
+      "Mix music & audio",
       "Assemble final video",
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
@@ -597,20 +615,15 @@ function HybridModal({
     try {
       // Step 1: timings
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 500));
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "done" } : x));
 
-      // Step 2: generate one image per scene
+      // Step 2: generate fresh images for ALL scenes
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "running" } : x));
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
-        // Reuse existing scene image if already generated — avoids redundant generation
-        if (sc.imageUrl) {
-          assemblyScenes.push({ scene: idx, videoUrl: sc.imageUrl, duration: sceneDuration, text: sc.title, animation: "fade_in" });
-          continue;
-        }
         const prompt = charContext
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
@@ -633,32 +646,40 @@ function HybridModal({
               assemblyScenes.push({ scene: idx, videoUrl, duration: sceneDuration, text: sc.title, animation: "fade_in" });
             }
           }
-        } catch { /* continue without this scene */ }
+        } catch { /* continue */ }
       }
 
       if (assemblyScenes.length === 0) throw new Error("No scene images could be generated");
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      // Step 3: text overlays — handled by /api/video/assemble via scene.text
+      // Step 3: text overlays
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 300));
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
 
-      // Step 4: SFX — auto-matched inside assemble route via scene mood metadata
+      // Step 4: SFX matching (runs inside assemble route, show progress)
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 400));
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
 
-      // Step 5: assemble
+      // Step 5: music generation (fires async, shown as progress)
       setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "running" } : x));
+      await new Promise(r => setTimeout(r, 300));
+      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
+
+      // Step 6: assemble
+      setSteps(s => s.map((x, i) => i === 5 ? { ...x, status: "running" } : x));
       const res = await fetch("/api/video/assemble", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          scenes: assemblyScenes,
-          projectId: `free_${Date.now()}`,
-          aspectRatio: "9:16",
-          subtitleStyle: "minimal",
+          scenes:         assemblyScenes,
+          projectId:      `free_${Date.now()}`,
+          aspectRatio:    "9:16",
+          subtitleStyle:  "minimal",
+          musicProvider:  musicTier,
+          sfxSource:      sfxSource,
+          voiceProvider:  voiceProvider,
         }),
       });
 
@@ -668,7 +689,7 @@ function HybridModal({
       }
 
       const data = await res.json();
-      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
+      setSteps(s => s.map((x, i) => i === 5 ? { ...x, status: "done" } : x));
       setResultUrl(data.outputUrl ?? data.videoUrl ?? null);
       setDone(true);
     } catch (err) {
@@ -690,16 +711,16 @@ function HybridModal({
       padding: 24,
     }}>
       <div style={{
-        width: "100%", maxWidth: 460, borderRadius: 18,
+        width: "100%", maxWidth: 500, borderRadius: 18,
         background: C.card, border: `1px solid ${C.line}`,
-        padding: 24,
+        padding: 24, maxHeight: "90vh", overflowY: "auto",
         animation: "fadeSlideUp 0.2s ease",
       }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginBottom: 6 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.ink, marginBottom: 4 }}>
           🔀 Generate Hybrid Video
         </div>
-        <p style={{ fontSize: 13, color: C.mute, margin: "0 0 16px", lineHeight: 1.6 }}>
-          AI generates an image per scene, adds text overlay, matches SFX, assembles one video.
+        <p style={{ fontSize: 12, color: C.mute, margin: "0 0 16px", lineHeight: 1.6 }}>
+          Generates fresh images for all {scenes.length} scene{scenes.length !== 1 ? "s" : ""}, adds sound, assembles one video.
           {characters && characters.length > 0 && (
             <span style={{ color: C.lilac }}> {characters.length} character{characters.length > 1 ? "s" : ""} included.</span>
           )}
@@ -707,37 +728,98 @@ function HybridModal({
 
         {!running && !done && (
           <>
-            <label style={{ fontSize: 11, fontWeight: 700, color: C.mute2, display: "block", marginBottom: 6 }}>
-              Total video length (seconds)
-            </label>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8, alignItems: "center" }}>
-              {[15, 30, 60, 90].map(v => (
-                <button key={v} onClick={() => { setTotalDuration(v); setCustomDur(""); }} style={{
-                  flex: 1, padding: "8px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  border: `1px solid ${effectiveDuration === v && !customDur ? C.mint + "60" : C.line}`,
-                  background: effectiveDuration === v && !customDur ? `${C.mint}18` : "transparent",
-                  color: effectiveDuration === v && !customDur ? C.mint : C.mute, cursor: "pointer",
-                }}>{v}s</button>
-              ))}
-              <input
-                value={customDur}
-                onChange={e => setCustomDur(e.target.value.replace(/\D/g, ""))}
-                placeholder="  sec"
-                style={{
-                  width: 52, padding: "7px 6px", borderRadius: 8, fontSize: 12, fontWeight: 700,
-                  border: `1px solid ${customDur ? C.mint + "60" : C.line}`,
-                  background: customDur ? `${C.mint}18` : "transparent",
-                  color: customDur ? C.mint : C.mute, outline: "none",
-                  fontFamily: "inherit", textAlign: "center",
-                }}
-              />
+            {/* ── Duration ── */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.mute2, marginBottom: 6 }}>TOTAL VIDEO LENGTH</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {[15, 30, 60, 90].map(v => (
+                  <button key={v} onClick={() => { setTotalDuration(v); setCustomDur(""); }} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: `1px solid ${effectiveDuration === v && !customDur ? C.mint + "60" : C.line}`,
+                    background: effectiveDuration === v && !customDur ? `${C.mint}18` : "transparent",
+                    color: effectiveDuration === v && !customDur ? C.mint : C.mute, cursor: "pointer",
+                  }}>{v}s</button>
+                ))}
+                <input
+                  value={customDur}
+                  onChange={e => setCustomDur(e.target.value.replace(/\D/g, ""))}
+                  placeholder="sec"
+                  style={{
+                    width: 48, padding: "6px 6px", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: `1px solid ${customDur ? C.mint + "60" : C.line}`,
+                    background: customDur ? `${C.mint}18` : "transparent",
+                    color: customDur ? C.mint : C.mute, outline: "none",
+                    fontFamily: "inherit", textAlign: "center",
+                  }}
+                />
+              </div>
+              <div style={{ fontSize: 10, color: C.mute2, marginTop: 4 }}>
+                {scenes.length} scenes × ~{Math.round(effectiveDuration / scenes.length)}s each
+              </div>
             </div>
-            <div style={{ fontSize: 11, color: C.mute2, marginBottom: 20 }}>
-              {scenes.length} scenes × ~{Math.round(effectiveDuration / scenes.length)}s each
+
+            {/* ── Audio / SFX / Music controls ── */}
+            <div style={{
+              padding: "12px 14px", borderRadius: 10,
+              background: C.alert, border: `1px solid ${C.line}`,
+              marginBottom: 16,
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: C.mute2, marginBottom: 10, letterSpacing: 0.6 }}>
+                AUDIO SETTINGS
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>🎵 MUSIC</div>
+                  <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={selStyle}>
+                    <optgroup label="GHS Standard">
+                      <option value="stock">Stock (Free)</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="fal_stable_audio">FAL Stable Audio</option>
+                    </optgroup>
+                    <optgroup label="GHS Karaoke">
+                      <option value="ghs_karaoke">GHS Karaoke</option>
+                    </optgroup>
+                    <optgroup label="GHS Classic">
+                      <option value="kie_classic">Kie.ai / Suno</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="kie_premium">Kie Premium</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>🔊 SFX</div>
+                  <select value={sfxSource} onChange={e => setSfxSource(e.target.value)} style={selStyle}>
+                    <optgroup label="GHS Standard">
+                      <option value="auto">Auto Match</option>
+                      <option value="local">Local Library</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="elevenlabs">ElevenLabs SFX</option>
+                    </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>🎙 VOICE</div>
+                  <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={selStyle}>
+                    <optgroup label="GHS Standard">
+                      <option value="piper">Piper (Free)</option>
+                    </optgroup>
+                    <optgroup label="GHS Pro">
+                      <option value="fal_narrator">FAL Narrator</option>
+                    </optgroup>
+                    <optgroup label="GHS Premium">
+                      <option value="elevenlabs">ElevenLabs</option>
+                    </optgroup>
+                  </select>
+                </div>
+              </div>
             </div>
           </>
         )}
 
+        {/* ── Pipeline progress ── */}
         {steps.length > 0 && (
           <div style={{ marginBottom: 20 }}>
             {steps.map((step, i) => (
@@ -1723,6 +1805,9 @@ function FreeModeChat() {
           characters={characters}
           imageModel={imageModel}
           imageStyle={imageStyle}
+          initMusicTier={musicTier}
+          initSfxSource={sfxSource}
+          initVoiceProvider={voiceProvider}
         />
       )}
       {charDrawer && (
