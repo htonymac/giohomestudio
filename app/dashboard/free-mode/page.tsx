@@ -602,8 +602,7 @@ function HybridModal({
       "Calculate scene timings",
       "Generate scene images",
       "Add text overlays",
-      "Match SFX from scene mood",
-      "Mix music & audio",
+      "Generate music & audio",
       "Assemble final video",
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
@@ -615,11 +614,12 @@ function HybridModal({
     try {
       // Step 1: timings
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 400));
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "done" } : x));
 
       // Step 2: generate fresh images for ALL scenes
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "running" } : x));
+      // assemblyScenes uses "img:<url>" prefix so the assemble route renders them as Ken Burns image slides
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
       for (let idx = 0; idx < scenes.length; idx++) {
@@ -639,11 +639,12 @@ function HybridModal({
           });
           if (imgRes.ok) {
             const imgData = await imgRes.json();
-            const videoUrl = imgData.imagePath
+            const rawUrl = imgData.imagePath
               ? `/api/media/file?path=${encodeURIComponent(imgData.imagePath)}`
               : (imgData.imageUrl ?? "");
-            if (videoUrl) {
-              assemblyScenes.push({ scene: idx, videoUrl, duration: sceneDuration, text: sc.title, animation: "fade_in" });
+            if (rawUrl) {
+              // "img:" prefix tells /api/video/assemble to treat this as an image and render Ken Burns
+              assemblyScenes.push({ scene: idx, videoUrl: `img:${rawUrl}`, duration: sceneDuration, text: sc.title, animation: "zoom_in" });
             }
           }
         } catch { /* continue */ }
@@ -652,35 +653,47 @@ function HybridModal({
       if (assemblyScenes.length === 0) throw new Error("No scene images could be generated");
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      // Step 3: text overlays
+      // Step 3: text overlays (handled inside assemble via scene.text + subtitle engine)
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 200));
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
 
-      // Step 4: SFX matching (runs inside assemble route, show progress)
+      // Step 4: generate background music
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 400));
+      let musicUrl: string | null = null;
+      try {
+        const sceneMoodSummary = scenes.map(s => s.mood).join(", ");
+        const musicPrompt = `Background music for a video with scenes: ${sceneMoodSummary}. Cinematic, instrumental.`;
+        const musicRes = await fetch("/api/music/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: musicPrompt,
+            durationSeconds: effectiveDuration,
+            provider: musicTier === "fal_stable_audio" ? "fal" : musicTier === "kie_classic" ? "kie" : "stock",
+          }),
+        });
+        if (musicRes.ok) {
+          const musicData = await musicRes.json();
+          musicUrl = musicData.audioUrl ?? musicData.url ?? null;
+        }
+      } catch { /* continue without music */ }
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
 
-      // Step 5: music generation (fires async, shown as progress)
+      // Step 5: assemble — passes img: prefixed scenes + musicUrl
       setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 300));
-      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
+      const payload: Record<string, unknown> = {
+        scenes:        assemblyScenes,
+        projectId:     `free_${Date.now()}`,
+        aspectRatio:   "9:16",
+        subtitleStyle: "minimal",
+      };
+      if (musicUrl) payload.musicUrl = musicUrl;
 
-      // Step 6: assemble
-      setSteps(s => s.map((x, i) => i === 5 ? { ...x, status: "running" } : x));
       const res = await fetch("/api/video/assemble", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          scenes:         assemblyScenes,
-          projectId:      `free_${Date.now()}`,
-          aspectRatio:    "9:16",
-          subtitleStyle:  "minimal",
-          musicProvider:  musicTier,
-          sfxSource:      sfxSource,
-          voiceProvider:  voiceProvider,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -689,7 +702,7 @@ function HybridModal({
       }
 
       const data = await res.json();
-      setSteps(s => s.map((x, i) => i === 5 ? { ...x, status: "done" } : x));
+      setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
       setResultUrl(data.outputUrl ?? data.videoUrl ?? null);
       setDone(true);
     } catch (err) {
