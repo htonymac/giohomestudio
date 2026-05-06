@@ -1498,37 +1498,24 @@ function CommercialPlannerInner() {
               <div style={{ marginBottom: 8 }}><input style={inp} value={ch.description} onChange={e => setCast(prev => prev.map(c => c.characterId === ch.characterId ? { ...c, description: e.target.value } : c))} placeholder="Confident, professional, 30s…" /></div>
               {/* Per-card: Generate Portrait | Save Character | Import Image */}
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                {/* ── Per-character portrait model pills ── */}
-                {(() => {
-                  const effectiveModel = charPortraitModel[ch.characterId] || "fal_flux_dev";
-                  const modelOptions = [
-                    { id: "fal_flux_dev", label: "Flux Dev" },
-                    { id: "fal_flux_pro", label: "Flux Pro" },
-                    { id: "segmind_pruna", label: "Pruna" },
-                    { id: "fal_flux_pulid", label: "Face Lock" },
-                    { id: "segmind_flux", label: "Flux Free" },
-                  ];
-                  return (
-                    <div style={{ display: "flex", gap: 3, flexWrap: "wrap", marginBottom: 3 }}>
-                      {modelOptions.map(m => {
-                        const isSelected = effectiveModel === m.id;
-                        return (
-                          <button key={m.id}
-                            onClick={() => setCharPortraitModel(prev => ({ ...prev, [ch.characterId]: m.id }))}
-                            title={m.id === "fal_flux_pulid" ? "Face Lock — preserves real photo face (PuLID)" : m.label}
-                            style={{
-                              padding: "2px 7px", borderRadius: 5, fontSize: 8, fontWeight: 700, cursor: "pointer",
-                              border: isSelected ? "1px solid #f97316" : "1px solid #ffffff20",
-                              background: isSelected ? "#f9731620" : "transparent",
-                              color: isSelected ? "#f97316" : "#94a3b8",
-                            }}>
-                            {m.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  );
-                })()}
+                {/* ── Per-character portrait model selector ── */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                  <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                  <select
+                    value={charPortraitModel[ch.characterId] || "fal_flux_dev"}
+                    onChange={e => setCharPortraitModel(prev => ({ ...prev, [ch.characterId]: e.target.value }))}
+                    style={{
+                      padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                      border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                      outline: "none", flex: 1
+                    }}>
+                    <option value="fal_flux_dev">Flux Dev</option>
+                    <option value="fal_flux_pro">Flux Pro</option>
+                    <option value="segmind_pruna">Pruna</option>
+                    <option value="fal_flux_pulid">Face Lock (PuLID)</option>
+                    <option value="segmind_flux">Flux Free</option>
+                  </select>
+                </div>
                 <button disabled={generatingPortrait === ch.characterId} onClick={async () => {
                   setGeneratingPortrait(ch.characterId);
                   try {
