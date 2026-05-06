@@ -346,6 +346,10 @@ function ChildrenPlannerInner() {
   const [sceneDurations, setSceneDurations] = useState<Record<string, "short" | "medium" | "long">>({});
   const importFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
+  // ── Per-scene AI SFX + per-scene continuous motion ──────────────────────
+  const [sceneContinuousMotion, setSceneContinuousMotion] = useState<Record<string, { enabled: boolean; targetSec: number }>>({});
+  const [generatingSceneSfx, setGeneratingSceneSfx] = useState<Set<string>>(new Set());
+
   // ── Continuous Motion ──────────────────────────────────────────────────────
   const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
   const [cmTotalDuration, setCmTotalDuration] = useState(15);
@@ -1355,6 +1359,26 @@ function ChildrenPlannerInner() {
       setLastAction("Scene polish failed — check console");
     } finally {
       setPolishingScene(null);
+    }
+  }
+
+  // ── Per-scene AI SFX — extract SFX cues from scene description ──────────
+  async function generateSceneSfx(sceneId: string, description: string) {
+    setGeneratingSceneSfx(prev => new Set(prev).add(sceneId));
+    try {
+      const res = await fetch("/api/hybrid/audio-plan", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sceneText: description, autoMode: true }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("[children-planner] scene SFX plan:", sceneId, data);
+      }
+    } catch (e) {
+      console.error("[children-planner] scene SFX error:", e);
+    } finally {
+      setGeneratingSceneSfx(prev => { const s = new Set(prev); s.delete(sceneId); return s; });
     }
   }
 
@@ -5033,6 +5057,47 @@ function ChildrenPlannerInner() {
                         style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: "#ccc", fontSize: 10, outline: "none", resize: "vertical", minHeight: 56, marginBottom: 6 }}
                         placeholder="Scene description (editable)..."
                       />
+
+                      {/* Per-scene: SFX + continuous motion + duration */}
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                        <button
+                          onClick={() => generateSceneSfx(sceneId, scene.visualDescription ?? "")}
+                          disabled={generatingSceneSfx.has(sceneId)}
+                          title="Auto-extract SFX cues from scene text"
+                          style={{
+                            padding: "4px 10px", fontSize: 11, borderRadius: 6, border: "1px solid #7c3aed",
+                            background: generatingSceneSfx.has(sceneId) ? "#3b2a6e" : "#1a0a3a",
+                            color: "#c4b5fd", cursor: generatingSceneSfx.has(sceneId) ? "wait" : "pointer",
+                          }}
+                        >
+                          {generatingSceneSfx.has(sceneId) ? "Extracting…" : "AI SFX"}
+                        </button>
+
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#a78bfa", cursor: "pointer" }}>
+                          <input
+                            type="checkbox"
+                            checked={sceneContinuousMotion[sceneId]?.enabled ?? false}
+                            onChange={e => setSceneContinuousMotion(prev => ({
+                              ...prev,
+                              [sceneId]: { enabled: e.target.checked, targetSec: prev[sceneId]?.targetSec ?? 10 },
+                            }))}
+                          />
+                          Motion
+                        </label>
+
+                        {sceneContinuousMotion[sceneId]?.enabled && (
+                          <select
+                            value={sceneContinuousMotion[sceneId]?.targetSec ?? 10}
+                            onChange={e => setSceneContinuousMotion(prev => ({
+                              ...prev,
+                              [sceneId]: { ...prev[sceneId], targetSec: Number(e.target.value) },
+                            }))}
+                            style={{ padding: "2px 6px", fontSize: 11, borderRadius: 4, border: "1px solid #4c1d95", background: "#1a0a3a", color: "#c4b5fd" }}
+                          >
+                            {[5, 10, 15, 20, 30].map(s => <option key={s} value={s}>{s}s</option>)}
+                          </select>
+                        )}
+                      </div>
 
                       {/* Narration duration selector + OK Save */}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
