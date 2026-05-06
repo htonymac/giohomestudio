@@ -1,5 +1,20 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-05 — SA-SE Corrections + TSC Clean + Build Fix (commits 9a7dba6, 6269642, 31c1fe4)
+**What:** SA-SE architectural corrections + TSC/build fixes.
+- SC: movie-planner Voice & Audio tab — Parse Script button, 4-card GHS tier selector, per-cast voice inputs, Generate Per-Line Voices button
+- SE: hybrid-planner Scene Board — scene descriptions replaced with always-editable `<textarea>` + 500ms debounce auto-save via `updateScene()`
+- TSC fix: `supervisor/final/route.ts` — inline PreflightResult types, named prisma import (was default)
+- TSC fix: `image-provider.ts` — `as unknown as Record<string,unknown>` cast for FAL params extension
+- Build fix: `video-editor/page.tsx` — `useSearchParams` wrapped in Suspense (Next.js 14 requirement; was breaking `next build`)
+- Free-mode: scene image lightbox (click to full-preview), dev gen limits 20 img/10 vid, localhost unlimited (9999)
+- Add `/api/free-mode/messages` + `/api/free-mode/sessions/list` routes
+**Why:** SA-SE Sonnet worker completed phase. TSC and build must be clean before merge to main.
+**Impact:** All planners can edit scenes inline. Movie planner has full sound tier UI. Build passes cleanly.
+**Risk:** Low — all additive or type-only fixes.
+**Build:** `next build` exit 0, `tsc --noEmit` exit 0.
+**AUT:** Tab order correct (Design→Story→Characters→Scene Board→Sound→Screenplay→Assembly→Overview), all 4 sound tiers visible, motion/duration controls present.
+
 ## 2026-05-05 — Pipeline Recovery Phase 1+2 (commit 2838df1)
 **What:** Full pipeline recovery across character identity, style propagation, tab order, per-scene tools, three LLM supervisors, auto-SFX, and sound tier labels. Branch: `fix/ghs-pipeline-recovery-may05`.
 - Style lock: `src/lib/style-presets.ts` shared across scene-image + scene-video. Video gen now applies 3D/cartoon/anime/realistic/nollywood/comic prompt prefix.
