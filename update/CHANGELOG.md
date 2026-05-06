@@ -1,5 +1,16 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-06 — Face-Lock + Image Management per Character (commits f360886, 2a00ded)
+**What:** Portrait regeneration now preserves real uploaded face via PuLID. Per-character image controls in both Hybrid Planner and Character Library.
+- Hybrid Planner `generateCharacterPortrait()`: detects `tags["photo-import"]`, passes `referenceImageUrl + useIdentityLock=true` → PuLID preserves identity
+- Per character card: Preview (fullscreen), Undo Image (restore previous), Remove Image buttons
+- `generate-portrait` API route rewritten — routes through `/api/generation/image`, inherits PuLID logic automatically. Detects `referenceImages[].label==="photo-import"` for face-lock.
+- Character Library VoiceCard: per-character style picker (7 options), Regenerate always visible, Preview Portrait inline lightbox, Undo Image, Remove Image
+**Why:** Henry: "AI regeneration is rubbish does not look like uploaded Bryan" — face identity was being ignored. Also added visual controls to manage character images without regenerating from scratch.
+**Impact:** Bryan's portrait will now preserve his real face when regenerated. All planners benefit from PuLID routing.
+**Risk:** Low — PuLID costs $0.05/image vs $0.01 standard, only triggered for photo-import chars.
+**Build:** tsc clean.
+
 ## 2026-05-05 — SA-SE Corrections + TSC Clean + Build Fix (commits 9a7dba6, 6269642, 31c1fe4)
 **What:** SA-SE architectural corrections + TSC/build fixes.
 - SC: movie-planner Voice & Audio tab — Parse Script button, 4-card GHS tier selector, per-cast voice inputs, Generate Per-Line Voices button

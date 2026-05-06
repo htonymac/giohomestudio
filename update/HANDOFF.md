@@ -1,9 +1,9 @@
-# GHS HANDOFF — 2026-05-05 Session (Pipeline Recovery — Complete)
+# GHS HANDOFF — 2026-05-06 Session (Image Management + Face-Lock)
 
 ## Branch: fix/ghs-pipeline-recovery-may05
-## Last commit: 2e704df — gitignore cleanup
-## Build: PASSING (next build exit 0, tsc exit 0)
-## AUT Verify: PASSED (tabs correct, all 4 sound tiers visible, motion/duration controls present)
+## Last commit: 2a00ded — char-library PuLID + style picker + Preview/Undo/Remove
+## Build: TSC clean (exit 0)
+## AUT Verify: pending (server restart needed to test new character buttons)
 
 ---
 
@@ -48,12 +48,26 @@
 
 ---
 
+## Completed This Session (2026-05-06)
+
+### Photo → AI face preservation (commit f360886)
+- `generateCharacterPortrait()` in hybrid-planner now detects `tags: ["photo-import"]` on char
+- Passes `referenceImageUrl + useIdentityLock=true` → PuLID (fal_flux_pulid) preserves uploaded face
+- Saves old portrait to `prevCharImages` before overwriting (one-undo buffer)
+- Per character card: **Preview** (fullscreen lightbox), **Undo Image** (restore previous), **Remove Image**
+
+### Character Library image management (commit 2a00ded)
+- `generate-portrait` route rewritten — routes through `/api/generation/image`, picks up PuLID automatically
+- Detects `referenceImages[].label === "photo-import"` → enables face-lock
+- VoiceCard: per-character style picker, **Regenerate** (always available, not just when no image), **Preview Portrait** (inline lightbox), **Undo Image**, **Remove Image**
+
+---
+
 ## What Is NOT Done Yet
 
 ### Phase 1.6 — Assembly path unification
-- `page.tsx` still calls `/api/video/assemble`
-- Target: `/api/assembly/execute` (structured AssemblyJSON with ducking)
-- WAIT for Henry GO in `update/RISKS_AND_DECISIONS.md`
+- DONE — migrated to `/api/assembly/execute` (commit 9251625). Henry gave GO 2026-05-06.
+- Old route `/api/video/assemble` still in codebase (not deleted per doctrine)
 
 ### Phase 5 — Music keys
 - `KIE_AI_API_KEY` (Kie.ai Suno) and `MUBERT_PAT` NOT in `.env`
