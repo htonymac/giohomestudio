@@ -91,6 +91,7 @@ interface AudioPlan {
   sfxList: string[];
   ambienceList: string[];
   transitionAudio: string;
+  musicUrl?: string;
 }
 
 interface ValidationResult {
