@@ -281,7 +281,7 @@ function MoviePlannerInner() {
   const [castGenerating, setCastGenerating] = useState(false);
   const [castGenError, setCastGenError] = useState<string | null>(null);
   // ── Portrait image model selector (Cast tab) — global fallback ──
-  const [castPortraitModel, setCastPortraitModel] = useState<string>("fal_flux_dev");
+  const [castPortraitModel, setCastPortraitModel] = useState<string>("segmind_flux");
   // ── Per-character portrait model selector ────────────────────────────────
   const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
 
@@ -2951,11 +2951,13 @@ function MoviePlannerInner() {
                   border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
                   outline: "none", flex: 1
                 }}>
-                <option value="fal_flux_dev">Flux Dev</option>
-                <option value="fal_flux_pro">Flux Pro</option>
-                <option value="segmind_pruna">Pruna</option>
-                <option value="fal_flux_pulid">Face Lock (PuLID)</option>
-                <option value="segmind_flux">Flux Free</option>
+                <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
               </select>
             </div>
             <button
@@ -3038,11 +3040,13 @@ function MoviePlannerInner() {
                                 border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
                                 outline: "none", flex: 1
                               }}>
-                              <option value="fal_flux_dev">Flux Dev</option>
-                              <option value="fal_flux_pro">Flux Pro</option>
-                              <option value="segmind_pruna">Pruna</option>
-                              <option value="fal_flux_pulid">Face Lock (PuLID)</option>
-                              <option value="segmind_flux">Flux Free</option>
+                              <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                              <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                              <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                              <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                              <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                              <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                              <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
                             </select>
                           </div>
                           <button onClick={() => {
