@@ -1,7 +1,7 @@
 # GHS HANDOFF — 2026-05-05 Session (Pipeline Recovery — Complete)
 
 ## Branch: fix/ghs-pipeline-recovery-may05
-## Last commit: 31c1fe4 — build fix (Suspense)
+## Last commit: 2e704df — gitignore cleanup
 ## Build: PASSING (next build exit 0, tsc exit 0)
 ## AUT Verify: PASSED (tabs correct, all 4 sound tiers visible, motion/duration controls present)
 
@@ -64,10 +64,10 @@
 - Series / Commercial / Music Video planners
 - Bear fix (SA) — `character-build/route.ts` human-guard — NOT committed yet
 
-### Bear Fix (SA) — NOT DONE
-- `app/api/hybrid/character-build/route.ts` — isHumanRole() helper + humanGuard not yet applied
-- Check commit 2838df1 — bear fix was in `story-expand` but `character-build` human guard still missing
-- Symptom: characters may still render as bears when role=human is not enforced in character-build
+### Bear Fix (SA) — ALREADY DONE (confirmed by code audit)
+- `isHumanRole()` + `humanGuard` ARE in `character-build/route.ts` (lines 47-116)
+- SA-SE worker checked for commits, not code — bear fix was applied in earlier session
+- Verified: species options exclude bear for human roles, CRITICAL guard injected in prompt
 
 ### Merge to main
 - Branch `fix/ghs-pipeline-recovery-may05` needs Henry review then merge
@@ -89,4 +89,4 @@
 ## DB: giohomestudio_db (Prisma)
 ## Plan: C:\Users\USER\.claude\plans\ghs-andio-studio-wiggly-castle.md
 ## Branch: fix/ghs-pipeline-recovery-may05
-## Commits this session: 2838df1 → 10c704b → 9a7dba6 → 6269642 → 31c1fe4
+## Commits this session: 2838df1 → 10c704b → 9a7dba6 → 6269642 → 31c1fe4 → 065371a → 0d7a003 → 86e3d8e → 2e704df
