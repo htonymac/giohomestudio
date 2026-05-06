@@ -511,6 +511,7 @@ function HybridPlannerInner() {
   const [autoSfx, setAutoSfx] = useState(false);
   const [autoSfxRunning, setAutoSfxRunning] = useState(false);
   const [sceneSfxUrls, setSceneSfxUrls] = useState<Record<string, string>>({});
+  const [autoSfxProgress, setAutoSfxProgress] = useState<{ current: number; total: number; sceneId: string } | null>(null);
   // ── Build-all-characters queue state ──────────────────────────────────────
   const [buildingAllChars, setBuildingAllChars] = useState(false);
   const [buildAllProgress, setBuildAllProgress] = useState<string | null>(null);
@@ -1483,6 +1484,7 @@ function HybridPlannerInner() {
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
       hairstyle: c.hairStyle || null,
+      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
     }));
     try {
       const res = await fetch("/api/hybrid/scene-image", {
@@ -1576,6 +1578,7 @@ function HybridPlannerInner() {
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
       hairstyle: c.hairStyle || null,
+      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
     }));
 
     const seeds = [Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9)];
@@ -2146,10 +2149,13 @@ function HybridPlannerInner() {
     const ctrl = new AbortController();
     autoSfxAbortRef.current = ctrl;
     setAutoSfxRunning(true);
+    setAutoSfxProgress(null);
     setLastAction(`Auto SFX: generating for ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}...`);
     const results: Record<string, string> = {};
-    for (const scene of scenes) {
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
       if (ctrl.signal.aborted) break;
+      setAutoSfxProgress({ current: i + 1, total: scenes.length, sceneId: scene.sceneId });
       try {
         const prompt = scene.description || scene.title || `scene ${scene.scene}`;
         const res = await fetch("/api/sfx/generate", {
@@ -2168,6 +2174,7 @@ function HybridPlannerInner() {
       }
     }
     setSceneSfxUrls(prev => ({ ...prev, ...results }));
+    setAutoSfxProgress(null);
     setLastAction(`Auto SFX ${ctrl.signal.aborted ? "cancelled" : "complete"} — ${Object.keys(results).length}/${scenes.length} scenes`);
     setAutoSfxRunning(false);
     autoSfxAbortRef.current = null;
@@ -5026,7 +5033,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 const typeInfo = SCENE_TYPES.find(t => t.id === scene.sceneType);
                 const hasImage = !!sceneImages[scene.sceneId];
                 const hasVideo = !!sceneVideos[scene.sceneId];
-                const hasAudio = !!(scene.audioPlan?.musicMood || scene.audioPlan?.sfxList?.length || scene.narrationScript || selectedMusicUrl);
+                const hasAudio = !!(scene.audioPlan?.musicMood || scene.audioPlan?.sfxList?.length || scene.narrationScript || selectedMusicUrl || sceneSfxUrls[scene.sceneId]);
                 const videoVersionCount = sceneVideoVersions[scene.sceneId]?.length || 0;
                 const activeCardTab = activeSceneCardTab[scene.sceneId] ?? null;
                 const statusColor = scene.status === "approved" ? accent : scene.status === "blocked" ? red : scene.status === "generated" ? blue : gold;
@@ -5198,15 +5205,21 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         {/* SFX */}
                         <div style={{ marginBottom: scene.audioPlan?.ambienceList?.length ? 8 : 0 }}>
                           <div style={{ fontSize: 9, color: gold, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>SFX</div>
+                          {sceneSfxUrls[scene.sceneId] ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, background: `${gold}12`, borderRadius: 6, padding: "4px 8px", marginBottom: scene.audioPlan?.sfxList?.length ? 4 : 0 }}>
+                              <span style={{ fontSize: 8, color: gold, fontWeight: 700, flexShrink: 0 }}>AUTO SFX</span>
+                              <audio src={sceneSfxUrls[scene.sceneId]} controls style={{ height: 22, flex: 1, minWidth: 0 }} />
+                            </div>
+                          ) : null}
                           {scene.audioPlan?.sfxList?.length ? (
                             <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
                               {scene.audioPlan.sfxList.map((sfx, i) => (
                                 <span key={i} style={{ fontSize: 8, background: `${gold}18`, border: `1px solid ${gold}30`, borderRadius: 4, padding: "2px 6px", color: gold }}>{sfx}</span>
                               ))}
                             </div>
-                          ) : (
-                            <div style={{ fontSize: 9, color: muted }}>No SFX planned — run AI Audio Plan to generate</div>
-                          )}
+                          ) : !sceneSfxUrls[scene.sceneId] ? (
+                            <div style={{ fontSize: 9, color: muted }}>No SFX planned — run AI Audio Plan or Auto SFX</div>
+                          ) : null}
                         </div>
                         {/* Ambience */}
                         {scene.audioPlan?.ambienceList?.length ? (
@@ -6075,20 +6088,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           Preview
                         </button>
                       )}
-                      {/* Undo Image — restore previous portrait */}
-                      {prevCharImages[char.characterId] && (
-                        <button
-                          onClick={() => {
-                            const prev = prevCharImages[char.characterId];
-                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
-                            setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
-                            setLastAction(`${char.displayName} reverted to previous portrait`);
-                          }}
-                          title="Undo — go back to previous portrait"
-                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #f59e0b40", background: "#f59e0b08", color: "#f59e0b", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          Undo Image
-                        </button>
-                      )}
+                      {/* Undo Image — restore previous portrait (always shown, grayed when no previous) */}
+                      <button
+                        onClick={() => {
+                          if (!prevCharImages[char.characterId]) return;
+                          const prev = prevCharImages[char.characterId];
+                          setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
+                          setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
+                          setLastAction(`${char.displayName} reverted to previous portrait`);
+                        }}
+                        title={prevCharImages[char.characterId] ? "Undo — go back to previous portrait" : "No previous image to restore"}
+                        disabled={!prevCharImages[char.characterId]}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${prevCharImages[char.characterId] ? "#f59e0b40" : "#33333340"}`, background: prevCharImages[char.characterId] ? "#f59e0b08" : "transparent", color: prevCharImages[char.characterId] ? "#f59e0b" : "#555", fontSize: 10, fontWeight: 700, cursor: prevCharImages[char.characterId] ? "pointer" : "not-allowed", opacity: prevCharImages[char.characterId] ? 1 : 0.4 }}>
+                        Undo Image
+                      </button>
                       {/* Remove Image — clear portrait entirely */}
                       {char.imageUrl && (
                         <button
@@ -7346,6 +7359,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </button>
             </div>
           </div>
+          {autoSfxRunning && autoSfxProgress && (
+            <div style={{ marginTop: -8, marginBottom: 16, padding: "8px 16px", borderRadius: 8, background: `${blue}08`, border: `1px solid ${blue}20` }}>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>
+                Processing {autoSfxProgress.sceneId} ({autoSfxProgress.current}/{autoSfxProgress.total})
+              </div>
+              <div style={{ height: 4, background: "#1e293b", borderRadius: 2 }}>
+                <div style={{ height: 4, background: blue, borderRadius: 2, width: `${(autoSfxProgress.current / autoSfxProgress.total) * 100}%`, transition: "width 0.3s" }} />
+              </div>
+            </div>
+          )}
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
