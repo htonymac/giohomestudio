@@ -65,6 +65,7 @@ interface CharacterIdentity {
   distinctiveFeatures?: string; // "very big round belly, fluffy white tail, long floppy ears"...
   ageAppearance?: string;     // "elderly, slightly hunched, wrinkles around eyes"...
   imageLocked?: boolean;      // user approved this portrait as the canonical reference
+  visualDescription?: string; // editable visual description stored in DB and used for portrait gen
 }
 
 interface ShotObject {
@@ -306,6 +307,10 @@ function HybridPlannerInner() {
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
   // ── Per-character portrait generation state ──
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
+  // ── Per-character style override (Realistic / 3D / Cartoon etc.) ──────────
+  const [charStyles, setCharStyles] = useState<Record<string, string>>({});
+  // ── Per-character img2ai (photo → AI) state ──────────────────────────────
+  const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
   // ── Per-character AI vision analysis state ──
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   // ── Per-character manual save state ──
@@ -2132,28 +2137,42 @@ function HybridPlannerInner() {
   }
 
   // ── Auto SFX — generate SFX for each scene from its description ───────────
+  const autoSfxAbortRef = useRef<AbortController | null>(null);
+
   async function runAutoSfxForAllScenes() {
     if (scenes.length === 0) { setUiError("No scenes yet — create scenes first."); return; }
+    const ctrl = new AbortController();
+    autoSfxAbortRef.current = ctrl;
     setAutoSfxRunning(true);
     setLastAction(`Auto SFX: generating for ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}...`);
     const results: Record<string, string> = {};
     for (const scene of scenes) {
+      if (ctrl.signal.aborted) break;
       try {
         const prompt = scene.description || scene.title || `scene ${scene.scene}`;
         const res = await fetch("/api/sfx/generate", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ description: prompt.slice(0, 200), mode: "auto", autoSfx: true }),
+          signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(20000)]),
         });
         const data = await res.json();
         if (data.fileUrl) {
           results[scene.sceneId] = data.fileUrl;
-          setLastAction(`Auto SFX: scene ${scene.sceneId} done`);
+          setLastAction(`Auto SFX: scene ${scene.sceneId} done (${Object.keys(results).length}/${scenes.length})`);
         }
-      } catch { /* skip scene on error */ }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") break;
+        // skip scene on timeout or error
+      }
     }
     setSceneSfxUrls(prev => ({ ...prev, ...results }));
-    setLastAction(`Auto SFX complete — ${Object.keys(results).length}/${scenes.length} scenes have SFX`);
+    setLastAction(`Auto SFX ${ctrl.signal.aborted ? "cancelled" : "complete"} — ${Object.keys(results).length}/${scenes.length} scenes`);
     setAutoSfxRunning(false);
+    autoSfxAbortRef.current = null;
+  }
+
+  function cancelAutoSfx() {
+    autoSfxAbortRef.current?.abort();
   }
 
   // ── Continuous Motion — generate a multi-segment chained action video ──────
@@ -3292,24 +3311,34 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
-    // Truncate to keep total prompt under 3800 chars (well within the 4000 limit)
     const visualDesc = visualDescFull.slice(0, 1200);
-    // Build a detailed, specific portrait prompt — not a generic "portrait of X"
-    const portraitPrompt = [
-      projectStyle === "2d-cartoon"
+    const effectiveStyle = overrideStyle || charStyles[char.characterId] || projectStyle || "3d-cinematic";
+
+    const stylePrefix =
+      effectiveStyle === "realistic"
+        ? "Ultra-realistic photographic portrait, cinematic lighting, real person aesthetic, no cartoon or CGI"
+        : effectiveStyle === "nollywood"
+        ? "Nollywood film portrait, realistic Nigerian cinema aesthetic, warm skin tones, natural lighting"
+        : effectiveStyle === "2d-cartoon"
         ? "2D cartoon illustration, clean bold outlines, flat cel-shaded colors, Disney storybook art style"
-        : projectStyle === "anime"
-        ? "Anime style illustration, clean linework, detailed character design"
-        : projectStyle === "storybook"
-        ? "Children's storybook illustration, warm painterly style"
-        : "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures",
+        : effectiveStyle === "anime"
+        ? "Anime style illustration, clean linework, detailed character design, Japanese animation quality"
+        : effectiveStyle === "storybook"
+        ? "Children's storybook illustration, warm painterly style, Pixar short film quality"
+        : effectiveStyle === "comic"
+        ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
+        : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
+
+    // Build portrait prompt
+    const portraitPrompt = [
+      stylePrefix,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
-      visualDesc || `${char.displayName}, ${char.gender} ${char.ageRange}`,
+      visualDesc || `${char.displayName}, ${char.gender}`,
       "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
-      "Show the character clearly from head to toe. This is the canonical reference image for this character.",
+      "Show the character clearly from head to toe.",
       "Consistent design, professional quality, no background distractions.",
     ].filter(Boolean).join(". ");
 
@@ -3318,10 +3347,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: portraitPrompt,
-          negativePrompt: projectStyle === "3d-cinematic"
+          negativePrompt: effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+            ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+            : effectiveStyle === "2d-cartoon"
+            ? "3D render, photorealistic, CGI, bokeh, realistic"
+            : effectiveStyle === "3d-cinematic"
             ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
-            : projectStyle === "2d-cartoon"
-            ? "3D render, photorealistic, CGI, bokeh"
             : "",
           width: 768, height: 960,
           seed: genSeed !== null ? genSeed : undefined,
@@ -5909,8 +5940,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? purple : border}`, background: isEditing ? `${purple}15` : "transparent", color: isEditing ? purple : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
                         {isEditing ? "Close Builder" : "Define Appearance"}
                       </button>
+                      {/* Per-character style picker */}
+                      <select
+                        value={charStyles[char.characterId] || projectStyle || "3d-cinematic"}
+                        onChange={e => setCharStyles(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                        title="Style for portrait generation"
+                        style={{ padding: "5px 8px", fontSize: 10, borderRadius: 6, border: `1px solid ${border}`, background: "#1a0a3a", color: "#c4b5fd", cursor: "pointer" }}
+                      >
+                        <option value="3d-cinematic">3D Cinematic</option>
+                        <option value="realistic">Realistic</option>
+                        <option value="nollywood">Nollywood</option>
+                        <option value="2d-cartoon">2D Cartoon</option>
+                        <option value="anime">Anime</option>
+                        <option value="storybook">Storybook</option>
+                        <option value="comic">Comic</option>
+                      </select>
                       <button
-                        onClick={() => generateCharacterPortrait(char)}
+                        onClick={() => generateCharacterPortrait(char, charStyles[char.characterId])}
                         disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
                         {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
@@ -7175,10 +7221,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
               {autoSfx && (
-                <button data-testid="run-auto-sfx-btn" onClick={runAutoSfxForAllScenes} disabled={autoSfxRunning || scenes.length === 0}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${blue}40`, background: autoSfxRunning ? "#2a2a40" : `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: autoSfxRunning ? "not-allowed" : "pointer" }}>
-                  {autoSfxRunning ? "Generating..." : `Run Auto SFX (${scenes.length} scenes)`}
-                </button>
+                autoSfxRunning ? (
+                  <button data-testid="cancel-auto-sfx-btn" onClick={cancelAutoSfx}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #ef444440", background: "#ef444410", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    Cancel SFX
+                  </button>
+                ) : (
+                  <button data-testid="run-auto-sfx-btn" onClick={runAutoSfxForAllScenes} disabled={scenes.length === 0}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: scenes.length === 0 ? "not-allowed" : "pointer" }}>
+                    {`Run Auto SFX (${scenes.length} scenes)`}
+                  </button>
+                )
               )}
               <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
                 style={{ padding: "6px 16px", borderRadius: 8, border: `1px solid ${autoSfx ? `${blue}50` : border}`, background: autoSfx ? `${blue}20` : "transparent", color: autoSfx ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
