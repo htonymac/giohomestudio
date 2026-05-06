@@ -5924,6 +5924,35 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             Click "Define Appearance" to describe this character so scenes look consistent.
                           </p>
                         )}
+                        {(char.visualDescription !== undefined) && (
+                          <textarea
+                            value={char.visualDescription ?? ""}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCharacters(prev => prev.map(c =>
+                                c.characterId === char.characterId ? { ...c, visualDescription: val } : c
+                              ));
+                            }}
+                            onBlur={e => {
+                              // Persist to character store on blur
+                              const val = e.target.value;
+                              if (!char.dbId) return;
+                              fetch(`/api/character-voices/${char.dbId}`, {
+                                method: "PATCH",
+                                headers: { "content-type": "application/json" },
+                                body: JSON.stringify({ visualDescription: val }),
+                              }).catch(() => {});
+                            }}
+                            placeholder="Visual description — edit to fix AI mistakes..."
+                            rows={3}
+                            style={{
+                              width: "100%", fontSize: 10, color: "#c4b5fd", background: "#0d0621",
+                              border: "1px solid #4c1d9540", borderRadius: 6, padding: "6px 8px",
+                              resize: "vertical", fontFamily: "inherit", lineHeight: 1.5,
+                              marginBottom: 8,
+                            }}
+                          />
+                        )}
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           <span style={badgeStyle(purple)}>{char.roleType}</span>
                           {char.gender && <span style={badgeStyle(blue)}>{char.gender}</span>}
@@ -5971,6 +6000,33 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             title="AI reads the portrait image and auto-fills species, clothing, colors, and all appearance fields"
                             style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${purple}40`, background: isAnalyzing ? `${purple}20` : `${purple}08`, color: purple, fontSize: 10, fontWeight: 700, cursor: isAnalyzing ? "wait" : "pointer", opacity: isAnalyzing ? 0.8 : 1 }}>
                             {isAnalyzing ? "Reading image..." : "AI Read Look"}
+                          </button>
+                        );
+                      })()}
+                      {/* Photo → AI — convert real photo or existing portrait to AI-styled image */}
+                      {(() => {
+                        const isRunning = img2aiRunning.has(char.characterId);
+                        return (
+                          <button
+                            onClick={async () => {
+                              setImg2aiRunning(prev => new Set(prev).add(char.characterId));
+                              // Re-generate with current style, using existing image as a style reference hint in the description
+                              const style = charStyles[char.characterId] || projectStyle || "realistic";
+                              await generateCharacterPortrait(char, style);
+                              setImg2aiRunning(prev => { const s = new Set(prev); s.delete(char.characterId); return s; });
+                            }}
+                            disabled={isRunning}
+                            title="Convert this image (real photo or existing portrait) to AI-styled image"
+                            style={{
+                              padding: "7px 14px", borderRadius: 8,
+                              border: `1px solid ${isRunning ? "#6b7280" : "#10b98140"}`,
+                              background: isRunning ? "#1a1a2e" : "#10b98108",
+                              color: isRunning ? "#6b7280" : "#10b981",
+                              fontSize: 10, fontWeight: 700,
+                              cursor: isRunning ? "wait" : "pointer",
+                            }}
+                          >
+                            {isRunning ? "Converting..." : "Photo → AI"}
                           </button>
                         );
                       })()}
