@@ -102,8 +102,16 @@ export async function POST(req: NextRequest) {
     // Apply characterOverrides — client sends computed visual descriptions that may be richer
     // than DB values (especially for characters defined only in the hybrid project session).
     // Override: visualDescription, wardrobe, hairstyle, imageUrl (only if locked reference)
+    // Track which characterIds are photo-import so hasPhotoImportChar detection works
+    // even for session-only characters that have no DB referenceImages field.
+    const photoImportCharIds = new Set<string>();
+
     if (characterOverrides && Array.isArray(characterOverrides)) {
-      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null }>) {
+      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null; isPhotoImport?: boolean }>) {
+        if (ov.isPhotoImport) {
+          if (ov.characterId) photoImportCharIds.add(ov.characterId);
+          if (ov.name) photoImportCharIds.add(ov.name);
+        }
         const match = resolvedCharacters.find(c =>
           (ov.characterId && (c.characterId === ov.characterId || c.id === ov.characterId)) ||
           (ov.name && c.name === ov.name)
@@ -204,8 +212,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Generate image
-    // Detect photo-import characters — route to face-lock model (PuLID) when present
+    // Detect photo-import characters — route to face-lock model (PuLID) when present.
+    // Checks both DB referenceImages tags AND client-supplied isPhotoImport flag
+    // (session-only characters have no DB referenceImages, so the flag is the fallback).
     const hasPhotoImportChar = resolvedCharacters.some(c => {
+      // Check client-supplied flag (session characters not yet in DB)
+      if (photoImportCharIds.has(c.characterId || "") || photoImportCharIds.has(c.id) || photoImportCharIds.has(c.name)) return true;
+      // Check DB referenceImages tags
       if (!c.referenceImages) return false;
       const refs = c.referenceImages as Array<{ url?: string; label?: string; tags?: string[] }>;
       return Array.isArray(refs) && refs.some(r => r?.label === "photo-import" || (r?.tags && Array.isArray(r.tags) && r.tags.includes("photo-import")));
