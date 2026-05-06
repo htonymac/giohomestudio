@@ -66,6 +66,10 @@ export async function POST(req: NextRequest) {
         keepSameToggle: keepSameToggle ?? true,
         voiceProvider: voiceProvider ?? null,
         projectAssociation: projectAssociation ?? null,
+        // Save photo-import reference so scene-image routes to face-lock model
+        referenceImages: attribute === "photo-import" && imageUrl
+          ? [{ url: imageUrl, angle: "front", label: "photo-import", tags: ["photo-import"] }]
+          : undefined,
       },
     });
     return NextResponse.json({ voice }, { status: 201 });

@@ -3,6 +3,7 @@
 //
 // Usage:
 //   import { getMusicProvider, pickAutomaticProvider } from "@/modules/music-provider";
+//   import { getMusicProviderForSoundTier } from "@/modules/music-provider";
 
 export type { MusicGenerateInput, MusicGenerateOutput, MusicProviderAdapter, MusicProviderCapabilities } from "./types";
 
@@ -11,6 +12,8 @@ import { mubertAdapter } from "./adapters/mubert.adapter";
 import { stableAudioAdapter } from "./adapters/stable-audio.adapter";
 import { stockAdapter } from "./adapters/stock.adapter";
 import type { MusicProviderAdapter, MusicGenerateInput } from "./types";
+import { soundTierToMusicProviderKey } from "@/lib/ghs-sound-tiers";
+import type { GhsSoundTierId } from "@/lib/ghs-sound-tiers";
 
 export type MusicProviderKey = "kie" | "mubert" | "stable_audio" | "stock";
 
@@ -78,4 +81,41 @@ export function pickAutomaticProviderWithReason(
 /** List all registered provider keys */
 export function listMusicProviderKeys(): MusicProviderKey[] {
   return Object.keys(PROVIDERS) as MusicProviderKey[];
+}
+
+/**
+ * Resolve a music provider adapter directly from a GHS sound tier id.
+ *
+ * Tier mapping:
+ *   ghs-sound    → stock         (Piper TTS is for narration; background music = stock)
+ *   ghs-plus     → stock         (Karaoke pipeline for narration; background music = stock)
+ *   ghs-pro      → stable_audio  (FAL Stable Audio for music; requires FAL_KEY)
+ *   ghs-premium  → kie           (Kie.ai Suno V5; requires KIE_AI_API_KEY)
+ *
+ * Falls back gracefully when required env keys are absent:
+ *   ghs-pro without FAL_KEY      → stock  (logs warning)
+ *   ghs-premium without KIE key  → stock  (logs warning)
+ */
+export function getMusicProviderForSoundTier(tierId: GhsSoundTierId): {
+  adapter: MusicProviderAdapter;
+  resolvedKey: MusicProviderKey;
+  fallbackReason?: string;
+} {
+  const targetKey = soundTierToMusicProviderKey(tierId);
+
+  // Guard: ghs-pro requires FAL_KEY
+  if (targetKey === "stable_audio" && !process.env.FAL_KEY) {
+    const reason = `FAL_KEY not configured — tier "${tierId}" requires FAL_KEY for Stable Audio. Using stock library.`;
+    console.warn(`[music-provider] ${reason}`);
+    return { adapter: stockAdapter, resolvedKey: "stock", fallbackReason: reason };
+  }
+
+  // Guard: ghs-premium requires KIE_AI_API_KEY
+  if (targetKey === "kie" && !process.env.KIE_AI_API_KEY) {
+    const reason = `KIE_AI_API_KEY not configured — tier "${tierId}" requires KIE_AI_API_KEY for Kie Suno V5. Using stock library.`;
+    console.warn(`[music-provider] ${reason}`);
+    return { adapter: stockAdapter, resolvedKey: "stock", fallbackReason: reason };
+  }
+
+  return { adapter: PROVIDERS[targetKey], resolvedKey: targetKey };
 }
