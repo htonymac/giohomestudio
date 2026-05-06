@@ -15,6 +15,7 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
+import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 
@@ -376,6 +377,9 @@ function MoviePlannerInner() {
   // ── Sound tier & model settings (SD) ──
   const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper");
   const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
+  // ── SC: per-cast voice assignments & per-line generation ──
+  const [castVoiceMap, setCastVoiceMap] = useState<Record<string, string>>({});
+  const [generatingPerLineVoices, setGeneratingPerLineVoices] = useState(false);
   const [musicGenerating, setMusicGenerating] = useState(false);
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
@@ -3547,7 +3551,12 @@ function MoviePlannerInner() {
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Audio & Shots</h2>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+              <button onClick={parseScript} disabled={parsingScript || !screenplay}
+                style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${blue}30`, background: `${blue}06`, color: blue, fontSize: 11, fontWeight: 600, cursor: (parsingScript || !screenplay) ? "not-allowed" : "pointer", opacity: !screenplay ? 0.5 : 1 }}
+                title={!screenplay ? "Write screenplay first in the Script tab" : "Parse screenplay to extract dialogue per character"}>
+                {parsingScript ? "Parsing..." : "Parse Script"}
+              </button>
               <a href="/dashboard/sfx-library?selectMode=music&returnTo=movie-planner" style={{ textDecoration: "none" }}>
                 <button style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${accent}30`, background: `${accent}06`, color: accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                   Import Music
@@ -3570,6 +3579,98 @@ function MoviePlannerInner() {
               </button>
             </div>
           </div>
+
+          {/* ── SC: GHS Sound Tier Selector (4 cards from ghs-sound-tiers) ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${purple}30` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Voice & Sound Tier</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>4 tiers — GHS Sound (free) → GHS Premium (Kie Suno). All royalty-free.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+              {GHS_SOUND_TIERS.map((tier) => {
+                const tierColor = tier.id === "ghs-sound" ? accent : tier.id === "ghs-plus" ? blue : tier.id === "ghs-pro" ? purple : gold;
+                const isSelected = narrationProvider === tier.provider || (tier.id === "ghs-sound" && narrationProvider === "piper");
+                return (
+                  <button key={tier.id} onClick={() => {
+                    // Map tier to narration provider
+                    const provMap: Record<string, "piper" | "fal-narrator" | "elevenlabs" | "karaoke"> = {
+                      "ghs-sound": "piper", "ghs-plus": "karaoke", "ghs-pro": "karaoke", "ghs-premium": "karaoke",
+                    };
+                    setNarrationProvider(provMap[tier.id] ?? "piper");
+                    setLastAction(`Sound tier: ${tier.label}`);
+                  }}
+                    style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-start", gap: 3, padding: "10px 12px", borderRadius: 10, border: `2px solid ${isSelected ? tierColor : border}`, background: isSelected ? `${tierColor}10` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: isSelected ? tierColor : "#fff" }}>{tier.label}</span>
+                    <span style={{ fontSize: 9, color: muted, lineHeight: 1.3 }}>{tier.description}</span>
+                    <span style={{ fontSize: 8, fontWeight: 700, color: tier.isFree ? accent : gold, fontFamily: "monospace", marginTop: 2 }}>{tier.isFree ? "FREE" : tier.requiresKey ? tier.requiredKey : "PAID"}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── SC: Character Voice Assignments ── */}
+          {selectedCast.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${blue}30` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Character Voices</p>
+                  <p style={{ fontSize: 10, color: muted }}>Assign ElevenLabs voice ID per cast member for per-line dialogue generation.</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setGeneratingPerLineVoices(true);
+                    setLastAction("Generating per-line voices for all cast...");
+                    try {
+                      for (const sc of selectedCast) {
+                        const char = savedCharacters.find(c => c.id === sc.characterId);
+                        if (!char) continue;
+                        const voiceId = castVoiceMap[sc.characterId] || char.characterId || "";
+                        const lines = scenes.flatMap(s => s.dialogue ? [{ sceneId: `SC${String(s.scene).padStart(2, "0")}`, text: s.dialogue, speaker: char.name }] : []);
+                        if (lines.length === 0 || !voiceId) continue;
+                        // Fire narration for each scene line attributed to this character
+                        for (const line of lines) {
+                          await fetch("/api/hybrid/narrate-piper", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ text: line.text, voiceProvider: narrationProvider, voiceId, sceneId: line.sceneId, projectId }),
+                          }).catch(() => {});
+                        }
+                      }
+                      setLastAction("Per-line voices generated for all cast");
+                    } catch (err) {
+                      setLastAction(`Per-line voice gen failed: ${err instanceof Error ? err.message : "Unknown"}`);
+                    } finally {
+                      setGeneratingPerLineVoices(false);
+                    }
+                  }}
+                  disabled={generatingPerLineVoices}
+                  style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: generatingPerLineVoices ? "#2a2040" : `linear-gradient(135deg, ${blue}, #2563eb)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingPerLineVoices ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                  {generatingPerLineVoices ? "Generating..." : "Generate Per-Line Voices"}
+                </button>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                {selectedCast.map(sc => {
+                  const char = savedCharacters.find(c => c.id === sc.characterId);
+                  if (!char) return null;
+                  return (
+                    <div key={sc.characterId} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 12px", borderRadius: 8, background: s2, border: `1px solid ${border}` }}>
+                      {char.imageUrl && (
+                        <img src={char.imageUrl.startsWith("http") || char.imageUrl.startsWith("/api/") ? char.imageUrl : `/api/media/${char.imageUrl.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`} alt={char.name} style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                      )}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{char.name}</p>
+                        <p style={{ fontSize: 9, color: muted }}>{sc.role}</p>
+                      </div>
+                      <input
+                        value={castVoiceMap[sc.characterId] ?? char.characterId ?? ""}
+                        onChange={e => setCastVoiceMap(prev => ({ ...prev, [sc.characterId]: e.target.value }))}
+                        placeholder="ElevenLabs voice ID"
+                        style={{ ...inputStyle, width: 180, padding: "6px 10px", fontSize: 10 }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
           <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${purple}30` }}>

@@ -521,6 +521,8 @@ function HybridPlannerInner() {
 
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
+  // ── SE: per-scene description debounce timers ──
+  const sceneDescTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
@@ -5156,7 +5158,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     {/* Content */}
                     <div style={{ padding: 14 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginBottom: 4 }}>{scene.title}</p>
-                      <p style={{ fontSize: 10, color: muted, marginBottom: 8, lineHeight: 1.4 }}>{scene.description.substring(0, 80)}{scene.description.length > 80 ? "..." : ""}</p>
+                      {/* SE: inline scene description textarea — always editable, debounce 500ms */}
+                      <textarea
+                        value={scene.description}
+                        rows={3}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateScene(scene.scene, { description: val });
+                          // Debounce: clear previous timer then set new one (state already updated above)
+                          clearTimeout(sceneDescTimers.current[scene.sceneId]);
+                          sceneDescTimers.current[scene.sceneId] = setTimeout(() => {
+                            // State is already persisted via updateScene — this is a no-op hook point
+                            // for future API persistence if needed
+                          }, 500);
+                        }}
+                        placeholder="Scene description..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 8px", color: "#c0c0c8", fontSize: 10, lineHeight: 1.4, outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }}
+                      />
 
                       {/* ── Scene Intelligence — environment + ambient sounds ── */}
                       {(() => {
