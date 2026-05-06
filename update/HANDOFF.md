@@ -1,41 +1,88 @@
-# GHS HANDOFF — 2026-04-30 Session (updated S11)
+# GHS HANDOFF — 2026-05-05 Session (Pipeline Recovery)
 
-## Credit cap hit at ~11:54am UTC (10:54am PT). Resets 11:40am PT.
+## Branch: fix/ghs-pipeline-recovery-may05
+## Last commit: 2838df1 — Phase 1-2 pipeline recovery
+## Build: PASSING (next build exit 0, tsc exit 0)
 
-## What was completed (feature branches, not yet merged to main):
+---
 
-| Slice | Branch | Commit | Bugs Fixed |
-|---|---|---|---|
-| S1 | fix/ghs-bug-03-s1-foundation | 8a544ef | BUG-03 char DB persist, ElevenLabs error surface, karaoke stderr fix, MUBERT_PAT env |
-| S2 | fix/ghs-bug-02-bear-collapse | 5f3ff37 | BUG-02 bear collapse, character reference images, human-guard in build route |
-| S3 | fix/ghs-bug-04-payload-json-guard | fe3ba2e | BUG-04a/c/f payload alignment, safeJson guard |
-| S4 | fix/ghs-bug-04b-tab-order-character-picker | 4a3caa0 | BUG-04b tab order (Overview last), design style flow, CharacterPicker inline |
-| S5 | fix/ghs-bug-09-voice-tiers | 6576960 | BUG-09 voice provider tiers, ElevenLabs error surface, FAL Narrator, voiceLayers |
-| S6 | fix/ghs-bug-07-music-pipeline | d433f2c | BUG-07 expansion error surface, BUG-23 Mubert dead branch fix, MUBERT_PAT docs, stock fallback banners |
-| S7 | fix/ghs-bug-08-karaoke-python | 17796d2 7bcb887 358efda | BUG-08 requirements.txt Py3.13, soundfile fallback chain, full stderr, non-greedy JSON regex, JSON error on unhandled exceptions |
-| S8 | fix/ghs-bug-10-sfx-provider | f99f83a de7aa7e 760148c 691a5e8 | BUG-10 FAL SFX tier, CC license gate, auto-mode toggle (children+movie), safeForAutoMode in assets. Bonus: music-video-planner @/lib/api-utils path fix. |
-| S9 | fix/ghs-bug-06-scene-polish | 5b24534 b73b83b fdfdc0e | BUG-06 per-scene text polish: /api/hybrid/scene-polish route (polish|upgrade|add-detail), Polish button + handler in hybrid-planner, children-planner, movie-planner. |
-| S10 | fix/ghs-bug-05-movie-planner | dcdf31c | BUG-05 audit: 6/7 sub-bugs already fixed in prior slices. Gap fixed: Overview tab now shows assembledUrl video player + Watch/Download buttons. Assembly tab assemble button gets data-testid. Assembly footer adds Download MP4 link. Playwright 8/8 tabs PASS. |
-| S11 | fix/ghs-bug-12-commercial | 9031af8 f685800 10de8e6 | BUG-12 commercial 3 sub-modes. safeJson guards on narration polish + caption polish + translate. Mode 2 regen script error surface. Mode 3 videoGenError state + UI banner. All 3 modes render. Playwright 12/12 PASS 90s. |
+## What was completed this session
 
-## S4c — NOT completed (credit cap hit):
-- Movie planner Cast tab: replace "Import Existing" primary → AI-generate-cast-from-story
-- Children planner Scene Board: hybrid-style per-scene cards, image gen, character assignment
-- Pre-assembly AI supervisor / preflight check
+### Phase 1 — Stop The Bleeding (DONE, committed 2838df1)
+- **1.1 Style drop fix** — STYLE_PRESETS extracted to `src/lib/style-presets.ts`. `scene-video/route.ts` now injects style prefix. Closes "selected 3D, got real human" leak.
+- **1.2/1.3 Face-lock model** — `fal_flux_pulid` added to model-registry. `image-provider.ts` routes to PuLID when `useIdentityLock=true`. `scene-image/route.ts` detects photo-import characters and passes identity lock. `character-voices/route.ts` persists `referenceImages` with photo-import label.
+- **1.4 Tab order fixed** — WORKSHOP_TABS + FLOW array now identical and straight: Design→Story→Characters→Scene Board→Sound→Screenplay→Assembly→Overview. Off-by-one FLOW bug killed.
+- **1.5 Per-scene controls** — AI Generate SFX button, Continuous Motion toggle + duration picker (5/10/15/20/30s), Generate Scene Music button — all on each Scene Board card. `makeSceneVideo` passes `projectStyle` to scene-video route.
 
-## Henry's additional corrections (2026-04-30, mid-session):
-1. Children planner must have scene board like hybrid (per-scene character gen + image gen) but retain children story builder identity
-2. All planners must have pre-assembly AI review (check audio, narration, SFX, voice → auto-fix → then assemble)
-3. Movie Cast tab "Import Existing" button is WRONG — must be AI-generate-from-story primary, import secondary
-4. Every correction and the full original narration is in uncomplete.md SESSION 2026-04-30
+### Phase 2 — Three Supervisors (DONE, committed 2838df1)
+- `app/api/supervisor/visual-consistency/route.ts` — vision check: portrait vs photo, scene vs character
+- `app/api/supervisor/sound-consistency/route.ts` — SFX + music mood per scene (Haiku)
+- `app/api/supervisor/final/route.ts` — pre-flight + LLM final check before assembly
+- `SupervisorStatusBar.tsx` — 3-row specialist panel (Visual/Sound/Final)
 
-## Next steps when credits resume:
-1. S7: DONE — BUG-08 Karaoke Python fix complete (fix/ghs-bug-08-karaoke-python)
-2. S6 DONE: BUG-07 expansion surface + BUG-23 Mubert dead branch + MUBERT_PAT docs + stock fallback banners — branch fix/ghs-bug-07-music-pipeline (4 commits, not yet merged to main)
-3. S8 DONE: BUG-10 SFX provider expansion + license enforcement + auto-mode toggle — branch fix/ghs-bug-10-sfx-provider (4 commits, not yet merged to main). Playwright PASS.
-4. S9: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+### Phase 4 — Auto-SFX from story text (DONE, committed 2838df1)
+- `src/lib/sfx/cue-extractor.ts` — 31 keyword entries + Claude Haiku LLM pass
+- `src/lib/sfx/auto-fetcher.ts` — Freesound→Pixabay→FAL, CC0/CC-BY only
+- `app/api/hybrid/audio-plan/route.ts` — cue-extractor runs before LLM
+
+### Sound tiers (DONE, committed 2838df1)
+- `src/lib/ghs-sound-tiers.ts` — GHS Sound / GHS Plus / GHS Pro / GHS Premium
+- `music/generate/route.ts` + `music-provider/index.ts` — mapped to GHS tier labels
+- `narrate-piper/route.ts` — tier routing wired
+
+---
+
+## In Progress (Sonnet worker running)
+- SA-SE architectural corrections + S4c cut-off work — Sonnet worker `add09b47c08b79902` running
+
+---
+
+## What is NOT done yet (next session)
+
+### Phase 1.6 — Assembly path unification
+- Hybrid planner calls `/api/video/assemble` (line 2667)
+- Should migrate to `/api/assembly/execute` (uses structured AssemblyJSON with ducking)
+- Risk: response shape differs. Needs careful testing.
+- WAIT for Henry GO in `update/RISKS_AND_DECISIONS.md` before deleting old route.
+
+### Phase 3 — Per-scene continuous motion (Prisma migration)
+- Need to add `continuousMotion Json?` to `HybridScene` model in `prisma/schema.prisma:930`
+- Run `npx prisma migrate dev` after schema change
+- UI state is already added (`sceneContinuousMotion` per-scene), just needs DB persistence
+
+### Phase 5 — Music provider keys
+- `KIE_AI_API_KEY` and `MUBERT_PAT` still NOT in `.env`
+- Without these, GHS Premium (Suno) and Mubert silently fall back to stock
+- Henry needs to add these manually
+
+### Phase 6 — All other planners
+- Children planner scene board → hybrid-style per-scene cards (S4c)
+- Movie planner Cast tab → AI Build primary (SA-SE agent handling)
+- Series / Commercial / Music Video planners — pending Phase 6
+
+### S1-S12 merge to main
+- All S1-S12 fixes are NOW IN branch `fix/ghs-pipeline-recovery-may05`
+- Need Henry to review and merge branch to main
+- After merge: `fix/ghs-free-mode-complete` and all S1-S12 branches can be archived
+
+---
+
+## NEXT EXACT STEPS
+
+1. Wait for SA-SE Sonnet worker to finish → review output → commit if TSC passes
+2. Start dev server: `npx next dev`
+3. AUT verify: open `localhost:3200/dashboard/hybrid-planner`, check:
+   - Tab order: Design→Story→Characters→Scene Board→Sound→Screenplay→Assembly→Overview
+   - Upload photo test: Characters tab → import photo → confirm face-lock routes to PuLID
+   - Per-scene SFX button visible on each scene card
+   - Per-scene Continuous Motion toggle visible
+4. Add Prisma migration for `continuousMotion Json?` on HybridScene
+5. Get Henry to add `KIE_AI_API_KEY` and `MUBERT_PAT` to `.env`
+6. Merge branch to main after Henry review
+
+---
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
-## Playwright skill: C:\Users\USER\.claude\skills\playwright-skill
-## Plan: C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+## Plan: C:\Users\USER\.claude\plans\ghs-andio-studio-wiggly-castle.md
+## Branch: fix/ghs-pipeline-recovery-may05
