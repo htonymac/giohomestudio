@@ -31,6 +31,8 @@ Check here before adding new env vars, and update when vars are added or changed
 
 Note: FAL account unlock pending as of 2026-04-30 (see `video samples/- fal.ai account unlock not yet unl.txt`).
 
+**Face-lock (PuLID):** Also routed through `FAL_KEY`. Model: `fal-ai/flux-pulid`. Activates automatically when character has `referenceImages[]` tagged `photo-import`. Cost: ~$0.05/image. Requires public-accessible image URL — local `/api/media/` paths fall back to text-only generation.
+
 ---
 
 ## Music Generation
