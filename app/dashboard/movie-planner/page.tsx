@@ -280,8 +280,10 @@ function MoviePlannerInner() {
   const [generatedCast, setGeneratedCast] = useState<Character[]>([]);
   const [castGenerating, setCastGenerating] = useState(false);
   const [castGenError, setCastGenError] = useState<string | null>(null);
-  // ── Portrait image model selector (Cast tab) ──
-  const [castPortraitModel, setCastPortraitModel] = useState<"fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev">("fal_flux_schnell");
+  // ── Portrait image model selector (Cast tab) — global fallback ──
+  const [castPortraitModel, setCastPortraitModel] = useState<string>("fal_flux_dev");
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
 
   // ── AI Planning ──
   const [planning, setPlanning] = useState(false);
@@ -2939,18 +2941,22 @@ function MoviePlannerInner() {
               </div>
             )}
             {/* ── Portrait model selector ── */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" as const }}>
-              <span style={{ fontSize: 10, color: muted, alignSelf: "center", flexShrink: 0 }}>Portrait model:</span>
-              {([
-                { id: "fal_flux_schnell" as const, label: "Flux Schnell", desc: "Fast · $0.003" },
-                { id: "segmind_pruna" as const, label: "Pruna", desc: "Cheap · $0.005" },
-                { id: "fal_flux_dev" as const, label: "Flux Dev", desc: "Quality · $0.025" },
-              ] as Array<{ id: "fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev"; label: string; desc: string }>).map(m => (
-                <button key={m.id} onClick={() => setCastPortraitModel(m.id)}
-                  style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${castPortraitModel === m.id ? purple : border}`, background: castPortraitModel === m.id ? `${purple}20` : "transparent", color: castPortraitModel === m.id ? purple : muted, fontSize: 9, cursor: "pointer", fontWeight: castPortraitModel === m.id ? 700 : 400 }}>
-                  {m.label} <span style={{ opacity: 0.6 }}>{m.desc}</span>
-                </button>
-              ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+              <select
+                value={castPortraitModel}
+                onChange={e => setCastPortraitModel(e.target.value)}
+                style={{
+                  padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                  border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                  outline: "none", flex: 1
+                }}>
+                <option value="fal_flux_dev">Flux Dev</option>
+                <option value="fal_flux_pro">Flux Pro</option>
+                <option value="segmind_pruna">Pruna</option>
+                <option value="fal_flux_pulid">Face Lock (PuLID)</option>
+                <option value="segmind_flux">Flux Free</option>
+              </select>
             </div>
             <button
               onClick={generateCastFromStory}
@@ -3020,24 +3026,44 @@ function MoviePlannerInner() {
                           style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: `1px solid ${inCast ? red : green}30`, background: `${inCast ? red : green}06`, color: inCast ? red : green, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
                           {inCast ? "Remove" : "Add to Cast"}
                         </button>
-                        <button onClick={() => {
-                          fetch("/api/generation/image", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, model: castPortraitModel }),
-                          }).then(r => r.json()).then(d => {
-                            if (d.imageUrl || d.imagePath) {
-                              const raw = d.imageUrl || d.imagePath || "";
-                              const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-                              setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
-                              setLastAction(`Portrait generated for ${char.name}`);
-                              // Persist portrait to character-voices DB so it's available across planners
-                              fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
-                            }
-                          }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
-                        }}
-                          style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
-                          Generate Portrait
-                        </button>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {/* ── Per-character portrait model selector ── */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                            <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                            <select
+                              value={charPortraitModel[char.id] || castPortraitModel}
+                              onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.id]: e.target.value }))}
+                              style={{
+                                padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                                border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                                outline: "none", flex: 1
+                              }}>
+                              <option value="fal_flux_dev">Flux Dev</option>
+                              <option value="fal_flux_pro">Flux Pro</option>
+                              <option value="segmind_pruna">Pruna</option>
+                              <option value="fal_flux_pulid">Face Lock (PuLID)</option>
+                              <option value="segmind_flux">Flux Free</option>
+                            </select>
+                          </div>
+                          <button onClick={() => {
+                            const modelId = charPortraitModel[char.id] || castPortraitModel;
+                            fetch("/api/generation/image", {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, modelId }),
+                            }).then(r => r.json()).then(d => {
+                              if (d.imageUrl || d.imagePath) {
+                                const raw = d.imageUrl || d.imagePath || "";
+                                const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+                                setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
+                                setLastAction(`Portrait generated for ${char.name}`);
+                                fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
+                              }
+                            }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
+                          }}
+                            style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
+                            Generate Portrait
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

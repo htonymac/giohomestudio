@@ -313,6 +313,8 @@ function HybridPlannerInner() {
   const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
   // ── Previous character portrait — one undo level per character ───────────
   const [prevCharImages, setPrevCharImages] = useState<Record<string, string>>({});
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
   // ── Per-character AI vision analysis state ──
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   // ── Per-character manual save state ──
@@ -3320,7 +3322,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string, overrideModelId?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
@@ -3341,15 +3343,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
         : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
 
-    // Build portrait prompt
+    // Build age anchor — PuLID ignores age buried in description; must be FIRST tokens
+    const ageRaw = char.ageRange || char.ageAppearance || "";
+    const ageNum = parseInt(ageRaw);
+    const isChild = ageNum > 0 && ageNum < 18;
+    const ageAnchor = ageRaw
+      ? isChild
+        ? `${ageNum}-year-old child, CHILD NOT ADULT, young face, child body proportions, age ${ageNum},`
+        : `${ageRaw},`
+      : "";
+
+    // Build portrait prompt — age anchor goes FIRST so PuLID cannot ignore it
     const portraitPrompt = [
+      ageAnchor,
       stylePrefix,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
       visualDesc || `${char.displayName}, ${char.gender}`,
       "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
       "Show the character clearly from head to toe.",
       "Consistent design, professional quality, no background distractions.",
-    ].filter(Boolean).join(". ");
+    ].filter(Boolean).join(" ");
 
     // Detect photo-import: if character was built from a real uploaded photo,
     // pass it as referenceImageUrl so PuLID (fal_flux_pulid) preserves the face
@@ -3359,17 +3372,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     const forceIdentityLock = isPhotoImport;
 
     try {
+      // Determine effective model: override arg → per-character selection → auto PuLID for photo-import → let backend default
+      const effectiveModelId = overrideModelId
+        || charPortraitModel[char.characterId]
+        || (isPhotoImport ? "fal_flux_pulid" : undefined);
+
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: portraitPrompt,
-          negativePrompt: effectiveStyle === "realistic" || effectiveStyle === "nollywood"
-            ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
-            : effectiveStyle === "2d-cartoon"
-            ? "3D render, photorealistic, CGI, bokeh, realistic"
-            : effectiveStyle === "3d-cinematic"
-            ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
-            : "",
+          modelId: effectiveModelId,
+          negativePrompt: (() => {
+            const ageBlock = isChild
+              ? "adult, mature face, grown up, aged, wrinkles, 20 years old, 30 years old, teenager, pubescent, man, woman, adult body"
+              : "";
+            const styleBlock = effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+              ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+              : effectiveStyle === "2d-cartoon"
+              ? "3D render, photorealistic, CGI, bokeh, realistic"
+              : effectiveStyle === "3d-cinematic"
+              ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
+              : "";
+            return [ageBlock, styleBlock].filter(Boolean).join(", ");
+          })(),
           referenceImageUrl: referenceImageUrl || undefined,
           useIdentityLock: forceIdentityLock,
           width: 768, height: 960,
@@ -6012,6 +6037,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <option value="storybook">Storybook</option>
                         <option value="comic">Comic</option>
                       </select>
+                      {/* ── Portrait model selector ── */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                        <select
+                          value={charPortraitModel[char.characterId] || (char.tags?.includes("photo-import") ? "fal_flux_pulid" : "fal_flux_dev")}
+                          onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                          style={{
+                            padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                            border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                            outline: "none", flex: 1
+                          }}>
+                          <option value="fal_flux_dev">Flux Dev</option>
+                          <option value="fal_flux_pro">Flux Pro</option>
+                          <option value="segmind_pruna">Pruna</option>
+                          <option value="fal_flux_pulid">Face Lock (PuLID)</option>
+                          <option value="segmind_flux">Flux Free</option>
+                        </select>
+                      </div>
                       <button
                         onClick={() => generateCharacterPortrait(char, charStyles[char.characterId])}
                         disabled={isGenerating}

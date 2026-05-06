@@ -472,6 +472,8 @@ function ChildrenPlannerInner() {
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   const [savingCharacter, setSavingCharacter] = useState<string | null>(null);
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
   const [savedCharacter, setSavedCharacter] = useState<string | null>(null);
   const [imagePickerForCharId, setImagePickerForCharId] = useState<string | null>(null);
   const [imagePickerAssets, setImagePickerAssets] = useState<Array<{ id: string; name: string; fileUrl?: string; filePath?: string; source?: string }>>([]);
@@ -786,7 +788,7 @@ function ChildrenPlannerInner() {
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideModelId?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
@@ -799,10 +801,14 @@ function ChildrenPlannerInner() {
       "Show the character clearly from head to toe. Friendly and safe for children.",
       "Consistent design, professional quality.",
     ].filter(Boolean).join(". ");
+    const isPhotoImport = char.tags?.includes("photo-import");
+    const effectiveModelId = overrideModelId
+      || charPortraitModel[char.characterId]
+      || (isPhotoImport ? "fal_flux_pulid" : undefined);
     try {
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: portraitPrompt, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
+        body: JSON.stringify({ prompt: portraitPrompt, modelId: effectiveModelId, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
       });
       const d = await res.json();
       if (d.error) { setUiError(`Portrait failed: ${d.error}`); setGeneratingPortrait(null); return; }
@@ -3013,6 +3019,24 @@ function ChildrenPlannerInner() {
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? ds.color.lilac : border}`, background: isEditing ? `${ds.color.lilac}15` : "transparent", color: isEditing ? ds.color.lilac : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
                         {isEditing ? "Close Builder" : "Define Appearance"}
                       </button>
+                      {/* ── Portrait model selector ── */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                        <select
+                          value={charPortraitModel[char.characterId] || (char.tags?.includes("photo-import") ? "fal_flux_pulid" : "fal_flux_dev")}
+                          onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                          style={{
+                            padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                            border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                            outline: "none", flex: 1
+                          }}>
+                          <option value="fal_flux_dev">Flux Dev</option>
+                          <option value="fal_flux_pro">Flux Pro</option>
+                          <option value="segmind_pruna">Pruna</option>
+                          <option value="fal_flux_pulid">Face Lock (PuLID)</option>
+                          <option value="segmind_flux">Flux Free</option>
+                        </select>
+                      </div>
                       <button onClick={() => generateCharacterPortrait(char)} disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
                         {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
