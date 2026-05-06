@@ -3971,6 +3971,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
         // ── Image models ──
         const IMAGE_MODELS_AID = [
+          { id:"ideogram_free",        name:"Ideogram Free",      price:0.000, network:"FAL",     res:"1024px", color:"#34d399", desc:"Completely free. Good text rendering via Ideogram v2." },
+          { id:"segmind_flux",         name:"Flux Free",          price:0.0004,network:"Segmind", res:"1024px", color:"#6ee7b7", desc:"Cheapest Flux via Segmind. Good for quick drafts." },
           { id:"segmind_pruna",        name:"Pruna P Image",      price:0.005, network:"Segmind", res:"1024px", color:"#22c55e", desc:"Cheapest image. Fast drafts, marketing creatives." },
           { id:"fal_flux_schnell",     name:"Flux Schnell",       price:0.003, network:"FAL",     res:"1024px", color:"#4ade80", desc:"Fastest FAL image. Very cheap, good for quick tests." },
           { id:"fal_flux_dev",         name:"Flux Dev",           price:0.025, network:"FAL",     res:"1024px", color:"#facc15", desc:"Better detail than Schnell. Good balance." },
