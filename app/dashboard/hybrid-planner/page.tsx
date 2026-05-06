@@ -5593,12 +5593,18 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 try {
                                   const r = await fetch("/api/music/generate-scene", {
                                     method: "POST", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ sceneId: scene.sceneId, projectId, mood: scene.audioPlan.musicMood || scene.mood, genre, tone }),
+                                    body: JSON.stringify({ sceneId: scene.sceneId, projectId, mood: scene.audioPlan?.musicMood || scene.mood, genre, tone }),
                                   });
                                   const d = await r.json();
-                                  if (d.musicUrl) updateScene(scene.scene, { audioPlan: { ...scene.audioPlan, musicMood: d.musicMood || scene.audioPlan.musicMood } });
-                                  setLastAction(`Music generated for Scene ${scene.scene}`);
-                                } catch { setLastAction(`Music gen failed for Scene ${scene.scene}`); }
+                                  // API returns outputUrl (not musicUrl)
+                                  const musicUrl = d.outputUrl || d.musicUrl || d.url;
+                                  if (musicUrl) {
+                                    updateScene(scene.scene, { audioPlan: { ...(scene.audioPlan || {}), musicUrl, musicMood: d.mood || scene.audioPlan?.musicMood } });
+                                    setLastAction(`Music ready for Scene ${scene.scene} — check Audio tab`);
+                                  } else {
+                                    setUiError(d.error || `Music generation failed for Scene ${scene.scene}`);
+                                  }
+                                } catch (e) { setUiError(`Music gen error: ${String(e)}`); }
                               }}
                               title="Generate background music for this scene"
                               style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: "#22c55e", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
@@ -6619,7 +6625,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={() => {
                           setSoundTier(tier.id);
                           if (tier.id === "ghs-sound") setNarratorVoice("piper");
-                          else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
+                          else if (tier.id === "ghs-plus") setNarratorVoice("piper");
+                          else if (tier.id === "ghs-pro") setNarratorVoice("fal-narrator");
                           else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
                         }}
                         style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
@@ -7572,7 +7579,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     onKeyDown={e => e.key === "Enter" && generateElevenLabsSfx()}
                     placeholder='e.g. "wooden door creaking open slowly", "rain on tin roof", "crowd cheering"'
                     style={{ ...inputStyle, flex: 1, fontSize: 11 }} />
-                  <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim()}
+                  <button onClick={() => { if (!sfxDesc.trim()) { setUiError("Type a sound description first — e.g. 'rain on tin roof'"); return; } generateElevenLabsSfx(); }}
+                    disabled={sfxGenerating}
                     style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: sfxGenerating ? "#2a2a40" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: sfxGenerating ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
                     {sfxGenerating ? "Generating..." : "Generate"}
                   </button>
