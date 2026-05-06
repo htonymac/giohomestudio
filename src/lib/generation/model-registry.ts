@@ -652,6 +652,38 @@ const IMAGE_MODELS: ModelEntry[] = [
     is_active: true,
     notes: "Midjourney V7 proxied via Kie.ai. Premium aesthetic tier.",
   },
+  // ── FAL Flux PuLID — face-lock / identity-preserved generation ──
+  // Used automatically when a character has a photo-import reference image.
+  // Preserves facial identity from uploaded real photo.
+  {
+    id: "fal_flux_pulid",
+    display_name: "GHS Face Lock (Identity)",
+    provider_name: "fal",
+    model_manufacturer: "FAL / PuLID",
+    gateway: "fal",
+    endpoint_id: "fal-ai/flux-pulid",
+    type: "image",
+    quality_tier: "premium",
+    cost_to_henry: 0.05,
+    price_to_user: 0.10,
+    profit_margin: 0.05,
+    unit: "per_image",
+    resolution: "1024x1024",
+    max_duration_seconds: null,
+    avg_generation_seconds: 18,
+    is_free_tier_eligible: false,
+    is_recommended_default: false,
+    is_auto_selected_if_cheaper: false,
+    tags: ["face-lock", "identity", "photo-reference", "pulid", "fal"],
+    strengths: "Preserves facial identity from uploaded reference photo. Best for 'make a character from my son's photo'.",
+    best_for: "Characters created from uploaded real photos where identity must be preserved",
+    sort_price_rank: 9,
+    sort_quality_rank: 9,
+    sort_trending_score: 80,
+    sort_usage_count: 0,
+    is_active: true,
+    notes: "Auto-selected when character has referenceImages[] tagged photo-import. Requires public image URL.",
+  },
 ];
 
 // ── VIDEO MODELS ────────────────────────────────────────────────────────────

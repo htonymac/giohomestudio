@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
+import { getStylePreset } from "@/lib/style-presets";
 import { env } from "@/config/env";
 import * as path from "path";
 
@@ -35,36 +36,8 @@ export async function POST(req: NextRequest) {
       productImages,   // optional: string[] of product image URLs to use as visual references
     } = body;
 
-    // ── VISUAL STYLE DIRECTIVE — injected into every generation to lock rendering style ──
-    // Without this, the model randomly switches between 3D cinematic and flat cartoon.
-    const STYLE_PRESETS: Record<string, { prefix: string; suffix: string; negative: string }> = {
-      "3d-cinematic": {
-        prefix: "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation",
-        suffix: "Highly detailed 3D render, professional VFX, cinematic lighting, consistent character design",
-        negative: "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart, sticker, cel-shaded, painted",
-      },
-      "2d-cartoon": {
-        prefix: "2D cartoon illustration, clean bold outlines, flat cel-shaded colors, Disney storybook art style, vibrant colors",
-        suffix: "Clean illustration, consistent character design, professional cartoon art",
-        negative: "3D render, photorealistic, CGI, bokeh, subsurface scattering, depth of field blur",
-      },
-      "anime": {
-        prefix: "Anime style, Japanese animation, detailed anime art, studio-quality anime illustration, clean linework",
-        suffix: "Consistent anime character design, professional anime production art",
-        negative: "3D render, photorealistic, CGI, Western cartoon, flat illustration",
-      },
-      "storybook": {
-        prefix: "Children's storybook illustration, warm painterly style, soft watercolor textures, whimsical and charming, storybook art",
-        suffix: "Consistent storybook illustration style, warm colors, professional children's book art",
-        negative: "3D render, photorealistic, dark, scary, anime",
-      },
-      "realistic": {
-        prefix: "Photorealistic, hyper-detailed, cinematic photography, professional lighting, 8K render",
-        suffix: "Photorealistic quality, consistent character appearance, cinematic composition",
-        negative: "cartoon, anime, 2D illustration, flat colors, sketch, painterly",
-      },
-    };
-    const stylePreset = STYLE_PRESETS[projectStyle] || STYLE_PRESETS["3d-cinematic"];
+    // ── VISUAL STYLE DIRECTIVE — shared from src/lib/style-presets.ts ──
+    const stylePreset = getStylePreset(projectStyle);
 
     if (!sceneText) {
       return NextResponse.json({ error: "sceneText is required" }, { status: 400 });
@@ -231,6 +204,12 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Generate image
+    // Detect photo-import characters — route to face-lock model (PuLID) when present
+    const hasPhotoImportChar = resolvedCharacters.some(c => {
+      if (!c.referenceImages) return false;
+      const refs = c.referenceImages as Array<{ url?: string; label?: string; tags?: string[] }>;
+      return Array.isArray(refs) && refs.some(r => r?.label === "photo-import" || (r?.tags && Array.isArray(r.tags) && r.tags.includes("photo-import")));
+    });
     const outputPath = path.join(env.storagePath, "images", `scene_${sceneId || Date.now()}_${Date.now()}.png`);
 
     const result = await generateImage({
@@ -241,7 +220,8 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
-      referenceImageUrl: referenceImageUrls[0], // pass primary character reference image for style consistency
+      referenceImageUrl: referenceImageUrls[0],
+      useIdentityLock: hasPhotoImportChar && !modelId, // auto-route to PuLID for photo-import chars
     });
 
     if (!result.success) {

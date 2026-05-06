@@ -1,41 +1,106 @@
-# GHS HANDOFF — 2026-04-30 Session (updated S11)
+# GHS HANDOFF — 2026-05-06 Session (Image Management + Face-Lock)
 
-## Credit cap hit at ~11:54am UTC (10:54am PT). Resets 11:40am PT.
+## Branch: fix/ghs-pipeline-recovery-may05
+## Last commit: 2a00ded — char-library PuLID + style picker + Preview/Undo/Remove
+## Build: TSC clean (exit 0)
+## AUT Verify: pending (server restart needed to test new character buttons)
 
-## What was completed (feature branches, not yet merged to main):
+---
 
-| Slice | Branch | Commit | Bugs Fixed |
-|---|---|---|---|
-| S1 | fix/ghs-bug-03-s1-foundation | 8a544ef | BUG-03 char DB persist, ElevenLabs error surface, karaoke stderr fix, MUBERT_PAT env |
-| S2 | fix/ghs-bug-02-bear-collapse | 5f3ff37 | BUG-02 bear collapse, character reference images, human-guard in build route |
-| S3 | fix/ghs-bug-04-payload-json-guard | fe3ba2e | BUG-04a/c/f payload alignment, safeJson guard |
-| S4 | fix/ghs-bug-04b-tab-order-character-picker | 4a3caa0 | BUG-04b tab order (Overview last), design style flow, CharacterPicker inline |
-| S5 | fix/ghs-bug-09-voice-tiers | 6576960 | BUG-09 voice provider tiers, ElevenLabs error surface, FAL Narrator, voiceLayers |
-| S6 | fix/ghs-bug-07-music-pipeline | d433f2c | BUG-07 expansion error surface, BUG-23 Mubert dead branch fix, MUBERT_PAT docs, stock fallback banners |
-| S7 | fix/ghs-bug-08-karaoke-python | 17796d2 7bcb887 358efda | BUG-08 requirements.txt Py3.13, soundfile fallback chain, full stderr, non-greedy JSON regex, JSON error on unhandled exceptions |
-| S8 | fix/ghs-bug-10-sfx-provider | f99f83a de7aa7e 760148c 691a5e8 | BUG-10 FAL SFX tier, CC license gate, auto-mode toggle (children+movie), safeForAutoMode in assets. Bonus: music-video-planner @/lib/api-utils path fix. |
-| S9 | fix/ghs-bug-06-scene-polish | 5b24534 b73b83b fdfdc0e | BUG-06 per-scene text polish: /api/hybrid/scene-polish route (polish|upgrade|add-detail), Polish button + handler in hybrid-planner, children-planner, movie-planner. |
-| S10 | fix/ghs-bug-05-movie-planner | dcdf31c | BUG-05 audit: 6/7 sub-bugs already fixed in prior slices. Gap fixed: Overview tab now shows assembledUrl video player + Watch/Download buttons. Assembly tab assemble button gets data-testid. Assembly footer adds Download MP4 link. Playwright 8/8 tabs PASS. |
-| S11 | fix/ghs-bug-12-commercial | 9031af8 f685800 10de8e6 | BUG-12 commercial 3 sub-modes. safeJson guards on narration polish + caption polish + translate. Mode 2 regen script error surface. Mode 3 videoGenError state + UI banner. All 3 modes render. Playwright 12/12 PASS 90s. |
+## Completed This Session (all committed)
 
-## S4c — NOT completed (credit cap hit):
-- Movie planner Cast tab: replace "Import Existing" primary → AI-generate-cast-from-story
-- Children planner Scene Board: hybrid-style per-scene cards, image gen, character assignment
-- Pre-assembly AI supervisor / preflight check
+### Phase 1 — Stop The Bleeding (commit 2838df1)
+- **1.1 Style fix** — `src/lib/style-presets.ts` shared. `scene-video` injects style prefix. "Selected 3D, got real human" fixed.
+- **1.2/1.3 Face-lock** — `fal_flux_pulid` in model-registry. `image-provider.ts` routes to PuLID on `useIdentityLock=true`. `scene-image` detects photo-import chars. `character-voices` saves `referenceImages` with photo-import label.
+- **1.4 Tab order** — Design→Story→Characters→Scene Board→Sound & SFX→Screenplay→Assembly→Overview. Both WORKSHOP_TABS + FLOW arrays aligned.
+- **1.5 Per-scene controls** — AI SFX button, Continuous Motion toggle, Duration picker (5/10/15/20/30s), Scene Music button on each Scene Board card.
 
-## Henry's additional corrections (2026-04-30, mid-session):
-1. Children planner must have scene board like hybrid (per-scene character gen + image gen) but retain children story builder identity
-2. All planners must have pre-assembly AI review (check audio, narration, SFX, voice → auto-fix → then assemble)
-3. Movie Cast tab "Import Existing" button is WRONG — must be AI-generate-from-story primary, import secondary
-4. Every correction and the full original narration is in uncomplete.md SESSION 2026-04-30
+### Phase 2 — Three Supervisors (commit 2838df1)
+- `app/api/supervisor/visual-consistency/route.ts`
+- `app/api/supervisor/sound-consistency/route.ts`
+- `app/api/supervisor/final/route.ts`
+- `SupervisorStatusBar.tsx` → 3-row panel
 
-## Next steps when credits resume:
-1. S7: DONE — BUG-08 Karaoke Python fix complete (fix/ghs-bug-08-karaoke-python)
-2. S6 DONE: BUG-07 expansion surface + BUG-23 Mubert dead branch + MUBERT_PAT docs + stock fallback banners — branch fix/ghs-bug-07-music-pipeline (4 commits, not yet merged to main)
-3. S8 DONE: BUG-10 SFX provider expansion + license enforcement + auto-mode toggle — branch fix/ghs-bug-10-sfx-provider (4 commits, not yet merged to main). Playwright PASS.
-4. S9: Per plan at C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+### Phase 3 — continuousMotion DB field (commit 10c704b)
+- `prisma/schema.prisma` — `continuousMotion Json?` added to HybridScene
+- Schema synced via `npx prisma db push`
+
+### Phase 4 — Auto-SFX (commit 2838df1)
+- `src/lib/sfx/cue-extractor.ts` — 31 keywords + Haiku LLM pass
+- `src/lib/sfx/auto-fetcher.ts` — Freesound→Pixabay→FAL, CC0/CC-BY only
+- `app/api/hybrid/audio-plan/route.ts` — cue-extractor runs first
+
+### Sound Tiers (commit 2838df1)
+- `src/lib/ghs-sound-tiers.ts` — GHS Sound / GHS Plus / GHS Pro / GHS Premium
+- Music provider + narrate-piper + hybrid-planner UI all wired
+
+### SA-SE Architectural Corrections (commit 9a7dba6)
+- **SC** — movie-planner: Parse Script button, 4-card sound tier selector, per-cast voice IDs, Generate Per-Line Voices
+- **SD** — model selectors already present (no change needed)
+- **SE** — hybrid-planner Scene Board: scene description now always-editable `<textarea>` with 500ms debounce auto-save
+- **SB** — movie Cast tab AI-primary already done
+
+### TSC + Build Fixes (commit 6269642, 31c1fe4)
+- `supervisor/final/route.ts` — inline PreflightResult types, named prisma import
+- `image-provider.ts` — double-cast `as unknown as Record<string,unknown>` for FAL params
+- `video-editor/page.tsx` — Suspense wrapper around `useSearchParams()` (Next.js 14 requirement)
+- Free-mode: scene image lightbox, dev limits 20 img / 10 vid, localhost unlimited
+
+---
+
+## Completed This Session (2026-05-06)
+
+### Photo → AI face preservation (commit f360886)
+- `generateCharacterPortrait()` in hybrid-planner now detects `tags: ["photo-import"]` on char
+- Passes `referenceImageUrl + useIdentityLock=true` → PuLID (fal_flux_pulid) preserves uploaded face
+- Saves old portrait to `prevCharImages` before overwriting (one-undo buffer)
+- Per character card: **Preview** (fullscreen lightbox), **Undo Image** (restore previous), **Remove Image**
+
+### Character Library image management (commit 2a00ded)
+- `generate-portrait` route rewritten — routes through `/api/generation/image`, picks up PuLID automatically
+- Detects `referenceImages[].label === "photo-import"` → enables face-lock
+- VoiceCard: per-character style picker, **Regenerate** (always available, not just when no image), **Preview Portrait** (inline lightbox), **Undo Image**, **Remove Image**
+
+---
+
+## What Is NOT Done Yet
+
+### Phase 1.6 — Assembly path unification
+- DONE — migrated to `/api/assembly/execute` (commit 9251625). Henry gave GO 2026-05-06.
+- Old route `/api/video/assemble` still in codebase (not deleted per doctrine)
+
+### Phase 5 — Music keys
+- `KIE_AI_API_KEY` (Kie.ai Suno) and `MUBERT_PAT` NOT in `.env`
+- Henry must add manually — without them GHS Premium/Pro silently fall back
+
+### Phase 6 — All other planners
+- Children planner: hybrid-style per-scene cards (S4c cut-off)
+- Series / Commercial / Music Video planners
+- Bear fix (SA) — `character-build/route.ts` human-guard — NOT committed yet
+
+### Bear Fix (SA) — ALREADY DONE (confirmed by code audit)
+- `isHumanRole()` + `humanGuard` ARE in `character-build/route.ts` (lines 47-116)
+- SA-SE worker checked for commits, not code — bear fix was applied in earlier session
+- Verified: species options exclude bear for human roles, CRITICAL guard injected in prompt
+
+### Merge to main
+- Branch `fix/ghs-pipeline-recovery-may05` needs Henry review then merge
+- After merge: archive all S1-S12 + free-mode branches
+
+---
+
+## NEXT EXACT STEPS
+
+1. Apply bear fix to `character-build/route.ts` (SA — not done per SA-SE report)
+2. Children planner hybrid scene board (S4c cut-off)
+3. Get Henry: `KIE_AI_API_KEY` + `MUBERT_PAT` → add to `.env`
+4. Get Henry GO on Phase 1.6 assembly path unification in `RISKS_AND_DECISIONS.md`
+5. Henry review → merge branch to main
+
+---
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
-## Playwright skill: C:\Users\USER\.claude\skills\playwright-skill
-## Plan: C:\Users\USER\.claude\plans\harmonic-kindling-marshmallow.md
+## Plan: C:\Users\USER\.claude\plans\ghs-andio-studio-wiggly-castle.md
+## Branch: fix/ghs-pipeline-recovery-may05
+## Commits this session: 2838df1 → 10c704b → 9a7dba6 → 6269642 → 31c1fe4 → 065371a → 0d7a003 → 86e3d8e → 2e704df

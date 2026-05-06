@@ -1,5 +1,46 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-06 — Face-Lock + Image Management per Character (commits f360886, 2a00ded)
+**What:** Portrait regeneration now preserves real uploaded face via PuLID. Per-character image controls in both Hybrid Planner and Character Library.
+- Hybrid Planner `generateCharacterPortrait()`: detects `tags["photo-import"]`, passes `referenceImageUrl + useIdentityLock=true` → PuLID preserves identity
+- Per character card: Preview (fullscreen), Undo Image (restore previous), Remove Image buttons
+- `generate-portrait` API route rewritten — routes through `/api/generation/image`, inherits PuLID logic automatically. Detects `referenceImages[].label==="photo-import"` for face-lock.
+- Character Library VoiceCard: per-character style picker (7 options), Regenerate always visible, Preview Portrait inline lightbox, Undo Image, Remove Image
+**Why:** Henry: "AI regeneration is rubbish does not look like uploaded Bryan" — face identity was being ignored. Also added visual controls to manage character images without regenerating from scratch.
+**Impact:** Bryan's portrait will now preserve his real face when regenerated. All planners benefit from PuLID routing.
+**Risk:** Low — PuLID costs $0.05/image vs $0.01 standard, only triggered for photo-import chars.
+**Build:** tsc clean.
+
+## 2026-05-05 — SA-SE Corrections + TSC Clean + Build Fix (commits 9a7dba6, 6269642, 31c1fe4)
+**What:** SA-SE architectural corrections + TSC/build fixes.
+- SC: movie-planner Voice & Audio tab — Parse Script button, 4-card GHS tier selector, per-cast voice inputs, Generate Per-Line Voices button
+- SE: hybrid-planner Scene Board — scene descriptions replaced with always-editable `<textarea>` + 500ms debounce auto-save via `updateScene()`
+- TSC fix: `supervisor/final/route.ts` — inline PreflightResult types, named prisma import (was default)
+- TSC fix: `image-provider.ts` — `as unknown as Record<string,unknown>` cast for FAL params extension
+- Build fix: `video-editor/page.tsx` — `useSearchParams` wrapped in Suspense (Next.js 14 requirement; was breaking `next build`)
+- Free-mode: scene image lightbox (click to full-preview), dev gen limits 20 img/10 vid, localhost unlimited (9999)
+- Add `/api/free-mode/messages` + `/api/free-mode/sessions/list` routes
+**Why:** SA-SE Sonnet worker completed phase. TSC and build must be clean before merge to main.
+**Impact:** All planners can edit scenes inline. Movie planner has full sound tier UI. Build passes cleanly.
+**Risk:** Low — all additive or type-only fixes.
+**Build:** `next build` exit 0, `tsc --noEmit` exit 0.
+**AUT:** Tab order correct (Design→Story→Characters→Scene Board→Sound→Screenplay→Assembly→Overview), all 4 sound tiers visible, motion/duration controls present.
+
+## 2026-05-05 — Pipeline Recovery Phase 1+2 (commit 2838df1)
+**What:** Full pipeline recovery across character identity, style propagation, tab order, per-scene tools, three LLM supervisors, auto-SFX, and sound tier labels. Branch: `fix/ghs-pipeline-recovery-may05`.
+- Style lock: `src/lib/style-presets.ts` shared across scene-image + scene-video. Video gen now applies 3D/cartoon/anime/realistic/nollywood/comic prompt prefix.
+- Face-lock: `fal_flux_pulid` (PuLID) model added. Photo-import characters auto-route to it. `referenceImages` saved with photo-import label on character save.
+- Tab order: Design→Story→Characters→Scene Board→Sound→Screenplay→Assembly→Overview (killed FLOW off-by-one bug).
+- Per-scene controls: AI Generate SFX + Continuous Motion toggle + Duration picker (5/10/15/20/30s) + Scene Music button — all on each Scene Board card.
+- Supervisors: Visual Consistency, Sound/SFX, Final/Overall — three independent LLM agents. SupervisorStatusBar extended to 3-row panel.
+- Auto-SFX: 31-entry keyword map + Haiku LLM pass in cue-extractor. Freesound→FAL auto-fetch pipeline with CC0/CC-BY legal filter.
+- Sound tiers: GHS Sound (Piper) / GHS Plus (Karaoke) / GHS Pro (Karaoke+FAL) / GHS Premium (Kie Suno) — canonical 4-tier definitions wired through music-provider and narrate-piper.
+**Why:** Pipeline was broken end-to-end. Style, character identity, SFX, audio, and assembly were each silently failing or ignoring user input.
+**Impact:** High — style consistency fixed, photo → AI character flow unblocked, per-scene audio tools visible, supervisors enforce quality before assembly.
+**Risk:** Medium — tab order change is UX-visible. PuLID routing requires `FAL_KEY`. Music tier keys `KIE_AI_API_KEY`/`MUBERT_PAT` still needed for Premium/Pro tiers.
+**Build:** `next build` passing, `tsc --noEmit` exit 0.
+**Pending:** Assembly path unification (1.6), Prisma migration for per-scene continuousMotion, SA-SE planner corrections.
+
 ## 2026-04-30 — S5: Voice Provider Tiers + ElevenLabs Error Surfacing (BUG-09)
 **What:** (A) `/api/tts/route.ts` — added `provider` field routing, explicit ElevenLabs error surfacing (was silent catch), FAL Narrator tier via `fal-ai/kokoro/american-english`, karaoke short-circuit. (B) New `/api/tts/fal-narrator/route.ts` dedicated route. (C) Hybrid-planner Audio tab — permanent narration provider card (`data-testid="narration-provider-card"`) with 4 provider buttons (`data-provider` attrs), `voiceLayers` state (VoiceLayer interface, add/update/remove helpers). (D) Children-planner STYLE & VOICE tab — `narrationProvider` state + 4-button radio. (E) Movie-planner Audio tab — `narrationProvider` state + 4-button radio.
 **Why:** BUG-09: ElevenLabs errors were silently swallowed (empty catch L88). No FAL Narrator tier existed. No provider selector UI in any planner. No voiceLayers multi-part voice state.

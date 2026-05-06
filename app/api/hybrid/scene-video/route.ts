@@ -14,6 +14,7 @@ import { runwayGenerateVideo, downloadRunwayVideo } from "@/lib/generation/gatew
 import { muapiGenerateVideo, downloadMuApiVideo } from "@/lib/generation/gateways/muapi";
 import { klingGenerateVideo, downloadKlingVideo } from "@/lib/generation/gateways/kling";
 import { getModelById, getDefaultVideoModel } from "@/lib/generation/model-registry";
+import { getMotionStylePrefix } from "@/lib/style-presets";
 import { env } from "@/config/env";
 import * as path from "path";
 import * as fs from "fs";
@@ -29,6 +30,7 @@ export async function POST(req: NextRequest) {
     motionDescription,
     modelId,
     seed,
+    projectStyle,
   } = body;
 
   const encoder = new TextEncoder();
@@ -69,8 +71,9 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // ── Build motion prompt ──
-        const promptParts: string[] = [sceneText];
+        // ── Build motion prompt — style lock FIRST, same rule as scene-image ──
+        const stylePrefix = getMotionStylePrefix(projectStyle);
+        const promptParts: string[] = [stylePrefix, sceneText];
         if (motionDescription) promptParts.push(motionDescription);
         promptParts.push("Smooth cinematic motion. Consistent characters and environment. Natural movement.");
         const motionPrompt = promptParts.join(". ");

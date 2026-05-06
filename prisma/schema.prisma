@@ -963,6 +963,7 @@ model HybridScene {
   shots             HybridShot[]
   dialogueLines     DialogueLine[]
   audioPlan         AudioPlan?
+  continuousMotion  Json?     // { enabled: boolean, targetSec: number } — per-scene override
 
   @@map("hybrid_scenes")
 }

@@ -30,6 +30,10 @@ export interface SupervisorStatus {
   supervisorAdvice: string;
 }
 
+// ── Specialist supervisor status types ───────────────────────────────────────
+
+export type SpecialistStatus = "idle" | "checking" | "pass" | "fail";
+
 export interface SupervisorStatusBarProps {
   // Section completion state passed from the planner
   plannerType: "hybrid" | "children" | "movie" | "music-video" | "commercial" | "free-mode";
@@ -49,6 +53,10 @@ export interface SupervisorStatusBarProps {
   onNextTab?: () => void;  // fires setActiveTab(nextId)
   // Compact mode (single line) vs expanded
   compact?: boolean;
+  // Specialist supervisor statuses (optional — show 3-row panel when present)
+  visualStatus?: SpecialistStatus;
+  soundStatus?: SpecialistStatus;
+  finalStatus?: SpecialistStatus;
 }
 
 // ── Section label map ─────────────────────────────────────────────────────────
@@ -64,6 +72,112 @@ const SECTION_LABELS: Record<string, string> = {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+// ── Specialist status badge helper ───────────────────────────────────────────
+
+function SpecialistBadge({ status, label }: { status: SpecialistStatus; label: string }) {
+  const cfg: Record<SpecialistStatus, { color: string; bg: string; border: string; icon: string }> = {
+    idle:     { color: "#5a7080", bg: "rgba(90,112,128,0.10)",  border: "#5a708030", icon: "·" },
+    checking: { color: "#f59e0b", bg: "rgba(245,158,11,0.10)", border: "#f59e0b30", icon: "⟳" },
+    pass:     { color: "#22c55e", bg: "rgba(34,197,94,0.10)",  border: "#22c55e30", icon: "✓" },
+    fail:     { color: "#ef4444", bg: "rgba(239,68,68,0.10)",  border: "#ef444430", icon: "✗" },
+  };
+  const c = cfg[status];
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "2px 8px",
+        borderRadius: 4,
+        background: c.bg,
+        color: c.color,
+        border: `1px solid ${c.border}`,
+        fontSize: 11,
+        fontWeight: 600,
+      }}
+    >
+      <span style={{ fontSize: 12 }}>{c.icon}</span>
+      {label}
+    </span>
+  );
+}
+
+// ── Specialist 3-row panel ────────────────────────────────────────────────────
+
+function SpecialistPanel({
+  visualStatus,
+  soundStatus,
+  finalStatus,
+}: {
+  visualStatus: SpecialistStatus;
+  soundStatus: SpecialistStatus;
+  finalStatus: SpecialistStatus;
+}) {
+  const rows: Array<{ key: string; label: string; status: SpecialistStatus; description: string }> = [
+    {
+      key: "visual",
+      label: "Visual",
+      status: visualStatus,
+      description: "Character portrait & scene image consistency",
+    },
+    {
+      key: "sound",
+      label: "Sound",
+      status: soundStatus,
+      description: "SFX appropriateness & music mood match",
+    },
+    {
+      key: "final",
+      label: "Final",
+      status: finalStatus,
+      description: "Pre-flight + overall quality gate",
+    },
+  ];
+
+  return (
+    <div
+      style={{
+        borderBottom: "1px solid rgba(90,112,128,0.15)",
+        padding: "6px 16px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 10,
+          color: "#5a7080",
+          fontWeight: 700,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          marginBottom: 2,
+        }}
+      >
+        Specialist Supervisors
+      </div>
+      {rows.map((row) => (
+        <div
+          key={row.key}
+          data-testid={`specialist-supervisor-${row.key}`}
+          data-status={row.status}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <SpecialistBadge status={row.status} label={row.label} />
+          <span style={{ color: "#5a7080", fontSize: 11 }}>{row.description}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
 export default function SupervisorStatusBar({
   plannerType,
   projectId,
@@ -78,7 +192,13 @@ export default function SupervisorStatusBar({
   nextTabLabel,
   onNextTab,
   compact = false,
+  visualStatus,
+  soundStatus,
+  finalStatus,
 }: SupervisorStatusBarProps) {
+  // Determine whether to show the specialist panel
+  const showSpecialistPanel =
+    visualStatus !== undefined || soundStatus !== undefined || finalStatus !== undefined;
   const [status, setStatus] = useState<SupervisorStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -117,18 +237,18 @@ export default function SupervisorStatusBar({
 
   if (!status) {
     return (
-      <div style={{
-        background: "rgba(10,13,20,0.7)",
-        borderTop: "1px solid rgba(90,112,128,0.15)",
-        padding: "6px 16px",
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        color: "#5a7080",
-        fontSize: 12,
-      }}>
-        <Icon.Cpu size={12} />
-        {loading ? "AI Supervisor checking pipeline..." : "AI Supervisor offline"}
+      <div style={{ background: "rgba(10,13,20,0.7)", borderTop: "1px solid rgba(90,112,128,0.15)", fontSize: 12 }}>
+        {showSpecialistPanel && (
+          <SpecialistPanel
+            visualStatus={visualStatus ?? "idle"}
+            soundStatus={soundStatus ?? "idle"}
+            finalStatus={finalStatus ?? "idle"}
+          />
+        )}
+        <div style={{ padding: "6px 16px", display: "flex", alignItems: "center", gap: 8, color: "#5a7080" }}>
+          <Icon.Cpu size={12} />
+          {loading ? "AI Supervisor checking pipeline..." : "AI Supervisor offline"}
+        </div>
       </div>
     );
   }
@@ -159,6 +279,15 @@ export default function SupervisorStatusBar({
         fontSize: 12,
       }}
     >
+      {/* ── Specialist Supervisor 3-row panel ── */}
+      {showSpecialistPanel && (
+        <SpecialistPanel
+          visualStatus={visualStatus ?? "idle"}
+          soundStatus={soundStatus ?? "idle"}
+          finalStatus={finalStatus ?? "idle"}
+        />
+      )}
+
       {/* ── Next Tab Button — prominent CTA to guide users forward ── */}
       {nextTabLabel && onNextTab && (
         <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(90,112,128,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>

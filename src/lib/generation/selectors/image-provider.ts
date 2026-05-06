@@ -20,7 +20,8 @@ export interface ImageGenerateRequest {
   height?: number;
   seed?: number;
   outputPath?: string;    // if set, saves to this path and returns it
-  referenceImageUrl?: string;  // character reference — logged for debugging, used in prompt
+  referenceImageUrl?: string;  // character reference image URL
+  useIdentityLock?: boolean;   // true = route to fal_flux_pulid for face preservation
 }
 
 export interface ImageGenerateResult {
@@ -33,13 +34,16 @@ export interface ImageGenerateResult {
 }
 
 export async function generateImage(req: ImageGenerateRequest): Promise<ImageGenerateResult> {
-  const model = req.modelId ? getModelById(req.modelId) : getDefaultImageModel();
-  if (!model) return { success: false, error: `Model not found: ${req.modelId}`, model: getDefaultImageModel() };
-  if (!model.is_active) return { success: false, error: `Model ${model.id} is not active`, model };
-
-  if (req.referenceImageUrl) {
-    console.log(`[ImageProvider] Character reference provided: ${req.referenceImageUrl} — identity enforced via prompt`);
+  // Route to face-lock model when caller requests identity preservation
+  let effectiveModelId = req.modelId;
+  if (req.useIdentityLock && req.referenceImageUrl && !req.modelId) {
+    effectiveModelId = "fal_flux_pulid";
+    console.log(`[ImageProvider] Identity lock requested — routing to fal_flux_pulid`);
   }
+
+  const model = effectiveModelId ? getModelById(effectiveModelId) : getDefaultImageModel();
+  if (!model) return { success: false, error: `Model not found: ${effectiveModelId}`, model: getDefaultImageModel() };
+  if (!model.is_active) return { success: false, error: `Model ${model.id} is not active`, model };
 
   console.log(`[ImageProvider] Using ${model.id} (${model.gateway}/${model.endpoint_id}) for: ${req.prompt.slice(0, 80)}...`);
 
@@ -47,15 +51,20 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
   let imageUrl: string | undefined;
 
   if (model.gateway === "fal") {
-    // Primary: FAL flux/schnell ($0.003/image). Fallback: Segmind p-image.
-    const result = await falGenerateImage({
+    // PuLID face-lock: needs reference image forwarded to API
+    const falParams: Parameters<typeof falGenerateImage>[0] = {
       endpoint: model.endpoint_id,
       prompt: req.prompt,
       negativePrompt: req.negativePrompt,
       width: req.width,
       height: req.height,
       seed: req.seed,
-    });
+    };
+    // Forward reference image for PuLID and any other identity-capable endpoints
+    if (req.referenceImageUrl && model.id === "fal_flux_pulid") {
+      (falParams as unknown as Record<string, unknown>).reference_image_url = req.referenceImageUrl;
+    }
+    const result = await falGenerateImage(falParams);
     if (!result.success) {
       console.warn(`[ImageProvider] FAL failed (${result.error}) — falling back to Segmind p-image`);
       const segResult = await segmindGenerateImage({ endpoint: "p-image", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });

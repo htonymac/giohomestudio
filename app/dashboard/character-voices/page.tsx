@@ -577,6 +577,9 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
 }) {
   const roleColor = v.role ? (ROLE_BADGE_COLOR[v.role] ?? "#9090b0") : null;
   const [genPortrait, setGenPortrait] = useState(false);
+  const [charStyle, setCharStyle] = useState("3d-cinematic");
+  const [prevImage, setPrevImage] = useState<string | null>(null);
+  const [portraitPreviewOpen, setPortraitPreviewOpen] = useState(false);
 
   if (editingId === v.id) {
     return (
@@ -678,20 +681,81 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
 
         {/* Actions */}
         <div style={{ display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap" }}>
-          {!v.imageUrl && v.visualDescription && (
+          {/* Portrait image lightbox */}
+          {portraitPreviewOpen && v.imageUrl && (
+            <div
+              onClick={() => setPortraitPreviewOpen(false)}
+              style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+            >
+              <img src={normalizeImageUrl(v.imageUrl)} alt={v.name} style={{ maxWidth: "88vw", maxHeight: "88vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }} />
+              <p style={{ position: "absolute", bottom: 20, color: "rgba(255,255,255,0.4)", fontSize: 12 }}>Click to close</p>
+            </div>
+          )}
+          {/* Per-character style picker */}
+          {v.visualDescription && (
+            <select
+              value={charStyle}
+              onChange={e => setCharStyle(e.target.value)}
+              style={{ padding: "4px 8px", fontSize: 11, borderRadius: 6, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.lilac, cursor: "pointer", fontFamily: ds.font.sans }}
+            >
+              <option value="3d-cinematic">3D Cinematic</option>
+              <option value="realistic">Realistic</option>
+              <option value="nollywood">Nollywood</option>
+              <option value="2d-cartoon">2D Cartoon</option>
+              <option value="anime">Anime</option>
+              <option value="storybook">Storybook</option>
+              <option value="comic">Comic</option>
+            </select>
+          )}
+          {/* Generate / Regenerate Portrait */}
+          {v.visualDescription && (
             <button
               disabled={genPortrait}
               onClick={async () => {
                 setGenPortrait(true);
                 try {
-                  const res = await fetch(`/api/character-voices/${v.id}/generate-portrait`, { method: "POST" });
+                  const res = await fetch(`/api/character-voices/${v.id}/generate-portrait`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ style: charStyle }),
+                  });
                   const d = await res.json() as { imageUrl?: string; error?: string };
-                  if (d.imageUrl) onUpdate(v.id, { imageUrl: d.imageUrl });
+                  if (d.imageUrl) {
+                    if (v.imageUrl) setPrevImage(v.imageUrl);
+                    onUpdate(v.id, { imageUrl: d.imageUrl });
+                  }
                 } catch { /* ignore */ } finally { setGenPortrait(false); }
               }}
               style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: genPortrait ? "wait" : "pointer", fontFamily: ds.font.sans, opacity: genPortrait ? 0.6 : 1 }}
             >
-              {genPortrait ? "Generating…" : "Generate Portrait"}
+              {genPortrait ? "Generating…" : v.imageUrl ? "Regenerate" : "Generate Portrait"}
+            </button>
+          )}
+          {/* Preview Portrait */}
+          {v.imageUrl && (
+            <button
+              onClick={() => setPortraitPreviewOpen(true)}
+              style={{ background: `${ds.color.lilac}08`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}33`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: ds.font.sans }}
+            >
+              Preview
+            </button>
+          )}
+          {/* Undo Image */}
+          {prevImage && (
+            <button
+              onClick={() => { onUpdate(v.id, { imageUrl: prevImage }); setPrevImage(null); }}
+              style={{ background: "#f59e0b08", color: "#f59e0b", border: "1px solid #f59e0b40", borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: ds.font.sans }}
+            >
+              Undo Image
+            </button>
+          )}
+          {/* Remove Image */}
+          {v.imageUrl && (
+            <button
+              onClick={() => { setPrevImage(v.imageUrl!); onUpdate(v.id, { imageUrl: null }); }}
+              style={{ background: "#ef444408", color: "#ef4444", border: "1px solid #ef444440", borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: "pointer", fontFamily: ds.font.sans }}
+            >
+              Remove Image
             </button>
           )}
           {v.imageUrl && (

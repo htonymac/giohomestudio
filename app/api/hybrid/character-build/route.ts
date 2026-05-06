@@ -79,11 +79,14 @@ function buildCharacterPrompt(
   roleHint?: string
 ): string {
   const styleHint =
-    artStyle === "3d-cinematic" ? "3D animated film style (like Pixar/DreamWorks)" :
+    artStyle === "realistic"    ? "ultra-realistic photographic style, real person aesthetic, NO cartoon or CGI" :
+    artStyle === "nollywood"    ? "Nollywood film style, realistic Nigerian cinema, warm natural lighting, real person" :
+    artStyle === "3d-cinematic" ? "3D animated film style (Pixar/DreamWorks quality)" :
     artStyle === "2d-cartoon"   ? "2D cartoon style (bold outlines, flat colours)" :
     artStyle === "anime"        ? "Anime illustration style (expressive, clean linework)" :
     artStyle === "storybook"    ? "Children's storybook illustration style (soft, painterly)" :
-    "photorealistic / live-action film style";
+    artStyle === "comic"        ? "comic book illustration style (bold ink, graphic novel)" :
+    "3D animated film style (Pixar/DreamWorks quality)";
 
   // Build a "taken" block so the AI makes every character visually distinct
   const takenBlock = existingCharacters && existingCharacters.length > 0

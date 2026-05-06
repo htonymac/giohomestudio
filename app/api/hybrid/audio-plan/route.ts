@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { callLLM } from "@/lib/llm";
 import { getNarrationStrategy } from "@/lib/narration-engine";
+import { extractSfxCues } from "@/lib/sfx/cue-extractor";
 
 // ── Types for LLM-generated suggestions ─────────────────────
 interface AmbienceSuggestion {
@@ -46,7 +47,16 @@ function buildAudioPrompt(scene: {
   sceneType: string;
   tags: string[];
   dialogueLines: { lineText: string; characterId: string }[];
+  keywordSfx?: string[];   // cues already identified by deterministic keyword pass
 }): string {
+  const sfxHint = scene.keywordSfx?.length
+    ? [
+        "",
+        `Already identified SFX from scene text (do NOT suggest duplicates — only add what is missing):`,
+        `  ${scene.keywordSfx.join(", ")}`,
+      ]
+    : [];
+
   return [
     "You are an audio director for a hybrid video production.",
     "Given the following scene information, produce a JSON object with these keys:",
@@ -63,6 +73,7 @@ function buildAudioPrompt(scene: {
     `  Scene type: ${scene.sceneType}`,
     `  Tags: ${scene.tags.join(", ") || "none"}`,
     `  Dialogue count: ${scene.dialogueLines.length}`,
+    ...sfxHint,
     "",
     "Respond ONLY with valid JSON, no markdown fences.",
   ].join("\n");
@@ -137,7 +148,13 @@ async function planSceneAudio(scene: {
     })
   );
 
-  // 4. Call LLM for ambience, SFX, music, transition suggestions
+  // 4. Keyword SFX extraction — deterministic pass before LLM
+  const sceneText = [scene.title, ...(scene.dialogueLines.map(d => d.lineText))].join(" ");
+  const keywordCues = await extractSfxCues(sceneText).catch(() => []);
+  const keywordSfxNames = keywordCues.map(c => c.cue);
+
+  // 5. Call LLM for ambience, SFX, music, transition suggestions
+  //    Pass keyword-detected SFX so LLM only adds what's missing
   const prompt = buildAudioPrompt({
     title: scene.title,
     location: scene.location,
@@ -146,6 +163,7 @@ async function planSceneAudio(scene: {
     sceneType: scene.sceneType,
     tags: scene.tags,
     dialogueLines: scene.dialogueLines,
+    keywordSfx: keywordSfxNames,
   });
 
   const llmResult = await callLLM(prompt, "You are an audio planning assistant for film production.", {
@@ -203,6 +221,11 @@ async function planScenesInline(
   const narrationScripts: string[] = [];
 
   for (const scene of scenes) {
+    // Keyword SFX extraction from description before LLM call
+    const sceneText = [scene.title, scene.description].filter(Boolean).join(" ");
+    const keywordCues = await extractSfxCues(sceneText).catch(() => []);
+    const keywordSfxNames = keywordCues.map(c => c.cue);
+
     const sfxHint = (scene as any).existingSfxHint as string | undefined;
     const ambienceHint = (scene as any).existingAmbienceHint as string | undefined;
     const prompt = buildAudioPrompt({
@@ -216,6 +239,7 @@ async function planScenesInline(
         ...(ambienceHint ? [`detected ambience: ${ambienceHint}`] : []),
       ],
       dialogueLines: [],
+      keywordSfx: keywordSfxNames,
     });
 
     const llmResult = await callLLM(prompt, "You are an audio planning assistant for film production.", {
@@ -239,12 +263,16 @@ async function planScenesInline(
       narration = nr.ok ? nr.text.trim() : "";
     }
 
-    // Map DB-style suggestions → frontend AudioPlan format
+    // Map DB-style suggestions → frontend AudioPlan format.
+    // Merge LLM sfx events with keyword-detected cue names — deduplicated by value.
+    const llmSfxEvents = suggestions.sfx.map((s: SfxSuggestion) => s.event).filter(Boolean);
+    const mergedSfxList = Array.from(new Set([...keywordSfxNames, ...llmSfxEvents]));
+
     const audioPlan: AudioPlan = {
       narrationIntensity: suggestions.music.intensity ?? "medium",
       musicMood: suggestions.music.mood ?? "cinematic",
       musicIntensity: suggestions.music.intensity ?? "medium",
-      sfxList: suggestions.sfx.map((s: SfxSuggestion) => s.event).filter(Boolean),
+      sfxList: mergedSfxList,
       ambienceList: suggestions.ambience.map((a: AmbienceSuggestion) => a.description).filter(Boolean),
       transitionAudio: suggestions.transitionLogic ?? "crossfade",
     };

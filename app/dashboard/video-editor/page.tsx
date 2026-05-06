@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import OverlayPanel from "../../components/OverlayPanel";
 import SFXPicker from "../../components/SFXPicker";
@@ -13,7 +13,7 @@ import ButtonPrimary from "../../components/ui/ButtonPrimary";
 import { Folder, Wand, Film, Music, X, Check } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 
-export default function VideoEditorPage() {
+function VideoEditorInner() {
   const searchParams = useSearchParams();
   const [videoPath, setVideoPath] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -481,5 +481,13 @@ export default function VideoEditorPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function VideoEditorPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40, color: "#aaa" }}>Loading editor…</div>}>
+      <VideoEditorInner />
+    </Suspense>
   );
 }

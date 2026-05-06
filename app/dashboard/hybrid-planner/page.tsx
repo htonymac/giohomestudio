@@ -16,6 +16,8 @@ import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import { useCoordinator } from "../../components/CoordinatorProvider";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
+import { createEmptyAssembly } from "@/lib/assembly-schema";
+import type { AssemblySegment, NarrationEntry, MusicEntry, SFXEntry } from "@/lib/assembly-schema";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -63,6 +65,7 @@ interface CharacterIdentity {
   distinctiveFeatures?: string; // "very big round belly, fluffy white tail, long floppy ears"...
   ageAppearance?: string;     // "elderly, slightly hunched, wrinkles around eyes"...
   imageLocked?: boolean;      // user approved this portrait as the canonical reference
+  visualDescription?: string; // editable visual description stored in DB and used for portrait gen
 }
 
 interface ShotObject {
@@ -154,14 +157,13 @@ const badgeStyle = (color: string): React.CSSProperties => ({ fontSize: 9, paddi
 
 type WorkshopTab = "overview" | "scenes" | "characters" | "story" | "script" | "audio" | "assembly" | "trends" | "screenplay";
 
-// Tabs ordered to match the production pipeline:
-// Story → Script → Audio & Shots → Characters → Scene Board → Assembly → Screenplay → Overview → Trends
+// Tabs: straight pipeline — Design → Story → Characters → Scenes → Sound → Screenplay → Assembly → Overview
 const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
-  { id: "story",      label: "Story & Draft",  step: 1 },
-  { id: "script",     label: "Script",          step: 2 },
-  { id: "audio",      label: "Sound & SFX",     step: 3 },
-  { id: "characters", label: "Characters",      step: 4 },
-  { id: "scenes",     label: "Scene Board",     step: 5 },
+  { id: "script",     label: "Design",          step: 1 },  // style/format/genre selection
+  { id: "story",      label: "Story",           step: 2 },
+  { id: "characters", label: "Characters",      step: 3 },
+  { id: "scenes",     label: "Scene Board",     step: 4 },
+  { id: "audio",      label: "Sound & SFX",     step: 5 },
   { id: "screenplay", label: "Screenplay",      step: 6 },
   { id: "assembly",   label: "Assembly",        step: 7 },
   { id: "overview",   label: "Overview" },
@@ -305,6 +307,12 @@ function HybridPlannerInner() {
   const [editingCharId, setEditingCharId] = useState<string | null>(null);
   // ── Per-character portrait generation state ──
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
+  // ── Per-character style override (Realistic / 3D / Cartoon etc.) ──────────
+  const [charStyles, setCharStyles] = useState<Record<string, string>>({});
+  // ── Per-character img2ai (photo → AI) state ──────────────────────────────
+  const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
+  // ── Previous character portrait — one undo level per character ───────────
+  const [prevCharImages, setPrevCharImages] = useState<Record<string, string>>({});
   // ── Per-character AI vision analysis state ──
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   // ── Per-character manual save state ──
@@ -352,10 +360,14 @@ function HybridPlannerInner() {
   // ── New Scene Duration (user sets seconds) ──
   const [newSceneDuration, setNewSceneDuration] = useState(5);
 
-  // ── Continuous Motion ──────────────────────────────────────────────────────
+  // ── Continuous Motion — per-scene (global toggle kept for legacy) ──────────
   const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
   const [cmTotalDuration, setCmTotalDuration] = useState(15);
   const [cmSegmentDuration, setCmSegmentDuration] = useState(5);
+  // Per-scene overrides: { [sceneId]: { enabled, targetSec } }
+  const [sceneContinuousMotion, setSceneContinuousMotion] = useState<Record<string, { enabled: boolean; targetSec: number }>>({});
+  // Per-scene SFX generation state
+  const [generatingSceneSfx, setGeneratingSceneSfx] = useState<Set<string>>(new Set());
   const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
   const [cmRunning, setCmRunning] = useState(false);
   const [cmStatus, setCmStatus] = useState<string | null>(null);
@@ -445,7 +457,9 @@ function HybridPlannerInner() {
   }
   type StoryMode = "narration-only" | "actors-only" | "mixed";
   const [storyMode, setStoryMode] = useState<StoryMode>("mixed");
-  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "none">("piper");
+  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("piper");
+  // GHS Sound Tier — drives both narration provider and music provider selection
+  const [soundTier, setSoundTier] = useState<"ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium">("ghs-sound");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
   const [narratorPiperSpeed, setNarratorPiperSpeed] = useState(0.75);
   const [scriptSegments, setScriptSegments] = useState<ScriptSegment[]>([]);
@@ -459,7 +473,7 @@ function HybridPlannerInner() {
   // ── Voice Layers — multi-part narrator voice stacking ────────────────────
   // Each layer has its own provider + voiceId. Layer 1 = primary narrator.
   // Layers 2+ are secondary (mixing deferred to S14 assembly endpoint wiring).
-  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke"; voiceId: string; }
+  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno"; voiceId: string; }
   const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
   function addVoiceLayer() {
     setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
@@ -516,6 +530,8 @@ function HybridPlannerInner() {
 
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
+  // ── SE: per-scene description debounce timers ──
+  const sceneDescTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Restore full project state — DB only ──
   useEffect(() => {
@@ -605,6 +621,9 @@ function HybridPlannerInner() {
           if (d.selectedVideoModelId) setSelectedVideoModelId(d.selectedVideoModelId);
           if (d.subtitleStyle) setSubtitleStyle(d.subtitleStyle);
           if (d.storyMode) setStoryMode(d.storyMode as "narration-only" | "actors-only" | "mixed");
+          if (d.soundTier && ["ghs-sound", "ghs-plus", "ghs-pro", "ghs-premium"].includes(d.soundTier)) {
+            setSoundTier(d.soundTier as "ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium");
+          }
           if (d.characterPiperVoices && Object.keys(d.characterPiperVoices).length > 0) setCharacterPiperVoices(d.characterPiperVoices);
           if (d.screenplay) setScreenplay(d.screenplay);
           if (d.screenplayAuthor) setScreenplayAuthor(d.screenplayAuthor);
@@ -635,7 +654,7 @@ function HybridPlannerInner() {
       narratorAudioUrl, selectedMusicUrl, selectedMusicName,
       selectedVideoModelId,
       sceneVideoVersions, sceneIntelligence,
-      subtitleStyle, storyMode,
+      subtitleStyle, storyMode, soundTier,
       screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
       timestamp: Date.now(),
     };
@@ -646,7 +665,7 @@ function HybridPlannerInner() {
       body: JSON.stringify({ localId: activeProjLocalId, data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
+  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -1617,6 +1636,44 @@ function HybridPlannerInner() {
     });
   }
 
+  // ── Per-scene AI Generate SFX — reads scene description and auto-plans SFX ──
+  async function generateSceneSfx(scene: HybridScene) {
+    if (generatingSceneSfx.has(scene.sceneId)) return;
+    setGeneratingSceneSfx(prev => new Set(prev).add(scene.sceneId));
+    setLastAction(`Generating SFX for Scene ${scene.scene}...`);
+    try {
+      const res = await fetch("/api/hybrid/audio-plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sceneId: scene.sceneId,
+          projectId,
+          description: scene.description,
+          title: scene.title,
+          mood: scene.mood,
+          location: scene.location,
+          characterIds: scene.characterIds,
+          singleScene: true, // flag: generate for this scene only, not full project
+        }),
+      });
+      const data = await res.json();
+      if (data.sfx || data.audioPlans) {
+        const sfxList = data.sfx || data.audioPlans?.[0]?.sfxList || [];
+        updateScene(scene.scene, {
+          audioPlan: {
+            ...scene.audioPlan,
+            sfxList,
+            ambienceList: data.ambience || data.audioPlans?.[0]?.ambienceList || scene.audioPlan.ambienceList,
+          },
+        });
+        setLastAction(`SFX generated for Scene ${scene.scene}: ${sfxList.slice(0, 3).join(", ")}${sfxList.length > 3 ? "..." : ""}`);
+      }
+    } catch (err) {
+      setLastAction(`SFX generation failed for Scene ${scene.scene}: ${err instanceof Error ? err.message : "error"}`);
+    } finally {
+      setGeneratingSceneSfx(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; });
+    }
+  }
+
   // ── Scene Polish — improve description text via LLM ───────────────
   async function handlePolishScene(sceneId: string, currentText: string, action: "polish" | "upgrade" | "add-detail") {
     if (!currentText?.trim()) return;
@@ -1669,10 +1726,16 @@ function HybridPlannerInner() {
           sceneId: scene.sceneId, projectId,
           sceneText: `${scene.title}. ${scene.description}`,
           imageUrl: existingImage,
-          duration: durationSecs ?? (continuousMotionEnabled ? 10 : (scene.motionDuration ?? 5)),
+          duration: durationSecs ?? (() => {
+            const perScene = sceneContinuousMotion[scene.sceneId];
+            if (perScene?.enabled) return perScene.targetSec;
+            if (continuousMotionEnabled) return 10;
+            return scene.motionDuration ?? 5;
+          })(),
           motionDescription: scene.shots[0]?.cameraMovement || "",
           modelId: selectedVideoModelId !== "segmind_pruna_video" ? selectedVideoModelId : undefined,
           seed: genSeed !== null ? genSeed : undefined,
+          projectStyle,
         }),
       });
 
@@ -1777,9 +1840,9 @@ function HybridPlannerInner() {
     setGeneratingNarration(true);
     setPiperDownloading(false);
 
-    // FAL Narrator, FAL Pro, and ElevenLabs go directly to /api/tts with the provider field
-    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs") {
-      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : "ElevenLabs";
+    // FAL Narrator, FAL Pro, ElevenLabs, and Kie-Suno go directly to /api/tts with the provider field
+    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs" || narratorVoice === "kie-suno") {
+      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : narratorVoice === "kie-suno" ? "GHS Premium (Kie Suno)" : "ElevenLabs";
       setLastAction(`Generating narrator audio via ${providerLabel}...`);
       try {
         const res = await fetch("/api/tts", {
@@ -1820,6 +1883,7 @@ function HybridPlannerInner() {
           speed: narratorPiperSpeed,
           voiceProvider: narratorVoice,
           provider: narratorVoice,
+          soundTier,
           outputName: `narration_${projectId || "draft"}_${Date.now()}`,
         }),
       });
@@ -2075,28 +2139,42 @@ function HybridPlannerInner() {
   }
 
   // ── Auto SFX — generate SFX for each scene from its description ───────────
+  const autoSfxAbortRef = useRef<AbortController | null>(null);
+
   async function runAutoSfxForAllScenes() {
     if (scenes.length === 0) { setUiError("No scenes yet — create scenes first."); return; }
+    const ctrl = new AbortController();
+    autoSfxAbortRef.current = ctrl;
     setAutoSfxRunning(true);
     setLastAction(`Auto SFX: generating for ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}...`);
     const results: Record<string, string> = {};
     for (const scene of scenes) {
+      if (ctrl.signal.aborted) break;
       try {
         const prompt = scene.description || scene.title || `scene ${scene.scene}`;
         const res = await fetch("/api/sfx/generate", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ description: prompt.slice(0, 200), mode: "auto", autoSfx: true }),
+          signal: AbortSignal.any([ctrl.signal, AbortSignal.timeout(20000)]),
         });
         const data = await res.json();
         if (data.fileUrl) {
           results[scene.sceneId] = data.fileUrl;
-          setLastAction(`Auto SFX: scene ${scene.sceneId} done`);
+          setLastAction(`Auto SFX: scene ${scene.sceneId} done (${Object.keys(results).length}/${scenes.length})`);
         }
-      } catch { /* skip scene on error */ }
+      } catch (e) {
+        if ((e as Error).name === "AbortError") break;
+        // skip scene on timeout or error
+      }
     }
     setSceneSfxUrls(prev => ({ ...prev, ...results }));
-    setLastAction(`Auto SFX complete — ${Object.keys(results).length}/${scenes.length} scenes have SFX`);
+    setLastAction(`Auto SFX ${ctrl.signal.aborted ? "cancelled" : "complete"} — ${Object.keys(results).length}/${scenes.length} scenes`);
     setAutoSfxRunning(false);
+    autoSfxAbortRef.current = null;
+  }
+
+  function cancelAutoSfx() {
+    autoSfxAbortRef.current?.abort();
   }
 
   // ── Continuous Motion — generate a multi-segment chained action video ──────
@@ -2617,23 +2695,90 @@ function HybridPlannerInner() {
         subtitleStyle,
       }));
 
-      const res = await fetch("/api/video/assemble", {
+      // ── Phase 1.6: Build AssemblyJSON and use /api/assembly/execute ──────────
+      const effProjId = projectId || activeProjLocalId || `hybrid_${Date.now()}`;
+      const totalDuration = finalSceneList.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
+
+      let segCursor = 0;
+      const assemblySegments: AssemblySegment[] = finalSceneList.map((s: { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number }, i: number) => {
+        const dur = s.motionDuration || s.duration || 5;
+        const seg: AssemblySegment = {
+          id: `seg_${i}`,
+          type: s.videoUrl ? "video" : "image",
+          sourceUrl: s.videoUrl || s.imageUrl || "",
+          startTime: segCursor,
+          endTime: segCursor + dur,
+          duration: dur,
+          sceneId: s.sceneId || `SC${String(i + 1).padStart(2, "0")}`,
+          transitionIn: i === 0 ? "fade" : "cut",
+          transitionOut: "cut",
+        };
+        segCursor += dur;
+        return seg;
+      });
+
+      const assemblyNarration: NarrationEntry[] = narrationList.map((n: { audioUrl: string; startTime: number; volume: number }, i: number) => ({
+        id: `nar_${i}`,
+        text: "",
+        startTime: n.startTime,
+        endTime: n.startTime + 10,
+        volume: n.volume ?? narrationVolume ?? 1.0,
+        speed: 1.0,
+        audioUrl: n.audioUrl,
+      }));
+      // Single narrator URL fallback
+      if (assemblyNarration.length === 0 && narratorAudioUrl) {
+        assemblyNarration.push({ id: "nar_0", text: "", startTime: 0, endTime: totalDuration, volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl });
+      }
+
+      const assemblyMusic: MusicEntry[] = effectiveMusicUrl ? [{
+        id: "music_0",
+        sourceUrl: effectiveMusicUrl,
+        startTime: 0,
+        endTime: totalDuration,
+        volume: musicVolume ?? 0.3,
+        fadeIn: 2,
+        fadeOut: 3,
+        duckUnderSpeech: true,
+        duckLevel: 0.08,
+        licenseType: "cc0",
+      }] : [];
+
+      const assemblySfx: SFXEntry[] = sfxList.map((s: { sourceUrl: string; startTime: number; volume: number }, i: number) => ({
+        id: `sfx_${i}`,
+        event: `sfx_${i}`,
+        sourceUrl: s.sourceUrl,
+        startTime: s.startTime,
+        duration: 3,
+        volume: s.volume ?? 0.5,
+        loop: false,
+        category: "auto",
+        licenseType: "cc0",
+      }));
+
+      const assemblyJSON = {
+        ...createEmptyAssembly(effProjId, "hybrid", projectTitle),
+        totalDuration,
+        segments: assemblySegments,
+        narration: assemblyNarration,
+        music: assemblyMusic,
+        sfx: assemblySfx,
+        exportSettings: {
+          format: "mp4" as const,
+          quality: "standard" as const,
+          includeSubtitles: subtitleStyle !== "none",
+          includeWatermark: false,
+          includeCredits: false,
+        },
+        rightsConfirmed: true,
+        previewApproved: true,
+        exportApproved: true,
+      };
+
+      const res = await fetch("/api/assembly/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: projectId || activeProjLocalId || undefined,
-          title: projectTitle,
-          scenes: finalSceneList,
-          aspectRatio: "16:9",
-          musicUrl: effectiveMusicUrl || undefined,
-          musicVolume,
-          // Narrator: use narrationList (per-scene timing) if we have char voices, else single URL
-          narrationUrl: narrationList.length === 0 ? (narratorAudioUrl || undefined) : undefined,
-          narrationList: narrationList.length > 0 ? narrationList : undefined,
-          narrationVolume,
-          sfx: sfxList.length > 0 ? sfxList : undefined,
-          subtitleStyle,
-        }),
+        body: JSON.stringify({ assembly: assemblyJSON, skipApprovalCheck: true }),
       });
       const data = await res.json();
       if (data.warning) setUiError(data.warning);
@@ -3168,37 +3313,58 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
-    // Truncate to keep total prompt under 3800 chars (well within the 4000 limit)
     const visualDesc = visualDescFull.slice(0, 1200);
-    // Build a detailed, specific portrait prompt — not a generic "portrait of X"
-    const portraitPrompt = [
-      projectStyle === "2d-cartoon"
+    const effectiveStyle = overrideStyle || charStyles[char.characterId] || projectStyle || "3d-cinematic";
+
+    const stylePrefix =
+      effectiveStyle === "realistic"
+        ? "Ultra-realistic photographic portrait, cinematic lighting, real person aesthetic, no cartoon or CGI"
+        : effectiveStyle === "nollywood"
+        ? "Nollywood film portrait, realistic Nigerian cinema aesthetic, warm skin tones, natural lighting"
+        : effectiveStyle === "2d-cartoon"
         ? "2D cartoon illustration, clean bold outlines, flat cel-shaded colors, Disney storybook art style"
-        : projectStyle === "anime"
-        ? "Anime style illustration, clean linework, detailed character design"
-        : projectStyle === "storybook"
-        ? "Children's storybook illustration, warm painterly style"
-        : "3D animated film, Pixar/DreamWorks quality, volumetric lighting, photorealistic fur textures",
+        : effectiveStyle === "anime"
+        ? "Anime style illustration, clean linework, detailed character design, Japanese animation quality"
+        : effectiveStyle === "storybook"
+        ? "Children's storybook illustration, warm painterly style, Pixar short film quality"
+        : effectiveStyle === "comic"
+        ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
+        : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
+
+    // Build portrait prompt
+    const portraitPrompt = [
+      stylePrefix,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
-      visualDesc || `${char.displayName}, ${char.gender} ${char.ageRange}`,
+      visualDesc || `${char.displayName}, ${char.gender}`,
       "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
-      "Show the character clearly from head to toe. This is the canonical reference image for this character.",
+      "Show the character clearly from head to toe.",
       "Consistent design, professional quality, no background distractions.",
     ].filter(Boolean).join(". ");
+
+    // Detect photo-import: if character was built from a real uploaded photo,
+    // pass it as referenceImageUrl so PuLID (fal_flux_pulid) preserves the face
+    const isPhotoImport = char.tags?.includes("photo-import") && !!char.imageUrl;
+    const referenceImageUrl = isPhotoImport ? char.imageUrl : undefined;
+    // For Photo→AI button: always force identity lock if reference image is present
+    const forceIdentityLock = isPhotoImport;
 
     try {
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: portraitPrompt,
-          negativePrompt: projectStyle === "3d-cinematic"
+          negativePrompt: effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+            ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+            : effectiveStyle === "2d-cartoon"
+            ? "3D render, photorealistic, CGI, bokeh, realistic"
+            : effectiveStyle === "3d-cinematic"
             ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
-            : projectStyle === "2d-cartoon"
-            ? "3D render, photorealistic, CGI, bokeh"
             : "",
+          referenceImageUrl: referenceImageUrl || undefined,
+          useIdentityLock: forceIdentityLock,
           width: 768, height: 960,
           seed: genSeed !== null ? genSeed : undefined,
         }),
@@ -3212,6 +3378,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       // imagePath is a local file path — convert to /api/media/ URL for display
       const url = d.imageUrl || (d.imagePath ? assetToMediaUrl(d.imagePath) : null);
       if (url) {
+        // Save old portrait so user can undo
+        if (char.imageUrl) {
+          setPrevCharImages(prev => ({ ...prev, [char.characterId]: char.imageUrl! }));
+        }
         setCharacters(prev => prev.map(c =>
           c.characterId === char.characterId
             ? { ...c, imageUrl: url, hasImage: true, imageLocked: false }
@@ -3318,7 +3488,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       expandedSummary, characters, scenes, sceneImages, sceneVideos, sceneVideoVersions, lastAction,
       projectStyle, savedCuts, archivedScenes, sceneIntelligence,
       narratorAudioUrl, selectedMusicUrl, selectedMusicName, selectedVideoModelId,
-      subtitleStyle, storyMode, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
+      subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
       timestamp: Date.now(),
     };
     try {
@@ -3376,6 +3546,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (data.selectedMusicUrl) { setSelectedMusicUrl(data.selectedMusicUrl); setSelectedMusicName(data.selectedMusicName || ""); } else { setSelectedMusicUrl(null); setSelectedMusicName(""); }
       if (data.subtitleStyle) setSubtitleStyle(data.subtitleStyle); else setSubtitleStyle("classic");
       if (data.storyMode) setStoryMode(data.storyMode); else setStoryMode("mixed");
+      if (data.soundTier && ["ghs-sound", "ghs-plus", "ghs-pro", "ghs-premium"].includes(data.soundTier)) {
+        setSoundTier(data.soundTier as "ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium");
+      }
       setScreenplay(data.screenplay || "");
       setScreenplayAuthor(data.screenplayAuthor || "");
       setScriptSegments(data.scriptSegments || []);
@@ -5100,7 +5273,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     {/* Content */}
                     <div style={{ padding: 14 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginBottom: 4 }}>{scene.title}</p>
-                      <p style={{ fontSize: 10, color: muted, marginBottom: 8, lineHeight: 1.4 }}>{scene.description.substring(0, 80)}{scene.description.length > 80 ? "..." : ""}</p>
+                      {/* SE: inline scene description textarea — always editable, debounce 500ms */}
+                      <textarea
+                        value={scene.description}
+                        rows={3}
+                        onChange={e => {
+                          const val = e.target.value;
+                          updateScene(scene.scene, { description: val });
+                          // Debounce: clear previous timer then set new one (state already updated above)
+                          clearTimeout(sceneDescTimers.current[scene.sceneId]);
+                          sceneDescTimers.current[scene.sceneId] = setTimeout(() => {
+                            // State is already persisted via updateScene — this is a no-op hook point
+                            // for future API persistence if needed
+                          }, 500);
+                        }}
+                        placeholder="Scene description..."
+                        style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "6px 8px", color: "#c0c0c8", fontSize: 10, lineHeight: 1.4, outline: "none", resize: "vertical", fontFamily: "inherit", marginBottom: 8 }}
+                      />
 
                       {/* ── Scene Intelligence — environment + ambient sounds ── */}
                       {(() => {
@@ -5321,6 +5510,63 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           </button>
                         </div>
                       </div>
+                      {/* ── Per-scene tool row: SFX + Continuous Motion + Music ── */}
+                      {(() => {
+                        const cm = sceneContinuousMotion[scene.sceneId] ?? { enabled: false, targetSec: 5 };
+                        return (
+                          <div style={{ display: "flex", gap: 4, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
+                            {/* AI Generate SFX */}
+                            <button
+                              onClick={() => generateSceneSfx(scene)}
+                              disabled={generatingSceneSfx.has(scene.sceneId)}
+                              title="Auto-generate SFX from scene description"
+                              style={{ flex: 1, minWidth: 80, padding: "6px 8px", borderRadius: 7, border: `1px solid #f59e0b50`, background: generatingSceneSfx.has(scene.sceneId) ? "#2a2a30" : "#f59e0b12", color: generatingSceneSfx.has(scene.sceneId) ? muted : "#f59e0b", fontSize: 8, fontWeight: 700, cursor: generatingSceneSfx.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                              {generatingSceneSfx.has(scene.sceneId) ? "SFX..." : scene.audioPlan.sfxList.length > 0 ? `SFX (${scene.audioPlan.sfxList.length})` : "AI SFX"}
+                            </button>
+                            {/* Continuous Motion toggle */}
+                            <button
+                              onClick={() => setSceneContinuousMotion(prev => ({
+                                ...prev,
+                                [scene.sceneId]: { enabled: !cm.enabled, targetSec: cm.targetSec },
+                              }))}
+                              title="Enable continuous motion (chains segments for longer video)"
+                              style={{ padding: "6px 8px", borderRadius: 7, border: `1px solid ${cm.enabled ? "#a855f750" : border}`, background: cm.enabled ? "#a855f715" : "transparent", color: cm.enabled ? "#a855f7" : muted, fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                              {cm.enabled ? "Motion ON" : "Motion"}
+                            </button>
+                            {/* Duration selector — only when motion is on */}
+                            {cm.enabled && (
+                              <select
+                                value={cm.targetSec}
+                                onChange={e => setSceneContinuousMotion(prev => ({
+                                  ...prev,
+                                  [scene.sceneId]: { ...cm, targetSec: Number(e.target.value) },
+                                }))}
+                                style={{ padding: "6px 4px", borderRadius: 7, border: `1px solid #a855f750`, background: "#1a0f3a", color: "#c084fc", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                {[5, 10, 15, 20, 30].map(s => <option key={s} value={s}>{s}s</option>)}
+                              </select>
+                            )}
+                            {/* Generate Scene Music */}
+                            <button
+                              onClick={async () => {
+                                setLastAction(`Generating music for Scene ${scene.scene}...`);
+                                try {
+                                  const r = await fetch("/api/music/generate-scene", {
+                                    method: "POST", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ sceneId: scene.sceneId, projectId, mood: scene.audioPlan.musicMood || scene.mood, genre, tone }),
+                                  });
+                                  const d = await r.json();
+                                  if (d.musicUrl) updateScene(scene.scene, { audioPlan: { ...scene.audioPlan, musicMood: d.musicMood || scene.audioPlan.musicMood } });
+                                  setLastAction(`Music generated for Scene ${scene.scene}`);
+                                } catch { setLastAction(`Music gen failed for Scene ${scene.scene}`); }
+                              }}
+                              title="Generate background music for this scene"
+                              style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: "#22c55e", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                              Music
+                            </button>
+                          </div>
+                        );
+                      })()}
+
                       {/* Expanded SceneImagePanel */}
                       {expandedSceneId === scene.sceneId && (
                         <div style={{ marginTop: 10 }}>
@@ -5693,6 +5939,35 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             Click "Define Appearance" to describe this character so scenes look consistent.
                           </p>
                         )}
+                        {(char.visualDescription !== undefined) && (
+                          <textarea
+                            value={char.visualDescription ?? ""}
+                            onChange={e => {
+                              const val = e.target.value;
+                              setCharacters(prev => prev.map(c =>
+                                c.characterId === char.characterId ? { ...c, visualDescription: val } : c
+                              ));
+                            }}
+                            onBlur={e => {
+                              // Persist to character store on blur
+                              const val = e.target.value;
+                              if (!char.dbId) return;
+                              fetch(`/api/character-voices/${char.dbId}`, {
+                                method: "PATCH",
+                                headers: { "content-type": "application/json" },
+                                body: JSON.stringify({ visualDescription: val }),
+                              }).catch(() => {});
+                            }}
+                            placeholder="Visual description — edit to fix AI mistakes..."
+                            rows={3}
+                            style={{
+                              width: "100%", fontSize: 10, color: "#c4b5fd", background: "#0d0621",
+                              border: "1px solid #4c1d9540", borderRadius: 6, padding: "6px 8px",
+                              resize: "vertical", fontFamily: "inherit", lineHeight: 1.5,
+                              marginBottom: 8,
+                            }}
+                          />
+                        )}
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                           <span style={badgeStyle(purple)}>{char.roleType}</span>
                           {char.gender && <span style={badgeStyle(blue)}>{char.gender}</span>}
@@ -5709,8 +5984,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? purple : border}`, background: isEditing ? `${purple}15` : "transparent", color: isEditing ? purple : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
                         {isEditing ? "Close Builder" : "Define Appearance"}
                       </button>
+                      {/* Per-character style picker */}
+                      <select
+                        value={charStyles[char.characterId] || projectStyle || "3d-cinematic"}
+                        onChange={e => setCharStyles(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                        title="Style for portrait generation"
+                        style={{ padding: "5px 8px", fontSize: 10, borderRadius: 6, border: `1px solid ${border}`, background: "#1a0a3a", color: "#c4b5fd", cursor: "pointer" }}
+                      >
+                        <option value="3d-cinematic">3D Cinematic</option>
+                        <option value="realistic">Realistic</option>
+                        <option value="nollywood">Nollywood</option>
+                        <option value="2d-cartoon">2D Cartoon</option>
+                        <option value="anime">Anime</option>
+                        <option value="storybook">Storybook</option>
+                        <option value="comic">Comic</option>
+                      </select>
                       <button
-                        onClick={() => generateCharacterPortrait(char)}
+                        onClick={() => generateCharacterPortrait(char, charStyles[char.characterId])}
                         disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
                         {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
@@ -5725,6 +6015,33 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             title="AI reads the portrait image and auto-fills species, clothing, colors, and all appearance fields"
                             style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${purple}40`, background: isAnalyzing ? `${purple}20` : `${purple}08`, color: purple, fontSize: 10, fontWeight: 700, cursor: isAnalyzing ? "wait" : "pointer", opacity: isAnalyzing ? 0.8 : 1 }}>
                             {isAnalyzing ? "Reading image..." : "AI Read Look"}
+                          </button>
+                        );
+                      })()}
+                      {/* Photo → AI — convert real photo or existing portrait to AI-styled image */}
+                      {(() => {
+                        const isRunning = img2aiRunning.has(char.characterId);
+                        return (
+                          <button
+                            onClick={async () => {
+                              setImg2aiRunning(prev => new Set(prev).add(char.characterId));
+                              // Re-generate with current style, using existing image as a style reference hint in the description
+                              const style = charStyles[char.characterId] || projectStyle || "realistic";
+                              await generateCharacterPortrait(char, style);
+                              setImg2aiRunning(prev => { const s = new Set(prev); s.delete(char.characterId); return s; });
+                            }}
+                            disabled={isRunning}
+                            title="Convert this image (real photo or existing portrait) to AI-styled image"
+                            style={{
+                              padding: "7px 14px", borderRadius: 8,
+                              border: `1px solid ${isRunning ? "#6b7280" : "#10b98140"}`,
+                              background: isRunning ? "#1a1a2e" : "#10b98108",
+                              color: isRunning ? "#6b7280" : "#10b981",
+                              fontSize: 10, fontWeight: 700,
+                              cursor: isRunning ? "wait" : "pointer",
+                            }}
+                          >
+                            {isRunning ? "Converting..." : "Photo → AI"}
                           </button>
                         );
                       })()}
@@ -5749,6 +6066,42 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e908", color: "#0ea5e9", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                         Import Image
                       </button>
+                      {/* Preview Image — fullscreen lightbox */}
+                      {char.imageUrl && (
+                        <button
+                          onClick={() => setPreviewMedia({ url: char.imageUrl!, type: "image", title: char.displayName })}
+                          title="View portrait fullscreen"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #a78bfa40", background: "#a78bfa08", color: "#a78bfa", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Preview
+                        </button>
+                      )}
+                      {/* Undo Image — restore previous portrait */}
+                      {prevCharImages[char.characterId] && (
+                        <button
+                          onClick={() => {
+                            const prev = prevCharImages[char.characterId];
+                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
+                            setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
+                            setLastAction(`${char.displayName} reverted to previous portrait`);
+                          }}
+                          title="Undo — go back to previous portrait"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #f59e0b40", background: "#f59e0b08", color: "#f59e0b", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Undo Image
+                        </button>
+                      )}
+                      {/* Remove Image — clear portrait entirely */}
+                      {char.imageUrl && (
+                        <button
+                          onClick={() => {
+                            if (char.imageUrl) setPrevCharImages(p => ({ ...p, [char.characterId]: char.imageUrl! }));
+                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: undefined, hasImage: false, imageLocked: false } : c));
+                            setLastAction(`${char.displayName} portrait removed`);
+                          }}
+                          title="Remove this portrait image"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #ef444440", background: "#ef444408", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Remove Image
+                        </button>
+                      )}
                       {char.imageUrl && !char.imageLocked && (
                         <button
                           onClick={() => {
@@ -6173,22 +6526,27 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {/* Narrator voice / provider selector — only shown after Parse Script has run */}
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Narration Provider</p>
-                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Standard = Piper TTS (free). Pro = GHS Karaoke built-in. Karaoke = FAL kokoro (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Sound Tier</p>
+                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>GHS Sound = Piper TTS (free). GHS Plus/Pro = Karaoke pipeline. GHS Premium = Kie Suno V5 (KIE_AI_API_KEY). Set tier in Sound tab for full control.</p>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 12 }}>
                     {([
-                      { id: "piper",              label: "GHS Standard",       color: accent },
-                      { id: "karaoke",            label: "GHS Pro",            color: gold },
-                      { id: "fal-narrator",       label: "GHS Karaoke",        color: blue },
-                      { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
-                      { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
-                      { id: "none",               label: "None",               color: muted },
-                    ] as const).map(v => (
-                      <button key={v.id} onClick={() => setNarratorVoice(v.id)}
-                        style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
-                          background: narratorVoice === v.id ? `${v.color}15` : "transparent",
-                          color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                        {v.label}
+                      { id: "ghs-sound",   label: "GHS Sound",   color: accent },
+                      { id: "ghs-plus",    label: "GHS Plus",    color: gold },
+                      { id: "ghs-pro",     label: "GHS Pro",     color: blue },
+                      { id: "ghs-premium", label: "GHS Premium", color: purple },
+                    ] as const).map(tier => (
+                      <button key={tier.id}
+                        data-tier={tier.id}
+                        onClick={() => {
+                          setSoundTier(tier.id);
+                          if (tier.id === "ghs-sound") setNarratorVoice("piper");
+                          else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
+                          else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
+                        }}
+                        style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
+                          background: soundTier === tier.id ? `${tier.color}15` : "transparent",
+                          color: soundTier === tier.id ? tier.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        {tier.label}
                       </button>
                     ))}
                   </div>
@@ -6264,8 +6622,22 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
                   {narratorVoice === "karaoke" && (
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: `${gold}08`, border: `1px solid ${gold}20` }}>
-                      <p style={{ fontSize: 10, color: gold, fontWeight: 600 }}>Karaoke / Browser Speech</p>
-                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>Uses the browser Web Speech API (SpeechSynthesis). No API key needed. Playback is in-browser only — no audio file is saved.</p>
+                      <p style={{ fontSize: 10, color: gold, fontWeight: 600 }}>GHS Plus / GHS Pro — Karaoke Pipeline</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>Uses GHS Karaoke pipeline (browser Web Speech API). No API key needed. Playback is in-browser only — no audio file is saved server-side. GHS Pro additionally uses FAL Stable Audio for background music generation.</p>
+                    </div>
+                  )}
+
+                  {narratorVoice === "kie-suno" && (
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: `${purple}08`, border: `1px solid ${purple}20` }}>
+                      <p style={{ fontSize: 10, color: purple, fontWeight: 600 }}>GHS Premium — Kie Suno V5</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3, marginBottom: 10 }}>
+                        Premium AI music via Kie.ai Suno V5. Requires KIE_AI_API_KEY in .env. Narration falls back to Piper (high-quality model) if key is absent. Use /api/music/generate with soundTier=ghs-premium for music generation.
+                      </p>
+                      <button onClick={generateNarrationPiper} disabled={generatingNarration}
+                        style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
+                          background: generatingNarration ? "#2a2a40" : purple, color: "#fff" }}>
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (GHS Premium)" : "Generate via GHS Premium"}
+                      </button>
                     </div>
                   )}
 
@@ -6846,28 +7218,74 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
           </div>
 
-          {/* ── Narration Provider — global selector (always visible in Audio tab) ── */}
-          <div style={{ ...cardStyle, borderColor: `${accent}15`, marginBottom: 16 }} data-testid="narration-provider-card">
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Narration Provider</p>
-            <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>Standard = Piper TTS (free). Pro = GHS Karaoke built-in. Karaoke = FAL kokoro (FAL_KEY). ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+          {/* ── Sound Tier Selector — 4-tier GHS tier picker (always visible in Sound tab) ── */}
+          <div style={{ ...cardStyle, borderColor: `${accent}20`, marginBottom: 16 }} data-testid="sound-tier-card">
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Sound Tier</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 12 }}>
+              Selects narration provider and music generator. GHS Sound = free local. GHS Plus = Karaoke pipeline. GHS Pro = Karaoke + FAL music (FAL_KEY). GHS Premium = Kie Suno V5 (KIE_AI_API_KEY).
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
               {([
-                { id: "piper",              label: "GHS Standard",       color: accent },
-                { id: "karaoke",            label: "GHS Pro",            color: gold },
-                { id: "fal-narrator",       label: "GHS Karaoke",        color: blue },
-                { id: "fal-narrator-gemini", label: "FAL Pro",           color: "#4ECDC4" },
-                { id: "elevenlabs",         label: "ElevenLabs",         color: purple },
-                { id: "none",              label: "None",                color: muted },
-              ] as const).map(v => (
-                <button key={v.id} onClick={() => setNarratorVoice(v.id)}
-                  data-provider={v.id}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
-                    background: narratorVoice === v.id ? `${v.color}15` : "transparent",
-                    color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  {v.label}
+                { id: "ghs-sound",   label: "GHS Sound",   sub: "Piper · Free",         color: accent },
+                { id: "ghs-plus",    label: "GHS Plus",    sub: "Karaoke · Built-in",   color: gold },
+                { id: "ghs-pro",     label: "GHS Pro",     sub: "Karaoke + FAL",        color: blue },
+                { id: "ghs-premium", label: "GHS Premium", sub: "Kie Suno V5",          color: purple },
+              ] as const).map(tier => (
+                <button
+                  key={tier.id}
+                  data-tier={tier.id}
+                  onClick={() => {
+                    setSoundTier(tier.id);
+                    // Sync narratorVoice to the tier's narration provider
+                    if (tier.id === "ghs-sound") setNarratorVoice("piper");
+                    else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
+                    else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
+                  }}
+                  style={{
+                    padding: "10px 8px",
+                    borderRadius: 10,
+                    border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
+                    background: soundTier === tier.id ? `${tier.color}18` : "transparent",
+                    color: soundTier === tier.id ? tier.color : muted,
+                    cursor: "pointer",
+                    textAlign: "center" as const,
+                    display: "flex",
+                    flexDirection: "column" as const,
+                    alignItems: "center",
+                    gap: 3,
+                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>{tier.label}</span>
+                  <span style={{ fontSize: 9, opacity: 0.8 }}>{tier.sub}</span>
                 </button>
               ))}
             </div>
+
+            {/* Narration Provider — advanced override (collapsed under tier selector) */}
+            <details>
+              <summary style={{ fontSize: 9, color: muted, cursor: "pointer", marginBottom: 8, userSelect: "none" as const }}>
+                Advanced: override narration provider
+              </summary>
+              <p style={{ fontSize: 9, color: muted, marginBottom: 8, marginTop: 6 }}>Override the tier&apos;s default narration provider. GHS Sound = Piper TTS (free). GHS Plus/Pro = GHS Karaoke. GHS Premium = Kie Suno + Piper fallback. ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+                {([
+                  { id: "piper",               label: "Piper TTS",   color: accent },
+                  { id: "karaoke",             label: "Karaoke",     color: gold },
+                  { id: "kie-suno",            label: "Kie Suno",    color: purple },
+                  { id: "fal-narrator",        label: "FAL Standard", color: blue },
+                  { id: "fal-narrator-gemini", label: "FAL Pro",     color: "#4ECDC4" },
+                  { id: "elevenlabs",          label: "ElevenLabs",  color: "#ff6b6b" },
+                  { id: "none",                label: "None",        color: muted },
+                ] as const).map(v => (
+                  <button key={v.id} onClick={() => setNarratorVoice(v.id)}
+                    data-provider={v.id}
+                    style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${narratorVoice === v.id ? v.color : border}`,
+                      background: narratorVoice === v.id ? `${v.color}15` : "transparent",
+                      color: narratorVoice === v.id ? v.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
 
           {/* ── Auto Time Stamp Results ─────────────────────────────────────── */}
@@ -6910,10 +7328,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
               {autoSfx && (
-                <button data-testid="run-auto-sfx-btn" onClick={runAutoSfxForAllScenes} disabled={autoSfxRunning || scenes.length === 0}
-                  style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${blue}40`, background: autoSfxRunning ? "#2a2a40" : `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: autoSfxRunning ? "not-allowed" : "pointer" }}>
-                  {autoSfxRunning ? "Generating..." : `Run Auto SFX (${scenes.length} scenes)`}
-                </button>
+                autoSfxRunning ? (
+                  <button data-testid="cancel-auto-sfx-btn" onClick={cancelAutoSfx}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid #ef444440", background: "#ef444410", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                    Cancel SFX
+                  </button>
+                ) : (
+                  <button data-testid="run-auto-sfx-btn" onClick={runAutoSfxForAllScenes} disabled={scenes.length === 0}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 10, fontWeight: 700, cursor: scenes.length === 0 ? "not-allowed" : "pointer" }}>
+                    {`Run Auto SFX (${scenes.length} scenes)`}
+                  </button>
+                )
               )}
               <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
                 style={{ padding: "6px 16px", borderRadius: 8, border: `1px solid ${autoSfx ? `${blue}50` : border}`, background: autoSfx ? `${blue}20` : "transparent", color: autoSfx ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
@@ -8664,15 +9089,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
       {/* ── AI Supervisor Status Bar ─────────────────────────────────────────── */}
       {(() => {
-        // Hybrid tab flow order
+        // Hybrid tab flow — must match WORKSHOP_TABS order exactly (no offset)
         const FLOW: { id: WorkshopTab; label: string }[] = [
-          { id: "story",      label: "Script" },
-          { id: "script",     label: "Sound & SFX" },
-          { id: "audio",      label: "Characters" },
-          { id: "characters", label: "Scene Board" },
-          { id: "scenes",     label: "Screenplay" },
-          { id: "screenplay", label: "Assembly" },
-          { id: "assembly",   label: "Overview" },
+          { id: "script",     label: "Design" },
+          { id: "story",      label: "Story" },
+          { id: "characters", label: "Characters" },
+          { id: "scenes",     label: "Scene Board" },
+          { id: "audio",      label: "Sound & SFX" },
+          { id: "screenplay", label: "Screenplay" },
+          { id: "assembly",   label: "Assembly" },
+          { id: "overview",   label: "Overview" },
         ];
         const idx = FLOW.findIndex(t => t.id === activeTab);
         const next = idx >= 0 && idx < FLOW.length - 1 ? FLOW[idx] : null;

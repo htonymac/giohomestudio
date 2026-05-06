@@ -1,5 +1,20 @@
 // POST /api/hybrid/narrate-piper
-// Generates narration audio using Piper TTS (local, no cost) or ElevenLabs (voiceProvider=elevenlabs).
+// Generates narration audio using Piper TTS (local, no cost), ElevenLabs, or
+// GHS sound tier dispatch (soundTier field).
+//
+// voiceProvider values accepted:
+//   "piper"      — Piper TTS local (free, GHS Sound tier)
+//   "karaoke"    — GHS Karaoke pipeline (GHS Plus / GHS Pro tiers)
+//   "elevenlabs" — ElevenLabs cloud (ELEVENLABS_API_KEY required)
+//   "kie-suno"   — Kie.ai Suno V5 (KIE_AI_API_KEY required; falls back to piper)
+//   "fal-narrator" | "fal-narrator-gemini" — FAL kokoro (FAL_KEY required)
+//
+// soundTier is a convenience alias:
+//   "ghs-sound"    → voiceProvider = "piper",   model = "en_US-lessac-medium"
+//   "ghs-plus"     → voiceProvider = "karaoke"
+//   "ghs-pro"      → voiceProvider = "karaoke"  (FAL music handled separately)
+//   "ghs-premium"  → voiceProvider = "kie-suno" (falls back to piper if no KIE key)
+//
 // If the requested Piper model is not found locally it auto-downloads from
 // huggingface.co/rhasspy/piper-voices — no HF account required (public repo).
 // Set HF_TOKEN in .env to avoid rate-limits or access private models.
@@ -11,6 +26,8 @@ import * as fs from "fs";
 import * as os from "os";
 import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
 import { env } from "@/config/env";
+import { soundTierToNarrationProvider } from "@/lib/ghs-sound-tiers";
+import type { GhsSoundTierId } from "@/lib/ghs-sound-tiers";
 
 // ── HF model registry ─────────────────────────────────────────────────────────
 // Each entry: { onnx: HF path, json: HF path }
@@ -201,17 +218,43 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       text,
-      model = "en_US-lessac-medium",
+      model: modelRaw = "en_US-lessac-medium",
       outputName,
       speed = 1.0,
-      voiceProvider = "piper",
+      voiceProvider: voiceProviderRaw = "piper",
+      soundTier,
       voiceId,
       voiceModel,
       language,
-    } = body as { text?: string; model?: string; outputName?: string; speed?: number; voiceProvider?: string; voiceId?: string; voiceModel?: string; language?: string };
+    } = body as {
+      text?: string;
+      model?: string;
+      outputName?: string;
+      speed?: number;
+      voiceProvider?: string;
+      soundTier?: string;
+      voiceId?: string;
+      voiceModel?: string;
+      language?: string;
+    };
 
     if (!text || text.trim().length < 2) {
       return NextResponse.json({ error: "text is required" }, { status: 400 });
+    }
+
+    // ── Resolve soundTier → voiceProvider + model (overrides explicit fields) ─
+    // Callers can pass soundTier directly instead of translating it themselves.
+    const VALID_TIERS = ["ghs-sound", "ghs-plus", "ghs-pro", "ghs-premium"];
+    let voiceProvider = voiceProviderRaw;
+    let model = modelRaw;
+
+    if (soundTier && VALID_TIERS.includes(soundTier)) {
+      const resolvedProvider = soundTierToNarrationProvider(soundTier as GhsSoundTierId);
+      voiceProvider = resolvedProvider;
+      // GHS Sound tier always uses the canonical free model
+      if (soundTier === "ghs-sound") {
+        model = "en_US-lessac-medium";
+      }
     }
 
     // ── Route to ElevenLabs if requested ──────────────────────────────────────
@@ -243,6 +286,39 @@ export async function POST(req: NextRequest) {
         const msg = err instanceof Error ? err.message : String(err);
         return NextResponse.json({ ok: false, error: `ElevenLabs error: ${msg}` }, { status: 200 });
       }
+    }
+
+    // ── Route to Kie Suno (GHS Premium) ──────────────────────────────────────
+    // Narration via Kie.ai Suno V5. Requires KIE_AI_API_KEY.
+    // Falls back to Piper if key is absent (logged as warning).
+    if (voiceProvider === "kie-suno") {
+      if (!process.env.KIE_AI_API_KEY) {
+        console.warn("[narrate-piper] KIE_AI_API_KEY not configured — GHS Premium tier falling back to Piper TTS.");
+        voiceProvider = "piper";
+        model = "en_US-lessac-medium";
+        // Falls through to Piper path below
+      } else {
+        // Kie.ai Suno V5 is a music/song generation service — it is not a narration TTS.
+        // For pure narration use-cases with GHS Premium, we use Piper with the best quality
+        // model and note the premium music context in the response so callers know to
+        // separately invoke /api/music/generate?soundTier=ghs-premium for background music.
+        console.log("[narrate-piper] GHS Premium: Kie Suno is for music gen; routing narration to Piper (high quality). Use /api/music/generate with soundTier=ghs-premium for music.");
+        voiceProvider = "piper";
+        model = "en_US-libritts-high";
+        // Falls through to Piper path below with note in response
+      }
+    }
+
+    // ── Route to Karaoke pipeline (GHS Plus / GHS Pro) ───────────────────────
+    // The karaoke pipeline handles voice styling via browser SpeechSynthesis.
+    // No audio file is saved server-side — playback happens in-browser only.
+    if (voiceProvider === "karaoke") {
+      return NextResponse.json({
+        ok: false,
+        karaokeMode: true,
+        provider: "karaoke",
+        error: "Karaoke / GHS Plus mode uses browser Web Speech API. No server audio file generated. Playback is in-browser only.",
+      }, { status: 200 });
     }
 
     // 1 — Check Piper binary
@@ -305,6 +381,7 @@ export async function POST(req: NextRequest) {
       model,
       provider: "piper",
       outputPath,
+      ...(soundTier ? { soundTier, resolvedProvider: voiceProvider } : {}),
     });
 
   } catch (err) {

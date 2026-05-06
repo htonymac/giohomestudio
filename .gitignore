@@ -38,6 +38,10 @@ storage/demo/*
 storage/sfx/*.mp3
 storage/commercial/*/
 storage/projects/*
+storage/characters/**/*.jpg
+storage/characters/**/*.png
+storage/characters/**/*.webp
+storage/config/asset-library.json
 !storage/.gitkeep
 !storage/video/.gitkeep
 !storage/voice/.gitkeep

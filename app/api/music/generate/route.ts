@@ -1,22 +1,31 @@
 // POST /api/music/generate — Music Provider Layer
 //
 // Accepts:
-//   { prompt, durationSeconds, genre?, mood?, hasLyrics?, providerKey? }
+//   { prompt, durationSeconds, genre?, mood?, hasLyrics?, providerKey?, soundTier? }
 //
 // providerKey: "kie" | "mubert" | "stable_audio" | "stock" | "auto"
+// soundTier:   "ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium"
+//   When soundTier is provided it overrides providerKey with the correct adapter.
+//   soundTier mapping:
+//     ghs-sound    → stock
+//     ghs-plus     → stock
+//     ghs-pro      → stable_audio  (FAL_KEY required; falls back to stock)
+//     ghs-premium  → kie           (KIE_AI_API_KEY required; falls back to stock)
+//
 // Default: "auto" — uses pickAutomaticProvider() routing logic.
 //
 // Required env vars (depending on provider):
-//   KIE_AI_API_KEY  — Kie.ai / Suno V5   (lyrical tracks)
+//   KIE_AI_API_KEY  — Kie.ai / Suno V5   (lyrical tracks, ghs-premium)
 //   MUBERT_PAT      — Mubert B2B          (long instrumental)
-//   FAL_KEY         — fal.ai gateway      (Stable Audio ≤47s)
+//   FAL_KEY         — fal.ai gateway      (Stable Audio ≤47s, ghs-pro)
 //   stock adapter always works with no keys.
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getMusicProvider, pickAutomaticProvider, pickAutomaticProviderWithReason } from "@/modules/music-provider";
+import { getMusicProvider, pickAutomaticProvider, pickAutomaticProviderWithReason, getMusicProviderForSoundTier } from "@/modules/music-provider";
 import type { MusicProviderKey } from "@/modules/music-provider";
+import type { GhsSoundTierId } from "@/lib/ghs-sound-tiers";
 
 const schema = z.object({
   prompt: z.string().min(1).max(500),
@@ -25,6 +34,7 @@ const schema = z.object({
   mood: z.string().max(60).optional(),
   hasLyrics: z.boolean().default(false),
   providerKey: z.enum(["kie", "mubert", "stable_audio", "stock", "auto"]).default("auto"),
+  soundTier: z.enum(["ghs-sound", "ghs-plus", "ghs-pro", "ghs-premium"]).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -43,14 +53,19 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { prompt, durationSeconds, genre, mood, hasLyrics, providerKey } = parsed.data;
+  const { prompt, durationSeconds, genre, mood, hasLyrics, providerKey, soundTier } = parsed.data;
 
   const input = { prompt, durationSeconds, genre, mood, hasLyrics };
 
-  // Resolve provider
+  // Resolve provider — soundTier takes precedence over providerKey when provided
   let autoFallbackReason: string | undefined;
-  const provider =
-    providerKey === "auto"
+  const provider = soundTier
+    ? (() => {
+        const { adapter, fallbackReason } = getMusicProviderForSoundTier(soundTier as GhsSoundTierId);
+        autoFallbackReason = fallbackReason;
+        return adapter;
+      })()
+    : providerKey === "auto"
       ? (() => {
           const { adapter, fallbackReason } = pickAutomaticProviderWithReason(input);
           autoFallbackReason = fallbackReason;
