@@ -40,7 +40,8 @@ Record every significant architectural call here. Required before Phase 1.6 asse
 ---
 
 ## Phase 1.6 GO
-*(Henry writes here when ready to migrate assembly path)*
+**GO given by Henry 2026-05-06. DONE — commit 9251625.**
+Migration complete. /api/video/assemble still in codebase (not deleted). AssemblyJSON builder converts hybrid planner flat state to structured JSON with proper audio ducking.
 
 ---
 
