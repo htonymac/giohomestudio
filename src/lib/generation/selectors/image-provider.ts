@@ -62,7 +62,7 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
     };
     // Forward reference image for PuLID and any other identity-capable endpoints
     if (req.referenceImageUrl && model.id === "fal_flux_pulid") {
-      (falParams as Record<string, unknown>).reference_image_url = req.referenceImageUrl;
+      (falParams as unknown as Record<string, unknown>).reference_image_url = req.referenceImageUrl;
     }
     const result = await falGenerateImage(falParams);
     if (!result.success) {

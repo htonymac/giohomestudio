@@ -118,6 +118,7 @@ function SceneCard({
   const [polishing,     setPolishing]     = useState(false);
   const [showImgPicker, setShowImgPicker] = useState(false);
   const [showVidPicker, setShowVidPicker] = useState(false);
+  const [previewOpen,   setPreviewOpen]   = useState(false);
   const [localImgModel, setLocalImgModel] = useState(defaultImageModel ?? "segmind_flux");
   const [localImgStyle, setLocalImgStyle] = useState(defaultImageStyle ?? "realistic");
   const [localVidModel, setLocalVidModel] = useState(defaultVideoModel ?? "wan_2_5_lite");
@@ -341,15 +342,74 @@ function SceneCard({
         </div>
       )}
 
-      {/* Scene image preview */}
+      {/* Scene image preview — click to open lightbox */}
       {scene.imageUrl && (
         <div style={{ position: "relative", background: "#000" }}>
-          <img src={scene.imageUrl} alt={`Scene ${index + 1}`}
-            style={{ width: "100%", maxHeight: 200, objectFit: "cover", display: "block" }} />
+          <img
+            src={scene.imageUrl}
+            alt={`Scene ${index + 1}`}
+            onClick={() => setPreviewOpen(true)}
+            title="Click to preview full size"
+            style={{
+              width: "100%", maxHeight: 320, objectFit: "contain",
+              display: "block", cursor: "zoom-in", background: "#000",
+            }}
+          />
           <span style={{
             position: "absolute", bottom: 6, left: 8, fontSize: 9, fontWeight: 800,
             color: "#fff", background: "rgba(0,0,0,0.55)", padding: "2px 6px", borderRadius: 4,
           }}>S{index + 1}</span>
+          <button
+            onClick={() => setPreviewOpen(true)}
+            title="Open full preview"
+            style={{
+              position: "absolute", top: 6, right: 6, width: 26, height: 26,
+              borderRadius: 6, border: "none", cursor: "pointer",
+              background: "rgba(0,0,0,0.55)", color: "#fff", fontSize: 13,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+          >⤢</button>
+        </div>
+      )}
+
+      {/* Lightbox preview */}
+      {previewOpen && scene.imageUrl && (
+        <div
+          onClick={() => setPreviewOpen(false)}
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            background: "rgba(0,0,0,0.92)", display: "flex",
+            alignItems: "center", justifyContent: "center",
+            padding: 24, cursor: "zoom-out",
+            animation: "fadeSlideUp 0.15s ease-out",
+          }}
+        >
+          <img
+            src={scene.imageUrl}
+            alt={`Scene ${index + 1} full preview`}
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: "100%", maxHeight: "100%", objectFit: "contain",
+              borderRadius: 8, boxShadow: "0 24px 80px rgba(0,0,0,0.6)",
+              cursor: "default",
+            }}
+          />
+          <button
+            onClick={e => { e.stopPropagation(); setPreviewOpen(false); }}
+            style={{
+              position: "absolute", top: 18, right: 18, width: 36, height: 36,
+              borderRadius: 8, border: "none", cursor: "pointer",
+              background: "rgba(255,255,255,0.12)", color: "#fff", fontSize: 18,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}
+            title="Close (Esc)"
+          >×</button>
+          <div style={{
+            position: "absolute", bottom: 22, left: 0, right: 0, textAlign: "center",
+            color: "#fff", fontSize: 12, fontWeight: 600, opacity: 0.85,
+          }}>
+            Scene {index + 1} · {scene.title} · click anywhere to close
+          </div>
         </div>
       )}
 
@@ -555,30 +615,37 @@ function VideoConfirmModal({
 
 // ── Hybrid Progress Modal ──────────────────────────────────────────────────────
 
+type SubtitleStyleKey = "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
+
 function HybridModal({
   scenes,
   onClose,
+  onComplete,
   characters,
   imageModel,
   imageStyle,
   initMusicTier,
   initSfxSource,
   initVoiceProvider,
+  initSubtitleStyle,
 }: {
   scenes: Scene[];
   onClose: () => void;
+  onComplete?: (resultUrl: string, scenes: Scene[]) => void;
   characters?: Character[];
   imageModel?: string;
   imageStyle?: string;
   initMusicTier?: string;
   initSfxSource?: string;
   initVoiceProvider?: string;
+  initSubtitleStyle?: SubtitleStyleKey;
 }) {
   const [totalDuration,  setTotalDuration]  = useState(30);
   const [customDur,      setCustomDur]      = useState("");
   const [musicTier,      setMusicTier]      = useState(initMusicTier ?? "stock");
   const [sfxSource,      setSfxSource]      = useState(initSfxSource ?? "auto");
   const [voiceProvider,  setVoiceProvider]  = useState(initVoiceProvider ?? "piper");
+  const [subtitleStyle,  setSubtitleStyle]  = useState<SubtitleStyleKey>(initSubtitleStyle ?? "classic");
   const [steps, setSteps] = useState<{ label: string; status: "pending" | "running" | "done" | "error" }[]>([]);
   const [running, setRunning] = useState(false);
   const [done,    setDone]    = useState(false);
@@ -622,11 +689,13 @@ function HybridModal({
       // assemblyScenes uses "img:<url>" prefix so the assemble route renders them as Ken Burns image slides
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
+      const sceneFailures: string[] = [];
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
         const prompt = charContext
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
+        let pushedImage = false;
         try {
           const imgRes = await fetch("/api/generation/image", {
             method: "POST",
@@ -639,18 +708,43 @@ function HybridModal({
           });
           if (imgRes.ok) {
             const imgData = await imgRes.json();
-            const rawUrl = imgData.imagePath
-              ? `/api/media/file?path=${encodeURIComponent(imgData.imagePath)}`
-              : (imgData.imageUrl ?? "");
-            if (rawUrl) {
+            // For assembly we want a path the SERVER can read directly:
+            //   - if imagePath (absolute) → pass it raw, assemble's resolveMediaPath
+            //     accepts absolute paths via fs.existsSync.
+            //   - else if imageUrl (remote http/https) → assemble downloads it.
+            const assembleUrl: string = imgData.imagePath ?? imgData.imageUrl ?? "";
+            if (assembleUrl) {
               // "img:" prefix tells /api/video/assemble to treat this as an image and render Ken Burns
-              assemblyScenes.push({ scene: idx, videoUrl: `img:${rawUrl}`, duration: sceneDuration, text: sc.title, animation: "zoom_in" });
+              assemblyScenes.push({ scene: idx, videoUrl: `img:${assembleUrl}`, duration: sceneDuration, text: sc.title, animation: "fade_in" });
+              pushedImage = true;
             }
+          } else {
+            const errBody = await imgRes.json().catch(() => ({}));
+            const reason = errBody?.error ?? `HTTP ${imgRes.status}`;
+            console.error(`[hybrid] scene ${idx + 1} image gen failed:`, reason);
+            sceneFailures.push(`S${idx + 1}: ${reason}`);
           }
-        } catch { /* continue */ }
+        } catch (e) {
+          console.error(`[hybrid] scene ${idx + 1} image gen exception:`, e);
+          sceneFailures.push(`S${idx + 1}: ${e instanceof Error ? e.message : "exception"}`);
+        }
+        // Fallback: assemble still gets a slide for this scene (gradient + subtitle)
+        // so the pipeline never silently drops a scene.
+        if (!pushedImage) {
+          assemblyScenes.push({
+            scene: idx,
+            videoUrl: "bg:#1a1a2e", // gradient fallback the assemble route understands
+            duration: sceneDuration,
+            text: sc.title,
+            animation: "fade_in",
+          });
+        }
       }
 
-      if (assemblyScenes.length === 0) throw new Error("No scene images could be generated");
+      if (assemblyScenes.length === 0) throw new Error("No scenes to assemble");
+      if (sceneFailures.length > 0 && sceneFailures.length === scenes.length) {
+        throw new Error(`All scene images failed — ${sceneFailures[0]}`);
+      }
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
       // Step 3: text overlays (handled inside assemble via scene.text + subtitle engine)
@@ -664,20 +758,30 @@ function HybridModal({
       try {
         const sceneMoodSummary = scenes.map(s => s.mood).join(", ");
         const musicPrompt = `Background music for a video with scenes: ${sceneMoodSummary}. Cinematic, instrumental.`;
+        const providerKey: "stable_audio" | "kie" | "stock" | "auto" =
+          musicTier === "fal_stable_audio" ? "stable_audio"
+          : musicTier === "kie_classic" || musicTier === "kie_premium" ? "kie"
+          : musicTier === "stock" ? "stock"
+          : "auto";
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt: musicPrompt,
-            durationSeconds: effectiveDuration,
-            provider: musicTier === "fal_stable_audio" ? "fal" : musicTier === "kie_classic" ? "kie" : "stock",
+            durationSeconds: Math.min(Math.max(effectiveDuration, 5), 600),
+            providerKey,
           }),
         });
         if (musicRes.ok) {
           const musicData = await musicRes.json();
-          musicUrl = musicData.audioUrl ?? musicData.url ?? null;
+          musicUrl = musicData.audioUrl ?? musicData.url ?? musicData.outputUrl ?? null;
+        } else {
+          const errBody = await musicRes.json().catch(() => ({}));
+          console.warn("[hybrid] music gen failed:", errBody?.error ?? `HTTP ${musicRes.status}`);
         }
-      } catch { /* continue without music */ }
+      } catch (e) {
+        console.warn("[hybrid] music gen exception:", e);
+      }
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
 
       // Step 5: assemble — passes img: prefixed scenes + musicUrl
@@ -686,7 +790,7 @@ function HybridModal({
         scenes:        assemblyScenes,
         projectId:     `free_${Date.now()}`,
         aspectRatio:   "9:16",
-        subtitleStyle: "minimal",
+        subtitleStyle,
       };
       if (musicUrl) payload.musicUrl = musicUrl;
 
@@ -698,13 +802,20 @@ function HybridModal({
 
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.error ?? "Assembly failed");
+        console.error("[hybrid] assemble failed:", res.status, d);
+        throw new Error(d.error ?? `Assembly failed (HTTP ${res.status})`);
       }
 
       const data = await res.json();
       setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "done" } : x));
-      setResultUrl(data.outputUrl ?? data.videoUrl ?? null);
+      const finalUrl: string | null = data.outputUrl ?? data.videoUrl ?? null;
+      if (!finalUrl) {
+        console.error("[hybrid] assemble returned no outputUrl:", data);
+        throw new Error("Assembly succeeded but no output URL was returned");
+      }
+      setResultUrl(finalUrl);
       setDone(true);
+      if (onComplete) onComplete(finalUrl, scenes);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Assembly failed");
       setSteps(s => s.map(x => x.status === "running" ? { ...x, status: "error" } : x));
@@ -778,9 +889,9 @@ function HybridModal({
               marginBottom: 16,
             }}>
               <div style={{ fontSize: 11, fontWeight: 800, color: C.mute2, marginBottom: 10, letterSpacing: 0.6 }}>
-                AUDIO SETTINGS
+                AUDIO &amp; SUBTITLE SETTINGS
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>🎵 MUSIC</div>
                   <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={selStyle}>
@@ -825,6 +936,21 @@ function HybridModal({
                     <optgroup label="GHS Premium">
                       <option value="elevenlabs">ElevenLabs</option>
                     </optgroup>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>💬 SUBTITLE</div>
+                  <select
+                    value={subtitleStyle}
+                    onChange={e => setSubtitleStyle(e.target.value as SubtitleStyleKey)}
+                    style={selStyle}
+                  >
+                    <option value="classic">Classic</option>
+                    <option value="cinema">Cinema</option>
+                    <option value="neon">Neon</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="bold">Bold</option>
+                    <option value="none">None (off)</option>
                   </select>
                 </div>
               </div>
@@ -1112,22 +1238,80 @@ function IntroOutroPanel({
   onChange: (d: IntroOutroData) => void;
   onClose: () => void;
 }) {
+  const [collapsed, setCollapsed] = useState(false);
+  const accent = type === "intro" ? C.mint : C.gold;
+  const icon   = type === "intro" ? "▶" : "⏹";
+
+  // ── Collapsed: thin bar showing saved info ──
+  if (collapsed) {
+    return (
+      <div style={{
+        display: "flex", alignItems: "center", gap: 8,
+        padding: "7px 12px", borderRadius: 10, marginBottom: 6,
+        background: `${accent}0c`, border: `1px solid ${accent}40`,
+        animation: "fadeSlideUp 0.15s ease",
+      }}>
+        <span style={{ fontSize: 12, color: accent }}>{icon}</span>
+        <span style={{ fontSize: 11, fontWeight: 700, color: accent, textTransform: "uppercase", letterSpacing: 0.8 }}>
+          {type}
+        </span>
+        <span style={{
+          flex: 1, fontSize: 11, color: C.ink,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          maxWidth: 260,
+        }}>
+          {data.text || <span style={{ color: C.mute2 }}>No text set</span>}
+        </span>
+        {data.phone && (
+          <span style={{ fontSize: 10, color: C.mute2, whiteSpace: "nowrap" }}>
+            {data.type === "whatsapp" ? "WA" : data.type === "call" ? "📞" : "📧"} {data.phone}
+          </span>
+        )}
+        <button
+          onClick={() => setCollapsed(false)}
+          style={{
+            padding: "3px 9px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer",
+            border: `1px solid ${accent}50`, background: `${accent}14`, color: accent,
+          }}
+        >Edit</button>
+        <button
+          onClick={onClose}
+          style={{ background: "none", border: "none", color: C.mute2, fontSize: 14, cursor: "pointer", padding: "0 2px" }}
+          title="Remove"
+        >×</button>
+      </div>
+    );
+  }
+
+  // ── Expanded: full form ──
   return (
     <div style={{
       padding: "12px 14px",
       background: C.alert,
-      border: `1px solid ${C.line}`,
+      border: `1px solid ${accent}40`,
       borderRadius: 12, marginBottom: 8,
       animation: "fadeSlideUp 0.2s ease",
     }}>
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10,
       }}>
-        <span style={{ fontSize: 11, fontWeight: 800, color: C.mute2, textTransform: "uppercase", letterSpacing: 1 }}>
-          {type === "intro" ? "Intro" : "Outro"}
+        <span style={{ fontSize: 11, fontWeight: 800, color: accent, textTransform: "uppercase", letterSpacing: 1 }}>
+          {icon} {type === "intro" ? "Intro" : "Outro"}
         </span>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: C.mute, fontSize: 14, cursor: "pointer" }}>×</button>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          {data.text.trim() && (
+            <button
+              onClick={() => setCollapsed(true)}
+              style={{
+                padding: "3px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700, cursor: "pointer",
+                border: `1px solid ${C.line}`, background: "transparent", color: C.mute2,
+              }}
+            >Collapse ↑</button>
+          )}
+          <button onClick={onClose} style={{ background: "none", border: "none", color: C.mute, fontSize: 16, cursor: "pointer" }}>×</button>
+        </div>
       </div>
+
       <input
         value={data.text}
         onChange={e => onChange({ ...data, text: e.target.value })}
@@ -1139,11 +1323,11 @@ function IntroOutroPanel({
           outline: "none", marginBottom: 8, fontFamily: "inherit",
         }}
       />
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
         <input
           value={data.phone}
           onChange={e => onChange({ ...data, phone: e.target.value })}
-          placeholder="Phone / WhatsApp number"
+          placeholder="Phone / WhatsApp (optional)"
           style={{
             flex: 1, boxSizing: "border-box",
             background: C.card, border: `1px solid ${C.line}`,
@@ -1155,13 +1339,31 @@ function IntroOutroPanel({
           {(["contact", "whatsapp", "call"] as const).map(t => (
             <button key={t} onClick={() => onChange({ ...data, type: t })} style={{
               padding: "6px 8px", borderRadius: 7, fontSize: 10, fontWeight: 700, cursor: "pointer",
-              border: `1px solid ${data.type === t ? C.mint + "60" : C.line}`,
-              background: data.type === t ? `${C.mint}18` : "transparent",
-              color: data.type === t ? C.mint : C.mute2,
+              border: `1px solid ${data.type === t ? accent + "60" : C.line}`,
+              background: data.type === t ? `${accent}18` : "transparent",
+              color: data.type === t ? accent : C.mute2,
             }}>{t === "contact" ? "CONTACT" : t === "whatsapp" ? "WA" : "CALL"}</button>
           ))}
         </div>
       </div>
+
+      {/* Submit / Save button — collapses the panel */}
+      <button
+        onClick={() => { if (data.text.trim()) setCollapsed(true); }}
+        disabled={!data.text.trim()}
+        style={{
+          width: "100%", padding: "8px 0", borderRadius: 9, border: "none",
+          background: data.text.trim()
+            ? `linear-gradient(135deg, ${accent}, ${accent}cc)`
+            : C.alert,
+          color: data.text.trim() ? "#fff" : C.mute2,
+          fontSize: 12, fontWeight: 800,
+          cursor: data.text.trim() ? "pointer" : "not-allowed",
+          transition: "all 0.15s",
+        }}
+      >
+        ✓ Save {type === "intro" ? "Intro" : "Outro"} — collapse
+      </button>
     </div>
   );
 }
@@ -1313,10 +1515,26 @@ function getOrCreateSessionId(): string {
 }
 
 function FreeModeChat() {
-  // Persist sessionId across page reloads so DB restore works
-  const sessionId   = useRef<string>(
+  // Persist sessionId across page reloads so DB restore works.
+  // State (not ref) so switching sessions from the sidebar triggers a re-fetch.
+  const [sessionId, setSessionIdState] = useState<string>(
     typeof window !== "undefined" ? getOrCreateSessionId() : genSessionId()
   );
+
+  function switchSession(newId: string) {
+    try { localStorage.setItem(FREE_MODE_SESSION_LS_KEY, newId); } catch { /* ssr */ }
+    setMessages([]);
+    setSelectedCharIds([]);
+    setIntro(null);
+    setOutro(null);
+    setLoaded(false);
+    setSessionIdState(newId);
+  }
+
+  function newSession() {
+    const fresh = genSessionId();
+    switchSession(fresh);
+  }
   const feedRef     = useRef<HTMLDivElement>(null);
   const inputRef    = useRef<HTMLTextAreaElement>(null);
 
@@ -1355,6 +1573,7 @@ function FreeModeChat() {
   const [musicTier,      setMusicTier]      = useState("stock");
   const [sfxSource,      setSfxSource]      = useState("auto");
   const [voiceProvider,  setVoiceProvider]  = useState("piper");
+  const [subtitleStyle,  setSubtitleStyle]  = useState<"classic" | "cinema" | "neon" | "minimal" | "bold" | "none">("classic");
 
   // ── Inline video generation picker ──
   const [videoGenPicker, setVideoGenPicker] = useState<"text2vid" | "img2vid" | "motion" | null>(null);
@@ -1369,9 +1588,26 @@ function FreeModeChat() {
   const [allAvailableChars, setAllAvailableChars] = useState<Character[]>([]);
   const imageUploadRef = useRef<HTMLInputElement>(null);
 
+  // ── History sidebar ──
+  type SessionListItem = {
+    id: string; title: string; msgCount: number;
+    imageCount: number; videoCount: number; updatedAt: string;
+  };
+  const [sidebarOpen,    setSidebarOpen]    = useState(true);
+  const [sessionList,    setSessionList]    = useState<SessionListItem[]>([]);
+  const [sessionSearch,  setSessionSearch]  = useState("");
+  const [sessionListBump, setSessionListBump] = useState(0);
+
+  function refreshSessionList() {
+    fetch(`/api/free-mode/sessions/list${sessionSearch ? `?q=${encodeURIComponent(sessionSearch)}` : ""}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.sessions) setSessionList(d.sessions); })
+      .catch(() => null);
+  }
+
   // Load from DB on mount
   useEffect(() => {
-    const sid = sessionId.current;
+    const sid = sessionId;
     fetch(`/api/free-mode/sessions?sessionId=${sid}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -1406,7 +1642,13 @@ function FreeModeChat() {
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setLimits(d); })
       .catch(() => null);
-  }, []);
+  }, [sessionId]);
+
+  // Refresh session list (history sidebar) when sessionId, search, or bump changes
+  useEffect(() => {
+    refreshSessionList();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, sessionSearch, sessionListBump]);
 
   // Load all available characters (for compact picker)
   useEffect(() => {
@@ -1463,16 +1705,39 @@ function FreeModeChat() {
     return () => document.removeEventListener("mousedown", handleOutsideClick);
   }, [plusMenuOpen]);
 
-  // ── Auto-restore from localStorage on mount (ghs_freemode_draft) ──────────
+  // ── Auto-restore from localStorage on mount (per-session key) ─────────────
+  // Per-session key prevents one session's draft contaminating another.
+  // Acts as a fallback if the DB read returns no scenes (e.g. PATCH not applied yet).
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const raw = localStorage.getItem("ghs_freemode_draft");
+      const key = `ghs_freemode_draft_${sessionId}`;
+      const raw = localStorage.getItem(key);
       if (!raw) return;
       const d = JSON.parse(raw);
       if (Array.isArray(d.messages) && d.messages.length > 0) {
-        // Only restore if DB load hasn't already populated messages
-        setMessages(prev => prev.length === 0 ? d.messages : prev);
+        // Merge: if DB load already populated messages, fill any missing
+        // imageUrl/videoUrl from localStorage so refresh never strips them.
+        setMessages(prev => {
+          if (prev.length === 0) return d.messages;
+          const byId = new Map<string, ChatMessage>(d.messages.map((m: ChatMessage) => [m.id, m]));
+          return prev.map(m => {
+            const cached = byId.get(m.id);
+            if (!cached?.scenes) return m;
+            return {
+              ...m,
+              scenes: m.scenes?.map(s => {
+                const cs = cached.scenes?.find(x => x.id === s.id);
+                if (!cs) return s;
+                return {
+                  ...s,
+                  imageUrl: s.imageUrl ?? cs.imageUrl,
+                  videoUrl: s.videoUrl ?? cs.videoUrl,
+                };
+              }) ?? cached.scenes,
+            };
+          });
+        });
       }
       if (Array.isArray(d.selectedCharIds) && d.selectedCharIds.length > 0) {
         setSelectedCharIds(prev => prev.length === 0 ? d.selectedCharIds : prev);
@@ -1481,9 +1746,9 @@ function FreeModeChat() {
       if (d.outro !== undefined && d.outro !== null) setOutro(d.outro as IntroOutroData);
     } catch { /* ignore */ }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [sessionId]);
 
-  // ── Auto-save to localStorage (ghs_freemode_draft) ────────────────────────
+  // ── Auto-save to localStorage (per-session key) ───────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
     const draft = {
@@ -1493,9 +1758,9 @@ function FreeModeChat() {
       outro,
     };
     try {
-      localStorage.setItem("ghs_freemode_draft", JSON.stringify(draft));
+      localStorage.setItem(`ghs_freemode_draft_${sessionId}`, JSON.stringify(draft));
     } catch { /* quota exceeded — ignore */ }
-  }, [messages, selectedCharIds, intro, outro]);
+  }, [sessionId, messages, selectedCharIds, intro, outro]);
 
   // Persist session characters/intro/outro on change (debounced)
   const persistSession = useCallback(async (
@@ -1507,7 +1772,7 @@ function FreeModeChat() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sessionId:  sessionId.current,
+        sessionId:  sessionId,
         characters: chars,
         introText:  introData?.text  ?? null,
         introPhone: introData?.phone ?? null,
@@ -1545,7 +1810,7 @@ function FreeModeChat() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sessionId: sessionId.current,
+          sessionId: sessionId,
           message:   text,
           history:   historyContext,
         }),
@@ -1586,17 +1851,23 @@ function FreeModeChat() {
       setMessages(prev => [...prev, errMsg]);
     } finally {
       setSending(false);
+      setSessionListBump(b => b + 1);
     }
   }
 
   function editScene(msgId: string, sceneId: string, field: "title" | "text", value: string) {
-    setMessages(prev => prev.map(m => {
-      if (m.id !== msgId || !m.scenes) return m;
-      return {
-        ...m,
-        scenes: m.scenes.map(s => s.id === sceneId ? { ...s, [field]: value } : s),
-      };
-    }));
+    setMessages(prev => {
+      const next = prev.map(m => {
+        if (m.id !== msgId || !m.scenes) return m;
+        return {
+          ...m,
+          scenes: m.scenes.map(s => s.id === sceneId ? { ...s, [field]: value } : s),
+        };
+      });
+      const updated = next.find(m => m.id === msgId);
+      if (updated?.scenes) persistMessageScenes(msgId, updated.scenes);
+      return next;
+    });
   }
 
   function toggleEdit(msgId: string) {
@@ -1617,6 +1888,42 @@ function FreeModeChat() {
     const reSendText = `Please refine the following story scenes I edited:\n\n${sceneSummary}`;
     handleSend(reSendText);
     setEditModeSet(prev => { const next = new Set(prev); next.delete(msgId); return next; });
+  }
+
+  // PATCH the message's scenes JSON in DB so imageUrl/videoUrl survive refresh.
+  // Fire-and-forget — UI already updated optimistically.
+  function persistMessageScenes(msgId: string, scenes: Scene[]) {
+    // Only persist if this message has a real DB id (chat route returns the saved id).
+    // Locally-generated ids start with "a-"/"u-" and have no DB row yet — skip those.
+    if (!msgId || msgId.startsWith("a-") || msgId.startsWith("u-")) return;
+    fetch(`/api/free-mode/messages/${msgId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenes }),
+    }).catch(() => { /* non-blocking */ });
+  }
+
+  // Save a standalone asset (video / image / hybrid output) into the chat
+  // history so it survives refresh — appends as an assistant message.
+  async function saveAssetToHistory(content: string, scenes?: Scene[]): Promise<string | null> {
+    try {
+      const res = await fetch("/api/free-mode/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sessionId,
+          role: "assistant",
+          content,
+          scenes: scenes ?? undefined,
+        }),
+      });
+      if (!res.ok) return null;
+      const d = await res.json();
+      setSessionListBump(b => b + 1);
+      return d.id ?? null;
+    } catch {
+      return null;
+    }
   }
 
   // Generate image for one scene — stores imageUrl IN the scene (survives refresh)
@@ -1655,14 +1962,19 @@ function FreeModeChat() {
           : (imgData.imageUrl ?? null);
         if (url) {
           // Store imageUrl IN the scene object → auto-saved to localStorage with messages
-          setMessages(prev => prev.map(m =>
-            m.id !== msgId ? m : {
-              ...m,
-              scenes: m.scenes?.map(s =>
-                s.id !== sceneId ? s : { ...s, imageUrl: url }
-              ),
-            }
-          ));
+          setMessages(prev => {
+            const next = prev.map(m =>
+              m.id !== msgId ? m : {
+                ...m,
+                scenes: m.scenes?.map(s =>
+                  s.id !== sceneId ? s : { ...s, imageUrl: url }
+                ),
+              }
+            );
+            const updated = next.find(m => m.id === msgId);
+            if (updated?.scenes) persistMessageScenes(msgId, updated.scenes);
+            return next;
+          });
         }
       }
     } catch { /* silent */ }
@@ -1705,14 +2017,19 @@ function FreeModeChat() {
         const vidData = await vidRes.json();
         const url = vidData.outputUrl ?? vidData.videoUrl ?? null;
         if (url) {
-          setMessages(prev => prev.map(m =>
-            m.id !== msgId ? m : {
-              ...m,
-              scenes: m.scenes?.map(s =>
-                s.id !== sceneId ? s : { ...s, videoUrl: url }
-              ),
-            }
-          ));
+          setMessages(prev => {
+            const next = prev.map(m =>
+              m.id !== msgId ? m : {
+                ...m,
+                scenes: m.scenes?.map(s =>
+                  s.id !== sceneId ? s : { ...s, videoUrl: url }
+                ),
+              }
+            );
+            const updated = next.find(m => m.id === msgId);
+            if (updated?.scenes) persistMessageScenes(msgId, updated.scenes);
+            return next;
+          });
         }
       }
     } catch { /* silent */ }
@@ -1738,10 +2055,15 @@ function FreeModeChat() {
   }
 
   function polishScene(msgId: string, sceneId: string, polishedText: string) {
-    setMessages(prev => prev.map(m => {
-      if (m.id !== msgId || !m.scenes) return m;
-      return { ...m, scenes: m.scenes.map(s => s.id === sceneId ? { ...s, text: polishedText } : s) };
-    }));
+    setMessages(prev => {
+      const next = prev.map(m => {
+        if (m.id !== msgId || !m.scenes) return m;
+        return { ...m, scenes: m.scenes.map(s => s.id === sceneId ? { ...s, text: polishedText } : s) };
+      });
+      const updated = next.find(m => m.id === msgId);
+      if (updated?.scenes) persistMessageScenes(msgId, updated.scenes);
+      return next;
+    });
   }
 
   function handleCharSelect(ids: string[]) {
@@ -1821,6 +2143,25 @@ function FreeModeChat() {
           initMusicTier={musicTier}
           initSfxSource={sfxSource}
           initVoiceProvider={voiceProvider}
+          initSubtitleStyle={subtitleStyle}
+          onComplete={async (resultUrl, hybridScenes) => {
+            // Save final hybrid video to chat history so it survives refresh.
+            const sceneObj: Scene = {
+              id: "hybrid-" + genId(),
+              title: "Hybrid Video",
+              text:  hybridScenes.map(s => s.title).join(" · "),
+              mood:  "neutral",
+              videoUrl: resultUrl,
+            };
+            const dbId = await saveAssetToHistory("🔀 Hybrid video assembled", [sceneObj]);
+            setMessages(prev => [...prev, {
+              id: dbId ?? ("a-" + genId()),
+              role: "assistant" as const,
+              content: "🔀 Hybrid video assembled",
+              scenes: [sceneObj],
+              timestamp: Date.now(),
+            }]);
+          }}
         />
       )}
       {charDrawer && (
@@ -1862,6 +2203,136 @@ function FreeModeChat() {
           }}>Review Queue</a>
         </div>
       </div>
+
+      {/* ── Body: history sidebar + chat column ── */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "row", overflow: "hidden" }}>
+
+        {/* History sidebar */}
+        {sidebarOpen ? (
+          <aside style={{
+            width: 260, flexShrink: 0, borderRight: `1px solid ${C.line}`,
+            background: C.card, display: "flex", flexDirection: "column",
+            overflow: "hidden",
+          }}>
+            <div style={{ padding: "10px 12px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.ink, letterSpacing: -0.2, flex: 1 }}>History</span>
+              <button
+                onClick={newSession}
+                title="Start new chat"
+                style={{
+                  padding: "4px 9px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                  border: `1px solid ${C.sky}50`, background: `${C.sky}15`, color: C.sky,
+                  cursor: "pointer",
+                }}
+              >+ New</button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                title="Hide history"
+                style={{
+                  padding: "4px 7px", borderRadius: 7, fontSize: 11,
+                  border: `1px solid ${C.line}`, background: "transparent", color: C.mute2,
+                  cursor: "pointer",
+                }}
+              >‹</button>
+            </div>
+            <div style={{ padding: "8px 10px", borderBottom: `1px solid ${C.line}` }}>
+              <input
+                value={sessionSearch}
+                onChange={e => setSessionSearch(e.target.value)}
+                placeholder="Search sessions, movies, assets…"
+                style={{
+                  width: "100%", padding: "6px 9px", borderRadius: 7,
+                  fontSize: 11, fontWeight: 600, border: `1px solid ${C.line}`,
+                  background: C.alert, color: C.ink, outline: "none",
+                  fontFamily: "inherit", boxSizing: "border-box",
+                }}
+              />
+              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                <a
+                  href="/dashboard/assets?type=image"
+                  title="See every image you generated"
+                  style={{
+                    flex: 1, padding: "4px 6px", borderRadius: 6, textAlign: "center",
+                    fontSize: 9, fontWeight: 700, textDecoration: "none",
+                    border: `1px solid ${C.lilac}40`, background: `${C.lilac}10`, color: C.lilac,
+                  }}
+                >🖼 Images</a>
+                <a
+                  href="/dashboard/assets?type=video"
+                  title="See every video you made"
+                  style={{
+                    flex: 1, padding: "4px 6px", borderRadius: 6, textAlign: "center",
+                    fontSize: 9, fontWeight: 700, textDecoration: "none",
+                    border: `1px solid ${C.gold}40`, background: `${C.gold}10`, color: C.gold,
+                  }}
+                >🎬 Videos</a>
+                <a
+                  href="/dashboard/character-voices"
+                  title="Saved characters"
+                  style={{
+                    flex: 1, padding: "4px 6px", borderRadius: 6, textAlign: "center",
+                    fontSize: 9, fontWeight: 700, textDecoration: "none",
+                    border: `1px solid ${C.sky}40`, background: `${C.sky}10`, color: C.sky,
+                  }}
+                >👤 Cast</a>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "6px 6px 12px" }}>
+              {sessionList.length === 0 ? (
+                <div style={{ fontSize: 11, color: C.mute, padding: "20px 12px", textAlign: "center" }}>
+                  No sessions yet — your chats will appear here.
+                </div>
+              ) : sessionList.map(s => {
+                const active = s.id === sessionId;
+                const ts = new Date(s.updatedAt);
+                const dateLabel = ts.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+                  " · " + ts.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => switchSession(s.id)}
+                    style={{
+                      width: "100%", textAlign: "left", marginBottom: 3,
+                      padding: "8px 9px", borderRadius: 8, cursor: "pointer",
+                      border: `1px solid ${active ? C.sky + "70" : "transparent"}`,
+                      background: active ? `${C.sky}14` : "transparent",
+                      color: C.ink, fontFamily: "inherit",
+                      display: "flex", flexDirection: "column", gap: 3,
+                      transition: "background 0.1s",
+                    }}
+                    onMouseEnter={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = C.alert; }}
+                    onMouseLeave={e => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                  >
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, color: active ? C.sky : C.ink,
+                      lineHeight: 1.35, overflow: "hidden",
+                      display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical",
+                    }}>{s.title}</span>
+                    <span style={{ fontSize: 9, color: C.mute2, display: "flex", gap: 6, alignItems: "center" }}>
+                      <span>{dateLabel}</span>
+                      {s.msgCount > 0 && <span>· 💬 {s.msgCount}</span>}
+                      {s.imageCount > 0 && <span style={{ color: C.lilac }}>· 🖼 {s.imageCount}</span>}
+                      {s.videoCount > 0 && <span style={{ color: C.gold }}>· 🎬 {s.videoCount}</span>}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </aside>
+        ) : (
+          <button
+            onClick={() => setSidebarOpen(true)}
+            title="Show history"
+            style={{
+              width: 28, flexShrink: 0, borderRight: `1px solid ${C.line}`,
+              background: C.card, color: C.mute2, fontSize: 14, cursor: "pointer",
+              border: "none", borderTop: 0, borderBottom: 0, borderLeft: 0,
+            }}
+          >›</button>
+        )}
+
+        {/* Chat column */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
       {/* ── Chat feed ── */}
       <div ref={feedRef} style={{
@@ -2196,6 +2667,52 @@ function FreeModeChat() {
               </select>
             </div>
 
+            <div style={{ width: 1, height: 16, background: C.line }} />
+
+            {/* Visual style (compact dropdown) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎨</span>
+              <select
+                value={imageStyle}
+                onChange={e => { setImageStyle(e.target.value); setStylePromptOpen(false); }}
+                style={{
+                  padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                  border: `1px solid ${stylePromptOpen ? C.gold + "80" : C.line}`,
+                  background: stylePromptOpen ? `${C.gold}12` : C.alert,
+                  color: stylePromptOpen ? C.gold : C.mute2,
+                  outline: "none", fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                {Object.entries(VISUAL_STYLES).map(([k, v]) => (
+                  <option key={k} value={k}>{v.icon} {v.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ width: 1, height: 16, background: C.line }} />
+
+            {/* Subtitle style (compact dropdown) */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>💬</span>
+              <select
+                value={subtitleStyle}
+                onChange={e => setSubtitleStyle(e.target.value as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none")}
+                title="Subtitle style"
+                style={{
+                  padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                  border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
+                  outline: "none", fontFamily: "inherit", cursor: "pointer",
+                }}
+              >
+                <option value="classic">Classic</option>
+                <option value="cinema">Cinema</option>
+                <option value="neon">Neon</option>
+                <option value="minimal">Minimal</option>
+                <option value="bold">Bold</option>
+                <option value="none">No Subs</option>
+              </select>
+            </div>
+
             <div style={{ flex: 1 }} />
 
             {/* ⚙ Customize toggle (optional expanded view) */}
@@ -2275,63 +2792,30 @@ function FreeModeChat() {
             </div>
           )}
 
-          {/* ── Visual style selector ── */}
-          <div style={{
-            display: "flex", gap: 5, marginBottom: 6, alignItems: "center",
-            flexWrap: "wrap", borderTop: `1px solid ${C.line}`, paddingTop: 8,
-          }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 0.8, marginRight: 2 }}>STYLE:</span>
-            {Object.entries(VISUAL_STYLES).map(([key, s]) => {
-              const active = imageStyle === key;
-              return (
-                <button
-                  key={key}
-                  onClick={() => { setImageStyle(key); setStylePromptOpen(false); }}
-                  title={s.label}
-                  style={{
-                    padding: "4px 9px", borderRadius: 20, fontSize: 10, fontWeight: 700, cursor: "pointer",
-                    border: `1px solid ${active ? C.sky + "90" : C.line}`,
-                    background: active ? `${C.sky}20` : "transparent",
-                    color: active ? C.sky : C.mute2,
-                    display: "flex", alignItems: "center", gap: 4, transition: "all 0.12s",
-                    outline: "none",
-                  }}
-                >
-                  <span style={{ fontSize: 12 }}>{s.icon}</span>
-                  <span>{s.label}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── Video generation buttons ── */}
+          {/* ── Video generation (compact dropdown) ── */}
           <div style={{
             display: "flex", gap: 6, marginBottom: 8, alignItems: "center",
           }}>
-            <span style={{ fontSize: 9, fontWeight: 800, color: C.mute2, letterSpacing: 0.8, marginRight: 4 }}>GENERATE:</span>
-            {(["text2vid", "img2vid", "motion"] as const).map(type => {
-              const labels: Record<string, { label: string; icon: string; desc: string }> = {
-                text2vid: { label: "Text → Video", icon: "🎬", desc: "Turn text idea into video" },
-                img2vid:  { label: "Image → Video", icon: "🖼️→🎬", desc: "Animate an image" },
-                motion:   { label: "Motion Video", icon: "🌀", desc: "Add motion to image" },
-              };
-              const item = labels[type];
-              const active = videoGenPicker === type;
-              return (
-                <button
-                  key={type}
-                  onClick={() => setVideoGenPicker(active ? null : type)}
-                  title={item.desc}
-                  style={{
-                    padding: "5px 10px", borderRadius: 8, fontSize: 10, fontWeight: 700, cursor: "pointer",
-                    border: `1px solid ${active ? C.sky + "80" : C.line}`,
-                    background: active ? `${C.sky}15` : "transparent",
-                    color: active ? C.sky : C.mute2,
-                    display: "flex", alignItems: "center", gap: 4, transition: "all 0.15s",
-                  }}
-                >{item.icon} {item.label}</button>
-              );
-            })}
+            <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎬</span>
+            <select
+              value={videoGenPicker ?? ""}
+              onChange={e => {
+                const v = e.target.value;
+                setVideoGenPicker(v === "" ? null : (v as "text2vid" | "img2vid" | "motion"));
+              }}
+              style={{
+                padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
+                border: `1px solid ${videoGenPicker ? C.sky + "80" : C.line}`,
+                background: videoGenPicker ? `${C.sky}12` : C.alert,
+                color: videoGenPicker ? C.sky : C.mute2,
+                outline: "none", fontFamily: "inherit", cursor: "pointer",
+              }}
+            >
+              <option value="">Generate Video…</option>
+              <option value="text2vid">🎬 Text → Video</option>
+              <option value="img2vid">🖼️→🎬 Image → Video</option>
+              <option value="motion">🌀 Motion Video</option>
+            </select>
           </div>
 
           {/* ── Inline video gen picker ── */}
@@ -2460,9 +2944,22 @@ function FreeModeChat() {
                       const d = res.ok ? await res.json() : null;
                       if (d?.outputUrl) {
                         const icon = isText ? "🎬" : isMotion ? "🌀" : "🖼️→🎬";
+                        const label = isText ? "Text → Video" : isMotion ? "Motion Video" : "Image → Video";
+                        const sceneObj: Scene = {
+                          id: "vg-" + genId(),
+                          title: label,
+                          text:  promptVal,
+                          mood:  "neutral",
+                          videoUrl: d.outputUrl,
+                          imageUrl: !isText ? promptVal : undefined,
+                        };
+                        const dbId = await saveAssetToHistory(`${icon} ${label} ready`, [sceneObj]);
                         setMessages(prev => [...prev, {
-                          id: "a-" + genId(), role: "assistant" as const,
-                          content: `${icon} Video generated! [${d.outputUrl}]`, timestamp: Date.now(),
+                          id: dbId ?? ("a-" + genId()),
+                          role: "assistant" as const,
+                          content: `${icon} ${label} ready`,
+                          scenes: [sceneObj],
+                          timestamp: Date.now(),
                         }]);
                         setVideoGenPicker(null);
                         setVideoGenPrompt("");
@@ -2502,9 +2999,21 @@ function FreeModeChat() {
                       });
                       const d = res.ok ? await res.json() : null;
                       if (d?.outputUrl) {
+                        const sceneObj: Scene = {
+                          id: "vg-" + genId(),
+                          title: isText ? "Text → Video" : isMotion ? "Motion Video" : "Image → Video",
+                          text:  defaultPrompt,
+                          mood:  "neutral",
+                          videoUrl: d.outputUrl,
+                          imageUrl: !isText ? defaultPrompt : undefined,
+                        };
+                        const dbId = await saveAssetToHistory("🎬 Video ready", [sceneObj]);
                         setMessages(prev => [...prev, {
-                          id: "a-" + genId(), role: "assistant" as const,
-                          content: `🎬 Video ready! [${d.outputUrl}]`, timestamp: Date.now(),
+                          id: dbId ?? ("a-" + genId()),
+                          role: "assistant" as const,
+                          content: "🎬 Video ready",
+                          scenes: [sceneObj],
+                          timestamp: Date.now(),
                         }]);
                         setVideoGenPicker(null);
                       }
@@ -2596,6 +3105,9 @@ function FreeModeChat() {
           </div>
         </div>
       </div>
+
+        </div>{/* /chat column */}
+      </div>{/* /body row */}
 
       <style>{`
         @keyframes fadeSlideUp {

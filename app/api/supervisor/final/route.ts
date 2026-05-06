@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { callLLM } from "@/lib/llm";
-import type { PreflightResult } from "@/app/api/hybrid/pre-flight/route";
+
+interface PreflightCheck {
+  id: string;
+  label: string;
+  status: "ok" | "warn" | "error";
+  detail?: string;
+  autoFixAvailable?: boolean;
+}
+
+interface PreflightResult {
+  checks: PreflightCheck[];
+  canAssemble: boolean;
+  blockingErrors: number;
+  warnings: number;
+}
 
 // ── Final / Overall Supervisor ────────────────────────────────────────────────
 // POST body: { projectId }
