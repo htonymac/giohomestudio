@@ -311,6 +311,8 @@ function HybridPlannerInner() {
   const [charStyles, setCharStyles] = useState<Record<string, string>>({});
   // ── Per-character img2ai (photo → AI) state ──────────────────────────────
   const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
+  // ── Previous character portrait — one undo level per character ───────────
+  const [prevCharImages, setPrevCharImages] = useState<Record<string, string>>({});
   // ── Per-character AI vision analysis state ──
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   // ── Per-character manual save state ──
@@ -3342,6 +3344,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       "Consistent design, professional quality, no background distractions.",
     ].filter(Boolean).join(". ");
 
+    // Detect photo-import: if character was built from a real uploaded photo,
+    // pass it as referenceImageUrl so PuLID (fal_flux_pulid) preserves the face
+    const isPhotoImport = char.tags?.includes("photo-import") && !!char.imageUrl;
+    const referenceImageUrl = isPhotoImport ? char.imageUrl : undefined;
+    // For Photo→AI button: always force identity lock if reference image is present
+    const forceIdentityLock = isPhotoImport;
+
     try {
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -3354,6 +3363,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             : effectiveStyle === "3d-cinematic"
             ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
             : "",
+          referenceImageUrl: referenceImageUrl || undefined,
+          useIdentityLock: forceIdentityLock,
           width: 768, height: 960,
           seed: genSeed !== null ? genSeed : undefined,
         }),
@@ -3367,6 +3378,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       // imagePath is a local file path — convert to /api/media/ URL for display
       const url = d.imageUrl || (d.imagePath ? assetToMediaUrl(d.imagePath) : null);
       if (url) {
+        // Save old portrait so user can undo
+        if (char.imageUrl) {
+          setPrevCharImages(prev => ({ ...prev, [char.characterId]: char.imageUrl! }));
+        }
         setCharacters(prev => prev.map(c =>
           c.characterId === char.characterId
             ? { ...c, imageUrl: url, hasImage: true, imageLocked: false }
@@ -6051,6 +6066,42 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e908", color: "#0ea5e9", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                         Import Image
                       </button>
+                      {/* Preview Image — fullscreen lightbox */}
+                      {char.imageUrl && (
+                        <button
+                          onClick={() => setPreviewMedia({ url: char.imageUrl!, type: "image", title: char.displayName })}
+                          title="View portrait fullscreen"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #a78bfa40", background: "#a78bfa08", color: "#a78bfa", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Preview
+                        </button>
+                      )}
+                      {/* Undo Image — restore previous portrait */}
+                      {prevCharImages[char.characterId] && (
+                        <button
+                          onClick={() => {
+                            const prev = prevCharImages[char.characterId];
+                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
+                            setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
+                            setLastAction(`${char.displayName} reverted to previous portrait`);
+                          }}
+                          title="Undo — go back to previous portrait"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #f59e0b40", background: "#f59e0b08", color: "#f59e0b", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Undo Image
+                        </button>
+                      )}
+                      {/* Remove Image — clear portrait entirely */}
+                      {char.imageUrl && (
+                        <button
+                          onClick={() => {
+                            if (char.imageUrl) setPrevCharImages(p => ({ ...p, [char.characterId]: char.imageUrl! }));
+                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: undefined, hasImage: false, imageLocked: false } : c));
+                            setLastAction(`${char.displayName} portrait removed`);
+                          }}
+                          title="Remove this portrait image"
+                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #ef444440", background: "#ef444408", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          Remove Image
+                        </button>
+                      )}
                       {char.imageUrl && !char.imageLocked && (
                         <button
                           onClick={() => {
