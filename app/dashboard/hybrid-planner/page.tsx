@@ -3079,6 +3079,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
   // The more fields filled in, the more consistent the output.
   function buildVisualDescription(char: CharacterIdentity): string {
     const parts: string[] = [];
+    // Age FIRST — image generators weight early tokens highest
+    if (char.ageRange) parts.push(char.ageRange);
     if (char.species) parts.push(`${char.species}`);
     if (char.bodyBuild) parts.push(char.bodyBuild);
     if (char.ageAppearance) parts.push(char.ageAppearance);
@@ -3093,7 +3095,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (char.hairStyle) parts.push(char.hairStyle);
       if (char.wardrobeStyle) parts.push(char.wardrobeStyle);
       if (char.gender) parts.push(char.gender);
-      if (char.ageRange) parts.push(char.ageRange);
     }
     return parts.join(", ");
   }
@@ -6239,13 +6240,30 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               placeholder='e.g. "wooden walking cane, small satchel bag"'
                               style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                           </div>
-                          {/* Age appearance */}
+                          {/* Age — numeric, feeds ageRange for image gen age anchor */}
                           <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Age / Posture</label>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Age (years) <span style={{ color: "#f97316", fontWeight: 800 }}>★</span></label>
+                            <input
+                              type="number"
+                              min={1} max={120}
+                              value={char.ageRange ? parseInt(char.ageRange) || "" : ""}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setCharacters(prev => prev.map(c => c.characterId === char.characterId
+                                  ? { ...c, ageRange: val ? `${val} years old` : "" }
+                                  : c));
+                              }}
+                              placeholder='e.g. 8'
+                              style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                            <p style={{ fontSize: 9, color: "#f97316", margin: "3px 0 0", fontWeight: 600 }}>★ Required — image generator uses this to lock the correct age</p>
+                          </div>
+                          {/* Posture / Energy — separate from age */}
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Posture / Energy</label>
                             <input
                               value={char.ageAppearance || ""}
                               onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, ageAppearance: e.target.value } : c))}
-                              placeholder='e.g. "elderly, slightly hunched, wise and warm expression"'
+                              placeholder='e.g. "standing upright, energetic and confident" or "slightly hunched, calm"'
                               style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                           </div>
                           {/* Distinctive features */}
