@@ -6049,6 +6049,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
                             outline: "none", flex: 1
                           }}>
+                          <option value="ideogram_free">Ideogram Free ($0.00) — free</option>
                           <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
                           <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
                           <option value="segmind_pruna">Pruna ($0.005) — fast</option>
