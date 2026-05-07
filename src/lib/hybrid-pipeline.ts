@@ -61,12 +61,6 @@ export async function runHybridPipeline(
       audience: input.audience,
     });
 
-    // Create HybridProject in DB
-    const projRes = await fetch(`${BASE_URL}/api/hybrid/story-expand`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...input, _createProject: true }),
-    });
     // For now, use a client-side ID — the individual APIs will create DB records
     projectId = `hybrid_${Date.now()}`;
 

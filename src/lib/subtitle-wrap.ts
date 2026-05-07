@@ -132,13 +132,17 @@ export function chunksToSRT(chunks: TimedSubtitleChunk[]): string {
     .join("\n");
 }
 
-function msToSRTTime(ms: number): string {
+function msToTimeParts(ms: number) {
   const totalSecs = Math.floor(ms / 1000);
-  const millis = ms % 1000;
-  const hours = Math.floor(totalSecs / 3600);
-  const minutes = Math.floor((totalSecs % 3600) / 60);
-  const seconds = totalSecs % 60;
-  return `${pad2(hours)}:${pad2(minutes)}:${pad2(seconds)},${pad3(millis)}`;
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  return { h, m, s, millis: ms % 1000 };
+}
+
+function msToSRTTime(ms: number): string {
+  const { h, m, s, millis } = msToTimeParts(ms);
+  return `${pad2(h)}:${pad2(m)}:${pad2(s)},${pad3(millis)}`;
 }
 
 function pad2(n: number) { return String(n).padStart(2, "0"); }
@@ -183,9 +187,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\
 }
 
 function msToASSTime(ms: number): string {
-  const totalSecs = ms / 1000;
-  const hours = Math.floor(totalSecs / 3600);
-  const minutes = Math.floor((totalSecs % 3600) / 60);
-  const seconds = totalSecs % 60;
-  return `${hours}:${pad2(minutes)}:${seconds.toFixed(2).padStart(5, "0")}`;
+  const { h, m, s, millis } = msToTimeParts(ms);
+  return `${h}:${pad2(m)}:${(s + millis / 1000).toFixed(2).padStart(5, "0")}`;
 }

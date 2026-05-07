@@ -97,6 +97,20 @@ export interface LLMOptions {
 
 // ── Per-provider callers ──────────────────────────────────────
 
+async function callProvider(
+  fn: () => Promise<string | null>,
+  providerTag: string,
+  label: string,
+): Promise<LLMResult> {
+  try {
+    const text = await fn();
+    if (!text) return { ok: false, error: `${label} returned empty response` };
+    return { ok: true, text, provider: providerTag };
+  } catch (err) {
+    return { ok: false, error: `${label} error: ${err instanceof Error ? err.message : String(err)}` };
+  }
+}
+
 async function callClaude(
   prompt: string,
   system: string | undefined,
@@ -105,22 +119,17 @@ async function callClaude(
 ): Promise<LLMResult> {
   const key = loadLLMSettings().ANTHROPIC_API_KEY;
   if (!key) return { ok: false, error: "ANTHROPIC_API_KEY not set" };
-
-  try {
-    const client = new Anthropic({ apiKey: key });
-    const model = opts.forceModel || CLAUDE_MODELS[speed];
+  const client = new Anthropic({ apiKey: key });
+  const model = opts.forceModel || CLAUDE_MODELS[speed];
+  return callProvider(async () => {
     const msg = await client.messages.create({
       model,
       max_tokens: opts.maxTokens ?? 1200,
       system: system ?? "You are a helpful assistant.",
       messages: [{ role: "user", content: prompt }],
     });
-    const text = (msg.content[0] as { type: string; text: string })?.text?.trim() ?? "";
-    if (!text) return { ok: false, error: "Claude returned empty response" };
-    return { ok: true, text, provider: `claude/${model}` };
-  } catch (err) {
-    return { ok: false, error: `Claude error: ${err instanceof Error ? err.message : String(err)}` };
-  }
+    return (msg.content[0] as { type: string; text: string })?.text?.trim() ?? "";
+  }, `claude/${model}`, "Claude");
 }
 
 async function callGPT(
@@ -131,15 +140,13 @@ async function callGPT(
 ): Promise<LLMResult> {
   const key = loadLLMSettings().OPENAI_API_KEY;
   if (!key) return { ok: false, error: "OPENAI_API_KEY not set" };
-
-  try {
-    const client = new OpenAI({ apiKey: key });
-    const model = opts.forceModel || GPT_MODELS[speed];
-    // o1/o3 reasoning models: use max_completion_tokens, no temperature, no system role
-    const isReasoningModel = model.startsWith("o1") || model.startsWith("o3");
+  const client = new OpenAI({ apiKey: key });
+  const model = opts.forceModel || GPT_MODELS[speed];
+  // o1/o3 reasoning models: use max_completion_tokens, no temperature, no system role
+  const isReasoningModel = model.startsWith("o1") || model.startsWith("o3");
+  return callProvider(async () => {
     const res = await client.chat.completions.create({
       model,
-      // Reasoning models require max_completion_tokens; standard models use max_tokens
       ...(isReasoningModel
         ? { max_completion_tokens: opts.maxTokens ?? 1200 }
         : { max_tokens: opts.maxTokens ?? 1200, temperature: opts.temperature ?? 0.4 }
@@ -149,12 +156,8 @@ async function callGPT(
         { role: "user" as const, content: isReasoningModel && system ? `${system}\n\n${prompt}` : prompt },
       ],
     });
-    const text = res.choices[0]?.message?.content?.trim() ?? "";
-    if (!text) return { ok: false, error: "GPT returned empty response" };
-    return { ok: true, text, provider: `openai/${model}` };
-  } catch (err) {
-    return { ok: false, error: `GPT error: ${err instanceof Error ? err.message : String(err)}` };
-  }
+    return res.choices[0]?.message?.content?.trim() ?? "";
+  }, `openai/${model}`, "GPT");
 }
 
 async function callGrok(
@@ -165,14 +168,10 @@ async function callGrok(
 ): Promise<LLMResult> {
   const key = loadLLMSettings().XAI_API_KEY;
   if (!key) return { ok: false, error: "XAI_API_KEY not set" };
-
-  try {
-    // xAI Grok uses OpenAI-compatible API
-    const client = new OpenAI({
-      apiKey: key,
-      baseURL: "https://api.x.ai/v1",
-    });
-    const model = opts.forceModel || GROK_MODELS[speed];
+  // xAI Grok uses OpenAI-compatible API
+  const client = new OpenAI({ apiKey: key, baseURL: "https://api.x.ai/v1" });
+  const model = opts.forceModel || GROK_MODELS[speed];
+  return callProvider(async () => {
     const res = await client.chat.completions.create({
       model,
       max_tokens: opts.maxTokens ?? 1200,
@@ -182,12 +181,8 @@ async function callGrok(
         { role: "user" as const, content: prompt },
       ],
     });
-    const text = res.choices[0]?.message?.content?.trim() ?? "";
-    if (!text) return { ok: false, error: "Grok returned empty response" };
-    return { ok: true, text, provider: `grok/${model}` };
-  } catch (err) {
-    return { ok: false, error: `Grok error: ${err instanceof Error ? err.message : String(err)}` };
-  }
+    return res.choices[0]?.message?.content?.trim() ?? "";
+  }, `grok/${model}`, "Grok");
 }
 
 async function callOllama(
