@@ -102,8 +102,16 @@ export async function POST(req: NextRequest) {
     // Apply characterOverrides — client sends computed visual descriptions that may be richer
     // than DB values (especially for characters defined only in the hybrid project session).
     // Override: visualDescription, wardrobe, hairstyle, imageUrl (only if locked reference)
+    // Track which characterIds are photo-import so hasPhotoImportChar detection works
+    // even for session-only characters that have no DB referenceImages field.
+    const photoImportCharIds = new Set<string>();
+
     if (characterOverrides && Array.isArray(characterOverrides)) {
-      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null }>) {
+      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null; isPhotoImport?: boolean }>) {
+        if (ov.isPhotoImport) {
+          if (ov.characterId) photoImportCharIds.add(ov.characterId);
+          if (ov.name) photoImportCharIds.add(ov.name);
+        }
         const match = resolvedCharacters.find(c =>
           (ov.characterId && (c.characterId === ov.characterId || c.id === ov.characterId)) ||
           (ov.name && c.name === ov.name)
@@ -133,7 +141,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Build structured image prompt — STYLE LOCK FIRST, then CHARACTER IDENTITY
-    // Order: [Style directive] → [Character identity] → [Scene] → [Settings] → [Reinforcement] → [Quality]
+    // Order: [Style directive] → [Character identity] → [Scene] → [Reinforcement] → [Settings] → [Quality]
     // Style is FIRST so the model commits to the render style before processing anything else.
     // This prevents random style drift between 3D cinematic and flat cartoon.
     const promptParts: string[] = [];
@@ -141,13 +149,22 @@ export async function POST(req: NextRequest) {
     // ── STYLE LOCK (absolute first position) ──
     promptParts.push(stylePreset.prefix);
 
-    // ── HUMAN CHARACTER GUARD — prevents AI from defaulting to bears/animals ──
-    // Applied to ALL scenes. Only removed if sceneText explicitly mentions animal characters.
+    // ── ANIMAL DETECTION — check scene text AND character species/descriptions ──
+    // "explicit animal" = sceneText OR character visualDescription OR override species contains known animal words
     const sceneTextLower = (sceneText || "").toLowerCase();
-    const explicitAnimal = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|fur|paws|snout)\b/.test(sceneTextLower);
-    if (!explicitAnimal) {
-      promptParts.push("All characters in this scene are HUMAN BEINGS with human faces, human anatomy, normal skin texture. No bears, no animals, no fur-covered creatures, no snouts, no paws.");
+    const ANIMAL_PATTERN = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|paws|snout)\b/;
+    const sceneHasAnimal = ANIMAL_PATTERN.test(sceneTextLower);
+
+    // Check characterOverrides species field — client sends this from CharacterIdentity
+    const overrideSpecies: string[] = [];
+    if (characterOverrides && Array.isArray(characterOverrides)) {
+      for (const ov of characterOverrides as Array<{ species?: string; visualDescription?: string }>) {
+        if (ov.species) overrideSpecies.push(ov.species.toLowerCase());
+      }
     }
+    const ANIMAL_SPECIES = new Set(["bear", "wolf", "lion", "fox", "rabbit", "dog", "cat", "tiger", "elephant", "monkey"]);
+    const charSpeciesIsAnimal = overrideSpecies.some(s => ANIMAL_SPECIES.has(s));
+    const explicitAnimal = sceneHasAnimal || charSpeciesIsAnimal;
 
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
@@ -165,6 +182,17 @@ export async function POST(req: NextRequest) {
     // ── SCENE DESCRIPTION ──
     promptParts.push((sceneText || "").slice(0, 300));
 
+    // ── HUMAN CHARACTER GUARD — INJECTED LATE (after character block) for maximum override force ──
+    // Applied whenever NO explicit animal signal from scene or character species.
+    // Late-position injection overrides early style-prefix bias from the model.
+    if (!explicitAnimal) {
+      promptParts.push(
+        "IMPORTANT: Every character in this scene is a HUMAN BEING. Human faces, human skin, human bodies, human anatomy. " +
+        "Do NOT generate bears, wolves, animals, anthropomorphic creatures, fur-covered characters, snouts, or paws. " +
+        "All cast members are human children or human adults."
+      );
+    }
+
     // ── SCENE SETTINGS ──
     if (location) promptParts.push(`${location}`);
     if (mood) promptParts.push(`${mood} mood`);
@@ -175,7 +203,8 @@ export async function POST(req: NextRequest) {
 
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
-    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, furry creature, snout, paws, animal head, anthropomorphic animal";
+    // bear-guard: hard negative appended whenever characters are human (not explicit animal scene)
+    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, bear anatomy, furry creature, animal face, snout, paws, animal head, anthropomorphic animal, non-human character";
     const negativePrompt = stylePreset.negative + bearNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
@@ -204,8 +233,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Generate image
-    // Detect photo-import characters — route to face-lock model (PuLID) when present
+    // Detect photo-import characters — route to face-lock model (PuLID) when present.
+    // Checks both DB referenceImages tags AND client-supplied isPhotoImport flag
+    // (session-only characters have no DB referenceImages, so the flag is the fallback).
     const hasPhotoImportChar = resolvedCharacters.some(c => {
+      // Check client-supplied flag (session characters not yet in DB)
+      if (photoImportCharIds.has(c.characterId || "") || photoImportCharIds.has(c.id) || photoImportCharIds.has(c.name)) return true;
+      // Check DB referenceImages tags
       if (!c.referenceImages) return false;
       const refs = c.referenceImages as Array<{ url?: string; label?: string; tags?: string[] }>;
       return Array.isArray(refs) && refs.some(r => r?.label === "photo-import" || (r?.tags && Array.isArray(r.tags) && r.tags.includes("photo-import")));

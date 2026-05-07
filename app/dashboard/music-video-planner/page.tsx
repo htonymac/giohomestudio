@@ -12,6 +12,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
+import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -130,7 +131,7 @@ const MV_TABS: { id: MvTab; label: string; step?: number }[] = [
   { id: "characters",  label: "Characters",  step: 4 },
   { id: "script",      label: "Song Script", step: 5 },
   { id: "captions",    label: "Captions",    step: 6 },
-  { id: "sound",       label: "Vocal Mix",   step: 7 },
+  { id: "sound",       label: "Sound & SFX", step: 7 },
   { id: "assembly",    label: "Assembly",    step: 8 },
   { id: "overview",    label: "Overview" },
 ];
@@ -259,6 +260,21 @@ export default function MusicVideoPlannerPage() {
   const [loadingCharacters, setLoadingCharacters] = useState(false);
   const [showCharacterPicker, setShowCharacterPicker] = useState(false);
   const [characterLibrary, setCharacterLibrary] = useState<ImportedCharacter[]>([]);
+
+  // ── SB: inline character create state ──
+  const [charTabName, setCharTabName] = useState("");
+  const [charTabCreating, setCharTabCreating] = useState(false);
+  const [buildingChars, setBuildingChars] = useState(false);
+  const [buildCharProgress, setBuildCharProgress] = useState("");
+  const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
+  const [portraitModel, setPortraitModel] = useState<string>("fal_flux_schnell");
+
+  // ── SC: Sound tab voice state ──
+  const [ghsSoundTierId, setGhsSoundTierId] = useState<string>("ghs-sound");
+  const [voiceLayerNarratorModel, setVoiceLayerNarratorModel] = useState("piper");
+  const [castVoiceMap, setCastVoiceMap] = useState<Record<string, string>>({});
+  const [generatingPerLineVoices, setGeneratingPerLineVoices] = useState(false);
+  const [assignMode, setAssignMode] = useState<"manual" | "ai">("manual");
 
   // ── Continuous Motion ──
   const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
@@ -1706,12 +1722,133 @@ export default function MusicVideoPlannerPage() {
       {/* Audio tab */}
       {activeTab === "sound" && (
         <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}><Icon.Mic style={{ width: 18, height: 18 }} /> Audio &amp; Narration</h2>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}><Icon.Mic style={{ width: 18, height: 18 }} /> Sound &amp; SFX</h2>
 
-          {/* ── SC: 5-Tier Sound Model Selector (binding) ── */}
+          {/* SC-1: Parse Script */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #1e2a35" }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>Parse Script</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Parse lyrics/screenplay into voice segments for narration and character dialogue.</p>
+            <button
+              onClick={async () => {
+                if (!lyrics.trim() && !screenplay.trim()) { return; }
+                setParsingScript(true);
+                try {
+                  const res = await fetch("/api/hybrid/character-extract", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ story: lyrics || screenplay, projectId: projectId || "mv-draft" }),
+                  });
+                  const data = await res.json();
+                  if (data.characters?.length > 0) {
+                    const newChars: ImportedCharacter[] = data.characters.map((c: { name: string }, i: number) => ({
+                      id: `mv-char-sc-${Date.now()}-${i}`,
+                      name: c.name,
+                    }));
+                    setImportedCharacters(prev => {
+                      const existingNames = new Set(prev.map(p => p.name.toLowerCase()));
+                      return [...prev, ...newChars.filter(nc => !existingNames.has(nc.name.toLowerCase()))];
+                    });
+                  }
+                } catch { /* ignore */ } finally { setParsingScript(false); }
+              }}
+              disabled={parsingScript || (!lyrics.trim() && !screenplay.trim())}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: parsingScript ? "#2a2a40" : "#7c5cfc", color: "#fff", fontSize: 12, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
+              {parsingScript ? "Parsing..." : "Parse Script"}
+            </button>
+            {!lyrics.trim() && !screenplay.trim() && (
+              <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 6 }}>Add song lyrics in the Song Input tab first.</p>
+            )}
+          </div>
+
+          {/* SC-2: Voice Layers */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #1e2a35" }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Voice Layers</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+              <span style={{ fontSize: 11, color: "#fff", minWidth: 80 }}>L1 Narrator</span>
+              <select
+                value={voiceLayerNarratorModel}
+                onChange={e => setVoiceLayerNarratorModel(e.target.value)}
+                style={{ flex: 1, background: "#0d1117", border: `1px solid ${border}`, borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11 }}>
+                <option value="piper">Piper (built-in, free)</option>
+                <option value="elevenlabs">ElevenLabs</option>
+                <option value="google_tts">Google TTS</option>
+              </select>
+            </div>
+            <button
+              style={{ padding: "6px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+              + Layer
+            </button>
+          </div>
+
+          {/* SC-3: Character Voices */}
+          {importedCharacters.length > 0 && (
+            <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #1e2a35" }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>Character Voices</p>
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 12 }}>
+                {importedCharacters.map(ch => (
+                  <div key={ch.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 11, color: "#fff", minWidth: 90, fontWeight: 600 }}>{ch.name}</span>
+                    <input
+                      value={castVoiceMap[ch.id] || ch.voiceId || ""}
+                      onChange={e => setCastVoiceMap(prev => ({ ...prev, [ch.id]: e.target.value }))}
+                      placeholder="Voice ID (ElevenLabs or Piper)"
+                      style={{ ...inputStyle, flex: 1, padding: "6px 10px", fontSize: 11 }}
+                    />
+                    <button
+                      style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 10, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                      Demo
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" as const }}>
+                <button
+                  onClick={async () => {
+                    setGeneratingPerLineVoices(true);
+                    try {
+                      await fetch("/api/hybrid/narrate-piper", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: lyrics || screenplay, projectId: projectId || "mv-draft", model: voiceLayerNarratorModel }),
+                      });
+                    } catch { /* ignore */ } finally { setGeneratingPerLineVoices(false); }
+                  }}
+                  disabled={generatingPerLineVoices}
+                  style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: generatingPerLineVoices ? "#2a2a40" : "#7c5cfc", color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingPerLineVoices ? "not-allowed" : "pointer" }}>
+                  {generatingPerLineVoices ? "Generating..." : "Generate Per-Line Voices"}
+                </button>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {(["manual", "ai"] as const).map(m => (
+                    <button key={m} onClick={() => setAssignMode(m)}
+                      style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${assignMode === m ? "#7c5cfc" : border}`, background: assignMode === m ? "rgba(124,92,252,0.12)" : "transparent", color: assignMode === m ? "#7c5cfc" : muted, fontSize: 10, cursor: "pointer", fontWeight: assignMode === m ? 700 : 400 }}>
+                      {m === "manual" ? "Manual" : "AI Detect"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SC-4: GHS Sound Tier 4-tile */}
           <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #7c5cfc30" }}>
-            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#7c5cfc", marginBottom: 8 }}>Sound Model</p>
-            <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 10 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#7c5cfc", marginBottom: 8 }}>GHS Sound Tier</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Select audio quality tier for music video narration and sound.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+              {GHS_SOUND_TIERS.map(tier => (
+                <button key={tier.id} onClick={() => setGhsSoundTierId(tier.id)}
+                  style={{ display: "flex", flexDirection: "column" as const, gap: 4, padding: "12px 14px", borderRadius: 12, border: `2px solid ${ghsSoundTierId === tier.id ? "#7c5cfc" : border}`, background: ghsSoundTierId === tier.id ? "rgba(124,92,252,0.12)" : "transparent", cursor: "pointer", textAlign: "left" as const }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: ghsSoundTierId === tier.id ? "#7c5cfc" : "#fff" }}>{tier.label}</span>
+                  <span style={{ fontSize: 9, color: ghsSoundTierId === tier.id ? "rgba(124,92,252,0.8)" : muted }}>{tier.description}</span>
+                  {tier.isFree && <span style={{ fontSize: 8, color: "#22c55e", fontWeight: 700 }}>FREE</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Legacy SC: 5-Tier Sound Model Selector (kept for compat) ── */}
+          <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #1e2a35" }}>
+            <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 8 }}>Legacy Sound Model</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
               {SOUND_TIERS_MV.map((tier, idx) => (
                 <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
@@ -2482,20 +2619,20 @@ export default function MusicVideoPlannerPage() {
                         )}
                       </div>
                     </div>
-                    {selectedScene === s.scene ? (
-                      <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
-                        <textarea value={s.prompt} onChange={e => setStoryboard(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, prompt: e.target.value } : sc))}
-                          rows={2} style={{ ...inputStyle, fontSize: 11, padding: "6px 8px", marginBottom: 6 }} />
+                    {/* SE: always-visible inline editable textarea */}
+                    <div style={{ marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                      <textarea value={s.prompt} onChange={e => setStoryboard(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, prompt: e.target.value } : sc))}
+                        rows={2} placeholder="Visual description of this scene…"
+                        style={{ ...inputStyle, fontSize: 11, padding: "6px 8px", marginBottom: 6, resize: "vertical" as const, color: s.prompt ? "#fff" : muted }} />
+                      {selectedScene === s.scene && (
                         <div style={{ display: "flex", gap: 6 }}>
                           <input value={s.movement} onChange={e => setStoryboard(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, movement: e.target.value } : sc))}
                             style={{ ...inputStyle, fontSize: 10, padding: "4px 8px", flex: 1 }} placeholder="Movement" />
                           <input value={s.caption} onChange={e => setStoryboard(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, caption: e.target.value } : sc))}
                             style={{ ...inputStyle, fontSize: 10, padding: "4px 8px", flex: 1 }} placeholder="Caption/Lyric line" />
                         </div>
-                      </div>
-                    ) : (
-                      <p style={{ fontSize: 11, color: muted, marginTop: 2 }}>{s.prompt.slice(0, 90)}{s.prompt.length > 90 ? "…" : ""}</p>
-                    )}
+                      )}
+                    </div>
                     {s.caption && selectedScene !== s.scene && (
                       <p style={{ fontSize: 10, color: "#f59e0b", marginTop: 3, fontStyle: "italic" }}>"{s.caption.slice(0, 60)}"</p>
                     )}
@@ -2579,61 +2716,175 @@ export default function MusicVideoPlannerPage() {
       {/* ═══ CHARACTERS TAB ═══ */}
       {activeTab === "characters" && (
         <div style={cardStyle}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Cast & Characters</h2>
-          <p style={{ fontSize: 11, color: muted, marginBottom: 20 }}>Import saved characters to appear in your music video scenes. Characters are generated from your story in the hybrid planner or character builder.</p>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Cast & Characters</h2>
+          <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Build your music video cast with AI or create manually.</p>
 
-          {/* Imported cast */}
-          {importedCharacters.length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 10 }}>Cast ({importedCharacters.length})</p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 8 }}>
-                {importedCharacters.map(char => (
-                  <div key={char.id} style={{ background: "#080b10", borderRadius: 10, border: "1px solid #1e2a35", padding: 10, display: "flex", flexDirection: "column" as const, gap: 6, alignItems: "center", position: "relative" as const }}>
-                    <button onClick={() => setImportedCharacters(prev => prev.filter(c => c.id !== char.id))}
-                      style={{ position: "absolute" as const, top: 6, right: 6, background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 10 }}>✕</button>
-                    {char.imageUrl ? (
-                      <img src={char.imageUrl} alt={char.name} style={{ width: 64, height: 64, borderRadius: 8, objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ width: 64, height: 64, borderRadius: 8, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: muted }}>?</div>
-                    )}
-                    <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", textAlign: "center" as const }}>{char.name}</p>
-                    {char.voiceName && <p style={{ fontSize: 9, color: muted }}>{char.voiceName}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Import from library */}
+          {/* SB-1: Primary CTA — Build with AI */}
           <div style={{ marginBottom: 16 }}>
-            <button onClick={() => { setShowCharacterPicker(p => !p); if (!showCharacterPicker && characterLibrary.length === 0) loadCharacters(); }}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(124,92,252,0.4)", background: "rgba(124,92,252,0.1)", color: "#7c5cfc", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-              {showCharacterPicker ? "Close Library" : "Import Existing Character"}
+            <button
+              onClick={async () => {
+                if (!lyrics.trim() && !songTitle.trim()) { setBuildCharProgress("Add song title or lyrics first"); return; }
+                setBuildingChars(true);
+                setBuildCharProgress("Detecting characters...");
+                try {
+                  const res = await fetch("/api/hybrid/character-extract", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ story: lyrics || songTitle, projectId: projectId || "mv-draft" }),
+                  });
+                  const data = await res.json();
+                  const detected: Array<{ name: string; role?: string }> = data.characters || data.cast || [];
+                  if (detected.length > 0) {
+                    const newChars: ImportedCharacter[] = detected.map((c, i) => ({
+                      id: `mv-char-${Date.now()}-${i}`,
+                      name: c.name,
+                      voiceName: c.role ? `${c.role} voice` : undefined,
+                    }));
+                    setImportedCharacters(prev => {
+                      const existingNames = new Set(prev.map(p => p.name.toLowerCase()));
+                      return [...prev, ...newChars.filter(nc => !existingNames.has(nc.name.toLowerCase()))];
+                    });
+                    setBuildCharProgress(`${detected.length} characters detected`);
+                  } else {
+                    setBuildCharProgress("No characters found — add manually below");
+                  }
+                } catch { setBuildCharProgress("Detection failed — add manually"); }
+                finally { setBuildingChars(false); }
+              }}
+              disabled={buildingChars}
+              style={{ width: "100%", padding: "14px 24px", borderRadius: 12, border: "none", background: buildingChars ? "#2a2a40" : "linear-gradient(135deg, #7c5cfc, #ec4899)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: buildingChars ? "not-allowed" : "pointer", marginBottom: 8 }}>
+              {buildCharProgress || "Build Story Characters with AI"}
             </button>
-            {loadingCharacters && <span style={{ fontSize: 11, color: muted, marginLeft: 10 }}>Loading…</span>}
           </div>
 
+          {/* SB-2: Inline add + Import tertiary */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center" }}>
+            <input
+              value={charTabName}
+              onChange={e => setCharTabName(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && charTabName.trim()) {
+                  const newChar: ImportedCharacter = { id: `mv-char-${Date.now()}`, name: charTabName.trim() };
+                  setImportedCharacters(prev => [...prev, newChar]);
+                  setCharTabName("");
+                }
+              }}
+              placeholder="+ Create New..."
+              style={{ ...inputStyle, flex: 1, padding: "10px 14px", fontSize: 13 }}
+            />
+            <button
+              onClick={() => {
+                if (!charTabName.trim()) return;
+                const newChar: ImportedCharacter = { id: `mv-char-${Date.now()}`, name: charTabName.trim() };
+                setImportedCharacters(prev => [...prev, newChar]);
+                setCharTabName("");
+              }}
+              disabled={charTabCreating || !charTabName.trim()}
+              style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: "#7c5cfc", color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+              Add
+            </button>
+            <button
+              onClick={() => { setShowCharacterPicker(p => !p); if (!showCharacterPicker && characterLibrary.length === 0) loadCharacters(); }}
+              style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(124,92,252,0.3)", background: "transparent", color: "#7c5cfc", fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+              or import saved →
+            </button>
+          </div>
+
+          {/* Import library picker */}
           {showCharacterPicker && (
-            <div style={{ background: "#080b10", borderRadius: 12, border: "1px solid #1e2a35", padding: 12, maxHeight: 280, overflowY: "auto" as const, marginBottom: 16 }}>
+            <div style={{ background: "#080b10", borderRadius: 12, border: "1px solid #1e2a35", padding: 12, maxHeight: 240, overflowY: "auto" as const, marginBottom: 16 }}>
+              {loadingCharacters && <p style={{ fontSize: 11, color: muted }}>Loading…</p>}
               {characterLibrary.length === 0 && !loadingCharacters && (
-                <p style={{ fontSize: 11, color: muted }}>No characters found. Create characters in the Hybrid Planner first.</p>
+                <p style={{ fontSize: 11, color: muted }}>No saved characters. Create characters in the Hybrid Planner first.</p>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8 }}>
                 {characterLibrary.map(char => {
                   const already = importedCharacters.some(c => c.id === char.id);
                   return (
-                    <div key={char.id} onClick={() => { if (!already) { setImportedCharacters(prev => [...prev, char]); } setShowCharacterPicker(false); }}
+                    <div key={char.id} onClick={() => { if (!already) setImportedCharacters(prev => [...prev, char]); setShowCharacterPicker(false); }}
                       style={{ background: already ? "rgba(34,197,94,0.08)" : "#0d1117", borderRadius: 8, border: `1px solid ${already ? "rgba(34,197,94,0.3)" : "#1e2a35"}`, padding: 8, cursor: already ? "default" : "pointer", display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 4 }}>
-                      {char.imageUrl ? (
-                        <img src={char.imageUrl} alt={char.name} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover" }} />
-                      ) : (
-                        <div style={{ width: 48, height: 48, borderRadius: 6, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: muted }}>?</div>
-                      )}
+                      {char.imageUrl
+                        ? <img src={char.imageUrl} alt={char.name} style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover" }} />
+                        : <div style={{ width: 48, height: 48, borderRadius: 6, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: muted }}>?</div>}
                       <p style={{ fontSize: 10, fontWeight: 700, color: already ? "#22c55e" : "#fff", textAlign: "center" as const }}>{char.name}</p>
                       {already && <span style={{ fontSize: 8, color: "#22c55e" }}>Added</span>}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* SB-3: Character cards with Generate Portrait / Save / Import Image */}
+          {importedCharacters.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: muted, letterSpacing: "0.15em", textTransform: "uppercase" as const }}>Cast ({importedCharacters.length})</p>
+                <select value={portraitModel} onChange={e => setPortraitModel(e.target.value)}
+                  style={{ marginLeft: "auto", fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #1e2a35", background: "#080b10", color: muted, cursor: "pointer" }}>
+                  <option value="fal_flux_schnell">Schnell (fast)</option>
+                  <option value="fal_flux_dev">Dev (balanced)</option>
+                  <option value="fal_flux_pro">Pro (best)</option>
+                </select>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+                {importedCharacters.map(char => (
+                  <div key={char.id} style={{ background: "#080b10", borderRadius: 10, border: "1px solid #1e2a35", padding: 12, display: "flex", flexDirection: "column" as const, gap: 6, alignItems: "center", position: "relative" as const }}>
+                    <button onClick={() => setImportedCharacters(prev => prev.filter(c => c.id !== char.id))}
+                      style={{ position: "absolute" as const, top: 6, right: 6, background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 10 }}>✕</button>
+                    {char.imageUrl
+                      ? <img src={char.imageUrl} alt={char.name} style={{ width: 72, height: 72, borderRadius: 10, objectFit: "cover" }} />
+                      : <div style={{ width: 72, height: 72, borderRadius: 10, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: muted }}>?</div>}
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", textAlign: "center" as const }}>{char.name}</p>
+                    {char.voiceName && <p style={{ fontSize: 9, color: muted }}>{char.voiceName}</p>}
+                    {/* Per-card action buttons */}
+                    <button
+                      onClick={async () => {
+                        setGeneratingPortrait(char.id);
+                        try {
+                          const res = await fetch("/api/hybrid/scene-image", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ prompt: `Portrait of ${char.name}, music video character, cinematic lighting`, model: portraitModel }),
+                          });
+                          const d = await res.json();
+                          if (d.imageUrl) {
+                            setImportedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: d.imageUrl } : c));
+                          }
+                        } catch { /* ignore */ } finally { setGeneratingPortrait(null); }
+                      }}
+                      disabled={generatingPortrait === char.id}
+                      style={{ width: "100%", padding: "5px 8px", borderRadius: 7, border: "1px solid rgba(0,212,255,0.3)", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 9, fontWeight: 700, cursor: generatingPortrait === char.id ? "not-allowed" : "pointer" }}>
+                      {generatingPortrait === char.id ? "Generating..." : "Generate Portrait"}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          await fetch("/api/character-voices", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ characterId: char.id, displayName: char.name, voiceId: char.voiceId || "", imageUrl: char.imageUrl }),
+                          });
+                        } catch { /* ignore */ }
+                      }}
+                      style={{ width: "100%", padding: "5px 8px", borderRadius: 7, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.08)", color: "#22c55e", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                      Save Character
+                    </button>
+                    <label style={{ width: "100%", padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: "rgba(255,255,255,0.04)", color: muted, fontSize: 9, fontWeight: 700, cursor: "pointer", textAlign: "center" as const, display: "block" }}>
+                      Import Image
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => {
+                          const url = ev.target?.result as string;
+                          setImportedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
+                        };
+                        reader.readAsDataURL(file);
+                      }} />
+                    </label>
+                  </div>
+                ))}
               </div>
             </div>
           )}

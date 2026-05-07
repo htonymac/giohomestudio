@@ -273,6 +273,8 @@ function ChildrenPlannerInner() {
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [visualStyle, setVisualStyle] = useState("storybook");
   const [projectStyle, setProjectStyle] = useState("storybook"); // maps to STYLE_PRESETS in scene-image API
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [narrationSpeed, setNarrationSpeed] = useState(0.75);
   const [characterVoices, setCharacterVoices] = useState<Record<string, string>>({});
   const [tone, setTone] = useState<"soft" | "active">("soft");
@@ -345,10 +347,19 @@ function ChildrenPlannerInner() {
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
   const [sceneDurations, setSceneDurations] = useState<Record<string, "short" | "medium" | "long">>({});
   const importFileRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  const sceneTitleTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
 
   // ── Per-scene AI SFX + per-scene continuous motion ──────────────────────
   const [sceneContinuousMotion, setSceneContinuousMotion] = useState<Record<string, { enabled: boolean; targetSec: number }>>({});
   const [generatingSceneSfx, setGeneratingSceneSfx] = useState<Set<string>>(new Set());
+
+  // ── Archived scenes (soft delete) ──
+  const [archivedScenes, setArchivedScenes] = useState<ChildScene[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
+
+  // ── Per-scene music ──
+  const [generatingSceneMusic, setGeneratingSceneMusic] = useState<Set<string>>(new Set());
+  const [sceneMusicUrls, setSceneMusicUrls] = useState<Record<string, string>>({});
 
   // ── Continuous Motion ──────────────────────────────────────────────────────
   const [continuousMotionEnabled, setContinuousMotionEnabled] = useState(false);
@@ -463,6 +474,8 @@ function ChildrenPlannerInner() {
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   const [savingCharacter, setSavingCharacter] = useState<string | null>(null);
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
   const [savedCharacter, setSavedCharacter] = useState<string | null>(null);
   const [imagePickerForCharId, setImagePickerForCharId] = useState<string | null>(null);
   const [imagePickerAssets, setImagePickerAssets] = useState<Array<{ id: string; name: string; fileUrl?: string; filePath?: string; source?: string }>>([]);
@@ -777,7 +790,7 @@ function ChildrenPlannerInner() {
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideModelId?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
@@ -790,10 +803,14 @@ function ChildrenPlannerInner() {
       "Show the character clearly from head to toe. Friendly and safe for children.",
       "Consistent design, professional quality.",
     ].filter(Boolean).join(". ");
+    const isPhotoImport = char.tags?.includes("photo-import");
+    const effectiveModelId = overrideModelId
+      || charPortraitModel[char.characterId]
+      || (isPhotoImport ? "fal_flux_pulid" : undefined);
     try {
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: portraitPrompt, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
+        body: JSON.stringify({ prompt: portraitPrompt, modelId: effectiveModelId, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
       });
       const d = await res.json();
       if (d.error) { setUiError(`Portrait failed: ${d.error}`); setGeneratingPortrait(null); return; }
@@ -1243,7 +1260,7 @@ function ChildrenPlannerInner() {
           sceneId,
           sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
           characterIds: assignedChars,
-          projectStyle,
+          projectStyle: sceneStyles[sceneId] || projectStyle,
           mood: "friendly, warm, safe",
           modelId: selectedImageModelId,
         }),
@@ -1289,7 +1306,7 @@ function ChildrenPlannerInner() {
               sceneId,
               sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
               characterIds: assignedChars,
-              projectStyle: visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook",
+              projectStyle: sceneStyles[sceneId] || (visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
               mood: "friendly, warm, safe",
               modelId: selectedImageModelId,
               seed: seeds[i],
@@ -1380,6 +1397,59 @@ function ChildrenPlannerInner() {
     } finally {
       setGeneratingSceneSfx(prev => { const s = new Set(prev); s.delete(sceneId); return s; });
     }
+  }
+
+  // ── Per-scene music — request music mood for this scene via audio-plan ──
+  async function generateSceneMusic(sceneId: string, description: string, title: string) {
+    setGeneratingSceneMusic(prev => new Set(prev).add(sceneId));
+    try {
+      const res = await fetch("/api/hybrid/audio-plan", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sceneText: `${title}. ${description}`,
+          autoMode: true,
+          childSafe: true,
+          ageGroup,
+          musicOnly: true,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const mood = data.musicMood || data.mood || "";
+        const musicUrl = data.musicUrl || "";
+        if (musicUrl) {
+          setSceneMusicUrls(prev => ({ ...prev, [sceneId]: musicUrl }));
+        }
+        if (mood) {
+          setLastAction(`Scene ${sceneId}: music mood — ${mood}`);
+        }
+      }
+    } catch (e) {
+      console.error("[children-planner] scene music error:", e);
+    } finally {
+      setGeneratingSceneMusic(prev => { const s = new Set(prev); s.delete(sceneId); return s; });
+    }
+  }
+
+  // ── Soft-delete scene (moves to archived, not permanent) ──
+  function archiveScene(sceneNum: number) {
+    setChildScenes(prev => {
+      const target = prev.find(s => s.scene === sceneNum);
+      if (target) setArchivedScenes(a => [...a, target]);
+      return prev.filter(s => s.scene !== sceneNum);
+    });
+    setLastAction(`Scene ${sceneNum} moved to archive (not deleted)`);
+  }
+
+  // ── Restore scene from archive ──
+  function restoreScene(sceneNum: number) {
+    setArchivedScenes(prev => {
+      const target = prev.find(s => s.scene === sceneNum);
+      if (target) setChildScenes(c => [...c, target].sort((a, b) => a.scene - b.scene));
+      return prev.filter(s => s.scene !== sceneNum);
+    });
+    setLastAction(`Scene ${sceneNum} restored`);
   }
 
   // ── AI Supervisor — checks video/audio authenticity before assembly (runs unlimited times) ──
@@ -2951,6 +3021,26 @@ function ChildrenPlannerInner() {
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? ds.color.lilac : border}`, background: isEditing ? `${ds.color.lilac}15` : "transparent", color: isEditing ? ds.color.lilac : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
                         {isEditing ? "Close Builder" : "Define Appearance"}
                       </button>
+                      {/* ── Portrait model selector ── */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                        <select
+                          value={charPortraitModel[char.characterId] || (char.tags?.includes("photo-import") ? "fal_flux_pulid" : "segmind_flux")}
+                          onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                          style={{
+                            padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                            border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                            outline: "none", flex: 1
+                          }}>
+                          <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                          <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                          <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                          <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                          <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                          <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                          <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
+                        </select>
+                      </div>
                       <button onClick={() => generateCharacterPortrait(char)} disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
                         {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
@@ -5013,8 +5103,22 @@ function ChildrenPlannerInner() {
                           Import
                         </button>
                       </div>
-                      {/* Bottom-right: Gen 4 + Regen */}
-                      <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4 }}>
+                      {/* Bottom-right: Style override + Gen 4 + Regen */}
+                      <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
+                        <select
+                          value={sceneStyles[sceneId] || projectStyle || "storybook"}
+                          onChange={e => { e.stopPropagation(); setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value })); }}
+                          onClick={e => e.stopPropagation()}
+                          title="Override style for this scene"
+                          style={{ padding: "0 4px", height: 26, borderRadius: 7, border: "1px solid #7c3aed40", background: "rgba(15,23,42,0.9)", color: "#c084fc", fontSize: 8, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cin</option>
+                          <option value="realistic">Real</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cart</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Story</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button
                           onClick={e => { e.stopPropagation(); generateSceneBoardImageVariations(scene); }}
                           disabled={isGenImg || isGenVar}
@@ -5050,7 +5154,43 @@ function ChildrenPlannerInner() {
 
                     {/* Content area */}
                     <div style={{ padding: "12px 14px" }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 6 }}>{scene.title}</p>
+                      {/* Scene header: type badge + title editable + delete */}
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginBottom: 6 }}>
+                        {/* Scene type badge: Video-led if video exists, Image-led otherwise */}
+                        <span style={{
+                          fontSize: 7, fontWeight: 700, padding: "2px 7px", borderRadius: 10, flexShrink: 0, marginTop: 2,
+                          background: sceneVideos[sceneId] ? `${childSafe}20` : `${childAccent}15`,
+                          color: sceneVideos[sceneId] ? childSafe : childAccent,
+                          border: `1px solid ${sceneVideos[sceneId] ? childSafe : childAccent}40`,
+                          textTransform: "uppercase" as const, letterSpacing: "0.08em",
+                        }}>
+                          {sceneVideos[sceneId] ? "Video-led" : "Image-led"}
+                        </span>
+                        {/* Scene title — inline editable textarea with 500ms debounce auto-save */}
+                        <textarea
+                          value={scene.title}
+                          rows={1}
+                          onChange={e => {
+                            const val = e.target.value;
+                            setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, title: val } : s));
+                            clearTimeout(sceneTitleTimers.current[sceneId]);
+                            sceneTitleTimers.current[sceneId] = setTimeout(() => {
+                              // title auto-saved to state — persisted on OK Save
+                            }, 500);
+                          }}
+                          style={{ flex: 1, background: "transparent", border: "none", borderBottom: `1px solid ${border}`, borderRadius: 0, padding: "2px 0", color: "#fff", fontSize: 12, fontWeight: 700, outline: "none", resize: "none", fontFamily: "inherit", lineHeight: 1.3 }}
+                          placeholder="Scene title..."
+                        />
+                        {/* Delete scene — soft delete to archive */}
+                        <button
+                          onClick={() => archiveScene(scene.scene)}
+                          title="Move to archive (not permanently deleted)"
+                          style={{ padding: "3px 7px", borderRadius: 6, border: "1px solid #ef444440", background: "#ef444410", color: "#ef4444", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0, marginTop: 1 }}>
+                          Archive
+                        </button>
+                      </div>
+
+                      {/* Scene description — editable inline textarea */}
                       <textarea
                         value={scene.visualDescription}
                         onChange={e => setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, visualDescription: e.target.value } : s))}
@@ -5058,22 +5198,37 @@ function ChildrenPlannerInner() {
                         placeholder="Scene description (editable)..."
                       />
 
-                      {/* Per-scene: SFX + continuous motion + duration */}
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                      {/* Per-scene: SFX + Scene Music + continuous motion + duration picker */}
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" as const, marginTop: 8, marginBottom: 8 }}>
                         <button
                           onClick={() => generateSceneSfx(sceneId, scene.visualDescription ?? "")}
                           disabled={generatingSceneSfx.has(sceneId)}
                           title="Auto-extract SFX cues from scene text"
                           style={{
-                            padding: "4px 10px", fontSize: 11, borderRadius: 6, border: "1px solid #7c3aed",
+                            padding: "4px 9px", fontSize: 10, borderRadius: 6, border: "1px solid #7c3aed",
                             background: generatingSceneSfx.has(sceneId) ? "#3b2a6e" : "#1a0a3a",
                             color: "#c4b5fd", cursor: generatingSceneSfx.has(sceneId) ? "wait" : "pointer",
-                          }}
-                        >
-                          {generatingSceneSfx.has(sceneId) ? "Extracting…" : "AI SFX"}
+                          }}>
+                          {generatingSceneSfx.has(sceneId) ? "SFX..." : "AI SFX"}
                         </button>
 
-                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "#a78bfa", cursor: "pointer" }}>
+                        {/* Scene Music button */}
+                        <button
+                          onClick={() => generateSceneMusic(sceneId, scene.visualDescription ?? "", scene.title)}
+                          disabled={generatingSceneMusic.has(sceneId)}
+                          title="Generate music mood for this scene"
+                          style={{
+                            padding: "4px 9px", fontSize: 10, borderRadius: 6,
+                            border: `1px solid ${sceneMusicUrls[sceneId] ? childSafe : "#4a5568"}`,
+                            background: generatingSceneMusic.has(sceneId) ? "#1a2a1a" : sceneMusicUrls[sceneId] ? `${childSafe}15` : "transparent",
+                            color: generatingSceneMusic.has(sceneId) ? muted : sceneMusicUrls[sceneId] ? childSafe : muted,
+                            cursor: generatingSceneMusic.has(sceneId) ? "wait" : "pointer",
+                          }}>
+                          {generatingSceneMusic.has(sceneId) ? "Music..." : sceneMusicUrls[sceneId] ? "Music ✓" : "Scene Music"}
+                        </button>
+
+                        {/* Continuous Motion toggle */}
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#a78bfa", cursor: "pointer" }}>
                           <input
                             type="checkbox"
                             checked={sceneContinuousMotion[sceneId]?.enabled ?? false}
@@ -5085,6 +5240,7 @@ function ChildrenPlannerInner() {
                           Motion
                         </label>
 
+                        {/* Duration picker — shown when continuous motion is on */}
                         {sceneContinuousMotion[sceneId]?.enabled && (
                           <select
                             value={sceneContinuousMotion[sceneId]?.targetSec ?? 10}
@@ -5092,8 +5248,7 @@ function ChildrenPlannerInner() {
                               ...prev,
                               [sceneId]: { ...prev[sceneId], targetSec: Number(e.target.value) },
                             }))}
-                            style={{ padding: "2px 6px", fontSize: 11, borderRadius: 4, border: "1px solid #4c1d95", background: "#1a0a3a", color: "#c4b5fd" }}
-                          >
+                            style={{ padding: "2px 5px", fontSize: 10, borderRadius: 4, border: "1px solid #4c1d95", background: "#1a0a3a", color: "#c4b5fd" }}>
                             {[5, 10, 15, 20, 30].map(s => <option key={s} value={s}>{s}s</option>)}
                           </select>
                         )}
@@ -5101,10 +5256,10 @@ function ChildrenPlannerInner() {
 
                       {/* Narration duration selector + OK Save */}
                       <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
-                        <span style={{ fontSize: 9, color: muted, fontWeight: 600, whiteSpace: "nowrap" as const }}>Narr Duration:</span>
+                        <span style={{ fontSize: 9, color: muted, fontWeight: 600, whiteSpace: "nowrap" as const }}>Narr:</span>
                         {(["short", "medium", "long"] as const).map(d => (
                           <button key={d} onClick={() => setSceneDurations(prev => ({ ...prev, [sceneId]: d }))}
-                            style={{ padding: "3px 8px", borderRadius: 5, border: `1px solid ${(sceneDurations[sceneId] || "medium") === d ? childAccent : border}`, background: (sceneDurations[sceneId] || "medium") === d ? `${childAccent}20` : "transparent", color: (sceneDurations[sceneId] || "medium") === d ? childAccent : muted, fontSize: 8, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" as const }}>
+                            style={{ padding: "3px 7px", borderRadius: 5, border: `1px solid ${(sceneDurations[sceneId] || "medium") === d ? childAccent : border}`, background: (sceneDurations[sceneId] || "medium") === d ? `${childAccent}20` : "transparent", color: (sceneDurations[sceneId] || "medium") === d ? childAccent : muted, fontSize: 8, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" as const }}>
                             {d}
                           </button>
                         ))}
@@ -5129,28 +5284,49 @@ function ChildrenPlannerInner() {
                         </button>
                       </div>
 
-                      {/* Action buttons row: AI Editor + Make Video */}
+                      {/* Action row: Preview (lightbox) + AI Editor + Make Video */}
                       <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" as const }}>
+                        {sceneImg && (
+                          <button
+                            onClick={() => setLightboxImage(sceneImg)}
+                            title="Preview full-size (lightbox)"
+                            style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #38bdf840", background: "#38bdf810", color: "#38bdf8", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                            Preview
+                          </button>
+                        )}
                         <button
                           onClick={() => handlePolishScene(sceneId, scene.visualDescription, "polish")}
                           disabled={polishingScene === sceneId}
                           data-testid={`polish-btn-${sceneId}`}
-                          style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid #a855f770`, background: polishingScene === sceneId ? "#a855f715" : "linear-gradient(135deg,#7c3aed20,#a855f720)", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer", flex: 1 }}>
-                          {polishingScene === sceneId ? "AI Editor: Polishing..." : "✨ AI Editor"}
+                          style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #a855f770", background: polishingScene === sceneId ? "#a855f715" : "transparent", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>
+                          {polishingScene === sceneId ? "Editing..." : "AI Editor"}
                         </button>
+                        {/* Make Video — POST /api/hybrid/scene-video */}
                         <button
                           onClick={() => makeSceneVideo(scene)}
                           disabled={generatingSceneVideos.has(sceneId)}
-                          title="Generate a 10-second video from this scene image"
-                          style={{ padding: "6px 12px", borderRadius: 7, border: `1px solid ${childSafe}50`, background: generatingSceneVideos.has(sceneId) ? `${childSafe}08` : `${childSafe}12`, color: generatingSceneVideos.has(sceneId) ? muted : childSafe, fontSize: 9, fontWeight: 700, cursor: generatingSceneVideos.has(sceneId) ? "not-allowed" : "pointer", flex: 1 }}>
-                          {generatingSceneVideos.has(sceneId) ? "Making Video..." : sceneVideos[sceneId] ? "▶ Vid ✓" : "▶ Make Video"}
+                          title="Generate video clip — POST /api/hybrid/scene-video"
+                          style={{ padding: "6px 10px", borderRadius: 7, border: `1px solid ${childSafe}50`, background: generatingSceneVideos.has(sceneId) ? `${childSafe}08` : `${childSafe}12`, color: generatingSceneVideos.has(sceneId) ? muted : childSafe, fontSize: 9, fontWeight: 700, cursor: generatingSceneVideos.has(sceneId) ? "not-allowed" : "pointer" }}>
+                          {generatingSceneVideos.has(sceneId) ? "Making..." : sceneVideos[sceneId] ? "Vid ✓" : "Make Video"}
                         </button>
                       </div>
+
                       {/* Video preview if generated */}
                       {sceneVideos[sceneId] && (
-                        <video src={sceneVideos[sceneId]} controls loop style={{ width: "100%", maxHeight: 120, borderRadius: 8, marginBottom: 8 }} />
+                        <div style={{ marginBottom: 8, borderRadius: 8, overflow: "hidden", border: `1px solid ${childSafe}30` }}>
+                          <video src={sceneVideos[sceneId]} controls loop style={{ width: "100%", maxHeight: 120, display: "block" }} />
+                        </div>
                       )}
-                      {/* Characters in scene — only show ASSIGNED, not all */}
+
+                      {/* Scene music preview if generated */}
+                      {sceneMusicUrls[sceneId] && (
+                        <div style={{ marginBottom: 8, padding: "6px 8px", borderRadius: 7, background: `${childSafe}08`, border: `1px solid ${childSafe}30` }}>
+                          <p style={{ fontSize: 8, color: childSafe, marginBottom: 4, fontWeight: 700 }}>Scene Music</p>
+                          <audio src={sceneMusicUrls[sceneId]} controls style={{ width: "100%", height: 28 }} />
+                        </div>
+                      )}
+
+                      {/* Characters in scene — assigned chips + picker from both savedChars + characters registry */}
                       <div>
                         <p style={{ fontSize: 9, color: muted, marginBottom: 4, textTransform: "uppercase" as const, letterSpacing: 1 }}>Characters in scene</p>
                         <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, alignItems: "center" }}>
@@ -5158,39 +5334,80 @@ function ChildrenPlannerInner() {
                             <span style={{ fontSize: 9, color: muted, fontStyle: "italic" }}>None assigned</span>
                           )}
                           {assignedChars.map(charId => {
-                            const char = savedChars.find(c => c.id === charId);
-                            if (!char) return null;
+                            // Check savedChars first, then full character registry
+                            const charSimple = savedChars.find(c => c.id === charId);
+                            const charFull = characters.find(c => c.characterId === charId);
+                            const charName = charSimple?.name || charFull?.displayName || charId;
                             return (
                               <span key={charId} style={{ display: "flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 6, background: `${childAccent}15`, border: `1px solid ${childAccent}50`, color: childAccent, fontSize: 9, fontWeight: 700 }}>
-                                {char.name}
+                                {charName}
                                 <button
                                   onClick={() => setSceneCharAssignments(prev => ({ ...prev, [sceneId]: (prev[sceneId] || []).filter(id => id !== charId) }))}
                                   style={{ background: "none", border: "none", color: childAccent, cursor: "pointer", padding: 0, fontSize: 11, lineHeight: 1, opacity: 0.7 }}>×</button>
                               </span>
                             );
                           })}
-                          {savedChars.filter(c => !assignedChars.includes(c.id)).length > 0 && (
-                            <select
-                              onChange={e => {
-                                if (e.target.value) {
-                                  setSceneCharAssignments(prev => ({ ...prev, [sceneId]: [...(prev[sceneId] || []), e.target.value] }));
-                                  e.target.value = "";
-                                }
-                              }}
-                              defaultValue=""
-                              style={{ padding: "2px 6px", borderRadius: 6, background: s2, border: `1px solid ${border}`, color: muted, fontSize: 9, cursor: "pointer" }}>
-                              <option value="">+ Assign</option>
-                              {savedChars.filter(c => !assignedChars.includes(c.id)).map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                              ))}
-                            </select>
-                          )}
+                          {/* Character picker — combines savedChars + full characters registry, deduped */}
+                          {(() => {
+                            const allPickable: Array<{ id: string; name: string }> = [];
+                            for (const c of savedChars) {
+                              if (!assignedChars.includes(c.id)) allPickable.push({ id: c.id, name: c.name });
+                            }
+                            for (const c of characters) {
+                              if (!assignedChars.includes(c.characterId) && !allPickable.some(p => p.name.toLowerCase() === c.displayName.toLowerCase())) {
+                                allPickable.push({ id: c.characterId, name: c.displayName });
+                              }
+                            }
+                            if (allPickable.length === 0) return null;
+                            return (
+                              <select
+                                onChange={e => {
+                                  if (e.target.value) {
+                                    setSceneCharAssignments(prev => ({ ...prev, [sceneId]: [...(prev[sceneId] || []), e.target.value] }));
+                                    e.target.value = "";
+                                  }
+                                }}
+                                defaultValue=""
+                                style={{ padding: "2px 6px", borderRadius: 6, background: s2, border: `1px solid ${border}`, color: muted, fontSize: 9, cursor: "pointer" }}>
+                                <option value="">+ Assign</option>
+                                {allPickable.map(c => (
+                                  <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                              </select>
+                            );
+                          })()}
                         </div>
                       </div>
                     </div>
                   </div>
                 );
               })}
+            </div>
+          )}
+
+          {/* ── Archived Scenes panel ── */}
+          {archivedScenes.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <button
+                onClick={() => setShowArchived(v => !v)}
+                style={{ fontSize: 11, color: muted, background: "none", border: `1px solid ${border}`, borderRadius: 8, padding: "6px 14px", cursor: "pointer", marginBottom: 10 }}>
+                {showArchived ? "Hide" : "Show"} Archived Scenes ({archivedScenes.length})
+              </button>
+              {showArchived && (
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                  {archivedScenes.map(s => (
+                    <div key={s.scene} style={{ background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 10, color: muted, fontWeight: 700 }}>Scene {s.scene}</span>
+                      <span style={{ fontSize: 11, color: "#ccc", flex: 1 }}>{s.title}</span>
+                      <button
+                        onClick={() => restoreScene(s.scene)}
+                        style={{ fontSize: 10, color: childSafe, background: `${childSafe}10`, border: `1px solid ${childSafe}40`, borderRadius: 7, padding: "4px 12px", cursor: "pointer", fontWeight: 700 }}>
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

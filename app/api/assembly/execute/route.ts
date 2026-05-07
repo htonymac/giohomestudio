@@ -1,22 +1,11 @@
 // POST /api/assembly/execute — Assembly JSON → FFmpeg Render
 //
-// Takes a complete Assembly JSON and executes the deterministic FFmpeg pipeline.
-// Uses buildAssemblyPlan() to generate FFmpeg steps, then runs them in order.
-//
-// Architecture (from Support Canvas):
-// "FFmpeg command builder converts the JSON into deterministic commands"
-// "Same JSON always produces same FFmpeg commands — only planning quality changes"
-//
-// Flow:
-// 1. Validate Assembly JSON (rights confirmed, preview approved)
-// 2. Write concat list and prepare temp files
-// 3. Execute FFmpeg steps in dependency order
-// 4. Save final output to asset library
-// 5. Update Assembly Record in DB
+// Preprocessing: downloads external images, converts images → video clips,
+// strips img: prefix, then runs the standard FFmpeg concat pipeline.
 
 import { NextRequest, NextResponse } from "next/server";
 import { buildAssemblyPlan, estimateAssemblyCost } from "@/lib/assembly-builder";
-import type { AssemblyJSON } from "@/lib/assembly-schema";
+import type { AssemblyJSON, AssemblySegment } from "@/lib/assembly-schema";
 import { audit } from "@/lib/audit";
 import { env } from "@/config/env";
 import * as fs from "fs";
@@ -25,6 +14,156 @@ import { execFile } from "child_process";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
+
+// ── Helper: Resolve media URL → local absolute path ──
+function resolveMediaPath(url: string): string {
+  if (!url) return "";
+  const stripped = url.replace(/^img:/, "").replace(/^bg:[^)]+\)$/, "");
+  if (path.isAbsolute(stripped) && fs.existsSync(stripped)) return stripped;
+  if (stripped.startsWith("/api/media/")) {
+    return path.join(env.storagePath, stripped.replace("/api/media/", ""));
+  }
+  if (stripped.startsWith("/storage/")) {
+    return path.join(env.storagePath, stripped.replace("/storage/", ""));
+  }
+  return stripped;
+}
+
+// ── Helper: Download external URL to a local temp file ──
+async function downloadToFile(url: string, destPath: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(30000) });
+    if (!res.ok) return false;
+    const buf = Buffer.from(await res.arrayBuffer());
+    fs.writeFileSync(destPath, buf);
+    return fs.existsSync(destPath) && fs.statSync(destPath).size > 0;
+  } catch {
+    return false;
+  }
+}
+
+// Shared video normalization filter — all clips must match for concat to work
+const NORMALIZE_FILTER = "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,setsar=1";
+
+// ── Helper: Convert image → short video clip ──
+async function imageToVideoClip(imagePath: string, duration: number, outputPath: string): Promise<boolean> {
+  try {
+    await execFileAsync(env.ffmpegPath, [
+      "-loop", "1",
+      "-i", imagePath,
+      "-t", String(duration),
+      "-vf", NORMALIZE_FILTER,
+      "-c:v", "libx264",
+      "-pix_fmt", "yuv420p",
+      "-r", "30",
+      "-an",
+      "-y", outputPath,
+    ], { timeout: 60000 });
+    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0;
+  } catch {
+    return false;
+  }
+}
+
+// ── Helper: Transcode existing video to normalized format ──
+async function transcodeVideoClip(videoPath: string, duration: number, outputPath: string): Promise<boolean> {
+  try {
+    const args = [
+      "-i", videoPath,
+      "-t", String(duration),
+      "-vf", NORMALIZE_FILTER,
+      "-c:v", "libx264",
+      "-pix_fmt", "yuv420p",
+      "-r", "30",
+      "-an",
+      "-y", outputPath,
+    ];
+    await execFileAsync(env.ffmpegPath, args, { timeout: 120000 });
+    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0;
+  } catch {
+    return false;
+  }
+}
+
+// ── Preprocess segments: normalize URLs, download externals, images → clips ──
+async function preprocessSegments(
+  segments: AssemblySegment[],
+  outputDir: string
+): Promise<Map<string, string>> {
+  // Returns: Map<segment.id, localVideoPath>
+  const resolved = new Map<string, string>();
+
+  for (const seg of segments) {
+    const rawUrl = seg.sourceUrl || "";
+
+    // Strip img: prefix
+    const url = rawUrl.replace(/^img:/, "");
+
+    // Skip gradient backgrounds
+    if (!url || url.startsWith("bg:") || url.startsWith("linear-gradient")) {
+      console.log(`[assembly] ${seg.sceneId}: skipped (gradient/empty)`);
+      continue;
+    }
+
+    const duration = seg.duration || 5;
+    const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
+
+    // Already a video file (no img: prefix on original)?
+    const isVideo = !rawUrl.startsWith("img:") && (url.endsWith(".mp4") || url.endsWith(".webm") || url.endsWith(".mov"));
+
+    if (isVideo) {
+      const localPath = resolveMediaPath(url);
+      if (fs.existsSync(localPath)) {
+        // Transcode to normalized format so concat is compatible
+        const ok = await transcodeVideoClip(localPath, duration, clipPath);
+        if (ok) {
+          resolved.set(seg.id, clipPath);
+          console.log(`[assembly] ${seg.sceneId}: video transcoded OK`);
+        } else {
+          // Fallback: use original if transcode fails
+          resolved.set(seg.id, localPath);
+          console.log(`[assembly] ${seg.sceneId}: video transcode failed, using original`);
+        }
+        continue;
+      }
+      // External video URL — skip (too large to download)
+      console.log(`[assembly] ${seg.sceneId}: video not local, skipping`);
+      continue;
+    }
+
+    // Image segment — need to convert to video clip
+    let localImagePath = resolveMediaPath(url);
+
+    // External URL? Download first
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+      const ext = url.includes(".png") ? ".png" : url.includes(".webp") ? ".webp" : ".jpg";
+      const downloadPath = path.join(outputDir, `dl_${seg.id}${ext}`);
+      const ok = await downloadToFile(url, downloadPath);
+      if (!ok) {
+        console.log(`[assembly] ${seg.sceneId}: download failed for ${url.slice(0, 80)}`);
+        continue;
+      }
+      localImagePath = downloadPath;
+      console.log(`[assembly] ${seg.sceneId}: downloaded external image`);
+    }
+
+    if (!fs.existsSync(localImagePath)) {
+      console.log(`[assembly] ${seg.sceneId}: image not found: ${localImagePath}`);
+      continue;
+    }
+
+    // Convert image → video clip
+    const ok = await imageToVideoClip(localImagePath, duration, clipPath);
+    if (ok) {
+      resolved.set(seg.id, clipPath);
+      console.log(`[assembly] ${seg.sceneId}: image→video OK (${duration}s)`);
+    } else {
+      console.log(`[assembly] ${seg.sceneId}: image→video FAILED`);
+    }
+  }
+
+  return resolved;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,66 +188,156 @@ export async function POST(req: NextRequest) {
     const outputDir = path.join(env.storagePath, "video", "assembly", `${assembly.projectId}_${Date.now()}`);
     fs.mkdirSync(outputDir, { recursive: true });
 
-    // ── Write concat list for segments ──
-    if (assembly.segments.length > 0) {
-      const concatContent = assembly.segments
-        .sort((a, b) => a.startTime - b.startTime)
-        .filter(s => s.sourceUrl && fs.existsSync(resolveMediaPath(s.sourceUrl)))
-        .map(s => `file '${resolveMediaPath(s.sourceUrl).replace(/\\/g, "/")}'`)
-        .join("\n");
+    // ── Preprocess: download externals + images → video clips ──
+    console.log(`[assembly] Preprocessing ${assembly.segments.length} segments...`);
+    const segmentVideoMap = await preprocessSegments(
+      assembly.segments.sort((a, b) => a.startTime - b.startTime),
+      outputDir
+    );
 
-      if (concatContent) {
-        fs.writeFileSync(path.join(outputDir, "concat_list.txt"), concatContent);
-      }
+    if (segmentVideoMap.size === 0) {
+      return NextResponse.json({ error: "No valid media segments after preprocessing. All images/videos unavailable." }, { status: 400 });
     }
 
+    // ── Patch assembly segments with resolved local paths ──
+    const patchedSegments = assembly.segments
+      .sort((a, b) => a.startTime - b.startTime)
+      .filter(s => segmentVideoMap.has(s.id))
+      .map(s => ({ ...s, type: "video" as const, sourceUrl: segmentVideoMap.get(s.id)! }));
+
+    const patchedAssembly: AssemblyJSON = {
+      ...assembly,
+      segments: patchedSegments,
+    };
+
+    // ── Write concat list — use only basenames so FFmpeg resolves relative to concat file dir ──
+    if (patchedSegments.length > 0) {
+      const concatContent = patchedSegments
+        .map(s => `file '${path.basename(s.sourceUrl)}'`)
+        .join("\n");
+      fs.writeFileSync(path.join(outputDir, "concat_list.txt"), concatContent);
+      console.log(`[assembly] Concat list: ${patchedSegments.length} clips → ${concatContent.slice(0, 120)}`);
+    }
+
+    // ── Resolve narration audio paths ──
+    const patchedNarration = patchedAssembly.narration.map(n => ({
+      ...n,
+      audioUrl: n.audioUrl ? resolveMediaPath(n.audioUrl) : undefined,
+    })).filter(n => n.audioUrl && fs.existsSync(n.audioUrl));
+
+    // ── Resolve music paths ──
+    const patchedMusic = patchedAssembly.music.map(m => ({
+      ...m,
+      sourceUrl: resolveMediaPath(m.sourceUrl),
+    })).filter(m => m.sourceUrl && fs.existsSync(m.sourceUrl));
+
+    const finalAssembly: AssemblyJSON = {
+      ...patchedAssembly,
+      narration: patchedNarration,
+      music: patchedMusic,
+    };
+
     // ── Build FFmpeg execution plan ──
-    const steps = buildAssemblyPlan(assembly, outputDir);
+    const steps = buildAssemblyPlan(finalAssembly, outputDir);
 
     if (steps.length === 0) {
       return NextResponse.json({ error: "No FFmpeg steps generated from assembly" }, { status: 400 });
     }
+
+    console.log(`[assembly] FFmpeg plan: ${steps.map(s => s.id).join(" → ")}`);
 
     // ── Execute steps in dependency order ──
     const results: Array<{ id: string; status: string; duration?: number; error?: string }> = [];
     const completedSteps = new Set<string>();
 
     for (const step of steps) {
-      // Check dependencies
+      // Check dependencies — for final_merge, only require concat_segments (audio is optional)
       if (step.dependsOn?.length) {
-        const missingDeps = step.dependsOn.filter(d => !completedSteps.has(d));
+        const hardDeps = step.id === "final_merge"
+          ? step.dependsOn.filter(d => d === "concat_segments")  // only video is required
+          : step.dependsOn;
+        const missingDeps = hardDeps.filter(d => !completedSteps.has(d));
         if (missingDeps.length > 0) {
           results.push({ id: step.id, status: "skipped", error: `Missing deps: ${missingDeps.join(", ")}` });
           continue;
         }
       }
 
-      // Check if input files exist (skip steps with missing inputs)
+      // For final_merge: rebuild command dynamically — audio is optional, only video is required
+      if (step.id === "final_merge") {
+        const concatRaw = path.join(outputDir, "concat_raw.mp4");
+        const narrationWav = path.join(outputDir, "narration_mix.wav");
+        const musicWav = path.join(outputDir, "music_mix.wav");
+        if (!fs.existsSync(concatRaw)) {
+          results.push({ id: step.id, status: "skipped", error: "concat_raw.mp4 missing — cannot merge" });
+          console.log(`[assembly] final_merge SKIPPED — no concat_raw.mp4`);
+          continue;
+        }
+        const hasNarr = fs.existsSync(narrationWav);
+        const hasMus = fs.existsSync(musicWav);
+        const duckLevel = finalAssembly.duckingRules?.musicDuckLevel ?? 0.08;
+        const finalOut = step.outputPath;
+        let cmd: string[];
+        if (!hasNarr && !hasMus) {
+          cmd = [env.ffmpegPath, "-i", concatRaw, "-c:v", "copy", "-movflags", "+faststart", "-y", finalOut];
+        } else {
+          const inputs: string[] = ["-i", concatRaw];
+          const filters: string[] = [];
+          const audioSrcs: string[] = [];
+          let idx = 1;
+          if (hasNarr) { inputs.push("-i", narrationWav); filters.push(`[${idx}:a]volume=1.0[narr]`); audioSrcs.push("[narr]"); idx++; }
+          if (hasMus)  { inputs.push("-i", musicWav);     filters.push(`[${idx}:a]volume=${duckLevel}[mus]`); audioSrcs.push("[mus]"); idx++; }
+          const mixFilter = filters.join(";") + ";" + audioSrcs.join("") + `amix=inputs=${audioSrcs.length}:duration=first[fa]`;
+          cmd = [env.ffmpegPath, ...inputs, "-filter_complex", mixFilter, "-map", "0:v", "-map", "[fa]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", "-y", finalOut];
+        }
+        console.log(`[assembly] final_merge — video + narr=${hasNarr} music=${hasMus}`);
+        try {
+          const startMs = Date.now();
+          await execFileAsync(cmd[0], cmd.slice(1), { timeout: 180000, maxBuffer: 50 * 1024 * 1024 });
+          const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
+          if (fs.existsSync(finalOut)) {
+            completedSteps.add(step.id);
+            results.push({ id: step.id, status: "completed", duration: parseFloat(elapsed) });
+            console.log(`[assembly] final_merge DONE (${elapsed}s)`);
+          } else {
+            results.push({ id: step.id, status: "failed", error: "final output not created" });
+          }
+        } catch (mergeErr) {
+          const msg = mergeErr instanceof Error ? mergeErr.message.slice(0, 400) : "FFmpeg merge error";
+          results.push({ id: step.id, status: "failed", error: msg });
+          console.error(`[assembly] final_merge ERROR:`, msg);
+        }
+        continue;
+      }
+
+      // Check if input files exist
       const inputArgs = step.command.filter((_, i, arr) => arr[i - 1] === "-i");
       const missingInputs = inputArgs.filter(p => !fs.existsSync(p));
       if (missingInputs.length > 0 && step.id !== "concat_segments") {
-        results.push({ id: step.id, status: "skipped", error: `Missing inputs: ${missingInputs.length}` });
+        results.push({ id: step.id, status: "skipped", error: `Missing inputs: ${missingInputs.join(", ").slice(0, 200)}` });
+        console.log(`[assembly] ${step.id} SKIPPED — missing: ${missingInputs.join(", ").slice(0, 200)}`);
         continue;
       }
 
       try {
         const startMs = Date.now();
         const [cmd, ...args] = step.command;
-        await execFileAsync(cmd, args, { timeout: 120000, maxBuffer: 50 * 1024 * 1024 });
+        console.log(`[assembly] Running: ${step.id}...`);
+        await execFileAsync(cmd, args, { timeout: 180000, maxBuffer: 50 * 1024 * 1024 });
         const elapsed = ((Date.now() - startMs) / 1000).toFixed(1);
 
         if (fs.existsSync(step.outputPath)) {
           completedSteps.add(step.id);
           results.push({ id: step.id, status: "completed", duration: parseFloat(elapsed) });
+          console.log(`[assembly] ${step.id} DONE (${elapsed}s)`);
         } else {
           results.push({ id: step.id, status: "failed", error: "Output file not created" });
+          console.log(`[assembly] ${step.id} FAILED — no output`);
         }
       } catch (err) {
-        results.push({
-          id: step.id,
-          status: "failed",
-          error: err instanceof Error ? err.message.slice(0, 200) : "FFmpeg error",
-        });
+        const errMsg = err instanceof Error ? err.message.slice(0, 400) : "FFmpeg error";
+        results.push({ id: step.id, status: "failed", error: errMsg });
+        console.error(`[assembly] ${step.id} ERROR:`, errMsg);
       }
     }
 
@@ -167,6 +396,7 @@ export async function POST(req: NextRequest) {
           tags: ["assembled", "planner", "video"],
         });
       } catch { /* non-blocking */ }
+
       try {
         const { prisma } = await import("@/lib/prisma");
         await prisma.contentItem.create({
@@ -183,14 +413,11 @@ export async function POST(req: NextRequest) {
         // DB save failed — output still usable
       }
 
-      // Update Assembly Record
       try {
         const { prisma } = await import("@/lib/prisma");
         await prisma.assemblyRecord.updateMany({
           where: { projectId: assembly.projectId },
-          data: {
-            renderStatus: outputExists ? "completed" : "failed",
-          },
+          data: { renderStatus: "completed" },
         });
       } catch {
         // DB update failed
@@ -209,7 +436,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Clean up intermediate files (keep final + thumbnail) ──
-    const intermediateFiles = ["concat_raw.mp4", "narration_mix.mp3", "music_mix.mp3", "concat_list.txt"];
+    const intermediateFiles = ["concat_raw.mp4", "narration_mix.wav", "music_mix.wav", "concat_list.txt"];
     for (const f of intermediateFiles) {
       const fp = path.join(outputDir, f);
       if (fs.existsSync(fp)) {
@@ -229,10 +456,10 @@ export async function POST(req: NextRequest) {
         projectId: assembly.projectId,
         version: assembly.version,
         tier: assembly.plannerTier,
-        segments: assembly.segments.length,
-        narration: assembly.narration.length,
-        music: assembly.music.length,
-        sfx: assembly.sfx.length,
+        segments: patchedSegments.length,
+        narration: finalAssembly.narration.length,
+        music: finalAssembly.music.length,
+        sfx: finalAssembly.sfx.length,
       },
     });
   } catch (err) {
@@ -242,20 +469,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-// ── Helper: Resolve /api/media/ URLs to local file paths ──
-function resolveMediaPath(url: string): string {
-  if (!url) return "";
-  // If it's already an absolute path, use it
-  if (path.isAbsolute(url) && fs.existsSync(url)) return url;
-  // If it's an /api/media/ URL, resolve to storage path
-  if (url.startsWith("/api/media/")) {
-    return path.join(env.storagePath, url.replace("/api/media/", ""));
-  }
-  // If it's a /storage/ path
-  if (url.startsWith("/storage/")) {
-    return path.join(env.storagePath, url.replace("/storage/", ""));
-  }
-  return url;
 }

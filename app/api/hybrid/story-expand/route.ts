@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
+import namesData from "@/data/character-names.json";
 
 // ── Types ────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ interface StoryExpandRequest {
   audience?: string;
   provider?: string; // "auto" | "claude" | "openai" | "grok" | "ollama" | "claude:claude-opus-4-6" | "openai:o3-mini" etc.
   tier?: "free" | "standard" | "pro"; // GHS AI tier — maps to model selection
+  nameRegion?: string; // continent/region id for culturally authentic name injection
+  customNames?: string[]; // user-imported custom names (injected as approved pool)
 }
 
 interface CharacterEntry {
@@ -49,6 +52,45 @@ interface ExpandedStory {
   moodSuggestions: string[];
   actionPeaks: string[];
   narrationHeavyAreas: string[];
+}
+
+// ── Name pool builder ────────────────────────────────────────────
+// Given a continent id (africa, asia, europe, ...) returns a shuffled sample
+// of 8 male + 8 female authentic names for that region to inject into the prompt.
+
+type RegionData = { male: string[]; female: string[]; label: string; cultures: string[] };
+type NamesData = { continents: { id: string; label: string; regions: string[] }[]; regions: Record<string, RegionData> };
+
+function buildNamePool(continentId: string): { block: string; culturalContext: string } | null {
+  const data = namesData as unknown as NamesData;
+  const continent = data.continents.find(c => c.id === continentId);
+  if (!continent) return null;
+
+  const allMale: string[] = [];
+  const allFemale: string[] = [];
+  const cultures: string[] = [];
+
+  for (const regionId of continent.regions) {
+    const region = data.regions[regionId];
+    if (!region) continue;
+    allMale.push(...region.male);
+    allFemale.push(...region.female);
+    cultures.push(...(region.cultures || []));
+  }
+
+  // Shuffle and pick 8 of each
+  const shuffle = <T,>(arr: T[]) => [...arr].sort(() => Math.random() - 0.5);
+  const malePool = shuffle(allMale).slice(0, 8);
+  const femalePool = shuffle(allFemale).slice(0, 8);
+
+  const block = `APPROVED NAME POOL for unnamed characters (${continent.label} culture):
+- Male names: ${malePool.join(", ")}
+- Female names: ${femalePool.join(", ")}
+For any character whose name was NOT given by the user, choose ONLY from this pool. Do not invent Western/European names if this pool is provided.`;
+
+  const culturalContext = `Cultural context: This story features characters from ${continent.label} (${cultures.slice(0, 5).join(", ")} cultural backgrounds). Use names, expressions, and details authentic to this region.`;
+
+  return { block, culturalContext };
 }
 
 // ── Deterministic fallback ───────────────────────────────────────
@@ -178,20 +220,32 @@ export async function POST(req: NextRequest) {
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
       : "";
 
+    // ── Name pool injection ───────────────────────────────────────────────
+    const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;
+    const customNamesBlock = (body.customNames && body.customNames.length > 0)
+      ? `\n\nADDITIONAL APPROVED NAMES (user-imported): ${body.customNames.join(", ")}. You may use these for unnamed characters.`
+      : "";
+    const namePoolBlock = (namePool
+      ? `\n\n${namePool.culturalContext}\n\n${namePool.block}`
+      : "") + customNamesBlock;
+
     const userPrompt = `A creator has given you this brief story idea:
 """
 ${body.storyInput.trim()}
-"""${controlBlock}
+"""${controlBlock}${namePoolBlock}
 
 You are going to turn this into a COMPLETE cinematic production. Here is what you must do:
 
 ━━ CHARACTERS ━━
-Count every character the creator mentioned (explicitly or implied). Give EACH one:
-- A memorable invented first name (e.g. "Benny", "Rex", "Zara" — never a generic label like "The Stranger" or "Character 1")
-- A completely different species, body type, and colour from every other character
-- A distinct personality that makes them unforgettable
+Find every character in the story above — both explicitly named and implied.
 
-For this story, the characters mentioned are: look carefully at the idea above and list ALL of them.
+CRITICAL NAME RULE: If the creator already gave a character a specific name (e.g. "Vex", "Bryan", "Priya", "Rex", "Zara"), KEEP THAT EXACT NAME — never rename or relabel it. Only invent a name for roles that are unnamed or only implied (e.g. "a teacher", "some bullies", "a mysterious stranger").
+
+For each character:
+- Keep user-given names EXACTLY as written
+- Invent names only for unnamed/implied roles
+- Give each a completely distinct visual appearance, body type, and personality
+- Every character must look and feel different from every other character
 
 ━━ SCRIPT ━━
 Write a COMPLETE flowing narration script of approximately ${targetWordCount} words.
@@ -208,8 +262,7 @@ Build approximately ${targetSceneCount} scenes across:
 
 Return ONLY this JSON — no explanation, no markdown fences:
 {
-  "summary": "2-3 sentences summarising the complete story using all invented character names",
-  "fullScript": "The complete narration — approximately ${targetWordCount} words. Scene by scene. Every beat covered. Written as a narrator speaks. DO NOT TRUNCATE OR STOP EARLY.",
+  "summary": "2-3 sentences summarising the complete story using all character names",
   "tone": "e.g. heartfelt adventure / warm comedy / dark thriller / whimsical family",
   "pacingDirection": "describe how pace builds across the story",
   "worldLogic": "describe the world's setting and feel",
@@ -217,7 +270,7 @@ Return ONLY this JSON — no explanation, no markdown fences:
   "narrativeArc": "Act 1: setup. Act 2: tension. Act 3: climax and resolution.",
   "characterList": [
     {
-      "name": "invented name — required, never a placeholder",
+      "name": "KEEP user-given name exactly — only invent for unnamed roles",
       "role": "hero|villain|narrator|support",
       "description": "species + visual appearance + personality — must be DIFFERENT from all other characters",
       "age": "child / teen / young adult / adult / elder",
@@ -234,7 +287,8 @@ Return ONLY this JSON — no explanation, no markdown fences:
   "soundSuggestions": ["specific sound effects and music cues"],
   "moodSuggestions": ["2-4 mood keywords for visual direction"],
   "actionPeaks": ["2-3 key high-intensity or emotionally charged moments by name"],
-  "narrationHeavyAreas": ["scenes where narration carries the story"]
+  "narrationHeavyAreas": ["scenes where narration carries the story"],
+  "fullScript": "The complete narration — approximately ${targetWordCount} words. Scene by scene. Every beat covered. Written as a narrator speaks. Complete all scenes — do not stop or summarize early. If near the token limit, finish the current scene cleanly then write '[END]'."
 }`;
 
     const systemPrompt =
@@ -248,13 +302,17 @@ Return ONLY this JSON — no explanation, no markdown fences:
     // thinking tags are stripped before parsing, but still count toward generation budget
     const maxTokens = Math.max(6000, Math.min(24000, targetWordCount * 2 + 1000));
 
-    // Parse "provider:model" format e.g. "claude:claude-opus-4-6" or plain "claude"
+    // Parse "provider:model" format e.g. "claude:claude-opus-4-6", "ollama:qwen2.5:7b", or plain "claude"
     let forceProvider: string | undefined;
     let forceModel: string | undefined;
     if (body.provider && body.provider !== "auto") {
-      const parts = body.provider.split(":");
-      forceProvider = parts[0] as "claude" | "openai" | "grok" | "ollama";
-      forceModel = parts[1]; // undefined if just "claude" with no model suffix
+      const colonIdx = body.provider.indexOf(":");
+      if (colonIdx !== -1) {
+        forceProvider = body.provider.slice(0, colonIdx) as "claude" | "openai" | "grok" | "ollama";
+        forceModel = body.provider.slice(colonIdx + 1); // preserves full model id e.g. "qwen2.5:7b"
+      } else {
+        forceProvider = body.provider as "claude" | "openai" | "grok" | "ollama";
+      }
     }
 
     // GHS AI Tier routing: free → ollama, standard → haiku (fast), pro → sonnet (quality)

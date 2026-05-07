@@ -1,106 +1,118 @@
-# GHS HANDOFF — 2026-05-06 Session (Image Management + Face-Lock)
+# GHS HANDOFF — 2026-05-07 Session 5 (Name Library + Region Picker)
 
 ## Branch: fix/ghs-pipeline-recovery-may05
-## Last commit: 2a00ded — char-library PuLID + style picker + Preview/Undo/Remove
 ## Build: TSC clean (exit 0)
-## AUT Verify: pending (server restart needed to test new character buttons)
+## Dev server: localhost:3200 (running)
+## DB: giohomestudio_db (Prisma, schema current)
+## Last verified assembly: 100s video, 15MB, narration + music confirmed via ffprobe
 
 ---
 
-## Completed This Session (all committed)
+## WHAT WAS DONE THIS SESSION
 
-### Phase 1 — Stop The Bleeding (commit 2838df1)
-- **1.1 Style fix** — `src/lib/style-presets.ts` shared. `scene-video` injects style prefix. "Selected 3D, got real human" fixed.
-- **1.2/1.3 Face-lock** — `fal_flux_pulid` in model-registry. `image-provider.ts` routes to PuLID on `useIdentityLock=true`. `scene-image` detects photo-import chars. `character-voices` saves `referenceImages` with photo-import label.
-- **1.4 Tab order** — Design→Story→Characters→Scene Board→Sound & SFX→Screenplay→Assembly→Overview. Both WORKSHOP_TABS + FLOW arrays aligned.
-- **1.5 Per-scene controls** — AI SFX button, Continuous Motion toggle, Duration picker (5/10/15/20/30s), Scene Music button on each Scene Board card.
+### Session 3 recap (assembly pipeline — all 7 root causes fixed, end-to-end verified)
+See HANDOFF for 2026-05-06 Session 3 for full details.
 
-### Phase 2 — Three Supervisors (commit 2838df1)
-- `app/api/supervisor/visual-consistency/route.ts`
-- `app/api/supervisor/sound-consistency/route.ts`
-- `app/api/supervisor/final/route.ts`
-- `SupervisorStatusBar.tsx` → 3-row panel
+### Session 4 — Assembly UI + Music Fix
 
-### Phase 3 — continuousMotion DB field (commit 10c704b)
-- `prisma/schema.prisma` — `continuousMotion Json?` added to HybridScene
-- Schema synced via `npx prisma db push`
+**Hybrid Planner: Pre-Assembly panel added (Sonnet agent)**
+- Audio for Video: 2-column (Narration + Background Music) with player + generate button
+- Subtitle Style: full SubtitleStyler component (mode: "dramatic" default)
+- Check Narration → Subtitle Match button (LLM check via /api/free-mode/enhance)
+- Intro & Outro: "Generate AI Intro" / "Generate AI Outro" buttons + preview players
+- Story Credits: Written By / Made By (default "GioHomeStudio") / Idea From inputs
+- Files: `app/dashboard/hybrid-planner/page.tsx` — state vars at L408-418, panel at L8197-8326
 
-### Phase 4 — Auto-SFX (commit 2838df1)
-- `src/lib/sfx/cue-extractor.ts` — 31 keywords + Haiku LLM pass
-- `src/lib/sfx/auto-fetcher.ts` — Freesound→Pixabay→FAL, CC0/CC-BY only
-- `app/api/hybrid/audio-plan/route.ts` — cue-extractor runs first
+**Movie Planner: Gate + Save Credits (Sonnet agent)**
+- `useGate()` + `<GateModal />` wired to assembleMovie function
+- Save Credits button added after credits grid
+- Files: `app/dashboard/movie-planner/page.tsx`
 
-### Sound Tiers (commit 2838df1)
-- `src/lib/ghs-sound-tiers.ts` — GHS Sound / GHS Plus / GHS Pro / GHS Premium
-- Music provider + narrate-piper + hybrid-planner UI all wired
+**Music missing from assembly — FIXED**
+- Root cause: `selectedMusicUrl` blocked if it contained "music_upload_" prefix
+  → `effectiveMusicUrl = null` → stock auto-pick searched, often failed → no music
+- Fix: removed the uploaded-music block — use whatever Henry selected; fall back to stock only if nothing selected
+- Also: added `-map 0:a` to prepare_music FFmpeg command to safely strip album art from uploaded MP3s
+- Files: `app/dashboard/hybrid-planner/page.tsx` L2730-2760, `src/lib/assembly-builder.ts` L89
 
-### SA-SE Architectural Corrections (commit 9a7dba6)
-- **SC** — movie-planner: Parse Script button, 4-card sound tier selector, per-cast voice IDs, Generate Per-Line Voices
-- **SD** — model selectors already present (no change needed)
-- **SE** — hybrid-planner Scene Board: scene description now always-editable `<textarea>` with 500ms debounce auto-save
-- **SB** — movie Cast tab AI-primary already done
-
-### TSC + Build Fixes (commit 6269642, 31c1fe4)
-- `supervisor/final/route.ts` — inline PreflightResult types, named prisma import
-- `image-provider.ts` — double-cast `as unknown as Record<string,unknown>` for FAL params
-- `video-editor/page.tsx` — Suspense wrapper around `useSearchParams()` (Next.js 14 requirement)
-- Free-mode: scene image lightbox, dev limits 20 img / 10 vid, localhost unlimited
+**Verified in browser (Playwright CDP 2026-05-07)**
+```
+10 scenes (mix of images + 2 videos)
+musicUrl: /api/media/music/stock/suspense.mp3 (auto-selected, tone="suspense")
+Assembly completed at 120s
+Video: 100.27s, 15MB, AAC audio confirmed via ffprobe
+Page shows: "Video ready — download or open in editor"
+```
 
 ---
 
-## Completed This Session (2026-05-06)
+## KEY FILE CHANGES (cumulative since last main merge)
 
-### Photo → AI face preservation (commit f360886)
-- `generateCharacterPortrait()` in hybrid-planner now detects `tags: ["photo-import"]` on char
-- Passes `referenceImageUrl + useIdentityLock=true` → PuLID (fal_flux_pulid) preserves uploaded face
-- Saves old portrait to `prevCharImages` before overwriting (one-undo buffer)
-- Per character card: **Preview** (fullscreen lightbox), **Undo Image** (restore previous), **Remove Image**
+| File | What changed |
+|---|---|
+| `app/dashboard/hybrid-planner/page.tsx` | Assembly guard fix; pre-assembly panel; music upload unblock; storyRegion state + picker UI |
+| `app/dashboard/movie-planner/page.tsx` | Gate modal wired; Save Credits button |
+| `app/api/assembly/execute/route.ts` | Full rewrite: download externals, transcode, basename concat, dynamic final_merge |
+| `app/api/hybrid/story-expand/route.ts` | nameRegion param, buildNamePool() helper, cultural name injection into prompt |
+| `src/data/character-names.json` | NEW — 22 sub-regions, ~2000 culturally authentic names |
+| `src/lib/assembly-builder.ts` | .mp3→.wav, aac→pcm_s16le, aresample, -map 0:a for music |
+| `update/HANDOFF.md` | This file |
 
-### Character Library image management (commit 2a00ded)
-- `generate-portrait` route rewritten — routes through `/api/generation/image`, picks up PuLID automatically
-- Detects `referenceImages[].label === "photo-import"` → enables face-lock
-- VoiceCard: per-character style picker, **Regenerate** (always available, not just when no image), **Preview Portrait** (inline lightbox), **Undo Image**, **Remove Image**
+### Session 5 — Name Library + Region Picker
+
+**Name Library built from real-world cultural data**
+- File: `src/data/character-names.json`
+- 22 sub-regions across 8 continents: Africa(5), Asia(4), Europe(4), N.America(1), Latin America(4), Middle East(2), Oceania(1), Fantasy(1)
+- Each sub-region: 40-50 male + 40-50 female names with ethnic/cultural tags
+- Total: ~2000 culturally authentic names
+
+**Region Picker UI — Story tab, hybrid planner**
+- 8 region buttons with emoji (Africa 🌍 / Asia 🌏 / Europe / N.America / Latin America / Middle East / Oceania / Fantasy ✨)
+- One-click toggle — selected region highlighted, click again to clear
+- Confirmation text: "AI will use culturally authentic [region] names for unnamed characters"
+- State: `storyRegion` (string, empty = no injection)
+- File: `app/dashboard/hybrid-planner/page.tsx` — state at L221, UI before AITierSelector
+
+**story-expand API wired to name pool**
+- New field: `nameRegion` in request body
+- Server reads `src/data/character-names.json`, shuffles pool, picks 8M + 8F names
+- Injects two blocks into prompt:
+  1. Cultural context: "characters from [continent] ([culture1, culture2, ...])"
+  2. Approved name pool: "Male: Emeka, Kofi... Female: Ngozi, Fatou..."
+- File: `app/api/hybrid/story-expand/route.ts` — `buildNamePool()` helper + namePoolBlock injection
+
+**Playwright-verified (2026-05-07)**
+```
+STORY CULTURE label: VISIBLE (CSS uppercase)
+All 8 region buttons rendered with emojis
+Click Africa → "AI will use culturally authentic africa names for unnamed characters"
+TSC: clean (exit 0)
+```
 
 ---
 
-## What Is NOT Done Yet
+## KNOWN ISSUES / NOT YET FIXED
 
-### Phase 1.6 — Assembly path unification
-- DONE — migrated to `/api/assembly/execute` (commit 9251625). Henry gave GO 2026-05-06.
-- Old route `/api/video/assemble` still in codebase (not deleted per doctrine)
-
-### Phase 5 — Music keys
-- `KIE_AI_API_KEY` (Kie.ai Suno) and `MUBERT_PAT` NOT in `.env`
-- Henry must add manually — without them GHS Premium/Pro silently fall back
-
-### Phase 6 — All other planners
-- Children planner: hybrid-style per-scene cards (S4c cut-off)
-- Series / Commercial / Music Video planners
-- Bear fix (SA) — `character-build/route.ts` human-guard — NOT committed yet
-
-### Bear Fix (SA) — ALREADY DONE (confirmed by code audit)
-- `isHumanRole()` + `humanGuard` ARE in `character-build/route.ts` (lines 47-116)
-- SA-SE worker checked for commits, not code — bear fix was applied in earlier session
-- Verified: species options exclude bear for human roles, CRITICAL guard injected in prompt
-
-### Merge to main
-- Branch `fix/ghs-pipeline-recovery-may05` needs Henry review then merge
-- After merge: archive all S1-S12 + free-mode branches
+| # | Item | Notes |
+|---|---|---|
+| 1 | Narration timing vs scene changes | Narration startTime in assembly JSON NOT enforced by FFmpeg — all narration plays from t=0. Needs `adelay` filter per track. Complex fix. |
+| 2 | Music auto-select picks by tone string match | May pick wrong track if no exact match. Henry should select music in Sound tab before assembling. |
+| 3 | `KIE_AI_API_KEY` + `MUBERT_PAT` in `.env` | Premium music falls back to stock. Henry adds manually. |
+| 4 | Merge branch to main | fix/ghs-pipeline-recovery-may05 not yet merged |
+| 5 | Assembly time ~120s for 10 scenes | Downloads + transcodes. Cache sceneImages to speed up. |
+| 6 | Movie Planner credits section: "Movie Credits" not "Story Credits" | Minor label difference vs hybrid planner. Not a bug. |
 
 ---
 
 ## NEXT EXACT STEPS
 
-1. Apply bear fix to `character-build/route.ts` (SA — not done per SA-SE report)
-2. Children planner hybrid scene board (S4c cut-off)
-3. Get Henry: `KIE_AI_API_KEY` + `MUBERT_PAT` → add to `.env`
-4. Get Henry GO on Phase 1.6 assembly path unification in `RISKS_AND_DECISIONS.md`
-5. Henry review → merge branch to main
+1. Henry: test assembled video quality — check if music volume feels right (currently ducked to 8%)
+2. Henry: select music in Sound tab before assembling for best results (auto-pick is fallback only)
+3. Henry: add `KIE_AI_API_KEY` + `MUBERT_PAT` to `.env` for premium music
+4. Merge branch to main when satisfied
 
 ---
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
-## Plan: C:\Users\USER\.claude\plans\ghs-andio-studio-wiggly-castle.md
-## Branch: fix/ghs-pipeline-recovery-may05
-## Commits this session: 2838df1 → 10c704b → 9a7dba6 → 6269642 → 31c1fe4 → 065371a → 0d7a003 → 86e3d8e → 2e704df
+## Build: TSC clean

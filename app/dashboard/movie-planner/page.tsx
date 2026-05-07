@@ -18,6 +18,7 @@ import { safeJson } from "../../../lib/api-utils";
 import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
+import { useGate } from "../../components/PreGenerationGate";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -263,6 +264,8 @@ function MoviePlannerInner() {
 
   // ── Design ──
   const [projectStyle, setProjectStyle] = useState("realistic"); // maps to STYLE_PRESETS in scene-image API
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [genre, setGenre] = useState("");
   const [style, setStyle] = useState("");
   const [format, setFormat] = useState("");
@@ -280,8 +283,10 @@ function MoviePlannerInner() {
   const [generatedCast, setGeneratedCast] = useState<Character[]>([]);
   const [castGenerating, setCastGenerating] = useState(false);
   const [castGenError, setCastGenError] = useState<string | null>(null);
-  // ── Portrait image model selector (Cast tab) ──
-  const [castPortraitModel, setCastPortraitModel] = useState<"fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev">("fal_flux_schnell");
+  // ── Portrait image model selector (Cast tab) — global fallback ──
+  const [castPortraitModel, setCastPortraitModel] = useState<string>("segmind_flux");
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
 
   // ── AI Planning ──
   const [planning, setPlanning] = useState(false);
@@ -433,6 +438,9 @@ function MoviePlannerInner() {
   const [outroUrl, setOutroUrl] = useState<string | null>(null);
   const [generatingIntro, setGeneratingIntro] = useState(false);
   const [generatingOutro, setGeneratingOutro] = useState(false);
+
+  // ── Pre-generation gate ──
+  const { requireGate, GateModal } = useGate();
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
@@ -864,7 +872,7 @@ function MoviePlannerInner() {
           sceneId, projectId, sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
-          projectStyle,
+          projectStyle: sceneStyles[sceneId] || projectStyle,
         }),
       });
       const data = await res.json();
@@ -1595,6 +1603,7 @@ function MoviePlannerInner() {
   // ── Assemble Final Movie ──
   async function assembleMovie() {
     if (!moviePlan) return;
+    try { await requireGate(); } catch { return; }
     setAssembling(true);
     setAssemblyComplete(false);
     setErrorMsg(null);
@@ -1950,6 +1959,7 @@ function MoviePlannerInner() {
 
   return (
     <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
+      <GateModal />
       <div style={{ padding: "24px 32px 0" }}>
         <HeroTitle kicker="Production Workshop" title="Movie & Series" italic="Planner" sub="Plan, create, review, and assemble your production." />
         {/* Project toolbar */}
@@ -2939,18 +2949,24 @@ function MoviePlannerInner() {
               </div>
             )}
             {/* ── Portrait model selector ── */}
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" as const }}>
-              <span style={{ fontSize: 10, color: muted, alignSelf: "center", flexShrink: 0 }}>Portrait model:</span>
-              {([
-                { id: "fal_flux_schnell" as const, label: "Flux Schnell", desc: "Fast · $0.003" },
-                { id: "segmind_pruna" as const, label: "Pruna", desc: "Cheap · $0.005" },
-                { id: "fal_flux_dev" as const, label: "Flux Dev", desc: "Quality · $0.025" },
-              ] as Array<{ id: "fal_flux_schnell" | "segmind_pruna" | "fal_flux_dev"; label: string; desc: string }>).map(m => (
-                <button key={m.id} onClick={() => setCastPortraitModel(m.id)}
-                  style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${castPortraitModel === m.id ? purple : border}`, background: castPortraitModel === m.id ? `${purple}20` : "transparent", color: castPortraitModel === m.id ? purple : muted, fontSize: 9, cursor: "pointer", fontWeight: castPortraitModel === m.id ? 700 : 400 }}>
-                  {m.label} <span style={{ opacity: 0.6 }}>{m.desc}</span>
-                </button>
-              ))}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+              <select
+                value={castPortraitModel}
+                onChange={e => setCastPortraitModel(e.target.value)}
+                style={{
+                  padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                  border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                  outline: "none", flex: 1
+                }}>
+                <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
+              </select>
             </div>
             <button
               onClick={generateCastFromStory}
@@ -3020,24 +3036,46 @@ function MoviePlannerInner() {
                           style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: `1px solid ${inCast ? red : green}30`, background: `${inCast ? red : green}06`, color: inCast ? red : green, fontSize: 9, cursor: "pointer", fontWeight: 600 }}>
                           {inCast ? "Remove" : "Add to Cast"}
                         </button>
-                        <button onClick={() => {
-                          fetch("/api/generation/image", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, model: castPortraitModel }),
-                          }).then(r => r.json()).then(d => {
-                            if (d.imageUrl || d.imagePath) {
-                              const raw = d.imageUrl || d.imagePath || "";
-                              const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-                              setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
-                              setLastAction(`Portrait generated for ${char.name}`);
-                              // Persist portrait to character-voices DB so it's available across planners
-                              fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
-                            }
-                          }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
-                        }}
-                          style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
-                          Generate Portrait
-                        </button>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {/* ── Per-character portrait model selector ── */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                            <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                            <select
+                              value={charPortraitModel[char.id] || castPortraitModel}
+                              onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.id]: e.target.value }))}
+                              style={{
+                                padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                                border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                                outline: "none", flex: 1
+                              }}>
+                              <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                              <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                              <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                              <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                              <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                              <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                              <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
+                            </select>
+                          </div>
+                          <button onClick={() => {
+                            const modelId = charPortraitModel[char.id] || castPortraitModel;
+                            fetch("/api/generation/image", {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, modelId }),
+                            }).then(r => r.json()).then(d => {
+                              if (d.imageUrl || d.imagePath) {
+                                const raw = d.imageUrl || d.imagePath || "";
+                                const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+                                setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
+                                setLastAction(`Portrait generated for ${char.name}`);
+                                fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
+                              }
+                            }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
+                          }}
+                            style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
+                            Generate Portrait
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -3311,6 +3349,19 @@ function MoviePlannerInner() {
 
                       {/* Action buttons row 1 */}
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <select
+                          value={sceneStyles[sceneId] || projectStyle || "realistic"}
+                          onChange={e => setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value }))}
+                          title="Override style for this scene"
+                          style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cinematic</option>
+                          <option value="realistic">Realistic</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cartoon</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Storybook</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === sceneId}
                           style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === sceneId ? "not-allowed" : "pointer" }}>
                           {generatingSceneImage === sceneId ? "..." : hasImage ? "Regen" : "Make Image"}
@@ -4345,7 +4396,12 @@ function MoviePlannerInner() {
                   style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setLastAction(`Credits saved: ${screenplayAuthor} · ${movieMadeBy}`)}
+              style={{ marginTop: 10, padding: "8px 18px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              Save Credits
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
               <button
                 onClick={async () => {
                   setSubtitleMatchResult({ status: "checking", note: "Checking..." });

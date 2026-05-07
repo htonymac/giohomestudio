@@ -19,11 +19,12 @@ interface CharacterInput {
   characterId: string;
   displayName: string;
   role: string;
+  visualDescription?: string;
 }
 
 function buildPrompt(storyText: string, characters: CharacterInput[], costPreference: string): string {
   const charList = characters.length > 0
-    ? characters.map(c => `- ${c.characterId}: ${c.displayName} (${c.role})`).join("\n")
+    ? characters.map(c => `- ${c.displayName} (${c.role})${c.visualDescription ? ": " + c.visualDescription : ""}`).join("\n")
     : "- No named characters yet";
 
   return `You are a professional film scene planner for an AI animation studio.
@@ -32,7 +33,7 @@ Read the following story carefully and break it into individual scenes. Each sce
 
 STORY:
 """
-${storyText.slice(0, 4000)}
+${storyText.slice(0, 8000)}
 """
 
 CHARACTERS:
@@ -51,6 +52,11 @@ Rules:
 - Use the character IDs from the list above in characterIds
 - description must be a vivid, visual sentence describing exactly what is seen in this scene (AI uses this to generate the image)
 - If cost preference is "efficient", prefer image-led. If "premium", use more video-led.
+- CRITICAL: Use the EXACT character names from the CHARACTERS list above in your scene descriptions and titles. Never rename characters or refer to them as "the villain" or "the hero" when a name is given.
+- CRITICAL: Do NOT combine characters who are separate individuals into a group. If "Vex" is one character and "Bryan" is another, they appear separately unless the story says they're together.
+- Scene titles must name a specific story event (e.g. "Vex Breaks Into the System", "Bryan's Last Stand"), not generic labels (e.g. "Scene 3", "The Confrontation").
+- Scenes must follow the story's actual narrative order — do not invent new plot beats or skip major story events.
+- Scene descriptions must describe what is SEEN visually — use character names and locations from the story.
 
 Return ONLY a valid JSON array, no markdown:
 [

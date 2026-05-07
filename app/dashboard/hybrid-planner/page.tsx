@@ -18,6 +18,7 @@ import { useCoordinator } from "../../components/CoordinatorProvider";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import { createEmptyAssembly } from "@/lib/assembly-schema";
 import type { AssemblySegment, NarrationEntry, MusicEntry, SFXEntry } from "@/lib/assembly-schema";
+import SubtitleStyler, { DEFAULT_SUBTITLE_CONFIG, type SubtitleConfig } from "../../components/SubtitleStyler";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -91,6 +92,7 @@ interface AudioPlan {
   sfxList: string[];
   ambienceList: string[];
   transitionAudio: string;
+  musicUrl?: string;
 }
 
 interface ValidationResult {
@@ -203,6 +205,8 @@ function HybridPlannerInner() {
   const [saving, setSaving] = useState(false);
   // ── Visual Style Lock — controls rendering style for ALL scene image generation ──
   const [projectStyle, setProjectStyle] = useState<string>("3d-cinematic");
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
 
   // ── Story ──
   const [idea, setIdea] = useState("");
@@ -216,6 +220,7 @@ function HybridPlannerInner() {
   const [language, setLanguage] = useState("English");
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-sonnet-4-6"); // "auto" | "claude:model" | "openai:model" | "grok:model" | "ollama"
   const [lastUsedAiProvider, setLastUsedAiProvider] = useState<string>("");
+  const [storyRegion, setStoryRegion] = useState<string>(""); // continent/region for name injection
   const [expanding, setExpanding] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState("");
   const [fullScript, setFullScript] = useState(""); // complete narration script at target duration
@@ -313,6 +318,8 @@ function HybridPlannerInner() {
   const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
   // ── Previous character portrait — one undo level per character ───────────
   const [prevCharImages, setPrevCharImages] = useState<Record<string, string>>({});
+  // ── Per-character portrait model selector ────────────────────────────────
+  const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
   // ── Per-character AI vision analysis state ──
   const [analyzingCharacter, setAnalyzingCharacter] = useState<string | null>(null);
   // ── Per-character manual save state ──
@@ -368,6 +375,12 @@ function HybridPlannerInner() {
   const [sceneContinuousMotion, setSceneContinuousMotion] = useState<Record<string, { enabled: boolean; targetSec: number }>>({});
   // Per-scene SFX generation state
   const [generatingSceneSfx, setGeneratingSceneSfx] = useState<Set<string>>(new Set());
+  // Per-scene SFX progress label: "Generating SFX 2/3..."
+  const [sceneSfxProgress, setSceneSfxProgress] = useState<Record<string, string>>({});
+  // Per-scene SFX audio URLs (array — one per generated SFX file)
+  const [sceneSfxAudioUrls, setSceneSfxAudioUrls] = useState<Record<string, string[]>>({});
+  // Per-scene music loading state
+  const [generatingSceneMusic, setGeneratingSceneMusic] = useState<Set<string>>(new Set());
   const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
   const [cmRunning, setCmRunning] = useState(false);
   const [cmStatus, setCmStatus] = useState<string | null>(null);
@@ -392,6 +405,18 @@ function HybridPlannerInner() {
   const [introOutroStyle, setIntroOutroStyle] = useState<"cinematic" | "minimal" | "bold" | "nollywood">("cinematic");
   const [generatingCards, setGeneratingCards] = useState(false);
   const [showCutsPanel, setShowCutsPanel] = useState(false);
+  // ── Pre-generated intro/outro URLs (from pre-assembly panel) ──
+  const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [outroUrl, setOutroUrl] = useState<string | null>(null);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [generatingOutro, setGeneratingOutro] = useState(false);
+  // ── Story credits (writtenBy = screenplayAuthor, studio = GioHomeStudio hardcoded) ──
+  const [ideaFrom, setIdeaFrom] = useState("");
+  // ── Name library — custom names added by user ──
+  const [customNameInput, setCustomNameInput] = useState("");
+  // ── Subtitle config (full SubtitleStyler state) ──
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "dramatic" });
+  const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok" | "warn" | "checking"; note: string } | null>(null);
   // ── Assign position — sceneId being assigned a manual position ──
   const [assigningId, setAssigningId] = useState<string | null>(null);
   // ── AI narration preparation ──
@@ -511,6 +536,7 @@ function HybridPlannerInner() {
   const [autoSfx, setAutoSfx] = useState(false);
   const [autoSfxRunning, setAutoSfxRunning] = useState(false);
   const [sceneSfxUrls, setSceneSfxUrls] = useState<Record<string, string>>({});
+  const [autoSfxProgress, setAutoSfxProgress] = useState<{ current: number; total: number; sceneId: string } | null>(null);
   // ── Build-all-characters queue state ──────────────────────────────────────
   const [buildingAllChars, setBuildingAllChars] = useState(false);
   const [buildAllProgress, setBuildAllProgress] = useState<string | null>(null);
@@ -834,6 +860,10 @@ function HybridPlannerInner() {
           targetDurationLabel: durLabel,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
+          nameRegion: storyRegion || undefined,
+          customNames: (() => {
+            try { return JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]"); } catch { return []; }
+          })(),
         }),
       });
       const expandData = await expandRes.json();
@@ -939,12 +969,21 @@ function HybridPlannerInner() {
       // API requires projectId + expandedStory as string + characters with characterId + displayName + role
       // If no DB projectId, use the lightweight plan endpoint instead
       setLoadingScenes(true);
+      // Build name→visual map from AI-expanded story
+      const charVisualMap = new Map<string, string>();
+      if (Array.isArray(expandedObj.characterList)) {
+        for (const ec of expandedObj.characterList) {
+          if (ec.name && ec.description) charVisualMap.set(ec.name.toUpperCase(), ec.description);
+        }
+      }
+
       const scenePayload = {
-        storyText: storySummary,           // full story text for scene planning
+        storyText: storyFullScript || storySummary,           // full story text for scene planning
         characters: extractedChars.map(c => ({
           characterId: c.characterId,
           displayName: c.displayName,
           role: c.roleType,
+          visualDescription: charVisualMap.get(c.displayName.toUpperCase()) || "",
         })),
         costPreference,
         targetDuration,
@@ -1479,10 +1518,12 @@ function HybridPlannerInner() {
     const characterOverrides = sceneChars.map(c => ({
       characterId: c.characterId,
       name: c.displayName,
+      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
       visualDescription: buildVisualDescription(c),
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
       hairstyle: c.hairStyle || null,
+      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
     }));
     try {
       const res = await fetch("/api/hybrid/scene-image", {
@@ -1491,7 +1532,7 @@ function HybridPlannerInner() {
           sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
           characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
           timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-          projectStyle, characterOverrides,
+          projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
           modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
           transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
@@ -1572,10 +1613,12 @@ function HybridPlannerInner() {
     const characterOverrides = sceneChars.map(c => ({
       characterId: c.characterId,
       name: c.displayName,
+      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
       visualDescription: buildVisualDescription(c),
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
       hairstyle: c.hairStyle || null,
+      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
     }));
 
     const seeds = [Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9)];
@@ -1589,7 +1632,7 @@ function HybridPlannerInner() {
             sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
             characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
             timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-            projectStyle, characterOverrides,
+            projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
             modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
             transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
@@ -1640,37 +1683,68 @@ function HybridPlannerInner() {
   async function generateSceneSfx(scene: HybridScene) {
     if (generatingSceneSfx.has(scene.sceneId)) return;
     setGeneratingSceneSfx(prev => new Set(prev).add(scene.sceneId));
+    setSceneSfxProgress(prev => ({ ...prev, [scene.sceneId]: "Planning SFX..." }));
     setLastAction(`Generating SFX for Scene ${scene.scene}...`);
     try {
+      // Step 1: Use inline mode — pass scenes[] array as required by the API
       const res = await fetch("/api/hybrid/audio-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sceneId: scene.sceneId,
-          projectId,
-          description: scene.description,
-          title: scene.title,
-          mood: scene.mood,
-          location: scene.location,
-          characterIds: scene.characterIds,
-          singleScene: true, // flag: generate for this scene only, not full project
+          scenes: [{
+            sceneId: scene.sceneId,
+            title: scene.title,
+            description: scene.description,
+            location: scene.location,
+            mood: scene.mood,
+            sceneType: scene.sceneType || "image-led",
+          }],
         }),
       });
       const data = await res.json();
-      if (data.sfx || data.audioPlans) {
-        const sfxList = data.sfx || data.audioPlans?.[0]?.sfxList || [];
-        updateScene(scene.scene, {
-          audioPlan: {
-            ...scene.audioPlan,
-            sfxList,
-            ambienceList: data.ambience || data.audioPlans?.[0]?.ambienceList || scene.audioPlan.ambienceList,
-          },
-        });
-        setLastAction(`SFX generated for Scene ${scene.scene}: ${sfxList.slice(0, 3).join(", ")}${sfxList.length > 3 ? "..." : ""}`);
+      const sfxList: string[] = data.audioPlans?.[0]?.sfxList || [];
+      const ambienceList: string[] = data.audioPlans?.[0]?.ambienceList || scene.audioPlan.ambienceList;
+
+      // Update the scene with planned SFX list regardless of audio gen
+      updateScene(scene.scene, {
+        audioPlan: { ...scene.audioPlan, sfxList, ambienceList },
+      });
+
+      if (sfxList.length === 0) {
+        setLastAction(`No SFX detected for Scene ${scene.scene} — try adding more descriptive text`);
+        return;
       }
+
+      // Step 2: Generate audio for each SFX cue via /api/sfx/generate
+      const audioUrls: string[] = [];
+      for (let i = 0; i < sfxList.length; i++) {
+        const sfxName = sfxList[i];
+        setSceneSfxProgress(prev => ({ ...prev, [scene.sceneId]: `Generating SFX ${i + 1}/${sfxList.length}...` }));
+        try {
+          const sfxRes = await fetch("/api/sfx/generate", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: sfxName }),
+          });
+          const sfxData = await sfxRes.json();
+          const url = sfxData.fileUrl || sfxData.url;
+          if (url) audioUrls.push(url);
+        } catch {
+          // skip failed SFX — continue with rest
+        }
+      }
+
+      // Store generated audio URLs per scene
+      if (audioUrls.length > 0) {
+        setSceneSfxAudioUrls(prev => ({ ...prev, [scene.sceneId]: audioUrls }));
+        // Also store first URL in legacy sceneSfxUrls for backward compat
+        setSceneSfxUrls(prev => ({ ...prev, [scene.sceneId]: audioUrls[0] }));
+      }
+
+      setLastAction(`SFX ready for Scene ${scene.scene}: ${sfxList.slice(0, 3).join(", ")}${sfxList.length > 3 ? `... +${sfxList.length - 3} more` : ""}${audioUrls.length > 0 ? ` (${audioUrls.length} audio files)` : ""}`);
     } catch (err) {
       setLastAction(`SFX generation failed for Scene ${scene.scene}: ${err instanceof Error ? err.message : "error"}`);
     } finally {
       setGeneratingSceneSfx(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; });
+      setSceneSfxProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
     }
   }
 
@@ -2146,10 +2220,13 @@ function HybridPlannerInner() {
     const ctrl = new AbortController();
     autoSfxAbortRef.current = ctrl;
     setAutoSfxRunning(true);
+    setAutoSfxProgress(null);
     setLastAction(`Auto SFX: generating for ${scenes.length} scene${scenes.length !== 1 ? "s" : ""}...`);
     const results: Record<string, string> = {};
-    for (const scene of scenes) {
+    for (let i = 0; i < scenes.length; i++) {
+      const scene = scenes[i];
       if (ctrl.signal.aborted) break;
+      setAutoSfxProgress({ current: i + 1, total: scenes.length, sceneId: scene.sceneId });
       try {
         const prompt = scene.description || scene.title || `scene ${scene.scene}`;
         const res = await fetch("/api/sfx/generate", {
@@ -2168,6 +2245,7 @@ function HybridPlannerInner() {
       }
     }
     setSceneSfxUrls(prev => ({ ...prev, ...results }));
+    setAutoSfxProgress(null);
     setLastAction(`Auto SFX ${ctrl.signal.aborted ? "cancelled" : "complete"} — ${Object.keys(results).length}/${scenes.length} scenes`);
     setAutoSfxRunning(false);
     autoSfxAbortRef.current = null;
@@ -2357,12 +2435,10 @@ function HybridPlannerInner() {
   }
 
   async function assembleScenes() {
-    // ── Coordinator guard (BUG-01): block assembly if story or scenes not complete ──
-    const coordinatorBlock = canAdvanceTo("assembly");
-    if (coordinatorBlock) {
-      setUiError(coordinatorBlock);
-      return;
-    }
+    // Guard: check actual state — coordinator store is never marked complete by this planner
+    const storyReady = !!(fullScript || expandedSummary || idea?.trim());
+    if (!storyReady) { setUiError("Write your story first before assembling."); return; }
+    if (selectedSceneIds.length === 0) { setUiError("Select at least one scene to assemble."); return; }
     try { await requireGate(); } catch { return; }
     setAssembling(true); setAssemblyComplete(false); setAssembledVideoUrl(null); setUiError(null);
     const progress: Record<number, string> = {};
@@ -2471,7 +2547,7 @@ function HybridPlannerInner() {
           ? "image"
           : (videoUrl ? "video" : "image");
 
-        console.log(`[assemble] ${s.sceneId}: mode=${effectiveMode} video=${videoUrl || "none"} image=${imageUrl ? "yes" : "none"} → ${mediaUrl.slice(0, 60)}`);
+        // scene media resolved
 
         // BUG-16b: subtitle source = full scene narration script, NOT first-N-sentences truncation.
         // Truncation cut subtitles to 1-2 sentences; use fullScript / full narrationScript instead.
@@ -2493,6 +2569,8 @@ function HybridPlannerInner() {
       const cardPayload = {
         title: projectTitle,
         author: screenplayAuthor,
+        studio: "GioHomeStudio",
+        ideaFrom,
         genre,
         tone,
         style: introOutroStyle,
@@ -2508,20 +2586,30 @@ function HybridPlannerInner() {
 
       if (introEnabled) {
         try {
-          const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "intro" }) });
-          const d = await r.json();
-          if (d.ok && d.imageUrl) {
-            introScene = { scene: 0, videoUrl: `img:${d.imageUrl}`, duration: 5, text: "", animation: "fade_in" as const };
+          // Use pre-generated introUrl if available; otherwise generate on-the-fly
+          let imageUrl = introUrl;
+          if (!imageUrl) {
+            const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "intro" }) });
+            const d = await r.json();
+            if (d.ok && d.imageUrl) imageUrl = d.imageUrl;
+          }
+          if (imageUrl) {
+            introScene = { scene: 0, videoUrl: `img:${imageUrl}`, duration: 5, text: "", animation: "fade_in" as const };
           }
         } catch { /* best effort */ }
       }
 
       if (outroEnabled) {
         try {
-          const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "outro" }) });
-          const d = await r.json();
-          if (d.ok && d.imageUrl) {
-            outroScene = { scene: 999, videoUrl: `img:${d.imageUrl}`, duration: 10, text: "", animation: "fade_in" as const };
+          // Use pre-generated outroUrl if available; otherwise generate on-the-fly
+          let imageUrl = outroUrl;
+          if (!imageUrl) {
+            const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "outro" }) });
+            const d = await r.json();
+            if (d.ok && d.imageUrl) imageUrl = d.imageUrl;
+          }
+          if (imageUrl) {
+            outroScene = { scene: 999, videoUrl: `img:${imageUrl}`, duration: 10, text: "", animation: "fade_in" as const };
           }
         } catch { /* best effort */ }
       }
@@ -2652,32 +2740,24 @@ function HybridPlannerInner() {
         }
       } catch { /* skip SFX on error */ }
 
-      // ── Music selection — always use clean stock library tracks ──
-      // Uploaded files (music_upload_*) can contain album art (embedded PNG video stream)
-      // or copyrighted material. Always override with a matched stock track.
-      const isUploadedFile = selectedMusicUrl?.includes("music_upload_");
-      let effectiveMusicUrl = isUploadedFile ? null : selectedMusicUrl;
+      // ── Music selection — use what Henry selected, fall back to tone-matched stock ──
+      let effectiveMusicUrl = selectedMusicUrl || null;
 
       if (!effectiveMusicUrl) {
         try {
           const libRes = await fetch("/api/assets?type=music");
           if (libRes.ok) {
             const libData = await libRes.json();
-            const tracks = (libData.assets || libData || []) as Array<{ filePath?: string; name?: string; url?: string }>;
-            // Filter to stock tracks only (no uploads)
-            const stockTracks = tracks.filter(t => t.filePath && !t.filePath.includes("music_upload_"));
-            if (stockTracks.length > 0) {
+            const tracks = (libData.assets || libData || []) as Array<{ filePath?: string; name?: string; url?: string; type?: string }>;
+            const musicTracks = tracks.filter(t => t.filePath && t.type !== "sfx");
+            if (musicTracks.length > 0) {
               const toneKey = (tone || genre || "emotional").toLowerCase();
-              const pick = stockTracks.find(t => (t.name || "").toLowerCase().includes(toneKey.split(" ")[0]))
-                || stockTracks.find(t => /emotional|calm|soft/.test((t.name || "").toLowerCase()))
-                || stockTracks[0];
+              const pick = musicTracks.find(t => (t.name || "").toLowerCase().includes(toneKey.split(" ")[0]))
+                || musicTracks.find(t => /emotional|calm|soft/.test((t.name || "").toLowerCase()))
+                || musicTracks[0];
               if (pick?.filePath) {
                 effectiveMusicUrl = `/api/media/${pick.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-                if (isUploadedFile) {
-                  console.log(`[assemble] Replaced uploaded music with stock: ${pick.name}`);
-                } else {
-                  console.log(`[assemble] Auto-selected music: ${pick.name} → ${effectiveMusicUrl}`);
-                }
+                console.log(`[assemble] Auto-selected music: ${pick.name} → ${effectiveMusicUrl}`);
               }
             }
           }
@@ -2766,7 +2846,7 @@ function HybridPlannerInner() {
         exportSettings: {
           format: "mp4" as const,
           quality: "standard" as const,
-          includeSubtitles: subtitleStyle !== "none",
+          includeSubtitles: subtitleConfig.mode !== "none",
           includeWatermark: false,
           includeCredits: false,
         },
@@ -2832,9 +2912,16 @@ function HybridPlannerInner() {
         } catch (saveErr) { console.error("Asset library save failed:", saveErr); }
       } else {
         setAssemblyComplete(true);
-        setLastAction("Assembly complete (no video URL returned)");
+        const apiErrMsg = data.error ? `: ${data.error}` : "";
+        setUiError(`Assembly API returned no video URL${apiErrMsg}. Check server logs.`);
+        setLastAction(`Assembly returned no video${apiErrMsg}`);
       }
-    } catch (err) { console.error("assembleScenes failed:", err); setUiError("Assembly failed. Please check your scenes and try again."); }
+    } catch (err) {
+      console.error("assembleScenes failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setUiError(`Assembly failed: ${errMsg}`);
+      setLastAction(`Assembly error: ${errMsg.slice(0, 120)}`);
+    }
     setAssembling(false);
   }
 
@@ -3070,6 +3157,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
   // The more fields filled in, the more consistent the output.
   function buildVisualDescription(char: CharacterIdentity): string {
     const parts: string[] = [];
+    // Age FIRST — image generators weight early tokens highest
+    if (char.ageRange) parts.push(char.ageRange);
     if (char.species) parts.push(`${char.species}`);
     if (char.bodyBuild) parts.push(char.bodyBuild);
     if (char.ageAppearance) parts.push(char.ageAppearance);
@@ -3084,7 +3173,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       if (char.hairStyle) parts.push(char.hairStyle);
       if (char.wardrobeStyle) parts.push(char.wardrobeStyle);
       if (char.gender) parts.push(char.gender);
-      if (char.ageRange) parts.push(char.ageRange);
     }
     return parts.join(", ");
   }
@@ -3313,7 +3401,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     } catch { /* best-effort */ }
   }
 
-  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string) {
+  async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string, overrideModelId?: string) {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
@@ -3334,15 +3422,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
         : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
 
-    // Build portrait prompt
+    // Build age anchor — PuLID ignores age buried in description; must be FIRST tokens
+    const ageRaw = char.ageRange || char.ageAppearance || "";
+    const ageNum = parseInt(ageRaw);
+    const isChild = ageNum > 0 && ageNum < 18;
+    const ageAnchor = ageRaw
+      ? isChild
+        ? `${ageNum}-year-old child, CHILD NOT ADULT, young face, child body proportions, age ${ageNum},`
+        : `${ageRaw},`
+      : "";
+
+    // Build portrait prompt — age anchor goes FIRST so PuLID cannot ignore it
     const portraitPrompt = [
+      ageAnchor,
       stylePrefix,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
       visualDesc || `${char.displayName}, ${char.gender}`,
       "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
       "Show the character clearly from head to toe.",
       "Consistent design, professional quality, no background distractions.",
-    ].filter(Boolean).join(". ");
+    ].filter(Boolean).join(" ");
 
     // Detect photo-import: if character was built from a real uploaded photo,
     // pass it as referenceImageUrl so PuLID (fal_flux_pulid) preserves the face
@@ -3352,17 +3451,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     const forceIdentityLock = isPhotoImport;
 
     try {
+      // Determine effective model: override arg → per-character selection → auto PuLID for photo-import → let backend default
+      const effectiveModelId = overrideModelId
+        || charPortraitModel[char.characterId]
+        || (isPhotoImport ? "fal_flux_pulid" : undefined);
+
       const res = await fetch("/api/generation/image", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: portraitPrompt,
-          negativePrompt: effectiveStyle === "realistic" || effectiveStyle === "nollywood"
-            ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
-            : effectiveStyle === "2d-cartoon"
-            ? "3D render, photorealistic, CGI, bokeh, realistic"
-            : effectiveStyle === "3d-cinematic"
-            ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
-            : "",
+          modelId: effectiveModelId,
+          negativePrompt: (() => {
+            const ageBlock = isChild
+              ? "adult, mature face, grown up, aged, wrinkles, 20 years old, 30 years old, teenager, pubescent, man, woman, adult body"
+              : "";
+            const styleBlock = effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+              ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+              : effectiveStyle === "2d-cartoon"
+              ? "3D render, photorealistic, CGI, bokeh, realistic"
+              : effectiveStyle === "3d-cinematic"
+              ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
+              : "";
+            return [ageBlock, styleBlock].filter(Boolean).join(", ");
+          })(),
           referenceImageUrl: referenceImageUrl || undefined,
           useIdentityLock: forceIdentityLock,
           width: 768, height: 960,
@@ -3938,6 +4049,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
         // ── Image models ──
         const IMAGE_MODELS_AID = [
+          { id:"ideogram_free",        name:"Ideogram Free",      price:0.000, network:"FAL",     res:"1024px", color:"#34d399", desc:"Completely free. Good text rendering via Ideogram v2." },
+          { id:"segmind_flux",         name:"Flux Free",          price:0.0004,network:"Segmind", res:"1024px", color:"#6ee7b7", desc:"Cheapest Flux via Segmind. Good for quick drafts." },
           { id:"segmind_pruna",        name:"Pruna P Image",      price:0.005, network:"Segmind", res:"1024px", color:"#22c55e", desc:"Cheapest image. Fast drafts, marketing creatives." },
           { id:"fal_flux_schnell",     name:"Flux Schnell",       price:0.003, network:"FAL",     res:"1024px", color:"#4ade80", desc:"Fastest FAL image. Very cheap, good for quick tests." },
           { id:"fal_flux_dev",         name:"Flux Dev",           price:0.025, network:"FAL",     res:"1024px", color:"#facc15", desc:"Better detail than Schnell. Good balance." },
@@ -5026,7 +5139,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 const typeInfo = SCENE_TYPES.find(t => t.id === scene.sceneType);
                 const hasImage = !!sceneImages[scene.sceneId];
                 const hasVideo = !!sceneVideos[scene.sceneId];
-                const hasAudio = !!(scene.audioPlan?.musicMood || scene.audioPlan?.sfxList?.length || scene.narrationScript || selectedMusicUrl);
+                const hasAudio = !!(scene.audioPlan?.musicMood || scene.audioPlan?.sfxList?.length || scene.narrationScript || selectedMusicUrl || sceneSfxUrls[scene.sceneId]);
                 const videoVersionCount = sceneVideoVersions[scene.sceneId]?.length || 0;
                 const activeCardTab = activeSceneCardTab[scene.sceneId] ?? null;
                 const statusColor = scene.status === "approved" ? accent : scene.status === "blocked" ? red : scene.status === "generated" ? blue : gold;
@@ -5198,15 +5311,21 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         {/* SFX */}
                         <div style={{ marginBottom: scene.audioPlan?.ambienceList?.length ? 8 : 0 }}>
                           <div style={{ fontSize: 9, color: gold, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>SFX</div>
+                          {sceneSfxUrls[scene.sceneId] ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, background: `${gold}12`, borderRadius: 6, padding: "4px 8px", marginBottom: scene.audioPlan?.sfxList?.length ? 4 : 0 }}>
+                              <span style={{ fontSize: 8, color: gold, fontWeight: 700, flexShrink: 0 }}>AUTO SFX</span>
+                              <audio src={sceneSfxUrls[scene.sceneId]} controls style={{ height: 22, flex: 1, minWidth: 0 }} />
+                            </div>
+                          ) : null}
                           {scene.audioPlan?.sfxList?.length ? (
                             <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
                               {scene.audioPlan.sfxList.map((sfx, i) => (
                                 <span key={i} style={{ fontSize: 8, background: `${gold}18`, border: `1px solid ${gold}30`, borderRadius: 4, padding: "2px 6px", color: gold }}>{sfx}</span>
                               ))}
                             </div>
-                          ) : (
-                            <div style={{ fontSize: 9, color: muted }}>No SFX planned — run AI Audio Plan to generate</div>
-                          )}
+                          ) : !sceneSfxUrls[scene.sceneId] ? (
+                            <div style={{ fontSize: 9, color: muted }}>No SFX planned — run AI Audio Plan or Auto SFX</div>
+                          ) : null}
                         </div>
                         {/* Ambience */}
                         {scene.audioPlan?.ambienceList?.length ? (
@@ -5444,6 +5563,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
                       {/* ── Image row — Generate OR import from library ── */}
                       <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                        <select
+                          value={sceneStyles[scene.sceneId] || projectStyle || "3d-cinematic"}
+                          onChange={e => setSceneStyles(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
+                          title="Override style for this scene"
+                          style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cinematic</option>
+                          <option value="realistic">Realistic</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cartoon</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Storybook</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
                           style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
                           {generatingSceneImage === scene.sceneId ? "Generating..." : hasImage ? "Regen Image" : "Make Image"}
@@ -5487,12 +5619,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             style={{ padding: "0 8px", borderRadius: 8, border: `1.5px solid #7c3aed60`, background: "#1a0f3a", color: "#c084fc", fontSize: 8, fontWeight: 800, cursor: "pointer", letterSpacing: 0.5 }}>
                             AI Model
                           </button>
-                          <a href={`/dashboard/collaborative-editor?mode=ghs_hybrid&sceneId=${scene.sceneId}&from=hybrid-planner`} style={{ textDecoration: "none", display: "flex" }}
-                            onClick={() => { /* return state now handled via URL params */ }}>
-                            <button style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
-                              Editor
-                            </button>
-                          </a>
                           <button onClick={() => updateScene(scene.scene, { status: scene.status === "approved" ? "draft" : "approved" })}
                             style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${accent}30`, background: scene.status === "approved" ? `${accent}15` : "transparent", color: accent, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
                             {scene.status === "approved" ? "OK" : "OK"}
@@ -5521,7 +5647,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               disabled={generatingSceneSfx.has(scene.sceneId)}
                               title="Auto-generate SFX from scene description"
                               style={{ flex: 1, minWidth: 80, padding: "6px 8px", borderRadius: 7, border: `1px solid #f59e0b50`, background: generatingSceneSfx.has(scene.sceneId) ? "#2a2a30" : "#f59e0b12", color: generatingSceneSfx.has(scene.sceneId) ? muted : "#f59e0b", fontSize: 8, fontWeight: 700, cursor: generatingSceneSfx.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                              {generatingSceneSfx.has(scene.sceneId) ? "SFX..." : scene.audioPlan.sfxList.length > 0 ? `SFX (${scene.audioPlan.sfxList.length})` : "AI SFX"}
+                              {generatingSceneSfx.has(scene.sceneId) ? (sceneSfxProgress[scene.sceneId] || "SFX...") : scene.audioPlan.sfxList.length > 0 ? `SFX (${scene.audioPlan.sfxList.length})` : "AI SFX"}
                             </button>
                             {/* Continuous Motion toggle */}
                             <button
@@ -5548,24 +5674,53 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             {/* Generate Scene Music */}
                             <button
                               onClick={async () => {
+                                if (generatingSceneMusic.has(scene.sceneId)) return;
+                                setGeneratingSceneMusic(prev => new Set(prev).add(scene.sceneId));
                                 setLastAction(`Generating music for Scene ${scene.scene}...`);
                                 try {
                                   const r = await fetch("/api/music/generate-scene", {
                                     method: "POST", headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({ sceneId: scene.sceneId, projectId, mood: scene.audioPlan.musicMood || scene.mood, genre, tone }),
+                                    body: JSON.stringify({ sceneId: scene.sceneId, projectId, mood: scene.audioPlan?.musicMood || scene.mood, genre, tone }),
                                   });
                                   const d = await r.json();
-                                  if (d.musicUrl) updateScene(scene.scene, { audioPlan: { ...scene.audioPlan, musicMood: d.musicMood || scene.audioPlan.musicMood } });
-                                  setLastAction(`Music generated for Scene ${scene.scene}`);
-                                } catch { setLastAction(`Music gen failed for Scene ${scene.scene}`); }
+                                  // API returns outputUrl (not musicUrl)
+                                  const musicUrl = d.outputUrl || d.musicUrl || d.url;
+                                  if (musicUrl) {
+                                    updateScene(scene.scene, { audioPlan: { ...(scene.audioPlan || {}), musicUrl, musicMood: d.mood || scene.audioPlan?.musicMood } });
+                                    setLastAction(`Music ready for Scene ${scene.scene}`);
+                                  } else {
+                                    setUiError(d.error || `Music generation failed for Scene ${scene.scene}`);
+                                  }
+                                } catch (e) { setUiError(`Music gen error: ${String(e)}`); }
+                                finally { setGeneratingSceneMusic(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; }); }
                               }}
+                              disabled={generatingSceneMusic.has(scene.sceneId)}
                               title="Generate background music for this scene"
-                              style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: "#22c55e", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                              Music
+                              style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: generatingSceneMusic.has(scene.sceneId) ? muted : "#22c55e", fontSize: 8, fontWeight: 700, cursor: generatingSceneMusic.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                              {generatingSceneMusic.has(scene.sceneId) ? "Generating..." : scene.audioPlan?.musicUrl ? "Music (done)" : "Music"}
                             </button>
                           </div>
                         );
                       })()}
+                      {/* ── Per-scene SFX audio players (shown after AI SFX generation) ── */}
+                      {(sceneSfxAudioUrls[scene.sceneId]?.length ?? 0) > 0 && (
+                        <div style={{ marginTop: 6, display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                          <div style={{ fontSize: 8, color: "#f59e0b", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Generated SFX ({sceneSfxAudioUrls[scene.sceneId].length})</div>
+                          {sceneSfxAudioUrls[scene.sceneId].map((url, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "#f59e0b10", borderRadius: 6, padding: "3px 8px" }}>
+                              <span style={{ fontSize: 8, color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>{scene.audioPlan.sfxList[i] || `SFX ${i + 1}`}</span>
+                              <audio src={url} controls style={{ height: 20, flex: 1, minWidth: 0 }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* ── Per-scene Music audio player (shown after music generation) ── */}
+                      {scene.audioPlan?.musicUrl && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ fontSize: 8, color: "#22c55e", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.8, marginBottom: 3 }}>Scene Music{scene.audioPlan.musicMood ? ` — ${scene.audioPlan.musicMood}` : ""}</div>
+                          <audio src={scene.audioPlan.musicUrl} controls style={{ width: "100%", height: 22 }} />
+                        </div>
+                      )}
 
                       {/* Expanded SceneImagePanel */}
                       {expandedSceneId === scene.sceneId && (
@@ -5999,6 +6154,27 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <option value="storybook">Storybook</option>
                         <option value="comic">Comic</option>
                       </select>
+                      {/* ── Portrait model selector ── */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
+                        <select
+                          value={charPortraitModel[char.characterId] || (char.tags?.includes("photo-import") ? "fal_flux_pulid" : "segmind_flux")}
+                          onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.characterId]: e.target.value }))}
+                          style={{
+                            padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
+                            border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
+                            outline: "none", flex: 1
+                          }}>
+                          <option value="ideogram_free">Ideogram Free ($0.00) — free</option>
+                          <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
+                          <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
+                          <option value="segmind_pruna">Pruna ($0.005) — fast</option>
+                          <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
+                          <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
+                          <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
+                          <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
+                        </select>
+                      </div>
                       <button
                         onClick={() => generateCharacterPortrait(char, charStyles[char.characterId])}
                         disabled={isGenerating}
@@ -6075,20 +6251,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           Preview
                         </button>
                       )}
-                      {/* Undo Image — restore previous portrait */}
-                      {prevCharImages[char.characterId] && (
-                        <button
-                          onClick={() => {
-                            const prev = prevCharImages[char.characterId];
-                            setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
-                            setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
-                            setLastAction(`${char.displayName} reverted to previous portrait`);
-                          }}
-                          title="Undo — go back to previous portrait"
-                          style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #f59e0b40", background: "#f59e0b08", color: "#f59e0b", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          Undo Image
-                        </button>
-                      )}
+                      {/* Undo Image — restore previous portrait (always shown, grayed when no previous) */}
+                      <button
+                        onClick={() => {
+                          if (!prevCharImages[char.characterId]) return;
+                          const prev = prevCharImages[char.characterId];
+                          setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: prev, hasImage: true } : c));
+                          setPrevCharImages(p => { const n = { ...p }; delete n[char.characterId]; return n; });
+                          setLastAction(`${char.displayName} reverted to previous portrait`);
+                        }}
+                        title={prevCharImages[char.characterId] ? "Undo — go back to previous portrait" : "No previous image to restore"}
+                        disabled={!prevCharImages[char.characterId]}
+                        style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${prevCharImages[char.characterId] ? "#f59e0b40" : "#33333340"}`, background: prevCharImages[char.characterId] ? "#f59e0b08" : "transparent", color: prevCharImages[char.characterId] ? "#f59e0b" : "#555", fontSize: 10, fontWeight: 700, cursor: prevCharImages[char.characterId] ? "pointer" : "not-allowed", opacity: prevCharImages[char.characterId] ? 1 : 0.4 }}>
+                        Undo Image
+                      </button>
                       {/* Remove Image — clear portrait entirely */}
                       {char.imageUrl && (
                         <button
@@ -6183,13 +6359,30 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               placeholder='e.g. "wooden walking cane, small satchel bag"'
                               style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                           </div>
-                          {/* Age appearance */}
+                          {/* Age — numeric, feeds ageRange for image gen age anchor */}
                           <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Age / Posture</label>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Age (years) <span style={{ color: "#f97316", fontWeight: 800 }}>★</span></label>
+                            <input
+                              type="number"
+                              min={1} max={120}
+                              value={char.ageRange ? parseInt(char.ageRange) || "" : ""}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setCharacters(prev => prev.map(c => c.characterId === char.characterId
+                                  ? { ...c, ageRange: val ? `${val} years old` : "" }
+                                  : c));
+                              }}
+                              placeholder='e.g. 8'
+                              style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
+                            <p style={{ fontSize: 9, color: "#f97316", margin: "3px 0 0", fontWeight: 600 }}>★ Required — image generator uses this to lock the correct age</p>
+                          </div>
+                          {/* Posture / Energy — separate from age */}
+                          <div>
+                            <label style={{ ...labelStyle, fontSize: 9 }}>Posture / Energy</label>
                             <input
                               value={char.ageAppearance || ""}
                               onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, ageAppearance: e.target.value } : c))}
-                              placeholder='e.g. "elderly, slightly hunched, wise and warm expression"'
+                              placeholder='e.g. "standing upright, energetic and confident" or "slightly hunched, calm"'
                               style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }} />
                           </div>
                           {/* Distinctive features */}
@@ -6343,7 +6536,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 4 }}>
                   {([
-                    { badge: "FREE",   color: "#22c55e", provider: "ollama",                          desc: "Local · Free" },
+                    { badge: "QWEN",   color: "#22c55e", provider: "ollama:qwen2.5:7b",               desc: "Local · Free" },
                     { badge: "HAIKU",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low $" },
                     { badge: "SONNET", color: "#a855f7", provider: "claude:claude-sonnet-4-6",         desc: "Balanced" },
                   ] as const).map(t => {
@@ -6386,6 +6579,86 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <p style={{ fontSize: 8, color: accent, marginTop: 3, fontWeight: 600 }}>
                     Last: {lastUsedAiProvider}
                   </p>
+                )}
+              </div>
+            </div>
+
+            {/* ── Story Region / Name Culture Picker ── */}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <label style={{ ...labelStyle, fontSize: 9, marginBottom: 0 }}>Story Culture</label>
+                <button title="Select a cultural region so AI uses authentic names and cultural context for unnamed characters"
+                  style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>ⓘ</button>
+                {storyRegion && (
+                  <button onClick={() => setStoryRegion("")}
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a7a", fontSize: 9, cursor: "pointer", padding: 0 }}>
+                    clear
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                {([
+                  { id: "africa",       label: "Africa",         emoji: "🌍" },
+                  { id: "asia",         label: "Asia",           emoji: "🌏" },
+                  { id: "europe",       label: "Europe",         emoji: "🇪🇺" },
+                  { id: "north_america",label: "N. America",     emoji: "🌎" },
+                  { id: "latin_america",label: "Latin America",  emoji: "🌎" },
+                  { id: "middle_east",  label: "Middle East",    emoji: "🕌" },
+                  { id: "oceania",      label: "Oceania",        emoji: "🌏" },
+                  { id: "fantasy",      label: "Fantasy",        emoji: "✨" },
+                ] as const).map(r => {
+                  const active = storyRegion === r.id;
+                  return (
+                    <button key={r.id} onClick={() => setStoryRegion(active ? "" : r.id)}
+                      style={{
+                        padding: "6px 8px", borderRadius: 8,
+                        border: `1px solid ${active ? accent : "#ffffff15"}`,
+                        background: active ? `${accent}22` : "#ffffff06",
+                        cursor: "pointer", display: "flex", alignItems: "center", gap: 5, textAlign: "left" as const,
+                      }}>
+                      <span style={{ fontSize: 13 }}>{r.emoji}</span>
+                      <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, color: active ? accent : "#8888aa" }}>{r.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {storyRegion && (
+                <p style={{ fontSize: 8, color: "#7dd3fc", marginTop: 5 }}>
+                  AI will use culturally authentic {storyRegion.replace(/_/g," ")} names for unnamed characters
+                </p>
+              )}
+              {/* ── Custom name import ── */}
+              <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
+                <p style={{ fontSize: 8, color: muted, marginBottom: 6 }}>Add custom names (comma-separated) — injected into next story expansion</p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    value={customNameInput}
+                    onChange={e => setCustomNameInput(e.target.value)}
+                    placeholder="e.g. Tunde, Amaka, Chidi, Zara..."
+                    style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "6px 8px" }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!customNameInput.trim()) return;
+                      setStoryRegion(prev => prev); // keep region
+                      // Store as a special "custom" region override in sessionStorage so expandStory picks it up
+                      const names = customNameInput.split(",").map(n => n.trim()).filter(Boolean);
+                      sessionStorage.setItem("ghs_custom_names", JSON.stringify(names));
+                      setCustomNameInput("");
+                      setLastAction(`✓ ${names.length} custom name${names.length !== 1 ? "s" : ""} saved — will be injected on next Expand`);
+                    }}
+                    style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                    Add Names
+                  </button>
+                </div>
+                {typeof window !== "undefined" && sessionStorage.getItem("ghs_custom_names") && (
+                  <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                    <p style={{ fontSize: 8, color: "#22c55e" }}>
+                      Custom pool: {JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]").join(", ").slice(0, 80)}
+                    </p>
+                    <button onClick={() => { sessionStorage.removeItem("ghs_custom_names"); setLastAction("Custom names cleared"); }}
+                      style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 8, cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
                 )}
               </div>
             </div>
@@ -6540,7 +6813,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={() => {
                           setSoundTier(tier.id);
                           if (tier.id === "ghs-sound") setNarratorVoice("piper");
-                          else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
+                          else if (tier.id === "ghs-plus") setNarratorVoice("piper");
+                          else if (tier.id === "ghs-pro") setNarratorVoice("fal-narrator");
                           else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
                         }}
                         style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
@@ -7346,6 +7620,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </button>
             </div>
           </div>
+          {autoSfxRunning && autoSfxProgress && (
+            <div style={{ marginTop: -8, marginBottom: 16, padding: "8px 16px", borderRadius: 8, background: `${blue}08`, border: `1px solid ${blue}20` }}>
+              <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>
+                Processing {autoSfxProgress.sceneId} ({autoSfxProgress.current}/{autoSfxProgress.total})
+              </div>
+              <div style={{ height: 4, background: "#1e293b", borderRadius: 2 }}>
+                <div style={{ height: 4, background: blue, borderRadius: 2, width: `${(autoSfxProgress.current / autoSfxProgress.total) * 100}%`, transition: "width 0.3s" }} />
+              </div>
+            </div>
+          )}
 
           {/* ── Sound Browser ──────────────────────────────────────────────── */}
           <div style={{ ...cardStyle, borderColor: `${blue}25`, marginBottom: 20 }}>
@@ -7483,7 +7767,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     onKeyDown={e => e.key === "Enter" && generateElevenLabsSfx()}
                     placeholder='e.g. "wooden door creaking open slowly", "rain on tin roof", "crowd cheering"'
                     style={{ ...inputStyle, flex: 1, fontSize: 11 }} />
-                  <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim()}
+                  <button onClick={() => { if (!sfxDesc.trim()) { setUiError("Type a sound description first — e.g. 'rain on tin roof'"); return; } generateElevenLabsSfx(); }}
+                    disabled={sfxGenerating}
                     style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: sfxGenerating ? "#2a2a40" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: sfxGenerating ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
                     {sfxGenerating ? "Generating..." : "Generate"}
                   </button>
@@ -7995,6 +8280,114 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
 
           {/* ══════════════════════════════════════════════════════════
+               PRE-ASSEMBLY PANEL — review audio, subtitles, intro/outro
+               ══════════════════════════════════════════════════════════ */}
+          <div style={{ marginBottom: 16 }}>
+
+            {/* A. Audio for Video */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Audio for Video</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {/* Narration */}
+                <div>
+                  <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Narration</p>
+                  {narratorAudioUrl
+                    ? <audio controls src={narratorAudioUrl} style={{ width: "100%", height: 32 }} />
+                    : <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Not generated yet</p>}
+                  <button onClick={generateNarrationPiper} disabled={generatingNarration || !(fullScript || expandedSummary || idea)}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6 }}>
+                    {generatingNarration ? "Generating..." : "Generate"}
+                  </button>
+                </div>
+                {/* Background Music */}
+                <div>
+                  <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Background Music</p>
+                  {selectedMusicUrl
+                    ? <audio controls src={selectedMusicUrl} style={{ width: "100%", height: 32 }} />
+                    : <p style={{ fontSize: 11, color: muted }}>None selected — go to Sound tab</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* B. Subtitle Style */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={accent} />
+              {/* Check Narration ↔ Subtitle Match */}
+              <button
+                onClick={async () => {
+                  setSubtitleMatchResult({ status: "checking", note: "Checking..." });
+                  try {
+                    const storyText = fullScript || expandedSummary || idea || "";
+                    const res = await fetch("/api/free-mode/enhance", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ prompt: `Does subtitle mode "${subtitleConfig.mode}" match this story tone? Story: "${storyText.slice(0, 300)}" Reply with OK or WARN and one short reason.`, task: "check" }),
+                    });
+                    const d = await res.json();
+                    const note = d.enhanced || d.text || d.result || "Check complete";
+                    const isWarn = note.toLowerCase().includes("warn") || note.toLowerCase().includes("mismatch") || note.toLowerCase().includes("not match");
+                    setSubtitleMatchResult({ status: isWarn ? "warn" : "ok", note });
+                  } catch { setSubtitleMatchResult({ status: "warn", note: "Check failed" }); }
+                }}
+                style={{ marginTop: 10, padding: "7px 16px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                Check Narration → Subtitle Match
+              </button>
+              {subtitleMatchResult && (
+                <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: subtitleMatchResult.status === "warn" ? `${red}10` : `${accent}10`, border: `1px solid ${subtitleMatchResult.status === "warn" ? red : accent}30` }}>
+                  <p style={{ fontSize: 11, color: subtitleMatchResult.status === "warn" ? red : accent }}>{subtitleMatchResult.status === "checking" ? "⟳ " : subtitleMatchResult.status === "warn" ? "⚠ " : "✓ "}{subtitleMatchResult.note.slice(0, 200)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* C. Intro & Outro */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Intro &amp; Outro</p>
+              <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>AI generates a cinematic title card. Prepended/appended to your video.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {/* Intro */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Intro</p>
+                  {introUrl
+                    ? <video src={introUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No intro</p></div>}
+                  <button onClick={async () => {
+                    setGeneratingIntro(true);
+                    try {
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: characters.slice(0, 10).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })) }) });
+                      const d = await r.json();
+                      if (d.ok && d.imageUrl) setIntroUrl(d.imageUrl); else setLastAction("Intro generation failed");
+                    } catch { setLastAction("Intro error"); } finally { setGeneratingIntro(false); }
+                  }} disabled={generatingIntro}
+                    style={{ width: "100%", padding: "8px", borderRadius: 8, border: "none", background: generatingIntro ? "#2a2040" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingIntro ? "not-allowed" : "pointer" }}>
+                    {generatingIntro ? "Generating..." : "Generate AI Intro"}
+                  </button>
+                </div>
+                {/* Outro */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Outro</p>
+                  {outroUrl
+                    ? <video src={outroUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No outro</p></div>}
+                  <button onClick={async () => {
+                    setGeneratingOutro(true);
+                    try {
+                      const castList = characters.filter(c => c.voiceId).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })).slice(0, 8);
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: castList }) });
+                      const d = await r.json();
+                      if (d.ok && d.imageUrl) setOutroUrl(d.imageUrl); else setLastAction("Outro generation failed");
+                    } catch { setLastAction("Outro error"); } finally { setGeneratingOutro(false); }
+                  }} disabled={generatingOutro}
+                    style={{ width: "100%", padding: "8px", borderRadius: 8, border: "none", background: generatingOutro ? "#2a2040" : accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingOutro ? "not-allowed" : "pointer" }}>
+                    {generatingOutro ? "Generating..." : "Generate AI Outro"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════
                PRODUCTION PIPELINE — numbered road map
                Each step is always visible. Green circle = done.
                Click a step header to expand/collapse it.
@@ -8069,16 +8462,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       GHS writes a full cinematic screenplay from your story. Enter your name as the author, then click Write Screenplay. Once done, click Send to Scenes to distribute it — narration and dialogue will be split automatically.
                     </p>
 
-                    {/* Author name */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Written by:</span>
-                      <input
-                        type="text"
-                        value={screenplayAuthor}
-                        onChange={e => setScreenplayAuthor(e.target.value)}
-                        placeholder="Enter your name"
-                        style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12, fontWeight: 600 }}
-                      />
+                    {/* Author name + Idea from */}
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Written by:</span>
+                        <input
+                          type="text"
+                          value={screenplayAuthor}
+                          onChange={e => setScreenplayAuthor(e.target.value)}
+                          placeholder="Your name"
+                          style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12, fontWeight: 600 }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Idea from:</span>
+                        <input
+                          type="text"
+                          value={ideaFrom}
+                          onChange={e => setIdeaFrom(e.target.value)}
+                          placeholder="Original idea by... (optional)"
+                          style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12 }}
+                        />
+                      </div>
+                      <p style={{ fontSize: 9, color: muted }}>Studio: <span style={{ color: accent }}>GioHomeStudio</span> (used automatically in intro/outro)</p>
                     </div>
 
                     {/* Buttons */}
@@ -8512,6 +8918,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       )}
                     </div>
 
+                    {/* Auto-select all scenes if none selected (edge case recovery) */}
+                    {done2 && scenes.length > 0 && selectedSceneIds.length === 0 && (
+                      <div style={{ padding: "10px 14px", borderRadius: 10, background: `${gold}10`, border: `1px solid ${gold}30`, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <p style={{ fontSize: 11, color: gold, margin: 0 }}>No scenes selected — select scenes in the panel above or click Select All</p>
+                        <button onClick={() => setSelectedSceneIds(scenes.map(s => s.sceneId))}
+                          style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, marginLeft: 10 }}>
+                          Select All
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={() => {
                         if (assemblyOrder.length > 0) {
@@ -8524,7 +8940,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       }}
                       disabled={assembling || selectedSceneIds.length === 0 || !done2}
                       style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: (assembling || selectedSceneIds.length === 0 || !done2) ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #0088cc)`, color: (assembling || selectedSceneIds.length === 0 || !done2) ? muted : "#fff", fontSize: 15, fontWeight: 800, cursor: (assembling || selectedSceneIds.length === 0 || !done2) ? "not-allowed" : "pointer", marginBottom: 10 }}>
-                      {assembling ? "Assembling your movie... please wait" : !done2 ? "Complete Step 2 to unlock" : `Assemble My Movie (${selectedSceneIds.length} scenes)`}
+                      {assembling ? "Assembling your movie... please wait" : !done2 ? "Complete Step 2 to unlock" : selectedSceneIds.length === 0 ? "Select scenes above to unlock" : `Assemble My Movie (${selectedSceneIds.length} scenes)`}
                     </button>
                     {/* Live status bar — shows during assembly and ears check */}
                     {(assembling || assemblyComplete) && lastAction && (

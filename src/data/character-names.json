@@ -1,0 +1,449 @@
+{
+  "meta": {
+    "version": "1.0.0",
+    "description": "GHS Character Name Library — culturally authentic names by region. Used to inject appropriate names into story-expand prompts.",
+    "regions": ["west_africa","east_africa","north_africa","central_africa","southern_africa","south_asia","east_asia","southeast_asia","central_asia","western_europe","southern_europe","northern_europe","eastern_europe","north_america","latin_america","brazil","caribbean","indigenous_americas","middle_east","turkey_caucasus","oceania_pacific","universal_fantasy"]
+  },
+  "continents": [
+    {
+      "id": "africa",
+      "label": "Africa",
+      "emoji": "🌍",
+      "regions": ["west_africa","east_africa","north_africa","central_africa","southern_africa"]
+    },
+    {
+      "id": "asia",
+      "label": "Asia",
+      "emoji": "🌏",
+      "regions": ["south_asia","east_asia","southeast_asia","central_asia"]
+    },
+    {
+      "id": "europe",
+      "label": "Europe",
+      "emoji": "🌍",
+      "regions": ["western_europe","southern_europe","northern_europe","eastern_europe"]
+    },
+    {
+      "id": "north_america",
+      "label": "North America",
+      "emoji": "🌎",
+      "regions": ["north_america"]
+    },
+    {
+      "id": "latin_america",
+      "label": "Latin America",
+      "emoji": "🌎",
+      "regions": ["latin_america","brazil","caribbean","indigenous_americas"]
+    },
+    {
+      "id": "middle_east",
+      "label": "Middle East",
+      "emoji": "🌍",
+      "regions": ["middle_east","turkey_caucasus"]
+    },
+    {
+      "id": "oceania",
+      "label": "Oceania & Pacific",
+      "emoji": "🌏",
+      "regions": ["oceania_pacific"]
+    },
+    {
+      "id": "fantasy",
+      "label": "Fantasy / Universal",
+      "emoji": "✨",
+      "regions": ["universal_fantasy"]
+    }
+  ],
+  "regions": {
+    "west_africa": {
+      "label": "West Africa",
+      "cultures": ["Yoruba","Igbo","Hausa","Akan","Wolof","Ewe","Fula","Mandinka"],
+      "male": [
+        "Emeka","Chidi","Tunde","Ade","Kofi","Kwame","Seun","Jide","Nkem","Obinna",
+        "Chukwudi","Babatunde","Femi","Dele","Kola","Amara","Segun","Yemi","Tobi","Dayo",
+        "Uche","Ify","Bolu","Wole","Sola","Gbenga","Leke","Dotun","Rotimi","Lanre",
+        "Moussa","Oumar","Ibrahima","Mamadou","Cheikh","Modou","Amadou","Lamine","Alassane","Boubacar",
+        "Kweku","Kojo","Yaw","Ato","Fiifi","Edem","Selorm","Dela","Mawuli","Senyo"
+      ],
+      "female": [
+        "Ngozi","Adaeze","Chisom","Amina","Fatou","Aminata","Ama","Abena","Efua","Akosua",
+        "Sade","Yetunde","Bimpe","Funke","Omotola","Folake","Toyin","Simbi","Adaora","Ifeoma",
+        "Nneoma","Chidinma","Uchenna","Obiageli","Ezinne","Nkechi","Adanna","Chinyere","Ginika","Ogenna",
+        "Aissatou","Mariama","Rokhaya","Khady","Astou","Ndéye","Fatoumata","Binta","Rama","Coumba",
+        "Adjoa","Akua","Abiba","Gifty","Serwa","Mansa","Yaa","Adwoa","Esi","Araba"
+      ]
+    },
+    "east_africa": {
+      "label": "East Africa",
+      "cultures": ["Swahili","Amhara","Oromo","Tigrinya","Kikuyu","Luo","Somali","Malagasy"],
+      "male": [
+        "Amara","Dawit","Haile","Tadesse","Tesfaye","Bereket","Yonas","Girma","Mulugeta","Solomon",
+        "Abdi","Hassan","Ali","Mohamed","Omar","Abdullahi","Aden","Farah","Jama","Yusuf",
+        "Kamau","Njoroge","Mwangi","Githuku","Kariuki","Waweru","Gacheru","Mbugua","Kimani","Ngugi",
+        "Hamisi","Juma","Baraka","Rashidi","Salim","Omari","Jabir","Abdalla","Musa","Idris",
+        "Kagiso","Sipho","Thabo","Bongani","Thandeka","Lungelo","Sibusiso","Mthokozisi","Nhlanhla","Zwelakhe"
+      ],
+      "female": [
+        "Tigist","Miriam","Hana","Selam","Tsehay","Mekdes","Selamawit","Almaz","Genet","Birtukan",
+        "Fardowsa","Hodan","Ifrah","Sahra","Nasra","Mulki","Deeqa","Hibo","Cawo","Qali",
+        "Wanjiru","Njeri","Wairimu","Nyambura","Wangari","Wanjiku","Mumbi","Waruguru","Nyakio","Muthoni",
+        "Zawadi","Amina","Fatuma","Zuhura","Mariamu","Hadija","Saida","Rehema","Mwanaisha","Tatu",
+        "Naledi","Zanele","Nomvula","Lerato","Boipelo","Katlego","Mapula","Dineo","Refilwe","Mpho"
+      ]
+    },
+    "north_africa": {
+      "label": "North Africa",
+      "cultures": ["Egyptian","Moroccan","Algerian","Tunisian","Libyan","Amazigh"],
+      "male": [
+        "Ahmed","Mohamed","Hassan","Ibrahim","Omar","Youssef","Khalid","Tarek","Nabil","Karim",
+        "Amine","Rachid","Mehdi","Bilal","Samir","Sofiane","Hicham","Redouane","Nassim","Anis",
+        "Hamza","Walid","Adel","Farid","Mustapha","Abdel","Aziz","Lotfi","Amir","Ziad",
+        "Ryad","Djamel","Mounir","Yacine","Toufik","Brahim","Lyes","Mourad","Fethi","Malek"
+      ],
+      "female": [
+        "Fatima","Nour","Yasmin","Leila","Maryam","Salma","Amira","Khadija","Zineb","Najat",
+        "Sara","Rania","Nadia","Samira","Soumia","Hafsa","Mouna","Houda","Imane","Karima",
+        "Asma","Siham","Wafa","Ghizlane","Loubna","Safae","Hanane","Chaima","Ilham","Nisrine",
+        "Raouia","Imen","Inès","Hana","Dounia","Lamia","Meriem","Sana","Amel","Donia"
+      ]
+    },
+    "central_africa": {
+      "label": "Central Africa",
+      "cultures": ["Fang","Beti","Mongo","Kongo","Lingala","Shona","Bemba"],
+      "male": [
+        "Patrice","Emmanuel","Rodrigue","Blaise","Herve","Bertrand","Gauthier","Cedric","Thierry","Pascal",
+        "Jean-Pierre","Olivier","Fabrice","Christian","Serge","Stephane","Eric","Denis","Michel","Patrick",
+        "Mbeki","Tshisekedi","Kabila","Mobutu","Bongo","Sassou","Ondimba","Mbasogo","Faustin","Juvenal",
+        "Kizito","Nzinga","Lumumba","Makeba","Kayumba","Mutombo","Dikembe","Kiese","Mazungumzo","Mbeki"
+      ],
+      "female": [
+        "Marie","Josephine","Claudine","Chantal","Brigitte","Nadège","Solange","Mireille","Celine","Pauline",
+        "Yvonne","Rosette","Blandine","Virginie","Dorothee","Therese","Anastasie","Laetitia","Colette","Germaine",
+        "Assumpta","Immaculee","Benedicte","Felicite","Esperance","Veronique","Celestine","Clementine","Honorine","Prudence",
+        "Nzinga","Mamie","Tshala","Mbeki","Zawadi","Amara","Kalani","Zara","Ketura","Adisa"
+      ]
+    },
+    "southern_africa": {
+      "label": "Southern Africa",
+      "cultures": ["Zulu","Xhosa","Sotho","Tswana","Shona","Ndebele","Ovambo","Herero"],
+      "male": [
+        "Sipho","Bongani","Thabo","Sifiso","Lungelo","Nhlanhla","Sibusiso","Mthokozisi","Zwelakhe","Siyanda",
+        "Ayanda","Mlungisi","Sandile","Mandla","Dumisani","Vusi","Bhekani","Musa","Sphiwe","Lungisa",
+        "Tau","Mpho","Lehlohonolo","Thabiso","Refiloe","Tshepo","Lesego","Karabo","Kagiso","Tshepiso",
+        "Tendai","Tinashe","Tarisai","Kudzai","Tatenda","Simbarashe","Panashe","Farai","Tonderai","Rugare"
+      ],
+      "female": [
+        "Nomvula","Zanele","Nombulelo","Thembeka","Nokuthula","Sithembile","Nokukhanya","Lindiwe","Sindisiwe","Nokwanda",
+        "Lerato","Naledi","Boipelo","Katlego","Mapula","Dineo","Refilwe","Kefilwe","Boitumelo","Gaone",
+        "Ntombi","Phindi","Lungelo","Zinhle","Nolwazi","Nompumelelo","Thandeka","Sikhona","Yolanda","Khanyisile",
+        "Rudo","Nyasha","Mudiwa","Tariro","S礎nda","Chipo","Rumbidzai","礎ndiswa","Rutendo","礎nata"
+      ]
+    },
+    "south_asia": {
+      "label": "South Asia",
+      "cultures": ["Hindi","Bengali","Tamil","Telugu","Punjabi","Marathi","Urdu","Sinhala","Nepali"],
+      "male": [
+        "Arjun","Ravi","Vikram","Suresh","Rahul","Amit","Sanjay","Rajesh","Pradeep","Dinesh",
+        "Anand","Kiran","Mohan","Gopal","Sundar","Prakash","Venkat","Harish","Ramesh","Mahesh",
+        "Rohan","Aditya","Abhishek","Varun","Nikhil","Kartik","Pranav","Tushar","Vivek","Akash",
+        "Imran","Zubair","Faisal","Tariq","Asad","Bilal","Omer","Junaid","Kamran","Usman",
+        "Dhruv","Ishan","Ayaan","Rishabh","Harsh","Shaan","Dev","Jay","Aarav","Veer"
+      ],
+      "female": [
+        "Priya","Ananya","Kavita","Meera","Deepa","Sonia","Nisha","Pooja","Rekha","Sunita",
+        "Divya","Asha","Lata","Geeta","Radha","Seema","Usha","Mala","Renu","Shobha",
+        "Aisha","Zara","Sara","Fatima","Sana","Hira","Nadia","Aleena","Mahnoor","Momina",
+        "Neha","Tanya","Shruti","Swati","Pallavi","Sneha","Aparna","Radha","Madhuri","Anjali",
+        "Ishita","Avni","Mira","Riya","Sia","Tara","Nandini","Kiara","Anika","Zoya"
+      ]
+    },
+    "east_asia": {
+      "label": "East Asia",
+      "cultures": ["Chinese","Japanese","Korean","Taiwanese","Mongolian"],
+      "male": [
+        "Wei","Ming","Jian","Hao","Lei","Tao","Feng","Long","Peng","Zhi",
+        "Kenji","Takashi","Hiroshi","Yuki","Ryo","Shota","Daiki","Kento","Haruki","Sota",
+        "Junho","Minjun","Jisoo","Hyunwoo","Seojun","Donghyun","Jaehyun","Siwoo","Woojin","Taehyun",
+        "Liang","Xiao","Cheng","Zheng","Bao","Gang","Jing","Quan","Shan","Yuan",
+        "Ganbold","Baatar","Tserenpuntsag","Munkh","Bilguun","Ganzorig","Battulga","Sodnom","Enkh","Dorj"
+      ],
+      "female": [
+        "Mei","Ling","Xia","Yan","Jing","Xiu","Hui","Fang","Juan","Yun",
+        "Yuki","Hana","Sakura","Aoi","Rin","Saya","Mio","Nana","Haruka","Yuna",
+        "Jiyeon","Suji","Naeun","Yoona","Hyeri","Eunji","Seulgi","Sooyeon","Dahyun","Chaeyoung",
+        "Xiaoli","Mingzhu","Qianru","Yingying","Lingling","Ruoxi","Manman","Xiaoyu","Bingbing","Yanyan",
+        "Enkhjargal","Narantsetseg","Oyuntsetseg","Tungalag","Saranchimeg","Enkhtuya","Altanchimeg","Delgermaa","Gantulga","Undraa"
+      ]
+    },
+    "southeast_asia": {
+      "label": "Southeast Asia",
+      "cultures": ["Filipino","Vietnamese","Thai","Indonesian","Malaysian","Burmese","Cambodian"],
+      "male": [
+        "Juan","Jose","Miguel","Carlos","Antonio","Eduardo","Ramon","Roberto","Ricardo","Fernando",
+        "Minh","Duc","Tuan","Hung","Long","Thanh","Cuong","Hieu","Nam","Binh",
+        "Somchai","Kritsana","Nattapong","Wanchai","Surachai","Chaiwat","Sompong","Prayuth","Wisit","Adisorn",
+        "Budi","Agus","Rizki","Dian","Hendra","Yusuf","Arief","Wahyu","Bayu","Eko",
+        "Ahmad","Azri","Faizal","Hafiz","Haziq","Irfan","Zulkifli","Khairul","Razif","Shafiq"
+      ],
+      "female": [
+        "Maria","Ana","Rosa","Elena","Cristina","Luz","Patricia","Maricel","Rowena","Marites",
+        "Linh","Lan","Huong","Thu","Hoa","Phuong","Ngoc","Tuyet","Hanh","Mai",
+        "Somying","Nutnipa","Rattana","Malee","Nanthipha","Pornthip","Waraporn","Siriporn","Prapaipit","Kanchana",
+        "Dewi","Sari","Putri","Indah","Ratna","Ayu","Wulandari","Septiani","Risa","Fitri",
+        "Siti","Nur","Aisyah","Farah","Nadia","Rania","Hana","Laila","Yasmin","Zara"
+      ]
+    },
+    "central_asia": {
+      "label": "Central Asia",
+      "cultures": ["Kazakh","Uzbek","Kyrgyz","Tajik","Turkmen","Afghan"],
+      "male": [
+        "Aibek","Bekzod","Dilshod","Eldor","Farrukhbek","Jasur","Kamol","Lochinbek","Mirzo","Nodir",
+        "Nurlan","Olimjon","Sardor","Timur","Ulugbek","Vohid","Xurshid","Yoqubjon","Zafar","Abror",
+        "Alibek","Bakytbek","Damir","Erlan","Fuad","Galym","Hamid","Isa","Janibek","Kanat",
+        "Marat","Nurzhan","Oralbek","Ruslan","Saken","Talant","Ulan","Yerlan","Zhandos","Askar",
+        "Ahmad","Burhanuddin","Dost","Farid","Habib","Ismail","Khalil","Latif","Mirwais","Noor"
+      ],
+      "female": [
+        "Aizat","Bibigul","Dinara","Elmira","Feruza","Gulnora","Hulkar","Iroda","Jumagul","Kamola",
+        "Lola","Malika","Nafisa","Nodira","Ozoda","Parizod","Rohila","Saodat","Tabassum","Umida",
+        "Ainur","Balnur","Dina","Gulnara","Indira","Kamshat","Madina","Nurgul","Samal","Tolkyn",
+        "Aigul","Zarina","Meruert","Gulzat","Bekzada","Aizhan","Raushan","Zamira","Akmaral","Dana",
+        "Fatima","Gulsum","Habiba","Latifa","Maryam","Nilufar","Parvin","Rukiya","Shirin","Tamara"
+      ]
+    },
+    "western_europe": {
+      "label": "Western Europe",
+      "cultures": ["British","French","German","Dutch","Belgian","Swiss","Irish","Austrian"],
+      "male": [
+        "Oliver","Harry","George","Jack","Charlie","James","William","Henry","Thomas","Noah",
+        "Hugo","Léo","Lucas","Gabriel","Louis","Théo","Raphaël","Nathan","Ethan","Jules",
+        "Elias","Leon","Luca","Finn","Noah","Paul","Ben","Felix","Max","Julian",
+        "Liam","Cian","Seán","Darragh","Conor","Fionn","Oisín","Rían","Cormac","Tadhg",
+        "Lukas","Matthias","Tobias","Christian","Simon","Martin","Jonas","Stefan","Andreas","Florian"
+      ],
+      "female": [
+        "Olivia","Amelia","Isla","Sophia","Poppy","Ava","Lily","Isabelle","Emily","Ella",
+        "Emma","Jade","Léa","Manon","Camille","Inès","Chloé","Lucie","Marie","Alice",
+        "Hannah","Lena","Mia","Laura","Anna","Lisa","Sarah","Katharina","Julia","Jana",
+        "Aoife","Caoimhe","Saoirse","Niamh","Aisling","Siobhan","Róisín","Fiona","Ciara","Maeve",
+        "Sophie","Marie","Charlotte","Claire","Julie","Hélène","Sylvie","Nathalie","Isabelle","Christine"
+      ]
+    },
+    "southern_europe": {
+      "label": "Southern Europe",
+      "cultures": ["Spanish","Italian","Portuguese","Greek","Croatian","Serbian"],
+      "male": [
+        "Alejandro","Carlos","Daniel","Diego","Ernesto","Francisco","Gabriel","Guillermo","Héctor","Ignacio",
+        "Alessandro","Francesco","Lorenzo","Matteo","Luca","Marco","Giovanni","Andrea","Stefano","Gabriele",
+        "João","Pedro","Miguel","Diogo","Tiago","Rodrigo","Afonso","Gonçalo","Henrique","Bernardo",
+        "Nikos","Giorgos","Dimitris","Kostas","Christos","Vassilis","Thanasis","Spyros","Panagiotis","Alexandros",
+        "Marko","Ivan","Luka","Petar","Ante","Tomislav","Josip","Stjepan","Nikola","Mario"
+      ],
+      "female": [
+        "Sofia","Lucía","Valentina","Martina","Carmen","Isabel","Ana","Elena","Laura","Paula",
+        "Giulia","Chiara","Francesca","Valentina","Sara","Giorgia","Alessia","Martina","Federica","Elisa",
+        "Ana","Maria","Inês","Beatriz","Margarida","Sofia","Catarina","Marta","Rita","Joana",
+        "Maria","Eleni","Katerina","Christina","Sophia","Anna","Alexandra","Vasiliki","Despoina","Dimitra",
+        "Ana","Ivana","Marija","Petra","Maja","Lucija","Lana","Nataša","Valentina","Katarina"
+      ]
+    },
+    "northern_europe": {
+      "label": "Northern Europe",
+      "cultures": ["Swedish","Norwegian","Danish","Finnish","Icelandic","Estonian","Latvian","Lithuanian"],
+      "male": [
+        "Liam","William","Oscar","Hugo","Lucas","Oliver","Elias","Axel","Alexander","Emil",
+        "Noah","Jakob","Lars","Mathias","Sander","Tobias","Martin","Magnus","Eirik","Kristian",
+        "Mikkel","Frederik","Oskar","Rasmus","Emil","August","Victor","Oliver","Marcus","Sebastian",
+        "Mikael","Juhani","Tapani","Olavi","Paavo","Erkki","Timo","Matti","Jussi","Pekka",
+        "Elías","Björn","Guðmundur","Sigurður","Jón","Óskar","Magnús","Arnar","Gunnar","Páll"
+      ],
+      "female": [
+        "Astrid","Maja","Ella","Emma","Alice","Edda","Vera","Saga","Elin","Livia",
+        "Nora","Ingrid","Sofie","Malin","Frida","Silje","Ida","Emilie","Line","Heidi",
+        "Freja","Mathilde","Sofia","Emma","Sara","Laura","Maja","Josefine","Clara","Astrid",
+        "Emma","Aino","Liisa","Hanna","Maria","Laura","Emilia","Matilda","Sanna","Kaisa",
+        "Guðrún","Sigríður","Helga","Ragnheiður","Bergljót","Þóra","Elín","Kristín","Sigrún","Dagný"
+      ]
+    },
+    "eastern_europe": {
+      "label": "Eastern Europe",
+      "cultures": ["Russian","Polish","Ukrainian","Czech","Slovak","Hungarian","Romanian","Bulgarian"],
+      "male": [
+        "Aleksandr","Dmitry","Ivan","Nikolai","Sergei","Vladimir","Andrei","Alexei","Mikhail","Pavel",
+        "Wojciech","Krzysztof","Marek","Piotr","Tomasz","Jakub","Marcin","Łukasz","Bartosz","Mateusz",
+        "Oleksandr","Mykola","Andriy","Vasyl","Bohdan","Taras","Pavlo","Serhiy","Dmytro","Yuriy",
+        "Ondřej","Jakub","Jan","Tomáš","Martin","Lukáš","Petr","Marek","David","Michal",
+        "László","Péter","Gábor","Zoltán","Tamás","Balázs","István","Attila","Bence","Ádám"
+      ],
+      "female": [
+        "Anastasia","Maria","Olga","Natalia","Elena","Tatiana","Irina","Anna","Ekaterina","Yulia",
+        "Anna","Magdalena","Agnieszka","Katarzyna","Monika","Karolina","Marta","Joanna","Paulina","Natalia",
+        "Olena","Natalia","Tetiana","Oksana","Iryna","Larysa","Halyna","Liudmyla","Valentyna","Svitlana",
+        "Tereza","Karolína","Eva","Jana","Markéta","Lucie","Adéla","Monika","Petra","Veronika",
+        "Anna","Erzsébet","Katalin","Mária","Éva","Zsuzsa","Ágnes","Krisztina","Eszter","Veronika"
+      ]
+    },
+    "north_america": {
+      "label": "North America",
+      "cultures": ["American","Canadian","African-American","Mexican-American"],
+      "male": [
+        "Liam","Noah","James","Oliver","Elijah","William","Benjamin","Lucas","Henry","Alexander",
+        "Mason","Ethan","Daniel","Matthew","Aiden","Logan","Jackson","Sebastian","Jack","Owen",
+        "Caleb","Ryan","Nathan","Isaac","Eli","Isaiah","Cameron","Adrian","Julian","Colton",
+        "DeShawn","Marcus","Jordan","Malik","Xavier","Tyrone","Darius","Jamal","Elijah","Kendrick",
+        "Connor","Dylan","Tyler","Austin","Blake","Chase","Bryce","Cole","Cody","Derek"
+      ],
+      "female": [
+        "Olivia","Emma","Charlotte","Amelia","Sophia","Isabella","Ava","Mia","Evelyn","Luna",
+        "Harper","Camila","Gianna","Elizabeth","Sofia","Ella","Emily","Chloe","Penelope","Layla",
+        "Riley","Zoey","Nora","Lily","Eleanor","Hannah","Lillian","Addison","Aubrey","Ellie",
+        "Aaliyah","Zara","Imani","Destiny","Jasmine","Kayla","Brianna","Shanae","Kezia","Monique",
+        "Madison","Abigail","Brooklyn","Victoria","Naomi","Grace","Stella","Claire","Autumn","Sadie"
+      ]
+    },
+    "latin_america": {
+      "label": "Latin America",
+      "cultures": ["Mexican","Colombian","Argentine","Venezuelan","Peruvian","Chilean","Ecuadorian"],
+      "male": [
+        "Santiago","Mateo","Sebastián","Emilio","Nicolás","Alejandro","Diego","Andrés","Gabriel","Martín",
+        "José","Luis","Carlos","Jorge","Roberto","Manuel","Miguel","Ángel","Francisco","Eduardo",
+        "Joaquín","Rafael","Arturo","Gustavo","Fernando","Enrique","Antonio","Ricardo","Víctor","Rodrigo",
+        "Camilo","Tomás","Simón","Maximiliano","Leonardo","Esteban","Ignacio","Facundo","Ezequiel","Luciano",
+        "Julián","Iván","Adrián","Álvaro","Pablo","Marcos","Cristian","Fabián","Héctor","Sergio"
+      ],
+      "female": [
+        "Sofía","Valentina","Camila","Isabella","Valeria","Daniela","Mariana","Paula","Gabriela","Natalia",
+        "Andrea","Carolina","Fernanda","Alejandra","Paola","Claudia","Lorena","Vanessa","Diana","Monica",
+        "Jimena","Lucía","Renata","Elena","Sara","Ana","María","Isabel","Patricia","Rosa",
+        "Violeta","Florencia","Agustina","Constanza","Catalina","Macarena","Javiera","Francisca","Verónica","Pilar",
+        "Laura","Beatriz","Gloria","Esperanza","Mercedes","Dolores","Amparo","Consuelo","Inmaculada","Angélica"
+      ]
+    },
+    "brazil": {
+      "label": "Brazil",
+      "cultures": ["Brazilian","Afro-Brazilian","Indigenous Brazilian","Brazilian-Japanese"],
+      "male": [
+        "Gabriel","Pedro","Miguel","Lucas","Arthur","Matheus","Guilherme","Rafael","Felipe","Eduardo",
+        "João","Bruno","Thiago","Vinicius","Marcos","Leonardo","André","Diego","Rodrigo","Gustavo",
+        "Alexandre","Henrique","Renato","Fábio","Carlos","Paulo","Antonio","José","Luiz","Francisco",
+        "Kaique","Davi","Enzo","Nicolas","Igor","Leandro","Wellington","Maurício","Marcelo","Cristiano",
+        "Cauã","Murilo","Heitor","Bernardo","Lorenzo","Theo","Oliver","Benjamim","Danilo","Cleiton"
+      ],
+      "female": [
+        "Maria","Ana","Julia","Beatriz","Larissa","Camila","Fernanda","Gabriela","Mariana","Amanda",
+        "Bruna","Letícia","Isabela","Jéssica","Natalia","Carolina","Priscila","Thais","Vanessa","Aline",
+        "Alice","Luiza","Vitória","Clara","Helena","Giovanna","Valentina","Lara","Manuela","Lívia",
+        "Eduarda","Sophia","Isadora","Mariane","Bianca","Renata","Raquel","Débora","Tatiane","Viviane",
+        "Ingrid","Juliana","Denise","Sandra","Patricia","Solange","Claudia","Eliane","Rosana","Cleide"
+      ]
+    },
+    "caribbean": {
+      "label": "Caribbean",
+      "cultures": ["Jamaican","Haitian","Cuban","Dominican","Trinidadian","Barbadian"],
+      "male": [
+        "Damian","Kwame","Akeem","Marlon","Devon","Andre","Tyrone","Marcus","Donovan","Leroy",
+        "Jean","Pierre","Marc","Louis","Henry","Paul","Michel","Claude","Yves","Frantz",
+        "Alejandro","Carlos","Miguel","Roberto","Orlando","Ernesto","Lazaro","Osvaldo","Ramon","Armando",
+        "Emmanuel","Philippe","Édouard","Réginald","Guiteau","Franck","Peterson","Roodly","Wadley","Kervens",
+        "Dwayne","Wayne","Clive","Errol","Lennox","Neville","Winston","Randolph","Delroy","Desmond"
+      ],
+      "female": [
+        "Kezia","Simone","Amara","Nadine","Dionne","Shanique","Latoya","Stacey","Monique","Denise",
+        "Marie","Rose","Lucienne","Guerline","Magalie","Kerline","Nadège","Jesmine","Mirlande","Nathalie",
+        "Yolanda","Carmen","Xiomara","Lisandra","Dayami","Ivis","Lisette","Milagros","Mayra","Sonia",
+        "Mirlande","Claircie","Frantzie","Josette","Madeleine","Jocelyne","Carmèle","Ginette","Liliane","Raymonde",
+        "Sophia","Shari","Keisha","Tricia","Marcia","Sandra","Paulette","Gwendolyn","Beverley","Hyacinth"
+      ]
+    },
+    "indigenous_americas": {
+      "label": "Indigenous Americas",
+      "cultures": ["Navajo","Cherokee","Lakota","Aztec/Nahua","Maya","Quechua","Guaraní","Haudenosaunee"],
+      "male": [
+        "Ahanu","Chayton","Elan","Honovi","Kangee","Kohana","Makya","Napayshni","Oglala","Payat",
+        "Sapa","Takoda","Tokala","Wahkan","Wamblee","Waya","Yuma","Atsá","Bizhiw","Chatan",
+        "Cuauhtémoc","Itzcoatl","Chimalli","Cipactli","Tlaloc","Quetzal","Citlali","Iztli","Meztli","Yoatl",
+        "Tupac","Atahualpa","Huascar","Sinchi","Cusi","Amaru","Rocca","Viracocha","Wayra","Quilla",
+        "Suyai","Nahuel","Lautaro","Caupolicán","Colocolo","Huenú","Tripay","Pehuén","Rayen","Liwen"
+      ],
+      "female": [
+        "Aiyana","Aponi","Aquene","Chenoa","Cheyenne","Cholena","Dakota","Halona","Hausu","Honiahaka",
+        "Kachina","Kaya","Kimama","Kimi","Leotie","Luyu","Macha","Malia","Mansi","Mato",
+        "Xochitl","Citlali","Tonanzin","Coatlicue","Itzpapalotl","Chantico","Mayahuel","Xipe","Cihuatl","Nalin",
+        "Qori","Mama","Qoya","Sisa","Kori","Wayra","Sumaq","Inti","Killa","Urpi",
+        "Rayen","Lien","Antu","Kimün","Pehuén","Lanko","Railén","Trapi","Lucía","Nahuel"
+      ]
+    },
+    "middle_east": {
+      "label": "Middle East",
+      "cultures": ["Arabic","Persian/Farsi","Hebrew","Kurdish","Aramaic"],
+      "male": [
+        "Mohammed","Ahmad","Ali","Omar","Hassan","Hussein","Ibrahim","Khalid","Yousef","Tariq",
+        "Abdullah","Abdulrahman","Abdulaziz","Faisal","Turki","Salman","Nasser","Bandar","Khaled","Waleed",
+        "Dariush","Arash","Siavash","Kourosh","Darius","Farhad","Kambiz","Bahram","Shahram","Majid",
+        "Yoav","Noam","Eyal","Idan","Tal","Roi","Nir","Amir","Gilad","Lior",
+        "Baran","Soran","Sardar","Dilan","Aro","Karwan","Bestoon","Hozan","Sarkawt","Shvan"
+      ],
+      "female": [
+        "Fatima","Aisha","Maryam","Sara","Nour","Hind","Reem","Dana","Layan","Ghada",
+        "Noura","Rima","Asma","Rania","Hessa","Moza","Latifa","Sheikha","Wadha","Maitha",
+        "Shirin","Maryam","Nasrin","Azadeh","Parisa","Bahar","Golnaz","Mahsa","Sanaz","Ladan",
+        "Noa","Tamar","Shira","Ayala","Michal","Orly","Limor","Gali","Dafna","Yael",
+        "Narin","Delal","Berfin","Rojda","Bêrivan","Sînem","Roza","Diyar","Nazdar","Zerya"
+      ]
+    },
+    "turkey_caucasus": {
+      "label": "Turkey & Caucasus",
+      "cultures": ["Turkish","Georgian","Armenian","Azerbaijani"],
+      "male": [
+        "Ahmet","Mehmet","Mustafa","Ali","Hüseyin","Hasan","Ibrahim","Ismail","Ömer","Yusuf",
+        "Emre","Burak","Kerem","Can","Cem","Berk","Kaan","Mert","Oğuz","Ercan",
+        "Giorgi","Davit","Levan","Irakli","Giorgi","Nika","Sandro","Beka","Luka","Zaza",
+        "Aram","Narek","Arman","Tigran","Artur","Sargis","Hovhannes","Vardan","Avet","Mkrtich",
+        "Anar","Elchin","Murad","Rauf","Samir","Vugar","Nijat","Fuad","Ilkin","Cavid"
+      ],
+      "female": [
+        "Zeynep","Ayşe","Fatma","Hatice","Emine","Elif","Merve","Selin","Büşra","Tuğba",
+        "Yaren","Ecrin","Nisa","Beren","Derin","Sude","Lara","Defne","Azra","Ceren",
+        "Tamar","Nino","Ana","Ketevan","Mariam","Ekaterine","Nana","Elene","Manana","Khatia",
+        "Ani","Narine","Mariam","Anahit","Satenik","Arevik","Lusine","Gohar","Siranush","Varduhi",
+        "Aytən","Leyla","Nərmin","Gülnar","Günay","Sevinc","Könül","Lalə","Samirə","Nuranə"
+      ]
+    },
+    "oceania_pacific": {
+      "label": "Oceania & Pacific",
+      "cultures": ["Maori","Hawaiian","Samoan","Tongan","Fijian","Aboriginal Australian","Papua New Guinean"],
+      "male": [
+        "Tane","Hemi","Rangi","Mere","Aroha","Wiremu","Piripi","Rawiri","Hohepa","Paora",
+        "Koa","Kai","Makoa","Keoni","Kalani","Kaimana","Kekoa","Kaleo","Kawika","Kahananui",
+        "Sione","Tūmua","Faleolo","Iosefa","Mānoa","Sāmoa","Tagaloa","Sinoti","Fata","Leasi",
+        "Tevita","'Afo","Peni","Taufa","Siosaia","Taniela","Viliami","Sione","Polikalepo","Salesi",
+        "Jone","Epeli","Timoci","Sitiveni","Tomasi","Ilaisa","Eroni","Nacanieli","Waisale","Apolosi"
+      ],
+      "female": [
+        "Aroha","Mere","Hine","Āwhina","Tūhoe","Waimārie","Ngāhuia","Ārihi","Hinewai","Moana",
+        "Leilani","Kalani","Malia","Kailani","Nalani","Moana","Kiana","Haunani","Noelani","Keala",
+        "Sina","Losa","Fiafia","Mele","Ioane","Sāmoa","Faolani","Tūtū","Fepulea'i","Alofagia",
+        "Mele","Losa","Fua","Hulita","Malia","Siuliagi","Salote","Tevita","Tupou","Sosefina",
+        "Litiana","Adi","Mere","Silina","Vani","Karalaini","Asenaca","Lavinia","Salote","Ilisapeci"
+      ]
+    },
+    "universal_fantasy": {
+      "label": "Fantasy / Universal",
+      "cultures": ["Epic Fantasy","Sci-Fi","Mythological","Invented"],
+      "male": [
+        "Kael","Zephyr","Orion","Caspian","Theron","Daxton","Evander","Fabian","Gideon","Hadrian",
+        "Idris","Jareth","Kairos","Leander","Maxen","Nereus","Oberon","Percival","Quinlan","Riordan",
+        "Sorin","Tavish","Ulric","Vance","Warrick","Xander","Yorick","Zane","Aldric","Brennan",
+        "Calix","Dorian","Elric","Florian","Gavric","Hadeon","Idris","Jareth","Kastor","Lysander",
+        "Malachar","Noctis","Oberon","Phenix","Quillan","Ryker","Soren","Tarquin","Ulric","Vex"
+      ],
+      "female": [
+        "Lyra","Seraphina","Isolde","Thessaly","Avalon","Briar","Calypso","Daphne","Elowen","Fable",
+        "Gwyneira","Halcyon","Isadora","Juniper","Kalliope","Lumina","Marisol","Niamh","Ondine","Phaedra",
+        "Quill","Ravenna","Solenne","Thessaly","Ursula","Vashti","Wren","Xanthe","Ysabel","Zora",
+        "Aelindra","Bronwyn","Caeleste","Dusk","Elara","Fenris","Gloriana","Hera","Inara","Jadis",
+        "Kali","Lumen","Mirembe","Nova","Odalys","Petra","Querida","Riven","Sable","Thalia"
+      ]
+    }
+  }
+}
