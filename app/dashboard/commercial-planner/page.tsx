@@ -572,11 +572,35 @@ function CommercialPlannerInner() {
   async function assembleCommercial() {
     try { await requireGate(); } catch { return; }
     setAssembling(true);
-    const sceneList = scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || "", narration: s.voiceoverScript, duration: s.duration, onScreenText: s.onScreenText, musicStyle: musicChoice }));
+    const ids = assemblySelectedIds.length > 0 ? assemblySelectedIds : scenes.map(s => s.sceneId);
+    const selected = scenes.filter(s => ids.includes(s.sceneId));
+    const assemblySceneList = selected
+      .filter(s => sceneImages[s.sceneId] || sceneVideos[s.sceneId])
+      .map(s => ({
+        scene: s.scene,
+        videoUrl: sceneVideos[s.sceneId] ? sceneVideos[s.sceneId] : `img:${sceneImages[s.sceneId]}`,
+        audioUrl: voNarrationUrls[s.sceneId] || undefined,
+        duration: s.duration || 5,
+      }));
+    if (assemblySceneList.length === 0) {
+      setLastAction("No scenes have images or video — generate scene content first");
+      setAssembling(false);
+      return;
+    }
     try {
-      const res = await fetch("/api/hybrid/assemble", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId, scenes: sceneList, music: musicChoice, narrationStyle: voiceoverStyle, title: `${brief.brandName} — ${brief.productName} ${brief.format}` }) });
+      const res = await fetch("/api/video/assemble", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: projectId || `comm_${Date.now()}`,
+          title: `${brief.brandName} — ${brief.productName} ${brief.format}`,
+          scenes: assemblySceneList,
+          music: selectedMusicUrl || undefined,
+        }),
+      });
       const d = await res.json();
       if (d.outputUrl) { setAssembledUrl(d.outputUrl); setLastAction("Commercial assembled"); }
+      else { setLastAction(`Assembly failed: ${d.error || "no output"}`); }
     } catch { setLastAction("Assembly failed"); }
     setAssembling(false);
   }

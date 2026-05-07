@@ -18,6 +18,7 @@ import { useCoordinator } from "../../components/CoordinatorProvider";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import { createEmptyAssembly } from "@/lib/assembly-schema";
 import type { AssemblySegment, NarrationEntry, MusicEntry, SFXEntry } from "@/lib/assembly-schema";
+import SubtitleStyler, { DEFAULT_SUBTITLE_CONFIG, type SubtitleConfig } from "../../components/SubtitleStyler";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -219,6 +220,7 @@ function HybridPlannerInner() {
   const [language, setLanguage] = useState("English");
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-sonnet-4-6"); // "auto" | "claude:model" | "openai:model" | "grok:model" | "ollama"
   const [lastUsedAiProvider, setLastUsedAiProvider] = useState<string>("");
+  const [storyRegion, setStoryRegion] = useState<string>(""); // continent/region for name injection
   const [expanding, setExpanding] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState("");
   const [fullScript, setFullScript] = useState(""); // complete narration script at target duration
@@ -403,6 +405,18 @@ function HybridPlannerInner() {
   const [introOutroStyle, setIntroOutroStyle] = useState<"cinematic" | "minimal" | "bold" | "nollywood">("cinematic");
   const [generatingCards, setGeneratingCards] = useState(false);
   const [showCutsPanel, setShowCutsPanel] = useState(false);
+  // ── Pre-generated intro/outro URLs (from pre-assembly panel) ──
+  const [introUrl, setIntroUrl] = useState<string | null>(null);
+  const [outroUrl, setOutroUrl] = useState<string | null>(null);
+  const [generatingIntro, setGeneratingIntro] = useState(false);
+  const [generatingOutro, setGeneratingOutro] = useState(false);
+  // ── Story credits (writtenBy = screenplayAuthor, studio = GioHomeStudio hardcoded) ──
+  const [ideaFrom, setIdeaFrom] = useState("");
+  // ── Name library — custom names added by user ──
+  const [customNameInput, setCustomNameInput] = useState("");
+  // ── Subtitle config (full SubtitleStyler state) ──
+  const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "dramatic" });
+  const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok" | "warn" | "checking"; note: string } | null>(null);
   // ── Assign position — sceneId being assigned a manual position ──
   const [assigningId, setAssigningId] = useState<string | null>(null);
   // ── AI narration preparation ──
@@ -846,6 +860,10 @@ function HybridPlannerInner() {
           targetDurationLabel: durLabel,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
+          nameRegion: storyRegion || undefined,
+          customNames: (() => {
+            try { return JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]"); } catch { return []; }
+          })(),
         }),
       });
       const expandData = await expandRes.json();
@@ -951,12 +969,21 @@ function HybridPlannerInner() {
       // API requires projectId + expandedStory as string + characters with characterId + displayName + role
       // If no DB projectId, use the lightweight plan endpoint instead
       setLoadingScenes(true);
+      // Build name→visual map from AI-expanded story
+      const charVisualMap = new Map<string, string>();
+      if (Array.isArray(expandedObj.characterList)) {
+        for (const ec of expandedObj.characterList) {
+          if (ec.name && ec.description) charVisualMap.set(ec.name.toUpperCase(), ec.description);
+        }
+      }
+
       const scenePayload = {
-        storyText: storySummary,           // full story text for scene planning
+        storyText: storyFullScript || storySummary,           // full story text for scene planning
         characters: extractedChars.map(c => ({
           characterId: c.characterId,
           displayName: c.displayName,
           role: c.roleType,
+          visualDescription: charVisualMap.get(c.displayName.toUpperCase()) || "",
         })),
         costPreference,
         targetDuration,
@@ -2408,12 +2435,10 @@ function HybridPlannerInner() {
   }
 
   async function assembleScenes() {
-    // ── Coordinator guard (BUG-01): block assembly if story or scenes not complete ──
-    const coordinatorBlock = canAdvanceTo("assembly");
-    if (coordinatorBlock) {
-      setUiError(coordinatorBlock);
-      return;
-    }
+    // Guard: check actual state — coordinator store is never marked complete by this planner
+    const storyReady = !!(fullScript || expandedSummary || idea?.trim());
+    if (!storyReady) { setUiError("Write your story first before assembling."); return; }
+    if (selectedSceneIds.length === 0) { setUiError("Select at least one scene to assemble."); return; }
     try { await requireGate(); } catch { return; }
     setAssembling(true); setAssemblyComplete(false); setAssembledVideoUrl(null); setUiError(null);
     const progress: Record<number, string> = {};
@@ -2522,7 +2547,7 @@ function HybridPlannerInner() {
           ? "image"
           : (videoUrl ? "video" : "image");
 
-        console.log(`[assemble] ${s.sceneId}: mode=${effectiveMode} video=${videoUrl || "none"} image=${imageUrl ? "yes" : "none"} → ${mediaUrl.slice(0, 60)}`);
+        // scene media resolved
 
         // BUG-16b: subtitle source = full scene narration script, NOT first-N-sentences truncation.
         // Truncation cut subtitles to 1-2 sentences; use fullScript / full narrationScript instead.
@@ -2544,6 +2569,8 @@ function HybridPlannerInner() {
       const cardPayload = {
         title: projectTitle,
         author: screenplayAuthor,
+        studio: "GioHomeStudio",
+        ideaFrom,
         genre,
         tone,
         style: introOutroStyle,
@@ -2559,20 +2586,30 @@ function HybridPlannerInner() {
 
       if (introEnabled) {
         try {
-          const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "intro" }) });
-          const d = await r.json();
-          if (d.ok && d.imageUrl) {
-            introScene = { scene: 0, videoUrl: `img:${d.imageUrl}`, duration: 5, text: "", animation: "fade_in" as const };
+          // Use pre-generated introUrl if available; otherwise generate on-the-fly
+          let imageUrl = introUrl;
+          if (!imageUrl) {
+            const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "intro" }) });
+            const d = await r.json();
+            if (d.ok && d.imageUrl) imageUrl = d.imageUrl;
+          }
+          if (imageUrl) {
+            introScene = { scene: 0, videoUrl: `img:${imageUrl}`, duration: 5, text: "", animation: "fade_in" as const };
           }
         } catch { /* best effort */ }
       }
 
       if (outroEnabled) {
         try {
-          const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "outro" }) });
-          const d = await r.json();
-          if (d.ok && d.imageUrl) {
-            outroScene = { scene: 999, videoUrl: `img:${d.imageUrl}`, duration: 10, text: "", animation: "fade_in" as const };
+          // Use pre-generated outroUrl if available; otherwise generate on-the-fly
+          let imageUrl = outroUrl;
+          if (!imageUrl) {
+            const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...cardPayload, type: "outro" }) });
+            const d = await r.json();
+            if (d.ok && d.imageUrl) imageUrl = d.imageUrl;
+          }
+          if (imageUrl) {
+            outroScene = { scene: 999, videoUrl: `img:${imageUrl}`, duration: 10, text: "", animation: "fade_in" as const };
           }
         } catch { /* best effort */ }
       }
@@ -2703,32 +2740,24 @@ function HybridPlannerInner() {
         }
       } catch { /* skip SFX on error */ }
 
-      // ── Music selection — always use clean stock library tracks ──
-      // Uploaded files (music_upload_*) can contain album art (embedded PNG video stream)
-      // or copyrighted material. Always override with a matched stock track.
-      const isUploadedFile = selectedMusicUrl?.includes("music_upload_");
-      let effectiveMusicUrl = isUploadedFile ? null : selectedMusicUrl;
+      // ── Music selection — use what Henry selected, fall back to tone-matched stock ──
+      let effectiveMusicUrl = selectedMusicUrl || null;
 
       if (!effectiveMusicUrl) {
         try {
           const libRes = await fetch("/api/assets?type=music");
           if (libRes.ok) {
             const libData = await libRes.json();
-            const tracks = (libData.assets || libData || []) as Array<{ filePath?: string; name?: string; url?: string }>;
-            // Filter to stock tracks only (no uploads)
-            const stockTracks = tracks.filter(t => t.filePath && !t.filePath.includes("music_upload_"));
-            if (stockTracks.length > 0) {
+            const tracks = (libData.assets || libData || []) as Array<{ filePath?: string; name?: string; url?: string; type?: string }>;
+            const musicTracks = tracks.filter(t => t.filePath && t.type !== "sfx");
+            if (musicTracks.length > 0) {
               const toneKey = (tone || genre || "emotional").toLowerCase();
-              const pick = stockTracks.find(t => (t.name || "").toLowerCase().includes(toneKey.split(" ")[0]))
-                || stockTracks.find(t => /emotional|calm|soft/.test((t.name || "").toLowerCase()))
-                || stockTracks[0];
+              const pick = musicTracks.find(t => (t.name || "").toLowerCase().includes(toneKey.split(" ")[0]))
+                || musicTracks.find(t => /emotional|calm|soft/.test((t.name || "").toLowerCase()))
+                || musicTracks[0];
               if (pick?.filePath) {
                 effectiveMusicUrl = `/api/media/${pick.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-                if (isUploadedFile) {
-                  console.log(`[assemble] Replaced uploaded music with stock: ${pick.name}`);
-                } else {
-                  console.log(`[assemble] Auto-selected music: ${pick.name} → ${effectiveMusicUrl}`);
-                }
+                console.log(`[assemble] Auto-selected music: ${pick.name} → ${effectiveMusicUrl}`);
               }
             }
           }
@@ -2817,7 +2846,7 @@ function HybridPlannerInner() {
         exportSettings: {
           format: "mp4" as const,
           quality: "standard" as const,
-          includeSubtitles: subtitleStyle !== "none",
+          includeSubtitles: subtitleConfig.mode !== "none",
           includeWatermark: false,
           includeCredits: false,
         },
@@ -6507,7 +6536,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 4 }}>
                   {([
-                    { badge: "FREE",   color: "#22c55e", provider: "ollama",                          desc: "Local · Free" },
+                    { badge: "QWEN",   color: "#22c55e", provider: "ollama:qwen2.5:7b",               desc: "Local · Free" },
                     { badge: "HAIKU",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low $" },
                     { badge: "SONNET", color: "#a855f7", provider: "claude:claude-sonnet-4-6",         desc: "Balanced" },
                   ] as const).map(t => {
@@ -6550,6 +6579,86 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <p style={{ fontSize: 8, color: accent, marginTop: 3, fontWeight: 600 }}>
                     Last: {lastUsedAiProvider}
                   </p>
+                )}
+              </div>
+            </div>
+
+            {/* ── Story Region / Name Culture Picker ── */}
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <label style={{ ...labelStyle, fontSize: 9, marginBottom: 0 }}>Story Culture</label>
+                <button title="Select a cultural region so AI uses authentic names and cultural context for unnamed characters"
+                  style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>ⓘ</button>
+                {storyRegion && (
+                  <button onClick={() => setStoryRegion("")}
+                    style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a7a", fontSize: 9, cursor: "pointer", padding: 0 }}>
+                    clear
+                  </button>
+                )}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                {([
+                  { id: "africa",       label: "Africa",         emoji: "🌍" },
+                  { id: "asia",         label: "Asia",           emoji: "🌏" },
+                  { id: "europe",       label: "Europe",         emoji: "🇪🇺" },
+                  { id: "north_america",label: "N. America",     emoji: "🌎" },
+                  { id: "latin_america",label: "Latin America",  emoji: "🌎" },
+                  { id: "middle_east",  label: "Middle East",    emoji: "🕌" },
+                  { id: "oceania",      label: "Oceania",        emoji: "🌏" },
+                  { id: "fantasy",      label: "Fantasy",        emoji: "✨" },
+                ] as const).map(r => {
+                  const active = storyRegion === r.id;
+                  return (
+                    <button key={r.id} onClick={() => setStoryRegion(active ? "" : r.id)}
+                      style={{
+                        padding: "6px 8px", borderRadius: 8,
+                        border: `1px solid ${active ? accent : "#ffffff15"}`,
+                        background: active ? `${accent}22` : "#ffffff06",
+                        cursor: "pointer", display: "flex", alignItems: "center", gap: 5, textAlign: "left" as const,
+                      }}>
+                      <span style={{ fontSize: 13 }}>{r.emoji}</span>
+                      <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, color: active ? accent : "#8888aa" }}>{r.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {storyRegion && (
+                <p style={{ fontSize: 8, color: "#7dd3fc", marginTop: 5 }}>
+                  AI will use culturally authentic {storyRegion.replace(/_/g," ")} names for unnamed characters
+                </p>
+              )}
+              {/* ── Custom name import ── */}
+              <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
+                <p style={{ fontSize: 8, color: muted, marginBottom: 6 }}>Add custom names (comma-separated) — injected into next story expansion</p>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    value={customNameInput}
+                    onChange={e => setCustomNameInput(e.target.value)}
+                    placeholder="e.g. Tunde, Amaka, Chidi, Zara..."
+                    style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "6px 8px" }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (!customNameInput.trim()) return;
+                      setStoryRegion(prev => prev); // keep region
+                      // Store as a special "custom" region override in sessionStorage so expandStory picks it up
+                      const names = customNameInput.split(",").map(n => n.trim()).filter(Boolean);
+                      sessionStorage.setItem("ghs_custom_names", JSON.stringify(names));
+                      setCustomNameInput("");
+                      setLastAction(`✓ ${names.length} custom name${names.length !== 1 ? "s" : ""} saved — will be injected on next Expand`);
+                    }}
+                    style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                    Add Names
+                  </button>
+                </div>
+                {typeof window !== "undefined" && sessionStorage.getItem("ghs_custom_names") && (
+                  <div style={{ marginTop: 5, display: "flex", alignItems: "center", gap: 6 }}>
+                    <p style={{ fontSize: 8, color: "#22c55e" }}>
+                      Custom pool: {JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]").join(", ").slice(0, 80)}
+                    </p>
+                    <button onClick={() => { sessionStorage.removeItem("ghs_custom_names"); setLastAction("Custom names cleared"); }}
+                      style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 8, cursor: "pointer", padding: 0 }}>×</button>
+                  </div>
                 )}
               </div>
             </div>
@@ -8171,6 +8280,114 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
 
           {/* ══════════════════════════════════════════════════════════
+               PRE-ASSEMBLY PANEL — review audio, subtitles, intro/outro
+               ══════════════════════════════════════════════════════════ */}
+          <div style={{ marginBottom: 16 }}>
+
+            {/* A. Audio for Video */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Audio for Video</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {/* Narration */}
+                <div>
+                  <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Narration</p>
+                  {narratorAudioUrl
+                    ? <audio controls src={narratorAudioUrl} style={{ width: "100%", height: 32 }} />
+                    : <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Not generated yet</p>}
+                  <button onClick={generateNarrationPiper} disabled={generatingNarration || !(fullScript || expandedSummary || idea)}
+                    style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6 }}>
+                    {generatingNarration ? "Generating..." : "Generate"}
+                  </button>
+                </div>
+                {/* Background Music */}
+                <div>
+                  <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Background Music</p>
+                  {selectedMusicUrl
+                    ? <audio controls src={selectedMusicUrl} style={{ width: "100%", height: 32 }} />
+                    : <p style={{ fontSize: 11, color: muted }}>None selected — go to Sound tab</p>}
+                </div>
+              </div>
+            </div>
+
+            {/* B. Subtitle Style */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={accent} />
+              {/* Check Narration ↔ Subtitle Match */}
+              <button
+                onClick={async () => {
+                  setSubtitleMatchResult({ status: "checking", note: "Checking..." });
+                  try {
+                    const storyText = fullScript || expandedSummary || idea || "";
+                    const res = await fetch("/api/free-mode/enhance", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ prompt: `Does subtitle mode "${subtitleConfig.mode}" match this story tone? Story: "${storyText.slice(0, 300)}" Reply with OK or WARN and one short reason.`, task: "check" }),
+                    });
+                    const d = await res.json();
+                    const note = d.enhanced || d.text || d.result || "Check complete";
+                    const isWarn = note.toLowerCase().includes("warn") || note.toLowerCase().includes("mismatch") || note.toLowerCase().includes("not match");
+                    setSubtitleMatchResult({ status: isWarn ? "warn" : "ok", note });
+                  } catch { setSubtitleMatchResult({ status: "warn", note: "Check failed" }); }
+                }}
+                style={{ marginTop: 10, padding: "7px 16px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                Check Narration → Subtitle Match
+              </button>
+              {subtitleMatchResult && (
+                <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: subtitleMatchResult.status === "warn" ? `${red}10` : `${accent}10`, border: `1px solid ${subtitleMatchResult.status === "warn" ? red : accent}30` }}>
+                  <p style={{ fontSize: 11, color: subtitleMatchResult.status === "warn" ? red : accent }}>{subtitleMatchResult.status === "checking" ? "⟳ " : subtitleMatchResult.status === "warn" ? "⚠ " : "✓ "}{subtitleMatchResult.note.slice(0, 200)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* C. Intro & Outro */}
+            <div style={{ ...cardStyle, marginBottom: 16 }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Intro &amp; Outro</p>
+              <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>AI generates a cinematic title card. Prepended/appended to your video.</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                {/* Intro */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Intro</p>
+                  {introUrl
+                    ? <video src={introUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No intro</p></div>}
+                  <button onClick={async () => {
+                    setGeneratingIntro(true);
+                    try {
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: characters.slice(0, 10).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })) }) });
+                      const d = await r.json();
+                      if (d.ok && d.imageUrl) setIntroUrl(d.imageUrl); else setLastAction("Intro generation failed");
+                    } catch { setLastAction("Intro error"); } finally { setGeneratingIntro(false); }
+                  }} disabled={generatingIntro}
+                    style={{ width: "100%", padding: "8px", borderRadius: 8, border: "none", background: generatingIntro ? "#2a2040" : purple, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingIntro ? "not-allowed" : "pointer" }}>
+                    {generatingIntro ? "Generating..." : "Generate AI Intro"}
+                  </button>
+                </div>
+                {/* Outro */}
+                <div>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Outro</p>
+                  {outroUrl
+                    ? <video src={outroUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No outro</p></div>}
+                  <button onClick={async () => {
+                    setGeneratingOutro(true);
+                    try {
+                      const castList = characters.filter(c => c.voiceId).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })).slice(0, 8);
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: castList }) });
+                      const d = await r.json();
+                      if (d.ok && d.imageUrl) setOutroUrl(d.imageUrl); else setLastAction("Outro generation failed");
+                    } catch { setLastAction("Outro error"); } finally { setGeneratingOutro(false); }
+                  }} disabled={generatingOutro}
+                    style={{ width: "100%", padding: "8px", borderRadius: 8, border: "none", background: generatingOutro ? "#2a2040" : accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingOutro ? "not-allowed" : "pointer" }}>
+                    {generatingOutro ? "Generating..." : "Generate AI Outro"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+
+          </div>
+
+          {/* ══════════════════════════════════════════════════════════
                PRODUCTION PIPELINE — numbered road map
                Each step is always visible. Green circle = done.
                Click a step header to expand/collapse it.
@@ -8245,16 +8462,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       GHS writes a full cinematic screenplay from your story. Enter your name as the author, then click Write Screenplay. Once done, click Send to Scenes to distribute it — narration and dialogue will be split automatically.
                     </p>
 
-                    {/* Author name */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                      <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Written by:</span>
-                      <input
-                        type="text"
-                        value={screenplayAuthor}
-                        onChange={e => setScreenplayAuthor(e.target.value)}
-                        placeholder="Enter your name"
-                        style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12, fontWeight: 600 }}
-                      />
+                    {/* Author name + Idea from */}
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 12 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Written by:</span>
+                        <input
+                          type="text"
+                          value={screenplayAuthor}
+                          onChange={e => setScreenplayAuthor(e.target.value)}
+                          placeholder="Your name"
+                          style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12, fontWeight: 600 }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span style={{ fontSize: 11, color: muted, flexShrink: 0, width: 75 }}>Idea from:</span>
+                        <input
+                          type="text"
+                          value={ideaFrom}
+                          onChange={e => setIdeaFrom(e.target.value)}
+                          placeholder="Original idea by... (optional)"
+                          style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12 }}
+                        />
+                      </div>
+                      <p style={{ fontSize: 9, color: muted }}>Studio: <span style={{ color: accent }}>GioHomeStudio</span> (used automatically in intro/outro)</p>
                     </div>
 
                     {/* Buttons */}

@@ -267,6 +267,7 @@ export default function MusicVideoPlannerPage() {
   const [buildingChars, setBuildingChars] = useState(false);
   const [buildCharProgress, setBuildCharProgress] = useState("");
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
+  const [portraitModel, setPortraitModel] = useState<string>("fal_flux_schnell");
 
   // ── SC: Sound tab voice state ──
   const [ghsSoundTierId, setGhsSoundTierId] = useState<string>("ghs-sound");
@@ -2817,7 +2818,15 @@ export default function MusicVideoPlannerPage() {
           {/* SB-3: Character cards with Generate Portrait / Save / Import Image */}
           {importedCharacters.length > 0 && (
             <div style={{ marginBottom: 20 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: muted, marginBottom: 10, letterSpacing: "0.15em", textTransform: "uppercase" as const }}>Cast ({importedCharacters.length})</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: muted, letterSpacing: "0.15em", textTransform: "uppercase" as const }}>Cast ({importedCharacters.length})</p>
+                <select value={portraitModel} onChange={e => setPortraitModel(e.target.value)}
+                  style={{ marginLeft: "auto", fontSize: 10, padding: "3px 8px", borderRadius: 6, border: "1px solid #1e2a35", background: "#080b10", color: muted, cursor: "pointer" }}>
+                  <option value="fal_flux_schnell">Schnell (fast)</option>
+                  <option value="fal_flux_dev">Dev (balanced)</option>
+                  <option value="fal_flux_pro">Pro (best)</option>
+                </select>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
                 {importedCharacters.map(char => (
                   <div key={char.id} style={{ background: "#080b10", borderRadius: 10, border: "1px solid #1e2a35", padding: 12, display: "flex", flexDirection: "column" as const, gap: 6, alignItems: "center", position: "relative" as const }}>
@@ -2836,7 +2845,7 @@ export default function MusicVideoPlannerPage() {
                           const res = await fetch("/api/hybrid/scene-image", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ prompt: `Portrait of ${char.name}, music video character, cinematic lighting`, model: "fal_flux_schnell" }),
+                            body: JSON.stringify({ prompt: `Portrait of ${char.name}, music video character, cinematic lighting`, model: portraitModel }),
                           });
                           const d = await res.json();
                           if (d.imageUrl) {

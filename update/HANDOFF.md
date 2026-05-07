@@ -1,145 +1,118 @@
-# GHS HANDOFF — 2026-05-06 Session 2 (Pipeline Recovery + Audio Fixes)
+# GHS HANDOFF — 2026-05-07 Session 5 (Name Library + Region Picker)
 
 ## Branch: fix/ghs-pipeline-recovery-may05
-## Main merge: b74c0dd (merged earlier today — 41 files, clean)
-## Latest commit on branch: 77e8cbc
 ## Build: TSC clean (exit 0)
-## Dev server: localhost:3200 (running, PID 24440)
+## Dev server: localhost:3200 (running)
 ## DB: giohomestudio_db (Prisma, schema current)
+## Last verified assembly: 100s video, 15MB, narration + music confirmed via ffprobe
 
 ---
 
-## WHAT WAS DONE THIS SESSION (all committed)
+## WHAT WAS DONE THIS SESSION
 
-### 1 — Branch merged to main (b74c0dd)
-All prior work from fix/ghs-pipeline-recovery-may05 merged to main. No conflicts. TSC clean on main after merge. Branch kept alive for ongoing work.
+### Session 3 recap (assembly pipeline — all 7 root causes fixed, end-to-end verified)
+See HANDOFF for 2026-05-06 Session 3 for full details.
 
-### 2 — Auto SFX per-scene progress indicator (0ee4d60)
-- `autoSfxProgress` state added to hybrid-planner
-- Progress bar + scene ID shown while Auto SFX runs per scene
-- Scene cards now show audio player with AUTO SFX label after run completes
+### Session 4 — Assembly UI + Music Fix
 
-### 3 — Critical pipeline bug: photo-import → PuLID was broken (5edfca4)
-**Root cause:** Session-only characters (not yet saved to DB) had `referenceImages: null`. Scene-image route never detected them as photo-import → PuLID was silently skipped, real face not preserved.
-**Fix:** hybrid-planner now passes `isPhotoImport: true` flag in character overrides → scene-image route reads from overrides first.
-File: `app/dashboard/hybrid-planner/page.tsx` L1487, L1581 + `app/api/hybrid/scene-image/route.ts` L106
+**Hybrid Planner: Pre-Assembly panel added (Sonnet agent)**
+- Audio for Video: 2-column (Narration + Background Music) with player + generate button
+- Subtitle Style: full SubtitleStyler component (mode: "dramatic" default)
+- Check Narration → Subtitle Match button (LLM check via /api/free-mode/enhance)
+- Intro & Outro: "Generate AI Intro" / "Generate AI Outro" buttons + preview players
+- Story Credits: Written By / Made By (default "GioHomeStudio") / Idea From inputs
+- Files: `app/dashboard/hybrid-planner/page.tsx` — state vars at L408-418, panel at L8197-8326
 
-### 4 — Children planner hybrid scene board (e64cba0)
-`app/dashboard/children-planner/page.tsx` rebuilt with full per-scene cards:
-- Editable scene title (500ms debounce) + scene description
-- Scene type badge (Video-led / Image-led)
-- Per-scene: AI SFX, Scene Music, Continuous Motion toggle, duration picker (5/10/15/20/30s)
-- Make Video, Preview lightbox
-- Character picker (savedChars + full registry, deduped)
-- Soft archive/restore (not permanent delete)
+**Movie Planner: Gate + Save Credits (Sonnet agent)**
+- `useGate()` + `<GateModal />` wired to assembleMovie function
+- Save Credits button added after credits grid
+- Files: `app/dashboard/movie-planner/page.tsx`
 
-### 5 — SA-SE architectural corrections applied to ALL planners (43c3a45, 3c21d78, 1edee2d)
-Hybrid + Movie: already done in prior session.
-Series, Commercial, Music Video: done this session.
-All planners now have:
-- **SD** Tab order: Design → Story → Characters → Sound & SFX → Scene Board → Assembly → Overview
-- **SB** Characters tab: hybrid-style inline registry (Build with AI primary, import saved secondary)
-- **SC** Sound tab: Parse Script → Voice Layers → Character Voices → 4-tile Sound Tier → Music → SFX
-- **SE** Scene inline edit: always-visible textarea with 500ms debounce
+**Music missing from assembly — FIXED**
+- Root cause: `selectedMusicUrl` blocked if it contained "music_upload_" prefix
+  → `effectiveMusicUrl = null` → stock auto-pick searched, often failed → no music
+- Fix: removed the uploaded-music block — use whatever Henry selected; fall back to stock only if nothing selected
+- Also: added `-map 0:a` to prepare_music FFmpeg command to safely strip album art from uploaded MP3s
+- Files: `app/dashboard/hybrid-planner/page.tsx` L2730-2760, `src/lib/assembly-builder.ts` L89
 
-### 6 — Per-character portrait model selector — all planners (43c3a45, 77c41e5)
-Each character card now has a compact dropdown:
+**Verified in browser (Playwright CDP 2026-05-07)**
 ```
-Model  [Flux Free ($0.0004) — drafts  ▼]
+10 scenes (mix of images + 2 videos)
+musicUrl: /api/media/music/stock/suspense.mp3 (auto-selected, tone="suspense")
+Assembly completed at 120s
+Video: 100.27s, 15MB, AAC audio confirmed via ffprobe
+Page shows: "Video ready — download or open in editor"
 ```
-Options: Ideogram Free ($0) / Flux Free ($0.0004) / Flux Schnell ($0.003) / Pruna ($0.005) / Ideogram v3 ($0.02) / Flux Dev ($0.025) / Flux Pro ($0.05) / Face Lock PuLID
-- Default: Flux Free (segmind_flux)
-- Photo-import characters: auto-defaults to Face Lock (PuLID)
-- Applied to: Hybrid, Movie, Children, Series, Commercial planners
-- Music Video planner: no portrait UI wired — skipped
-
-State: `charPortraitModel: Record<characterId, modelId>`
-Model resolves: overrideArg → per-char selection → auto PuLID for photo-import → backend default
-
-### 7 — Age field fix in Close Builder (56bd726)
-**Problem:** "Age / Posture" was one field — model got "young and energetic" not "8 years old".
-**Fix:** Split into two separate fields:
-- **Age (years) ★** — numeric input → stored as `"8 years old"` in `char.ageRange`
-- **Posture / Energy** — separate text field for stance/energy
-`buildVisualDescription()` now puts ageRange FIRST (models weight early tokens highest).
-Portrait prompt now starts: `"8-year-old child, CHILD NOT ADULT, young face, child body proportions, age 8, ..."`
-Negative prompt blocks adult features for children: `"adult, mature face, grown up, aged, 20 years old..."`
-File: `app/dashboard/hybrid-planner/page.tsx` L3080 (buildVisualDescription) + L6242 (builder UI)
-
-### 8 — Scene image model selector updated (a49248b, b83d41c)
-Added to scene image picker (design unchanged, Nano Banana + all others kept):
-- Ideogram Free ($0.00) — added at top
-- Flux Free ($0.0004) — added
-
-Full list now: Ideogram Free → Flux Free → Pruna → Flux Schnell → Flux Dev → Ideogram v3 Turbo → Seedream → Nano Banana 2 → Flux Pro → Ideogram v3 Quality → Recraft v3 → Flux Pro Ultra
-
-### 9 — Audio pipeline fixes: narration + music + SFX (46a80e3, 77e8cbc)
-**Narration (GHS Plus was broken):**
-- Root cause: GHS Plus set `narratorVoice = "karaoke"` → browser speech only, no audio file, assembly got nothing
-- Fix (line 6622): GHS Sound → Piper | GHS Plus → Piper | GHS Pro → fal-narrator | GHS Premium → kie-suno
-
-**Music (per-scene button was silent-failing):**
-- Root cause: button checked `d.musicUrl` but API returns `d.outputUrl` → always undefined → no URL stored
-- Fix: reads `d.outputUrl || d.musicUrl || d.url`, stores in `scene.audioPlan.musicUrl`, shows error if failed
-- Added `musicUrl?: string` to AudioPlan interface (line 94)
-
-**SFX (Generate button appeared disabled):**
-- Fix: button no longer disabled — shows error "Type a sound description first" if field empty
-- Quick prompt chips already available (door creaking, thunder, fire etc.)
 
 ---
 
-## WHAT IS NOT DONE
-
-| # | Item | Notes |
-|---|---|---|
-| 1 | `KIE_AI_API_KEY` + `MUBERT_PAT` in `.env` | GHS Premium music silently falls back to stock. Henry must add manually. |
-| 2 | Merge latest branch commits to main | b74c0dd merged earlier. Commits 0ee4d60 → 77e8cbc not yet in main. Merge when ready. |
-| 3 | Music Video planner portrait model selector | No portrait generation UI exists — skipped. |
-| 4 | AUT verify | Server restart + browser test pending. Buttons added need headed Playwright run. |
-| 5 | Series / Commercial: full assembly path | SA-SE done. Assembly pipeline wiring not verified end-to-end for these planners. |
-
----
-
-## KEY FILE MAP (most touched this session)
+## KEY FILE CHANGES (cumulative since last main merge)
 
 | File | What changed |
 |---|---|
-| `app/dashboard/hybrid-planner/page.tsx` | Age field split, model selector, audio fixes, SFX progress, PuLID fix |
-| `app/dashboard/children-planner/page.tsx` | Full hybrid scene board added |
-| `app/dashboard/series-wizard/page.tsx` | SA-SE + model selector |
-| `app/dashboard/commercial-planner/page.tsx` | SA-SE + model selector |
-| `app/dashboard/music-video-planner/page.tsx` | SA-SE (Sound tab renamed, char tab rebuilt) |
-| `app/dashboard/movie-planner/page.tsx` | Model selector + default updated |
-| `app/api/hybrid/scene-image/route.ts` | photo-import detection from overrides |
-| `src/lib/generation/model-registry.ts` | Source of truth for all models + costs |
+| `app/dashboard/hybrid-planner/page.tsx` | Assembly guard fix; pre-assembly panel; music upload unblock; storyRegion state + picker UI |
+| `app/dashboard/movie-planner/page.tsx` | Gate modal wired; Save Credits button |
+| `app/api/assembly/execute/route.ts` | Full rewrite: download externals, transcode, basename concat, dynamic final_merge |
+| `app/api/hybrid/story-expand/route.ts` | nameRegion param, buildNamePool() helper, cultural name injection into prompt |
+| `src/data/character-names.json` | NEW — 22 sub-regions, ~2000 culturally authentic names |
+| `src/lib/assembly-builder.ts` | .mp3→.wav, aac→pcm_s16le, aresample, -map 0:a for music |
+| `update/HANDOFF.md` | This file |
+
+### Session 5 — Name Library + Region Picker
+
+**Name Library built from real-world cultural data**
+- File: `src/data/character-names.json`
+- 22 sub-regions across 8 continents: Africa(5), Asia(4), Europe(4), N.America(1), Latin America(4), Middle East(2), Oceania(1), Fantasy(1)
+- Each sub-region: 40-50 male + 40-50 female names with ethnic/cultural tags
+- Total: ~2000 culturally authentic names
+
+**Region Picker UI — Story tab, hybrid planner**
+- 8 region buttons with emoji (Africa 🌍 / Asia 🌏 / Europe / N.America / Latin America / Middle East / Oceania / Fantasy ✨)
+- One-click toggle — selected region highlighted, click again to clear
+- Confirmation text: "AI will use culturally authentic [region] names for unnamed characters"
+- State: `storyRegion` (string, empty = no injection)
+- File: `app/dashboard/hybrid-planner/page.tsx` — state at L221, UI before AITierSelector
+
+**story-expand API wired to name pool**
+- New field: `nameRegion` in request body
+- Server reads `src/data/character-names.json`, shuffles pool, picks 8M + 8F names
+- Injects two blocks into prompt:
+  1. Cultural context: "characters from [continent] ([culture1, culture2, ...])"
+  2. Approved name pool: "Male: Emeka, Kofi... Female: Ngozi, Fatou..."
+- File: `app/api/hybrid/story-expand/route.ts` — `buildNamePool()` helper + namePoolBlock injection
+
+**Playwright-verified (2026-05-07)**
+```
+STORY CULTURE label: VISIBLE (CSS uppercase)
+All 8 region buttons rendered with emojis
+Click Africa → "AI will use culturally authentic africa names for unnamed characters"
+TSC: clean (exit 0)
+```
 
 ---
 
-## IMPORTANT RULES FOR NEXT SESSION
+## KNOWN ISSUES / NOT YET FIXED
 
-1. **Age field** — Character Close Builder now has a numeric Age input. Always fill it for any character. Image generator reads it as first token in prompt.
-2. **Face Lock (PuLID)** — Only works when character has a photo-import tag AND `FAL_KEY` is in `.env`. Auto-selected on photo-import chars.
-3. **GHS Plus narration** now uses Piper (free, local). Produces a real .wav file that assembly can use.
-4. **Scene music** button now stores URL in `scene.audioPlan.musicUrl`. Assembly reads from there.
-5. **SFX generate** needs a text description typed first OR click a quick prompt chip.
-6. **Model dropdown default** = Flux Free ($0.0004) for all character portraits. Change per character as needed.
-7. **Do NOT delete** `/api/video/assemble` old route — kept per doctrine.
-8. **Branch**: fix/ghs-pipeline-recovery-may05 still active. Merge to main after next batch.
+| # | Item | Notes |
+|---|---|---|
+| 1 | Narration timing vs scene changes | Narration startTime in assembly JSON NOT enforced by FFmpeg — all narration plays from t=0. Needs `adelay` filter per track. Complex fix. |
+| 2 | Music auto-select picks by tone string match | May pick wrong track if no exact match. Henry should select music in Sound tab before assembling. |
+| 3 | `KIE_AI_API_KEY` + `MUBERT_PAT` in `.env` | Premium music falls back to stock. Henry adds manually. |
+| 4 | Merge branch to main | fix/ghs-pipeline-recovery-may05 not yet merged |
+| 5 | Assembly time ~120s for 10 scenes | Downloads + transcodes. Cache sceneImages to speed up. |
+| 6 | Movie Planner credits section: "Movie Credits" not "Story Credits" | Minor label difference vs hybrid planner. Not a bug. |
 
 ---
 
 ## NEXT EXACT STEPS
 
-1. Add `KIE_AI_API_KEY` + `MUBERT_PAT` to `.env` (Henry only — these are his API keys)
-2. AUT verify — restart server, open localhost:3200, test: character portrait generation, Generate Narration Audio, scene Music button, SFX generate
-3. Merge branch to main (commits 0ee4d60 → 77e8cbc)
-4. Test full Hybrid Planner pipeline end-to-end: Story → Characters → Sound → Scene Board → Assembly
+1. Henry: test assembled video quality — check if music volume feels right (currently ducked to 8%)
+2. Henry: select music in Sound tab before assembling for best results (auto-pick is fallback only)
+3. Henry: add `KIE_AI_API_KEY` + `MUBERT_PAT` to `.env` for premium music
+4. Merge branch to main when satisfied
 
 ---
 
 ## Dev server: localhost:3200
 ## DB: giohomestudio_db (Prisma)
-## Branch: fix/ghs-pipeline-recovery-may05
-## Main at: b74c0dd
-## Branch tip: 77e8cbc
+## Build: TSC clean

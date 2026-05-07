@@ -18,6 +18,7 @@ import { safeJson } from "../../../lib/api-utils";
 import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
+import { useGate } from "../../components/PreGenerationGate";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -437,6 +438,9 @@ function MoviePlannerInner() {
   const [outroUrl, setOutroUrl] = useState<string | null>(null);
   const [generatingIntro, setGeneratingIntro] = useState(false);
   const [generatingOutro, setGeneratingOutro] = useState(false);
+
+  // ── Pre-generation gate ──
+  const { requireGate, GateModal } = useGate();
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
@@ -1599,6 +1603,7 @@ function MoviePlannerInner() {
   // ── Assemble Final Movie ──
   async function assembleMovie() {
     if (!moviePlan) return;
+    try { await requireGate(); } catch { return; }
     setAssembling(true);
     setAssemblyComplete(false);
     setErrorMsg(null);
@@ -1954,6 +1959,7 @@ function MoviePlannerInner() {
 
   return (
     <div style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 0 60px", fontFamily: ds.font.sans }}>
+      <GateModal />
       <div style={{ padding: "24px 32px 0" }}>
         <HeroTitle kicker="Production Workshop" title="Movie & Series" italic="Planner" sub="Plan, create, review, and assemble your production." />
         {/* Project toolbar */}
@@ -4390,7 +4396,12 @@ function MoviePlannerInner() {
                   style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <button
+              onClick={() => setLastAction(`Credits saved: ${screenplayAuthor} · ${movieMadeBy}`)}
+              style={{ marginTop: 10, padding: "8px 18px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+              Save Credits
+            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10 }}>
               <button
                 onClick={async () => {
                   setSubtitleMatchResult({ status: "checking", note: "Checking..." });

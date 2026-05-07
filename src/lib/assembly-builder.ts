@@ -49,16 +49,18 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
     });
   }
 
-  // ── Step 2: Mix narration audio ──
+  // ── Step 2: Mix narration audio — use WAV to avoid container/codec mismatch ──
   if (assembly.narration.length > 0) {
-    const narrationMixPath = path.join(outputDir, "narration_mix.mp3");
+    const narrationMixPath = path.join(outputDir, "narration_mix.wav");
     const narrationInputs: string[] = [];
     const filterParts: string[] = [];
 
     assembly.narration.forEach((n, i) => {
       if (n.audioUrl) {
         narrationInputs.push("-i", n.audioUrl);
-        filterParts.push(`[${i}:a]volume=${n.volume}[n${i}]`);
+        const delayMs = Math.round((n.startTime || 0) * 1000);
+        const delayFilter = delayMs > 0 ? `,adelay=${delayMs}:all=1` : "";
+        filterParts.push(`[${i}:a]aresample=44100${delayFilter},volume=${n.volume}[n${i}]`);
       }
     });
 
@@ -70,23 +72,23 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
       steps.push({
         id: "mix_narration",
         description: `Mix ${assembly.narration.length} narration tracks`,
-        command: [ffmpeg, ...narrationInputs, "-filter_complex", mixFilter, "-map", "[narr_out]", "-c:a", "aac", "-b:a", "192k", "-y", narrationMixPath],
+        command: [ffmpeg, ...narrationInputs, "-filter_complex", mixFilter, "-map", "[narr_out]", "-c:a", "pcm_s16le", "-ar", "44100", "-y", narrationMixPath],
         outputPath: narrationMixPath,
       });
     }
   }
 
-  // ── Step 3: Mix music with ducking ──
+  // ── Step 3: Mix music — use WAV to avoid container/codec mismatch ──
   if (assembly.music.length > 0) {
-    const musicMixPath = path.join(outputDir, "music_mix.mp3");
-    const musicEntry = assembly.music[0]; // primary music track
+    const musicMixPath = path.join(outputDir, "music_mix.wav");
+    const musicEntry = assembly.music[0];
 
     if (musicEntry.sourceUrl) {
       const vol = musicEntry.volume;
       steps.push({
         id: "prepare_music",
         description: `Prepare music track at volume ${vol}`,
-        command: [ffmpeg, "-i", musicEntry.sourceUrl, "-af", `volume=${vol}`, "-c:a", "aac", "-b:a", "128k", "-y", musicMixPath],
+        command: [ffmpeg, "-i", musicEntry.sourceUrl, "-map", "0:a", "-af", `aresample=44100,volume=${vol}`, "-c:a", "pcm_s16le", "-ar", "44100", "-y", musicMixPath],
         outputPath: musicMixPath,
       });
     }
@@ -110,7 +112,7 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
   let audioIdx = 1;
 
   // Narration — only if mix_narration step was actually built (has real audioUrls)
-  const narrationMix = path.join(outputDir, "narration_mix.mp3");
+  const narrationMix = path.join(outputDir, "narration_mix.wav");
   if (narrationStepBuilt) {
     finalInputs.push("-i", narrationMix);
     audioFilters.push(`[${audioIdx}:a]volume=1.0[narr]`);
@@ -118,7 +120,7 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
   }
 
   // Music — only if prepare_music step was actually built
-  const musicMix = path.join(outputDir, "music_mix.mp3");
+  const musicMix = path.join(outputDir, "music_mix.wav");
   if (musicStepBuilt) {
     finalInputs.push("-i", musicMix);
     const duckLevel = assembly.duckingRules.musicDuckLevel;
