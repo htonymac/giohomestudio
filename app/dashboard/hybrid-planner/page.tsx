@@ -19,6 +19,7 @@ import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import { createEmptyAssembly } from "@/lib/assembly-schema";
 import type { AssemblySegment, NarrationEntry, MusicEntry, SFXEntry } from "@/lib/assembly-schema";
 import SubtitleStyler, { DEFAULT_SUBTITLE_CONFIG, type SubtitleConfig } from "../../components/SubtitleStyler";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -2647,12 +2648,13 @@ function HybridPlannerInner() {
         }
       }
 
-      // Build scene start map — used for both per-line and fallback systems
+      // Build scene start map — used for per-line timing
       const sceneStartMapForChar: Record<string, number> = {};
       let elapsedForChar = 0;
       for (const s of scenesToAssemble) {
         sceneStartMapForChar[s.sceneId] = elapsedForChar;
-        elapsedForChar += (s.motionDuration || 5);
+        const narText = scriptSegments.filter(seg => seg.sceneId === s.sceneId && seg.type === "narration").map(seg => seg.text || "").join(" ");
+        elapsedForChar += s.motionDuration || estimateTextDuration(narText || s.narrationScript || "") || 5;
       }
 
       if (storyMode !== "narration-only") {
@@ -2680,36 +2682,9 @@ function HybridPlannerInner() {
             }
           }
         } else {
-          // Fallback: old per-character system — one file per character, placed at first scene
-          // CRITICAL FIX: only add characters who actually have dialogue in the script.
-          // characterAudioUrls contains files for ALL characters (incl. placeholder "I am ready" clips)
-          // — adding them all causes every voice to speak at once even for silent characters.
-          const charAudioEntries = Object.entries(characterAudioUrls);
-          if (charAudioEntries.length > 0) {
-            for (const char of characters) {
-              const audioUrl = characterAudioUrls[char.characterId];
-              if (!audioUrl) continue;
-              const charDialogue = scriptSegments.filter(seg =>
-                seg.type === "dialogue" && (
-                  seg.characterId === char.characterId ||
-                  seg.speaker?.toLowerCase() === char.displayName.toLowerCase() ||
-                  seg.speaker?.toLowerCase().includes(char.displayName.toLowerCase().split(" ")[0])
-                )
-              );
-              // Skip characters with no actual lines — their audio is a placeholder voice sample
-              if (charDialogue.length === 0) continue;
-              const firstSceneId = charDialogue[0].sceneId;
-              let startTime = 1;
-              if (firstSceneId && sceneStartMapForChar[firstSceneId] !== undefined) {
-                startTime = sceneStartMapForChar[firstSceneId] + 0.5;
-              } else {
-                const totalSegs = scriptSegments.length;
-                const lineIdx = charDialogue[0].lineIndex ?? 0;
-                startTime = totalSegs > 0 ? Math.max(0, (lineIdx / totalSegs) * elapsedForChar - 0.5) : 1;
-              }
-              narrationList.push({ audioUrl, startTime, volume: 1.0 });
-            }
-          }
+          // No per-line clips generated yet — narrator-only.
+          // characterAudioUrls holds voice SAMPLES ("I am ready" demos), not actual dialogue recordings.
+          // Mixing voice samples over a continuous narrator creates cacophony. Leave narrationList as-is.
         }
       }
 
