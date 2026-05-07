@@ -141,7 +141,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Build structured image prompt — STYLE LOCK FIRST, then CHARACTER IDENTITY
-    // Order: [Style directive] → [Character identity] → [Scene] → [Settings] → [Reinforcement] → [Quality]
+    // Order: [Style directive] → [Character identity] → [Scene] → [Reinforcement] → [Settings] → [Quality]
     // Style is FIRST so the model commits to the render style before processing anything else.
     // This prevents random style drift between 3D cinematic and flat cartoon.
     const promptParts: string[] = [];
@@ -149,13 +149,22 @@ export async function POST(req: NextRequest) {
     // ── STYLE LOCK (absolute first position) ──
     promptParts.push(stylePreset.prefix);
 
-    // ── HUMAN CHARACTER GUARD — prevents AI from defaulting to bears/animals ──
-    // Applied to ALL scenes. Only removed if sceneText explicitly mentions animal characters.
+    // ── ANIMAL DETECTION — check scene text AND character species/descriptions ──
+    // "explicit animal" = sceneText OR character visualDescription OR override species contains known animal words
     const sceneTextLower = (sceneText || "").toLowerCase();
-    const explicitAnimal = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|fur|paws|snout)\b/.test(sceneTextLower);
-    if (!explicitAnimal) {
-      promptParts.push("All characters in this scene are HUMAN BEINGS with human faces, human anatomy, normal skin texture. No bears, no animals, no fur-covered creatures, no snouts, no paws.");
+    const ANIMAL_PATTERN = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|paws|snout)\b/;
+    const sceneHasAnimal = ANIMAL_PATTERN.test(sceneTextLower);
+
+    // Check characterOverrides species field — client sends this from CharacterIdentity
+    const overrideSpecies: string[] = [];
+    if (characterOverrides && Array.isArray(characterOverrides)) {
+      for (const ov of characterOverrides as Array<{ species?: string; visualDescription?: string }>) {
+        if (ov.species) overrideSpecies.push(ov.species.toLowerCase());
+      }
     }
+    const ANIMAL_SPECIES = new Set(["bear", "wolf", "lion", "fox", "rabbit", "dog", "cat", "tiger", "elephant", "monkey"]);
+    const charSpeciesIsAnimal = overrideSpecies.some(s => ANIMAL_SPECIES.has(s));
+    const explicitAnimal = sceneHasAnimal || charSpeciesIsAnimal;
 
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
@@ -173,6 +182,17 @@ export async function POST(req: NextRequest) {
     // ── SCENE DESCRIPTION ──
     promptParts.push((sceneText || "").slice(0, 300));
 
+    // ── HUMAN CHARACTER GUARD — INJECTED LATE (after character block) for maximum override force ──
+    // Applied whenever NO explicit animal signal from scene or character species.
+    // Late-position injection overrides early style-prefix bias from the model.
+    if (!explicitAnimal) {
+      promptParts.push(
+        "IMPORTANT: Every character in this scene is a HUMAN BEING. Human faces, human skin, human bodies, human anatomy. " +
+        "Do NOT generate bears, wolves, animals, anthropomorphic creatures, fur-covered characters, snouts, or paws. " +
+        "All cast members are human children or human adults."
+      );
+    }
+
     // ── SCENE SETTINGS ──
     if (location) promptParts.push(`${location}`);
     if (mood) promptParts.push(`${mood} mood`);
@@ -183,7 +203,8 @@ export async function POST(req: NextRequest) {
 
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
-    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, furry creature, snout, paws, animal head, anthropomorphic animal";
+    // bear-guard: hard negative appended whenever characters are human (not explicit animal scene)
+    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, bear anatomy, furry creature, animal face, snout, paws, animal head, anthropomorphic animal, non-human character";
     const negativePrompt = stylePreset.negative + bearNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs

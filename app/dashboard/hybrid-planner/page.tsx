@@ -204,6 +204,8 @@ function HybridPlannerInner() {
   const [saving, setSaving] = useState(false);
   // ── Visual Style Lock — controls rendering style for ALL scene image generation ──
   const [projectStyle, setProjectStyle] = useState<string>("3d-cinematic");
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
 
   // ── Story ──
   const [idea, setIdea] = useState("");
@@ -371,6 +373,12 @@ function HybridPlannerInner() {
   const [sceneContinuousMotion, setSceneContinuousMotion] = useState<Record<string, { enabled: boolean; targetSec: number }>>({});
   // Per-scene SFX generation state
   const [generatingSceneSfx, setGeneratingSceneSfx] = useState<Set<string>>(new Set());
+  // Per-scene SFX progress label: "Generating SFX 2/3..."
+  const [sceneSfxProgress, setSceneSfxProgress] = useState<Record<string, string>>({});
+  // Per-scene SFX audio URLs (array — one per generated SFX file)
+  const [sceneSfxAudioUrls, setSceneSfxAudioUrls] = useState<Record<string, string[]>>({});
+  // Per-scene music loading state
+  const [generatingSceneMusic, setGeneratingSceneMusic] = useState<Set<string>>(new Set());
   const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
   const [cmRunning, setCmRunning] = useState(false);
   const [cmStatus, setCmStatus] = useState<string | null>(null);
@@ -1483,6 +1491,7 @@ function HybridPlannerInner() {
     const characterOverrides = sceneChars.map(c => ({
       characterId: c.characterId,
       name: c.displayName,
+      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
       visualDescription: buildVisualDescription(c),
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
@@ -1496,7 +1505,7 @@ function HybridPlannerInner() {
           sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
           characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
           timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-          projectStyle, characterOverrides,
+          projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
           modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
           transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
@@ -1577,6 +1586,7 @@ function HybridPlannerInner() {
     const characterOverrides = sceneChars.map(c => ({
       characterId: c.characterId,
       name: c.displayName,
+      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
       visualDescription: buildVisualDescription(c),
       imageUrl: c.imageUrl || null,
       wardrobe: c.clothingDetails || c.wardrobeStyle || null,
@@ -1595,7 +1605,7 @@ function HybridPlannerInner() {
             sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
             characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
             timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-            projectStyle, characterOverrides,
+            projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
             modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
             transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
@@ -1646,37 +1656,68 @@ function HybridPlannerInner() {
   async function generateSceneSfx(scene: HybridScene) {
     if (generatingSceneSfx.has(scene.sceneId)) return;
     setGeneratingSceneSfx(prev => new Set(prev).add(scene.sceneId));
+    setSceneSfxProgress(prev => ({ ...prev, [scene.sceneId]: "Planning SFX..." }));
     setLastAction(`Generating SFX for Scene ${scene.scene}...`);
     try {
+      // Step 1: Use inline mode — pass scenes[] array as required by the API
       const res = await fetch("/api/hybrid/audio-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sceneId: scene.sceneId,
-          projectId,
-          description: scene.description,
-          title: scene.title,
-          mood: scene.mood,
-          location: scene.location,
-          characterIds: scene.characterIds,
-          singleScene: true, // flag: generate for this scene only, not full project
+          scenes: [{
+            sceneId: scene.sceneId,
+            title: scene.title,
+            description: scene.description,
+            location: scene.location,
+            mood: scene.mood,
+            sceneType: scene.sceneType || "image-led",
+          }],
         }),
       });
       const data = await res.json();
-      if (data.sfx || data.audioPlans) {
-        const sfxList = data.sfx || data.audioPlans?.[0]?.sfxList || [];
-        updateScene(scene.scene, {
-          audioPlan: {
-            ...scene.audioPlan,
-            sfxList,
-            ambienceList: data.ambience || data.audioPlans?.[0]?.ambienceList || scene.audioPlan.ambienceList,
-          },
-        });
-        setLastAction(`SFX generated for Scene ${scene.scene}: ${sfxList.slice(0, 3).join(", ")}${sfxList.length > 3 ? "..." : ""}`);
+      const sfxList: string[] = data.audioPlans?.[0]?.sfxList || [];
+      const ambienceList: string[] = data.audioPlans?.[0]?.ambienceList || scene.audioPlan.ambienceList;
+
+      // Update the scene with planned SFX list regardless of audio gen
+      updateScene(scene.scene, {
+        audioPlan: { ...scene.audioPlan, sfxList, ambienceList },
+      });
+
+      if (sfxList.length === 0) {
+        setLastAction(`No SFX detected for Scene ${scene.scene} — try adding more descriptive text`);
+        return;
       }
+
+      // Step 2: Generate audio for each SFX cue via /api/sfx/generate
+      const audioUrls: string[] = [];
+      for (let i = 0; i < sfxList.length; i++) {
+        const sfxName = sfxList[i];
+        setSceneSfxProgress(prev => ({ ...prev, [scene.sceneId]: `Generating SFX ${i + 1}/${sfxList.length}...` }));
+        try {
+          const sfxRes = await fetch("/api/sfx/generate", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description: sfxName }),
+          });
+          const sfxData = await sfxRes.json();
+          const url = sfxData.fileUrl || sfxData.url;
+          if (url) audioUrls.push(url);
+        } catch {
+          // skip failed SFX — continue with rest
+        }
+      }
+
+      // Store generated audio URLs per scene
+      if (audioUrls.length > 0) {
+        setSceneSfxAudioUrls(prev => ({ ...prev, [scene.sceneId]: audioUrls }));
+        // Also store first URL in legacy sceneSfxUrls for backward compat
+        setSceneSfxUrls(prev => ({ ...prev, [scene.sceneId]: audioUrls[0] }));
+      }
+
+      setLastAction(`SFX ready for Scene ${scene.scene}: ${sfxList.slice(0, 3).join(", ")}${sfxList.length > 3 ? `... +${sfxList.length - 3} more` : ""}${audioUrls.length > 0 ? ` (${audioUrls.length} audio files)` : ""}`);
     } catch (err) {
       setLastAction(`SFX generation failed for Scene ${scene.scene}: ${err instanceof Error ? err.message : "error"}`);
     } finally {
       setGeneratingSceneSfx(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; });
+      setSceneSfxProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
     }
   }
 
@@ -5486,6 +5527,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
                       {/* ── Image row — Generate OR import from library ── */}
                       <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                        <select
+                          value={sceneStyles[scene.sceneId] || projectStyle || "3d-cinematic"}
+                          onChange={e => setSceneStyles(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
+                          title="Override style for this scene"
+                          style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cinematic</option>
+                          <option value="realistic">Realistic</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cartoon</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Storybook</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
                           style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
                           {generatingSceneImage === scene.sceneId ? "Generating..." : hasImage ? "Regen Image" : "Make Image"}
@@ -5557,7 +5611,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               disabled={generatingSceneSfx.has(scene.sceneId)}
                               title="Auto-generate SFX from scene description"
                               style={{ flex: 1, minWidth: 80, padding: "6px 8px", borderRadius: 7, border: `1px solid #f59e0b50`, background: generatingSceneSfx.has(scene.sceneId) ? "#2a2a30" : "#f59e0b12", color: generatingSceneSfx.has(scene.sceneId) ? muted : "#f59e0b", fontSize: 8, fontWeight: 700, cursor: generatingSceneSfx.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                              {generatingSceneSfx.has(scene.sceneId) ? "SFX..." : scene.audioPlan.sfxList.length > 0 ? `SFX (${scene.audioPlan.sfxList.length})` : "AI SFX"}
+                              {generatingSceneSfx.has(scene.sceneId) ? (sceneSfxProgress[scene.sceneId] || "SFX...") : scene.audioPlan.sfxList.length > 0 ? `SFX (${scene.audioPlan.sfxList.length})` : "AI SFX"}
                             </button>
                             {/* Continuous Motion toggle */}
                             <button
@@ -5584,6 +5638,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             {/* Generate Scene Music */}
                             <button
                               onClick={async () => {
+                                if (generatingSceneMusic.has(scene.sceneId)) return;
+                                setGeneratingSceneMusic(prev => new Set(prev).add(scene.sceneId));
                                 setLastAction(`Generating music for Scene ${scene.scene}...`);
                                 try {
                                   const r = await fetch("/api/music/generate-scene", {
@@ -5595,15 +5651,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   const musicUrl = d.outputUrl || d.musicUrl || d.url;
                                   if (musicUrl) {
                                     updateScene(scene.scene, { audioPlan: { ...(scene.audioPlan || {}), musicUrl, musicMood: d.mood || scene.audioPlan?.musicMood } });
-                                    setLastAction(`Music ready for Scene ${scene.scene} — check Audio tab`);
+                                    setLastAction(`Music ready for Scene ${scene.scene}`);
                                   } else {
                                     setUiError(d.error || `Music generation failed for Scene ${scene.scene}`);
                                   }
                                 } catch (e) { setUiError(`Music gen error: ${String(e)}`); }
+                                finally { setGeneratingSceneMusic(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; }); }
                               }}
+                              disabled={generatingSceneMusic.has(scene.sceneId)}
                               title="Generate background music for this scene"
-                              style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: "#22c55e", fontSize: 8, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                              Music
+                              style={{ flex: 1, minWidth: 70, padding: "6px 8px", borderRadius: 7, border: `1px solid #22c55e40`, background: "#22c55e10", color: generatingSceneMusic.has(scene.sceneId) ? muted : "#22c55e", fontSize: 8, fontWeight: 700, cursor: generatingSceneMusic.has(scene.sceneId) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                              {generatingSceneMusic.has(scene.sceneId) ? "Generating..." : scene.audioPlan?.musicUrl ? "Music (done)" : "Music"}
                             </button>
                           </div>
                         );
