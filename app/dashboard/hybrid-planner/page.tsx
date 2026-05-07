@@ -2883,9 +2883,16 @@ function HybridPlannerInner() {
         } catch (saveErr) { console.error("Asset library save failed:", saveErr); }
       } else {
         setAssemblyComplete(true);
-        setLastAction("Assembly complete (no video URL returned)");
+        const apiErrMsg = data.error ? `: ${data.error}` : "";
+        setUiError(`Assembly API returned no video URL${apiErrMsg}. Check server logs.`);
+        setLastAction(`Assembly returned no video${apiErrMsg}`);
       }
-    } catch (err) { console.error("assembleScenes failed:", err); setUiError("Assembly failed. Please check your scenes and try again."); }
+    } catch (err) {
+      console.error("assembleScenes failed:", err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setUiError(`Assembly failed: ${errMsg}`);
+      setLastAction(`Assembly error: ${errMsg.slice(0, 120)}`);
+    }
     setAssembling(false);
   }
 
@@ -5666,6 +5673,25 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           </div>
                         );
                       })()}
+                      {/* ── Per-scene SFX audio players (shown after AI SFX generation) ── */}
+                      {(sceneSfxAudioUrls[scene.sceneId]?.length ?? 0) > 0 && (
+                        <div style={{ marginTop: 6, display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                          <div style={{ fontSize: 8, color: "#f59e0b", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.8 }}>Generated SFX ({sceneSfxAudioUrls[scene.sceneId].length})</div>
+                          {sceneSfxAudioUrls[scene.sceneId].map((url, i) => (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, background: "#f59e0b10", borderRadius: 6, padding: "3px 8px" }}>
+                              <span style={{ fontSize: 8, color: "#f59e0b", fontWeight: 600, flexShrink: 0 }}>{scene.audioPlan.sfxList[i] || `SFX ${i + 1}`}</span>
+                              <audio src={url} controls style={{ height: 20, flex: 1, minWidth: 0 }} />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* ── Per-scene Music audio player (shown after music generation) ── */}
+                      {scene.audioPlan?.musicUrl && (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{ fontSize: 8, color: "#22c55e", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.8, marginBottom: 3 }}>Scene Music{scene.audioPlan.musicMood ? ` — ${scene.audioPlan.musicMood}` : ""}</div>
+                          <audio src={scene.audioPlan.musicUrl} controls style={{ width: "100%", height: 22 }} />
+                        </div>
+                      )}
 
                       {/* Expanded SceneImagePanel */}
                       {expandedSceneId === scene.sceneId && (
@@ -8662,6 +8688,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       )}
                     </div>
 
+                    {/* Auto-select all scenes if none selected (edge case recovery) */}
+                    {done2 && scenes.length > 0 && selectedSceneIds.length === 0 && (
+                      <div style={{ padding: "10px 14px", borderRadius: 10, background: `${gold}10`, border: `1px solid ${gold}30`, marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <p style={{ fontSize: 11, color: gold, margin: 0 }}>No scenes selected — select scenes in the panel above or click Select All</p>
+                        <button onClick={() => setSelectedSceneIds(scenes.map(s => s.sceneId))}
+                          style={{ padding: "5px 14px", borderRadius: 7, border: "none", background: gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", flexShrink: 0, marginLeft: 10 }}>
+                          Select All
+                        </button>
+                      </div>
+                    )}
                     <button
                       onClick={() => {
                         if (assemblyOrder.length > 0) {
@@ -8674,7 +8710,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       }}
                       disabled={assembling || selectedSceneIds.length === 0 || !done2}
                       style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: (assembling || selectedSceneIds.length === 0 || !done2) ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #0088cc)`, color: (assembling || selectedSceneIds.length === 0 || !done2) ? muted : "#fff", fontSize: 15, fontWeight: 800, cursor: (assembling || selectedSceneIds.length === 0 || !done2) ? "not-allowed" : "pointer", marginBottom: 10 }}>
-                      {assembling ? "Assembling your movie... please wait" : !done2 ? "Complete Step 2 to unlock" : `Assemble My Movie (${selectedSceneIds.length} scenes)`}
+                      {assembling ? "Assembling your movie... please wait" : !done2 ? "Complete Step 2 to unlock" : selectedSceneIds.length === 0 ? "Select scenes above to unlock" : `Assemble My Movie (${selectedSceneIds.length} scenes)`}
                     </button>
                     {/* Live status bar — shows during assembly and ears check */}
                     {(assembling || assemblyComplete) && lastAction && (
