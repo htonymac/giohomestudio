@@ -237,6 +237,8 @@ function SeriesPlannerInner() {
   const [platform, setPlatform] = useState("YouTube");
   const [visualStyle, setVisualStyle] = useState("Cinematic");
   const [projectStyle, setProjectStyle] = useState("realistic");
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [targetAudience, setTargetAudience] = useState("General");
   const [saving, setSaving] = useState(false);
   const [lastAction, setLastAction] = useState("Project created");
@@ -502,7 +504,7 @@ function SeriesPlannerInner() {
       const chars = characters.filter(c => scene.characterIds.includes(c.characterId));
       const charRefs = chars.map(c => `[${c.characterId}] ${c.displayName}: ${c.colorDescription || ""} ${c.clothingDetails || ""}`).join(", ");
       const prompt = `Scene: ${scene.title}. ${scene.description}. Location: ${scene.location}. Mood: ${scene.mood}. Time: ${scene.timeOfDay}. Characters: ${charRefs || "no specific characters"}. Style: ${visualStyle}. Series genre: ${genre}.`;
-      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneText: prompt, projectStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
+      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneText: prompt, projectStyle: sceneStyles[scene.sceneId] || projectStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));
@@ -1920,6 +1922,19 @@ function SeriesPlannerInner() {
                     </div>
                   )}
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <select
+                      value={sceneStyles[sc.sceneId] || projectStyle || "realistic"}
+                      onChange={e => setSceneStyles(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
+                      title="Override style for this scene"
+                      style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                      <option value="3d-cinematic">3D Cinematic</option>
+                      <option value="realistic">Realistic</option>
+                      <option value="nollywood">Nollywood</option>
+                      <option value="2d-cartoon">2D Cartoon</option>
+                      <option value="anime">Anime</option>
+                      <option value="storybook">Storybook</option>
+                      <option value="comic">Comic</option>
+                    </select>
                     <button style={{ ...btn(blue), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "Regen Image" : "Make Image"}</button>
                     {img && <button style={{ ...btn(isGenVideo ? "#2a2a40" : purple), padding: "6px 12px", fontSize: 11 }} onClick={() => makeSceneVideo(sc)} disabled={isGenVideo}>{isGenVideo ? "Making Video..." : vid ? "Regen Video" : "Make Video"}</button>}
                     <button style={{ ...btn("#334"), padding: "6px 12px", fontSize: 11 }} onClick={() => setExpandedSceneId(isExpanded ? null : sc.sceneId)}>{isExpanded ? "Close" : "Edit"}</button>

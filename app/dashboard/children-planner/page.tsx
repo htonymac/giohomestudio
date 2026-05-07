@@ -273,6 +273,8 @@ function ChildrenPlannerInner() {
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [visualStyle, setVisualStyle] = useState("storybook");
   const [projectStyle, setProjectStyle] = useState("storybook"); // maps to STYLE_PRESETS in scene-image API
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [narrationSpeed, setNarrationSpeed] = useState(0.75);
   const [characterVoices, setCharacterVoices] = useState<Record<string, string>>({});
   const [tone, setTone] = useState<"soft" | "active">("soft");
@@ -1258,7 +1260,7 @@ function ChildrenPlannerInner() {
           sceneId,
           sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
           characterIds: assignedChars,
-          projectStyle,
+          projectStyle: sceneStyles[sceneId] || projectStyle,
           mood: "friendly, warm, safe",
           modelId: selectedImageModelId,
         }),
@@ -1304,7 +1306,7 @@ function ChildrenPlannerInner() {
               sceneId,
               sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
               characterIds: assignedChars,
-              projectStyle: visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook",
+              projectStyle: sceneStyles[sceneId] || (visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
               mood: "friendly, warm, safe",
               modelId: selectedImageModelId,
               seed: seeds[i],
@@ -5101,8 +5103,22 @@ function ChildrenPlannerInner() {
                           Import
                         </button>
                       </div>
-                      {/* Bottom-right: Gen 4 + Regen */}
-                      <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4 }}>
+                      {/* Bottom-right: Style override + Gen 4 + Regen */}
+                      <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
+                        <select
+                          value={sceneStyles[sceneId] || projectStyle || "storybook"}
+                          onChange={e => { e.stopPropagation(); setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value })); }}
+                          onClick={e => e.stopPropagation()}
+                          title="Override style for this scene"
+                          style={{ padding: "0 4px", height: 26, borderRadius: 7, border: "1px solid #7c3aed40", background: "rgba(15,23,42,0.9)", color: "#c084fc", fontSize: 8, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cin</option>
+                          <option value="realistic">Real</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cart</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Story</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button
                           onClick={e => { e.stopPropagation(); generateSceneBoardImageVariations(scene); }}
                           disabled={isGenImg || isGenVar}

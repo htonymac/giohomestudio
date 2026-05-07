@@ -263,6 +263,8 @@ function MoviePlannerInner() {
 
   // ── Design ──
   const [projectStyle, setProjectStyle] = useState("realistic"); // maps to STYLE_PRESETS in scene-image API
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [genre, setGenre] = useState("");
   const [style, setStyle] = useState("");
   const [format, setFormat] = useState("");
@@ -866,7 +868,7 @@ function MoviePlannerInner() {
           sceneId, projectId, sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
-          projectStyle,
+          projectStyle: sceneStyles[sceneId] || projectStyle,
         }),
       });
       const data = await res.json();
@@ -3341,6 +3343,19 @@ function MoviePlannerInner() {
 
                       {/* Action buttons row 1 */}
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        <select
+                          value={sceneStyles[sceneId] || projectStyle || "realistic"}
+                          onChange={e => setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value }))}
+                          title="Override style for this scene"
+                          style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                          <option value="3d-cinematic">3D Cinematic</option>
+                          <option value="realistic">Realistic</option>
+                          <option value="nollywood">Nollywood</option>
+                          <option value="2d-cartoon">2D Cartoon</option>
+                          <option value="anime">Anime</option>
+                          <option value="storybook">Storybook</option>
+                          <option value="comic">Comic</option>
+                        </select>
                         <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === sceneId}
                           style={{ flex: 1, padding: "7px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === sceneId ? "not-allowed" : "pointer" }}>
                           {generatingSceneImage === sceneId ? "..." : hasImage ? "Regen" : "Make Image"}

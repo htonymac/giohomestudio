@@ -222,6 +222,8 @@ function CommercialPlannerInner() {
   // ── Design ──
   const [brandVisualStyle, setBrandVisualStyle] = useState<"luxury" | "energetic" | "minimal" | "bold" | "warm" | "corporate" | "fun" | "emotional">("minimal");
   const [projectStyle, setProjectStyle] = useState("realistic");
+  // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
+  const [sceneStyles, setSceneStyles] = useState<Record<string, string>>({});
   const [productCategory, setProductCategory] = useState("");
   const [designComplete, setDesignComplete] = useState(false);
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
@@ -540,7 +542,7 @@ function CommercialPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sceneText: prompt,
-          projectStyle,
+          projectStyle: sceneStyles[scene.sceneId] || projectStyle,
           sceneType: scene.sceneType === "video" ? "video-led" : "image-led",
           modelId: sceneImgModel,
           transparentBg: useTransparent,
@@ -1755,6 +1757,19 @@ function CommercialPlannerInner() {
                     </label>
                   )}
                   <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                    <select
+                      value={sceneStyles[sc.sceneId] || projectStyle || "realistic"}
+                      onChange={e => setSceneStyles(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
+                      title="Override style for this scene"
+                      style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+                      <option value="3d-cinematic">3D Cinematic</option>
+                      <option value="realistic">Realistic</option>
+                      <option value="nollywood">Nollywood</option>
+                      <option value="2d-cartoon">2D Cartoon</option>
+                      <option value="anime">Anime</option>
+                      <option value="storybook">Storybook</option>
+                      <option value="comic">Comic</option>
+                    </select>
                     <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => makeSceneImage(sc)} disabled={generatingSceneImage === sc.sceneId}>{generatingSceneImage === sc.sceneId ? "Generating…" : img ? "Regen Image" : "Make Image"}</button>
                     <button style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: ds.color.card, color: ds.color.ink2, fontSize: 11, cursor: "pointer" }} onClick={() => makeSceneVideo(sc)} disabled={!img || generatingSceneVideos.has(sc.sceneId)}>
                       {generatingSceneVideos.has(sc.sceneId) ? "..." : sceneVideos[sc.sceneId] ? "New Video" : "Make Video"}
