@@ -5529,12 +5529,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             style={{ padding: "0 8px", borderRadius: 8, border: `1.5px solid #7c3aed60`, background: "#1a0f3a", color: "#c084fc", fontSize: 8, fontWeight: 800, cursor: "pointer", letterSpacing: 0.5 }}>
                             AI Model
                           </button>
-                          <a href={`/dashboard/collaborative-editor?mode=ghs_hybrid&sceneId=${scene.sceneId}&from=hybrid-planner`} style={{ textDecoration: "none", display: "flex" }}
-                            onClick={() => { /* return state now handled via URL params */ }}>
-                            <button style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
-                              Editor
-                            </button>
-                          </a>
                           <button onClick={() => updateScene(scene.scene, { status: scene.status === "approved" ? "draft" : "approved" })}
                             style={{ padding: "0 8px", borderRadius: 8, border: `1px solid ${accent}30`, background: scene.status === "approved" ? `${accent}15` : "transparent", color: accent, fontSize: 9, fontWeight: 600, cursor: "pointer" }}>
                             {scene.status === "approved" ? "OK" : "OK"}
