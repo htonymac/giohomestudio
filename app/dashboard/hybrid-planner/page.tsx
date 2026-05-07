@@ -2635,20 +2635,16 @@ function HybridPlannerInner() {
       const hasPerLineClips = scriptSegments.some(s => s.type === "dialogue" && s.audioUrl);
 
       // 1. Narrator audio — only in narration-only or mixed mode
-      // BUG-15/16 fix: in mixed mode with per-line clips, narrator was added at t=0 full volume
-      // causing overlap with dialogue clips. Fix: in mixed mode, start narrator at the first
-      // narration segment's estimated start time so it doesn't play over actor dialogue.
-      // generateNarrationPiper() already filtered narrator audio to narration-only segments,
-      // so the audio itself is narration-text-only — we just need to place it correctly.
+      // RULE: In mixed mode the narrator file is a CONTINUOUS recording of all narration text.
+      // If per-line actor clips also exist, playing the narrator file concurrently causes
+      // all voices to talk at once. Fix: skip narrator entirely when per-line clips are present
+      // (actors-only + mixed-with-dialogue). Narrator only plays cleanly in narration-only mode
+      // OR mixed mode with no per-line clips yet.
       if (narratorAudioUrl && storyMode !== "actors-only") {
-        let narratorStartTime = 0;
-        if (storyMode === "mixed" && hasPerLineClips && scriptSegments.length > 0) {
-          // Find the first narration segment's start time in the full script timeline
-          const allTimings = buildTimings(scriptSegments, narratorPiperSpeed);
-          const firstNarrIdx = scriptSegments.findIndex(s => s.type === "narration");
-          narratorStartTime = firstNarrIdx >= 0 ? allTimings[firstNarrIdx] : 0;
+        const skipNarratorDueToActors = storyMode === "mixed" && hasPerLineClips;
+        if (!skipNarratorDueToActors) {
+          narrationList.push({ audioUrl: narratorAudioUrl, startTime: 0, volume: 1.0 });
         }
-        narrationList.push({ audioUrl: narratorAudioUrl, startTime: narratorStartTime, volume: 1.0 });
       }
 
       // Build scene start map — used for both per-line and fallback systems
@@ -2680,11 +2676,14 @@ function HybridPlannerInner() {
                 // Fall back to text-length estimation
                 startTime = seg.estimatedStartMs != null ? seg.estimatedStartMs / 1000 : textTimings[i];
               }
-              narrationList.push({ audioUrl: seg.audioUrl, startTime, volume: 1.5 });
+              narrationList.push({ audioUrl: seg.audioUrl, startTime, volume: 1.0 });
             }
           }
         } else {
-          // Fallback: old per-character system (one file per character at scene start)
+          // Fallback: old per-character system — one file per character, placed at first scene
+          // CRITICAL FIX: only add characters who actually have dialogue in the script.
+          // characterAudioUrls contains files for ALL characters (incl. placeholder "I am ready" clips)
+          // — adding them all causes every voice to speak at once even for silent characters.
           const charAudioEntries = Object.entries(characterAudioUrls);
           if (charAudioEntries.length > 0) {
             for (const char of characters) {
@@ -2697,18 +2696,18 @@ function HybridPlannerInner() {
                   seg.speaker?.toLowerCase().includes(char.displayName.toLowerCase().split(" ")[0])
                 )
               );
+              // Skip characters with no actual lines — their audio is a placeholder voice sample
+              if (charDialogue.length === 0) continue;
+              const firstSceneId = charDialogue[0].sceneId;
               let startTime = 1;
-              if (charDialogue.length > 0) {
-                const firstSceneId = charDialogue[0].sceneId;
-                if (firstSceneId && sceneStartMapForChar[firstSceneId] !== undefined) {
-                  startTime = sceneStartMapForChar[firstSceneId] + 0.5;
-                } else {
-                  const totalSegs = scriptSegments.length;
-                  const lineIdx = charDialogue[0].lineIndex ?? 0;
-                  startTime = totalSegs > 0 ? Math.max(0, (lineIdx / totalSegs) * elapsedForChar - 0.5) : 1;
-                }
+              if (firstSceneId && sceneStartMapForChar[firstSceneId] !== undefined) {
+                startTime = sceneStartMapForChar[firstSceneId] + 0.5;
+              } else {
+                const totalSegs = scriptSegments.length;
+                const lineIdx = charDialogue[0].lineIndex ?? 0;
+                startTime = totalSegs > 0 ? Math.max(0, (lineIdx / totalSegs) * elapsedForChar - 0.5) : 1;
               }
-              narrationList.push({ audioUrl, startTime, volume: 1.5 });
+              narrationList.push({ audioUrl, startTime, volume: 1.0 });
             }
           }
         }

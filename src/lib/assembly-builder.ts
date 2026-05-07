@@ -65,9 +65,11 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
     });
 
     if (narrationInputs.length > 0) {
+      // normalize=0: don't attenuate for number of inputs — each track plays at its assigned volume.
+      // Without this, amix halves each track's volume per additional input (6 tracks = very quiet).
       const mixFilter = filterParts.join(";") + ";" +
         filterParts.map((_, i) => `[n${i}]`).join("") +
-        `amix=inputs=${filterParts.length}:duration=longest[narr_out]`;
+        `amix=inputs=${filterParts.length}:duration=longest:normalize=0[narr_out]`;
 
       steps.push({
         id: "mix_narration",
