@@ -10,6 +10,7 @@ import { ds } from "../../../lib/designSystem";
 import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Series Planner — PRODUCTION WORKSHOP
@@ -668,7 +669,7 @@ function SeriesPlannerInner() {
     const ep = episodes.find(e => e.episodeId === epId);
     if (!ep) return;
     setAssembling(true);
-    const sceneList = ep.scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || "", narration: s.narrationScript, duration: 5, musicStyle: ep.musicChoice }));
+    const sceneList = ep.scenes.map(s => ({ sceneId: s.sceneId, imageUrl: sceneImages[s.sceneId] || "", narration: s.narrationScript, duration: estimateTextDuration(s.narrationScript || ""), musicStyle: ep.musicChoice }));
     try {
       const res = await fetch("/api/hybrid/assemble", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ projectId, scenes: sceneList, music: ep.musicChoice, narrationStyle: ep.narrationStyle, title: `${seriesTitle} - ${ep.title}` }) });
       const d = await res.json();

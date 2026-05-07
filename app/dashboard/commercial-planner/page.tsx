@@ -12,6 +12,7 @@ import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Commercial Planner — PRODUCTION WORKSHOP
@@ -580,7 +581,7 @@ function CommercialPlannerInner() {
         scene: s.scene,
         videoUrl: sceneVideos[s.sceneId] ? sceneVideos[s.sceneId] : `img:${sceneImages[s.sceneId]}`,
         audioUrl: voNarrationUrls[s.sceneId] || undefined,
-        duration: s.duration || 5,
+        duration: s.duration || estimateTextDuration(s.voiceoverScript || ""),
       }));
     if (assemblySceneList.length === 0) {
       setLastAction("No scenes have images or video — generate scene content first");
@@ -952,7 +953,7 @@ function CommercialPlannerInner() {
             for (const s of selectedScenes) {
               const audioUrl = voNarrationUrls[s.sceneId];
               if (audioUrl) list.push({ audioUrl, startTime: t, volume: 1.0 });
-              t += s.duration;
+              t += s.duration || estimateTextDuration(s.voiceoverScript || "");
             }
             return list.length > 0 ? list : undefined;
           })(),

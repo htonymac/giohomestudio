@@ -14,6 +14,7 @@ import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -1619,8 +1620,13 @@ function ChildrenPlannerInner() {
       const sfxList: Array<{ sourceUrl: string; startTime: number; volume: number }> = [];
       if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
       // Attach scene text so assembly route can render subtitles
+      const totalNarDuration = narrationText ? estimateTextDuration(narrationText) : 0;
+      const perSceneDuration = totalNarDuration > 0
+        ? Math.max(3, totalNarDuration / assemblyScenes.length)
+        : 5;
       const scenesWithText = assemblyScenes.map((s, i) => ({
         ...s,
+        duration: perSceneDuration,
         text: scenesToAssemble[i]?.title ? `${scenesToAssemble[i].title}: ${scenesToAssemble[i].visualDescription || ""}` : "",
       }));
       const res = await fetch("/api/video/assemble", {
@@ -1884,7 +1890,7 @@ function ChildrenPlannerInner() {
             segments: (storyData.slides || storyData.scenes || []).map((s: { text?: string; background?: string }, i: number) => ({
               type: "image",
               sourceUrl: s.background || `bg:linear-gradient(135deg, #a855f720, #0a0d14)`,
-              duration: 5,
+              duration: estimateTextDuration(s.text || textContent || ""),
               overlayText: s.text || textContent,
             })),
             musicUrl: generatedMusicUrl || undefined,

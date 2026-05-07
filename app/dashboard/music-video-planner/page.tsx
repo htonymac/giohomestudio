@@ -13,6 +13,7 @@ import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ── AID Model Data (module-level — not recreated per render) ────────────
 
@@ -1004,7 +1005,7 @@ export default function MusicVideoPlannerPage() {
       const sceneId = `mv_sc${s.scene}`;
       const videoUrl = sceneVideos[sceneId] || s.outputUrl || null;
       const imageUrl = sceneImages[s.scene] || null;
-      const durNum = parseInt(s.duration) || 5;
+      const durNum = parseInt(s.duration) || estimateTextDuration(s.caption || s.section || "");
       return {
         scene: s.scene,
         videoUrl: videoUrl || undefined,

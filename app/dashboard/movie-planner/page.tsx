@@ -19,6 +19,7 @@ import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { useGate } from "../../components/PreGenerationGate";
+import { estimateTextDuration } from "@/lib/auto-timestamp";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -1653,13 +1654,19 @@ function MoviePlannerInner() {
         setAssemblyProgress({ ...progress });
       }
 
+      // Build scene duration lookup from narration text for accurate startTime offsets
+      const sceneDurations: Record<number, number> = {};
+      for (const s of selectedScenes) {
+        const narText = (s as { narrationScript?: string }).narrationScript || "";
+        sceneDurations[s.scene] = estimateTextDuration(narText);
+      }
+
       // Build narration list from per-scene TTS audio — include all scenes with audio
       const narrationList = assemblyScenes
         .filter(s => sceneNarrationAudioUrls[s.scene])
         .map((s, idx) => ({
           audioUrl: sceneNarrationAudioUrls[s.scene],
-          // Offset each narration clip by cumulative scene duration (5s default per scene)
-          startTime: assemblyScenes.slice(0, idx).reduce((acc, prev) => acc + ((prev as { duration?: number }).duration ?? 5), 0),
+          startTime: assemblyScenes.slice(0, idx).reduce((acc, prev) => acc + (sceneDurations[prev.scene] ?? 5), 0),
           volume: 1.0,
         }));
 
