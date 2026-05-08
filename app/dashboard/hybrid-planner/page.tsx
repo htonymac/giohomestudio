@@ -2864,6 +2864,15 @@ function HybridPlannerInner() {
         } catch { /* skip auto-music on error */ }
       }
 
+      // Fallback 3: use first per-scene generated music URL if still no music
+      if (!effectiveMusicUrl) {
+        const firstSceneMusic = scenesToAssemble.find(s => s.audioPlan?.musicUrl)?.audioPlan;
+        if (firstSceneMusic?.musicUrl) {
+          effectiveMusicUrl = firstSceneMusic.musicUrl;
+          console.log(`[assemble] Using per-scene music as fallback: ${effectiveMusicUrl}`);
+        }
+      }
+
       // ── Assembly debug manifest — log exactly what files are being used ──
       console.log("[assemble MANIFEST]", JSON.stringify({
         project: projectTitle,
@@ -5891,7 +5900,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       })()}
 
                       {/* ── Image row — Generate OR import from library ── */}
-                      <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
+                      <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
                         <select
                           value={sceneStyles[scene.sceneId] || projectStyle || "3d-cinematic"}
                           onChange={e => setSceneStyles(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
@@ -5905,10 +5914,27 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <option value="storybook">Storybook</option>
                           <option value="comic">Comic</option>
                         </select>
-                        <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId}
-                          style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
+                        {/* Gen Image (1) — single image from full description */}
+                        <button onClick={() => makeSceneImage(scene)} disabled={generatingSceneImage === scene.sceneId || generatingMaxBeats.has(scene.sceneId)}
+                          title="Generate 1 image from full scene description"
+                          style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
                           {generatingSceneImage === scene.sceneId ? "Generating..." : hasImage ? "Regen Image" : "Make Image"}
                         </button>
+                        {/* Gen Max — one image per action beat */}
+                        {(() => {
+                          const beats = splitIntoActionBeats(`${scene.title}. ${scene.description}`);
+                          if (beats.length <= 1) return null;
+                          const isMaxing = generatingMaxBeats.has(scene.sceneId);
+                          return (
+                            <button
+                              onClick={() => makeSceneBeatImages(scene)}
+                              disabled={isMaxing || generatingSceneImage === scene.sceneId}
+                              title={`Generate ${beats.length} images — one per action beat in this scene`}
+                              style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: isMaxing ? "#2a2a40" : "linear-gradient(135deg,#ff6b00,#ff9500)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: isMaxing ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                              {isMaxing ? (maxBeatsProgress[scene.sceneId] || "...") : `Gen Max (${beats.length})`}
+                            </button>
+                          );
+                        })()}
                         {hasImage && (
                           <button onClick={() => setPreviewMedia({ url: sceneImages[scene.sceneId], type: "image", title: `${scene.sceneId}: ${scene.title}` })}
                             title="Preview image"
@@ -5916,10 +5942,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         )}
                         <button onClick={() => openLibraryImport(scene.sceneId)}
                           title="Pick an image you already have from Asset Library"
-                          style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: `1px solid ${blue}50`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                          style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${blue}50`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
                           Import
                         </button>
                       </div>
+                      {/* Beat images strip — shown when Gen Max has results */}
+                      {sceneBeatImages[scene.sceneId]?.length > 0 && (
+                        <div style={{ display: "flex", gap: 4, marginBottom: 6, overflowX: "auto", paddingBottom: 2 }}>
+                          {sceneBeatImages[scene.sceneId].map((url, bi) => (
+                            <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
+                              <img src={url} alt={`Beat ${bi + 1}`}
+                                style={{ width: 64, height: 48, borderRadius: 5, objectFit: "cover", display: "block", border: `1px solid ${border}`, cursor: "zoom-in" }}
+                                onClick={() => setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` })} />
+                              <span style={{ fontSize: 7, color: muted }}>Beat {bi + 1}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* ── Video + secondary actions row ── */}
                       <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
@@ -6016,6 +6055,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   const musicUrl = d.outputUrl || d.musicUrl || d.url;
                                   if (musicUrl) {
                                     updateScene(scene.scene, { audioPlan: { ...(scene.audioPlan || {}), musicUrl, musicMood: d.mood || scene.audioPlan?.musicMood } });
+                                    // If no global music selected yet, use this as the assembly music track
+                                    if (!selectedMusicUrl) {
+                                      setSelectedMusicUrl(musicUrl);
+                                      setSelectedMusicName(`Scene ${scene.scene} — ${d.mood || scene.mood || "music"}`);
+                                    }
                                     setLastAction(`Music ready for Scene ${scene.scene}`);
                                   } else {
                                     setUiError(d.error || `Music generation failed for Scene ${scene.scene}`);
