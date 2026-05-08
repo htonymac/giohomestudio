@@ -173,9 +173,144 @@ The project's scene/character/audio data is stored in browser localStorage, whic
 
 ---
 
-*Last updated: 2026-04-26*
+*Last updated: 2026-05-07*
 
 ---
+
+## 2026-05-07 — AUDIO-01: Piper TTS speaks mojibake aloud ("a circumflex euros")
+
+**Symptom:** Assembled video narrator says phrases like "a circumflex euros", "a circumflex heroes" instead of an em dash or smart quote character.
+
+**Root cause:** Story text contains UTF-8 characters stored as Latin-1 mojibake (e.g., `â€"` = em dash U+2014, `â€™` = right single quote U+2019). `narrate-piper/route.ts` passed `text.trim()` directly to Piper stdin with no sanitization. Piper read `â€"` as three Latin-1 characters and spelled them out phonetically.
+
+**Fix applied:**
+- Created `src/lib/sanitize-text.ts` with `sanitizeForTTS(text)`:
+  - MOJIBAKE table: replaces `â€"` → `-`, `â€™` → `'`, `â€œ` → `"`, `â€¦` → `...`, `Ã©` → `e`, etc.
+  - SMART_PUNCT table: replaces curly quotes, em/en dashes, ellipsis, NBSP, middle dot
+  - Strips remaining non-ASCII with `/[^\x00-\x7E]/g`
+  - Collapses multi-space artifacts
+- Applied `sanitizeForTTS(text.trim())` at `narrate-piper/route.ts:372` (Piper path) and `:273` (ElevenLabs path)
+
+**Prevention:** Any text going into TTS must pass through `sanitizeForTTS` first. Never send raw story text to Piper.
+
+---
+
+## 2026-05-07 — IMAGE-01: Scene images show wrong action (characters stand calmly in confrontation scenes)
+
+**Symptom:** Bryan confronts bullies but image shows them standing casually side by side. Tense scenes look neutral.
+
+**Root cause:** `app/api/hybrid/scene-image/route.ts` line 183 pushed raw `sceneText` only. Image models treat "Bryan confronted some bullies" as presence/setting, not action. No body language, spatial relationship, or tension directives were in the prompt.
+
+**Fix applied:**
+- Added `extractSceneAction(text)` function (~50 lines) in scene-image/route.ts
+- Detects action type via regex: confrontation, fight, chase, fear, rescue, argument, discovery, sadness, celebration, stealth, dialogue
+- Returns precise body-language + spatial-relationship directives per action type
+- Injected after raw scene text push, before human-character guard
+- Also wired `cameraFraming` into the prompt (was received but never used)
+- Block is marked `// ── SCENE ACTION LAYER — PROTECTED — DO NOT REMOVE, SIMPLIFY, OR OVERRIDE ──` with history note
+
+**Files changed:** `app/api/hybrid/scene-image/route.ts` lines 143-260
+
+**Prevention:** The PROTECTED comment block must stay. Future refactors of scene-image MUST preserve `extractSceneAction()` call and both `promptParts.push()` calls after it. If rebuilding the route, search for "SCENE ACTION LAYER" and keep it.
+
+---
+
+## 2026-05-07 — FEATURE-01: Per-scene AI chat for image correction (local Ollama, no cost)
+
+**What was built:**
+- `app/api/hybrid/scene-chat/route.ts` — POST endpoint using Ollama (forceProvider: "ollama"). Receives scene context + user message, returns AI reply + optional IMAGE PROMPT suggestion.
+- Scene card "AI Fix" tab (4th tab) added to all scene cards in `app/dashboard/hybrid-planner/page.tsx`.
+- Chat UI: message history, input field, "Apply & Regenerate Image" button appears when AI returns an IMAGE PROMPT suggestion.
+
+**How it works:**
+1. User types "the image is wrong, Bryan should look angry blocking bullies"
+2. Ollama reads scene description + characters + current context
+3. AI returns corrected image prompt starting with "IMAGE PROMPT:"
+4. Button appears — clicking it calls `makeSceneImage()` with AI-suggested description
+5. New image generated with corrected prompt
+
+**Cost:** $0 — runs on local Ollama (llama3 or configured OLLAMA_MODEL_ASSISTANT)
+
+---
+
+## 2026-05-07 — SUBTITLE-01: Subtitles never burned in (includeSubtitles flag ignored by execute route)
+
+**Symptom:** Subtitle style selector exists in UI. Subtitles never appear in assembled video.
+
+**Root cause (2 issues):**
+1. `assembleScenes()` set `text: ""` on all narration entries — execute route had no text to burn
+2. `execute/route.ts` never read `assembly.exportSettings.includeSubtitles` — the flag was completely ignored
+
+**Fix applied:**
+- `app/dashboard/hybrid-planner/page.tsx`: narration entries now carry `text: narratorFullText.slice(0,8000)` for main narrator (full story text for proportional timing)
+- `app/api/assembly/execute/route.ts`: added subtitle burn-in block after final_merge step:
+  - Builds SRT from narration entries (sentences split proportionally by character count)
+  - Runs FFmpeg `subtitles=file.srt:force_style='...'` (requires libass)
+  - Failure is graceful — original video is kept, subtitle step is skipped with a warning log
+  - Subtitled output replaces finalOutputPath when successful
+
+**Prevention:** If refactoring execute route, do NOT remove the subtitle block or merge it with final_merge. Subtitle is a separate post-processing step so failure can't corrupt the primary output.
+
+---
+
+## 2026-05-07 — AUDIO-02: Multiple narration tracks all play simultaneously at t=0 in assembly
+
+**Symptom:** Test audio shows one narrator; assembled video has 3–5 narrators all talking at once.
+
+**Root cause (3 issues in assembly-builder.ts):**
+1. No deduplication by `audioUrl` — same WAV file appearing multiple times in `narration[]` gets loaded as N separate `-i` inputs, all playing simultaneously.
+2. No `atrim` per track — each WAV plays its full duration regardless of `startTime`/`endTime` window, causing bleed-over.
+3. Final merge used `amix=duration=first` — cut audio at the shortest stream (first video segment), chopping remaining narration.
+
+**Fix applied (`src/lib/assembly-builder.ts`):**
+- Deduplicate narration entries by `audioUrl` using `Set<string>` before building FFmpeg inputs
+- Sort entries by `startTime` for a deterministic manifest
+- Per-track `atrim=duration=N` where N = `endTime - startTime`, applied before `adelay`
+- Changed final merge `amix=duration=first` → `duration=longest`
+
+**Files changed:**
+- `src/lib/sanitize-text.ts` (new)
+- `app/api/hybrid/narrate-piper/route.ts` lines 273, 372
+- `src/lib/assembly-builder.ts` narration mix block + final amix
+
+**Prevention:** Always deduplicate by URL before building FFmpeg filter graphs. Always `atrim` before `adelay`. Final amix = `duration=longest`, not `duration=first`.
+
+---
+
+## 2026-05-07 — AUDIO-03: Assembly stops at 4 seconds after hard refresh — narrator duration lost
+
+**Symptom:** After a hard page refresh, assembled video stops at ~4 seconds with an abrupt "shhhh" audio cut. Narration, music, and SFX all cut off.
+
+**Root cause:** `narratorAudioDuration` is React state (never persisted to localStorage or DB). After a hard refresh it resets to 0. In `assembleScenes()`:
+```
+const narratorDurSec = narratorAudioDuration > 0 ? narratorAudioDuration / 1000 : 0;
+const totalDuration = Math.max(sceneBaseDuration, narratorDurSec || sceneBaseDuration);
+```
+With `narratorAudioDuration = 0`, `totalDuration = sceneBaseDuration`. If scenes have tiny `motionDuration` (e.g., 0.5s × 8 scenes = 4s), FFmpeg receives `-t 4`, cutting everything at 4 seconds.
+
+**Fix applied (`app/dashboard/hybrid-planner/page.tsx`):**
+Added duration-recovery block in `assembleScenes()` before the assembly JSON is built:
+```typescript
+let effectiveNarrDurMs = narratorAudioDuration;
+if (narratorAudioUrl && effectiveNarrDurMs === 0) {
+  effectiveNarrDurMs = await new Promise<number>((resolve) => {
+    const audio = new Audio(narratorAudioUrl);
+    audio.onloadedmetadata = () => resolve(Math.round(audio.duration * 1000));
+    audio.onerror = () => resolve(0);
+    setTimeout(() => resolve(0), 8000);
+  });
+  if (effectiveNarrDurMs > 0) setNarratorAudioDuration(effectiveNarrDurMs);
+}
+```
+All `narratorAudioDuration` references inside the assembly-building section replaced with `effectiveNarrDurMs`.
+
+**Files changed:**
+- `app/dashboard/hybrid-planner/page.tsx` — lines 2512-2529 (recovery block), 2773 (totalDuration), 2807 (endTime), 2818 (fallback endTime)
+
+**Prevention:** Any state derived from generated audio (duration, format, etc.) must either be persisted OR re-measured from the file before use. Never trust transient React state for FFmpeg `-t` parameter.
+
+---
+
 ## Session 1 Smoke Test — 2026-04-26
 
 **Continuous Motion Foundation: 4-clip smoke test**

@@ -168,7 +168,7 @@ async function preprocessSegments(
 export async function POST(req: NextRequest) {
   try {
     const body: { assembly: AssemblyJSON; skipApprovalCheck?: boolean } = await req.json();
-    const { assembly } = body;
+    let assembly = body.assembly;
 
     if (!assembly?.segments?.length) {
       return NextResponse.json({ error: "Assembly JSON has no segments" }, { status: 400 });
@@ -181,6 +181,17 @@ export async function POST(req: NextRequest) {
           { error: "CC BY sounds require attribution text before export" },
           { status: 400 }
         );
+      }
+    }
+
+    // ── Normalize segment durations if old data has duration:5 fallbacks ──
+    // If sum of all segment durations is < 50% of totalDuration, the planner used
+    // hardcoded 5s defaults. Redistribute totalDuration evenly so images show long enough.
+    if (assembly.totalDuration > 0 && assembly.segments.length > 0) {
+      const segDurSum = assembly.segments.reduce((sum, s) => sum + (s.duration || 5), 0);
+      if (segDurSum < assembly.totalDuration * 0.5) {
+        const durPerSeg = assembly.totalDuration / assembly.segments.length;
+        assembly = { ...assembly, segments: assembly.segments.map(s => ({ ...s, duration: durPerSeg })) };
       }
     }
 
@@ -237,8 +248,15 @@ export async function POST(req: NextRequest) {
       music: patchedMusic,
     };
 
+    // ── Resolve SFX paths ──
+    const patchedSfx = finalAssembly.sfx
+      .map(s => ({ ...s, sourceUrl: resolveMediaPath(s.sourceUrl) }))
+      .filter(s => s.sourceUrl && fs.existsSync(s.sourceUrl));
+
+    const fullAssembly: AssemblyJSON = { ...finalAssembly, sfx: patchedSfx };
+
     // ── Build FFmpeg execution plan ──
-    const steps = buildAssemblyPlan(finalAssembly, outputDir);
+    const steps = buildAssemblyPlan(fullAssembly, outputDir);
 
     if (steps.length === 0) {
       return NextResponse.json({ error: "No FFmpeg steps generated from assembly" }, { status: 400 });
@@ -273,24 +291,31 @@ export async function POST(req: NextRequest) {
           console.log(`[assembly] final_merge SKIPPED — no concat_raw.mp4`);
           continue;
         }
+        const sfxWav = path.join(outputDir, "sfx_mix.wav");
         const hasNarr = fs.existsSync(narrationWav);
         const hasMus = fs.existsSync(musicWav);
-        const duckLevel = finalAssembly.duckingRules?.musicDuckLevel ?? 0.08;
+        const hasSfx = fs.existsSync(sfxWav);
+        const duckLevel = fullAssembly.duckingRules?.musicDuckLevel ?? 0.08;
+        const totalDur = fullAssembly.totalDuration ||
+          fullAssembly.narration.reduce((mx, n) => Math.max(mx, n.endTime || 0), 0) || 60;
         const finalOut = step.outputPath;
         let cmd: string[];
-        if (!hasNarr && !hasMus) {
-          cmd = [env.ffmpegPath, "-i", concatRaw, "-c:v", "copy", "-movflags", "+faststart", "-y", finalOut];
+        // Always stream_loop the concat video to fill totalDuration — safety net for short clips.
+        // Re-encode (libx264 veryfast) is required when using -stream_loop.
+        if (!hasNarr && !hasMus && !hasSfx) {
+          cmd = [env.ffmpegPath, "-stream_loop", "-1", "-i", concatRaw, "-t", String(totalDur), "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", "-y", finalOut];
         } else {
-          const inputs: string[] = ["-i", concatRaw];
+          const inputs: string[] = ["-stream_loop", "-1", "-i", concatRaw];
           const filters: string[] = [];
           const audioSrcs: string[] = [];
           let idx = 1;
-          if (hasNarr) { inputs.push("-i", narrationWav); filters.push(`[${idx}:a]volume=1.0[narr]`); audioSrcs.push("[narr]"); idx++; }
-          if (hasMus)  { inputs.push("-i", musicWav);     filters.push(`[${idx}:a]volume=${duckLevel}[mus]`); audioSrcs.push("[mus]"); idx++; }
-          const mixFilter = filters.join(";") + ";" + audioSrcs.join("") + `amix=inputs=${audioSrcs.length}:duration=first[fa]`;
-          cmd = [env.ffmpegPath, ...inputs, "-filter_complex", mixFilter, "-map", "0:v", "-map", "[fa]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", "-movflags", "+faststart", "-y", finalOut];
+          if (hasNarr) { inputs.push("-i", narrationWav); filters.push(`[${idx}:a]volume=1.0[narr]`);          audioSrcs.push("[narr]"); idx++; }
+          if (hasMus)  { inputs.push("-i", musicWav);     filters.push(`[${idx}:a]volume=0.4[mus]`); audioSrcs.push("[mus]");  idx++; }
+          if (hasSfx)  { inputs.push("-i", sfxWav);       filters.push(`[${idx}:a]volume=0.6[sfx]`);          audioSrcs.push("[sfx]");  idx++; }
+          const mixFilter = filters.join(";") + ";" + audioSrcs.join("") + `amix=inputs=${audioSrcs.length}:duration=longest:normalize=0[fa]`;
+          cmd = [env.ffmpegPath, ...inputs, "-t", String(totalDur), "-filter_complex", mixFilter, "-map", "0:v", "-map", "[fa]", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-y", finalOut];
         }
-        console.log(`[assembly] final_merge — video + narr=${hasNarr} music=${hasMus}`);
+        console.log(`[assembly] final_merge — video+narr=${hasNarr} music=${hasMus} sfx=${hasSfx} dur=${totalDur}s`);
         try {
           const startMs = Date.now();
           await execFileAsync(cmd[0], cmd.slice(1), { timeout: 180000, maxBuffer: 50 * 1024 * 1024 });
@@ -341,9 +366,79 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Subtitle burn-in (optional, graceful — skipped if FFmpeg lacks libass or no text) ──
+    // Generates an SRT from narration text, burns it on top of the final output.
+    // Failure here NEVER blocks the output — original video is always preserved.
+    let subtitledOutputPath = "";
+    if (assembly.exportSettings?.includeSubtitles) {
+      const narrationWithText = fullAssembly.narration.filter(n => n.text && n.text.trim());
+      if (narrationWithText.length > 0) {
+        try {
+          // Build SRT from narration entries — split text into sentences, time proportionally
+          function buildSRT(entries: typeof narrationWithText): string {
+            function toSRTTime(sec: number): string {
+              const h = Math.floor(sec / 3600);
+              const m = Math.floor((sec % 3600) / 60);
+              const s = Math.floor(sec % 60);
+              const ms = Math.round((sec % 1) * 1000);
+              return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")},${String(ms).padStart(3,"0")}`;
+            }
+            const lines: string[] = [];
+            let idx = 1;
+            for (const entry of entries) {
+              const text = entry.text!.trim();
+              const dur = Math.max((entry.endTime || 0) - (entry.startTime || 0), 1);
+              // Split into sentences (~40 chars per subtitle card max)
+              const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+              const totalChars = text.length || 1;
+              let charsCursor = 0;
+              for (const sentence of sentences) {
+                const s = sentence.trim();
+                if (!s) continue;
+                const startFrac = charsCursor / totalChars;
+                const endFrac = Math.min((charsCursor + s.length) / totalChars, 1);
+                const start = (entry.startTime || 0) + startFrac * dur;
+                const end = (entry.startTime || 0) + endFrac * dur;
+                lines.push(`${idx}\n${toSRTTime(start)} --> ${toSRTTime(end)}\n${s}\n`);
+                idx++;
+                charsCursor += s.length;
+              }
+            }
+            return lines.join("\n");
+          }
+          const srtContent = buildSRT(narrationWithText);
+          const srtPath = path.join(outputDir, "subtitles.srt");
+          fs.writeFileSync(srtPath, srtContent, "utf-8");
+
+          const finalMergeStep = steps.find(s => s.id === "final_merge");
+          const unsub = finalMergeStep?.outputPath || "";
+          if (unsub && fs.existsSync(unsub)) {
+            const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
+            // subtitles= filter requires libass — fails gracefully if not compiled in
+            await execFileAsync(env.ffmpegPath, [
+              "-i", unsub,
+              "-vf", `subtitles=${srtPath.replace(/\\/g, "/")}:force_style='FontName=Arial,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2'`,
+              "-c:a", "copy",
+              "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+              "-movflags", "+faststart",
+              "-y", subbedPath,
+            ], { timeout: 180000 });
+            if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
+              subtitledOutputPath = subbedPath;
+              console.log(`[assembly] Subtitle burn-in OK → ${path.basename(subbedPath)}`);
+            }
+          }
+        } catch (subErr) {
+          // Subtitle burn failed (likely missing libass) — continue with original output
+          console.warn("[assembly] Subtitle burn-in skipped:", subErr instanceof Error ? subErr.message.slice(0, 200) : subErr);
+        }
+      }
+    }
+
     // ── Find final output ──
     const finalStep = steps.find(s => s.id === "final_merge");
-    const finalOutputPath = finalStep?.outputPath || "";
+    // Use subtitled output if burn-in succeeded, otherwise use raw final merge
+    const finalOutputPath = subtitledOutputPath || finalStep?.outputPath || "";
     const outputExists = finalOutputPath && fs.existsSync(finalOutputPath);
 
     // ── Get duration via ffprobe ──
@@ -436,7 +531,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Clean up intermediate files (keep final + thumbnail) ──
-    const intermediateFiles = ["concat_raw.mp4", "narration_mix.wav", "music_mix.wav", "concat_list.txt"];
+    const intermediateFiles = ["concat_raw.mp4", "narration_mix.wav", "music_mix.wav", "sfx_mix.wav", "concat_list.txt"];
     for (const f of intermediateFiles) {
       const fp = path.join(outputDir, f);
       if (fs.existsSync(fp)) {
@@ -459,7 +554,7 @@ export async function POST(req: NextRequest) {
         segments: patchedSegments.length,
         narration: finalAssembly.narration.length,
         music: finalAssembly.music.length,
-        sfx: finalAssembly.sfx.length,
+        sfx: fullAssembly.sfx.length,
       },
     });
   } catch (err) {

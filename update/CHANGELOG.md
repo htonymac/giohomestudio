@@ -1,5 +1,78 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-07 — Gen Max (Multi-Beat Scene Images)
+
+**What:** Per-scene "Gen Max" button generates one image per action beat extracted from the scene description.
+
+**Details:**
+- `splitIntoActionBeats(text)` splits on sentence boundaries + action connectors (then/suddenly/before/while/after) → up to 6 beats
+- `makeSceneBeatImages(scene)` fires one `/api/hybrid/scene-image` request per beat sequentially, shows "Beat N/total" progress
+- Beat thumbnails display as a scrollable row below the Gen Max button. Click to full-preview.
+- Assembly: beat images expand into multiple segments (each = `sceneDur / beatCount`, min 2s). Scenes with video or 1 beat use normal single-segment path.
+- Gen Image(1) button unchanged.
+
+**Why:** Henry: "some scene may have several actions — running from wall (one image) jumping the fence (2 image) look up the sky (3 image) — gen max = all action in the scene"
+
+**Impact:** Medium — scenes with complex descriptions now get correct multi-beat imagery. Assembly segments auto-expand to cover all beats.
+
+**Risk:** Low — assembly fallback to single segment when beats=1 or video exists. TSC clean.
+
+**Files changed:**
+- `app/dashboard/hybrid-planner/page.tsx` (state + functions + assembly loop + Image tab UI)
+
+---
+
+## 2026-05-07 — Audio Pipeline + Scene Image Fix + Scene AI Chat + Subtitle Burn-In
+
+**What:**
+Seven audio pipeline bugs fixed end-to-end. Scene image action extraction. Per-scene AI chat. Subtitle burn-in implemented.
+
+**Audio fixes (7 root causes):**
+- AUDIO-01: Piper TTS mojibake (`â€"` → "-") — `sanitizeForTTS()` in new `src/lib/sanitize-text.ts`, applied at both ElevenLabs and Piper paths in `narrate-piper/route.ts`
+- AUDIO-02: Multiple narration tracks at t=0 simultaneously — dedup by audioUrl (Set), atrim per track, amix `duration=longest` (was `duration=first`)
+- AUDIO-03: Assembly stops at 4s after hard refresh — `effectiveNarrDurMs` recovery block in `assembleScenes()` loads browser `Audio` element to recover narrator duration when React state is 0
+- Music stopped at 34s — `prepare_music` step: `-stream_loop -1` + `atrim=duration=totalDuration`
+- SFX never played — new `mix_sfx` step in assembly-builder + SFX path resolution in execute route
+- Video cut at 30s — final_merge: `-stream_loop -1`, `duration=longest`, removed `-shortest`
+- Duration redistribution not triggering — `totalDuration = Math.max(sceneBaseDuration, narratorDurSec)` fixes tiny motionDuration sum
+
+**Scene image action extraction (IMAGE-01):**
+- `extractSceneAction()` added to `app/api/hybrid/scene-image/route.ts`
+- 12 action types: confrontation, fight, chase, fear, rescue, argument, discovery, grief, celebration, stealth, dialogue, default
+- Injects body-language + spatial-relationship directives that force correct drama in generated images
+- Block marked PROTECTED with comment — must survive future refactors
+- `cameraFraming` field now actually injected into prompt (was silently dropped)
+
+**Per-scene AI chat (FEATURE-01):**
+- New route: `app/api/hybrid/scene-chat/route.ts` — Ollama (local, $0)
+- "AI Fix" tab added as 4th tab on every scene card in Scene Board
+- Chat interface with history, input, AI suggestions
+- AI returns `IMAGE PROMPT:` line → "Apply & Regenerate" button appears → new image generated
+
+**Subtitle burn-in (SUBTITLE-01):**
+- `assemblyNarration` entries now carry full narration text (was blank)
+- Execute route post-processes final output: SRT from narration text (sentences timed proportionally) → FFmpeg `subtitles=` filter → subtitled MP4
+- Graceful skip if FFmpeg lacks libass — original video preserved
+
+**Why:** Henry: assembly stops at 4s with "shhhh" sound, no SFX, music stops early, images show wrong action, subtitles don't work.
+
+**Impact:** High — all major audio bugs resolved. Scene images now reflect actual scene action. AI can correct individual scene images. Subtitles now burn in when enabled.
+
+**Risk:** Low — all failures are graceful (subtitle skip, SFX skip, duration fallback). No breaking changes to existing APIs.
+
+**Files changed:**
+- `src/lib/sanitize-text.ts` (NEW)
+- `app/api/hybrid/scene-chat/route.ts` (NEW)
+- `app/api/hybrid/narrate-piper/route.ts`
+- `app/api/hybrid/scene-image/route.ts`
+- `app/api/assembly/execute/route.ts`
+- `src/lib/assembly-builder.ts`
+- `app/dashboard/hybrid-planner/page.tsx`
+
+**Build:** TSC clean (exit 0, verified twice).
+
+---
+
 ## 2026-05-06 — Face-Lock + Image Management per Character (commits f360886, 2a00ded)
 **What:** Portrait regeneration now preserves real uploaded face via PuLID. Per-character image controls in both Hybrid Planner and Character Library.
 - Hybrid Planner `generateCharacterPortrait()`: detects `tags["photo-import"]`, passes `referenceImageUrl + useIdentityLock=true` → PuLID preserves identity

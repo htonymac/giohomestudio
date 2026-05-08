@@ -363,7 +363,15 @@ function HybridPlannerInner() {
   // ── Generation progress bars (sceneId → live progress) ──
   const [sceneGenProgress, setSceneGenProgress] = useState<Record<string, { percent: number; message: string; type: "image" | "video" }>>({});
   // ── Scene card review tabs (sceneId → active tab) — null = no tab open ──
-  const [activeSceneCardTab, setActiveSceneCardTab] = useState<Record<string, "image" | "audio" | "video" | null>>({});
+  const [activeSceneCardTab, setActiveSceneCardTab] = useState<Record<string, "image" | "audio" | "video" | "chat" | null>>({});
+  // ── Per-scene AI chat state ──
+  const [sceneChatMessages, setSceneChatMessages] = useState<Record<string, Array<{ role: "user" | "assistant"; content: string }>>>({});
+  const [sceneChatInput, setSceneChatInput] = useState<Record<string, string>>({});
+  const [sceneChatLoading, setSceneChatLoading] = useState<Set<string>>(new Set());
+  // ── Gen Max — per-scene action-beat images ──
+  const [sceneBeatImages, setSceneBeatImages] = useState<Record<string, string[]>>({});
+  const [generatingMaxBeats, setGeneratingMaxBeats] = useState<Set<string>>(new Set());
+  const [maxBeatsProgress, setMaxBeatsProgress] = useState<Record<string, string>>({});
 
   // ── New Scene Duration (user sets seconds) ──
   const [newSceneDuration, setNewSceneDuration] = useState(5);
@@ -1680,6 +1688,85 @@ function HybridPlannerInner() {
     });
   }
 
+  // ── Split scene description into discrete action beats for Gen Max ──────────
+  function splitIntoActionBeats(text: string): string[] {
+    if (!text || text.length < 15) return [text || ""];
+    const parts = text
+      .replace(/([.!?])\s+/g, "$1|B|")
+      .replace(/,\s*(then|before|while|after|but|suddenly|finally|next|as)\s+/gi, "|B|$1 ")
+      .replace(/\s+(then|suddenly|finally|after that|meanwhile|before|while)\s+/gi, "|B|$1 ")
+      .split("|B|")
+      .map(s => s.trim().replace(/^[,.\s]+/, ""))
+      .filter(s => s.length > 8);
+    return parts.length > 1 ? parts.slice(0, 6) : [text];
+  }
+
+  // ── Gen Max — generate one image per action beat in the scene description ──
+  async function makeSceneBeatImages(scene: HybridScene) {
+    try { await requireGate(); } catch { return; }
+    if (generatingMaxBeats.has(scene.sceneId)) return;
+
+    const fullDesc = `${scene.title}. ${scene.description}`;
+    const beats = splitIntoActionBeats(fullDesc);
+    if (beats.length <= 1) {
+      await makeSceneImage(scene);
+      return;
+    }
+
+    setGeneratingMaxBeats(prev => new Set(prev).add(scene.sceneId));
+    setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Beat 1/${beats.length}...` }));
+    setLastAction(`Gen Max: generating ${beats.length} beats for Scene ${scene.scene}...`);
+
+    const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
+    const characterOverrides = sceneChars.map(c => ({
+      characterId: c.characterId,
+      name: c.displayName,
+      species: c.species || "human",
+      visualDescription: buildVisualDescription(c),
+      imageUrl: c.imageUrl || null,
+      wardrobe: c.clothingDetails || c.wardrobeStyle || null,
+      hairstyle: c.hairStyle || null,
+      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
+    }));
+
+    const beatUrls: string[] = [];
+    for (let bi = 0; bi < beats.length; bi++) {
+      setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Beat ${bi + 1}/${beats.length}...` }));
+      try {
+        const res = await fetch("/api/hybrid/scene-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sceneId: `${scene.sceneId}_b${bi}`,
+            projectId,
+            sceneText: beats[bi],
+            characterIds: scene.characterIds,
+            location: scene.location,
+            mood: scene.mood,
+            timeOfDay: scene.timeOfDay,
+            cameraFraming: scene.shots[0]?.framingType,
+            projectStyle: sceneStyles[scene.sceneId] || projectStyle,
+            characterOverrides,
+            modelId: selectedImageModelId,
+            seed: Math.floor(Math.random() * 1e9),
+          }),
+        });
+        const data = await res.json();
+        if (data.imageUrl || data.imagePath) {
+          const url = data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+          beatUrls.push(url);
+        }
+      } catch (err) {
+        console.error(`[makeSceneBeatImages] beat ${bi} failed:`, err);
+      }
+    }
+
+    setSceneBeatImages(prev => ({ ...prev, [scene.sceneId]: beatUrls }));
+    setGeneratingMaxBeats(prev => { const n = new Set(prev); n.delete(scene.sceneId); return n; });
+    setMaxBeatsProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
+    setLastAction(`Scene ${scene.scene}: ${beatUrls.length} beat images ready`);
+  }
+
   // ── Per-scene AI Generate SFX — reads scene description and auto-plans SFX ──
   async function generateSceneSfx(scene: HybridScene) {
     if (generatingSceneSfx.has(scene.sceneId)) return;
@@ -2509,6 +2596,25 @@ function HybridPlannerInner() {
           console.warn("[assemble] Narrator audio HEAD check failed — keeping URL, assembly will try it");
         }
       }
+      // ── Recover narrator duration if React state was lost after page refresh ──
+      // narratorAudioDuration is not persisted — after refresh it resets to 0.
+      // Without this, totalDuration = sceneBaseDuration (tiny motionDuration → 4s), cutting all audio.
+      let effectiveNarrDurMs = narratorAudioDuration;
+      if (narratorAudioUrl && effectiveNarrDurMs === 0) {
+        try {
+          effectiveNarrDurMs = await new Promise<number>((resolve) => {
+            const audio = new Audio(narratorAudioUrl);
+            audio.onloadedmetadata = () => resolve(Math.round(audio.duration * 1000));
+            audio.onerror = () => resolve(0);
+            setTimeout(() => resolve(0), 8000);
+          });
+          if (effectiveNarrDurMs > 0) {
+            setNarratorAudioDuration(effectiveNarrDurMs);
+            console.log(`[assemble] Recovered narrator duration after refresh: ${effectiveNarrDurMs}ms`);
+          }
+        } catch { /* ignore */ }
+      }
+
       // Mark all scenes as processing then done for visual feedback
       for (const s of scenes) {
         progress[s.scene] = "processing"; setAssemblyProgress({ ...progress });
@@ -2688,29 +2794,49 @@ function HybridPlannerInner() {
         }
       }
 
-      // ── Build SFX list — match scene audioPlan.sfxList to saved SFX in library ──
+      // ── Build SFX list — narration is the clock, SFX placed at narrator-proportional timestamps ──
+      // Each scene gets its SFX at the proportional position within the total narration duration.
+      // This ensures SFX fire when the narrator is speaking about that scene, not based on video clip lengths.
       const sfxList: Array<{ sourceUrl: string; startTime: number; volume: number }> = [];
       try {
         const sfxAssets = await fetch("/api/assets?type=sfx").then(r => r.json())
           .then(d => (d.assets || []) as Array<{ name: string; filePath: string }>);
-        let sfxCursor = 0;
-        for (const s of scenesToAssemble) {
-          const sceneDur = s.motionDuration || 5;
+
+        // Build per-scene narration text lengths to compute proportional timestamps
+        const sceneNarrTexts = scenesToAssemble.map(s => {
+          const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+          return segText || s.narrationScript || s.description || s.title || "";
+        });
+        const totalNarrChars = sceneNarrTexts.reduce((sum, t) => sum + t.length, 0) || 1;
+        // Use effectiveNarrDurMs (recovered narrator audio duration) as master clock
+        // totalDuration is computed later — derive fallback inline from scene list
+        const sfxSceneBaseDur = scenesToAssemble.reduce((sum, s) => sum + (s.motionDuration || 5), 0);
+        const masterDur = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : sfxSceneBaseDur;
+
+        let charsCursor = 0;
+        for (let si = 0; si < scenesToAssemble.length; si++) {
+          const s = scenesToAssemble[si];
+          const sceneText = sceneNarrTexts[si];
+          const sceneStart = (charsCursor / totalNarrChars) * masterDur;
+          const sceneNarrDur = (sceneText.length / totalNarrChars) * masterDur;
+          charsCursor += sceneText.length;
+
           const planned = s.audioPlan?.sfxList || [];
           for (let i = 0; i < Math.min(planned.length, 2); i++) {
-            const name = planned[i]?.toLowerCase() || "";
-            const match = sfxAssets.find(a =>
+            const name = (planned[i] || "").toLowerCase();
+            const match = sfxAssets.find((a: { name: string; filePath: string }) =>
               a.name.toLowerCase().includes(name) || name.includes(a.name.toLowerCase().split(" ")[0])
             );
             if (match?.filePath) {
+              // Place first SFX at scene start, second 40% into the scene
+              const offset = i === 0 ? 0 : sceneNarrDur * 0.4;
               sfxList.push({
                 sourceUrl: `/api/media/${match.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`,
-                startTime: sfxCursor + i * 1.5,
-                volume: 0.5,
+                startTime: Math.round((sceneStart + offset) * 10) / 10,
+                volume: 0.45,
               });
             }
           }
-          sfxCursor += sceneDur;
         }
       } catch { /* skip SFX on error */ }
 
@@ -2751,38 +2877,103 @@ function HybridPlannerInner() {
 
       // ── Phase 1.6: Build AssemblyJSON and use /api/assembly/execute ──────────
       const effProjId = projectId || activeProjLocalId || `hybrid_${Date.now()}`;
-      const totalDuration = finalSceneList.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
+      // totalDuration must be at least as long as the narrator audio.
+      // Scene motionDurations can be tiny (0.4s from short clips) giving a 4s total that cuts everything.
+      const sceneBaseDuration = finalSceneList.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
+      const narratorDurSec = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : 0;
+      const totalDuration = Math.max(sceneBaseDuration, narratorDurSec || sceneBaseDuration);
+
+      // Compute per-segment duration from narration proportion (narration is the master clock).
+      // Each segment fills the same proportion of total duration as its scene text fills total story text.
+      // Falls back to motionDuration if no narration text is available (e.g. no script parsed).
+      const masterDurForSegs = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const totalStoryChars = (finalSceneList as any[]).reduce((sum: number, s: { sceneId?: string; description?: string; title?: string; narrationScript?: string }) => {
+        const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+        const text = segText || s.narrationScript || s.description || s.title || "";
+        return sum + Math.max(text.length, 20);
+      }, 0) as number || 1;
 
       let segCursor = 0;
-      const assemblySegments: AssemblySegment[] = finalSceneList.map((s: { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number }, i: number) => {
-        const dur = s.motionDuration || s.duration || 5;
-        const seg: AssemblySegment = {
-          id: `seg_${i}`,
-          type: s.videoUrl ? "video" : "image",
-          sourceUrl: s.videoUrl || s.imageUrl || "",
-          startTime: segCursor,
-          endTime: segCursor + dur,
-          duration: dur,
-          sceneId: s.sceneId || `SC${String(i + 1).padStart(2, "0")}`,
-          transitionIn: i === 0 ? "fade" : "cut",
-          transitionOut: "cut",
-        };
-        segCursor += dur;
-        return seg;
-      });
+      let segIdx = 0;
+      const assemblySegments: AssemblySegment[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      for (let si = 0; si < (finalSceneList as any[]).length; si++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const s = (finalSceneList as any[])[si] as { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number; narrationScript?: string; description?: string; title?: string };
+        const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+        const sceneText = segText || s.narrationScript || s.description || s.title || "";
+        const textFraction = Math.max(sceneText.length, 20) / totalStoryChars;
+        // Use narration-proportional duration if narration is available, else fall back to motionDuration
+        const sceneDur = effectiveNarrDurMs > 0
+          ? Math.max(textFraction * masterDurForSegs, 2)  // minimum 2s per segment
+          : (s.motionDuration || s.duration || 5);
 
-      const assemblyNarration: NarrationEntry[] = narrationList.map((n: { audioUrl: string; startTime: number; volume: number }, i: number) => ({
+        // Gen Max expansion: if scene has beat images and no video, expand into one segment per beat
+        const beatImgs = s.sceneId ? sceneBeatImages[s.sceneId] : null;
+        if (!s.videoUrl && beatImgs && beatImgs.length > 1) {
+          const beatDur = Math.max(sceneDur / beatImgs.length, 2);
+          for (let bi = 0; bi < beatImgs.length; bi++) {
+            assemblySegments.push({
+              id: `seg_${segIdx++}`,
+              type: "image",
+              sourceUrl: beatImgs[bi],
+              startTime: segCursor,
+              endTime: segCursor + beatDur,
+              duration: beatDur,
+              sceneId: s.sceneId!,
+              transitionIn: assemblySegments.length === 0 ? "fade" : "cut",
+              transitionOut: "cut",
+            });
+            segCursor += beatDur;
+          }
+        } else {
+          assemblySegments.push({
+            id: `seg_${segIdx++}`,
+            type: s.videoUrl ? "video" : "image",
+            sourceUrl: s.videoUrl || s.imageUrl || "",
+            startTime: segCursor,
+            endTime: segCursor + sceneDur,
+            duration: sceneDur,
+            sceneId: s.sceneId || `SC${String(si + 1).padStart(2, "0")}`,
+            transitionIn: si === 0 ? "fade" : "cut",
+            transitionOut: "cut",
+          });
+          segCursor += sceneDur;
+        }
+      }
+
+      // Deduplicate by audioUrl — blocks same WAV playing twice if user regenerates narration mid-session
+      const seenNarrUrls = new Set<string>();
+      const dedupNarrationList = narrationList.filter((n: { audioUrl: string }) =>
+        !seenNarrUrls.has(n.audioUrl) && seenNarrUrls.add(n.audioUrl)
+      );
+
+      // Narration text for subtitle generation — use full script or story summary
+      const narratorFullText = fullScript || expandedSummary || idea || "";
+
+      const assemblyNarration: NarrationEntry[] = dedupNarrationList.map((n: { audioUrl: string; startTime: number; volume: number }, i: number) => ({
         id: `nar_${i}`,
-        text: "",
+        // Pass text for subtitle burn-in. Main narrator gets full story; character clips have no text.
+        text: n.audioUrl === narratorAudioUrl ? narratorFullText.slice(0, 8000) : "",
         startTime: n.startTime,
-        endTime: n.startTime + 10,
+        // Main narrator: use measured duration so assembly-builder atrim doesn't cut it short.
+        // Per-line character clips are short (<10s each), so a 10s window is safe.
+        endTime: n.audioUrl === narratorAudioUrl
+          ? (effectiveNarrDurMs > 0 ? n.startTime + effectiveNarrDurMs / 1000 : 99999)
+          : n.startTime + 10,
         volume: n.volume ?? narrationVolume ?? 1.0,
         speed: 1.0,
         audioUrl: n.audioUrl,
       }));
-      // Single narrator URL fallback
-      if (assemblyNarration.length === 0 && narratorAudioUrl) {
-        assemblyNarration.push({ id: "nar_0", text: "", startTime: 0, endTime: totalDuration, volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl });
+
+      // Fallback: narrationList was empty — add narrator directly if not already covered
+      if (assemblyNarration.length === 0 && narratorAudioUrl && !seenNarrUrls.has(narratorAudioUrl)) {
+        assemblyNarration.push({
+          id: "nar_0", text: narratorFullText.slice(0, 8000), startTime: 0,
+          endTime: effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration,
+          volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl,
+        });
       }
 
       const assemblyMusic: MusicEntry[] = effectiveMusicUrl ? [{
@@ -5165,10 +5356,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
                     {/* Scene Asset Review Tabs — click any tab to open its review panel */}
                     {(() => {
-                      const tabs: Array<{ key: "image" | "audio" | "video"; label: string; done: boolean; color: string }> = [
+                      const tabs: Array<{ key: "image" | "audio" | "video" | "chat"; label: string; done: boolean; color: string }> = [
                         { key: "image", label: "Image", done: hasImage, color: blue },
                         { key: "audio", label: "Audio", done: hasAudio, color: gold },
                         { key: "video", label: videoVersionCount > 1 ? `Video v${videoVersionCount}` : "Video", done: hasVideo, color: purple },
+                        { key: "chat",  label: "AI Fix", done: (sceneChatMessages[scene.sceneId]?.length || 0) > 0, color: "#4ade80" },
                       ];
                       return (
                         <div style={{ display: "flex", borderBottom: `1px solid ${border}` }}>
@@ -5181,7 +5373,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 }))}
                                 style={{
                                   flex: 1, padding: "7px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-                                  border: "none", borderRight: ti < 2 ? `1px solid ${border}` : "none",
+                                  border: "none", borderRight: ti < 3 ? `1px solid ${border}` : "none",
                                   borderBottom: isOpen ? `2px solid ${tab.color}` : "2px solid transparent",
                                   background: isOpen ? `${tab.color}20` : tab.done ? `${tab.color}08` : "transparent",
                                   cursor: "pointer", transition: "background 0.15s",
@@ -5219,6 +5411,35 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 {generatingVariations.has(scene.sceneId) ? "3×..." : "Gen 3"}
                               </button>
                             </div>
+                            {/* Gen Max — generate one image per action beat */}
+                            {(() => {
+                              const beats = splitIntoActionBeats(`${scene.title}. ${scene.description}`);
+                              const isMaxing = generatingMaxBeats.has(scene.sceneId);
+                              const beatImgs = sceneBeatImages[scene.sceneId];
+                              if (beats.length <= 1 && (!beatImgs || beatImgs.length === 0)) return null;
+                              return (
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    onClick={() => makeSceneBeatImages(scene)}
+                                    disabled={isMaxing || generatingSceneImage === scene.sceneId || generatingVariations.has(scene.sceneId)}
+                                    style={{ width: "100%", padding: "5px 8px", borderRadius: 6, border: "none", background: isMaxing ? "#2a2a40" : "linear-gradient(135deg,#ff6b00,#ff9500)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: isMaxing ? "not-allowed" : "pointer" }}>
+                                    {isMaxing ? (maxBeatsProgress[scene.sceneId] || "Generating beats...") : `Gen Max (${beats.length} beats)`}
+                                  </button>
+                                  {beatImgs && beatImgs.length > 0 && (
+                                    <div style={{ marginTop: 6, display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+                                      {beatImgs.map((url, bi) => (
+                                        <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
+                                          <img src={url} alt={`Beat ${bi + 1}`}
+                                            style={{ width: 60, height: 44, borderRadius: 4, objectFit: "cover", display: "block", border: `1px solid ${border}`, cursor: "pointer" }}
+                                            onClick={() => setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` })} />
+                                          <span style={{ fontSize: 7, color: muted }}>B{bi + 1}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </>
                         ) : (
                           <div style={{ textAlign: "center", padding: "12px 0" }}>
@@ -5241,6 +5462,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid rgba(168,85,247,0.4)`, background: "rgba(168,85,247,0.15)", color: "#a855f7", fontSize: 10, fontWeight: 700, cursor: generatingVariations.has(scene.sceneId) ? "not-allowed" : "pointer" }}>
                                 {generatingVariations.has(scene.sceneId) ? "3×..." : "Gen 3"}
                               </button>
+                              {(() => {
+                                const beats = splitIntoActionBeats(`${scene.title}. ${scene.description}`);
+                                if (beats.length <= 1) return null;
+                                const isMaxing = generatingMaxBeats.has(scene.sceneId);
+                                return (
+                                  <button
+                                    onClick={() => makeSceneBeatImages(scene)}
+                                    disabled={isMaxing || generatingVariations.has(scene.sceneId)}
+                                    style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: isMaxing ? "#2a2a40" : "linear-gradient(135deg,#ff6b00,#ff9500)", color: "#fff", fontSize: 10, fontWeight: 700, cursor: isMaxing ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                    {isMaxing ? (maxBeatsProgress[scene.sceneId] || "...") : `Gen Max (${beats.length})`}
+                                  </button>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}
@@ -5362,6 +5596,127 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         )}
                       </div>
                     )}
+
+                    {/* ── AI Fix Chat — per-scene local LLM chat to correct image/description ── */}
+                    {activeCardTab === "chat" && (() => {
+                      const chatMsgs = sceneChatMessages[scene.sceneId] || [];
+                      const chatInput = sceneChatInput[scene.sceneId] || "";
+                      const chatBusy = sceneChatLoading.has(scene.sceneId);
+
+                      const sendChat = async () => {
+                        if (!chatInput.trim() || chatBusy) return;
+                        const userMsg = chatInput.trim();
+                        const newHistory = [...chatMsgs, { role: "user" as const, content: userMsg }];
+                        setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: newHistory }));
+                        setSceneChatInput(prev => ({ ...prev, [scene.sceneId]: "" }));
+                        setSceneChatLoading(prev => new Set(prev).add(scene.sceneId));
+                        try {
+                          const res = await fetch("/api/hybrid/scene-chat", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              sceneId: scene.sceneId,
+                              sceneTitle: scene.title,
+                              sceneDescription: scene.description,
+                              sceneLocation: scene.location,
+                              sceneMood: scene.mood,
+                              characters: scene.characterIds.map(id => characters.find(c => c.characterId === id)?.displayName || id),
+                              userMessage: userMsg,
+                              history: chatMsgs,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (data.ok) {
+                            setSceneChatMessages(prev => ({
+                              ...prev,
+                              [scene.sceneId]: [...newHistory, { role: "assistant" as const, content: data.reply }],
+                            }));
+                          } else {
+                            setSceneChatMessages(prev => ({
+                              ...prev,
+                              [scene.sceneId]: [...newHistory, { role: "assistant" as const, content: `Error: ${data.error || "AI unavailable"}` }],
+                            }));
+                          }
+                        } catch {
+                          setSceneChatMessages(prev => ({
+                            ...prev,
+                            [scene.sceneId]: [...newHistory, { role: "assistant" as const, content: "Connection error — is Ollama running?" }],
+                          }));
+                        } finally {
+                          setSceneChatLoading(prev => { const s = new Set(prev); s.delete(scene.sceneId); return s; });
+                        }
+                      };
+
+                      return (
+                        <div style={{ background: "#0a1a0a", borderBottom: `1px solid ${border}`, padding: 10 }}>
+                          <p style={{ fontSize: 9, color: "#4ade80", fontWeight: 700, marginBottom: 6 }}>AI Scene Fix — local LLM, no cost</p>
+                          {/* Chat history */}
+                          <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+                            {chatMsgs.length === 0 && (
+                              <p style={{ fontSize: 9, color: muted, fontStyle: "italic" }}>
+                                Tell the AI what's wrong: "Bryan should look angry, bullies should be blocking him" or "image is too calm, add tension"
+                              </p>
+                            )}
+                            {chatMsgs.map((m, mi) => (
+                              <div key={mi} style={{
+                                padding: "6px 8px", borderRadius: 6, fontSize: 9, lineHeight: 1.4,
+                                background: m.role === "user" ? "rgba(0,212,255,0.08)" : "rgba(74,222,128,0.08)",
+                                color: m.role === "user" ? "#9ae8ff" : "#86efac",
+                                border: `1px solid ${m.role === "user" ? "#00d4ff20" : "#4ade8020"}`,
+                                alignSelf: m.role === "user" ? "flex-end" as const : "flex-start" as const,
+                                maxWidth: "92%",
+                              }}>
+                                <span style={{ fontWeight: 700, marginRight: 4 }}>{m.role === "user" ? "You:" : "AI:"}</span>
+                                {m.content}
+                              </div>
+                            ))}
+                            {chatBusy && (
+                              <div style={{ fontSize: 9, color: "#4ade80", padding: "4px 8px" }}>AI thinking...</div>
+                            )}
+                          </div>
+                          {/* Check if last AI message has an image prompt suggestion */}
+                          {(() => {
+                            const lastAI = [...chatMsgs].reverse().find(m => m.role === "assistant");
+                            const promptLine = lastAI?.content.split("\n").find(l => l.startsWith("IMAGE PROMPT:"));
+                            if (!promptLine) return null;
+                            const suggestion = promptLine.replace("IMAGE PROMPT:", "").trim();
+                            return (
+                              <div style={{ marginBottom: 8, padding: "6px 8px", background: "rgba(0,212,255,0.06)", borderRadius: 6, border: "1px solid #00d4ff20" }}>
+                                <p style={{ fontSize: 8, color: "#00d4ff", fontWeight: 700, marginBottom: 4 }}>AI Image Prompt Suggestion:</p>
+                                <p style={{ fontSize: 8, color: muted, marginBottom: 6, fontStyle: "italic" }}>{suggestion.slice(0, 200)}</p>
+                                <button
+                                  onClick={() => makeSceneImage({ ...scene, description: suggestion })}
+                                  disabled={generatingSceneImage === scene.sceneId}
+                                  style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg,#00d4ff,#0084ff)", color: "#fff", fontSize: 8, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
+                                  {generatingSceneImage === scene.sceneId ? "Generating..." : "Apply & Regenerate Image"}
+                                </button>
+                              </div>
+                            );
+                          })()}
+                          {/* Input */}
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <input
+                              value={chatInput}
+                              onChange={e => setSceneChatInput(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
+                              placeholder="What's wrong with this scene image?"
+                              disabled={chatBusy}
+                              style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "#0d1a0d", color: "#fff", fontSize: 9, outline: "none" }}
+                            />
+                            <button onClick={sendChat} disabled={chatBusy || !chatInput.trim()}
+                              style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: chatBusy || !chatInput.trim() ? "#2a2a40" : "#4ade80", color: "#000", fontSize: 9, fontWeight: 700, cursor: chatBusy || !chatInput.trim() ? "not-allowed" : "pointer" }}>
+                              {chatBusy ? "..." : "Send"}
+                            </button>
+                          </div>
+                          {chatMsgs.length > 0 && (
+                            <button onClick={() => setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [] }))}
+                              style={{ marginTop: 6, padding: "3px 8px", borderRadius: 5, border: "none", background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                              Clear chat
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {/* Content */}
                     <div style={{ padding: 14 }}>

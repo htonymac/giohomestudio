@@ -28,6 +28,7 @@ import { elevenLabsVoiceProvider } from "@/modules/voice-provider/elevenlabs";
 import { env } from "@/config/env";
 import { soundTierToNarrationProvider } from "@/lib/ghs-sound-tiers";
 import type { GhsSoundTierId } from "@/lib/ghs-sound-tiers";
+import { sanitizeForTTS } from "@/lib/sanitize-text";
 
 // ── HF model registry ─────────────────────────────────────────────────────────
 // Each entry: { onnx: HF path, json: HF path }
@@ -269,7 +270,7 @@ export async function POST(req: NextRequest) {
       const outputPath = path.join(outDir, fileName);
       try {
         const result = await elevenLabsVoiceProvider.generate({
-          text: text.trim(),
+          text: sanitizeForTTS(text.trim()),
           voiceId: voiceId || undefined,
           voiceModel: voiceModel as import("@/types/providers").ElevenLabsModel | undefined,
           language: language || undefined,
@@ -368,7 +369,7 @@ export async function POST(req: NextRequest) {
       : `narration_${Date.now()}.wav`;
     const outputPath = path.join(outDir, fileName);
 
-    await runPiper(piperBin, modelPath, text.trim(), outputPath, speed ?? 1.0);
+    await runPiper(piperBin, modelPath, sanitizeForTTS(text.trim()), outputPath, speed ?? 1.0);
 
     const durationMs = estimateWavDuration(outputPath);
     const relativePath = path.relative(path.join(process.cwd(), "storage"), outputPath).replace(/\\/g, "/");
