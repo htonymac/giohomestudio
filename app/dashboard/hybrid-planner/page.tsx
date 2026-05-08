@@ -368,6 +368,8 @@ function HybridPlannerInner() {
   const [sceneChatMessages, setSceneChatMessages] = useState<Record<string, Array<{ role: "user" | "assistant"; content: string }>>>({});
   const [sceneChatInput, setSceneChatInput] = useState<Record<string, string>>({});
   const [sceneChatLoading, setSceneChatLoading] = useState<Set<string>>(new Set());
+  // ── AI Chat open state — bottom of scene card, always accessible ──
+  const [aiChatOpenScenes, setAiChatOpenScenes] = useState<Set<string>>(new Set());
   // ── Gen Max — per-scene action-beat images ──
   const [sceneBeatImages, setSceneBeatImages] = useState<Record<string, string[]>>({});
   const [generatingMaxBeats, setGeneratingMaxBeats] = useState<Set<string>>(new Set());
@@ -1698,7 +1700,7 @@ function HybridPlannerInner() {
       .split("|B|")
       .map(s => s.trim().replace(/^[,.\s]+/, ""))
       .filter(s => s.length > 8);
-    return parts.length > 1 ? parts.slice(0, 6) : [text];
+    return parts.length > 1 ? parts.slice(0, 10) : [text];
   }
 
   // ── Gen Max — generate one image per action beat in the scene description ──
@@ -5369,7 +5371,6 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         { key: "image", label: "Image", done: hasImage, color: blue },
                         { key: "audio", label: "Audio", done: hasAudio, color: gold },
                         { key: "video", label: videoVersionCount > 1 ? `Video v${videoVersionCount}` : "Video", done: hasVideo, color: purple },
-                        { key: "chat",  label: "AI Fix", done: (sceneChatMessages[scene.sceneId]?.length || 0) > 0, color: "#4ade80" },
                       ];
                       return (
                         <div style={{ display: "flex", borderBottom: `1px solid ${border}` }}>
@@ -5382,7 +5383,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 }))}
                                 style={{
                                   flex: 1, padding: "7px 4px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
-                                  border: "none", borderRight: ti < 3 ? `1px solid ${border}` : "none",
+                                  border: "none", borderRight: ti < 2 ? `1px solid ${border}` : "none",
                                   borderBottom: isOpen ? `2px solid ${tab.color}` : "2px solid transparent",
                                   background: isOpen ? `${tab.color}20` : tab.done ? `${tab.color}08` : "transparent",
                                   cursor: "pointer", transition: "background 0.15s",
@@ -6094,6 +6095,102 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <audio src={scene.audioPlan.musicUrl} controls style={{ width: "100%", height: 22 }} />
                         </div>
                       )}
+
+                      {/* ── AI Chat — always visible at bottom of every scene card ── */}
+                      {(() => {
+                        const chatOpen = aiChatOpenScenes.has(scene.sceneId);
+                        const chatMsgs = sceneChatMessages[scene.sceneId] || [];
+                        const chatInput = sceneChatInput[scene.sceneId] || "";
+                        const chatBusy = sceneChatLoading.has(scene.sceneId);
+                        const suggestion = chatMsgs.filter(m => m.role === "assistant").map(m => {
+                          const match = m.content.match(/IMAGE PROMPT:\s*(.+)/i);
+                          return match ? match[1].trim() : null;
+                        }).filter(Boolean).pop() || null;
+
+                        const sendChat = async () => {
+                          const msg = chatInput.trim();
+                          if (!msg || chatBusy) return;
+                          setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "user" as const, content: msg }] }));
+                          setSceneChatInput(prev => ({ ...prev, [scene.sceneId]: "" }));
+                          setSceneChatLoading(prev => new Set(prev).add(scene.sceneId));
+                          try {
+                            const r = await fetch("/api/hybrid/scene-chat", {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                sceneId: scene.sceneId, sceneTitle: scene.title,
+                                sceneDescription: scene.description, sceneLocation: scene.location,
+                                sceneMood: scene.mood,
+                                characters: characters.filter(c => scene.characterIds?.includes(c.characterId)).map(c => c.displayName),
+                                currentImagePrompt: scene.description,
+                                userMessage: msg, history: sceneChatMessages[scene.sceneId] || [],
+                              }),
+                            });
+                            const d = await r.json();
+                            const reply = d.reply || "No response";
+                            setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: reply }] }));
+                          } catch { setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: "Connection error — is Ollama running?" }] })); }
+                          setSceneChatLoading(prev => { const n = new Set(prev); n.delete(scene.sceneId); return n; });
+                        };
+
+                        return (
+                          <div style={{ marginTop: 8, borderTop: `1px solid ${border}`, paddingTop: 6 }}>
+                            <button
+                              onClick={() => setAiChatOpenScenes(prev => { const n = new Set(prev); if (n.has(scene.sceneId)) n.delete(scene.sceneId); else n.add(scene.sceneId); return n; })}
+                              style={{ width: "100%", padding: "6px 8px", borderRadius: 7, border: `1px solid #4ade8040`, background: chatOpen ? "#4ade8018" : "#4ade8008", color: "#4ade80", fontSize: 9, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                              <span>AI Chat</span>
+                              <span style={{ fontSize: 8 }}>{chatOpen ? "▲" : "▼"}</span>
+                              {chatMsgs.length > 0 && <span style={{ background: "#4ade80", color: "#000", fontSize: 7, padding: "1px 5px", borderRadius: 10, fontWeight: 700 }}>{chatMsgs.length}</span>}
+                            </button>
+                            {chatOpen && (
+                              <div style={{ marginTop: 6, background: "#0d1a0d", borderRadius: 8, padding: 8, border: `1px solid #4ade8020` }}>
+                                <div style={{ fontSize: 8, color: "#4ade80", fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                                  AI Scene Chat — describe the problem, AI suggests a fix
+                                </div>
+                                {/* Chat history */}
+                                {chatMsgs.length > 0 && (
+                                  <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+                                    {chatMsgs.map((m, mi) => (
+                                      <div key={mi} style={{ display: "flex", justifyContent: m.role === "user" ? "flex-end" : "flex-start" }}>
+                                        <div style={{ maxWidth: "85%", padding: "5px 8px", borderRadius: m.role === "user" ? "10px 10px 2px 10px" : "10px 10px 10px 2px", background: m.role === "user" ? "#4ade8020" : "#ffffff08", fontSize: 9, color: m.role === "user" ? "#4ade80" : "#ddd", lineHeight: 1.4, whiteSpace: "pre-wrap" as const }}>
+                                          {m.content}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {chatBusy && <div style={{ fontSize: 8, color: "#4ade80", fontStyle: "italic" }}>AI thinking...</div>}
+                                  </div>
+                                )}
+                                {/* Apply suggestion button */}
+                                {suggestion && (
+                                  <button
+                                    onClick={() => makeSceneImage({ ...scene, description: suggestion })}
+                                    style={{ width: "100%", marginBottom: 6, padding: "5px 8px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#4ade80,#22c55e)", color: "#000", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                                    Apply & Regenerate Image
+                                  </button>
+                                )}
+                                {/* Input */}
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <input
+                                    value={chatInput}
+                                    onChange={e => setSceneChatInput(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
+                                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); sendChat(); } }}
+                                    placeholder="What's wrong with this scene?"
+                                    disabled={chatBusy}
+                                    style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: `1px solid #4ade8030`, background: "#0a1a0a", color: "#fff", fontSize: 9, outline: "none" }}
+                                  />
+                                  <button onClick={sendChat} disabled={chatBusy || !chatInput.trim()}
+                                    style={{ padding: "6px 10px", borderRadius: 6, border: "none", background: chatBusy || !chatInput.trim() ? "#2a2a40" : "#4ade80", color: "#000", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                                    {chatBusy ? "..." : "Send"}
+                                  </button>
+                                </div>
+                                {chatMsgs.length > 0 && (
+                                  <button onClick={() => setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [] }))}
+                                    style={{ marginTop: 4, padding: "2px 6px", borderRadius: 4, border: "none", background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>Clear chat</button>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* Expanded SceneImagePanel */}
                       {expandedSceneId === scene.sceneId && (
