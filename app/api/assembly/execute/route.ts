@@ -253,7 +253,32 @@ export async function POST(req: NextRequest) {
       .map(s => ({ ...s, sourceUrl: resolveMediaPath(s.sourceUrl) }))
       .filter(s => s.sourceUrl && fs.existsSync(s.sourceUrl));
 
-    const fullAssembly: AssemblyJSON = { ...finalAssembly, sfx: patchedSfx };
+    // ── Pre-flight: correct totalDuration via ffprobe on narration files ──────
+    // page.tsx sends totalDuration = sum(motionDuration) ≈ 30s when React
+    // narratorAudioDuration state reset to 0 after a hard page refresh.
+    // That makes prepare_music loop music to only 30s while narration is 3min.
+    // Fix: probe the actual narration audio BEFORE building the plan.
+    let fullAssembly: AssemblyJSON = { ...finalAssembly, sfx: patchedSfx };
+    {
+      const ffprobePath = env.ffmpegPath.replace(/ffmpeg(\.exe)?$/i, "ffprobe$1");
+      const longestNarr = patchedNarration.reduce((best: typeof patchedNarration[0] | null, n) =>
+        n.audioUrl && (!best || (n.endTime || 0) > (best.endTime || 0)) ? n : best,
+        null
+      );
+      if (longestNarr?.audioUrl && fs.existsSync(longestNarr.audioUrl)) {
+        try {
+          const { stdout } = await execFileAsync(ffprobePath,
+            ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", longestNarr.audioUrl],
+            { timeout: 8000 }
+          );
+          const realDur = parseFloat(stdout.trim());
+          if (realDur > 0 && realDur > fullAssembly.totalDuration) {
+            console.log(`[assembly] totalDuration corrected ${fullAssembly.totalDuration.toFixed(1)}s → ${realDur.toFixed(1)}s (ffprobe narration)`);
+            fullAssembly = { ...fullAssembly, totalDuration: realDur };
+          }
+        } catch { /* ffprobe unavailable — keep declared totalDuration */ }
+      }
+    }
 
     // ── Build FFmpeg execution plan ──
     const steps = buildAssemblyPlan(fullAssembly, outputDir);
@@ -296,8 +321,8 @@ export async function POST(req: NextRequest) {
         const hasMus = fs.existsSync(musicWav);
         const hasSfx = fs.existsSync(sfxWav);
         const duckLevel = fullAssembly.duckingRules?.musicDuckLevel ?? 0.08;
-        const totalDur = fullAssembly.totalDuration ||
-          fullAssembly.narration.reduce((mx, n) => Math.max(mx, n.endTime || 0), 0) || 60;
+        // totalDuration was already corrected by pre-flight ffprobe above
+        const totalDur = fullAssembly.totalDuration || 60;
         const finalOut = step.outputPath;
         let cmd: string[];
         // Always stream_loop the concat video to fill totalDuration — safety net for short clips.
