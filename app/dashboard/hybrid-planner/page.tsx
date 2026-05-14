@@ -10548,6 +10548,35 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </div>
                       );
                     })()}
+                    {/* ── Narration / Audio / Subtitle readiness status ── */}
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 4, marginBottom: 10 }}>
+                      {/* Narration status */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 8, background: narratorAudioUrl ? "#00cc4408" : "#ff950010", border: `1px solid ${narratorAudioUrl ? "#00cc4430" : "#ff950040"}` }}>
+                        <span style={{ fontSize: 13 }}>{narratorAudioUrl ? "✅" : "⚠️"}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: narratorAudioUrl ? "#00cc44" : "#ff9500" }}>
+                          {narratorAudioUrl
+                            ? `Narration ready${narratorAudioDuration > 0 ? ` · ${Math.round(narratorAudioDuration / 1000)}s` : ""}`
+                            : "No narration — will auto-generate before assembly (adds ~30s)"}
+                        </span>
+                        {narratorAudioUrl && (
+                          <span style={{ fontSize: 10, color: muted, marginLeft: "auto" }}>Step 4 ✓</span>
+                        )}
+                      </div>
+                      {/* Music status */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 8, background: selectedMusicUrl ? "#00cc4408" : "#ffffff06", border: `1px solid ${selectedMusicUrl ? "#00cc4430" : border}` }}>
+                        <span style={{ fontSize: 13 }}>{selectedMusicUrl ? "✅" : "➖"}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: selectedMusicUrl ? "#00cc44" : muted }}>
+                          {selectedMusicUrl ? `Music: ${selectedMusicName || "track selected"}` : "No background music selected (optional)"}
+                        </span>
+                      </div>
+                      {/* Subtitle status */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 8, background: subtitleStyle !== "none" ? "#00cc4408" : "#ffffff06", border: `1px solid ${subtitleStyle !== "none" ? "#00cc4430" : border}` }}>
+                        <span style={{ fontSize: 13 }}>{subtitleStyle !== "none" ? "✅" : "➖"}</span>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: subtitleStyle !== "none" ? "#00cc44" : muted }}>
+                          {subtitleStyle !== "none" ? `Subtitles: ${subtitleStyle}` : "Subtitles off"}
+                        </span>
+                      </div>
+                    </div>
                     <button
                       onClick={() => {
                         if (assemblyOrder.length > 0) {

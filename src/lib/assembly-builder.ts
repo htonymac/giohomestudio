@@ -160,8 +160,11 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
   const musicMix = path.join(outputDir, "music_mix.wav");
   if (musicStepBuilt) {
     finalInputs.push("-i", musicMix);
-    const duckLevel = assembly.duckingRules.musicDuckLevel;
-    audioFilters.push(`[${audioIdx}:a]volume=${duckLevel}[mus]`);
+    // Use user's chosen volume from assembly JSON (set via music volume slider in page.tsx).
+    // duckingRules.musicDuckLevel (0.08) was being used here — that's speech-ducking level,
+    // not background music level. Bug: music was stuck at 8% regardless of user slider.
+    const musicVol = assembly.music[0]?.volume ?? 0.3;
+    audioFilters.push(`[${audioIdx}:a]volume=${musicVol}[mus]`);
     audioIdx++;
   }
 

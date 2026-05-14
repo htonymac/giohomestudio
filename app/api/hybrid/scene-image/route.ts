@@ -18,6 +18,7 @@ import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getModelById } from "@/lib/generation/model-registry";
 import { env } from "@/config/env";
 import * as path from "path";
+import * as fs from "fs";
 
 export async function POST(req: NextRequest) {
   // Closure-scoped collector for unresolved character IDs (soft-skip).
@@ -320,7 +321,16 @@ export async function POST(req: NextRequest) {
       const refs = c.referenceImages as Array<{ url?: string; label?: string; tags?: string[] }>;
       return Array.isArray(refs) && refs.some(r => r?.label === "photo-import" || (r?.tags && Array.isArray(r.tags) && r.tags.includes("photo-import")));
     });
-    const outputPath = path.join(env.storagePath, "images", `scene_${sceneId || Date.now()}_${Date.now()}.png`);
+    // ── SCOPED IMAGE STORAGE (P1-A 2026-05-14) ──
+    // Save to /storage/scenes/{projectId}/{sceneId}/ so:
+    // - images never bleed between projects or scenes
+    // - local path returned as imageUrl (no CDN expiry)
+    // - execute route resolves directly, no re-download needed
+    const imgTs = Date.now();
+    const scopedDir = path.join(env.storagePath, "scenes", projectId || "unlinked", sceneId || "unknown");
+    fs.mkdirSync(scopedDir, { recursive: true });
+    const outputPath = path.join(scopedDir, `img_${imgTs}.png`);
+    const localImageUrl = `/storage/scenes/${projectId || "unlinked"}/${sceneId || "unknown"}/img_${imgTs}.png`;
 
     // Phase E.1: provider-health auto-fallback for image generation.
     // If the chosen model returns a 404/422/"model not found" error, we mark it broken,
@@ -391,7 +401,7 @@ export async function POST(req: NextRequest) {
             ],
           },
           data: {
-            generatedAssetUrl: result.imageUrl || result.imagePath || outputPath,
+            generatedAssetUrl: result.imagePath ? localImageUrl : (result.imageUrl || outputPath),
             draftState: "generated",
             status: "completed",
           },
@@ -416,9 +426,12 @@ export async function POST(req: NextRequest) {
       });
     } catch { /* best effort */ }
 
+    // Return local /storage/ URL as imageUrl — CDN URLs (FAL) expire within hours.
+    // page.tsx stores this as scene.imageUrl → flows into assembly segment sourceUrl.
+    // execute/route.ts resolveMediaPath() handles /storage/ prefix correctly.
     return NextResponse.json({
       success: true,
-      imageUrl: result.imageUrl,
+      imageUrl: result.imagePath ? localImageUrl : result.imageUrl,
       imagePath: result.imagePath || outputPath,
       prompt: structuredPrompt,
       model: result.model?.id,
