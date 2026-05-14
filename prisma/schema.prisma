@@ -964,6 +964,7 @@ model HybridScene {
   dialogueLines     DialogueLine[]
   audioPlan         AudioPlan?
   continuousMotion  Json?     // { enabled: boolean, targetSec: number } — per-scene override
+  flipOverride      Int?      // seconds per image for this scene; null = use ProjectSettings.imageFlipSeconds
 
   @@map("hybrid_scenes")
 }
@@ -1273,6 +1274,11 @@ model ProjectSettings {
   llmProvider         String   @default("auto")         // auto | ollama | openai | claude | grok
   // Identity
   faceLockEnabled     Boolean  @default(true)           // PuLID for photo-import characters
+  // Image Flip Time (Phase 2 2026-05-14)
+  // Controls how many seconds each image shows before cutting to the next in the assembled video.
+  // Drives narration-image-subtitle sync: narration text split into N chunks per scene,
+  // one chunk per image, each showing for imageFlipSeconds.
+  imageFlipSeconds    Int      @default(3)              // 1-10s; default 3s
   // Brand (white-label)
   brandLogoUrl        String?
   brandPrimaryColor   String?  @default("#a855f7")

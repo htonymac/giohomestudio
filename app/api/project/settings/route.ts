@@ -21,6 +21,7 @@ const DEFAULTS = {
   subtitleHighlight: "#34d399",
   llmProvider: "auto",
   faceLockEnabled: true,
+  imageFlipSeconds: 3,
   brandLogoUrl: null as string | null,
   brandPrimaryColor: "#a855f7",
   tenantId: null as string | null,
@@ -104,6 +105,7 @@ export async function PATCH(req: NextRequest) {
     "subtitleHighlight",
     "llmProvider",
     "faceLockEnabled",
+    "imageFlipSeconds",
     "brandLogoUrl",
     "brandPrimaryColor",
   ]);

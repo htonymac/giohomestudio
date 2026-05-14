@@ -131,6 +131,7 @@ interface HybridScene {
   audioPlan: AudioPlan;
   costEstimate: number;
   status: "draft" | "approved" | "blocked" | "generating" | "generated";
+  flipOverride?: number | null;  // seconds per image for this scene; null = use project imageFlipSeconds
 }
 
 const SCENE_TYPES = [
@@ -624,6 +625,8 @@ function HybridPlannerInner() {
   const effectiveImageModelId      = projectSettings.imageModelVersion && projectSettings.imageModelVersion !== "auto" ? projectSettings.imageModelVersion : selectedImageModelId;
   const effectiveLanguage          = projectSettings.language ?? language;
   const effectiveLlmProvider       = projectSettings.llmProvider ?? aiChatProvider;
+  // Image Flip Time — seconds each image shows before cutting to next (Phase 2 2026-05-14)
+  const effectiveFlipSeconds       = projectSettings.imageFlipSeconds ?? 3;
 
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
@@ -3310,25 +3313,20 @@ function HybridPlannerInner() {
           ? Math.max(textFraction * masterDurForSegs, 2)  // minimum 2s per segment
           : (s.motionDuration || s.duration || 5);
 
-        // ── Gen Max beat expansion (OPT-IN) ─────────────────────────────────
-        // Default: scene contributes ONE image (scene.imageUrl) — original behavior.
-        // When the user clicks "Use Max Image (N)" on this scene's Assembly row,
-        // sceneId is added to useMaxImageScenes. Only THEN do we expand into multi-segment.
-        // This preserves existing single-image behavior for scenes the user hasn't opted into.
+        // ── Beat image expansion (P2-C: auto-expand all scenes with 2+ images) ──────────────
+        // P2-C 2026-05-14: removed userOptedIntoMax opt-in gate.
+        // Any scene with 2+ images now auto-expands. Each image gets sceneFlipSec seconds.
+        // sceneFlipSec = scene.flipOverride ?? projectSettings.imageFlipSeconds (default 3s).
         //
-        //   allBeatImgs    = every beat image we generated for this scene
-        //   beatChecks     = user's checkbox state — undefined means "not yet decided" → treat as ON
-        //   tickedBeats    = the subset that will actually appear in the assembled video
-        //   userOptedIntoMax = whether the user opted-in via the "Use Max Image" button
+        //   allBeatImgs  = Gen Max beats first, then variant pool
+        //   beatChecks   = user's checkbox state; undefined = treat as ON
+        //   tickedBeats  = images that will appear in assembled video
         //
-        // Edge cases handled below:
-        //   - not opted-in    → always one image (scene.imageUrl)
-        //   - opted-in, 0 ticked → fall back to scene.imageUrl (single image)
-        //   - opted-in, 1 ticked → use that single beat image
-        //   - opted-in, 2+ ticked → multi-segment expansion
-        // Multi-image source: prefer Gen Max beats (different action moments).
-        // Fall back to current image (sceneImages map) + prevSceneImages variants.
-        // Both work as multi-image fodder for "spread across N small boxes" assembly.
+        // Edge cases:
+        //   - 0 ticked → fall back to scene.imageUrl (single image)
+        //   - 1 ticked → single-segment at sceneFlipSec
+        //   - 2+ ticked → multi-segment, each sceneFlipSec long
+        const sceneFlipSec = Math.max(1, (s as {flipOverride?: number | null}).flipOverride ?? effectiveFlipSeconds);
         const genMaxBeats = s.sceneId ? sceneBeatImages[s.sceneId] : null;
         const variantPool = s.sceneId
           ? [sceneImages[s.sceneId], ...(prevSceneImages[s.sceneId] || [])].filter((u): u is string => !!u)
@@ -3340,31 +3338,30 @@ function HybridPlannerInner() {
         const tickedBeats = allBeatImgs
           ? allBeatImgs.filter((_, bi) => beatChecks?.[bi] !== false)
           : [];
-        const userOptedIntoMax = s.sceneId ? useMaxImageScenes.has(s.sceneId) : false;
-        if (!s.videoUrl && userOptedIntoMax && tickedBeats.length > 1) {
-          const beatDur = Math.max(sceneDur / tickedBeats.length, 2);
+        if (!s.videoUrl && tickedBeats.length > 1) {
+          // Multi-image path: each image gets sceneFlipSec seconds exactly
           for (let bi = 0; bi < tickedBeats.length; bi++) {
             assemblySegments.push({
               id: `seg_${segIdx++}`,
               type: "image",
               sourceUrl: tickedBeats[bi],
               startTime: segCursor,
-              endTime: segCursor + beatDur,
-              duration: beatDur,
+              endTime: segCursor + sceneFlipSec,
+              duration: sceneFlipSec,
               sceneId: s.sceneId!,
               transitionIn: assemblySegments.length === 0 ? "fade" : "cut",
               transitionOut: "cut",
             });
-            segCursor += beatDur;
+            segCursor += sceneFlipSec;
           }
         } else {
           // Single-image / video path. Source priority:
-          //   1. user opted into Max + exactly one beat ticked → use that beat
-          //   2. scene's primary imageUrl → use that
-          //   3. allBeatImgs[0] only as last-resort fallback when scene has no primary image
-          // If user did NOT opt into Max Image, always use scene.imageUrl (one image per scene).
+          //   1. beat image if exactly one ticked
+          //   2. scene's primary imageUrl
+          //   3. allBeatImgs[0] as last-resort fallback
+          const singleDur = s.videoUrl ? sceneDur : sceneFlipSec;
           const singleSrc = s.videoUrl
-            || (userOptedIntoMax && tickedBeats.length === 1 ? tickedBeats[0] : "")
+            || (tickedBeats.length === 1 ? tickedBeats[0] : "")
             || s.imageUrl
             || (allBeatImgs && allBeatImgs.length > 0 ? allBeatImgs[0] : "")
             || "";
@@ -3373,13 +3370,13 @@ function HybridPlannerInner() {
             type: s.videoUrl ? "video" : "image",
             sourceUrl: singleSrc,
             startTime: segCursor,
-            endTime: segCursor + sceneDur,
-            duration: sceneDur,
+            endTime: segCursor + singleDur,
+            duration: singleDur,
             sceneId: s.sceneId || `SC${String(si + 1).padStart(2, "0")}`,
             transitionIn: si === 0 ? "fade" : "cut",
             transitionOut: "cut",
           });
-          segCursor += sceneDur;
+          segCursor += singleDur;
         }
       }
 
@@ -6564,6 +6561,38 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   })}
                                 </div>
                               </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Per-scene flip override ── */}
+                      {(() => {
+                        const sceneFlip = scene.flipOverride ?? null;
+                        const displayFlip = sceneFlip ?? effectiveFlipSeconds;
+                        const isOverridden = sceneFlip !== null && sceneFlip !== undefined;
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, padding: "4px 8px", borderRadius: 6, background: isOverridden ? "#a855f710" : "transparent", border: `1px solid ${isOverridden ? "#a855f740" : border}` }}>
+                            <span style={{ fontSize: 8, color: isOverridden ? accent : muted, fontWeight: 700, whiteSpace: "nowrap" as const }}>flip:</span>
+                            <input
+                              type="number" min={1} max={30} value={displayFlip}
+                              onChange={e => {
+                                const v = Math.max(1, Math.min(30, Number(e.target.value) || effectiveFlipSeconds));
+                                setScenes(prev => prev.map(s => s.sceneId === scene.sceneId ? { ...s, flipOverride: v } : s));
+                              }}
+                              style={{ width: 36, padding: "2px 4px", borderRadius: 4, border: `1px solid ${isOverridden ? "#a855f740" : border}`, background: "#1a1a2e", color: isOverridden ? accent : muted, fontSize: 9, textAlign: "center" as const }}
+                            />
+                            <span style={{ fontSize: 8, color: muted }}>s</span>
+                            {isOverridden && (
+                              <button
+                                onClick={() => setScenes(prev => prev.map(s => s.sceneId === scene.sceneId ? { ...s, flipOverride: null } : s))}
+                                title="Reset to project default"
+                                style={{ padding: "1px 5px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                                reset
+                              </button>
+                            )}
+                            {!isOverridden && (
+                              <span style={{ fontSize: 8, color: muted }}>↑ project default</span>
                             )}
                           </div>
                         );
@@ -10576,6 +10605,87 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           {subtitleStyle !== "none" ? `Subtitles: ${subtitleStyle}` : "Subtitles off"}
                         </span>
                       </div>
+                    </div>
+                    {/* ── Image Flip Time panel — prominent, above Assemble button ── */}
+                    <div style={{ padding: "12px 14px", borderRadius: 10, background: "#a855f708", border: "1px solid #a855f730", marginBottom: 10 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: accent, margin: 0 }}>
+                          🖼 Image Flip Time — each image shows for {effectiveFlipSeconds}s
+                        </p>
+                        <span style={{ fontSize: 9, color: muted }}>saved to project</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>
+                        {[1, 2, 3, 5, 8].map(s => (
+                          <button key={s}
+                            onClick={() => patchProjectSettings({ imageFlipSeconds: s })}
+                            style={{
+                              padding: "5px 12px", borderRadius: 6,
+                              border: `1px solid ${effectiveFlipSeconds === s ? accent : border}`,
+                              background: effectiveFlipSeconds === s ? accent : "transparent",
+                              color: effectiveFlipSeconds === s ? "#fff" : muted,
+                              fontSize: 10, fontWeight: 700, cursor: "pointer",
+                            }}>
+                            {s}s{s === 1 ? " fast" : s === 3 ? " default" : s === 5 ? " cinematic" : ""}
+                          </button>
+                        ))}
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 4 }}>
+                          <span style={{ fontSize: 10, color: muted }}>custom:</span>
+                          <input
+                            type="number" min={1} max={30} value={effectiveFlipSeconds}
+                            onChange={e => {
+                              const v = Math.max(1, Math.min(30, Number(e.target.value) || 3));
+                              patchProjectSettings({ imageFlipSeconds: v });
+                            }}
+                            style={{ width: 44, padding: "4px 6px", borderRadius: 6, border: `1px solid ${border}`, background: "#1a1a2e", color: "#fff", fontSize: 10, textAlign: "center" as const }}
+                          />
+                          <span style={{ fontSize: 10, color: muted }}>s</span>
+                        </label>
+                      </div>
+                      {/* Live segment count preview */}
+                      {(() => {
+                        const imageScenesCount = selectedSceneIds.filter(sid => {
+                          const s = scenes.find(sc => sc.sceneId === sid);
+                          if (!s) return false;
+                          const hasVideo = !!sceneVideos[sid];
+                          return !hasVideo;
+                        }).length;
+                        if (imageScenesCount === 0) return null;
+                        const avgImages = (() => {
+                          let total = 0;
+                          let count = 0;
+                          for (const sid of selectedSceneIds) {
+                            const beats = sceneBeatImages[sid];
+                            const isMaxOn = useMaxImageScenes.has(sid);
+                            if (isMaxOn && beats && beats.length > 1) {
+                              const ticked = (selectedBeatImages[sid] || []).filter(Boolean).length;
+                              total += ticked || 1;
+                            } else {
+                              total += 1;
+                            }
+                            count++;
+                          }
+                          return count > 0 ? (total / count).toFixed(1) : "1";
+                        })();
+                        const totalImgSegments = (() => {
+                          let t = 0;
+                          for (const sid of selectedSceneIds) {
+                            const beats = sceneBeatImages[sid];
+                            const isMaxOn = useMaxImageScenes.has(sid);
+                            if (isMaxOn && beats && beats.length > 1) {
+                              t += (selectedBeatImages[sid] || []).filter(Boolean).length || 1;
+                            } else {
+                              t += 1;
+                            }
+                          }
+                          return t;
+                        })();
+                        const estDur = totalImgSegments * effectiveFlipSeconds;
+                        return (
+                          <p style={{ fontSize: 9, color: muted, margin: "6px 0 0" }}>
+                            {selectedSceneIds.length} scenes · avg {avgImages} images/scene · ~{estDur}s total image duration
+                          </p>
+                        );
+                      })()}
                     </div>
                     <button
                       onClick={() => {

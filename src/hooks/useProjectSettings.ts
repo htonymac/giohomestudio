@@ -33,6 +33,8 @@ export interface ProjectSettingsData {
   llmProvider: string;
   // Identity
   faceLockEnabled: boolean;
+  // Image Flip Time
+  imageFlipSeconds: number;
   // Brand
   brandLogoUrl: string | null;
   brandPrimaryColor: string | null;
@@ -61,6 +63,7 @@ export const PROJECT_SETTINGS_DEFAULTS: Omit<
   subtitleHighlight: "#34d399",
   llmProvider: "auto",
   faceLockEnabled: true,
+  imageFlipSeconds: 3,
   brandLogoUrl: null,
   brandPrimaryColor: "#a855f7",
   createdAt: null,
