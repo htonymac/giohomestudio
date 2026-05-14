@@ -15,13 +15,14 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import { safeJson } from "../../../lib/api-utils";
-import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
+import { GHS_SOUND_TIERS, getSoundTier, soundTierToMCDConfig, type GhsSoundTierId } from "@/lib/ghs-sound-tiers";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { useGate } from "../../components/PreGenerationGate";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -175,6 +176,20 @@ const SOUND_TIERS_MOVIE = [
   { id: "kie_premium",    label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      cost: "Highest", providerKey: "kie" },
 ] as const;
 type SoundTierMovieId = typeof SOUND_TIERS_MOVIE[number]["id"];
+
+// ── MCD-TIER: Map old SOUND_TIERS_MOVIE ids → canonical GhsSoundTierId ──
+// Old ids existed before ghs-sound-tiers.ts was locked. Both live in
+// the codebase — this bridge lets us call getSoundTier() from SOUND_TIERS_MOVIE
+// without touching the existing tier state machine.
+function movieTierToGhsSoundTierId(id: SoundTierMovieId): GhsSoundTierId {
+  switch (id) {
+    case "piper":       return "ghs-sound";
+    case "ghs_karaoke": return "ghs-plus";
+    case "fal_karaoke": return "ghs-pro";
+    case "kie_classic": return "ghs-premium";
+    case "kie_premium": return "ghs-premium";
+  }
+}
 
 // ── Workshop Tab Definitions ────────────────────────────────────────────
 
@@ -337,9 +352,16 @@ function MoviePlannerInner() {
   // ── Sound tier & model settings (SD) ──
   const [soundTier, setSoundTier] = useState<SoundTierMovieId>("piper");
   const [musicTier, setMusicTier] = useState<"stock" | "ghs_pro" | "ghs_classic">("stock");
+  // ── MCD-TIER: which tier ⓘ popover is open (null = all closed) ──
+  const [openTierInfo, setOpenTierInfo] = useState<SoundTierMovieId | null>(null);
   // ── SC: per-cast voice assignments & per-line generation ──
   const [castVoiceMap, setCastVoiceMap] = useState<Record<string, string>>({});
   const [generatingPerLineVoices, setGeneratingPerLineVoices] = useState(false);
+  // Phase 1 multi-cast dialogue: per-scene assembled dialogue audio URL (one per scene number).
+  // Result of /api/dialogue/generate — single concat clip with all speaker lines + pacing.
+  const [sceneDialogueAudio, setSceneDialogueAudio] = useState<Record<number, string>>({});
+  // Phase 3 lip-sync: which scenes are currently running lip-sync (so the button shows progress).
+  const [lipsyncingScenes, setLipsyncingScenes] = useState<Set<number>>(new Set());
   const [musicGenerating, setMusicGenerating] = useState(false);
   const [modelSettings, setModelSettings] = useState({
     storyLLM: "claude-haiku-4-5",
@@ -507,6 +529,35 @@ function MoviePlannerInner() {
 
   // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
   const urlProjectId = searchParams.get("projectId");
+
+  // ── Phase C.1: Project settings hook — reads from DB, patches asynchronously ──
+  const {
+    settings: projectSettings,
+    patch: patchProjectSettings,
+  } = useProjectSettings(urlProjectId || null);
+
+  // ── Phase C.1: Effective shims — hook value wins when loaded, local state is fallback ──
+  const effectiveProjectStyle = projectSettings.visualStyle ?? projectStyle;
+  const effectiveLanguage = projectSettings.language ?? language;
+  const effectiveSoundTier = (projectSettings.soundTier ?? soundTier) as typeof soundTier;
+  const effectiveNarrationProvider = (projectSettings.narrationProvider ?? narrationProvider) as typeof narrationProvider;
+  const effectiveVideoModelId = projectSettings.imageModelVersion !== "auto"
+    ? (projectSettings.videoModelVersion ?? selectedVideoModelId)
+    : selectedVideoModelId;
+  // Note: imageModelVersion "auto" falls back to local. Treat non-auto as a pinned version.
+  const effectiveImageModelId = projectSettings.imageModelVersion !== "auto"
+    ? (projectSettings.imageModelVersion ?? selectedImageModelId)
+    : selectedImageModelId;
+  // SubtitleConfig: build from hook fields, spread over local config for non-migrated fields
+  const effectiveSubtitleConfig: typeof subtitleConfig = projectSettings
+    ? {
+        ...subtitleConfig,
+        // subtitleMode from DB maps to SubtitleStyler's `mode` — best-effort passthrough
+        mode: (projectSettings.subtitleMode as typeof subtitleConfig.mode) ?? subtitleConfig.mode,
+        highlightColor: projectSettings.subtitleHighlight ?? subtitleConfig.highlightColor,
+      }
+    : subtitleConfig;
+
   // BUG-15 pattern: guard while restoring from DB
   const isRestoringRef = useRef(true);
   const activeProjectIdRef = useRef<string>("");
@@ -827,7 +878,7 @@ function MoviePlannerInner() {
           sceneId, projectId, sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
-          projectStyle: sceneStyles[sceneId] || projectStyle,
+          projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
         }),
       });
       const data = await res.json();
@@ -939,7 +990,7 @@ function MoviePlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: `${scene.visualDescription}. Camera: ${scene.cameraDirection}. Style: ${genre} ${style}. Mood: ${tone}. Setting: ${setting}.`,
-          model: selectedVideoModelId,
+          model: effectiveVideoModelId,
           aspectRatio: "16:9",
         }),
       });
@@ -974,7 +1025,7 @@ function MoviePlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           idea, expandedStory, genre, style, format, productionMode,
-          planningDepth, tone, setting, language,
+          planningDepth, tone, setting, language: effectiveLanguage,
           storyAiProvider,
           characters: castForAI,
         }),
@@ -1056,7 +1107,7 @@ function MoviePlannerInner() {
           storyInput: storyInputWithStyle,
           genre: genre || undefined,
           tone: tone || undefined,
-          language,
+          language: effectiveLanguage,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
           styleHint: style || undefined,
@@ -1337,7 +1388,7 @@ function MoviePlannerInner() {
     setMusicGenerating(true);
     try {
       // Resolve providerKey from the selected SOUND_TIERS_MOVIE entry
-      const activeTier = SOUND_TIERS_MOVIE.find(t => t.id === soundTier);
+      const activeTier = SOUND_TIERS_MOVIE.find(t => t.id === effectiveSoundTier);
       const resolvedProviderKey = activeTier?.providerKey ?? "stock";
       const res = await fetch("/api/music/generate", {
         method: "POST",
@@ -1493,7 +1544,7 @@ function MoviePlannerInner() {
         body: JSON.stringify({
           projectType: "movie",
           scenes: sceneList,
-          audioConfig: { narrationProvider: narrationProvider, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          audioConfig: { narrationProvider: effectiveNarrationProvider, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
           characters: charList,
         }),
       });
@@ -1646,7 +1697,7 @@ function MoviePlannerInner() {
           narrationVolume: 1.0,
           sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
           characterVoices: characterVoices.length > 0 ? characterVoices : undefined,
-          subtitleConfig,
+          subtitleConfig: effectiveSubtitleConfig,
           introUrl: introUrl || undefined,
           outroUrl: outroUrl || undefined,
         }),
@@ -1815,15 +1866,15 @@ function MoviePlannerInner() {
   async function generateSceneNarration(scene: SceneCard) {
     const text = scene.dialogue;
     if (!text?.trim()) { setErrorMsg(`Scene ${scene.scene} has no narration text. Add text first.`); return; }
-    setLastAction(`Generating narration audio for Scene ${scene.scene} via ${narrationProvider}...`);
+    setLastAction(`Generating narration audio for Scene ${scene.scene} via ${effectiveNarrationProvider}...`);
     try {
       // Route to /api/tts for cloud providers, narrate-piper for local
-      const endpoint = (narrationProvider === "fal-narrator" || narrationProvider === "elevenlabs")
+      const endpoint = (effectiveNarrationProvider === "fal-narrator" || effectiveNarrationProvider === "elevenlabs")
         ? "/api/tts"
         : "/api/hybrid/narrate-piper";
-      const payload = (narrationProvider === "fal-narrator" || narrationProvider === "elevenlabs")
-        ? { text, provider: narrationProvider, speed: 0.85 }
-        : { text, sceneId: `SC${String(scene.scene).padStart(2, "0")}`, model: "en_US-lessac-medium", speed: 0.85, provider: narrationProvider };
+      const payload = (effectiveNarrationProvider === "fal-narrator" || effectiveNarrationProvider === "elevenlabs")
+        ? { text, provider: effectiveNarrationProvider, speed: 0.85 }
+        : { text, sceneId: `SC${String(scene.scene).padStart(2, "0")}`, model: "en_US-lessac-medium", speed: 0.85, provider: effectiveNarrationProvider };
       const res = await fetch(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -2020,7 +2071,7 @@ function MoviePlannerInner() {
         const bestMatch = filteredModels.find(m => m.id === adviser.bestId) ?? filteredModels[filteredModels.length-1];
         const networkColor: Record<string,string> = { Segmind:"#22c55e", MuAPI:"#38bdf8", FAL:"#a78bfa", Runway:"#e879f9", Kling:"#f59e0b" };
         const isVideo = aidMode === "video";
-        const activeModelId = isVideo ? selectedVideoModelId : selectedImageModelId;
+        const activeModelId = isVideo ? effectiveVideoModelId : effectiveImageModelId;
         return (
           <div onClick={() => setShowAidPicker(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:9998, display:"flex", alignItems:"center", justifyContent:"center" }}>
             <div onClick={e => e.stopPropagation()} style={{ background:"#0d0d20", border:"1px solid #3b2f6e", borderRadius:16, width:500, maxWidth:"96vw", maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 0 60px rgba(100,50,200,0.4)" }}>
@@ -2086,12 +2137,12 @@ function MoviePlannerInner() {
                 {isVideo ? filteredModels.map((m, idx) => {
                   const isCheapest = m.id === cheapestMatch?.id;
                   const isBest = m.id === bestMatch?.id;
-                  const isSelected = selectedVideoModelId === m.id;
+                  const isSelected = effectiveVideoModelId === m.id;
                   const styleScore = aidStyle === "all" ? null : m.scores[aidStyle as Exclude<StyleKey,"all">];
                   const styleTag = aidStyle==="2d"?m.tags2d:aidStyle==="3d"?m.tags3d:aidStyle==="cartoon"?m.tagCartoon:aidStyle==="realistic"?m.tagRealistic:undefined;
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:isBest?`1px solid ${m.color}60`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:isBest?`${m.color}08`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -2114,12 +2165,12 @@ function MoviePlannerInner() {
                     </div>
                   );
                 }) : IMAGE_MODELS_AID.map((m, idx) => {
-                  const isSelected = selectedImageModelId === m.id;
+                  const isSelected = effectiveImageModelId === m.id;
                   const isCheapest = m.id === "fal_flux_schnell";
                   const isBest = m.id === "fal_flux_pro_ultra";
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); patchProjectSettings({ imageModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -2426,7 +2477,7 @@ function MoviePlannerInner() {
                 <div>
                   <p style={{ ...labelStyle }}>Sound/SFX</p>
                   {SOUND_TIERS_MOVIE.map(tier => (
-                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
                       style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.soundModel === tier.id ? green : border}`, background: modelSettings.soundModel === tier.id ? `${green}12` : "transparent", color: modelSettings.soundModel === tier.id ? green : "#fff", fontSize: 10, cursor: "pointer" }}>
                       <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
                     </button>
@@ -2497,7 +2548,7 @@ function MoviePlannerInner() {
               </div>
               <div>
                 <label style={{ ...labelStyle, fontSize: 9 }}>Language</label>
-                <select value={language} onChange={e => setLanguage(e.target.value)} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
+                <select value={effectiveLanguage} onChange={e => { setLanguage(e.target.value); patchProjectSettings({ language: e.target.value }).catch(() => {}); }} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
                   {["English (US)", "English (UK)", "English (AU)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Mandarin", "Swahili", "German", "Italian", "Japanese", "Korean", "Russian", "Turkish", "Dutch", "Mixed"].map(l => (
                     <option key={l} value={l} style={{ background: surface }}>{l}</option>
                   ))}
@@ -2827,9 +2878,9 @@ function MoviePlannerInner() {
                   { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia",   desc: "Japanese animation style. Big expressive eyes." },
                   { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e", example: "Like: children's picture books, Peppa Pig",    desc: "Soft, warm and painterly. Gentle and cozy." },
                 ].map(s => {
-                  const isSel = projectStyle === s.id;
+                  const isSel = effectiveProjectStyle === s.id;
                   return (
-                    <div key={s.id} onClick={() => { setProjectStyle(s.id); setLastAction(`Art style: ${s.name}`); }}
+                    <div key={s.id} onClick={() => { setProjectStyle(s.id); patchProjectSettings({ visualStyle: s.id }).catch(() => {}); setLastAction(`Art style: ${s.name}`); }}
                       style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: "pointer", border: `1px solid ${isSel ? s.color : border}`, background: isSel ? `${s.color}10` : "transparent" }}>
                       <span style={{ fontSize: 11, fontWeight: 800, color: s.color, minWidth: 26, flexShrink: 0 }}>{s.icon}</span>
                       <div style={{ flex: 1 }}>
@@ -3173,11 +3224,11 @@ function MoviePlannerInner() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                     style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                    Video Model: <span style={{ color: "#fff" }}>{effectiveVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
                   </button>
                   <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                     style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                    Image Model: <span style={{ color: "#fff" }}>{effectiveImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
                   </button>
                 </div>
               </div>
@@ -3311,7 +3362,7 @@ function MoviePlannerInner() {
                       {/* Action buttons row 1 */}
                       <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                         <select
-                          value={sceneStyles[sceneId] || projectStyle || "realistic"}
+                          value={sceneStyles[sceneId] || effectiveProjectStyle || "realistic"}
                           onChange={e => setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value }))}
                           title="Override style for this scene"
                           style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
@@ -3599,14 +3650,16 @@ function MoviePlannerInner() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
               {GHS_SOUND_TIERS.map((tier) => {
                 const tierColor = tier.id === "ghs-sound" ? accent : tier.id === "ghs-plus" ? blue : tier.id === "ghs-pro" ? purple : gold;
-                const isSelected = narrationProvider === tier.provider || (tier.id === "ghs-sound" && narrationProvider === "piper");
+                const isSelected = effectiveNarrationProvider === tier.provider || (tier.id === "ghs-sound" && effectiveNarrationProvider === "piper");
                 return (
                   <button key={tier.id} onClick={() => {
                     // Map tier to narration provider
                     const provMap: Record<string, "piper" | "fal-narrator" | "elevenlabs" | "karaoke"> = {
                       "ghs-sound": "piper", "ghs-plus": "karaoke", "ghs-pro": "karaoke", "ghs-premium": "karaoke",
                     };
-                    setNarrationProvider(provMap[tier.id] ?? "piper");
+                    const resolvedProvider = provMap[tier.id] ?? "piper";
+                    setNarrationProvider(resolvedProvider);
+                    patchProjectSettings({ narrationProvider: resolvedProvider }).catch(() => {});
                     setLastAction(`Sound tier: ${tier.label}`);
                   }}
                     style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-start", gap: 3, padding: "10px 12px", borderRadius: 10, border: `2px solid ${isSelected ? tierColor : border}`, background: isSelected ? `${tierColor}10` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
@@ -3627,36 +3680,197 @@ function MoviePlannerInner() {
                   <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Character Voices</p>
                   <p style={{ fontSize: 10, color: muted }}>Assign ElevenLabs voice ID per cast member for per-line dialogue generation.</p>
                 </div>
-                <button
-                  onClick={async () => {
-                    setGeneratingPerLineVoices(true);
-                    setLastAction("Generating per-line voices for all cast...");
-                    try {
-                      for (const sc of selectedCast) {
-                        const char = savedCharacters.find(c => c.id === sc.characterId);
-                        if (!char) continue;
-                        const voiceId = castVoiceMap[sc.characterId] || char.characterId || "";
-                        const lines = scenes.flatMap(s => s.dialogue ? [{ sceneId: `SC${String(s.scene).padStart(2, "0")}`, text: s.dialogue, speaker: char.name }] : []);
-                        if (lines.length === 0 || !voiceId) continue;
-                        // Fire narration for each scene line attributed to this character
-                        for (const line of lines) {
-                          await fetch("/api/hybrid/narrate-piper", {
-                            method: "POST", headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ text: line.text, voiceProvider: narrationProvider, voiceId, sceneId: line.sceneId, projectId }),
-                          }).catch(() => {});
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                  {/* Legacy button — kept for single-voice fallback. Not as good as Multi-Cast above. */}
+                  <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 2 }}>
+                  <button
+                    onClick={async () => {
+                      setGeneratingPerLineVoices(true);
+                      setLastAction("Generating per-line voices for all cast...");
+                      try {
+                        for (const sc of selectedCast) {
+                          const char = savedCharacters.find(c => c.id === sc.characterId);
+                          if (!char) continue;
+                          const voiceId = castVoiceMap[sc.characterId] || char.characterId || "";
+                          const lines = scenes.flatMap(s => s.dialogue ? [{ sceneId: `SC${String(s.scene).padStart(2, "0")}`, text: s.dialogue, speaker: char.name }] : []);
+                          if (lines.length === 0 || !voiceId) continue;
+                          for (const line of lines) {
+                            await fetch("/api/hybrid/narrate-piper", {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ text: line.text, voiceProvider: effectiveNarrationProvider, voiceId, sceneId: line.sceneId, projectId }),
+                            }).catch(() => {});
+                          }
                         }
+                        setLastAction("Per-line voices generated for all cast");
+                      } catch (err) {
+                        setLastAction(`Per-line voice gen failed: ${err instanceof Error ? err.message : "Unknown"}`);
+                      } finally {
+                        setGeneratingPerLineVoices(false);
                       }
-                      setLastAction("Per-line voices generated for all cast");
-                    } catch (err) {
-                      setLastAction(`Per-line voice gen failed: ${err instanceof Error ? err.message : "Unknown"}`);
-                    } finally {
-                      setGeneratingPerLineVoices(false);
-                    }
-                  }}
-                  disabled={generatingPerLineVoices}
-                  style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: generatingPerLineVoices ? "#2a2040" : `linear-gradient(135deg, ${blue}, #2563eb)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: generatingPerLineVoices ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                  {generatingPerLineVoices ? "Generating..." : "Generate Per-Line Voices"}
-                </button>
+                    }}
+                    disabled={generatingPerLineVoices}
+                    title="Old single-voice path — generates each scene's full dialogue blob through one voice per cast. Use Multi-Cast below for proper character voices."
+                    style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, fontWeight: 600, cursor: generatingPerLineVoices ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: 0.7 }}>
+                    {generatingPerLineVoices ? "Generating..." : "Generate Per-Line Voices (legacy)"}
+                  </button>
+                  <span style={{ fontSize: 8, color: muted, opacity: 0.6, textAlign: "right" as const, maxWidth: 160 }}>Old single-voice path. Replaced by Multi-Cast above for proper character voices.</span>
+                  </div>
+                  {/* Multi-Cast Dialogue (Phase 1, 2026-05-08):
+                      For every scene with dialogue text, this:
+                        1. Calls /api/dialogue/parse to split the blob into speaker-tagged lines.
+                           Known cast names are passed so the parser uses real names instead of
+                           generic "Cast 1 / Cast 2".
+                        2. Maps each tagged speaker → their assigned ElevenLabs voiceId via castVoiceMap.
+                        3. Calls /api/dialogue/generate which:
+                              a. Generates each line via /api/tts (with auto-emotion + the right voice)
+                              b. Concats with per-speaker pacing (80ms same-speaker, 220ms turn-take, 450ms scene-break)
+                              c. Returns a single dialogue audio file per scene.
+                      Result is stored in sceneDialogueAudio[sceneNumber] for playback / assembly. */}
+                  {(() => {
+                    // ── MCD-TIER: resolve MCD config from active tier ──
+                    const _mcdTierId = movieTierToGhsSoundTierId(effectiveSoundTier);
+                    const _mcdCfg = soundTierToMCDConfig(_mcdTierId);
+                    const _mcdLabel = `${_mcdCfg.label}, ${_mcdCfg.estCostPer100s}/100s`;
+                    return (
+                  <button
+                    onClick={async () => {
+                      setGeneratingPerLineVoices(true);
+                      setLastAction("Multi-cast dialogue: parsing and generating...");
+                      // ── MCD-TIER: resolve config once before loop ──
+                      const mcdTierId = movieTierToGhsSoundTierId(effectiveSoundTier);
+                      const mcdCfg = soundTierToMCDConfig(mcdTierId);
+                      const knownSpeakers = selectedCast
+                        .map(sc => savedCharacters.find(c => c.id === sc.characterId)?.name)
+                        .filter((n): n is string => !!n);
+                      // Track newly generated audio for auto-lipsync pass
+                      const newlyGeneratedDialogue: Array<{ sceneNum: number; sceneId: string; audioUrl: string }> = [];
+                      try {
+                        let scenesDone = 0;
+                        for (const s of scenes) {
+                          if (!s.dialogue?.trim()) continue;
+                          // Parse speaker-tagged lines
+                          const parseRes = await fetch("/api/dialogue/parse", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              text: s.dialogue,
+                              knownSpeakers,
+                              provider: "auto",
+                            }),
+                          });
+                          const parseData = await parseRes.json() as { ok?: boolean; lines?: Array<{ speakerId: string; text: string; emotion?: string }>; error?: string };
+                          if (!parseData.ok || !Array.isArray(parseData.lines) || parseData.lines.length === 0) {
+                            console.warn(`[multi-cast] parse failed for scene ${s.scene}:`, parseData.error);
+                            continue;
+                          }
+                          // Map speaker → voiceId.
+                          // 2026-05-09 voice-swap fix: normalize names before comparing.
+                          // Models sometimes return "Bryan ", "BRYAN", or "bryan." — all should match
+                          // the same cast member. Use trim() + lowercase + strip punctuation on both sides.
+                          // Also handle: speakerId might equal "Cast 1" / "Cast 2" generic labels — map
+                          // those to selectedCast[0] / [1] in order.
+                          const norm = (s: string) => s.trim().toLowerCase().replace(/[^\p{L}\d]/gu, "");
+                          const lines = parseData.lines.map((l, lineIdx) => {
+                            const target = norm(l.speakerId);
+                            // Generic Cast N label?
+                            const genericMatch = target.match(/^cast(\d+)$/);
+                            let matchedCast = null;
+                            if (genericMatch) {
+                              const idx = Math.max(0, parseInt(genericMatch[1]) - 1);
+                              matchedCast = selectedCast[idx] || selectedCast[0];
+                            } else {
+                              matchedCast = selectedCast.find(sc => {
+                                const c = savedCharacters.find(ch => ch.id === sc.characterId);
+                                return c?.name && norm(c.name) === target;
+                              }) || null;
+                            }
+                            // Last-resort: alternate by line index. Better than always defaulting to cast[0]
+                            // (which made every line use the same voice when names didn't match).
+                            if (!matchedCast) {
+                              matchedCast = selectedCast[lineIdx % selectedCast.length] || selectedCast[0];
+                            }
+                            const voiceId = matchedCast ? (castVoiceMap[matchedCast.characterId] || "") : "";
+                            return {
+                              speakerId: l.speakerId,
+                              voiceId: voiceId || undefined,
+                              text: l.text,
+                              ...(l.emotion ? { emotion: l.emotion } : {}),
+                            };
+                          });
+                          if (lines.every(l => !l.voiceId)) {
+                            setLastAction(`Scene ${s.scene} skipped — no voiceIds set on cast`);
+                            continue;
+                          }
+                          // Generate — use tier's ttsProvider, not the narration provider selector
+                          const genRes = await fetch("/api/dialogue/generate", {
+                            method: "POST", headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              lines,
+                              provider: mcdCfg.ttsProvider,  // tier-driven override
+                              sceneIdHint: `SC${String(s.scene).padStart(2, "0")}`,
+                            }),
+                          });
+                          const genData = await genRes.json() as { ok?: boolean; audioUrl?: string; durationMs?: number; error?: string };
+                          if (genData.ok && genData.audioUrl) {
+                            setSceneDialogueAudio(prev => ({ ...prev, [s.scene]: genData.audioUrl! }));
+                            newlyGeneratedDialogue.push({ sceneNum: s.scene, sceneId: `SC${String(s.scene).padStart(2, "0")}`, audioUrl: genData.audioUrl! });
+                            scenesDone++;
+                          } else {
+                            console.warn(`[multi-cast] gen failed for scene ${s.scene}:`, genData.error);
+                          }
+                        }
+                        setLastAction(`Multi-cast dialogue generated for ${scenesDone} scene${scenesDone === 1 ? "" : "s"}`);
+
+                        // ── MCD-TIER: Auto-lipsync pass (only when tier specifies it) ──
+                        if (mcdCfg.lipsync !== "off" && newlyGeneratedDialogue.length > 0) {
+                          const lipsyncScenes = newlyGeneratedDialogue.filter(d => !!sceneVideos[d.sceneId]);
+                          const skipped = newlyGeneratedDialogue.length - lipsyncScenes.length;
+                          if (skipped > 0) {
+                            console.info(`[auto-lipsync] ${skipped} scene(s) skipped — no source video`);
+                          }
+                          for (let li = 0; li < lipsyncScenes.length; li++) {
+                            const { sceneNum, sceneId, audioUrl } = lipsyncScenes[li];
+                            setLastAction(`Auto-lipsync ${li + 1}/${lipsyncScenes.length} (Scene ${sceneNum})...`);
+                            setLipsyncingScenes(prev => new Set(prev).add(sceneNum));
+                            try {
+                              const lsRes = await fetch("/api/avatar/lip-sync", {
+                                method: "POST", headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ imageUrl: sceneVideos[sceneId], audioUrl, inputIsVideo: true }),
+                              });
+                              const lsData = await lsRes.json() as { videoUrl?: string; provider?: string; error?: string };
+                              if (lsData.videoUrl) {
+                                setSceneVideos(prev => ({ ...prev, [sceneId]: lsData.videoUrl! }));
+                              } else {
+                                console.warn(`[auto-lipsync] scene ${sceneNum} failed:`, lsData.error);
+                              }
+                            } catch (lsErr) {
+                              console.warn(`[auto-lipsync] scene ${sceneNum} error:`, lsErr);
+                              // Keep original video — do not clear sceneVideos entry on failure
+                            } finally {
+                              setLipsyncingScenes(prev => { const n = new Set(prev); n.delete(sceneNum); return n; });
+                            }
+                          }
+                          if (lipsyncScenes.length > 0) {
+                            setLastAction(`Auto-lipsync complete for ${lipsyncScenes.length} scene${lipsyncScenes.length === 1 ? "" : "s"}`);
+                          }
+                        }
+                      } catch (err) {
+                        setLastAction(`Multi-cast dialogue failed: ${err instanceof Error ? err.message : "Unknown"}`);
+                      } finally {
+                        setGeneratingPerLineVoices(false);
+                      }
+                    }}
+                    disabled={generatingPerLineVoices || selectedCast.length === 0}
+                    title={`Auto-tag speakers, route to ${_mcdCfg.ttsProvider} voice, concat with natural pacing. Tier: ${_mcdLabel}`}
+                    style={{ padding: "8px 16px", borderRadius: 10, border: "none",
+                      background: generatingPerLineVoices ? "#2a2040" : "linear-gradient(135deg, #ff6b00, #ff9500)",
+                      color: "#fff", fontSize: 11, fontWeight: 700,
+                      cursor: (generatingPerLineVoices || selectedCast.length === 0) ? "not-allowed" : "pointer",
+                      whiteSpace: "nowrap" as const }}>
+                    {generatingPerLineVoices ? "Generating..." : `🎭 Generate Dialogue (${_mcdLabel})`}
+                  </button>
+                    );
+                  })()}
+                </div>
               </div>
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
                 {selectedCast.map(sc => {
@@ -3677,10 +3891,127 @@ function MoviePlannerInner() {
                         placeholder="ElevenLabs voice ID"
                         style={{ ...inputStyle, width: 180, padding: "6px 10px", fontSize: 10 }}
                       />
+                      {/* Audition: 1-line preview using the assigned voice + a sample greeting.
+                          Lets the user hear the voice before running bulk dialogue gen.
+                          Audio plays inline via Audio() — no extra UI state. */}
+                      <button
+                        title="Hear this voice say a sample line"
+                        onClick={async () => {
+                          const vid = castVoiceMap[sc.characterId] || char.characterId || "";
+                          if (!vid) { setLastAction(`No voice ID set for ${char.name}`); return; }
+                          setLastAction(`Auditioning ${char.name}...`);
+                          try {
+                            const res = await fetch("/api/tts", {
+                              method: "POST", headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                text: `Hello, I am ${char.name}. This is how my voice sounds.`,
+                                voiceId: vid,
+                                provider: effectiveNarrationProvider,
+                                emotion: "neutral",
+                              }),
+                            });
+                            const data = await res.json() as { audioUrl?: string; error?: string };
+                            if (data.audioUrl) {
+                              const a = new Audio(data.audioUrl);
+                              a.play().catch(() => {});
+                              setLastAction(`Playing ${char.name}'s voice...`);
+                            } else {
+                              setLastAction(`Audition failed: ${data.error || "no audio"}`);
+                            }
+                          } catch (err) {
+                            setLastAction(`Audition error: ${err instanceof Error ? err.message : "unknown"}`);
+                          }
+                        }}
+                        style={{ padding: "5px 10px", borderRadius: 8, border: `1px solid ${blue}40`, background: `${blue}12`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                        ▶ Audition
+                      </button>
                     </div>
                   );
                 })}
               </div>
+              {/* Per-scene multi-cast dialogue audio playback.
+                  Shows up after the Multi-Cast Dialogue button completes — one player per
+                  scene whose dialogue we generated. User can re-listen + decide whether
+                  to use as the scene's narration track in assembly.
+                  Each row also has an "Apply Lip-Sync" button — Phase 3 — which runs the
+                  scene's existing video clip through /api/avatar/lip-sync to drive mouth
+                  movement from this dialogue audio. Result replaces the scene video. */}
+              {Object.keys(sceneDialogueAudio).length > 0 && (
+                <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${border}` }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+                    Generated Dialogue (Multi-Cast)
+                  </p>
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                    {Object.entries(sceneDialogueAudio)
+                      .sort(([a], [b]) => Number(a) - Number(b))
+                      .map(([sceneNumStr, url]) => {
+                        const sceneNum = Number(sceneNumStr);
+                        const scene = scenes.find(s => s.scene === sceneNum);
+                        const sceneId = `SC${String(sceneNum).padStart(2, "0")}`;
+                        const sceneVideoUrl = sceneVideos[sceneId];
+                        const isLipsyncing = lipsyncingScenes.has(sceneNum);
+                        return (
+                          <div key={sceneNumStr} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: s2 }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#ff9500", fontFamily: "monospace", minWidth: 40 }}>{sceneId}</span>
+                            <span style={{ fontSize: 10, color: muted, flex: 1, overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>
+                              {scene?.title || ""}
+                            </span>
+                            <audio src={url} controls style={{ height: 28, flex: 2 }} />
+                            {/* Apply Lip-Sync — only enabled when scene has a video to drive.
+                                If the scene only has a still image, the button is disabled
+                                and a tooltip explains why (lipsync needs source video to bend). */}
+                            <button
+                              onClick={async () => {
+                                if (!sceneVideoUrl) {
+                                  setLastAction(`Scene ${sceneNum}: generate a video first before applying lip-sync`);
+                                  return;
+                                }
+                                if (isLipsyncing) return;
+                                setLipsyncingScenes(prev => new Set(prev).add(sceneNum));
+                                setLastAction(`Lip-syncing Scene ${sceneNum}... (this can take 1-5 min)`);
+                                try {
+                                  const res = await fetch("/api/avatar/lip-sync", {
+                                    method: "POST", headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      imageUrl: sceneVideoUrl,
+                                      audioUrl: url,
+                                      inputIsVideo: true,
+                                    }),
+                                  });
+                                  const data = await res.json() as { videoUrl?: string; provider?: string; error?: string };
+                                  if (data.videoUrl) {
+                                    // Replace the scene's video with the lip-synced version.
+                                    // Original is preserved on disk under the prior filename
+                                    // — we only update the React state pointer.
+                                    setSceneVideos(prev => ({ ...prev, [sceneId]: data.videoUrl! }));
+                                    setLastAction(`Scene ${sceneNum}: lip-synced via ${data.provider}`);
+                                  } else {
+                                    setLastAction(`Scene ${sceneNum}: lip-sync failed — ${data.error || "no video returned"}`);
+                                  }
+                                } catch (err) {
+                                  setLastAction(`Scene ${sceneNum}: lip-sync error — ${err instanceof Error ? err.message : "unknown"}`);
+                                } finally {
+                                  setLipsyncingScenes(prev => { const n = new Set(prev); n.delete(sceneNum); return n; });
+                                }
+                              }}
+                              disabled={!sceneVideoUrl || isLipsyncing}
+                              title={!sceneVideoUrl
+                                ? "Generate a video for this scene first — lip-sync needs a source video to drive"
+                                : "Apply lip-sync — drives the scene video's mouth movement from this dialogue audio"}
+                              style={{ padding: "5px 10px", borderRadius: 8, border: "none",
+                                background: !sceneVideoUrl ? "#1a1a2e" : isLipsyncing ? "#2a2040" : "linear-gradient(135deg, #a855f7, #7c3aed)",
+                                color: !sceneVideoUrl ? muted : "#fff",
+                                fontSize: 9, fontWeight: 700,
+                                cursor: (!sceneVideoUrl || isLipsyncing) ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap" as const }}>
+                              {isLipsyncing ? "Syncing…" : "👄 Lip-Sync"}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -3689,14 +4020,56 @@ function MoviePlannerInner() {
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Sound Model</p>
             <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-              {SOUND_TIERS_MOVIE.map((tier, idx) => (
-                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
-                  style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? purple : border}`, background: soundTier === tier.id ? `${purple}12` : "transparent", cursor: "pointer", minWidth: 100 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: soundTier === tier.id ? purple : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
-                  <span style={{ fontSize: 9, color: soundTier === tier.id ? purple : muted, fontFamily: "monospace" }}>{tier.cost}</span>
-                </button>
-              ))}
+              {SOUND_TIERS_MOVIE.map((tier, idx) => {
+                const ghsTierId = movieTierToGhsSoundTierId(tier.id);
+                const ghsTier = getSoundTier(ghsTierId);
+                const isInfoOpen = openTierInfo === tier.id;
+                return (
+                  <div key={tier.id} style={{ position: "relative" as const }}>
+                    <button
+                      onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); setOpenTierInfo(null); }}
+                      style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${effectiveSoundTier === tier.id ? purple : border}`, background: effectiveSoundTier === tier.id ? `${purple}12` : "transparent", cursor: "pointer", minWidth: 100 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: effectiveSoundTier === tier.id ? purple : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
+                      <span style={{ fontSize: 9, color: effectiveSoundTier === tier.id ? purple : muted, fontFamily: "monospace" }}>{tier.cost}</span>
+                    </button>
+                    {/* ⓘ More button — shows popover with MCD bundle details */}
+                    <button
+                      onClick={e => { e.stopPropagation(); setOpenTierInfo(isInfoOpen ? null : tier.id); }}
+                      title={`What's included in ${tier.label}`}
+                      style={{ position: "absolute" as const, top: 2, right: 2, width: 16, height: 16, borderRadius: "50%", border: `1px solid ${purple}50`, background: `${purple}18`, color: purple, fontSize: 9, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0 }}>
+                      i
+                    </button>
+                    {/* Tier info popover */}
+                    {isInfoOpen && (
+                      <div
+                        onClick={e => e.stopPropagation()}
+                        style={{ position: "absolute" as const, top: "calc(100% + 6px)", left: 0, zIndex: 200, minWidth: 220, background: "#1a1028", border: `1px solid ${purple}50`, borderRadius: 10, padding: "12px 14px", boxShadow: "0 4px 24px rgba(0,0,0,0.6)" }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: purple, marginBottom: 4 }}>{ghsTier.mcdLabel}</p>
+                        <p style={{ fontSize: 9, color: muted, marginBottom: 2 }}>Quality: <span style={{ color: "#fff" }}>{ghsTier.quality}</span></p>
+                        <p style={{ fontSize: 9, color: muted, marginBottom: 8 }}>Est. cost/100s: <span style={{ color: gold }}>{ghsTier.estCostPer100s}</span></p>
+                        <ul style={{ margin: 0, padding: "0 0 0 14px", listStyle: "disc" }}>
+                          {(ghsTier.includes as readonly string[]).map((item, i) => (
+                            <li key={i} style={{ fontSize: 9, color: "#c4b5d4", marginBottom: 2 }}>{item}</li>
+                          ))}
+                        </ul>
+                        <button
+                          onClick={() => setOpenTierInfo(null)}
+                          style={{ marginTop: 8, padding: "3px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>
+                          Close
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
+            {/* Click-outside close for tier info popover */}
+            {openTierInfo !== null && (
+              <div
+                onClick={() => setOpenTierInfo(null)}
+                style={{ position: "fixed" as const, inset: 0, zIndex: 199 }}
+              />
+            )}
           </div>
 
           {/* ── Narration Provider Selector ── */}
@@ -3710,10 +4083,10 @@ function MoviePlannerInner() {
                 { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
                 { id: "karaoke",     label: "Karaoke",        color: gold },
               ] as const).map(p => (
-                <button key={p.id} onClick={() => setNarrationProvider(p.id)}
-                  style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${narrationProvider === p.id ? p.color : border}`,
-                    background: narrationProvider === p.id ? `${p.color}12` : "transparent",
-                    color: narrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                <button key={p.id} onClick={() => { setNarrationProvider(p.id); patchProjectSettings({ narrationProvider: p.id }).catch(() => {}); }}
+                  style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${effectiveNarrationProvider === p.id ? p.color : border}`,
+                    background: effectiveNarrationProvider === p.id ? `${p.color}12` : "transparent",
+                    color: effectiveNarrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   {p.label}
                 </button>
               ))}
@@ -4285,7 +4658,7 @@ function MoviePlannerInner() {
 
           {/* Subtitle Style */}
           <div style={{ marginBottom: 12 }}>
-            <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={accent} />
+            <SubtitleStyler value={effectiveSubtitleConfig} onChange={(newCfg) => { setSubtitleConfig(newCfg); patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {}); }} accentColor={accent} />
           </div>
 
           {/* AI Intro / Outro */}
@@ -4370,7 +4743,7 @@ function MoviePlannerInner() {
                     const script = expandedStory || idea || "";
                     if (!script.trim()) { setSubtitleMatchResult({ status: "warn", note: "No story text to check against." }); return; }
                     const res = await fetch("/api/free-mode/enhance", { method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ rawPrompt: `Check if subtitle mode "${subtitleConfig.mode}" matches this story tone: "${script.slice(0,300)}". Reply MATCH or MISMATCH in one line.`, mode: "text_to_video" }) });
+                      body: JSON.stringify({ rawPrompt: `Check if subtitle mode "${effectiveSubtitleConfig.mode}" matches this story tone: "${script.slice(0,300)}". Reply MATCH or MISMATCH in one line.`, mode: "text_to_video" }) });
                     const d = await res.json() as { enhanced?: string };
                     const result = (d.enhanced || "").toLowerCase();
                     setSubtitleMatchResult({ status: result.includes("match") && !result.includes("mismatch") ? "ok" : "warn", note: d.enhanced || "Unable to check" });
@@ -4432,7 +4805,7 @@ function MoviePlannerInner() {
             designComplete={!!(genre || style || format)}
             storyComplete={!!(expandedStory || idea)}
             charactersComplete={savedCharacters.length > 0}
-            soundComplete={!!(narrationProvider && narrationProvider !== "piper") || autoSfx}
+            soundComplete={!!(effectiveNarrationProvider && effectiveNarrationProvider !== "piper") || autoSfx}
             scenesComplete={(moviePlan?.scenes ?? []).length > 0}
             assemblyComplete={!!assembledUrl}
             storyText={expandedStory || idea}

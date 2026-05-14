@@ -12,7 +12,7 @@
 //   ...
 //   return <><GateModal />{...rest}</>;
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { ds } from "../../lib/designSystem";
 import ButtonPrimary from "./ui/ButtonPrimary";
 
@@ -49,22 +49,35 @@ function GateModalUI({ open, onConfirm, onCancel }: GateModalProps) {
   const [checked, setChecked] = useState(false);
   const [skip24h, setSkip24h_] = useState(false);
 
+  // 2026-05-10 — body scroll-lock + scroll-to-top on open so the modal is always
+  // unmissable in the viewport (Henry's complaint: "user will not understand,
+  // bring it down/make it big"). Restored on unmount/close.
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.scrollTo({ top: 0, behavior: "auto" });
+    return () => { document.body.style.overflow = prevOverflow; };
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop — darker so the page behind doesn't compete for attention */}
       <div
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0,0,0,0.65)",
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(2px)",
           zIndex: 9998,
         }}
         onClick={onCancel}
       />
 
-      {/* Modal */}
+      {/* Modal — bigger + slight translateY so it sits visually below center,
+          easier to spot as a CTA panel rather than a pop-up at top of page. */}
       <div
         role="dialog"
         aria-modal="true"
@@ -83,11 +96,13 @@ function GateModalUI({ open, onConfirm, onCancel }: GateModalProps) {
         <div
           style={{
             background: ds.color.card,
-            border: `1px solid ${ds.color.line2}`,
+            border: `2px solid ${ds.color.lilac}`,
             borderRadius: ds.radius.lg,
-            padding: "28px 24px",
+            padding: "36px 32px",
             width: "100%",
-            maxWidth: 440,
+            maxWidth: 600,
+            minHeight: 420,
+            boxShadow: "0 20px 70px rgba(0,0,0,0.7), 0 0 0 1px rgba(168,85,247,0.2)",
           }}
         >
           <h2

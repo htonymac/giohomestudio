@@ -503,3 +503,44 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 [WARN] librosa load also failed: 
 
 **Stderr (full):** 
+
+---
+
+## PHASE-MAX-IMAGE-HYBRID — Use Max Image opt-in ported to hybrid-planner (2026-05-08)
+
+**Feature:** Port "Use Max Image" opt-in UX from children-planner to hybrid-planner Assembly tab.
+**Files touched:**
+- `app/dashboard/hybrid-planner/page.tsx`
+
+**Changes made:**
+1. **State added (line ~386):** `const [useMaxImageScenes, setUseMaxImageScenes] = useState<Set<string>>(new Set())` — sibling to `selectedBeatImages`.
+2. **DB restore (line ~719):** Added restore for `sceneBeatImages`, `selectedBeatImages`, and `useMaxImageScenes` (Set hydrated from Array). These were NOT persisted before this change.
+3. **DB save payload (line ~754):** Added `sceneBeatImages`, `selectedBeatImages`, `useMaxImageScenes: Array.from(useMaxImageScenes)` + added all three to the `useEffect` deps array.
+4. **Assembly loop (line ~3152):** Changed from auto-expand ANY scene with >1 beats to OPT-IN only. Beat expansion now gated behind `useMaxImageScenes.has(s.sceneId)`. Single-image fallback: `userOptedIntoMax && tickedBeats.length === 1 ? tickedBeats[0] : imageUrl : allBeatImgs[0]`.
+5. **Assembly tab beat strip (line ~6249):** Replaced old auto-shown beat strip with opt-in pattern: orange "Use Max Image (N)" toggle button + collapsible "Pick which images to include" panel with Select All / Deselect All + per-beat checkboxes. Only visible when `sceneBeatImages[sceneId].length > 1`.
+
+**Scene Board beat strip (line ~5678):** NOT changed — auto-shown for editing, as intended.
+
+**TSC:** `npx tsc --noEmit` exit 0. No errors.
+**Rollback:** Revert `useMaxImageScenes` state/persist/assembly-loop/UI changes in `hybrid-planner/page.tsx`. Assembly loop falls back to old auto-expand behavior by removing the `userOptedIntoMax` gate.
+
+---
+
+## MCD-TIER-UI-MERGE (2026-05-08)
+
+**Task:** Merge MCD tier config from `ghs-sound-tiers.ts` into movie-planner Voice tab. ONE tier picker bundles narrator TTS + music + multi-cast dialogue + lipsync. ⓘ More popover per tier. MCD button reads active tier's config automatically. Auto-lipsync after dialogue gen when tier enables it.
+
+**Files touched:**
+- `app/dashboard/movie-planner/page.tsx` — all changes
+
+**Changes made:**
+1. **Import** (line ~18): Added `getSoundTier`, `soundTierToMCDConfig`, `GhsSoundTierId` from `@/lib/ghs-sound-tiers`.
+2. **Mapping helper** (line ~183): Added `movieTierToGhsSoundTierId(id: SoundTierMovieId): GhsSoundTierId` — bridges old SOUND_TIERS_MOVIE ids (`piper`/`ghs_karaoke`/`fal_karaoke`/`kie_classic`/`kie_premium`) to canonical ids (`ghs-sound`/`ghs-plus`/`ghs-pro`/`ghs-premium`).
+3. **State** (line ~355): Added `openTierInfo: SoundTierMovieId | null` for popover open/close.
+4. **Tier selector popover** (SC Sound Model card): Each tier button now wrapped in `position:relative` div. Small `i` button in top-right corner opens a floating panel showing `mcdLabel`, `quality`, `estCostPer100s`, and `includes[]` bullet list from `getSoundTier()`. Click-outside overlay at z-index 199 closes it.
+5. **MCD button — tier-driven provider**: Before dialogue generate loop, calls `soundTierToMCDConfig(movieTierToGhsSoundTierId(effectiveSoundTier))`. Passes `mcdCfg.ttsProvider` as `provider` in the `/api/dialogue/generate` POST body (overrides old `effectiveNarrationProvider`).
+6. **Auto-lipsync pass**: After dialogue loop, when `mcdCfg.lipsync !== "off"`, iterates scenes that have BOTH newly-generated dialogue audio AND an existing `sceneVideos[sceneId]`. Fires sequential POSTs to `/api/avatar/lip-sync`. Updates `sceneVideos` state on success, skips (log only) on failure, updates `lastAction` with `Auto-lipsync N/M` progress.
+7. **Button label**: Changed from `🎭 Multi-Cast Dialogue` to `🎭 Generate Dialogue (${mcdCfg.label}, ${mcdCfg.estCostPer100s}/100s)`.
+8. **Legacy button restyled**: Smaller padding, grey/transparent border, muted color, opacity 0.7, added caption below: "Old single-voice path. Replaced by Multi-Cast above for proper character voices."
+
+**Rollback path:** Revert the 8 edits above in `movie-planner/page.tsx`. No API routes, no DB schema, no other files touched. The old `effectiveNarrationProvider` was the only provider field — restoring its usage in the generate body reverts step 5. Deleting the IIFE wrapper around the MCD button restores step 4-7.

@@ -13,6 +13,7 @@ import * as Icon from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { GHS_SOUND_TIERS } from "@/lib/ghs-sound-tiers";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
@@ -278,6 +279,33 @@ export default function MusicVideoPlannerPage() {
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
   const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+
+  // ── Phase C.3: Project settings hook — reads from DB, patches asynchronously ──
+  const {
+    settings: projectSettings,
+    patch: patchProjectSettings,
+  } = useProjectSettings(projectId || null);
+
+  // ── Phase C.3: Effective shims — hook value wins when loaded, local state is fallback ──
+  const effectiveProjectStyle = projectSettings.visualStyle ?? projectStyle;
+  const effectiveSoundTier = (projectSettings.soundTier ?? soundTier) as typeof soundTier;
+  const effectiveSubtitleConfig: typeof subtitleConfig = projectSettings
+    ? {
+        ...subtitleConfig,
+        mode: (projectSettings.subtitleMode as typeof subtitleConfig.mode) ?? subtitleConfig.mode,
+        highlightColor: projectSettings.subtitleHighlight ?? subtitleConfig.highlightColor,
+      }
+    : subtitleConfig;
+  const effectiveVideoModelId = projectSettings.videoModelVersion && projectSettings.videoModelVersion !== "auto"
+    ? projectSettings.videoModelVersion
+    : selectedVideoModelId;
+  const effectiveImageModelId = projectSettings.imageModelVersion && projectSettings.imageModelVersion !== "auto"
+    ? projectSettings.imageModelVersion
+    : selectedImageModelId;
+  // Note: visualStyle (free-text style like "Cinematic") and projectStyle (art style slug like "3d-cinematic")
+  // both map to settings.visualStyle — effectiveProjectStyle is the primary shim; visualStyle stays local.
+  // aspectRatio, language, narrationProvider, llmProvider not present in music-video-planner state — skipped.
+
   const [genSeed, setGenSeed] = useState<number | null>(() => {
     if (typeof window === "undefined") return null;
     const v = localStorage.getItem("ghs_mv_seed");
@@ -632,7 +660,7 @@ export default function MusicVideoPlannerPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sceneText: `${scene.prompt}. Style: ${scene.style}. Music video for: ${songTitle} by ${artistName || "artist"}. Mood: ${analysis?.mood || "cinematic"}.`,
-          projectStyle,
+          projectStyle: effectiveProjectStyle,
           sceneType: scene.genMethod === "video-led" ? "video-led" : "image-led",
           seed: genSeed !== null ? genSeed : undefined,
         }),
@@ -1002,7 +1030,7 @@ export default function MusicVideoPlannerPage() {
           narrationUrl: resolvedNarrationUrl,
           narrationVolume: mvNarrationVolume,
           sfx: sfxGeneratedUrl ? [{ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.7 }] : undefined,
-          subtitleConfig,
+          subtitleConfig: effectiveSubtitleConfig,
           introUrl: introUrl || undefined,
           outroUrl: outroUrl || undefined,
           aspectRatio: "16:9",
@@ -1116,7 +1144,7 @@ export default function MusicVideoPlannerPage() {
     setRenderingScene(sceneNum);
     setStoryboard(prev => prev.map(s => s.scene === sceneNum ? { ...s, status: "generating" } : s));
     // Track which provider/model was used for this scene
-    const usedModelId = selectedVideoModelId || videoModel;
+    const usedModelId = effectiveVideoModelId || videoModel;
     try {
       const res = await fetch("/api/video/generate", {
         method: "POST",
@@ -1385,7 +1413,7 @@ export default function MusicVideoPlannerPage() {
                 <div>
                   <p style={{ ...labelStyle }}>Sound/SFX</p>
                   {SOUND_TIERS_MV.map(tier => (
-                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
                       style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "5px 10px", marginBottom: 4, borderRadius: 7, border: `1px solid ${modelSettings.soundModel === tier.id ? "#22c55e" : "#1e2a35"}`, background: modelSettings.soundModel === tier.id ? "rgba(34,197,94,0.12)" : "transparent", color: modelSettings.soundModel === tier.id ? "#22c55e" : "#fff", fontSize: 10, cursor: "pointer" }}>
                       <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
                     </button>
@@ -1806,10 +1834,10 @@ export default function MusicVideoPlannerPage() {
             <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Select audio quality tier. Higher = better quality + higher cost.</p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
               {SOUND_TIERS_MV.map((tier, idx) => (
-                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
-                  style={{ display: "flex", flexDirection: "column" as const, gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? "#7c5cfc" : "#1e2a35"}`, background: soundTier === tier.id ? "rgba(124,92,252,0.12)" : "transparent", cursor: "pointer" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: soundTier === tier.id ? "#7c5cfc" : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
-                  <span style={{ fontSize: 9, color: soundTier === tier.id ? "#7c5cfc" : "#5a7080", fontFamily: "monospace" }}>{tier.cost}</span>
+                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
+                  style={{ display: "flex", flexDirection: "column" as const, gap: 2, padding: "8px 14px", borderRadius: 10, border: `2px solid ${effectiveSoundTier === tier.id ? "#7c5cfc" : "#1e2a35"}`, background: effectiveSoundTier === tier.id ? "rgba(124,92,252,0.12)" : "transparent", cursor: "pointer" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: effectiveSoundTier === tier.id ? "#7c5cfc" : "#fff" }}>{idx + 1}. {tier.label.split("(")[0].trim()}</span>
+                  <span style={{ fontSize: 9, color: effectiveSoundTier === tier.id ? "#7c5cfc" : "#5a7080", fontFamily: "monospace" }}>{tier.cost}</span>
                 </button>
               ))}
             </div>
@@ -2112,8 +2140,8 @@ export default function MusicVideoPlannerPage() {
               { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899" },
               { id: "storybook",    icon: "SB", name: "Storybook",    color: "#22c55e" },
             ].map(s => (
-              <button key={s.id} onClick={() => setProjectStyle(s.id)}
-                style={{ padding: "7px 14px", borderRadius: 100, border: `1px solid ${projectStyle === s.id ? s.color : border}`, background: projectStyle === s.id ? `${s.color}15` : "transparent", color: projectStyle === s.id ? s.color : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
+              <button key={s.id} onClick={() => { setProjectStyle(s.id); patchProjectSettings({ visualStyle: s.id }).catch(() => {}); }}
+                style={{ padding: "7px 14px", borderRadius: 100, border: `1px solid ${effectiveProjectStyle === s.id ? s.color : border}`, background: effectiveProjectStyle === s.id ? `${s.color}15` : "transparent", color: effectiveProjectStyle === s.id ? s.color : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 5 }}>
                 <span style={{ fontSize: 9, fontWeight: 900, opacity: 0.7 }}>{s.icon}</span>{s.name}
               </button>
             ))}
@@ -2320,7 +2348,7 @@ export default function MusicVideoPlannerPage() {
         const bestMatch = filteredModels.find(m => m.id === adviser.bestId) ?? filteredModels[filteredModels.length-1];
         const networkColor: Record<string,string> = { Segmind:"#22c55e", MuAPI:"#38bdf8", FAL:"#a78bfa", Runway:"#e879f9", Kling:"#f59e0b" };
         const isVideo = aidMode === "video";
-        const activeModelId = isVideo ? selectedVideoModelId : selectedImageModelId;
+        const activeModelId = isVideo ? effectiveVideoModelId : effectiveImageModelId;
         return (
           <div onClick={() => setShowAidPicker(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:9998, display:"flex", alignItems:"center", justifyContent:"center" }}>
             <div onClick={e => e.stopPropagation()} style={{ background:"#0d0d20", border:"1px solid #3b2f6e", borderRadius:16, width:500, maxWidth:"96vw", maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 0 60px rgba(100,50,200,0.4)" }}>
@@ -2386,12 +2414,12 @@ export default function MusicVideoPlannerPage() {
                 {isVideo ? filteredModels.map((m, idx) => {
                   const isCheapest = m.id === cheapestMatch?.id;
                   const isBest = m.id === bestMatch?.id;
-                  const isSelected = selectedVideoModelId === m.id;
+                  const isSelected = effectiveVideoModelId === m.id;
                   const styleScore = aidStyle === "all" ? null : m.scores[aidStyle as Exclude<StyleKey,"all">];
                   const styleTag = aidStyle==="2d"?m.tags2d:aidStyle==="3d"?m.tags3d:aidStyle==="cartoon"?m.tagCartoon:aidStyle==="realistic"?m.tagRealistic:undefined;
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:isBest?`1px solid ${m.color}60`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:isBest?`${m.color}08`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -2414,12 +2442,12 @@ export default function MusicVideoPlannerPage() {
                     </div>
                   );
                 }) : IMAGE_MODELS_AID.map((m, idx) => {
-                  const isSelected = selectedImageModelId === m.id;
+                  const isSelected = effectiveImageModelId === m.id;
                   const isCheapest = m.id === "fal_flux_schnell";
                   const isBest = m.id === "fal_flux_pro_ultra";
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); patchProjectSettings({ imageModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -2469,11 +2497,11 @@ export default function MusicVideoPlannerPage() {
             <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
               <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(124,92,252,0.4)", background: "rgba(124,92,252,0.1)", color: "#7c5cfc", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Video Model: <span style={{ color: "#fff" }}>{effectiveVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: "1px solid rgba(0,212,255,0.4)", background: "rgba(0,212,255,0.1)", color: "#00d4ff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Image Model: <span style={{ color: "#fff" }}>{effectiveImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button
                 disabled={runningIntelligence || storyboard.length === 0}
@@ -2570,7 +2598,7 @@ export default function MusicVideoPlannerPage() {
                           <ModelChip modelId={sceneProviderMap[s.scene]} size="xs" position="static" />
                         )}
                         {!sceneProviderMap[s.scene] && s.status === "planned" && (
-                          <ModelChip modelId={selectedVideoModelId} size="xs" position="static" />
+                          <ModelChip modelId={effectiveVideoModelId} size="xs" position="static" />
                         )}
                       </div>
                     </div>
@@ -2932,7 +2960,7 @@ export default function MusicVideoPlannerPage() {
                 { id: "kling25-turbo", label: "Kling 2.5 Turbo", cost: "3 credits/scene" },
                 { id: "hailuo-pro", label: "Hailuo Pro", cost: "4 credits/scene" },
               ].map(m => (
-                <button key={m.id} onClick={() => setVideoModel(m.id)}
+                <button key={m.id} onClick={() => { setVideoModel(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); }}
                   style={{ padding: "10px 10px", borderRadius: 10, border: `1px solid ${videoModel === m.id ? "#00d4ff" : border}`, background: videoModel === m.id ? "rgba(0,212,255,0.06)" : "transparent", cursor: "pointer", textAlign: "center" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#fff" }}>{m.label}</p>
                   <p style={{ fontSize: 9, color: muted }}>{m.cost}</p>
@@ -2947,7 +2975,7 @@ export default function MusicVideoPlannerPage() {
                 { id: "kling2", label: "Kling 2.1", cost: "1 credit/scene", badge: "Best price" },
                 { id: "hailuo-fast", label: "Hailuo Fast", cost: "2 credits/scene", badge: "Fastest" },
               ].map(m => (
-                <button key={m.id} onClick={() => setVideoModel(m.id)}
+                <button key={m.id} onClick={() => { setVideoModel(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); }}
                   style={{ padding: "10px 10px", borderRadius: 10, border: `1px solid ${videoModel === m.id ? "#22c55e" : border}`, background: videoModel === m.id ? "rgba(34,197,94,0.06)" : "transparent", cursor: "pointer", textAlign: "center" }}>
                   <p style={{ fontSize: 11, fontWeight: 600, color: "#fff" }}>{m.label}</p>
                   <p style={{ fontSize: 9, color: muted }}>{m.cost}</p>
@@ -3122,7 +3150,7 @@ export default function MusicVideoPlannerPage() {
 
             {/* Subtitle Style */}
             <div style={{ marginBottom: 12 }}>
-              <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor="#00d4ff" />
+              <SubtitleStyler value={subtitleConfig} onChange={newCfg => { setSubtitleConfig(newCfg); patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {}); }} accentColor="#00d4ff" />
             </div>
 
             {/* AI Intro / Outro */}

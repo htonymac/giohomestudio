@@ -1243,3 +1243,43 @@ model FreeModeDailyUsage {
   @@unique([userKey, date])
   @@map("free_mode_daily_usage")
 }
+
+// ── Project Settings — Central Store (Phase A) ───────────────────────────────
+// Single source of truth for per-project generation settings.
+// projectId matches hybrid_saved_states.localId (and future planner project IDs).
+// tenantId is null for default GHS tenant; populated for white-label clients (Phase G).
+
+model ProjectSettings {
+  id                  String   @id @default(cuid())
+  projectId           String   @unique          // matches hybrid_saved_states.localId
+  tenantId            String?                    // null = default tenant (today's GHS); set for white-label
+  // Visual / generation
+  visualStyle         String   @default("storybook")    // storybook | realistic | 3d-cinematic | anime | nollywood | comic | 2d-cartoon
+  aspectRatio         String   @default("16:9")         // 16:9 | 9:16 | 1:1 | 4:5
+  imageModelFamily    String   @default("flux")         // logical name (flux | ideogram | pulid)
+  imageModelVersion   String   @default("auto")         // auto = latest active | "fal_flux_schnell" pin
+  videoModelFamily    String   @default("wan")          // wan | kling | hailuo | runway
+  videoModelVersion   String   @default("auto")
+  // Audio
+  soundTier           String   @default("ghs-sound")    // ghs-sound | ghs-plus | ghs-pro | ghs-premium
+  narrationProvider   String   @default("auto")         // auto resolves from soundTier
+  // Localization
+  language            String   @default("en")           // ISO 639-1
+  // Subtitles
+  subtitleEnabled     Boolean  @default(true)
+  subtitleMode        String   @default("classic")      // classic | neon | bold | cinema | minimal | kids
+  subtitleHighlight   String   @default("#34d399")
+  // LLM
+  llmProvider         String   @default("auto")         // auto | ollama | openai | claude | grok
+  // Identity
+  faceLockEnabled     Boolean  @default(true)           // PuLID for photo-import characters
+  // Brand (white-label)
+  brandLogoUrl        String?
+  brandPrimaryColor   String?  @default("#a855f7")
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([tenantId])
+  @@map("project_settings")
+}

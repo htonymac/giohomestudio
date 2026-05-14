@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback, Suspense } from "react";
 import { ds } from "../../../lib/designSystem";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -1521,6 +1522,10 @@ function FreeModeChat() {
     typeof window !== "undefined" ? getOrCreateSessionId() : genSessionId()
   );
 
+  // ── ProjectSettings hook — keyed to sessionId so settings persist per-session ──
+  const { settings: projectSettings, patch: patchProjectSettings } =
+    useProjectSettings(sessionId || "free-mode-default");
+
   function switchSession(newId: string) {
     try { localStorage.setItem(FREE_MODE_SESSION_LS_KEY, newId); } catch { /* ssr */ }
     setMessages([]);
@@ -1574,6 +1579,15 @@ function FreeModeChat() {
   const [sfxSource,      setSfxSource]      = useState("auto");
   const [voiceProvider,  setVoiceProvider]  = useState("piper");
   const [subtitleStyle,  setSubtitleStyle]  = useState<"classic" | "cinema" | "neon" | "minimal" | "bold" | "none">("classic");
+
+  // ── effective* shims: hook value wins, local state is fallback ──
+  const effectiveProjectStyle    = projectSettings.visualStyle    ?? imageStyle;
+  const effectiveImageModelId    = (projectSettings.imageModelVersion !== "auto" ? projectSettings.imageModelVersion : null) ?? imageModel;
+  const effectiveVideoModelId    = (projectSettings.videoModelVersion !== "auto" ? projectSettings.videoModelVersion : null) ?? videoModel;
+  const effectiveSoundTier       = projectSettings.soundTier       ?? musicTier;
+  const effectiveNarrationProvider = projectSettings.narrationProvider ?? voiceProvider;
+  const effectiveLlmProvider     = projectSettings.llmProvider     ?? llmModel;
+  const effectiveSubtitleMode    = projectSettings.subtitleMode    ?? subtitleStyle;
 
   // ── Inline video generation picker ──
   const [videoGenPicker, setVideoGenPicker] = useState<"text2vid" | "img2vid" | "motion" | null>(null);
@@ -1942,8 +1956,8 @@ function FreeModeChat() {
       if (!limitRes.ok) return;
       setLimits(await limitRes.json());
 
-      const usedStyle = imgStyle ?? imageStyle;
-      const usedModel = imgModel ?? imageModel;
+      const usedStyle = imgStyle ?? effectiveProjectStyle;
+      const usedModel = imgModel ?? effectiveImageModelId;
       const stylePrefix = VISUAL_STYLES[usedStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
       const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
       const imgRes = await fetch("/api/generation/image", {
@@ -1997,7 +2011,7 @@ function FreeModeChat() {
       if (!limitRes.ok) return;
       setLimits(await limitRes.json());
 
-      const stylePrefix = VISUAL_STYLES[imageStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
+      const stylePrefix = VISUAL_STYLES[effectiveProjectStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
       const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
       const prompt = stylePrefix + " " + charPrefix + scene.text;
 
@@ -2042,7 +2056,7 @@ function FreeModeChat() {
     const msg = messages.find(m => m.id === msgId);
     if (!msg?.scenes) return;
     const hasAnyImage = msg.scenes.some(s => s.imageUrl);
-    if (!hasAnyImage && imageStyle === "realistic") {
+    if (!hasAnyImage && effectiveProjectStyle === "realistic") {
       // Style already set to Realistic — fine, continue. If it ever was unset we'd open picker.
     }
 
@@ -2104,13 +2118,13 @@ function FreeModeChat() {
           body: JSON.stringify({
             rawInput:        sceneParts,
             outputMode:      "text_to_video",
-            llmModel:        llmModel,
-            videoModelId:    videoModel,
+            llmModel:        effectiveLlmProvider,
+            videoModelId:    effectiveVideoModelId,
             durationSeconds: duration,
             aspectRatio:     "9:16",
             aiAutoMode:      true,
-            audioMode:       musicTier === "piper" ? "voice_music" : "music_only",
-            musicProvider:   musicTier,
+            audioMode:       effectiveSoundTier === "piper" ? "voice_music" : "music_only",
+            musicProvider:   effectiveSoundTier,
           }),
         }).catch(() => null);
 
@@ -2138,12 +2152,12 @@ function FreeModeChat() {
           scenes={messages.find(m => m.id === hybridMsg)?.scenes ?? []}
           onClose={() => setHybridMsg(null)}
           characters={characters}
-          imageModel={imageModel}
-          imageStyle={imageStyle}
-          initMusicTier={musicTier}
+          imageModel={effectiveImageModelId}
+          imageStyle={effectiveProjectStyle}
+          initMusicTier={effectiveSoundTier}
           initSfxSource={sfxSource}
-          initVoiceProvider={voiceProvider}
-          initSubtitleStyle={subtitleStyle}
+          initVoiceProvider={effectiveNarrationProvider}
+          initSubtitleStyle={effectiveSubtitleMode as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"}
           onComplete={async (resultUrl, hybridScenes) => {
             // Save final hybrid video to chat history so it survives refresh.
             const sceneObj: Scene = {
@@ -2385,9 +2399,9 @@ function FreeModeChat() {
                 onGenSceneVideo={genSceneVideo}
                 generatingSceneId={generatingSceneId}
                 generatingVideoSceneId={generatingVideoSceneId}
-                defaultImageModel={imageModel}
-                defaultImageStyle={imageStyle}
-                defaultVideoModel={videoModel}
+                defaultImageModel={effectiveImageModelId}
+                defaultImageStyle={effectiveProjectStyle}
+                defaultVideoModel={effectiveVideoModelId}
                 limits={limits}
                 editMode={editModeSet}
                 onToggleEdit={toggleEdit}
@@ -2571,7 +2585,7 @@ function FreeModeChat() {
             {/* Image model */}
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700, whiteSpace: "nowrap" }}>🖼</span>
-              <select value={imageModel} onChange={e => setImageModel(e.target.value)} style={{
+              <select value={effectiveImageModelId} onChange={e => { setImageModel(e.target.value); patchProjectSettings({ imageModelVersion: e.target.value }).catch(() => {}); }} style={{
                 padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                 border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
                 outline: "none", fontFamily: "inherit", cursor: "pointer",
@@ -2596,7 +2610,7 @@ function FreeModeChat() {
             {/* Voice */}
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎙</span>
-              <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={{
+              <select value={effectiveNarrationProvider} onChange={e => { setVoiceProvider(e.target.value); patchProjectSettings({ narrationProvider: e.target.value }).catch(() => {}); }} style={{
                 padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                 border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
                 outline: "none", fontFamily: "inherit", cursor: "pointer",
@@ -2619,7 +2633,7 @@ function FreeModeChat() {
             {/* Music */}
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎵</span>
-              <select value={musicTier} onChange={e => setMusicTier(e.target.value)} style={{
+              <select value={effectiveSoundTier} onChange={e => { setMusicTier(e.target.value); patchProjectSettings({ soundTier: e.target.value }).catch(() => {}); }} style={{
                 padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                 border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
                 outline: "none", fontFamily: "inherit", cursor: "pointer",
@@ -2648,7 +2662,7 @@ function FreeModeChat() {
             {/* AI Brain (compact) */}
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🧠</span>
-              <select value={llmModel} onChange={e => setLlmModel(e.target.value)} style={{
+              <select value={effectiveLlmProvider} onChange={e => { setLlmModel(e.target.value); patchProjectSettings({ llmProvider: e.target.value }).catch(() => {}); }} style={{
                 padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                 border: `1px solid ${C.line}`, background: C.alert, color: C.mute2,
                 outline: "none", fontFamily: "inherit", cursor: "pointer",
@@ -2673,8 +2687,8 @@ function FreeModeChat() {
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎨</span>
               <select
-                value={imageStyle}
-                onChange={e => { setImageStyle(e.target.value); setStylePromptOpen(false); }}
+                value={effectiveProjectStyle}
+                onChange={e => { setImageStyle(e.target.value); setStylePromptOpen(false); patchProjectSettings({ visualStyle: e.target.value }).catch(() => {}); }}
                 style={{
                   padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                   border: `1px solid ${stylePromptOpen ? C.gold + "80" : C.line}`,
@@ -2695,8 +2709,8 @@ function FreeModeChat() {
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>💬</span>
               <select
-                value={subtitleStyle}
-                onChange={e => setSubtitleStyle(e.target.value as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none")}
+                value={effectiveSubtitleMode}
+                onChange={e => { setSubtitleStyle(e.target.value as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"); patchProjectSettings({ subtitleMode: e.target.value }).catch(() => {}); }}
                 title="Subtitle style"
                 style={{
                   padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
@@ -2734,7 +2748,7 @@ function FreeModeChat() {
               {/* Video model default */}
               <div>
                 <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 3 }}>DEFAULT VIDEO</div>
-                <select value={videoModel} onChange={e => setVideoModel(e.target.value)} style={{
+                <select value={effectiveVideoModelId} onChange={e => { setVideoModel(e.target.value); patchProjectSettings({ videoModelVersion: e.target.value }).catch(() => {}); }} style={{
                   padding: "4px 6px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                   border: `1px solid ${C.line}`, background: C.card, color: C.mute2,
                   outline: "none", fontFamily: "inherit",

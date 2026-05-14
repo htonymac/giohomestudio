@@ -30,9 +30,13 @@ export const STYLE_PRESETS: Record<string, StylePreset> = {
     negative: "3D render, photorealistic, dark, scary, anime",
   },
   "realistic": {
-    prefix: "Photorealistic, hyper-detailed, cinematic photography, professional lighting, 8K render",
-    suffix: "Photorealistic quality, consistent character appearance, cinematic composition",
-    negative: "cartoon, anime, 2D illustration, flat colors, sketch, painterly",
+    // STRONG photo terms FIRST + explicit "live-action photo" cue so model commits to real photography,
+    // not 3D render. Without this anchor, models trained on Pixar/DreamWorks data drift back to 3D.
+    prefix: "Live-action cinematic photography, real photograph, photorealistic, professional cinema camera, real human skin texture, real fabric, natural lighting, hyper-detailed, 8K photo",
+    suffix: "Real photograph, professional cinematography, natural skin pores, fine fabric weave, true-to-life proportions",
+    // 3D/CGI/animation terms MUST be in the negative — otherwise the model treats "realistic" as
+    // "realistic 3D render" and produces Pixar-style. Includes Pixar/DreamWorks/animated film cues.
+    negative: "3D render, CGI, animated film, Pixar style, DreamWorks style, animation, cartoon, 2D illustration, anime, flat colors, sketch, painterly, watercolor, stylized, video game graphics, plastic skin, doll-like",
   },
   "nollywood": {
     prefix: "Nollywood film aesthetic, warm African lighting, rich skin tones, vibrant traditional and contemporary Nigerian fashion, cinematic drama",

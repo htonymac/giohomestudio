@@ -13,11 +13,64 @@ import { segmindGenerateVideo } from "@/lib/generation/gateways/segmind";
 import { runwayGenerateVideo, downloadRunwayVideo } from "@/lib/generation/gateways/runway";
 import { muapiGenerateVideo, downloadMuApiVideo } from "@/lib/generation/gateways/muapi";
 import { klingGenerateVideo, downloadKlingVideo } from "@/lib/generation/gateways/kling";
-import { getModelById, getDefaultVideoModel } from "@/lib/generation/model-registry";
+import { ModelEntry, getModelById, getDefaultVideoModel } from "@/lib/generation/model-registry";
+import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getMotionStylePrefix } from "@/lib/style-presets";
+import { sanitizeStyleCollisions } from "@/lib/style/sanitizer";
+import { getLateAnchor } from "@/lib/style/late-anchor";
+import { extractMotionAction } from "@/lib/scene/motion-extractor";
 import { env } from "@/config/env";
 import * as path from "path";
 import * as fs from "fs";
+
+/**
+ * tryWithFallback — Phase E.1 provider-health auto-fallback helper for video.
+ *
+ * Calls generateFn(model). If it throws a provider error (404 / 422 / "model not found"),
+ * marks the model broken, picks a healthy alternative in the same family, and retries ONCE.
+ * If retry also fails, or no alternative exists, re-throws the original error.
+ *
+ * @param initialModel - The ModelEntry resolved from the request (or default model)
+ * @param generateFn   - Async function that performs the actual generation call, receives
+ *                       the active ModelEntry so the caller can use model.endpoint_id etc.
+ * @returns The result of generateFn on success.
+ * @throws The first provider error if no fallback is available or fallback also fails.
+ */
+async function tryWithFallback<T>(
+  initialModel: ModelEntry,
+  generateFn: (model: ModelEntry) => Promise<T>
+): Promise<T> {
+  try {
+    return await generateFn(initialModel);
+  } catch (firstErr) {
+    const errMsg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+    // Only attempt fallback for provider-side failures (not local logic errors)
+    const isProviderErr =
+      /404|422|not found|unavailable|model.*error|endpoint.*error/i.test(errMsg);
+    if (!isProviderErr) throw firstErr;
+
+    markBroken(initialModel.id, errMsg);
+
+    const alt = pickHealthyAlternative(initialModel.family ?? "unknown", initialModel.id);
+    if (!alt) {
+      console.warn(`[provider-health] No fallback for family=${initialModel.family ?? "unknown"} — surfacing error`);
+      throw firstErr;
+    }
+
+    console.log(`[provider-health] Retrying ${initialModel.id} → ${alt.id}`);
+    try {
+      return await generateFn(alt);
+    } catch (retryErr) {
+      const retryMsg = retryErr instanceof Error ? retryErr.message : String(retryErr);
+      markBroken(alt.id, retryMsg);
+      console.warn(`[provider-health] Fallback ${alt.id} also failed — surfacing original error`);
+      throw firstErr; // Surface the original error so the SSE message is coherent
+    }
+  }
+}
+
+// sanitizeStyleCollisions imported from @/lib/style/sanitizer (Phase B extraction)
+// extractMotionAction imported from @/lib/scene/motion-extractor (Phase B extraction)
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -71,11 +124,23 @@ export async function POST(req: NextRequest) {
           return;
         }
 
-        // ── Build motion prompt — style lock FIRST, same rule as scene-image ──
+        // ── Build motion prompt — style lock FIRST, action directive SECOND ──
+        // Video models read sceneText literally — without an action verb directive they
+        // default to slow zoom / panning. Mirror image route's extractor so a "fight" or
+        // "chase" scene actually animates the action, not a static glide over the still.
+        //
+        // sceneText is sanitized first so words like "animated voice" don't flip a
+        // realistic clip into a cartoon clip. Same rules as scene-image.
         const stylePrefix = getMotionStylePrefix(projectStyle);
-        const promptParts: string[] = [stylePrefix, sceneText];
-        if (motionDescription) promptParts.push(motionDescription);
+        const cleanSceneText = sanitizeStyleCollisions(sceneText || "", projectStyle);
+        const motionActionDirective = extractMotionAction(cleanSceneText);
+        const promptParts: string[] = [stylePrefix, cleanSceneText, motionActionDirective];
+        if (motionDescription) promptParts.push(sanitizeStyleCollisions(motionDescription, projectStyle));
         promptParts.push("Smooth cinematic motion. Consistent characters and environment. Natural movement.");
+        // Late-position style anchor — same role as in scene-image: fights drift caused by any
+        // collision words we couldn't fully strip.
+        // getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
+        promptParts.push(getLateAnchor(projectStyle || "3d-cinematic"));
         const motionPrompt = promptParts.join(". ");
 
         const maxDur = model.max_duration_seconds ?? 10;
@@ -291,15 +356,23 @@ export async function POST(req: NextRequest) {
             // Keep using resolvedImageUrl as fallback (works if app is publicly accessible)
           }
 
-          // FAL — streams real progress via onProgress callback
-          const fr = await falGenerateVideo(
-            { endpoint: model.endpoint_id, prompt: motionPrompt, imageUrl: falImageUrl, duration: clipDuration, ...(seed !== undefined && seed !== null ? { seed: Number(seed) } : {}) },
-            (evt) => send({ type: "progress", percent: evt.percent, message: evt.message }),
-          );
+          // FAL — streams real progress via onProgress callback.
+          // Phase E.1: wrapped in tryWithFallback so 404/422 errors auto-retry with a
+          // healthy model in the same family. The SSE send() callback is captured via closure.
+          const { fr, activeModel } = await tryWithFallback(model, async (m) => {
+            const result = await falGenerateVideo(
+              { endpoint: m.endpoint_id, prompt: motionPrompt, imageUrl: falImageUrl, duration: clipDuration, ...(seed !== undefined && seed !== null ? { seed: Number(seed) } : {}) },
+              (evt) => send({ type: "progress", percent: evt.percent, message: evt.message }),
+            );
+            return { fr: result, activeModel: m };
+          });
           if (!fr.success || !fr.videoUrl) {
             send({ type: "error", message: fr.error || "FAL video generation failed" });
             controller.close();
             return;
+          }
+          if (activeModel.id !== model.id) {
+            send({ type: "progress", percent: 88, message: `Switched to ${activeModel.display_name} (auto-fallback)` });
           }
           send({ type: "progress", percent: 92, message: "Downloading video from FAL..." });
           const videoBuffer = await downloadFalMedia(fr.videoUrl);

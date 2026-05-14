@@ -1,8 +1,579 @@
 # GioHomeStudio — Problems and Fixes Log
 
-Use this file to record bugs, their root cause, and the fix applied. When the same problem appears again, check here first before debugging from scratch.
+Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
 
 ---
+
+## 2026-05-08 — PHASE-C7-HYBRID-PLANNER: useProjectSettings wired into hybrid-planner
+
+**File touched:** `app/dashboard/hybrid-planner/page.tsx`
+
+**What changed:**
+- Added `import { useProjectSettings } from "@/hooks/useProjectSettings"` at line 24.
+- Hook keyed to `projectId || urlProjectId || "hybrid-default"` — hybrid-planner has full DB-backed projectId resolved from URL `?projectId=`.
+- 7 `effective*` shims added after `urlProjectId` declaration:
+  - `effectiveProjectStyle` = `projectSettings.visualStyle ?? projectStyle`
+  - `effectiveSoundTier` = `projectSettings.soundTier ?? soundTier`
+  - `effectiveSubtitleConfig` = merged SubtitleConfig with hook's `subtitleMode`/`subtitleHighlight` (note: `enabled` not in SubtitleConfig type — omitted)
+  - `effectiveVideoModelId` = hook version if !== "auto", else local `selectedVideoModelId`
+  - `effectiveImageModelId` = hook version if !== "auto", else local `selectedImageModelId`
+  - `effectiveLanguage` = `projectSettings.language ?? language`
+  - `effectiveLlmProvider` = `projectSettings.llmProvider ?? aiChatProvider`
+- READ sites replaced (full list):
+  - `projectStyle` → `effectiveProjectStyle`: 13 sites (artStyle params, scene image/video gen bodies, char portrait gen, AID picker active state, Design tab isSelected, style picker badge, char style dropdowns, designComplete prop, Screenplay/Overview badge)
+  - `soundTier` → `effectiveSoundTier`: 4 sites (narration API body, 2x UI tier button active style)
+  - `subtitleConfig.mode/fields` → `effectiveSubtitleConfig.*`: 3 sites (assembly includeSubtitles, subtitle match check, SubtitleStyler value prop)
+  - `selectedVideoModelId` → `effectiveVideoModelId`: 3 sites (AID picker activeModelId, AID picker isSelected, video gen API modelId)
+  - `selectedImageModelId` → `effectiveImageModelId`: 4 sites (AID picker activeModelId, AID picker isSelected, ideogram badge, image gen modelId in 3 batch calls)
+  - `language` → `effectiveLanguage`: 10 sites (story expand, char build calls, scene API calls, photo-import char, language select value, UI badge)
+  - `aiChatProvider`/`storyEditProvider` → `effectiveLlmProvider`: 4 read sites (2x AI chat API provider, 2x story edit API provider, 2x UI active state buttons)
+- Setters augmented with fire-and-forget patch:
+  - `setProjectStyle` → `patchProjectSettings({ visualStyle })` (in style picker onClick)
+  - `setSoundTier` → `patchProjectSettings({ soundTier })` (both tier selector locations)
+  - `setSelectedVideoModelId` → `patchProjectSettings({ videoModelVersion })` (AID picker)
+  - `setSelectedImageModelId` → `patchProjectSettings({ imageModelVersion })` (AID picker)
+  - `setAiChatProvider` → `patchProjectSettings({ llmProvider })` (AI chat LLM selector)
+  - `setStoryEditProvider` → `patchProjectSettings({ llmProvider })` (story edit LLM selector)
+  - `setLanguage` → `patchProjectSettings({ language })` (language select onChange)
+  - `setSubtitleConfig` → inline arrow: sets local + patches subtitleMode/subtitleHighlight/subtitleEnabled
+
+**Skipped (not present as state):**
+- `narrationProvider` — only appears in assembled audioConfig inline; no useState for it
+- `aspectRatio` — only appears in CSS `aspectRatio: "1"` (non-semantic), no useState
+- `storyAiProvider` — type is `"claude:claude-sonnet-4-6"` style strings, not compatible with hook's `llmProvider` union; kept as-is
+
+**Left untouched (per hard rules):**
+- Save effect dependency arrays (lines 742, 753)
+- Save effect data objects (lines 738, 742)
+- Restore-setter calls inside restoreState() and loadProject() (lines ~4062, 4071, 4078, 4086)
+- `storyAiProvider` reads (incompatible type with hook field)
+
+**TSC result:** exit=0 (clean).
+**Smoke:** HTTP 200 on localhost:3200/dashboard/hybrid-planner?projectId=test_smoke_hybrid.
+**Rollback:** revert `app/dashboard/hybrid-planner/page.tsx` import + hook block + shim block.
+
+---
+
+## 2026-05-08 — PHASE-C6-SCENE-FORGE: useProjectSettings wired into scene-forge
+
+**File touched:** `app/dashboard/scene-forge/page.tsx`
+
+**What changed:**
+- Added `import { useProjectSettings } from "@/hooks/useProjectSettings"` at top.
+- Hook keyed to `SCENE_FORGE_DB_KEY` ("ghs_sceneforge_session") — no projectId in scene-forge; session key is stable identifier.
+- 6 effective* shims added: `effectiveProjectStyle`, `effectiveAspectRatio`, `effectiveNarrationProvider`, `effectiveSoundTier`, `effectiveVideoModelId`, `effectiveImageModelId`.
+- Render read sites replaced: style buttons, aspect ratio buttons, musicTier buttons, ModelPicker props.
+- AI polish body `style` read replaced with `effectiveProjectStyle`.
+- generate() body: all 6 settings replaced with effective* variants.
+- Setters augmented with patchProjectSettings fire-and-forget: style→visualStyle, aspect→aspectRatio, musicTier→soundTier, videoModel→videoModelVersion, imageModel→imageModelVersion.
+- `voice` setter: no visible UI selector in scene-forge; voice is set on mount-restore only — not augmented.
+- `tier` (AITier): skipped — no equivalent hook field per C.6 spec.
+
+**Rollback:** revert `app/dashboard/scene-forge/page.tsx` import + hook block.
+**TSC:** exit=0 clean.
+**Smoke:** Page 200 OK on localhost:3200/dashboard/scene-forge.
+
+---
+
+## 2026-05-08 — PHASE-C5-FREE-MODE: useProjectSettings wired into free-mode
+
+**File touched:** `app/dashboard/free-mode/page.tsx`
+
+**Problem:** Free Mode had 7 settings (imageStyle, imageModel, videoModel, musicTier, voiceProvider, llmModel, subtitleStyle) as pure local React state. Changing them in Free Mode did not persist across reloads or sync with other planners.
+
+**Root cause:** No central settings store wired into free-mode. Session-based planner with no durable projectId, so required a fallback strategy.
+
+**Fix applied:**
+1. Imported `useProjectSettings` from `@/hooks/useProjectSettings`.
+2. Hook keyed to `sessionId` (stable `useState` already present). Falls back to `"free-mode-default"` when sessionId empty.
+3. Added 7 `effective*` shims after local state declarations:
+   - `effectiveProjectStyle` = `projectSettings.visualStyle ?? imageStyle`
+   - `effectiveImageModelId` = `imageModelVersion !== "auto" ? imageModelVersion : null ?? imageModel`
+   - `effectiveVideoModelId` = `videoModelVersion !== "auto" ? videoModelVersion : null ?? videoModel`
+   - `effectiveSoundTier` = `projectSettings.soundTier ?? musicTier`
+   - `effectiveNarrationProvider` = `projectSettings.narrationProvider ?? voiceProvider`
+   - `effectiveLlmProvider` = `projectSettings.llmProvider ?? llmModel`
+   - `effectiveSubtitleMode` = `projectSettings.subtitleMode ?? subtitleStyle`
+4. Replaced all READ sites with effective* (6 UI selects, HybridModal props, SceneCard defaultProps, video generation API body).
+5. Augmented all 7 setters with fire-and-forget `patchProjectSettings({...}).catch(() => {})`.
+
+**Skipped:** `aspectRatio` — hardcoded "9:16" inline, not a state variable. `language` — not present as state in free-mode.
+
+**TSC result:** exit=0 (clean).
+
+**Rollback path:** Revert the import line, the hook invocation block, the 7 shim lines, and restore `value={stateVar}` + plain setter `onChange` at each of the 6 selects and the 4 prop sites.
+
+---
+
+## 2026-05-08 — PHASE-C4-COMMERCIAL-PLANNER: useProjectSettings wired into commercial-planner
+
+**File touched:** `app/dashboard/commercial-planner/page.tsx`
+
+**What changed:**
+- Added `import { useProjectSettings } from "@/hooks/useProjectSettings";`
+- Hook called after state declarations: `useProjectSettings(projectId || null)` — projectId is local state (no URL params in commercial planner)
+- Three `effective*` shims declared:
+  - `effectiveProjectStyle = projectSettings.visualStyle ?? brandVisualStyle`
+  - `effectiveVideoModelId` = hook value if not "auto" else local state
+  - `effectiveImageModelId` = hook value if not "auto" else local state
+
+**Read sites replaced:**
+- `brandVisualStyle` → `effectiveProjectStyle` in: generateAIScript manifest string, commercialContext API payload, visual style picker UI comparisons
+- `selectedVideoModelId` → `effectiveVideoModelId` in: scene-video API call, video model display chip, scene card video model selector default
+- `selectedImageModelId` → `effectiveImageModelId` in: ideogram_v3 transparent check, sceneImgModel fallback, image model display chip, scene card image model selector default, ideogram_v3 checkbox condition, AID picker isSelected comparison
+
+**Setters augmented with fire-and-forget patch:**
+- Visual style picker `onClick` → `setBrandVisualStyle` + `patchProjectSettings({ visualStyle })` 
+- AID picker `onClick` → `setSelectedVideoModelId/setSelectedImageModelId` + `patchProjectSettings({ videoModelVersion/imageModelVersion })`
+
+**Settings NOT present in commercial-planner (skipped):**
+- `aspectRatio` — lives inside `brief` object (setBrief), not standalone state
+- `language` — hardcoded string "English" in API calls, no state variable
+- `subtitleConfig` — not present
+- `soundTier` — not present (uses `ghsSoundTierId` for UI only, not migrated — not in mapping table)
+- `narrationProvider` — not present
+- `llmProvider` — not present
+
+**TSC:** exit=0 (clean)
+**Smoke:** GET /api/project/settings?projectId=test_smoke_commercial → defaults. PATCH visualStyle=luxury + model versions → 200, persisted. Reload GET confirms persistence. Page 200 OK on :3200.
+
+**Rollback:** Revert the 10 edits in page.tsx (remove import, hook call, shims, restore read sites, remove patch calls from setters).
+
+---
+
+## 2026-05-08 — PHASE-C3-MUSIC-VIDEO-PLANNER: useProjectSettings wired into music-video-planner
+
+**File touched:** `app/dashboard/music-video-planner/page.tsx`
+
+**Deviation from C.1/C.2 pattern:** Music-video planner has NO `useSearchParams` / `urlProjectId`. It uses a local `projectId` state (from its own `music_video_projects` table, set on save/load). Hook called as `useProjectSettings(projectId || null)` — starts null, activates once user saves/loads a project.
+
+**Settings migrated:**
+
+| Local state | Hook field | Shim | Read sites replaced | Setters augmented |
+|---|---|---|---|---|
+| `projectStyle` (art style slug) | `visualStyle` | `effectiveProjectStyle` | 2 (API body + UI comparison) | 1 (setProjectStyle button) |
+| `soundTier` | `soundTier` | `effectiveSoundTier` | 2 (UI comparisons) | 2 (model-settings panel + legacy SC panel) |
+| `subtitleConfig` (object) | `subtitleMode` + `subtitleHighlight` + `subtitleEnabled` | `effectiveSubtitleConfig` | 2 (assembly body + SubtitleStyler value) | 1 (SubtitleStyler onChange wrapper) |
+| `selectedVideoModelId` | `videoModelVersion` | `effectiveVideoModelId` | 4 (usedModelId + activeModelId + isSelected + display label + ModelChip) | 1 (AID picker onClick) |
+| `selectedImageModelId` | `imageModelVersion` | `effectiveImageModelId` | 3 (activeModelId + isSelected + display label) | 1 (AID picker onClick) |
+| `videoModel` (basic render model) | `videoModelVersion` | — (local comparison kept, setter patched) | — | 2 (Music Video & Budget grid buttons) |
+
+**Skipped (not local state in music-video-planner):** `language`, `aspectRatio`, `narrationProvider`, `llmProvider` — none declared as useState in this file.
+
+**visualStyle (free-text like "Cinematic"):** not mapped — no hook field. Setter (`setVisualStyle`) left unpatched. effectiveProjectStyle covers the art-style slug only.
+
+**Deliberately left untouched:** All `useState` declarations, `loadProject` restore-setters, `saveProject` dependency array, analysis-triggered `setVideoModel` calls (auto-suggestion, not user intent).
+
+**Rollback path:** `git revert <commit>` — all existing `useState` declarations untouched, no functions deleted.
+
+**TSC:** exit=0. No errors.
+
+**Smoke test:** `GET /dashboard/music-video-planner` → 200 OK on :3200.
+
+---
+
+## 2026-05-08 — PHASE-C2-CHILDREN-PLANNER: useProjectSettings wired into children-planner
+
+**File touched:** `app/dashboard/children-planner/page.tsx`
+
+**Pattern used:** Identical to C.1 (movie-planner). Hook imported, called after `urlProjectId` resolved, `effective*` shims declared, read sites replaced, setters augmented with fire-and-forget patch.
+
+**Settings migrated:**
+
+| Local state | Hook field | Shim | Read sites replaced | Setters augmented |
+|---|---|---|---|---|
+| `visualStyle` / `projectStyle` | `visualStyle` | `effectiveProjectStyle` | 18 | 2 (setVisualStyle+setProjectStyle buttons) |
+| `soundTier` | `soundTier` | `effectiveSoundTier` | 4 | 2 |
+| `narrationProvider` | `narrationProvider` | `effectiveNarrationProvider` | 7 | 2 |
+| `selectedVideoModelId` | `videoModelVersion` | `effectiveVideoModelId` | 4 | 1 |
+| `selectedImageModelId` | `imageModelVersion` | `effectiveImageModelId` | 4 | 1 |
+| `subtitleConfig` (object) | `subtitleMode` + `subtitleHighlight` | `effectiveSubtitleConfig` | 4 | 1 (onChange wrapper) |
+
+**Skipped (not local state in children-planner):** `language` (hardcoded "English" in payloads), `aspectRatio` (hardcoded "16:9"), `llmProvider` (not declared).
+
+**Deliberately left untouched:** All `useState` declarations, all restore-setter `if (d.xxx) setXxx(d.xxx)` lines, all save-effect dependency arrays. Local state still persists to `hybrid_saved_states` as before.
+
+**Rollback path:** `git revert <commit>` — all existing `useState` declarations untouched, no functions deleted.
+
+**TSC:** exit=0. No errors.
+
+**Smoke test:** Skipped — dev server status unknown. Pattern structurally verified. Same pattern proven live in C.1 movie-planner.
+
+---
+
+## 2026-05-08 — PHASE-C1-MOVIE-PLANNER: useProjectSettings wired into movie-planner
+
+**File touched:** `app/dashboard/movie-planner/page.tsx`
+
+**Pattern used (effective* shims + fire-and-forget patch):**
+
+1. Import `useProjectSettings` from `@/hooks/useProjectSettings`.
+2. Declare hook after `urlProjectId` is available: `const { settings: projectSettings, patch: patchProjectSettings } = useProjectSettings(urlProjectId || null);`
+3. For each migrated setting, declare an `effective*` shim constant that prefers the hook value and falls back to local state: `const effectiveX = projectSettings.field ?? localX;`
+4. Replace all **read** sites of `localX` with `effectiveX` — dependency arrays and restore-setters stay as-is (they track the local state for save effects).
+5. After every **setter** call, fire-and-forget patch: `setLocalX(v); patchProjectSettings({ field: v }).catch(() => {});`
+
+**Settings migrated:**
+
+| Local state | Hook field | Shim | Read sites replaced | Setters augmented |
+|---|---|---|---|---|
+| `projectStyle` | `visualStyle` | `effectiveProjectStyle` | 3 | 1 |
+| `language` | `language` | `effectiveLanguage` | 3 | 1 |
+| `soundTier` | `soundTier` | `effectiveSoundTier` | 3 | 2 |
+| `narrationProvider` | `narrationProvider` | `effectiveNarrationProvider` | 8 | 2 |
+| `selectedVideoModelId` | `videoModelVersion` | `effectiveVideoModelId` | 4 | 1 |
+| `selectedImageModelId` | `imageModelVersion` | `effectiveImageModelId` | 4 | 1 |
+| `subtitleConfig` (object) | `subtitleMode` + `subtitleHighlight` | `effectiveSubtitleConfig` | 3 | 1 (onChange wrapper) |
+
+Note: `aspectRatio` not present as local state in movie-planner (hardcoded "16:9" in one API call — not migrated). `llmProvider` also absent. No subtitleEnabled state — derived from mode !== "none" in the patch call.
+
+**Rollback path:** `git revert <commit>` — all existing `useState` declarations untouched, no functions deleted.
+
+**TSC:** exit=0. No errors.
+
+**Smoke test:** Skipped — dev server status unknown. Pattern verified structurally.
+
+---
+
+## 2026-05-08 — PHASE-E1-PROVIDER-HEALTH: Model health metadata + auto-fallback chain
+
+**Problem addressed:** When a FAL/Kie/Segmind model returns 404/422/"model not found", the error surfaces directly to the user with no retry. No family/version metadata existed to find an alternative.
+
+**What changed (Phase E.1 of SEGREGATION_PLAN.md):**
+
+1. Extended `ModelEntry` interface in `src/lib/generation/model-registry.ts` with 6 optional fields: `family`, `version`, `status`, `successor`, `health_last_checked`, `health_ok`. All optional — existing callers need no changes.
+
+2. Backfilled metadata for all 40 model entries (22 image + 18 video):
+   - IMAGE: segmind_flux, ideogram_free, segmind_pruna, segmind_pruna_edit, fal_flux_schnell, fal_flux_dev, fal_ideogram_v3_turbo, fal_seedream, fal_imagen4_fast, fal_hunyuan, fal_nano_banana, fal_flux_pro, fal_flux_pro_ultra, fal_ideogram_v3_quality, fal_ideogram_v3_transparent, fal_recraft_v3, kie_z_image_turbo, kie_nano_banana_2, kie_gpt_image_1, kie_flux_kontext, kie_midjourney_v7, fal_flux_pulid
+   - VIDEO: segmind_pruna_video, muapi_seedance_lite, muapi_seedance_v1_pro, muapi_seedance_v2, muapi_seedance_v2_1080p, muapi_wan_v2_1_480p, muapi_wan_v2_1_720p, fal_hailuo_standard, fal_kling_2_5_standard, fal_hailuo_pro, fal_ltx_video, fal_wan_lite, fal_wan_pro, fal_kling_2_5_turbo_pro, fal_kling_3_pro, fal_runway_gen4, runway_gen4_direct, fal_veo3_fast, fal_veo3_4k, kling_direct_v2_5_std, kling_direct_v2_5_pro, kling_direct_v1_5_std
+
+3. Created `src/lib/provider-health/index.ts` with in-memory health cache:
+   - `markBroken(modelId, reason)` — sets cache + console.warn
+   - `markHealthy(modelId)` — clears broken mark
+   - `getModelStatus(modelId)` — cache → registry → default "active"
+   - `pickHealthyAlternative(family, excludeId)` — finds best quality active alternative
+   - `getHealthSnapshot()` — for future admin UI (Phase E.2)
+
+4. Wrapped FAL video gateway in `app/api/hybrid/scene-video/route.ts` with `tryWithFallback()` helper — catches provider errors, marks broken, retries once with family fallback.
+
+5. Wrapped `generateImage` call in `app/api/hybrid/scene-image/route.ts` with inline fallback — catches provider errors on result.success=false, marks broken, retries with alternative model.
+
+**Files touched:**
+- `src/lib/generation/model-registry.ts` — interface extended + 40 entries backfilled
+- `src/lib/provider-health/index.ts` — CREATED
+- `app/api/hybrid/scene-video/route.ts` — tryWithFallback helper + FAL branch wrapped
+- `app/api/hybrid/scene-image/route.ts` — inline fallback after generateImage failure
+
+**Rollback:** `git revert <commit>` — all changes are additive. Existing routes that don't call markBroken/pickHealthyAlternative are untouched.
+
+**TSC:** exit=0. No errors.
+
+**Deferred to Phase E.2:** UI badges (green/yellow/red dot per model dropdown), background cron probe every 6h.
+
+---
+
+## 2026-05-08 — PHASE-F: aid-model-registry.ts converted to backward-compat shim
+
+**What changed:** Phase F of SEGREGATION_PLAN.md — merged `src/lib/aid-model-registry.ts` into `src/lib/generation/model-registry.ts`.
+
+**Root cause / discovery:** Two registries existed. `aid-model-registry.ts` exported `AID_VIDEO_MODELS` and `AID_IMAGE_MODELS` with a UI-picker schema (scores, colors, network labels). `generation/model-registry.ts` exported the full `ModelEntry` schema used by gateways. All 19 video IDs and 10 image IDs in the AID registry already existed in generation/model-registry.ts — no entries were missing, only the schema differed.
+
+**Fix:** Converted `aid-model-registry.ts` to a shim that:
+1. `export * from "./generation/model-registry"` — forward all ModelEntry exports
+2. Kept `AID_VIDEO_MODELS` and `AID_IMAGE_MODELS` arrays intact (same data, same schema) as backward-compat named exports — consumers use `.scores`, `.name`, `.network`, `.color` etc. which don't exist on `ModelEntry`
+
+**Files touched:**
+- `src/lib/aid-model-registry.ts` — converted to shim (data preserved)
+- `src/lib/generation/model-registry.ts` — unchanged (already had all entries)
+
+**Consumers (still work via shim):**
+- `app/dashboard/children-planner/page.tsx`
+- `app/dashboard/commercial-planner/page.tsx`
+- `app/dashboard/music-video-planner/page.tsx`
+- `app/dashboard/movie-planner/page.tsx`
+- `app/dashboard/series-wizard/page.tsx`
+
+**TSC:** exit 0. No errors.
+
+**Next:** Per SEGREGATION_PLAN.md Phase D, migrate consumers to `ModelEntry` from `generation/model-registry.ts` directly, then remove the shim.
+
+**Rollback:** Restore original `aid-model-registry.ts` from git.
+
+---
+
+## 2026-05-08 — STYLE-01: Words like "animated voice" flip realistic gen to 3D/cartoon
+
+**Symptom:** User picks "Realistic" style. Scene description contains words like *"her voice was animated and confident"* or *"his cartoonish smile"*. Image still generates as 3D-rendered Pixar-style or 2D cartoon.
+
+**Root cause:** Image models read every word as a style cue. Words like `animated`, `cartoonish`, `sketched`, `rendered`, `illustrated`, `drawn`, `painted` are massive training signals — captioned over millions of cartoon/animation frames. Even when the prefix says "Live-action photo", a later occurrence of `animated` flips the bias. The negative prompt was blocking specific style names (`cartoon, anime, 3D render`) but NOT these contextual collision words.
+
+**Fix:** Three-layer defence in `app/api/hybrid/scene-image/route.ts`, `app/api/hybrid/scene-video/route.ts`, `app/api/character-voices/[id]/generate-portrait/route.ts`:
+
+1. **`sanitizeStyleCollisions()` PROTECTED block** — for live-action styles (`realistic` + `nollywood`) only, replaces collision words with neutral synonyms BEFORE the text is concatenated into the prompt:
+   - `animated voice` → `expressive voice`
+   - `animated and` → `expressive and`
+   - `animated` → `expressive`
+   - `cartoonish` → `exaggerated`
+   - `cartoon-like` → `stylized`
+   - `comic relief` → `humorous moment`
+   - `comic timing` → `perfect timing`
+   - `sketched` → `rough`
+   - `drawn out` → `extended`
+   - `drawn into` → `pulled into`
+   - `painted on` → `fixed on`
+   - `rendered` → `shown`
+   - `illustrated` → `shown`
+   - For animation styles (`3d-cinematic`, `2d-cartoon`, `anime`, `comic`, `storybook`) text passes through unchanged — words don't collide with those styles.
+2. **Late-position style anchor** — repeats a tight style cue at the END of the prompt (`Final output: a real photograph, NOT a 3D render, NOT animation, NOT illustration`). Image models heavily weight late-position tokens; this fights drift caused by any collision word we couldn't fully strip.
+3. **Strengthened negative prompt** — when live-action style is selected, appends `animated, animation, cartoon, 3D rendered, CGI, illustrated, drawn, sketch, painted, anime, stylized, plastic skin, doll-like, video game graphics`.
+
+**Scope of files:**
+- `app/api/hybrid/scene-image/route.ts` — sanitizer applied to sceneText, character visualDescription, wardrobe, hairstyle.
+- `app/api/hybrid/scene-video/route.ts` — sanitizer applied to sceneText + motionDescription. Image and derived video stay consistent.
+- `app/api/character-voices/[id]/generate-portrait/route.ts` — sanitizer applied to character description. Portrait regen now respects realistic.
+- `src/lib/style-presets.ts` — realistic preset rewritten: prefix now leads with "Live-action cinematic photography, real photograph", negative blocks `3D render, CGI, animated film, Pixar style, DreamWorks style, animation, cartoon, 2D illustration, anime, flat colors, sketch, painterly, watercolor, stylized, video game graphics, plastic skin, doll-like`.
+
+**Prevention:** Sanitizer + late anchor + negative all run in parallel. Even if one slips, the other two catch it. PROTECTED comment block prevents future refactor from removing.
+
+---
+
+## 2026-05-08 — FEATURE: Beat image checkboxes during assembly
+
+**What:** When Gen Max produces multiple beat images per scene, every beat thumbnail now has a checkbox (default ON). User unticks beats they don't want included in the final assembled video. Image vs video selection unchanged.
+
+**Where:** `app/dashboard/hybrid-planner/page.tsx`
+- New state `selectedBeatImages: Record<sceneId, boolean[]>`
+- Checkbox UI on both beat thumbnail strips
+- Assembly loop filters by checkbox state. Edge cases:
+  - 0 ticked → fall back to scene.imageUrl (single image)
+  - 1 ticked → use that one beat image (not the original imageUrl)
+  - 2+ ticked → multi-segment expansion as before
+
+---
+
+## 2026-05-08 — FEATURE: Compact Story-tab dropdowns + American culture
+
+**What:** Story tab Culture/Name/Country pickers replaced 8-button grid with 3-column compact dropdowns. Culture has 9 options (added **American**). Name Style is NEW dropdown with 13 options. Country has free-text input ("type any country") plus a global preset list.
+
+**Where:** `app/dashboard/hybrid-planner/page.tsx` — Story tab. Wired into `expandStory` payload (`nameStyle`, `country`).
+
+---
+
+## 2026-05-08 — FEATURE: Scene edit cards + Polish modes + Break + Expand
+
+**What:** Story tab Scene Breakdown now shows every scene with an Edit button. Click → editable textarea + LLM selector + 5 polish modes + Save/Cancel + Break Scene.
+
+**Polish modes:** ✨ Polish (default tighter prose) · + Add Action (more action verbs) · 🔥 Make Intense (raise stakes) · ❄ Reduce Action (slow down, reflective) · 💜 Make Emotional (surface feelings)
+
+**Header button:** + Expand Scenes — AI grows scene list while preserving arc/characters/ending. Title-match keeps existing scene assets (images/videos) when AI keeps a beat.
+
+**Break Scene:** AI splits 1 scene into 2 at logical breakpoint. All scenes renumbered after insert.
+
+**LLM selector:** Auto / Ollama / GPT / Haiku — Auto runs Ollama → OpenAI → Claude Haiku fallback chain. Same model menu as AI Chat.
+
+**Where:**
+- New endpoint `app/api/hybrid/scene-edit/route.ts` — handles `op: polish | break | expand`, `polishMode`, `provider`.
+- `app/dashboard/hybrid-planner/page.tsx` — `polishSceneText`, `breakScene`, `expandSceneList` functions + UI.
+
+---
+
+## 2026-05-08 — STYLE-02: AI Chat returns "No response" when Ollama is offline
+
+**Symptom:** AI Chat panel shows "No response" message when Ollama is not running. User has no way to use AI Chat without Ollama.
+
+**Root cause:** `/api/hybrid/scene-chat/route.ts` was hardcoded to `forceProvider: "ollama"` with no fallback. Empty/error response surfaced as "No response" or misleading "is Ollama running?" generic text.
+
+**Fix:**
+1. Added optional `provider` field to chat request: `"auto" | "ollama" | "openai" | "claude"`.
+2. `runWithFallback()` helper in scene-chat route — when `provider === "auto"` (default), tries Ollama → OpenAI → Claude Haiku in order. Returns first success. If all fail, returns combined error message showing which provider failed for what reason.
+3. Added LLM selector UI at top of AI Chat panel: Auto / Ollama / GPT / Haiku. User can force a single provider to skip fallback.
+4. Reply labeling — successful replies prefixed with `[provider]` so user sees who answered. Failures show actual error text instead of generic message.
+
+**Where:** `app/api/hybrid/scene-chat/route.ts`, `app/dashboard/hybrid-planner/page.tsx` (state `aiChatProvider`).
+
+---
+
+## 2026-05-08 — DIALOGUE-01: Multi-character dialogue didn't sound natural (3 phases)
+
+**Symptom:** Cast A and Cast B in movie-planner produced flat, robotic, identically-paced audio. No emotion, no turn-taking gaps, no per-character voice routing in practice. Henry compared to Gemini/Grok dialogue and asked for the same feel.
+
+**Phase 1 — Quick wins (deployed):**
+
+1. **Emotion preprocessor** — `src/lib/dialogue-emotion.ts`. `extractEmotion(text)` returns one of `neutral / questioning / excited / shouting / whispered / hesitant / sad / fearful / angry`. Rules:
+   - Adverb cues ("she whispered", "he shouted") → high confidence
+   - ALL CAPS run (2+ words) → shouting
+   - Trailing `?` → questioning, `!` → excited, `…` → hesitant
+   - `cleanText` field strips directive adverbs so the engine doesn't read them aloud
+   - `v3Tagged` produces `<emotion>text</emotion>` for ElevenLabs v3
+2. **Voice settings tuning** — `elevenLabsSettingsFor(emotion)` returns stability/style tweaks per emotion. Same voice identity, different inflection.
+3. **TTS route wiring** — `/api/tts` now auto-detects emotion (or honours per-line override), passes cleaned text to Piper/FAL/SAPI, and uses emotion-specific voice_settings on ElevenLabs. If `ELEVENLABS_USE_V3=true` it uses v3 model + emotion tags.
+4. **Per-speaker pacing** — `gapMsBetween()` returns 80ms (same speaker continuation), 220ms (turn-taking), 450ms (scene break).
+5. **NEW route `/api/dialogue/generate`** — multi-line concat with FFmpeg `adelay+amix`, per-line emotion + voiceId routing, returns one audio file + per-line timeline. Used by movie-planner Multi-Cast Dialogue button.
+6. **NEW route `/api/dialogue/parse`** — auto-tags speakers in unstructured text using LLM (Ollama → OpenAI → Claude Haiku fallback). Returns `[{speakerId, text}, ...]`. Knows about `knownSpeakers` so Bryan/Mia get used over generic Cast 1/Cast 2.
+
+**Phase 2 — UI in movie-planner (deployed):**
+
+7. **Multi-Cast Dialogue button** — orange button in Voice tab. For every scene with dialogue:
+   - Calls `/api/dialogue/parse` with knownSpeakers from selectedCast
+   - Maps each tagged speaker → that character's voiceId via `castVoiceMap`
+   - Calls `/api/dialogue/generate` with the lines + provider
+   - Stores audio per scene in `sceneDialogueAudio[sceneNumber]`
+8. **Audition button** — per-cast, plays a sample line in that character's voice via `new Audio()`. Lets user preview voices before bulk-generating.
+9. **Per-scene dialogue audio playback** — `<audio>` player per scene appears under cast list once generation completes.
+
+**Phase 3 — Lip-sync (deployed):**
+
+10. **Per-scene Lip-Sync button** — purple `👄 Lip-Sync` button next to each generated dialogue track. Calls `/api/avatar/lip-sync` with `inputIsVideo: true` (the scene video) + the dialogue audio. Result replaces `sceneVideos[sceneId]`. Disabled with tooltip when scene has no video yet.
+11. **Lip-sync route upgrade** (separate scene-forge fix, see below) — added `fal-ai/musetalk` + `fal-ai/sync-lipsync` ahead of legacy wav2lip/sadtalker so the per-scene button gets best-quality results.
+
+**Files:**
+- `src/lib/dialogue-emotion.ts` (NEW)
+- `app/api/dialogue/parse/route.ts` (NEW)
+- `app/api/dialogue/generate/route.ts` (NEW)
+- `app/api/tts/route.ts` (emotion + cleaned-text wiring)
+- `app/dashboard/movie-planner/page.tsx` (Multi-Cast button + audition + per-scene dialogue + lip-sync UI)
+- `app/api/avatar/lip-sync/route.ts` (musetalk + sync-lipsync added)
+
+**Cost guard:** ElevenLabs v3 ~$0.30/min, FAL musetalk ~$0.05/clip, FAL sync-lipsync ~$0.10/clip. Phase 3 is opt-in per scene — no cost unless user clicks the button.
+
+**Other planners (children/music-video/commercial/hybrid):** not yet wired with Multi-Cast button. Each is structurally distinct; the API routes are shared so wiring is a UI-only addition when needed.
+
+---
+
+## 2026-05-08 — SCENE-FORGE-01: Lipsync gave choppy mouths in Scene Forge
+
+**Symptom:** Scene Forge talking-avatar pipeline used wav2lip primary / sadtalker fallback. Mouth motion was visibly off, particularly on AI-stylized portraits. Henry: "libsay [lipsync] did not work."
+
+**Fix:** Upgraded `/api/avatar/lip-sync` provider chain. Order is now:
+1. `fal-ai/sync-lipsync` — Sync Labs gold-standard model. Skipped automatically when input is a still image (it requires video). Caller passes `inputIsVideo: true` to enable.
+2. `fal-ai/musetalk` — Tencent's newer image+audio → video model. Much finer mouth detail than wav2lip.
+3. `fal-ai/wav2lip` — original primary, retained as fallback.
+4. `fal-ai/sadtalker` — final fallback for realistic portraits.
+
+Each tier is tried in order via shared `tryProvider()` helper. Per-tier errors collected and returned in the 502 body so callers can see which model rejected what. Sync-lipsync is skipped (with explicit "skipped (still photo)" status) when input is a still photo.
+
+**Where:** `app/api/avatar/lip-sync/route.ts`.
+
+---
+
+## 2026-05-08 — CHILDREN-ASSEMBLY-02: Beat fix didn't take effect + assembly row hid beat count
+
+**Symptom:** After CHILDREN-ASSEMBLY-01 ship, Henry hit Assemble and the final video still used 1 image per scene. The Choose Your Scenes assembly row showed only one thumbnail per scene with no indication of how many beats existed.
+
+**Root causes:**
+1. **State lost on refresh** — `sceneBeatImages` and `selectedBeatImages` were React state only. They weren't included in the DB save/restore payload, so a page refresh wiped them and the assembly loop saw empty beats arrays.
+2. **No beat surface in assembly UI** — the assembly row showed `Image SELECTED | Video (none) | Preview` with zero indication that the scene had multiple beat images. Users couldn't see whether beats were going into the build or pick which to include.
+
+**Fix (children-planner only):**
+1. **Persistence** — added `sceneBeatImages` + `selectedBeatImages` to all three save/restore paths in `app/dashboard/children-planner/page.tsx`:
+   - debounced auto-save effect (deps array + payload)
+   - `flushCurrentProject()` (Save button)
+   - initial restore + `loadChildProject()` (load existing)
+   - `newProject()` resets both to `{}`
+2. **Beat count badge on assembly row** — orange `N/M beats` pill appears next to the Image / Video buttons. Shows ticked-vs-total. Active orange when image path is selected and ≥2 ticked (signal that multiple segments will be assembled).
+3. **Inline beat thumbnails on assembly row** — small checkboxes + 28×22 thumbs, one per beat. User can untick from the assembly tab directly — same state as Scene Board strip, so changes sync both places.
+4. **Fallback chain in assembly loop** — if user unticks every beat AND no `scene.imageUrl`, we now fall back to `allBeats[0]` so the scene isn't dropped.
+5. **Image button enabled** when there are beat images even if no primary `imageUrl` (was disabled before, blocking users who only used Gen Max).
+
+**Where:** `app/dashboard/children-planner/page.tsx` only. Same file, no API change.
+
+---
+
+## 2026-05-08 — UX-01: "Apply & Regenerate Image" did two things at once
+
+**Symptom:** AI Chat suggested an image prompt. Clicking the green button auto-applied + auto-regenerated the image — user had no way to apply text only and decide later whether to regen with Gen Image or Gen Max.
+
+**Fix (hybrid-planner — only place this button exists):** Split into two steps.
+- **Apply** → writes the AI suggestion into `scene.description` only (via `updateScene`). No regen.
+- After Apply, the `lastAction` toast tells the user: *"Applied to Scene X description — click Gen Image / Gen Max above to regenerate"*.
+- Apply button updates its label to `✓ Applied — now click Gen Image / Gen Max` and switches color when the suggestion already matches the scene's current description.
+
+**Files:** `app/dashboard/hybrid-planner/page.tsx` — both AI Chat panels (the inline tab and the bottom toggle).
+
+**Audit (2026-05-08):** No "Apply & Regenerate" pattern in children-planner / movie-planner / commercial-planner / music-video-planner. They don't have AI Chat with image-prompt suggestions yet. When added, mirror this two-step pattern.
+
+---
+
+## 2026-05-08 — CHILDREN-ASSEMBLY-01: Children-planner only used 1 image per scene at assembly
+
+**Symptom:** Children Scene Board card could show up to 4 images per scene (Gen 4 variants), but assembly only used 1. Henry's screenshot of `Choose Your Scenes` confirmed every scene rendered as a single `Image SELECTED` row.
+
+**Root cause:** Children-planner only had `Gen 4` (variations of the same scene moment — pick one). It had no Gen Max (action-beat) capability and the assembly loop pushed exactly one entry per scene to `/api/video/assemble`.
+
+**Fix (children-planner only — does NOT touch hybrid/movie/music-video/commercial structure):**
+1. **New states** in `app/dashboard/children-planner/page.tsx`:
+   - `sceneBeatImages: Record<sceneId, string[]>` — list of beat URLs per scene
+   - `selectedBeatImages: Record<sceneId, boolean[]>` — parallel checkbox state (default all true)
+   - `generatingMaxBeats: Set<sceneId>`, `maxBeatsProgress` — loading flags
+2. **`splitIntoActionBeats()`** + **`makeChildSceneBeatImages()`** — mirrors hybrid-planner. Splits scene description into beats, fires one `/api/hybrid/scene-image` per beat sequentially.
+3. **Gen Max button** added to Scene Board card (next to existing Gen 4 / Regen). Orange, shows beat count.
+4. **Beat thumbnail strip with checkboxes** below the variants strip on each scene card. User unticks beats they don't want.
+5. **Assembly loop expansion** in `assembleMovie()` — when a scene has Gen Max beats AND user is on image path AND >1 ticked, the scene contributes ONE assembly segment per ticked beat instead of one segment for the whole scene. Edge cases:
+   - 0 ticked → fall back to scene's primary `imageUrl`
+   - 1 ticked → use that beat (overrides scene.imageUrl)
+   - 2+ ticked → multi-segment expansion
+6. **Per-segment duration** — narrator total is now divided by total SEGMENT count (not scene count), so a 4-beat scene gets 4× screen time of a 1-image scene (proportional to its content).
+
+**Where:** `app/dashboard/children-planner/page.tsx` only. No API contract change, no shared file change. The shared `/api/hybrid/scene-image` and `/api/video/assemble` routes both work without modification.
+
+**Other planners:** Movie / music-video / commercial planners do NOT yet have Gen Max. Mirror this approach when needed (each planner is structurally distinct per Henry's rule — copy the logic, don't share files).
+
+---
+
+## 2026-05-08 — STYLE-04: Direct /api/generation/image calls bypass style fix
+
+**Symptom:** Movie/children/commercial planners still produced animated-looking results when they called `/api/generation/image` directly with prebuilt prompts. The shared `/api/hybrid/scene-image` route had the sanitizer; this route did not.
+
+**Root cause:** Each planner calls a different mix of routes. Most scene rendering goes through `/api/hybrid/scene-image` (which has the sanitizer applied). But character avatars, freeform image gen, and a few planner-specific paths hit `/api/generation/image` directly.
+
+**Fix:** Added matching `sanitizeStyleCollisions()` to `/api/generation/image/route.ts`. Accepts new optional `projectStyle` field. When present and live-action, sanitizes the prompt + appends collision negatives. Backward-compatible: omitting `projectStyle` keeps the old behavior, so existing callers don't break.
+
+**Where:** `app/api/generation/image/route.ts`.
+
+**Audit confirmation (2026-05-08):**
+- `hybrid-planner` → uses scene-image, scene-video, generation/image, generate-portrait — all covered
+- `children-planner` → uses generation/image (L766), scene-image, scene-video, music/generate — all covered
+- `movie-planner` → uses scene-image, scene-video, generation/image — all covered
+- `music-video-planner` → uses scene-image, scene-video, music-video/text-to-mv — all covered
+- `commercial-planner` → uses scene-image, scene-video, generation/image — all covered
+
+---
+
+## 2026-05-08 — CHILDREN-MUSIC-01: Generated children music sounds bad
+
+**Symptom:** Children-planner music gen produces low-quality / harsh / wrong-mood tracks. Tracks are 30s and cut off mid-narration.
+
+**Root cause:**
+1. Prompt was a single generic line: `"calm children's story background music, gentle and warm"`. Music providers (Suno, Stable Audio) need instrument + tempo + structural cues to produce something usable.
+2. Hardcoded `durationSeconds: 30` — too short for typical children stories (1-3 min). Track ends mid-narration.
+3. `genre`, `mood`, `hasLyrics` fields not passed — provider defaults to generic background tracks.
+
+**Fix:** Inline upgrade in `app/dashboard/children-planner/page.tsx` Background Music button:
+1. **Rich prompt per tone:**
+   - `soft` → "Gentle children's lullaby, soft solo piano with delicate music box and warm light strings, slow peaceful tempo around 70 BPM, calm comforting atmosphere, fairy tale storybook mood, fully instrumental, NO vocals, NO heavy drums, NO percussion, NO synths, dreamy bedtime story background"
+   - `active` → "Playful children's adventure music, light cheerful ukulele with bright glockenspiel and gentle flute, moderate uplifting tempo around 100 BPM, joyful curious atmosphere, fairy tale wonder, fully instrumental, NO vocals, soft brushed percussion only, NO electric guitar, NO heavy drums, storybook adventure background"
+2. **Duration probe:** loads `narratorAudioUrl` via Audio element, reads `loadedmetadata` duration, clamps to 30-300s. Falls back to 90s if narrator unavailable.
+3. **Pass `genre: "children"`, `mood: calm/playful`, `hasLyrics: false`** to `/api/music/generate`.
+
+**Where:** `app/dashboard/children-planner/page.tsx` only — no API changes (the existing `/api/music/generate` already accepts genre/mood/hasLyrics, the children-planner just wasn't sending them).
+
+**Other planners:** Movie / Music-Video / Commercial use their own music gen calls with different prompts (typically richer than children was). If similar quality issues appear, mirror this approach (rich prompt + duration probe + genre/mood fields).
+
+---
+
+## 2026-05-08 — STYLE-03: Action verb missing from scene-video prompts
+
+**Symptom:** Scene with description like "she ran from the wall" produces a slow zoom over the still image instead of motion. Video models default to slow zoom / panning when no motion verb is present in prompt.
+
+**Root cause:** `scene-video/route.ts` was passing raw `sceneText` to the model with no motion-verb directive. The image route already had `extractSceneAction()` (PROTECTED, 12 categories) — video route had nothing equivalent.
+
+**Fix:** Added `extractMotionAction()` mirror function in `scene-video/route.ts`. 12 categories matching image route (confront, fight, chase, fear, rescue, argue, discover, grief, celebrate, stealth, dialogue, default). Inserted between style prefix and sceneText so video models get explicit motion directives.
+
+**Where:** `app/api/hybrid/scene-video/route.ts`.
+
+---
+
+
 
 ## 2026-04-30 — BUG-04a/c/f: Children/Movie planner API payload mismatch + JSON parse crash
 

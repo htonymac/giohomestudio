@@ -1,3 +1,15 @@
+// LEGACY SHIM (Phase F, 2026-05-08): merged into generation/model-registry.ts.
+// Imports here still work. Plan to remove this file after consumers migrate per SEGREGATION_PLAN.md Phase D.
+//
+// All IDs in AID_VIDEO_MODELS and AID_IMAGE_MODELS already exist in generation/model-registry.ts.
+// These arrays use a different schema (UI picker with scores/colors) vs ModelEntry (gateway routing).
+// Both arrays are kept here as backward-compat exports until planner consumers migrate to ModelEntry.
+
+// Re-export everything from the central registry so any import of this path also gets ModelEntry types.
+export * from "./generation/model-registry";
+
+// ── AID_VIDEO_MODELS — UI picker schema (scores per style, color, network label) ──────────────
+// Schema: id, name, price, network, res, maxSec, color, scores, tags2d?, tags3d?, tagCartoon?, tagRealistic?
 export const AID_VIDEO_MODELS: Array<{
   id: string; name: string; price: number; network: "Segmind"|"MuAPI"|"FAL"|"Runway"|"Kling";
   res: string; maxSec: number; color: string;
@@ -25,6 +37,8 @@ export const AID_VIDEO_MODELS: Array<{
   { id:"kling_direct_v2_5_pro",   name:"Kling 2.5 Pro ★",     price:0.20,  network:"Kling",   res:"1080p",  maxSec:10, color:"#d97706", scores:{"2d":4,"3d":5,"cartoon":4,"realistic":5}, tags3d:"TOP 3D — premium Kling", tagRealistic:"HIGHEST direct realism", tagCartoon:"cinematic cartoon premium" },
 ];
 
+// ── AID_IMAGE_MODELS — UI picker schema (name, price, network, color, desc) ──────────────────
+// Schema: id, name, price, network, res, color, desc
 export const AID_IMAGE_MODELS = [
   { id:"segmind_pruna",          name:"Pruna P Image",        price:0.005, network:"Segmind", res:"1024px", color:"#22c55e", desc:"Cheapest image. Fast drafts." },
   { id:"fal_flux_schnell",       name:"Flux Schnell",         price:0.003, network:"FAL",     res:"1024px", color:"#4ade80", desc:"Fastest FAL image. Very cheap." },

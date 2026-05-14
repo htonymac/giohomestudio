@@ -11,10 +11,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
 import { getStylePreset } from "@/lib/style-presets";
+import { sanitizeStyleCollisions, getStyleCollisionNegative } from "@/lib/style/sanitizer";
+import { getLateAnchor } from "@/lib/style/late-anchor";
+import { extractSceneAction } from "@/lib/scene/action-extractor";
+import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
+import { getModelById } from "@/lib/generation/model-registry";
 import { env } from "@/config/env";
 import * as path from "path";
 
 export async function POST(req: NextRequest) {
+  // Closure-scoped collector for unresolved character IDs (soft-skip).
+  // Surfaced in the response's `warning` field so caller can show a non-blocking toast.
+  const droppedCharacterIds: string[] = [];
   try {
     const body = await req.json();
     const {
@@ -89,13 +97,14 @@ export async function POST(req: NextRequest) {
         ...chars.map(c => c.characterId).filter(Boolean),
         ...chars.map(c => c.name),
       ]);
+      // 2026-05-09 SOFT-SKIP unresolved IDs.
+      // Old: hard 400 ("characters not in registry"). New: log + drop + proceed.
+      // Why: AI-generated character placeholders (e.g. "CH01") shouldn't block image gen.
+      // Generation still works because session-only chars are also handled via characterOverrides.
       const unresolvedIds = characterIds.filter((id: string) => !resolvedIds.has(id));
       if (unresolvedIds.length > 0) {
-        return NextResponse.json({
-          error: "unresolved_characters",
-          message: `These characters are not in the registry: ${unresolvedIds.join(", ")}. Create or import them first.`,
-          unresolvedIds,
-        }, { status: 400 });
+        console.warn(`[scene-image] dropping unresolved characterIds: ${unresolvedIds.join(", ")} (continuing generation without them)`);
+        droppedCharacterIds.push(...unresolvedIds);
       }
     }
 
@@ -140,73 +149,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ════════════════════════════════════════════════════════════════════════════════
-    // ── SCENE ACTION EXTRACTOR ── PROTECTED — DO NOT REMOVE, SIMPLIFY, OR OVERRIDE ──
-    //
-    // WHY THIS EXISTS: Without this block the image prompt only contains the raw scene
-    // text ("Bryan confronted some bullies"). Image models read that as casual presence
-    // and generate characters standing calmly side by side.
-    //
-    // This block extracts the ACTION TYPE from the scene description and injects precise
-    // body-language and spatial-relationship directives that force the image model to
-    // render the correct drama: posture, eye-lines, tension, camera angle.
-    //
-    // HISTORY: This was lost in a previous refactor pass. Re-added 2026-05-07.
-    // IF YOU ARE REFACTORING SCENE-IMAGE: preserve the extractSceneAction() call and the
-    // promptParts.push(actionDirective) line below exactly as written.
-    // ════════════════════════════════════════════════════════════════════════════════
-    function extractSceneAction(text: string): string {
-      const t = text.toLowerCase();
+    // sanitizeStyleCollisions imported from @/lib/style/sanitizer (Phase B extraction)
 
-      // ── Confrontation / bullying ──
-      if (/confront|bully|bullies|block.*path|stand.*way|threaten|intimidat|face.*off|gang.*up/.test(t))
-        return "characters in tense confrontation, one side blocking the other's path, aggressive body language, clenched fists or crossed arms, faces close and hostile, low-angle dramatic framing";
+    // extractSceneAction imported from @/lib/scene/action-extractor (Phase B extraction)
+    // PROTECTED: preserve the extractSceneAction() call and promptParts.push(sceneActionDirective) below exactly as written.
 
-      // ── Physical fight / attack ──
-      if (/fight|attack|punch|kick|battle|struggle|brawl|shove|push|hit/.test(t))
-        return "mid-fight action, dynamic poses, one character striking or lunging, the other reacting or bracing, dramatic motion, intense expressions, action frame";
-
-      // ── Chase / escape ──
-      if (/chase|chasing|run.*away|escape|flee|pursuit|catch.*him|catch.*her|catch.*them|sprint/.test(t))
-        return "chase scene, one character fleeing in the foreground, pursuer visible behind, sense of speed and urgency, wide tracking shot";
-
-      // ── Fear / terror ──
-      if (/fear|terrif|horrif|scream|panic|trembl|shak|cower|hide|creeped/.test(t))
-        return "character showing extreme fear, wide eyes, mouth open, backing away or cowering, tense atmosphere, dramatic shadows";
-
-      // ── Rescue / save ──
-      if (/rescue|save|help|grab.*hand|pull.*out|lift|carry|protect/.test(t))
-        return "rescue moment, one character reaching or pulling the other to safety, urgent poses, emotional connection, dramatic lighting";
-
-      // ── Argument / conflict (non-physical) ──
-      if (/argue|argument|shout|yell|scream.*at|disagree|furious|rage|anger/.test(t))
-        return "heated argument, characters facing each other with raised voices implied, pointing fingers or gesturing firmly, high emotional intensity, medium shot";
-
-      // ── Discovery / revelation ──
-      if (/discover|realiz|shock|reveal|surprise|stunned|gasp|uncover|find/.test(t))
-        return "moment of revelation, character with wide eyes and open mouth in shock, dramatic close-up on expression, high contrast lighting";
-
-      // ── Sadness / grief ──
-      if (/cry|crying|sob|griev|mourn|tears|heartbroken|despair|loss/.test(t))
-        return "emotional grief scene, character visibly crying or head down, slumped posture, soft muted lighting, intimate close-up";
-
-      // ── Celebration / triumph ──
-      if (/celebrat|cheer|victory|win|triumph|joy|hug|embrace|relief/.test(t))
-        return "celebration moment, characters joyful and energetic, arms raised or embracing, bright uplifting atmosphere, wide smiling expressions";
-
-      // ── Stealth / hiding ──
-      if (/sneak|hide|hiding|crouch|lurk|spy|shadow|stalk|creep/.test(t))
-        return "stealth scene, character crouched low or pressed against wall, dark environment, tense atmosphere, partial concealment";
-
-      // ── Dialogue / meeting ──
-      if (/talk|discuss|meet|conversat|explain|listen|whisper|greet/.test(t))
-        return "two or more characters in conversation, facing each other, engaged expressions, natural body language, neutral medium shot";
-
-      // ── Default: preserve scene drama ──
-      return "characters in active scene moment, purposeful body language expressing scene mood, dynamic composition";
-    }
-
-    const sceneActionDirective = extractSceneAction(sceneText || "");
+    // Sanitize the scene text for the chosen style BEFORE it touches the prompt or
+    // the action extractor. This way "her voice was animated" never reaches the model
+    // when style=realistic.
+    const styleId = (projectStyle || "3d-cinematic") as string;
+    const cleanSceneText = sanitizeStyleCollisions(sceneText || "", styleId);
+    const sceneActionDirective = extractSceneAction(cleanSceneText);
 
     // 2. Build structured image prompt — STYLE LOCK FIRST, then CHARACTER IDENTITY
     // Order: [Style directive] → [Character identity] → [Scene] → [Action directive] → [Reinforcement] → [Settings] → [Quality]
@@ -236,21 +189,60 @@ export async function POST(req: NextRequest) {
 
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
+    // Each field is run through the style sanitizer so a description like "his
+    // animated face" doesn't sabotage realistic gen.
     const CHAR_DESC_LIMIT = 400;
     if (resolvedCharacters.length > 0) {
       const identityBlock = resolvedCharacters.map(c => {
-        const desc = (c.visualDescription || "").slice(0, CHAR_DESC_LIMIT);
-        const wardrobe = c.wardrobe ? `, wearing: ${c.wardrobe.slice(0, 120)}` : "";
-        const hairstyle = c.hairstyle ? `, hair: ${c.hairstyle.slice(0, 60)}` : "";
-        return `${c.name}: ${desc}${wardrobe}${hairstyle}`;
+        const desc = sanitizeStyleCollisions((c.visualDescription || "").slice(0, CHAR_DESC_LIMIT), styleId);
+        const wardrobe = c.wardrobe ? `, wearing: ${sanitizeStyleCollisions(c.wardrobe.slice(0, 120), styleId)}` : "";
+        const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
+        // 2026-05-10 AGE LOCK — when age is set, repeat it loudly so models don't default to adult.
+        // "Bryan is 11 but image shows 30" was the bug. Plain age mention is too soft for the model.
+        const ageLock = c.age
+          ? `, AGE: ${c.age} — body proportions, face, height, voice all match age ${c.age}, do NOT render as adult unless ${c.age} is "adult"`
+          : "";
+        return `${c.name}: ${desc}${wardrobe}${hairstyle}${ageLock}`;
       }).join(" | ");
       promptParts.push(identityBlock);
+
+      // ── CHARACTER ANATOMY SEPARATION (2026-05-09) ──
+      // When a scene has 2+ characters AND a mix of human + animal species, image models
+      // tend to fuse features (e.g. "bear with boy's face"). Inject explicit separation
+      // directive listing each character's species + anatomy, so the model treats them
+      // as DISTINCT bodies, not a hybrid creature.
+      if (resolvedCharacters.length >= 2) {
+        const speciesByName: string[] = [];
+        for (const c of resolvedCharacters) {
+          // Pick species hint from override or from visualDescription; default human.
+          const ovs = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
+            ?.find(o => o.name === c.name)?.species;
+          const desc = (c.visualDescription || "").toLowerCase();
+          const isAnimal = ovs && ANIMAL_SPECIES.has(ovs.toLowerCase())
+            ? true
+            : ANIMAL_PATTERN.test(desc);
+          if (isAnimal) {
+            const animalKind = (ovs && ANIMAL_SPECIES.has(ovs.toLowerCase()))
+              ? ovs
+              : (desc.match(ANIMAL_PATTERN)?.[1] ?? "animal");
+            speciesByName.push(`${c.name} is a ${animalKind} (${animalKind} face, ${animalKind} body, ${animalKind} anatomy — NOT human)`);
+          } else {
+            speciesByName.push(`${c.name} is a human (human face, human body, human skin — NOT an animal)`);
+          }
+        }
+        promptParts.push(
+          `STRICT CHARACTER SEPARATION — ${resolvedCharacters.length} different characters with DIFFERENT bodies. ` +
+          speciesByName.join(". ") + ". " +
+          "Do NOT merge their features. Do NOT put a human face on an animal body. Do NOT put an animal face on a human body. " +
+          "Each character is a SEPARATE individual with their OWN anatomy."
+        );
+      }
     }
 
     // ── SCENE DESCRIPTION + ACTION DIRECTIVE ──
-    // Raw text first (context), then action directive (precise body-language instruction).
+    // cleanSceneText is the sanitized version (style collision words swapped for live-action styles).
     // PROTECTED: action directive must stay — it prevents "calm standing" images for tense scenes.
-    promptParts.push((sceneText || "").slice(0, 300));
+    promptParts.push(cleanSceneText.slice(0, 300));
     promptParts.push(sceneActionDirective);
 
     // ── HUMAN CHARACTER GUARD — INJECTED LATE (after character block) for maximum override force ──
@@ -273,11 +265,23 @@ export async function POST(req: NextRequest) {
     // ── STYLE QUALITY SUFFIX ──
     promptParts.push(stylePreset.suffix);
 
+    // ── LATE-POSITION STYLE ANCHOR ──
+    // Repeat a tight style cue at the very END of the prompt. Image models weight
+    // late-position tokens heavily — this fights any drift caused by collision words
+    // we couldn't fully remove (e.g., character names that happen to be style words).
+    // getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
+    promptParts.push(getLateAnchor(styleId));
+
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
     // bear-guard: hard negative appended whenever characters are human (not explicit animal scene)
     const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, bear anatomy, furry creature, animal face, snout, paws, animal head, anthropomorphic animal, non-human character";
-    const negativePrompt = stylePreset.negative + bearNegative;
+    // Hybrid-feature guard (2026-05-09) — when scene mixes humans + animals, models tend to merge.
+    // Always block hybrid features regardless of style. Cheap insurance.
+    const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body";
+    // Style-collision negatives — extra muscle behind the negative when live-action is selected.
+    // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + getStyleCollisionNegative(styleId);
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {
@@ -318,7 +322,11 @@ export async function POST(req: NextRequest) {
     });
     const outputPath = path.join(env.storagePath, "images", `scene_${sceneId || Date.now()}_${Date.now()}.png`);
 
-    const result = await generateImage({
+    // Phase E.1: provider-health auto-fallback for image generation.
+    // If the chosen model returns a 404/422/"model not found" error, we mark it broken,
+    // pick the best healthy model in the same family, and retry once.
+    // Routes that call generateImage() without this wrapper still work unchanged (backward compat).
+    let result = await generateImage({
       modelId: modelId || undefined,
       prompt: structuredPrompt,
       negativePrompt: negativePrompt,
@@ -327,8 +335,37 @@ export async function POST(req: NextRequest) {
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
       referenceImageUrl: referenceImageUrls[0],
-      useIdentityLock: hasPhotoImportChar && !modelId, // auto-route to PuLID for photo-import chars
+      useIdentityLock: hasPhotoImportChar && !modelId,
     });
+
+    if (!result.success && result.model) {
+      // Check if this looks like a provider-side failure (not a local validation error)
+      const errStr = result.error ?? "";
+      const isProviderErr = /404|422|not found|unavailable|model.*error|endpoint.*error/i.test(errStr);
+      if (isProviderErr) {
+        markBroken(result.model.id, errStr);
+        console.warn(`[provider-health] scene-image: ${result.model.id} marked broken — ${errStr}`);
+
+        const alt = pickHealthyAlternative(result.model.family ?? "unknown", result.model.id);
+        if (alt) {
+          console.log(`[provider-health] scene-image fallback: ${result.model.id} → ${alt.id}`);
+          result = await generateImage({
+            modelId: alt.id,
+            prompt: structuredPrompt,
+            negativePrompt: negativePrompt,
+            width: 1280,
+            height: 720,
+            seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
+            outputPath,
+            referenceImageUrl: referenceImageUrls[0],
+            useIdentityLock: hasPhotoImportChar && !modelId,
+          });
+          if (!result.success && result.model) {
+            markBroken(result.model.id, result.error ?? "fallback also failed");
+          }
+        }
+      }
+    }
 
     if (!result.success) {
       return NextResponse.json({
@@ -337,6 +374,10 @@ export async function POST(req: NextRequest) {
         model: result.model?.id,
       }, { status: 502 });
     }
+
+    // Also look up full model entry to pass family info downstream (non-blocking)
+    const usedModel = result.model ? getModelById(result.model.id) : null;
+    void usedModel; // referenced for future use (E.2 UI badge)
 
     // 5. Update HybridScene in DB if projectId + sceneId provided
     if (projectId && sceneId) {
@@ -384,6 +425,7 @@ export async function POST(req: NextRequest) {
       provider: result.model?.provider_name,
       characters: resolvedCharacters.map(c => ({ id: c.id, characterId: c.characterId, name: c.name })),
       referenceImages: referenceImageUrls,
+      ...(droppedCharacterIds.length > 0 ? { warning: `Generated without characters not in registry: ${droppedCharacterIds.join(", ")}` } : {}),
     });
   } catch (err) {
     return NextResponse.json(

@@ -15,6 +15,7 @@ import * as Icon from "../../components/icons";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Commercial Planner — PRODUCTION WORKSHOP
@@ -320,6 +321,21 @@ function CommercialPlannerInner() {
   });
   const [showCutsPanel, setShowCutsPanel] = useState(false);
 
+  // ── Phase C.4 — ProjectSettings hook ──
+  const { settings: projectSettings, patch: patchProjectSettings } =
+    useProjectSettings(projectId || null);
+
+  const effectiveProjectStyle =
+    projectSettings.visualStyle ?? brandVisualStyle;
+  const effectiveVideoModelId =
+    projectSettings.videoModelVersion && projectSettings.videoModelVersion !== "auto"
+      ? projectSettings.videoModelVersion
+      : selectedVideoModelId;
+  const effectiveImageModelId =
+    projectSettings.imageModelVersion && projectSettings.imageModelVersion !== "auto"
+      ? projectSettings.imageModelVersion
+      : selectedImageModelId;
+
   useEffect(() => {
     setMounted(true);
     try {
@@ -410,7 +426,7 @@ function CommercialPlannerInner() {
     setGeneratingScript(true);
     setLastAction("AI is writing your commercial script...");
     try {
-      const manifest = `${brief.format} commercial for ${brief.brandName} — ${brief.productName}. Brand tone: ${brief.brandTone}. Visual style: ${brandVisualStyle}. Platform: ${brief.platform}. Objective: ${brief.objective}. Target: ${brief.targetAudience}. Key message: ${brief.keyMessage}. CTA: ${brief.callToAction}.`;
+      const manifest = `${brief.format} commercial for ${brief.brandName} — ${brief.productName}. Brand tone: ${brief.brandTone}. Visual style: ${effectiveProjectStyle}. Platform: ${brief.platform}. Objective: ${brief.objective}. Target: ${brief.targetAudience}. Key message: ${brief.keyMessage}. CTA: ${brief.callToAction}.`;
       const res = await fetch("/api/hybrid/story-expand", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -425,7 +441,7 @@ function CommercialPlannerInner() {
             platform: brief.platform,
             objective: brief.objective,
             brandColors: brief.brandColors,
-            brandVisualStyle,
+            brandVisualStyle: effectiveProjectStyle,
             productCategory,
             callToAction: brief.callToAction,
           },
@@ -490,8 +506,8 @@ function CommercialPlannerInner() {
     try {
       const charRefs = cast.filter(c => scene.characterIds.includes(c.characterId)).map(c => `${c.displayName}: ${c.description}`).join(", ");
       const prompt = `Commercial scene for ${brief.brandName}. ${brief.productName} — ${brief.tagline}. Scene: ${scene.title}. ${scene.description}. Brand tone: ${brief.brandTone}. Style: ${scene.cameraStyle || "clean commercial photography"}.${charRefs ? ` Characters: ${charRefs}.` : ""} Professional ${brief.budget === "premium" ? "cinematic" : "clean"} advertising style.`;
-      const useTransparent = transparentBg && selectedImageModelId.includes("ideogram_v3");
-      const sceneImgModel = sceneImageModels[scene.sceneId] || (useTransparent ? "fal_ideogram_v3_transparent" : selectedImageModelId);
+      const useTransparent = transparentBg && effectiveImageModelId.includes("ideogram_v3");
+      const sceneImgModel = sceneImageModels[scene.sceneId] || (useTransparent ? "fal_ideogram_v3_transparent" : effectiveImageModelId);
       const res = await fetch("/api/hybrid/scene-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -841,7 +857,7 @@ function CommercialPlannerInner() {
     try {
       const response = await fetch("/api/hybrid/scene-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`, imageUrl: existingImage, duration: scene.duration, motionDescription: scene.cameraStyle || "", modelId: sceneVideoModels[sceneId] || selectedVideoModelId }),
+        body: JSON.stringify({ sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`, imageUrl: existingImage, duration: scene.duration, motionDescription: scene.cameraStyle || "", modelId: sceneVideoModels[sceneId] || effectiveVideoModelId }),
       });
       if (!response.body) throw new Error("No response stream");
       const reader = response.body.getReader();
@@ -1065,9 +1081,9 @@ function CommercialPlannerInner() {
           <span style={lbl}>Visual Style</span>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {VISUAL_STYLES_AD.map(v => (
-              <div key={v.id} onClick={() => setBrandVisualStyle(v.id as typeof brandVisualStyle)}
-                style={{ padding: 12, borderRadius: 10, border: `1px solid ${brandVisualStyle === v.id ? orange : border}`, background: brandVisualStyle === v.id ? `${orange}15` : s2, cursor: "pointer" }}>
-                <div style={{ color: brandVisualStyle === v.id ? orange : "#fff", fontWeight: 700, fontSize: 12 }}>{v.label}</div>
+              <div key={v.id} onClick={() => { setBrandVisualStyle(v.id as typeof brandVisualStyle); patchProjectSettings({ visualStyle: v.id }).catch(() => {}); }}
+                style={{ padding: 12, borderRadius: 10, border: `1px solid ${effectiveProjectStyle === v.id ? orange : border}`, background: effectiveProjectStyle === v.id ? `${orange}15` : s2, cursor: "pointer" }}>
+                <div style={{ color: effectiveProjectStyle === v.id ? orange : "#fff", fontWeight: 700, fontSize: 12 }}>{v.label}</div>
                 <div style={{ color: muted, fontSize: 10, marginTop: 2 }}>{v.desc}</div>
               </div>
             ))}
@@ -1634,11 +1650,11 @@ function CommercialPlannerInner() {
             <div style={{ flex: 1, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, color: ds.color.ink2, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                Video: <span style={{ color: ds.color.ink }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Video: <span style={{ color: ds.color.ink }}>{effectiveVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${ds.color.line2}`, background: ds.color.paper, color: ds.color.ink2, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                Image: <span style={{ color: ds.color.ink }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Image: <span style={{ color: ds.color.ink }}>{effectiveImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
             </div>
           </div>
@@ -1712,7 +1728,7 @@ function CommercialPlannerInner() {
                   <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap", alignItems: "center" }}>
                     <select
                       data-testid={`img-model-${sc.sceneId}`}
-                      value={sceneImageModels[sc.sceneId] || selectedImageModelId}
+                      value={sceneImageModels[sc.sceneId] || effectiveImageModelId}
                       onChange={e => setSceneImageModels(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
                       style={{ fontSize: 10, padding: "3px 6px", borderRadius: 6, border: `1px solid ${border}`, background: ds.color.paper, color: muted, cursor: "pointer" }}
                       title="Image model for this scene"
@@ -1721,7 +1737,7 @@ function CommercialPlannerInner() {
                     </select>
                     <select
                       data-testid={`vid-model-${sc.sceneId}`}
-                      value={sceneVideoModels[sc.sceneId] || selectedVideoModelId}
+                      value={sceneVideoModels[sc.sceneId] || effectiveVideoModelId}
                       onChange={e => setSceneVideoModels(prev => ({ ...prev, [sc.sceneId]: e.target.value }))}
                       style={{ fontSize: 10, padding: "3px 6px", borderRadius: 6, border: `1px solid ${border}`, background: ds.color.paper, color: muted, cursor: "pointer" }}
                       title="Video model for this scene"
@@ -1729,7 +1745,7 @@ function CommercialPlannerInner() {
                       {AID_VIDEO_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                     </select>
                   </div>
-                  {(sceneImageModels[sc.sceneId] || selectedImageModelId).includes("ideogram_v3") && (
+                  {(sceneImageModels[sc.sceneId] || effectiveImageModelId).includes("ideogram_v3") && (
                     <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, cursor: "pointer" }}>
                       <input type="checkbox" checked={transparentBg} onChange={e => setTransparentBg(e.target.checked)} />
                       <span style={{ fontSize: 10, color: "#aaa" }}>Transparent Background (PNG)</span>
@@ -2549,9 +2565,9 @@ function CommercialPlannerInner() {
               </div>
               <div style={{ flex: 1, overflowY: "auto", padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
                 {sorted.map(model => {
-                  const isSelected = aidMode === "video" ? selectedVideoModelId === model.id : selectedImageModelId === model.id;
+                  const isSelected = aidMode === "video" ? effectiveVideoModelId === model.id : effectiveImageModelId === model.id;
                   return (
-                    <div key={model.id} onClick={() => { if (aidMode === "video") setSelectedVideoModelId(model.id); else setSelectedImageModelId(model.id); setShowAidPicker(false); }}
+                    <div key={model.id} onClick={() => { if (aidMode === "video") { setSelectedVideoModelId(model.id); patchProjectSettings({ videoModelVersion: model.id }).catch(() => {}); } else { setSelectedImageModelId(model.id); patchProjectSettings({ imageModelVersion: model.id }).catch(() => {}); } setShowAidPicker(false); }}
                       style={{ background: s2, borderRadius: 12, border: `2px solid ${isSelected ? model.color : border}`, padding: 14, cursor: "pointer", position: "relative" }}>
                       {isSelected && <div style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: "50%", background: model.color }} />}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>

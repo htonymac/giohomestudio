@@ -20,6 +20,8 @@ import { createEmptyAssembly } from "@/lib/assembly-schema";
 import type { AssemblySegment, NarrationEntry, MusicEntry, SFXEntry } from "@/lib/assembly-schema";
 import SubtitleStyler, { DEFAULT_SUBTITLE_CONFIG, type SubtitleConfig } from "../../components/SubtitleStyler";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
+import { splitIntoActionBeats } from "@/lib/scene/action-beats";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -228,6 +230,11 @@ function HybridPlannerInner() {
 
   // ── Characters ──
   const [characters, setCharacters] = useState<CharacterIdentity[]>([]);
+  // Per-character AI describe-fields helper state.
+  // User types plain-English description → POST /api/hybrid/character-parse → 9 fields populate.
+  // 2026-05-10 (Wave I redo) — uses correct CharacterIdentity field names this time.
+  const [charAiDraft, setCharAiDraft] = useState<Record<string, string>>({});
+  const [charAiBusy, setCharAiBusy] = useState<Set<string>>(new Set());
   const [loadingCharacters, setLoadingCharacters] = useState(false);
   const [charactersMade, setCharactersMade] = useState(false);
   const [makingCharacters, setMakingCharacters] = useState(false);
@@ -370,10 +377,48 @@ function HybridPlannerInner() {
   const [sceneChatLoading, setSceneChatLoading] = useState<Set<string>>(new Set());
   // ── AI Chat open state — bottom of scene card, always accessible ──
   const [aiChatOpenScenes, setAiChatOpenScenes] = useState<Set<string>>(new Set());
+  // AI Chat LLM provider — "auto" runs the fallback chain (ollama → openai → claude).
+  // User can manually pick a single provider to force it.
+  const [aiChatProvider, setAiChatProvider] = useState<"auto" | "ollama" | "openai" | "claude">("auto");
   // ── Gen Max — per-scene action-beat images ──
   const [sceneBeatImages, setSceneBeatImages] = useState<Record<string, string[]>>({});
   const [generatingMaxBeats, setGeneratingMaxBeats] = useState<Set<string>>(new Set());
   const [maxBeatsProgress, setMaxBeatsProgress] = useState<Record<string, string>>({});
+  // sceneMaxTarget — per-scene custom image count for Gen Max (default 4, range 1-30).
+  const [sceneMaxTarget, setSceneMaxTarget] = useState<Record<string, number>>({});
+  // selectedBeatImages — per-scene boolean array, one entry per beat image.
+  // Default: every beat included (true). User unticks a beat to skip it during assembly.
+  // Shape: { "SC01": [true, false, true], "SC02": [true, true] }
+  const [selectedBeatImages, setSelectedBeatImages] = useState<Record<string, boolean[]>>({});
+  // useMaxImageScenes — set of sceneIds where the user opted-in to "Use Max Image" in Assembly.
+  // OFF (default): scene contributes ONE image to the assembled video (scene.imageUrl).
+  // ON: scene expands into N segments — one per ticked beat in selectedBeatImages.
+  // Per-scene toggle so the user can mix: some scenes 1 image, some scenes multi-beat.
+  const [useMaxImageScenes, setUseMaxImageScenes] = useState<Set<string>>(new Set());
+
+  // ── Story tab — Scene Breakdown editing state ──
+  // Only ONE scene is in edit mode at a time, identified by sceneId.
+  // storyEditedDescription holds the textarea value while editing — committed to scene state on Save.
+  const [storyEditingSceneId, setStoryEditingSceneId] = useState<string | null>(null);
+  const [storyEditedDescription, setStoryEditedDescription] = useState<string>("");
+  // Loading flags so the same scene can't fire two AI calls at once.
+  // storyPolishingMode tells which button is busy (default/add_action/intense/reduce_action/emotional).
+  const [storyPolishingSceneId, setStoryPolishingSceneId] = useState<string | null>(null);
+  const [storyPolishingMode, setStoryPolishingMode] = useState<"default" | "add_action" | "intense" | "reduce_action" | "emotional" | null>(null);
+  const [storyBreakingSceneId, setStoryBreakingSceneId] = useState<string | null>(null);
+  const [storyExpandingScenes, setStoryExpandingScenes] = useState(false);
+  // LLM provider for all Story-tab AI ops (polish/break/expand). Same model menu as AI Chat.
+  const [storyEditProvider, setStoryEditProvider] = useState<"auto" | "ollama" | "openai" | "claude">("auto");
+
+  // ── Story tab — compact dropdowns for Culture / Name Style / Country ──
+  // Open flags are stored separately so opening one auto-closes the others.
+  // storyCountryQuery powers the free-text "type any country" field inside the country popover.
+  const [storyNameStyle, setStoryNameStyle] = useState<string>("");
+  const [storyCountry, setStoryCountry] = useState<string>("");
+  const [storyCultureOpen, setStoryCultureOpen] = useState(false);
+  const [storyNameStyleOpen, setStoryNameStyleOpen] = useState(false);
+  const [storyCountryOpen, setStoryCountryOpen] = useState(false);
+  const [storyCountryQuery, setStoryCountryQuery] = useState("");
 
   // ── New Scene Duration (user sets seconds) ──
   const [newSceneDuration, setNewSceneDuration] = useState(5);
@@ -565,6 +610,21 @@ function HybridPlannerInner() {
   // the same project. "New Project" navigates without ?projectId= → fresh UUID.
   const urlProjectId = params.get("projectId");
 
+  // ── ProjectSettings hook — keyed to resolved projectId (fallback to "hybrid-default") ──
+  const { settings: projectSettings, patch: patchProjectSettings } =
+    useProjectSettings(projectId || urlProjectId || "hybrid-default");
+
+  // ── effective* shims — hook value wins; local state is fallback during migration ──
+  const effectiveProjectStyle      = projectSettings.visualStyle ?? projectStyle;
+  const effectiveSoundTier         = projectSettings.soundTier ?? soundTier;
+  const effectiveSubtitleConfig: SubtitleConfig = projectSettings
+    ? { ...subtitleConfig, mode: (projectSettings.subtitleMode ?? subtitleConfig.mode) as SubtitleConfig["mode"], highlightColor: projectSettings.subtitleHighlight ?? subtitleConfig.highlightColor }
+    : subtitleConfig;
+  const effectiveVideoModelId      = projectSettings.videoModelVersion && projectSettings.videoModelVersion !== "auto" ? projectSettings.videoModelVersion : selectedVideoModelId;
+  const effectiveImageModelId      = projectSettings.imageModelVersion && projectSettings.imageModelVersion !== "auto" ? projectSettings.imageModelVersion : selectedImageModelId;
+  const effectiveLanguage          = projectSettings.language ?? language;
+  const effectiveLlmProvider       = projectSettings.llmProvider ?? aiChatProvider;
+
   // BUG-15: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
   // ── SE: per-scene description debounce timers ──
@@ -666,6 +726,11 @@ function HybridPlannerInner() {
           if (d.screenplayAuthor) setScreenplayAuthor(d.screenplayAuthor);
           if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
           if (d.musicVolume !== undefined) setMusicVolume(d.musicVolume);
+          // Restore Gen Max beats so they survive a page refresh.
+          if (d.sceneBeatImages && Object.keys(d.sceneBeatImages).length > 0) setSceneBeatImages(d.sceneBeatImages);
+          if (d.selectedBeatImages && Object.keys(d.selectedBeatImages).length > 0) setSelectedBeatImages(d.selectedBeatImages);
+          // Restore which scenes are in "Use Max Image" mode for assembly.
+          if (Array.isArray(d.useMaxImageScenes)) setUseMaxImageScenes(new Set(d.useMaxImageScenes));
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
@@ -678,6 +743,59 @@ function HybridPlannerInner() {
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Gen Max localStorage BACKUP (2026-05-10) ──
+  // The DB save is large (50+ KB JSON) and sometimes silently fails for unknown reasons.
+  // Henry's Gen Max images keep disappearing on hard refresh. Mirror the 3 critical Gen Max
+  // states to localStorage so they survive even if the DB save loses them.
+  // Key shape: ghs_hybrid_genmax_<projectId>. Read on mount, written on every state change.
+  useEffect(() => {
+    if (!activeProjLocalId) return;
+    if (isRestoringRef.current) return;
+    try {
+      const key = `ghs_hybrid_genmax_${activeProjLocalId}`;
+      const payload = {
+        sceneBeatImages,
+        selectedBeatImages,
+        useMaxImageScenes: Array.from(useMaxImageScenes),
+        sceneMaxTarget,
+        savedAt: Date.now(),
+      };
+      localStorage.setItem(key, JSON.stringify(payload));
+    } catch { /* localStorage quota or disabled — silent */ }
+  }, [activeProjLocalId, sceneBeatImages, selectedBeatImages, useMaxImageScenes, sceneMaxTarget]);
+
+  // Read Gen Max localStorage backup on mount once activeProjLocalId is known.
+  // Runs AFTER the DB restore — if DB has data, we keep it; if DB lost it, we recover from local.
+  useEffect(() => {
+    if (!activeProjLocalId) return;
+    try {
+      const key = `ghs_hybrid_genmax_${activeProjLocalId}`;
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const data = JSON.parse(raw) as {
+        sceneBeatImages?: Record<string, string[]>;
+        selectedBeatImages?: Record<string, boolean[]>;
+        useMaxImageScenes?: string[];
+        sceneMaxTarget?: Record<string, number>;
+      };
+      // Only fill state from local if state is currently empty (DB had nothing).
+      if (Object.keys(sceneBeatImages).length === 0 && data.sceneBeatImages && Object.keys(data.sceneBeatImages).length > 0) {
+        setSceneBeatImages(data.sceneBeatImages);
+        console.log(`[gen-max-backup] restored ${Object.keys(data.sceneBeatImages).length} scenes from localStorage`);
+      }
+      if (Object.keys(selectedBeatImages).length === 0 && data.selectedBeatImages && Object.keys(data.selectedBeatImages).length > 0) {
+        setSelectedBeatImages(data.selectedBeatImages);
+      }
+      if (useMaxImageScenes.size === 0 && Array.isArray(data.useMaxImageScenes) && data.useMaxImageScenes.length > 0) {
+        setUseMaxImageScenes(new Set(data.useMaxImageScenes));
+      }
+      if (Object.keys(sceneMaxTarget).length === 0 && data.sceneMaxTarget) {
+        setSceneMaxTarget(data.sceneMaxTarget);
+      }
+    } catch { /* corrupt data — ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeProjLocalId]);
 
   // ── Save full workshop state — DB only ──
   // BUG-15: skip save while restoring — prevents stale state from overwriting fresh DB data
@@ -693,6 +811,9 @@ function HybridPlannerInner() {
       sceneVideoVersions, sceneIntelligence,
       subtitleStyle, storyMode, soundTier,
       screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
+      sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
+      // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
+      useMaxImageScenes: Array.from(useMaxImageScenes),
       timestamp: Date.now(),
     };
     // DB save (fire-and-forget — don't block UI)
@@ -702,7 +823,7 @@ function HybridPlannerInner() {
       body: JSON.stringify({ localId: activeProjLocalId, data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices]);
+  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices, sceneBeatImages, selectedBeatImages, useMaxImageScenes]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -864,7 +985,7 @@ function HybridPlannerInner() {
           storyInput: idea.trim(),
           genre: genre || undefined,
           tone: tone || undefined,
-          language,
+          language: effectiveLanguage,
           audience: audienceType,
           costPreference,
           targetDuration: durSeconds,
@@ -872,6 +993,8 @@ function HybridPlannerInner() {
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
           nameRegion: storyRegion || undefined,
+          nameStyle: storyNameStyle || undefined,
+          country: storyCountry || undefined,
           customNames: (() => {
             try { return JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]"); } catch { return []; }
           })(),
@@ -929,7 +1052,7 @@ function HybridPlannerInner() {
             accentType: "",
             emotionProfile: (c.personality as string) || "",
             voiceId: (c.voiceId as string) || "",
-            language,
+            language: effectiveLanguage,
             tags: [],
             hasVoice: !!(c.voiceId as string),
             hasImage: false,
@@ -966,7 +1089,7 @@ function HybridPlannerInner() {
             ageRange: (c.age as string) || "adult",
             skinTone: "", hairStyle: "", wardrobeStyle: "", speechStyle: (c.voiceStyle as string) || "normal",
             accentType: "", emotionProfile: (c.description as string) || "",
-            voiceId: "", language, tags: [], hasVoice: false, hasImage: false,
+            voiceId: "", language: effectiveLanguage, tags: [], hasVoice: false, hasImage: false,
             species: "", bodyBuild: "", colorDescription: "", faceFeatures: "",
             clothingDetails: "", accessories: "", distinctiveFeatures: "", ageAppearance: "",
           });
@@ -1137,7 +1260,7 @@ function HybridPlannerInner() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           expandedStory: { summary: text, characterList: [] },
-          language,
+          language: effectiveLanguage,
         }),
       });
       const data = await res.json();
@@ -1180,8 +1303,8 @@ function HybridPlannerInner() {
         body: JSON.stringify({
           characterName: name,
           storyText: text,
-          artStyle: projectStyle,
-          language,
+          artStyle: effectiveProjectStyle,
+          language: effectiveLanguage,
           // Pass already-built characters so AI makes this one visually distinct
           existingCharacters: characters.map(c => ({
             name: c.displayName,
@@ -1210,7 +1333,7 @@ function HybridPlannerInner() {
           voiceId: c.voiceId || "",
           voiceType: c.voiceType || "mid",
           intonation: c.intonation || "calm",
-          language,
+          language: effectiveLanguage,
           tags: [],
           hasVoice: !!c.voiceId,
           hasImage: false,
@@ -1276,7 +1399,7 @@ function HybridPlannerInner() {
         voiceId: "",
         voiceType: "mid",
         intonation: "calm",
-        language,
+        language: effectiveLanguage,
         tags: ["photo-import"],
         hasVoice: false,
         hasImage: true,
@@ -1360,7 +1483,7 @@ function HybridPlannerInner() {
         : { summary: storyRichText, characterList: [] };
       const detectRes = await fetch("/api/hybrid/character-extract", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expandedStory: expandedPayload, language }),
+        body: JSON.stringify({ expandedStory: expandedPayload, language: effectiveLanguage }),
       });
       const detectData = await detectRes.json();
       const detected: Array<{ name: string; description?: string }> = detectData.characters || detectData.names || [];
@@ -1389,8 +1512,8 @@ function HybridPlannerInner() {
             body: JSON.stringify({
               characterName: name,
               storyText: storyRichText,  // full script — much richer context
-              artStyle: projectStyle,
-              language,
+              artStyle: effectiveProjectStyle,
+              language: effectiveLanguage,
               existingCharacters: builtSoFar,  // grows with each character built
             }),
           });
@@ -1406,7 +1529,7 @@ function HybridPlannerInner() {
               speechStyle: c.speechStyle || "normal", accentType: "",
               emotionProfile: c.emotionProfile || "", voiceId: c.voiceId || "",
               voiceType: c.voiceType || "mid", intonation: c.intonation || "calm",
-              language, tags: [], hasVoice: !!c.voiceId, hasImage: false,
+              language: effectiveLanguage, tags: [], hasVoice: !!c.voiceId, hasImage: false,
               species: c.species || "", bodyBuild: c.bodyBuild || "",
               colorDescription: c.colorDescription || "", faceFeatures: c.faceFeatures || "",
               clothingDetails: c.clothingDetails || "", accessories: c.accessories || "",
@@ -1543,16 +1666,18 @@ function HybridPlannerInner() {
           sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
           characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
           timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-          projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
-          modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
-          transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
+          projectStyle: sceneStyles[scene.sceneId] || effectiveProjectStyle, characterOverrides,
+          modelId: transparentBg && effectiveImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : effectiveImageModelId,
+          transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
         }),
       });
       const data = await res.json();
       clearInterval(progressTimer);
       if (data.error === "unresolved_characters") {
-        alert(`Cannot generate: ${data.message}`);
+        // 2026-05-09 — route now SOFT-SKIPS unresolved IDs (no longer 400). This branch only
+        // fires for legacy clients hitting an older route. Show non-blocking toast instead of alert().
+        setLastAction(`Note: ${data.message || "some characters not in registry — image generated without them"}`);
         setSceneGenProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
       } else if (data.imageUrl || data.imagePath) {
         const url = data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
@@ -1567,6 +1692,18 @@ function HybridPlannerInner() {
             });
           }
           return { ...prev, [scene.sceneId]: url };
+        });
+        // ACCUMULATE — also push into the master Gen Max pool so the assembly picker sees it.
+        // Without this, clicking Gen Image after Gen Max overwrites the active slot only and
+        // the new image isn't visible in the multi-image spread.
+        setSceneBeatImages(prev => {
+          const existing = prev[scene.sceneId] || [];
+          if (existing.includes(url)) return prev;
+          return { ...prev, [scene.sceneId]: [...existing, url].slice(-30) };
+        });
+        setSelectedBeatImages(prev => {
+          const existing = prev[scene.sceneId] || [];
+          return { ...prev, [scene.sceneId]: [...existing, true].slice(-30) };
         });
         if (data.model) setSceneImageModels(prev => ({ ...prev, [scene.sceneId]: data.model }));
         // New image means old video is stale — clear it so scene board shows the new image
@@ -1643,9 +1780,9 @@ function HybridPlannerInner() {
             sceneId: scene.sceneId, projectId, sceneText: `${scene.title}. ${scene.description}`,
             characterIds: scene.characterIds, location: scene.location, mood: scene.mood,
             timeOfDay: scene.timeOfDay, cameraFraming: scene.shots[0]?.framingType,
-            projectStyle: sceneStyles[scene.sceneId] || projectStyle, characterOverrides,
-            modelId: transparentBg && selectedImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : selectedImageModelId,
-            transparentBg: transparentBg && selectedImageModelId.includes("ideogram_v3"),
+            projectStyle: sceneStyles[scene.sceneId] || effectiveProjectStyle, characterOverrides,
+            modelId: transparentBg && effectiveImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : effectiveImageModelId,
+            transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
           }),
         });
@@ -1690,34 +1827,58 @@ function HybridPlannerInner() {
     });
   }
 
-  // ── Split scene description into discrete action beats for Gen Max ──────────
-  function splitIntoActionBeats(text: string): string[] {
-    if (!text || text.length < 15) return [text || ""];
-    const parts = text
-      .replace(/([.!?])\s+/g, "$1|B|")
-      .replace(/,\s*(then|before|while|after|but|suddenly|finally|next|as)\s+/gi, "|B|$1 ")
-      .replace(/\s+(then|suddenly|finally|after that|meanwhile|before|while)\s+/gi, "|B|$1 ")
-      .split("|B|")
-      .map(s => s.trim().replace(/^[,.\s]+/, ""))
-      .filter(s => s.length > 8);
-    return parts.length > 1 ? parts.slice(0, 10) : [text];
-  }
+  // splitIntoActionBeats imported from @/lib/scene/action-beats (Phase B extraction)
 
   // ── Gen Max — generate one image per action beat in the scene description ──
-  async function makeSceneBeatImages(scene: HybridScene) {
+  /**
+   * makeSceneBeatImages — generate N images for a scene.
+   *
+   * 2026-05-09 ACCUMULATE FIX (mirrors children-planner):
+   *   - Old: replaced sceneBeatImages[sceneId] with new array → second click wiped first run.
+   *   - New: APPEND new images to the existing pool. Each click adds more.
+   *   - Per-scene custom count via sceneMaxTarget[sceneId] (default 4, cap 30).
+   *   - When natural beats < target, fill remainder with seed-varied retries of the full description.
+   */
+  async function makeSceneBeatImages(scene: HybridScene, countOverride?: number) {
     try { await requireGate(); } catch { return; }
     if (generatingMaxBeats.has(scene.sceneId)) return;
 
     const fullDesc = `${scene.title}. ${scene.description}`;
-    const beats = splitIntoActionBeats(fullDesc);
-    if (beats.length <= 1) {
-      await makeSceneImage(scene);
-      return;
+    // 2026-05-10 — bumped default from 4 → 8 per Henry's "boring without pictures".
+    // User can still override per-scene via sceneMaxTarget input.
+    const targetCount = Math.max(1, Math.min(30, countOverride ?? sceneMaxTarget[scene.sceneId] ?? 8));
+    const naturalBeats = splitIntoActionBeats(fullDesc);
+    // 2026-05-10 UNIQUE PROMPTS — when natural beats run out, append camera-angle / mood variations
+    // so the model produces distinct images instead of near-duplicates of fullDesc.
+    // 12 angle variations cover most repetition; user requesting >12 unique images is unlikely.
+    const ANGLE_VARIATIONS = [
+      "wide establishing shot, cinematic frame",
+      "close-up, intimate framing",
+      "medium shot, balanced composition",
+      "low-angle dramatic shot",
+      "high-angle overhead view",
+      "over-the-shoulder perspective",
+      "side profile shot",
+      "back view, character moving forward",
+      "tight detail shot focused on hands or face",
+      "tracking shot, motion blur",
+      "atmospheric pull-back showing environment",
+      "extreme close-up, eyes only",
+    ];
+    const promptList: string[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      if (naturalBeats.length > 1 && i < naturalBeats.length) {
+        promptList.push(naturalBeats[i]);
+      } else {
+        // Out of natural beats — vary by camera angle so each image is distinct.
+        const variant = ANGLE_VARIATIONS[i % ANGLE_VARIATIONS.length];
+        promptList.push(`${fullDesc}. ${variant}`);
+      }
     }
 
     setGeneratingMaxBeats(prev => new Set(prev).add(scene.sceneId));
-    setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Beat 1/${beats.length}...` }));
-    setLastAction(`Gen Max: generating ${beats.length} beats for Scene ${scene.scene}...`);
+    setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Image 1/${promptList.length}…` }));
+    setLastAction(`Gen Max: generating ${promptList.length} images for Scene ${scene.scene}…`);
 
     const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
     const characterOverrides = sceneChars.map(c => ({
@@ -1731,42 +1892,271 @@ function HybridPlannerInner() {
       isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
     }));
 
-    const beatUrls: string[] = [];
-    for (let bi = 0; bi < beats.length; bi++) {
-      setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Beat ${bi + 1}/${beats.length}...` }));
+    // 2026-05-10 — single-attempt retry on failure (1 retry per slot) so 8/8 actually delivers.
+    // Sequential calls; each scene-image takes 30-60s on FAL. 8 sequential = 4-8 min total.
+    // Failures before this fix were silently dropped — now we retry once with a fresh seed.
+    const newUrls: string[] = [];
+    let actualFailed = 0;
+    async function genOnce(bi: number, retryAttempt: boolean): Promise<string | null> {
       try {
         const res = await fetch("/api/hybrid/scene-image", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            sceneId: `${scene.sceneId}_b${bi}`,
+            sceneId: `${scene.sceneId}_b${bi}_${Date.now()}_${retryAttempt ? "r" : "a"}`,
             projectId,
-            sceneText: beats[bi],
+            sceneText: promptList[bi],
             characterIds: scene.characterIds,
             location: scene.location,
             mood: scene.mood,
             timeOfDay: scene.timeOfDay,
             cameraFraming: scene.shots[0]?.framingType,
-            projectStyle: sceneStyles[scene.sceneId] || projectStyle,
+            projectStyle: sceneStyles[scene.sceneId] || effectiveProjectStyle,
             characterOverrides,
-            modelId: selectedImageModelId,
+            modelId: effectiveImageModelId,
             seed: Math.floor(Math.random() * 1e9),
           }),
         });
-        const data = await res.json();
-        if (data.imageUrl || data.imagePath) {
-          const url = data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-          beatUrls.push(url);
+        if (!res.ok) {
+          console.warn(`[makeSceneBeatImages] image ${bi} HTTP ${res.status} ${retryAttempt ? "(retry)" : ""}`);
+          return null;
         }
+        const data = await res.json();
+        if (data.error) {
+          console.warn(`[makeSceneBeatImages] image ${bi} server error: ${data.error}`);
+          return null;
+        }
+        if (data.imageUrl || data.imagePath) {
+          return data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+        }
+        console.warn(`[makeSceneBeatImages] image ${bi} no url in response`);
+        return null;
       } catch (err) {
-        console.error(`[makeSceneBeatImages] beat ${bi} failed:`, err);
+        console.error(`[makeSceneBeatImages] image ${bi} threw${retryAttempt ? " (retry)" : ""}:`, err);
+        return null;
       }
     }
+    for (let bi = 0; bi < promptList.length; bi++) {
+      setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Image ${bi + 1}/${promptList.length}…` }));
+      let url = await genOnce(bi, false);
+      if (!url) {
+        // One retry — different seed, different sceneId tag so any provider cache misses.
+        setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Image ${bi + 1}/${promptList.length} (retry)…` }));
+        url = await genOnce(bi, true);
+      }
+      if (url) newUrls.push(url);
+      else actualFailed++;
+    }
 
-    setSceneBeatImages(prev => ({ ...prev, [scene.sceneId]: beatUrls }));
+    // ACCUMULATE — never wipe existing pool. Cap at 30 to avoid runaway memory.
+    setSceneBeatImages(prev => {
+      const existing = prev[scene.sceneId] || [];
+      const merged = [...existing, ...newUrls].slice(-30);
+      return { ...prev, [scene.sceneId]: merged };
+    });
+    setSelectedBeatImages(prev => {
+      const existing = prev[scene.sceneId] || [];
+      const additions = newUrls.map(() => true);
+      const merged = [...existing, ...additions].slice(-30);
+      return { ...prev, [scene.sceneId]: merged };
+    });
     setGeneratingMaxBeats(prev => { const n = new Set(prev); n.delete(scene.sceneId); return n; });
     setMaxBeatsProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
-    setLastAction(`Scene ${scene.scene}: ${beatUrls.length} beat images ready`);
+    // 2026-05-10 — surface success count vs requested. When fewer land than asked, user knows.
+    const failed = promptList.length - newUrls.length;
+    if (failed > 0) {
+      setLastAction(`Scene ${scene.scene}: +${newUrls.length} of ${promptList.length} images added (${failed} failed — check console)`);
+    } else {
+      setLastAction(`Scene ${scene.scene}: +${newUrls.length} images added to pool`);
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // STORY TAB — SCENE EDITING HELPERS
+  //
+  // All three call /api/hybrid/scene-edit with a different `op`:
+  //   - polish: tightens ONE scene's description (returns new title + description)
+  //   - break:  splits ONE scene into TWO consecutive scenes
+  //   - expand: takes ALL scenes + story text and returns a longer ordered list
+  //
+  // The endpoint is Ollama-backed (free, local). All three preserve the story arc
+  // and characters — the AI is instructed never to change the outcome or genre.
+  // ════════════════════════════════════════════════════════════════════════
+
+  // Rewrites scene.description per the chosen mode (polish/add action/intense/reduce/emotional).
+  // Result lands in storyEditedDescription so the user sees the change in the textarea before
+  // committing. They still have to click Save to overwrite the actual scene state.
+  //
+  // Mode = which button was clicked. Provider = current LLM (auto/ollama/openai/claude).
+  async function polishSceneText(
+    scene: HybridScene,
+    mode: "default" | "add_action" | "intense" | "reduce_action" | "emotional" = "default",
+  ): Promise<string | null> {
+    if (storyPolishingSceneId === scene.sceneId) return null;
+    setStoryPolishingSceneId(scene.sceneId);
+    setStoryPolishingMode(mode);
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "polish",
+          polishMode: mode,
+          provider: effectiveLlmProvider,
+          scene: {
+            sceneId: scene.sceneId, title: scene.title, description: storyEditedDescription || scene.description,
+            location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) {
+        setUiError(`Polish failed (${mode}): ${data.error || "unknown"}`);
+        return null;
+      }
+      const newDesc = data.scene?.description || scene.description;
+      setStoryEditedDescription(newDesc);
+      const tag = mode === "default" ? "polished" : mode.replace(/_/g, " ");
+      setLastAction(`Scene ${scene.scene} ${tag} via ${data.provider || "ai"} — review and Save to commit`);
+      return newDesc;
+    } catch (err) {
+      setUiError(`Polish error: ${err instanceof Error ? err.message : String(err)}`);
+      return null;
+    } finally {
+      setStoryPolishingSceneId(null);
+      setStoryPolishingMode(null);
+    }
+  }
+
+  // Splits one scene into two consecutive scenes at an AI-chosen breakpoint.
+  // The resulting halves inherit all unchanged fields (sceneType, motionDuration, etc.)
+  // from the original. After insertion we renumber every scene so sceneId stays in sync
+  // with array position (SC01, SC02, …). Anything that referenced the old sceneId
+  // (sceneImages, sceneVideos, etc.) will shift — that's expected, the user is editing the story.
+  async function breakScene(scene: HybridScene) {
+    if (storyBreakingSceneId === scene.sceneId) return;
+    setStoryBreakingSceneId(scene.sceneId);
+    setLastAction(`Breaking Scene ${scene.scene} into 2…`);
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "break",
+          provider: effectiveLlmProvider,
+          scene: {
+            sceneId: scene.sceneId, title: scene.title, description: scene.description,
+            location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok || !Array.isArray(data.scenes) || data.scenes.length < 2) {
+        setUiError(`Break failed: ${data.error || "AI did not return 2 scenes"}`);
+        return;
+      }
+      // Replace original scene with the two halves; renumber the rest
+      setScenes(prev => {
+        const idx = prev.findIndex(s => s.sceneId === scene.sceneId);
+        if (idx < 0) return prev;
+        const [a, b] = data.scenes as Array<{ title: string; description: string; location?: string; timeOfDay?: string; mood?: string }>;
+        const baseHalf = (suffix: string, half: typeof a, sceneNum: number): HybridScene => ({
+          ...scene,
+          sceneId: `${scene.sceneId}_${suffix}`,
+          scene: sceneNum,
+          title: half.title || scene.title,
+          description: half.description || scene.description,
+          location: half.location || scene.location,
+          timeOfDay: half.timeOfDay || scene.timeOfDay,
+          mood: half.mood || scene.mood,
+        });
+        const halves = [baseHalf("a", a, scene.scene), baseHalf("b", b, scene.scene + 1)];
+        const next = [...prev.slice(0, idx), ...halves, ...prev.slice(idx + 1)];
+        // Renumber and reissue sceneIds for cleanliness
+        return next.map((s, i) => ({ ...s, scene: i + 1, sceneId: `SC${String(i + 1).padStart(2, "0")}` }));
+      });
+      setLastAction(`Scene ${scene.scene} → 2 scenes`);
+    } catch (err) {
+      setUiError(`Break error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setStoryBreakingSceneId(null);
+    }
+  }
+
+  // Adds in-between beats to the existing scene list. The AI is told to keep the same
+  // story arc, characters, and ending — it should fill gaps, not rewrite the story.
+  // We try to RE-USE existing scenes (matched by title) so any images/videos already
+  // generated for those beats survive the expansion. New beats get default scene fields
+  // copied from the first existing scene as a template.
+  async function expandSceneList() {
+    if (storyExpandingScenes || scenes.length === 0) return;
+    setStoryExpandingScenes(true);
+    setLastAction(`Expanding ${scenes.length} scenes…`);
+    try {
+      const storyText = fullScript || expandedSummary || idea || "";
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "expand",
+          provider: effectiveLlmProvider,
+          scenes: scenes.map(s => ({
+            sceneId: s.sceneId, title: s.title, description: s.description,
+            location: s.location, timeOfDay: s.timeOfDay, mood: s.mood,
+          })),
+          storyText,
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok || !Array.isArray(data.scenes) || data.scenes.length === 0) {
+        setUiError(`Expand failed: ${data.error || "AI returned no scenes"}`);
+        return;
+      }
+      setScenes(prev => {
+        // Map AI-returned scenes back to HybridScene objects, preserving original where titles match.
+        const expanded = data.scenes as Array<{ title: string; description: string; location?: string; timeOfDay?: string; mood?: string }>;
+        return expanded.map((es, i) => {
+          const sceneNum = i + 1;
+          const sceneId = `SC${String(sceneNum).padStart(2, "0")}`;
+          // Try to inherit from a previous scene with matching title — preserves images/videos when AI keeps a beat
+          const matched = prev.find(p => p.title.trim().toLowerCase() === (es.title || "").trim().toLowerCase());
+          if (matched) {
+            return { ...matched, scene: sceneNum, sceneId, description: es.description || matched.description, location: es.location || matched.location, timeOfDay: es.timeOfDay || matched.timeOfDay, mood: es.mood || matched.mood };
+          }
+          // New scene — fill defaults from first existing scene's structural fields
+          const tpl = prev[0];
+          return {
+            sceneId, scene: sceneNum,
+            title: es.title || `Scene ${sceneNum}`,
+            description: es.description || "",
+            sceneType: tpl?.sceneType || "image-led",
+            narrationMode: tpl?.narrationMode || "narrator",
+            narrationStrength: tpl?.narrationStrength || "medium",
+            narrationScript: "",
+            musicStyle: tpl?.musicStyle || "",
+            musicIntensity: tpl?.musicIntensity || "",
+            sfx: "", ambience: "",
+            motionDuration: tpl?.motionDuration || 5,
+            imageTreatment: tpl?.imageTreatment || "Static",
+            credits: tpl?.credits || 1, reason: "AI-expanded",
+            characterIds: tpl?.characterIds || [],
+            dialogueDensity: tpl?.dialogueDensity || "low",
+            emotionalWeight: tpl?.emotionalWeight || "medium",
+            location: es.location || tpl?.location || "",
+            timeOfDay: es.timeOfDay || tpl?.timeOfDay || "",
+            mood: es.mood || tpl?.mood || "",
+            shots: [],
+            audioPlan: tpl?.audioPlan || { narrationIntensity: "medium", musicMood: "", musicIntensity: "", sfxList: [], ambienceList: [], transitionAudio: "" },
+            costEstimate: 0, status: "draft",
+          } as HybridScene;
+        });
+      });
+      setLastAction(`Scenes expanded: ${scenes.length} → ${data.scenes.length}`);
+    } catch (err) {
+      setUiError(`Expand error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setStoryExpandingScenes(false);
+    }
   }
 
   // ── Per-scene AI Generate SFX — reads scene description and auto-plans SFX ──
@@ -1897,9 +2287,9 @@ function HybridPlannerInner() {
             return scene.motionDuration ?? 5;
           })(),
           motionDescription: scene.shots[0]?.cameraMovement || "",
-          modelId: selectedVideoModelId !== "segmind_pruna_video" ? selectedVideoModelId : undefined,
+          modelId: effectiveVideoModelId !== "segmind_pruna_video" ? effectiveVideoModelId : undefined,
           seed: genSeed !== null ? genSeed : undefined,
-          projectStyle,
+          projectStyle: effectiveProjectStyle,
         }),
       });
 
@@ -2047,7 +2437,7 @@ function HybridPlannerInner() {
           speed: narratorPiperSpeed,
           voiceProvider: narratorVoice,
           provider: narratorVoice,
-          soundTier,
+          soundTier: effectiveSoundTier,
           outputName: `narration_${projectId || "draft"}_${Date.now()}`,
         }),
       });
@@ -2920,15 +3310,44 @@ function HybridPlannerInner() {
           ? Math.max(textFraction * masterDurForSegs, 2)  // minimum 2s per segment
           : (s.motionDuration || s.duration || 5);
 
-        // Gen Max expansion: if scene has beat images and no video, expand into one segment per beat
-        const beatImgs = s.sceneId ? sceneBeatImages[s.sceneId] : null;
-        if (!s.videoUrl && beatImgs && beatImgs.length > 1) {
-          const beatDur = Math.max(sceneDur / beatImgs.length, 2);
-          for (let bi = 0; bi < beatImgs.length; bi++) {
+        // ── Gen Max beat expansion (OPT-IN) ─────────────────────────────────
+        // Default: scene contributes ONE image (scene.imageUrl) — original behavior.
+        // When the user clicks "Use Max Image (N)" on this scene's Assembly row,
+        // sceneId is added to useMaxImageScenes. Only THEN do we expand into multi-segment.
+        // This preserves existing single-image behavior for scenes the user hasn't opted into.
+        //
+        //   allBeatImgs    = every beat image we generated for this scene
+        //   beatChecks     = user's checkbox state — undefined means "not yet decided" → treat as ON
+        //   tickedBeats    = the subset that will actually appear in the assembled video
+        //   userOptedIntoMax = whether the user opted-in via the "Use Max Image" button
+        //
+        // Edge cases handled below:
+        //   - not opted-in    → always one image (scene.imageUrl)
+        //   - opted-in, 0 ticked → fall back to scene.imageUrl (single image)
+        //   - opted-in, 1 ticked → use that single beat image
+        //   - opted-in, 2+ ticked → multi-segment expansion
+        // Multi-image source: prefer Gen Max beats (different action moments).
+        // Fall back to current image (sceneImages map) + prevSceneImages variants.
+        // Both work as multi-image fodder for "spread across N small boxes" assembly.
+        const genMaxBeats = s.sceneId ? sceneBeatImages[s.sceneId] : null;
+        const variantPool = s.sceneId
+          ? [sceneImages[s.sceneId], ...(prevSceneImages[s.sceneId] || [])].filter((u): u is string => !!u)
+          : [];
+        const allBeatImgs = (genMaxBeats && genMaxBeats.length > 1)
+          ? genMaxBeats
+          : (variantPool.length > 1 ? variantPool : null);
+        const beatChecks = s.sceneId ? selectedBeatImages[s.sceneId] : null;
+        const tickedBeats = allBeatImgs
+          ? allBeatImgs.filter((_, bi) => beatChecks?.[bi] !== false)
+          : [];
+        const userOptedIntoMax = s.sceneId ? useMaxImageScenes.has(s.sceneId) : false;
+        if (!s.videoUrl && userOptedIntoMax && tickedBeats.length > 1) {
+          const beatDur = Math.max(sceneDur / tickedBeats.length, 2);
+          for (let bi = 0; bi < tickedBeats.length; bi++) {
             assemblySegments.push({
               id: `seg_${segIdx++}`,
               type: "image",
-              sourceUrl: beatImgs[bi],
+              sourceUrl: tickedBeats[bi],
               startTime: segCursor,
               endTime: segCursor + beatDur,
               duration: beatDur,
@@ -2939,10 +3358,20 @@ function HybridPlannerInner() {
             segCursor += beatDur;
           }
         } else {
+          // Single-image / video path. Source priority:
+          //   1. user opted into Max + exactly one beat ticked → use that beat
+          //   2. scene's primary imageUrl → use that
+          //   3. allBeatImgs[0] only as last-resort fallback when scene has no primary image
+          // If user did NOT opt into Max Image, always use scene.imageUrl (one image per scene).
+          const singleSrc = s.videoUrl
+            || (userOptedIntoMax && tickedBeats.length === 1 ? tickedBeats[0] : "")
+            || s.imageUrl
+            || (allBeatImgs && allBeatImgs.length > 0 ? allBeatImgs[0] : "")
+            || "";
           assemblySegments.push({
             id: `seg_${segIdx++}`,
             type: s.videoUrl ? "video" : "image",
-            sourceUrl: s.videoUrl || s.imageUrl || "",
+            sourceUrl: singleSrc,
             startTime: segCursor,
             endTime: segCursor + sceneDur,
             duration: sceneDur,
@@ -3022,7 +3451,7 @@ function HybridPlannerInner() {
         exportSettings: {
           format: "mp4" as const,
           quality: "standard" as const,
-          includeSubtitles: subtitleConfig.mode !== "none",
+          includeSubtitles: effectiveSubtitleConfig.mode !== "none",
           includeWatermark: false,
           includeCredits: false,
         },
@@ -3068,10 +3497,13 @@ function HybridPlannerInner() {
           } else if (earData.transcript && earData.transcript.trim().length > 10) {
             setLastAction(`Ears: heard narration${durStr} — "${earData.transcript.slice(0, 100)}"`);
           } else if (earData.silent || !earData.transcript) {
+            // 2026-05-10 — Whisper free model is fragile. Empty transcript when audio stream
+            // exists usually means Whisper couldn't transcribe (RAM/format/language), NOT
+            // that the audio is silent. Treat as a non-blocking note instead of an error flag.
             const whisperNote = earData.whisperError
               ? ` (Whisper: ${earData.whisperError.slice(0, 60)})`
-              : " (Whisper returned nothing)";
-            setLastAction(`[!] Ears: audio stream exists${durStr} but transcript empty${whisperNote}`);
+              : " — likely a Whisper limitation, not silent audio";
+            setLastAction(`Assembly complete${durStr} — audio stream OK, transcript skipped${whisperNote}`);
           } else {
             setLastAction(`Assembly complete${durStr} — audio OK, codec: ${earData.audioCodec || "?"}`);
           }
@@ -3234,7 +3666,7 @@ function HybridPlannerInner() {
           scenes,
           genre,
           tone,
-          projectStyle,
+          projectStyle: effectiveProjectStyle,
         }),
       });
       const data = await res.json();
@@ -3581,7 +4013,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
-    const effectiveStyle = overrideStyle || charStyles[char.characterId] || projectStyle || "3d-cinematic";
+    const effectiveStyle = overrideStyle || charStyles[char.characterId] || effectiveProjectStyle || "3d-cinematic";
 
     const stylePrefix =
       effectiveStyle === "realistic"
@@ -3776,6 +4208,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       projectStyle, savedCuts, archivedScenes, sceneIntelligence,
       narratorAudioUrl, selectedMusicUrl, selectedMusicName, selectedVideoModelId,
       subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
+      // 2026-05-10 fix — these were missing from the manual flush, so clicking Save or switching
+      // projects wiped Gen Max state. Now they're included same as the autosave effect.
+      sceneBeatImages, selectedBeatImages,
+      useMaxImageScenes: Array.from(useMaxImageScenes),
       timestamp: Date.now(),
     };
     try {
@@ -3985,7 +4421,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           sceneId, projectId, sceneText: newSceneText,
           characterIds: charIds, location: newSceneLocation,
           mood: newSceneMood, timeOfDay: newSceneTimeOfDay,
-          projectStyle,
+          projectStyle: effectiveProjectStyle,
           seed: genSeed !== null ? genSeed : undefined,
         }),
       });
@@ -4075,9 +4511,22 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
     <div suppressHydrationWarning style={{ background: ds.color.paper, minHeight: "100vh", padding: "0 32px 60px", fontFamily: ds.font.sans }}>
       <GateModal />
 
-      {/* ── Quick Preview Modal — image or video lightbox ── */}
+      {/* ── Quick Preview Modal — image or video lightbox.
+            Body scroll-lock + scroll-to-top below ensures the modal is always in view
+            regardless of where the user was scrolled when they triggered it. */}
+      {previewMedia && (() => {
+        if (typeof document !== "undefined") {
+          // Run once when previewMedia transitions to non-null. The cleanup happens via
+          // the close handler restoring overflow when setPreviewMedia(null) is called below.
+          if (document.body.style.overflow !== "hidden") {
+            document.body.style.overflow = "hidden";
+            window.scrollTo({ top: 0, behavior: "auto" });
+          }
+        }
+        return null;
+      })()}
       {previewMedia && (
-        <div onClick={() => setPreviewMedia(null)}
+        <div onClick={() => { setPreviewMedia(null); if (typeof document !== "undefined") document.body.style.overflow = ""; }}
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
           <div onClick={e => e.stopPropagation()} style={{ position: "relative", maxWidth: "90vw", maxHeight: "85vh", borderRadius: 12, overflow: "hidden", boxShadow: "0 0 60px rgba(0,0,0,0.8)" }}>
             {previewMedia.type === "video" ? (
@@ -4088,7 +4537,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ position: "absolute", top: 10, left: 14, background: "rgba(0,0,0,0.7)", borderRadius: 8, padding: "4px 10px", fontSize: 11, color: "#fff", fontWeight: 600 }}>
               {previewMedia.title}
             </div>
-            <button onClick={() => setPreviewMedia(null)}
+            <button onClick={() => { setPreviewMedia(null); if (typeof document !== "undefined") document.body.style.overflow = ""; }}
               style={{ position: "absolute", top: 10, right: 10, width: 30, height: 30, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.15)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Icon.X style={{ width: 14, height: 14 }} />
             </button>
@@ -4241,7 +4690,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
         const networkColor: Record<string,string> = { Segmind:"#22c55e", MuAPI:"#38bdf8", FAL:"#a78bfa", Runway:"#e879f9" };
         const isVideo = aidMode === "video";
-        const activeModelId = isVideo ? selectedVideoModelId : selectedImageModelId;
+        const activeModelId = isVideo ? effectiveVideoModelId : effectiveImageModelId;
 
         return (
           <div onClick={() => setShowAidPicker(false)}
@@ -4365,12 +4814,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {isVideo ? filteredModels.map((m, idx) => {
                   const isCheapest = m.id === cheapestMatch?.id;
                   const isBest = m.id === bestMatch?.id;
-                  const isSelected = selectedVideoModelId === m.id;
+                  const isSelected = effectiveVideoModelId === m.id;
                   const styleScore = aidStyle === "all" ? null : m.scores[aidStyle as Exclude<StyleKey,"all">];
                   const styleTag = aidStyle === "2d" ? m.tags2d : aidStyle === "3d" ? m.tags3d : aidStyle === "cartoon" ? m.tagCartoon : aidStyle === "realistic" ? m.tagRealistic : undefined;
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{
                         display:"flex", alignItems:"center", justifyContent:"space-between",
                         padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer",
@@ -4399,12 +4848,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     </div>
                   );
                 }) : IMAGE_MODELS_AID.map((m, idx) => {
-                  const isSelected = selectedImageModelId === m.id;
+                  const isSelected = effectiveImageModelId === m.id;
                   const isCheapest = m.id === "fal_flux_schnell";
                   const isBest = m.id === "fal_flux_pro_ultra";
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); patchProjectSettings({ imageModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{
                         display:"flex", alignItems:"center", justifyContent:"space-between",
                         padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer",
@@ -4533,10 +4982,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ display: "flex", alignItems: "center", gap: 6, background: showStylePicker ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#fff" }}>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)" }}>Art Style:</span>
                 <span style={{ fontSize: 13 }}>
-                  {projectStyle === "3d-cinematic" ? "3D" : projectStyle === "2d-cartoon" ? "2D" : projectStyle === "anime" ? "AN" : projectStyle === "storybook" ? "SB" : "RL"}
+                  {effectiveProjectStyle === "3d-cinematic" ? "3D" : effectiveProjectStyle === "2d-cartoon" ? "2D" : effectiveProjectStyle === "anime" ? "AN" : effectiveProjectStyle === "storybook" ? "SB" : "RL"}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700 }}>
-                  {projectStyle === "3d-cinematic" ? "3D Cinematic" : projectStyle === "2d-cartoon" ? "2D Cartoon" : projectStyle === "anime" ? "Anime" : projectStyle === "storybook" ? "Storybook" : "Realistic"}
+                  {effectiveProjectStyle === "3d-cinematic" ? "3D Cinematic" : effectiveProjectStyle === "2d-cartoon" ? "2D Cartoon" : effectiveProjectStyle === "anime" ? "Anime" : effectiveProjectStyle === "storybook" ? "Storybook" : "Realistic"}
                 </span>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>▾</span>
               </button>
@@ -4556,6 +5005,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               setCharacters([]); setCharactersMade(false);
               setScenes([]); setSceneImages({}); setSceneVideos({}); setSceneVideoVersions({});
               setPrevSceneImages({}); setSceneIntelligence({});
+              // 2026-05-10 — Gen Max state also needs to clear, else beat images from previous
+              // project leak into the new Scene Board.
+              setSceneBeatImages({}); setSelectedBeatImages({});
+              setUseMaxImageScenes(new Set());
+              setSceneMaxTarget({});
               setSavedCuts([]); setArchivedScenes([]);
               setNewSceneText(""); setNewSceneCharIds([]);
               setSelectedSceneIds([]); setAssemblyOrder([]); setAssemblyInitialized(false);
@@ -4645,6 +5099,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             setProjectId(null); setProjectTitle("Untitled Hybrid Project"); setProjectPhase("STORY_INPUT");
                             setIdea(""); setExpandedSummary(""); setCharacters([]); setCharactersMade(false);
                             setScenes([]); setSceneImages({}); setSceneVideos({});
+                            // Clear Gen Max state too — prevents prefill from deleted project.
+                            setSceneBeatImages({}); setSelectedBeatImages({});
+                            setUseMaxImageScenes(new Set());
+                            setSceneMaxTarget({});
                             setSavedCuts([]); setArchivedScenes([]);
                             setShowProjectSwitcher(false);
                             setLastAction("Project deleted — new project started");
@@ -5175,7 +5633,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <span style={{ fontSize: 9, color: blue }}>{totalScenes} scenes</span>
                 <span style={{ fontSize: 9, color: purple }}>{characters.length} characters</span>
                 {selectedMusicName && <span style={{ fontSize: 9, color: gold }}>{selectedMusicName}</span>}
-                <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${blue}15`, color: blue }}>{projectStyle}</span>
+                <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${blue}15`, color: blue }}>{effectiveProjectStyle}</span>
                 {savedCuts.length > 0 && <span style={{ fontSize: 9, color: gold }}>{savedCuts.length} cut{savedCuts.length !== 1 ? "s" : ""}</span>}
               </div>
             </div>
@@ -5436,15 +5894,30 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                     {isMaxing ? (maxBeatsProgress[scene.sceneId] || "Generating beats...") : `Gen Max (${beats.length} beats)`}
                                   </button>
                                   {beatImgs && beatImgs.length > 0 && (
-                                    <div style={{ marginTop: 6, display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
-                                      {beatImgs.map((url, bi) => (
-                                        <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
-                                          <img src={url} alt={`Beat ${bi + 1}`}
-                                            style={{ width: 60, height: 44, borderRadius: 4, objectFit: "cover", display: "block", border: `1px solid ${border}`, cursor: "pointer" }}
-                                            onClick={() => setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` })} />
-                                          <span style={{ fontSize: 7, color: muted }}>B{bi + 1}</span>
-                                        </div>
-                                      ))}
+                                    <div style={{ marginTop: 6 }}>
+                                      <div style={{ fontSize: 8, color: muted, marginBottom: 2 }}>Tick beats to include in assembly</div>
+                                      <div style={{ display: "flex", gap: 4, overflowX: "auto", paddingBottom: 2 }}>
+                                        {beatImgs.map((url, bi) => {
+                                          const checked = selectedBeatImages[scene.sceneId]?.[bi] !== false;
+                                          return (
+                                            <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
+                                              <img src={url} alt={`Beat ${bi + 1}`}
+                                                style={{ width: 60, height: 44, borderRadius: 4, objectFit: "cover", display: "block", border: `2px solid ${checked ? accent : "#33334a"}`, cursor: "pointer", opacity: checked ? 1 : 0.4 }}
+                                                onClick={() => setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` })} />
+                                              <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, marginTop: 2, cursor: "pointer", userSelect: "none" as const }}>
+                                                <input type="checkbox" checked={checked}
+                                                  onChange={e => setSelectedBeatImages(prev => {
+                                                    const arr = [...(prev[scene.sceneId] || beatImgs.map(() => true))];
+                                                    arr[bi] = e.target.checked;
+                                                    return { ...prev, [scene.sceneId]: arr };
+                                                  })}
+                                                  style={{ width: 10, height: 10, cursor: "pointer" }} />
+                                                <span style={{ fontSize: 7, color: checked ? "#fff" : muted }}>B{bi + 1}</span>
+                                              </label>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
@@ -5454,7 +5927,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         ) : (
                           <div style={{ textAlign: "center", padding: "12px 0" }}>
                             <p style={{ fontSize: 10, color: muted, marginBottom: 8 }}>No image generated yet</p>
-                            {selectedImageModelId.includes("ideogram_v3") && (
+                            {effectiveImageModelId.includes("ideogram_v3") && (
                               <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 8, cursor: "pointer" }}>
                                 <input type="checkbox" checked={transparentBg} onChange={e => setTransparentBg(e.target.checked)} />
                                 <span style={{ fontSize: 10, color: "#aaa" }}>Transparent Background (PNG)</span>
@@ -5633,6 +6106,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               characters: scene.characterIds.map(id => characters.find(c => c.characterId === id)?.displayName || id),
                               userMessage: userMsg,
                               history: chatMsgs,
+                              provider: effectiveLlmProvider, // auto = ollama → openai → claude fallback
                             }),
                           });
                           const data = await res.json();
@@ -5684,21 +6158,30 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                               <div style={{ fontSize: 9, color: "#4ade80", padding: "4px 8px" }}>AI thinking...</div>
                             )}
                           </div>
-                          {/* Check if last AI message has an image prompt suggestion */}
+                          {/* Check if last AI message has an image prompt suggestion.
+                              Apply = put suggestion into scene description ONLY (no regen).
+                              User then clicks Gen Image / Gen Max in the image row to regenerate. */}
                           {(() => {
                             const lastAI = [...chatMsgs].reverse().find(m => m.role === "assistant");
                             const promptLine = lastAI?.content.split("\n").find(l => l.startsWith("IMAGE PROMPT:"));
                             if (!promptLine) return null;
                             const suggestion = promptLine.replace("IMAGE PROMPT:", "").trim();
+                            const justApplied = scene.description?.trim() === suggestion.trim();
                             return (
                               <div style={{ marginBottom: 8, padding: "6px 8px", background: "rgba(0,212,255,0.06)", borderRadius: 6, border: "1px solid #00d4ff20" }}>
                                 <p style={{ fontSize: 8, color: "#00d4ff", fontWeight: 700, marginBottom: 4 }}>AI Image Prompt Suggestion:</p>
                                 <p style={{ fontSize: 8, color: muted, marginBottom: 6, fontStyle: "italic" }}>{suggestion.slice(0, 200)}</p>
                                 <button
-                                  onClick={() => makeSceneImage({ ...scene, description: suggestion })}
-                                  disabled={generatingSceneImage === scene.sceneId}
-                                  style={{ padding: "4px 10px", borderRadius: 6, border: "none", background: generatingSceneImage === scene.sceneId ? "#2a2a40" : "linear-gradient(135deg,#00d4ff,#0084ff)", color: "#fff", fontSize: 8, fontWeight: 700, cursor: generatingSceneImage === scene.sceneId ? "not-allowed" : "pointer" }}>
-                                  {generatingSceneImage === scene.sceneId ? "Generating..." : "Apply & Regenerate Image"}
+                                  onClick={() => {
+                                    updateScene(scene.scene, { description: suggestion });
+                                    setLastAction(justApplied
+                                      ? `Already applied — click Gen Image or Gen Max to regenerate`
+                                      : `Applied to Scene ${scene.scene} description — click Gen Image / Gen Max to regenerate`);
+                                  }}
+                                  style={{ padding: "4px 10px", borderRadius: 6, border: "none",
+                                    background: justApplied ? "#22c55e30" : "linear-gradient(135deg,#00d4ff,#0084ff)",
+                                    color: justApplied ? "#22c55e" : "#fff", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                  {justApplied ? "✓ Applied — use Gen Image / Gen Max" : "Apply"}
                                 </button>
                               </div>
                             );
@@ -5903,7 +6386,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       {/* ── Image row — Generate OR import from library ── */}
                       <div style={{ display: "flex", gap: 4, marginBottom: 4, flexWrap: "wrap" }}>
                         <select
-                          value={sceneStyles[scene.sceneId] || projectStyle || "3d-cinematic"}
+                          value={sceneStyles[scene.sceneId] || effectiveProjectStyle || "3d-cinematic"}
                           onChange={e => setSceneStyles(prev => ({ ...prev, [scene.sceneId]: e.target.value }))}
                           title="Override style for this scene"
                           style={{ padding: "0 6px", height: 28, borderRadius: 8, border: "1px solid #7c3aed40", background: "#0f172a", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
@@ -5947,19 +6430,144 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           Import
                         </button>
                       </div>
-                      {/* Beat images strip — shown when Gen Max has results */}
-                      {sceneBeatImages[scene.sceneId]?.length > 0 && (
-                        <div style={{ display: "flex", gap: 4, marginBottom: 6, overflowX: "auto", paddingBottom: 2 }}>
-                          {sceneBeatImages[scene.sceneId].map((url, bi) => (
-                            <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
-                              <img src={url} alt={`Beat ${bi + 1}`}
-                                style={{ width: 64, height: 48, borderRadius: 5, objectFit: "cover", display: "block", border: `1px solid ${border}`, cursor: "zoom-in" }}
-                                onClick={() => setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` })} />
-                              <span style={{ fontSize: 7, color: muted }}>Beat {bi + 1}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      {/* Max image button — ALWAYS visible per Henry's spec.
+                          Three states based on whether beats exist + opt-in:
+                            A. Beats already generated AND user opted in    → "Max ON (M/N)"  (orange filled)
+                            B. Beats already generated AND user not opted in → "Use Max Image (N)" (orange outline)
+                            C. No beats yet                                   → "+ Gen Max (~N)" (orange dashed)
+                               Clicking fires makeSceneBeatImages(scene) which generates beats AND auto-opts in.
+                          Hidden only if scene description is too short to split into multiple beats. */}
+                      {(() => {
+                        const sceneId = scene.sceneId;
+                        // Multi-image source: Gen Max beats first, else current image + prev variations.
+                        // HybridScene has no imageUrl field — the active image lives in sceneImages[sceneId];
+                        // earlier renders are queued in prevSceneImages[sceneId] (max 3).
+                        // Both pools behave identically for the picker UI.
+                        const genMaxBeats = sceneBeatImages[sceneId];
+                        const currentImg = sceneImages[sceneId];
+                        const variantPool = [currentImg, ...(prevSceneImages[sceneId] || [])].filter((u): u is string => !!u);
+                        const beats = (genMaxBeats && genMaxBeats.length > 1)
+                          ? genMaxBeats
+                          : (variantPool.length > 1 ? variantPool : null);
+                        const totalBeats = beats?.length ?? 0;
+                        const isMaxOn = useMaxImageScenes.has(sceneId);
+                        const isGenerating = generatingMaxBeats.has(sceneId);
+                        // Predict beat count from current scene description for state-C label.
+                        // Minimum 2 so the button still shows even when description is too short to split.
+                        const split = splitIntoActionBeats(`${scene.title}. ${scene.description}`).length;
+                        const predictedBeats = totalBeats > 0
+                          ? totalBeats
+                          : Math.max(split, 2);
+                        const includedCount = isMaxOn
+                          ? (selectedBeatImages[sceneId] || []).filter(Boolean).length
+                          : 1;
+                        return (
+                          <div style={{ marginBottom: 6 }}>
+                            {/* STATE C — beats not yet generated. Trigger Gen Max + auto-opt-in. */}
+                            {totalBeats === 0 ? (
+                              <button
+                                onClick={async () => {
+                                  if (isGenerating) return;
+                                  await makeSceneBeatImages(scene);
+                                  setUseMaxImageScenes(prev => new Set(prev).add(sceneId));
+                                }}
+                                disabled={isGenerating}
+                                title={`No max images yet — generate ${predictedBeats} action-beat images for this scene`}
+                                style={{
+                                  padding: "4px 10px", borderRadius: 6, marginBottom: 4,
+                                  border: `1px dashed #ff9500`,
+                                  background: isGenerating ? "#2a2040" : "transparent",
+                                  color: isGenerating ? muted : "#ff9500",
+                                  fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" as const,
+                                  cursor: isGenerating ? "not-allowed" : "pointer",
+                                }}>
+                                {isGenerating
+                                  ? (maxBeatsProgress[sceneId] || "Generating…")
+                                  : `+ Gen Max (~${predictedBeats})`}
+                              </button>
+                            ) : (
+                              /* STATE A or B — beats exist. Toggle picker. */
+                              <button
+                                onClick={() => setUseMaxImageScenes(prev => {
+                                  const n = new Set(prev);
+                                  if (n.has(sceneId)) {
+                                    n.delete(sceneId);
+                                  } else {
+                                    n.add(sceneId);
+                                    if (!selectedBeatImages[sceneId] && beats) {
+                                      setSelectedBeatImages(p => ({ ...p, [sceneId]: beats.map(() => true) }));
+                                    }
+                                  }
+                                  return n;
+                                })}
+                                title={isMaxOn
+                                  ? `Using ${includedCount} of ${totalBeats} max images — click to revert to single image`
+                                  : `Click to use multiple beat images (${totalBeats} available) instead of one`}
+                                style={{
+                                  padding: "4px 10px", borderRadius: 6, marginBottom: 4,
+                                  border: `1px solid ${isMaxOn ? "#ff9500" : "#ff950060"}`,
+                                  background: isMaxOn ? "#ff9500" : "#ff950012",
+                                  color: isMaxOn ? "#000" : "#ff9500",
+                                  fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" as const,
+                                  cursor: "pointer",
+                                }}>
+                                {isMaxOn ? `Max ON (${includedCount}/${totalBeats})` : `Use Max Image (${totalBeats})`}
+                              </button>
+                            )}
+                            {/* Always-visible picker when scene has 2+ images (any source).
+                                Henry's spec: don't hide behind a click — spread inline.
+                                Auto-opts scene into multi-image mode on first render so assembly uses the spread. */}
+                            {beats && beats.length > 1 && (() => {
+                              if (!isMaxOn) {
+                                setTimeout(() => setUseMaxImageScenes(prev => new Set(prev).add(sceneId)), 0);
+                              }
+                              return true;
+                            })() && beats && beats.length > 1 && (
+                              <div style={{ padding: "8px 10px", background: "#ff95000a", border: "1px solid #ff950025", borderRadius: 6 }}>
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                  <span style={{ fontSize: 9, color: "#ff9500", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                                    Pick which images to include
+                                  </span>
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sceneId]: beats.map(() => true) }))}
+                                      style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ff950060", background: "transparent", color: "#ff9500", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                      Select All
+                                    </button>
+                                    <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sceneId]: beats.map(() => false) }))}
+                                      style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                                      Deselect All
+                                    </button>
+                                  </div>
+                                </div>
+                                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                                  {beats.map((url, bi) => {
+                                    const checked = selectedBeatImages[sceneId]?.[bi] !== false;
+                                    return (
+                                      <label key={bi}
+                                        title={`Beat ${bi + 1} — ${checked ? "included" : "skipped"} in assembly`}
+                                        style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
+                                        <img src={url} alt={`B${bi + 1}`}
+                                          style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
+                                          onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` }); }} />
+                                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                          <input type="checkbox" checked={checked}
+                                            onChange={e => setSelectedBeatImages(prev => {
+                                              const arr = [...(prev[sceneId] || beats.map(() => true))];
+                                              arr[bi] = e.target.checked;
+                                              return { ...prev, [sceneId]: arr };
+                                            })}
+                                            style={{ width: 11, height: 11 }} />
+                                          <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>B{bi + 1}</span>
+                                        </div>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* ── Video + secondary actions row ── */}
                       <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
@@ -6123,12 +6731,21 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 characters: characters.filter(c => scene.characterIds?.includes(c.characterId)).map(c => c.displayName),
                                 currentImagePrompt: scene.description,
                                 userMessage: msg, history: sceneChatMessages[scene.sceneId] || [],
+                                provider: effectiveLlmProvider, // auto = ollama → openai → claude fallback
                               }),
                             });
                             const d = await r.json();
-                            const reply = d.reply || "No response";
-                            setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: reply }] }));
-                          } catch { setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: "Connection error — is Ollama running?" }] })); }
+                            // Show actual error so user can see WHICH provider failed,
+                            // not a generic "is Ollama running" — that's misleading on auto-fallback.
+                            const reply = d.ok
+                              ? (d.reply || "(empty reply)")
+                              : `⚠️ ${d.error || "AI request failed"}`;
+                            const labeledReply = d.ok && d.provider ? `[${d.provider}] ${reply}` : reply;
+                            setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: labeledReply }] }));
+                          } catch (err) {
+                            const msg = err instanceof Error ? err.message : String(err);
+                            setSceneChatMessages(prev => ({ ...prev, [scene.sceneId]: [...(prev[scene.sceneId] || []), { role: "assistant" as const, content: `⚠️ Network error: ${msg}` }] }));
+                          }
                           setSceneChatLoading(prev => { const n = new Set(prev); n.delete(scene.sceneId); return n; });
                         };
 
@@ -6146,6 +6763,28 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 <div style={{ fontSize: 8, color: "#4ade80", fontWeight: 700, marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
                                   AI Scene Chat — describe the problem, AI suggests a fix
                                 </div>
+                                {/* Provider selector — Auto runs the ollama→openai→claude chain.
+                                    Pick a specific provider to force it (skips fallback). */}
+                                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6, flexWrap: "wrap" as const }}>
+                                  <span style={{ fontSize: 7, color: muted, fontWeight: 700, letterSpacing: 0.5 }}>LLM:</span>
+                                  {([
+                                    { id: "auto",   label: "Auto" },
+                                    { id: "ollama", label: "Ollama" },
+                                    { id: "openai", label: "GPT" },
+                                    { id: "claude", label: "Haiku" },
+                                  ] as const).map(p => {
+                                    const active = effectiveLlmProvider === p.id;
+                                    return (
+                                      <button key={p.id} onClick={() => { setAiChatProvider(p.id); patchProjectSettings({ llmProvider: p.id }).catch(() => {}); }}
+                                        title={p.id === "auto" ? "Try Ollama first → GPT → Haiku" : `Force ${p.label} only`}
+                                        style={{ padding: "2px 7px", borderRadius: 5, border: `1px solid ${active ? "#4ade80" : "#4ade8030"}`,
+                                          background: active ? "#4ade8025" : "transparent",
+                                          color: active ? "#4ade80" : muted, fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                        {p.label}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
                                 {/* Chat history */}
                                 {chatMsgs.length > 0 && (
                                   <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
@@ -6159,14 +6798,25 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                     {chatBusy && <div style={{ fontSize: 8, color: "#4ade80", fontStyle: "italic" }}>AI thinking...</div>}
                                   </div>
                                 )}
-                                {/* Apply suggestion button */}
-                                {suggestion && (
-                                  <button
-                                    onClick={() => makeSceneImage({ ...scene, description: suggestion })}
-                                    style={{ width: "100%", marginBottom: 6, padding: "5px 8px", borderRadius: 6, border: "none", background: "linear-gradient(135deg,#4ade80,#22c55e)", color: "#000", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
-                                    Apply & Regenerate Image
-                                  </button>
-                                )}
+                                {/* Apply suggestion button.
+                                    Apply ONLY puts the AI's suggested text into scene.description.
+                                    No regen here — user clicks the existing Gen Image / Gen Max
+                                    button in the main image row to actually re-render. */}
+                                {suggestion && (() => {
+                                  const justApplied = scene.description?.trim() === suggestion.trim();
+                                  return (
+                                    <button
+                                      onClick={() => {
+                                        updateScene(scene.scene, { description: suggestion });
+                                        setLastAction(`Applied to Scene ${scene.scene} description — click Gen Image / Gen Max above to regenerate`);
+                                      }}
+                                      style={{ width: "100%", marginBottom: 6, padding: "5px 8px", borderRadius: 6, border: "none",
+                                        background: justApplied ? "#22c55e30" : "linear-gradient(135deg,#4ade80,#22c55e)",
+                                        color: justApplied ? "#22c55e" : "#000", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                                      {justApplied ? "✓ Applied — now click Gen Image / Gen Max" : "Apply (text only)"}
+                                    </button>
+                                  );
+                                })()}
                                 {/* Input */}
                                 <div style={{ display: "flex", gap: 4 }}>
                                   <input
@@ -6611,7 +7261,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </button>
                       {/* Per-character style picker */}
                       <select
-                        value={charStyles[char.characterId] || projectStyle || "3d-cinematic"}
+                        value={charStyles[char.characterId] || effectiveProjectStyle || "3d-cinematic"}
                         onChange={e => setCharStyles(prev => ({ ...prev, [char.characterId]: e.target.value }))}
                         title="Style for portrait generation"
                         style={{ padding: "5px 8px", fontSize: 10, borderRadius: 6, border: `1px solid ${border}`, background: "#1a0a3a", color: "#c4b5fd", cursor: "pointer" }}
@@ -6672,7 +7322,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             onClick={async () => {
                               setImg2aiRunning(prev => new Set(prev).add(char.characterId));
                               // Re-generate with current style, using existing image as a style reference hint in the description
-                              const style = charStyles[char.characterId] || projectStyle || "realistic";
+                              const style = charStyles[char.characterId] || effectiveProjectStyle || "realistic";
                               await generateCharacterPortrait(char, style);
                               setImg2aiRunning(prev => { const s = new Set(prev); s.delete(char.characterId); return s; });
                             }}
@@ -6774,6 +7424,92 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     {isEditing && (
                       <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${purple}20` }}>
                         <p style={{ fontSize: 11, fontWeight: 700, color: purple, marginBottom: 10 }}>Visual Identity — fill in what makes this character unique</p>
+                        {/* AI describe-fields helper. User types plain-English description, AI parses into
+                            the 9 structured fields below. Mirrors Scene Edit AI Polish pattern.
+                            Field names align with this file's CharacterIdentity interface exactly. */}
+                        {(() => {
+                          const cid = char.characterId;
+                          const draft = charAiDraft[cid] || "";
+                          const busy = charAiBusy.has(cid);
+                          return (
+                            <div style={{ background: "#0d1018", border: `1px dashed ${purple}50`, borderRadius: 10, padding: 10, marginBottom: 12 }}>
+                              <p style={{ fontSize: 9, color: purple, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5, marginBottom: 6 }}>
+                                ✨ AI describe → fields
+                              </p>
+                              <textarea
+                                value={draft}
+                                onChange={e => setCharAiDraft(prev => ({ ...prev, [cid]: e.target.value }))}
+                                placeholder={`Describe ${char.displayName || "this character"} in plain English. Example: "11-year-old human boy, slim, light brown skin, curly black hair, navy school uniform with red tie, confident posture, small scar on left cheek."`}
+                                rows={3}
+                                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "#161624", color: "#fff", fontSize: 11, lineHeight: 1.5, fontFamily: "inherit", resize: "vertical" as const }}
+                              />
+                              <div style={{ display: "flex", gap: 6, marginTop: 6, alignItems: "center" }}>
+                                <button
+                                  onClick={async () => {
+                                    if (busy || !draft.trim()) return;
+                                    setCharAiBusy(prev => new Set(prev).add(cid));
+                                    try {
+                                      // Send current values as "existing" so AI only overrides what user mentioned.
+                                      const existing = {
+                                        species: char.species || "",
+                                        bodyBuild: char.bodyBuild || "",
+                                        colorDescription: char.colorDescription || "",
+                                        faceFeatures: char.faceFeatures || "",
+                                        clothingDetails: char.clothingDetails || "",
+                                        accessories: char.accessories || "",
+                                        ageRange: char.ageRange || "",
+                                        ageAppearance: char.ageAppearance || "",
+                                        distinctiveFeatures: char.distinctiveFeatures || "",
+                                      };
+                                      const res = await fetch("/api/hybrid/character-parse", {
+                                        method: "POST", headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ text: draft, existing, provider: "auto" }),
+                                      });
+                                      const data = await res.json() as { ok?: boolean; fields?: typeof existing; error?: string; provider?: string };
+                                      if (!data.ok || !data.fields) {
+                                        setUiError(`Character AI failed: ${data.error || "unknown"}`);
+                                        return;
+                                      }
+                                      // Apply parsed fields to the character record.
+                                      const f = data.fields;
+                                      setCharacters(prev => prev.map(c => c.characterId === cid ? {
+                                        ...c,
+                                        species: f.species || c.species,
+                                        bodyBuild: f.bodyBuild || c.bodyBuild,
+                                        colorDescription: f.colorDescription || c.colorDescription,
+                                        faceFeatures: f.faceFeatures || c.faceFeatures,
+                                        clothingDetails: f.clothingDetails || c.clothingDetails,
+                                        accessories: f.accessories || c.accessories,
+                                        ageRange: f.ageRange || c.ageRange,
+                                        ageAppearance: f.ageAppearance || c.ageAppearance,
+                                        distinctiveFeatures: f.distinctiveFeatures || c.distinctiveFeatures,
+                                      } : c));
+                                      setLastAction(`Applied AI fields to ${char.displayName} via ${data.provider || "ai"} — review fields below`);
+                                    } catch (err) {
+                                      setUiError(`Character AI error: ${err instanceof Error ? err.message : "unknown"}`);
+                                    } finally {
+                                      setCharAiBusy(prev => { const n = new Set(prev); n.delete(cid); return n; });
+                                    }
+                                  }}
+                                  disabled={busy || !draft.trim()}
+                                  style={{ padding: "6px 14px", borderRadius: 8, border: "none",
+                                    background: (busy || !draft.trim()) ? "#2a2a40" : `linear-gradient(135deg, ${purple}, #7c3aed)`,
+                                    color: "#fff", fontSize: 10, fontWeight: 700, cursor: (busy || !draft.trim()) ? "not-allowed" : "pointer" }}>
+                                  {busy ? "AI parsing…" : "✨ Apply via AI"}
+                                </button>
+                                {draft.trim() && (
+                                  <button onClick={() => setCharAiDraft(prev => ({ ...prev, [cid]: "" }))}
+                                    style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                                    Clear
+                                  </button>
+                                )}
+                                <span style={{ fontSize: 9, color: muted, marginLeft: "auto" }}>
+                                  Fields below populate after Apply
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })()}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                           {/* Species / Type */}
                           <div>
@@ -6993,7 +7729,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
               <div>
                 <label style={{ ...labelStyle, fontSize: 9 }}>Language</label>
-                <select value={language} onChange={e => setLanguage(e.target.value)} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
+                <select value={effectiveLanguage} onChange={e => { setLanguage(e.target.value); patchProjectSettings({ language: e.target.value }).catch(() => {}); }} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
                   {["English", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Japanese", "Korean", "German", "Italian"].map(l => <option key={l} value={l} style={{ background: surface }}>{l}</option>)}
                 </select>
               </div>
@@ -7053,48 +7789,179 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             </div>
 
-            {/* ── Story Region / Name Culture Picker ── */}
+            {/* ── Story Culture / Name Style / Country — compact dropdowns ── */}
             <div style={{ marginTop: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <label style={{ ...labelStyle, fontSize: 9, marginBottom: 0 }}>Story Culture</label>
-                <button title="Select a cultural region so AI uses authentic names and cultural context for unnamed characters"
-                  style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>ⓘ</button>
-                {storyRegion && (
-                  <button onClick={() => setStoryRegion("")}
-                    style={{ marginLeft: "auto", background: "none", border: "none", color: "#5a5a7a", fontSize: 9, cursor: "pointer", padding: 0 }}>
-                    clear
-                  </button>
-                )}
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
-                {([
-                  { id: "africa",       label: "Africa",         emoji: "🌍" },
-                  { id: "asia",         label: "Asia",           emoji: "🌏" },
-                  { id: "europe",       label: "Europe",         emoji: "🇪🇺" },
-                  { id: "north_america",label: "N. America",     emoji: "🌎" },
-                  { id: "latin_america",label: "Latin America",  emoji: "🌎" },
-                  { id: "middle_east",  label: "Middle East",    emoji: "🕌" },
-                  { id: "oceania",      label: "Oceania",        emoji: "🌏" },
-                  { id: "fantasy",      label: "Fantasy",        emoji: "✨" },
-                ] as const).map(r => {
-                  const active = storyRegion === r.id;
-                  return (
-                    <button key={r.id} onClick={() => setStoryRegion(active ? "" : r.id)}
-                      style={{
-                        padding: "6px 8px", borderRadius: 8,
-                        border: `1px solid ${active ? accent : "#ffffff15"}`,
-                        background: active ? `${accent}22` : "#ffffff06",
-                        cursor: "pointer", display: "flex", alignItems: "center", gap: 5, textAlign: "left" as const,
-                      }}>
-                      <span style={{ fontSize: 13 }}>{r.emoji}</span>
-                      <span style={{ fontSize: 9, fontWeight: active ? 700 : 400, color: active ? accent : "#8888aa" }}>{r.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {storyRegion && (
-                <p style={{ fontSize: 8, color: "#7dd3fc", marginTop: 5 }}>
-                  AI will use culturally authentic {storyRegion.replace(/_/g," ")} names for unnamed characters
+              {(() => {
+                const CULTURE_OPTIONS = [
+                  { id: "africa",        label: "Africa",        emoji: "🌍" },
+                  { id: "american",      label: "American",      emoji: "🇺🇸" },
+                  { id: "asia",          label: "Asia",          emoji: "🌏" },
+                  { id: "europe",        label: "Europe",        emoji: "🇪🇺" },
+                  { id: "north_america", label: "N. America",    emoji: "🌎" },
+                  { id: "latin_america", label: "Latin America", emoji: "🌎" },
+                  { id: "middle_east",   label: "Middle East",   emoji: "🕌" },
+                  { id: "oceania",       label: "Oceania",       emoji: "🌏" },
+                  { id: "fantasy",       label: "Fantasy",       emoji: "✨" },
+                ] as const;
+                const NAME_STYLE_OPTIONS = [
+                  { id: "western",  label: "Western (Anglo)" },
+                  { id: "african",  label: "African" },
+                  { id: "yoruba",   label: "Yoruba" },
+                  { id: "igbo",     label: "Igbo" },
+                  { id: "hausa",    label: "Hausa" },
+                  { id: "nollywood",label: "Nollywood" },
+                  { id: "british",  label: "British" },
+                  { id: "jamaican", label: "Jamaican" },
+                  { id: "american", label: "American" },
+                  { id: "asian",    label: "Asian" },
+                  { id: "spanish",  label: "Spanish / Latin" },
+                  { id: "arabic",   label: "Arabic" },
+                  { id: "fantasy",  label: "Fantasy / Invented" },
+                ] as const;
+                const COUNTRY_LIST = [
+                  "Nigeria","Ghana","South Africa","Kenya","Egypt","Morocco","Ethiopia",
+                  "United States","United Kingdom","Canada","Mexico","Brazil","Argentina","Jamaica","Cuba",
+                  "France","Germany","Spain","Italy","Portugal","Netherlands","Sweden","Ireland",
+                  "China","Japan","South Korea","India","Pakistan","Indonesia","Philippines","Thailand","Vietnam",
+                  "Saudi Arabia","UAE","Turkey","Iran","Israel",
+                  "Australia","New Zealand",
+                ];
+                const cultureSel = CULTURE_OPTIONS.find(c => c.id === storyRegion);
+                const nameSel = NAME_STYLE_OPTIONS.find(n => n.id === storyNameStyle);
+                const filteredCountries = storyCountryQuery
+                  ? COUNTRY_LIST.filter(c => c.toLowerCase().includes(storyCountryQuery.toLowerCase()))
+                  : COUNTRY_LIST;
+                const ddBtn = (active: boolean): React.CSSProperties => ({
+                  padding: "8px 10px", borderRadius: 8,
+                  border: `1px solid ${active ? accent : "#ffffff15"}`,
+                  background: active ? `${accent}22` : "#ffffff06",
+                  color: active ? accent : "#cfcfe2", fontSize: 10, fontWeight: 600,
+                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+                  width: "100%", textAlign: "left" as const,
+                });
+                const popover: React.CSSProperties = {
+                  position: "absolute" as const, zIndex: 50, top: "calc(100% + 4px)", left: 0, right: 0,
+                  background: "#0d0d18", border: "1px solid #2a2a40", borderRadius: 8,
+                  padding: 4, maxHeight: 240, overflowY: "auto" as const,
+                  boxShadow: "0 6px 22px rgba(0,0,0,0.55)",
+                };
+                const itemBtn = (active: boolean): React.CSSProperties => ({
+                  width: "100%", padding: "6px 8px", borderRadius: 6, border: "none",
+                  background: active ? `${accent}22` : "transparent",
+                  color: active ? accent : "#cfcfe2", fontSize: 10, fontWeight: active ? 700 : 500,
+                  cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 6,
+                });
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                    {/* Culture dropdown */}
+                    <div style={{ position: "relative" as const }}>
+                      <label style={{ ...labelStyle, fontSize: 9, marginBottom: 4, display: "block" }}>Culture</label>
+                      <button onClick={() => { setStoryCultureOpen(o => !o); setStoryNameStyleOpen(false); setStoryCountryOpen(false); }}
+                        style={ddBtn(!!storyRegion)}>
+                        <span style={{ display: "flex", alignItems: "center", gap: 5, overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>
+                          {cultureSel ? <><span>{cultureSel.emoji}</span><span>{cultureSel.label}</span></> : <span style={{ color: muted }}>Select…</span>}
+                        </span>
+                        <span style={{ fontSize: 8, color: muted }}>▼</span>
+                      </button>
+                      {storyCultureOpen && (
+                        <div style={popover}>
+                          {storyRegion && (
+                            <button onClick={() => { setStoryRegion(""); setStoryCultureOpen(false); }} style={itemBtn(false)}>
+                              <span style={{ color: muted }}>✕</span><span style={{ color: muted }}>Clear</span>
+                            </button>
+                          )}
+                          {CULTURE_OPTIONS.map(c => (
+                            <button key={c.id} onClick={() => { setStoryRegion(c.id); setStoryCultureOpen(false); }}
+                              style={itemBtn(storyRegion === c.id)}>
+                              <span>{c.emoji}</span><span>{c.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Name Style dropdown */}
+                    <div style={{ position: "relative" as const }}>
+                      <label style={{ ...labelStyle, fontSize: 9, marginBottom: 4, display: "block" }}>Name Style</label>
+                      <button onClick={() => { setStoryNameStyleOpen(o => !o); setStoryCultureOpen(false); setStoryCountryOpen(false); }}
+                        style={ddBtn(!!storyNameStyle)}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>
+                          {nameSel ? nameSel.label : <span style={{ color: muted }}>Select…</span>}
+                        </span>
+                        <span style={{ fontSize: 8, color: muted }}>▼</span>
+                      </button>
+                      {storyNameStyleOpen && (
+                        <div style={popover}>
+                          {storyNameStyle && (
+                            <button onClick={() => { setStoryNameStyle(""); setStoryNameStyleOpen(false); }} style={itemBtn(false)}>
+                              <span style={{ color: muted }}>✕ Clear</span>
+                            </button>
+                          )}
+                          {NAME_STYLE_OPTIONS.map(n => (
+                            <button key={n.id} onClick={() => { setStoryNameStyle(n.id); setStoryNameStyleOpen(false); }}
+                              style={itemBtn(storyNameStyle === n.id)}>
+                              {n.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Country dropdown w/ free-text */}
+                    <div style={{ position: "relative" as const }}>
+                      <label style={{ ...labelStyle, fontSize: 9, marginBottom: 4, display: "block" }}>Country</label>
+                      <button onClick={() => { setStoryCountryOpen(o => !o); setStoryCultureOpen(false); setStoryNameStyleOpen(false); }}
+                        style={ddBtn(!!storyCountry)}>
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>
+                          {storyCountry || <span style={{ color: muted }}>Any country…</span>}
+                        </span>
+                        <span style={{ fontSize: 8, color: muted }}>▼</span>
+                      </button>
+                      {storyCountryOpen && (
+                        <div style={popover}>
+                          <input
+                            value={storyCountryQuery}
+                            onChange={e => setStoryCountryQuery(e.target.value)}
+                            placeholder="Type any country…"
+                            onKeyDown={e => {
+                              if (e.key === "Enter" && storyCountryQuery.trim()) {
+                                setStoryCountry(storyCountryQuery.trim());
+                                setStoryCountryOpen(false);
+                                setStoryCountryQuery("");
+                              }
+                            }}
+                            style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: "1px solid #2a2a40", background: "#161624", color: "#fff", fontSize: 10, marginBottom: 4 }}
+                            autoFocus
+                          />
+                          {storyCountryQuery.trim() && !filteredCountries.some(c => c.toLowerCase() === storyCountryQuery.toLowerCase()) && (
+                            <button onClick={() => { setStoryCountry(storyCountryQuery.trim()); setStoryCountryOpen(false); setStoryCountryQuery(""); }}
+                              style={itemBtn(false)}>
+                              <span style={{ color: accent }}>＋ Use “{storyCountryQuery.trim()}”</span>
+                            </button>
+                          )}
+                          {storyCountry && (
+                            <button onClick={() => { setStoryCountry(""); setStoryCountryOpen(false); }} style={itemBtn(false)}>
+                              <span style={{ color: muted }}>✕ Clear</span>
+                            </button>
+                          )}
+                          {filteredCountries.map(c => (
+                            <button key={c} onClick={() => { setStoryCountry(c); setStoryCountryOpen(false); setStoryCountryQuery(""); }}
+                              style={itemBtn(storyCountry === c)}>
+                              {c}
+                            </button>
+                          ))}
+                          {filteredCountries.length === 0 && !storyCountryQuery.trim() && (
+                            <p style={{ fontSize: 9, color: muted, padding: 6 }}>No matches</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+              {(storyRegion || storyNameStyle || storyCountry) && (
+                <p style={{ fontSize: 8, color: "#7dd3fc", marginTop: 6 }}>
+                  AI will use {storyCountry || storyRegion?.replace(/_/g, " ") || ""}{storyNameStyle ? ` · ${storyNameStyle} names` : ""}{storyRegion && !storyNameStyle ? ` cultural context` : ""}
                 </p>
               )}
               {/* ── Custom name import ── */}
@@ -7156,7 +8023,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
                   <span style={badgeStyle(accent)}>{characters.length} Actor{characters.length !== 1 ? "s" : ""}</span>
                   <span style={badgeStyle(blue)}>{scenes.length} Scene{scenes.length !== 1 ? "s" : ""}</span>
-                  {language !== "English" && <span style={badgeStyle(purple)}>{language}</span>}
+                  {effectiveLanguage !== "English" && <span style={badgeStyle(purple)}>{effectiveLanguage}</span>}
                   {fullScript && fullScript !== expandedSummary && (
                     <span style={badgeStyle(gold)}>{Math.round(fullScript.split(" ").length / 130)} min script</span>
                   )}
@@ -7196,23 +8063,137 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
               )}
 
-              {/* Scenes detected */}
+              {/* Scenes detected — editable per-scene cards */}
               {scenes.length > 0 && (
                 <div style={{ marginBottom: 14 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Scene Breakdown</p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {scenes.slice(0, 6).map(s => {
-                      const typeInfo = SCENE_TYPES.find(t => t.id === s.sceneType);
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                    <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, margin: 0 }}>
+                      Scene Breakdown ({scenes.length})
+                    </p>
+                    <button onClick={expandSceneList} disabled={storyExpandingScenes}
+                      title="AI expands the scene list — adds in-between beats. Same arc, same characters, same ending."
+                      style={{ padding: "5px 12px", borderRadius: 8, border: "none",
+                        background: storyExpandingScenes ? "#2a2a40" : "linear-gradient(135deg, #ff6b00, #ff9500)",
+                        color: "#fff", fontSize: 9, fontWeight: 700, cursor: storyExpandingScenes ? "not-allowed" : "pointer" }}>
+                      {storyExpandingScenes ? "Expanding…" : "+ Expand Scenes"}
+                    </button>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {scenes.map(s => {
+                      const editing = storyEditingSceneId === s.sceneId;
+                      const polishing = storyPolishingSceneId === s.sceneId;
+                      const breaking = storyBreakingSceneId === s.sceneId;
                       return (
-                        <div key={s.sceneId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "#ffffff05" }}>
-                          <span style={{ fontSize: 9, fontFamily: "monospace", color: blue, minWidth: 32 }}>{s.sceneId}</span>
-                          <span style={{ fontSize: 11, color: "#fff", flex: 1 }}>{s.title}</span>
-                          {s.mood && <span style={badgeStyle(purple)}>{s.mood}</span>}
-                          {s.location && <span style={{ fontSize: 8, color: muted }}>{s.location}</span>}
+                        <div key={s.sceneId} style={{ background: editing ? "#0d0d18" : "#ffffff05", border: `1px solid ${editing ? accent + "55" : "transparent"}`, borderRadius: 8, padding: editing ? 10 : 6 }}>
+                          {/* Header row */}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: editing ? 0 : "2px 4px", marginBottom: editing ? 8 : 0 }}>
+                            <span style={{ fontSize: 9, fontFamily: "monospace", color: blue, minWidth: 32 }}>{s.sceneId}</span>
+                            <span style={{ fontSize: 11, color: "#fff", flex: 1, fontWeight: 600 }}>{s.title}</span>
+                            {s.mood && <span style={badgeStyle(purple)}>{s.mood}</span>}
+                            {s.location && <span style={{ fontSize: 8, color: muted }}>{s.location}</span>}
+                            {!editing && (
+                              <>
+                                <button onClick={() => { setStoryEditingSceneId(s.sceneId); setStoryEditedDescription(s.description); }}
+                                  style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${blue}40`, background: `${blue}15`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                                  Edit
+                                </button>
+                                <button onClick={() => breakScene(s)} disabled={breaking}
+                                  title="Split this scene into 2"
+                                  style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${gold}40`, background: breaking ? "#2a2a40" : `${gold}15`, color: gold, fontSize: 9, fontWeight: 700, cursor: breaking ? "not-allowed" : "pointer" }}>
+                                  {breaking ? "..." : "Break"}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          {/* Description preview when not editing */}
+                          {!editing && s.description && (
+                            <p style={{ fontSize: 10, color: "rgba(255,255,255,0.65)", padding: "0 4px 2px 44px", lineHeight: 1.5, margin: 0 }}>
+                              {s.description.length > 220 ? s.description.slice(0, 220) + "…" : s.description}
+                            </p>
+                          )}
+                          {/* Edit panel */}
+                          {editing && (
+                            <div>
+                              <textarea
+                                value={storyEditedDescription}
+                                onChange={e => setStoryEditedDescription(e.target.value)}
+                                rows={5}
+                                style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "#161624", color: "#fff", fontSize: 11, lineHeight: 1.6, fontFamily: "inherit", resize: "vertical" as const }}
+                              />
+
+                              {/* LLM selector — same chain as AI Chat. Auto = ollama → openai → claude. */}
+                              <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, flexWrap: "wrap" as const }}>
+                                <span style={{ fontSize: 8, color: muted, fontWeight: 700, letterSpacing: 0.5 }}>LLM:</span>
+                                {([
+                                  { id: "auto",   label: "Auto" },
+                                  { id: "ollama", label: "Ollama" },
+                                  { id: "openai", label: "GPT" },
+                                  { id: "claude", label: "Haiku" },
+                                ] as const).map(p => {
+                                  const active = effectiveLlmProvider === p.id;
+                                  return (
+                                    <button key={p.id} onClick={() => { setStoryEditProvider(p.id); patchProjectSettings({ llmProvider: p.id }).catch(() => {}); }}
+                                      title={p.id === "auto" ? "Try Ollama → GPT → Haiku in order" : `Force ${p.label} only`}
+                                      style={{ padding: "2px 8px", borderRadius: 5, border: `1px solid ${active ? "#a855f7" : "#a855f730"}`,
+                                        background: active ? "#a855f725" : "transparent",
+                                        color: active ? "#c084fc" : muted, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                                      {p.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Action buttons. Polish modes: default / add_action / intense / reduce_action / emotional.
+                                  Each button calls polishSceneText with its mode. While one mode is in flight,
+                                  the others are disabled to avoid racing requests. */}
+                              <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" as const }}>
+                                {([
+                                  { mode: "default" as const,        label: "✨ Polish",        title: "Tighter, more dramatic prose. Same plot.", grad: "linear-gradient(135deg, #a855f7, #7c3aed)" },
+                                  { mode: "add_action" as const,     label: "+ Add Action",      title: "Add more action verbs and movement beats", grad: "linear-gradient(135deg, #ff6b00, #ff9500)" },
+                                  { mode: "intense" as const,        label: "🔥 Make Intense",   title: "Raise stakes, sharpen tension",            grad: "linear-gradient(135deg, #ef4444, #b91c1c)" },
+                                  { mode: "reduce_action" as const,  label: "❄ Reduce Action",   title: "Soften, slow down, more reflective",       grad: "linear-gradient(135deg, #06b6d4, #0891b2)" },
+                                  { mode: "emotional" as const,      label: "💜 Make Emotional", title: "Emphasize feelings, internal weight",      grad: "linear-gradient(135deg, #ec4899, #be185d)" },
+                                ]).map(b => {
+                                  const busy = polishing && storyPolishingMode === b.mode;
+                                  return (
+                                    <button key={b.mode}
+                                      onClick={() => polishSceneText(s, b.mode)}
+                                      disabled={polishing}
+                                      title={b.title}
+                                      style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                        background: polishing ? "#2a2a40" : b.grad,
+                                        color: "#fff", fontSize: 9, fontWeight: 700, cursor: polishing ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                      {busy ? "Working…" : b.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Commit / cancel / break */}
+                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                <button onClick={() => {
+                                    updateScene(s.scene, { description: storyEditedDescription });
+                                    setStoryEditingSceneId(null);
+                                    setStoryEditedDescription("");
+                                    setLastAction(`Scene ${s.scene} saved`);
+                                  }}
+                                  style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                                  Save
+                                </button>
+                                <button onClick={() => { setStoryEditingSceneId(null); setStoryEditedDescription(""); }}
+                                  style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                                  Cancel
+                                </button>
+                                <button onClick={() => breakScene(s)} disabled={breaking}
+                                  style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${gold}40`, background: breaking ? "#2a2a40" : `${gold}10`, color: gold, fontSize: 10, fontWeight: 700, cursor: breaking ? "not-allowed" : "pointer", marginLeft: "auto" }}>
+                                  {breaking ? "Breaking…" : "Break Scene → 2"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
-                    {scenes.length > 6 && <p style={{ fontSize: 9, color: muted, padding: "4px 10px" }}>+{scenes.length - 6} more scenes...</p>}
                   </div>
                 </div>
               )}
@@ -7282,14 +8263,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         data-tier={tier.id}
                         onClick={() => {
                           setSoundTier(tier.id);
+                          patchProjectSettings({ soundTier: tier.id }).catch(() => {});
                           if (tier.id === "ghs-sound") setNarratorVoice("piper");
                           else if (tier.id === "ghs-plus") setNarratorVoice("piper");
                           else if (tier.id === "ghs-pro") setNarratorVoice("fal-narrator");
                           else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
                         }}
-                        style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
-                          background: soundTier === tier.id ? `${tier.color}15` : "transparent",
-                          color: soundTier === tier.id ? tier.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${effectiveSoundTier === tier.id ? tier.color : border}`,
+                          background: effectiveSoundTier === tier.id ? `${tier.color}15` : "transparent",
+                          color: effectiveSoundTier === tier.id ? tier.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                         {tier.label}
                       </button>
                     ))}
@@ -7980,6 +8962,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   data-tier={tier.id}
                   onClick={() => {
                     setSoundTier(tier.id);
+                    patchProjectSettings({ soundTier: tier.id }).catch(() => {});
                     // Sync narratorVoice to the tier's narration provider
                     if (tier.id === "ghs-sound") setNarratorVoice("piper");
                     else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
@@ -7988,9 +8971,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   style={{
                     padding: "10px 8px",
                     borderRadius: 10,
-                    border: `1px solid ${soundTier === tier.id ? tier.color : border}`,
-                    background: soundTier === tier.id ? `${tier.color}18` : "transparent",
-                    color: soundTier === tier.id ? tier.color : muted,
+                    border: `1px solid ${effectiveSoundTier === tier.id ? tier.color : border}`,
+                    background: effectiveSoundTier === tier.id ? `${tier.color}18` : "transparent",
+                    color: effectiveSoundTier === tier.id ? tier.color : muted,
                     cursor: "pointer",
                     textAlign: "center" as const,
                     display: "flex",
@@ -8701,6 +9684,58 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             </button>
                           )}
 
+                          {/* Max image controls — same 3-state pattern as the Scene Board view.
+                              State A: beats exist + opted-in → "Max ON (M/N)"
+                              State B: beats exist + not opted-in → "Use Max Image (N)"
+                              State C: no beats yet → "+ Gen Max (~N)" — generates + auto-opts in.
+                              Source unified with assembly loop: Gen Max beats first, else current+prev variants. */}
+                          {(() => {
+                            const sid = scene.sceneId;
+                            const genMaxBeats = sceneBeatImages[sid];
+                            const currentImg = sceneImages[sid];
+                            const variantPool = [currentImg, ...(prevSceneImages[sid] || [])].filter((u): u is string => !!u);
+                            const beats = (genMaxBeats && genMaxBeats.length > 1)
+                              ? genMaxBeats
+                              : (variantPool.length > 1 ? variantPool : null);
+                            const totalBeats = beats?.length ?? 0;
+                            const isMaxOn = useMaxImageScenes.has(sid);
+                            const isGenerating = generatingMaxBeats.has(sid);
+                            const split = splitIntoActionBeats(`${scene.title}. ${scene.description}`).length;
+                            const predicted = totalBeats > 0 ? totalBeats : Math.max(split, 2);
+                            const incl = isMaxOn ? (selectedBeatImages[sid] || []).filter(Boolean).length : 1;
+                            // STATE C — no beats yet
+                            if (totalBeats === 0) {
+                              return (
+                                <button onClick={async () => {
+                                    if (isGenerating) return;
+                                    await makeSceneBeatImages(scene);
+                                    setUseMaxImageScenes(prev => new Set(prev).add(sid));
+                                  }}
+                                  disabled={isGenerating}
+                                  title={`Generate ${predicted} action-beat images for this scene`}
+                                  style={{ padding: "5px 12px", borderRadius: 7,
+                                    border: `1px dashed #ff9500`,
+                                    background: isGenerating ? "#2a2040" : "transparent",
+                                    color: isGenerating ? muted : "#ff9500",
+                                    fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer",
+                                    whiteSpace: "nowrap" as const, flexShrink: 0 }}>
+                                  {isGenerating ? (maxBeatsProgress[sid] || "Generating…") : `+ Gen Max (~${predicted})`}
+                                </button>
+                              );
+                            }
+                            // STATE A or B — beats already exist; auto-opt-in so picker shows
+                            if (!isMaxOn) {
+                              setTimeout(() => setUseMaxImageScenes(prev => new Set(prev).add(sid)), 0);
+                            }
+                            return (
+                              <span style={{ padding: "5px 12px", borderRadius: 7,
+                                border: `2px solid #ff9500`, background: "#ff9500",
+                                color: "#000", fontSize: 10, fontWeight: 700, whiteSpace: "nowrap" as const, flexShrink: 0 }}>
+                                Max ON ({incl}/{totalBeats})
+                              </span>
+                            );
+                          })()}
+
                           {/* Live progress bar */}
                           {sceneGenProgress[scene.sceneId] && (() => {
                             const pg = sceneGenProgress[scene.sceneId];
@@ -8715,6 +9750,63 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             );
                           })()}
                         </div>
+
+                        {/* Inline image spread — always visible when scene has 2+ images.
+                            Each thumb has a checkbox; default all ticked. Toggling auto-opts the scene
+                            into multi-image mode (handled by the Max button render above). */}
+                        {(() => {
+                          const sid = scene.sceneId;
+                          const genMaxBeats = sceneBeatImages[sid];
+                          const currentImg = sceneImages[sid];
+                          const variantPool = [currentImg, ...(prevSceneImages[sid] || [])].filter((u): u is string => !!u);
+                          const beats = (genMaxBeats && genMaxBeats.length > 1)
+                            ? genMaxBeats
+                            : (variantPool.length > 1 ? variantPool : null);
+                          if (!beats || beats.length <= 1) return null;
+                          return (
+                            <div style={{ borderTop: `1px solid ${border}`, padding: "6px 12px", background: "#ff95000a" }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                                <span style={{ fontSize: 9, color: "#ff9500", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                                  Pick which images to include in assembly
+                                </span>
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sid]: beats.map(() => true) }))}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ff950060", background: "transparent", color: "#ff9500", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                    Select All
+                                  </button>
+                                  <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sid]: beats.map(() => false) }))}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                                    Deselect All
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                                {beats.map((url, bi) => {
+                                  const checked = selectedBeatImages[sid]?.[bi] !== false;
+                                  return (
+                                    <label key={bi}
+                                      title={`Image ${bi + 1} — ${checked ? "included" : "skipped"}`}
+                                      style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
+                                      <img src={url} alt={`#${bi + 1}`}
+                                        style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
+                                        onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Image ${bi + 1}` }); }} />
+                                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                        <input type="checkbox" checked={checked}
+                                          onChange={e => setSelectedBeatImages(prev => {
+                                            const arr = [...(prev[sid] || beats.map(() => true))];
+                                            arr[bi] = e.target.checked;
+                                            return { ...prev, [sid]: arr };
+                                          })}
+                                          style={{ width: 11, height: 11 }} />
+                                        <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>#{bi + 1}</span>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })()}
 
 
                         {/* Move ▲▼ + quick Assign button */}
@@ -8781,7 +9873,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
             {/* B. Subtitle Style */}
             <div style={{ ...cardStyle, marginBottom: 16 }}>
-              <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={accent} />
+              <SubtitleStyler value={effectiveSubtitleConfig} onChange={newCfg => { setSubtitleConfig(newCfg); patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {}); }} accentColor={accent} />
               {/* Check Narration ↔ Subtitle Match */}
               <button
                 onClick={async () => {
@@ -8791,7 +9883,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     const res = await fetch("/api/free-mode/enhance", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ prompt: `Does subtitle mode "${subtitleConfig.mode}" match this story tone? Story: "${storyText.slice(0, 300)}" Reply with OK or WARN and one short reason.`, task: "check" }),
+                      body: JSON.stringify({ prompt: `Does subtitle mode "${effectiveSubtitleConfig.mode}" match this story tone? Story: "${storyText.slice(0, 300)}" Reply with OK or WARN and one short reason.`, task: "check" }),
                     });
                     const d = await res.json();
                     const note = d.enhanced || d.text || d.result || "Check complete";
@@ -9398,6 +10490,64 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </button>
                       </div>
                     )}
+
+                    {/* 2026-05-10 — Image-count preview panel.
+                        Henry's spec: "I need a image pick preview page during assemble to see image
+                        count not image but image count via text". Per-scene text-only summary so user
+                        verifies what's going into the build before clicking Assemble.
+                        Total at the bottom = total assembly segments the video will produce. */}
+                    {selectedSceneIds.length > 0 && (() => {
+                      const orderedScenes = scenes.filter(s => selectedSceneIds.includes(s.sceneId));
+                      const rows = orderedScenes.map(s => {
+                        const sid = s.sceneId;
+                        const allBeats = sceneBeatImages[sid] || [];
+                        const ticked = (selectedBeatImages[sid] || []).filter(Boolean).length;
+                        const optedIn = useMaxImageScenes.has(sid);
+                        const hasVideo = !!sceneVideos[sid];
+                        const hasImg = !!sceneImages[sid];
+                        let count = 0;
+                        let label = "";
+                        if (hasVideo) {
+                          count = 1; label = "video";
+                        } else if (optedIn && allBeats.length > 1 && ticked > 1) {
+                          count = ticked; label = `${ticked} max images`;
+                        } else if (hasImg) {
+                          count = 1; label = "1 image";
+                        } else {
+                          count = 0; label = "NO MEDIA";
+                        }
+                        return { sid, title: s.title, count, label, allBeats: allBeats.length, optedIn, ticked };
+                      });
+                      const totalSegments = rows.reduce((sum, r) => sum + r.count, 0);
+                      const noMedia = rows.filter(r => r.count === 0).length;
+                      return (
+                        <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ff95000a", border: "1px solid #ff950030", marginBottom: 10 }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: "#ff9500", margin: 0 }}>
+                              📊 Pre-assembly preview — {totalSegments} total segments will go into the video
+                            </p>
+                            {noMedia > 0 && (
+                              <span style={{ fontSize: 10, color: red, fontWeight: 700 }}>⚠ {noMedia} scene{noMedia !== 1 ? "s" : ""} with no media</span>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", flexDirection: "column" as const, gap: 2, maxHeight: 200, overflowY: "auto" as const, fontFamily: "monospace" as const, fontSize: 10 }}>
+                            {rows.map(r => (
+                              <div key={r.sid} style={{ display: "flex", gap: 8, color: r.count === 0 ? red : "#ddd" }}>
+                                <span style={{ minWidth: 48, color: r.count === 0 ? red : "#ff9500" }}>{r.sid}</span>
+                                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>{r.title}</span>
+                                <span style={{ color: r.count === 0 ? red : r.count > 1 ? "#ff9500" : muted }}>→ {r.label}</span>
+                                {r.allBeats > 1 && !r.optedIn && (
+                                  <span style={{ color: muted, fontSize: 9 }}>({r.allBeats} max avail, not opted in)</span>
+                                )}
+                                {r.allBeats > 1 && r.optedIn && r.ticked < r.allBeats && (
+                                  <span style={{ color: muted, fontSize: 9 }}>({r.allBeats - r.ticked} unticked)</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     <button
                       onClick={() => {
                         if (assemblyOrder.length > 0) {
@@ -9792,11 +10942,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               { id: "storybook", icon: "SB", name: "Storybook", color: "#22c55e", example: "Like: children's picture books, Peppa Pig", desc: "Soft, warm and painterly. Looks like illustrations from a kids' book. Gentle and cozy." },
               { id: "realistic", icon: "RL", name: "Realistic", color: "#ec4899", example: "Like: a real film or Netflix drama", desc: "Photorealistic — looks like an actual photograph or live-action movie scene." },
             ].map(style => {
-              const isSelected = projectStyle === style.id;
+              const isSelected = effectiveProjectStyle === style.id;
               return (
                 <div key={style.id}
                   onClick={() => {
                     setProjectStyle(style.id);
+                    patchProjectSettings({ visualStyle: style.id }).catch(() => {});
                     setLastAction(`Art style set to ${style.name}`);
                     setShowStylePicker(false);
                     // Force-save immediately so style persists even if nothing else changes
@@ -9992,7 +11143,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           <SupervisorStatusBar
             plannerType="hybrid"
             projectId={projectId}
-            designComplete={!!projectStyle}
+            designComplete={!!effectiveProjectStyle}
             storyComplete={!!expandedSummary || !!idea}
             charactersComplete={characters.length > 0}
             soundComplete={!!narratorAudioUrl || scriptSegments.length > 0}

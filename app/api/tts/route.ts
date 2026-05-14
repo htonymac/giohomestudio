@@ -11,6 +11,7 @@ import * as path from "path";
 import * as os from "os";
 import { env } from "@/config/env";
 import { spawn, execSync } from "child_process";
+import { extractEmotion, elevenLabsSettingsFor, type Emotion } from "@/lib/dialogue-emotion";
 
 // ── Measure audio duration after generation ───────────────────────────────────
 // Tries FFprobe first; falls back to file-size heuristics for WAV/MP3.
@@ -43,6 +44,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { text, voiceId, speed, engine, provider } = body;
+    // Optional emotion override — caller can force a specific emotion (e.g. from a UI dropdown).
+    // Otherwise we auto-detect from punctuation / adverbs / ALL CAPS.
+    const overrideEmotion: Emotion | undefined = body.emotion;
 
     // Resolve effective provider — `provider` field takes precedence over legacy `engine`
     // "karaoke" maps to windows-sapi (browser speech API handled client-side)
@@ -51,6 +55,15 @@ export async function POST(req: NextRequest) {
     if (!text?.trim()) {
       return NextResponse.json({ error: "text required" }, { status: 400 });
     }
+
+    // ── PHASE 1: emotion preprocessing ──
+    // Detect emotion ONCE up front; pass cleaned text to whichever engine wins.
+    // ElevenLabs gets emotion-specific voice_settings for inflection.
+    // Piper / FAL Kokoro / SAPI ignore — they just receive the cleaned text
+    // (with directive adverbs like "she whispered" stripped).
+    const detected = extractEmotion(text);
+    const finalEmotion: Emotion = overrideEmotion || detected.emotion;
+    const speakText = detected.cleanText || text;
 
     // ── Karaoke / browser-speech provider — handled client-side, signal back ──
     if (effectiveProvider === "karaoke") {
@@ -90,7 +103,9 @@ export async function POST(req: NextRequest) {
             "--output_file", outFile,
             ...(speed ? ["--length_scale", String(1 / (speed || 1))] : []),
           ]);
-          proc.stdin.write(text);
+          // speakText = original with directive adverbs stripped (whispered/shouted/etc).
+          // Piper has no emotion API, so cleaning the text is the most we can do.
+          proc.stdin.write(speakText);
           proc.stdin.end();
           const timer = setTimeout(() => { proc.kill(); reject(new Error("Piper timeout")); }, 30000);
           proc.on("close", (code) => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error(`Piper exit ${code}`)); });
@@ -118,7 +133,7 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            prompt: text,
+            prompt: speakText,
             voice: voiceId || "af_sky",
             speed: speed || 1.0,
           }),
@@ -164,7 +179,7 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            prompt: text,
+            prompt: speakText,
             voice: voiceId || "af_sky",
             speed: speed || 1.0,
           }),
@@ -199,6 +214,15 @@ export async function POST(req: NextRequest) {
     if (process.env.ELEVENLABS_API_KEY) {
       try {
         const vid = voiceId || "EXAVITQu4vr4xnSDxMaL"; // Sarah
+        // Emotion → voice_settings tweak. Same voice identity, different inflection.
+        const settings = elevenLabsSettingsFor(finalEmotion);
+        // If ELEVENLABS_USE_V3=true the caller wants the v3 multi-speaker model which
+        // honours <emotion> tags inline. Otherwise we use v1 + emotion-tuned voice_settings.
+        const useV3 = process.env.ELEVENLABS_USE_V3 === "true";
+        const modelId = useV3 ? "eleven_v3" : "eleven_monolingual_v1";
+        const v3Text = useV3 && finalEmotion !== "neutral"
+          ? `<${finalEmotion}>${speakText}</${finalEmotion}>`
+          : speakText;
         const elevenLabsRes = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${vid}`, {
           method: "POST",
           headers: {
@@ -206,9 +230,9 @@ export async function POST(req: NextRequest) {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            text,
-            model_id: "eleven_monolingual_v1",
-            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+            text: v3Text,
+            model_id: modelId,
+            voice_settings: settings,
           }),
         });
 
@@ -223,7 +247,7 @@ export async function POST(req: NextRequest) {
         fs.writeFileSync(mp3File, buffer);
         const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
         const durationMs = getAudioDurationMs(mp3File, "mp3");
-        return NextResponse.json({ audioUrl: url, engine: "elevenlabs", text: text.slice(0, 100), durationMs });
+        return NextResponse.json({ audioUrl: url, engine: useV3 ? "elevenlabs-v3" : "elevenlabs", text: speakText.slice(0, 100), emotion: finalEmotion, durationMs });
       } catch (err) {
         console.error("ElevenLabs TTS failed:", JSON.stringify(err instanceof Error ? err.message : err));
         // If ElevenLabs was explicitly requested, return the error — don't fall through

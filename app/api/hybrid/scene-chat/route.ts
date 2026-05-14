@@ -1,7 +1,16 @@
-// Per-scene AI assistant — helps users improve image prompts and scene descriptions using Ollama (free, local).
+// Per-scene AI assistant — helps users improve image prompts and scene descriptions.
+//
+// Provider fallback chain (when provider is "auto" or omitted):
+//   1. Ollama  (local, free, no key needed) — preferred
+//   2. OpenAI  (GPT) — fallback if Ollama is offline
+//   3. Claude  (Haiku) — fallback if GPT also fails
+//
+// User can also pass an explicit provider ("ollama" | "openai" | "claude") to skip the chain.
 
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
+
+type ChatProvider = "auto" | "ollama" | "openai" | "claude";
 
 interface SceneChatRequest {
   sceneId: string;
@@ -13,6 +22,7 @@ interface SceneChatRequest {
   currentImagePrompt?: string;
   userMessage: string;
   history?: Array<{ role: "user" | "assistant"; content: string }>;
+  provider?: ChatProvider;   // optional — defaults to "auto" (run full fallback chain)
 }
 
 function buildSystemPrompt(req: SceneChatRequest): string {
@@ -74,6 +84,35 @@ function extractImagePrompt(reply: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Try a provider chain in order. Returns the first successful result.
+ * If a stage throws or returns ok=false we move on, collecting error messages
+ * so the caller can see what failed when every provider is down.
+ */
+async function runWithFallback(
+  prompt: string,
+  system: string,
+  chain: Array<"ollama" | "openai" | "claude">
+): Promise<{ ok: true; text: string; provider: string } | { ok: false; error: string }> {
+  const errors: string[] = [];
+  for (const provider of chain) {
+    try {
+      const result = await callLLM(prompt, system, {
+        forceProvider: provider,
+        role: provider === "claude" ? "fast" : "assistant", // claude=haiku via fast
+        maxTokens: 800,
+      });
+      if (result.ok && result.text?.trim()) {
+        return { ok: true, text: result.text, provider: result.provider || provider };
+      }
+      errors.push(`${provider}: ${(!result.ok && result.error) || "empty reply"}`);
+    } catch (err) {
+      errors.push(`${provider}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return { ok: false, error: `All providers failed — ${errors.join(" | ")}` };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body: SceneChatRequest = await req.json();
@@ -81,11 +120,14 @@ export async function POST(req: NextRequest) {
     const system = buildSystemPrompt(body);
     const prompt = buildUserPrompt(body);
 
-    const result = await callLLM(prompt, system, {
-      forceProvider: "ollama",
-      role: "assistant",
-      maxTokens: 800,
-    });
+    // Build the provider chain.
+    // - "auto" (or unset) → ollama → openai → claude
+    // - any explicit pick → just that one
+    const requested: ChatProvider = body.provider || "auto";
+    const chain: Array<"ollama" | "openai" | "claude"> =
+      requested === "auto" ? ["ollama", "openai", "claude"] : [requested];
+
+    const result = await runWithFallback(prompt, system, chain);
 
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error }, { status: 500 });

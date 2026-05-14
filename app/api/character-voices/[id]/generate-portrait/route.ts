@@ -6,8 +6,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getStylePreset } from "@/lib/style-presets";
+import { sanitizeStyleCollisions, getStyleCollisionNegative } from "@/lib/style/sanitizer";
+import { getLateAnchor } from "@/lib/style/late-anchor";
 
 interface ReferenceImage { url: string; angle?: string; label?: string }
+
+// sanitizeStyleCollisions, getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
+// getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
 
 export async function POST(
   req: NextRequest,
@@ -41,13 +46,23 @@ export async function POST(
     ? "male character, "
     : "";
 
+  // Sanitize the visual description for the chosen style. Stops "animated voice"
+  // (a personality trait) from being read as an animation cue when realistic is selected.
+  const cleanDesc = sanitizeStyleCollisions(desc, style);
+
+  // getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
   const prompt = [
     preset.prefix,
     `CHARACTER ${character.name.toUpperCase()} — EXACT FIXED APPEARANCE:`,
-    `${genderHint}${desc}`,
+    `${genderHint}${cleanDesc}`,
     "Front-facing portrait, neutral pose, clean background.",
     "High quality, sharp focus, consistent character design.",
+    getLateAnchor(style),
   ].filter(Boolean).join(". ");
+
+  // Strengthen negative prompt for live-action — block animation/render words explicitly.
+  // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
+  const finalNegative = (preset.negative || "") + getStyleCollisionNegative(style);
 
   // Route through /api/generation/image — handles PuLID routing internally
   const origin = req.nextUrl.origin;
@@ -56,7 +71,7 @@ export async function POST(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt,
-      negativePrompt: preset.negative || "",
+      negativePrompt: finalNegative,
       width: 512,
       height: 768,
       referenceImageUrl: isPhotoImport ? (photoUrl ?? undefined) : undefined,

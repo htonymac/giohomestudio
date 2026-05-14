@@ -17,6 +17,8 @@ import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "..
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
+import { splitIntoActionBeats } from "@/lib/scene/action-beats";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Child Video Planner — PRODUCTION WORKSHOP
@@ -339,6 +341,22 @@ function ChildrenPlannerInner() {
   const [assemblyComplete, setAssemblyComplete] = useState(false);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
   const [assemblyMediaPrefs, setAssemblyMediaPrefs] = useState<Record<string, "image" | "video">>({});
+  // ── Gen Max — per-scene action-beat images (mirrors hybrid-planner) ──
+  // sceneBeatImages[sceneId] = list of beat image URLs (one per action beat).
+  // selectedBeatImages[sceneId] = parallel boolean array — true = include this beat in assembly.
+  // Default: every beat included. User unticks to skip.
+  const [sceneBeatImages, setSceneBeatImages] = useState<Record<string, string[]>>({});
+  const [selectedBeatImages, setSelectedBeatImages] = useState<Record<string, boolean[]>>({});
+  const [generatingMaxBeats, setGeneratingMaxBeats] = useState<Set<string>>(new Set());
+  const [maxBeatsProgress, setMaxBeatsProgress] = useState<Record<string, string>>({});
+  // sceneMaxTarget — per-scene custom image count for Gen Max (default 4, range 1-30).
+  // User overrides via the small number input next to the Gen Max button.
+  const [sceneMaxTarget, setSceneMaxTarget] = useState<Record<string, number>>({});
+  // useMaxImageScenes — set of sceneIds where the user opted-in to "Use Max Image" in Assembly.
+  // OFF (default): scene contributes ONE image to the assembled video (scene.imageUrl).
+  // ON: scene expands into N segments — one per ticked beat in selectedBeatImages.
+  // Per-scene toggle so the user can mix: some scenes 1 image, some scenes multi-beat.
+  const [useMaxImageScenes, setUseMaxImageScenes] = useState<Set<string>>(new Set());
   const [aiSupervisorRunning, setAiSupervisorRunning] = useState(false);
   const [aiSupervisorReport, setAiSupervisorReport] = useState<{ ok: boolean; summary: string; issues: string[]; fixed: string[] } | null>(null);
   const [subtitleConfig, setSubtitleConfig] = useState<SubtitleConfig>({ ...DEFAULT_SUBTITLE_CONFIG, mode: "kids", highlightColor: "#34d399" });
@@ -476,7 +494,7 @@ function ChildrenPlannerInner() {
             learningMode,
             safetyLevel,
             productionSystem,
-            visualStyle,
+            visualStyle: effectiveProjectStyle,
           },
         }),
       });
@@ -520,7 +538,7 @@ function ChildrenPlannerInner() {
               body: JSON.stringify({
                 characterName: name,
                 storyText: text,
-                artStyle: visualStyle || "storybook",
+                artStyle: effectiveProjectStyle || "storybook",
                 language: "English",
                 childSafe: true,
                 ageGroup,
@@ -631,7 +649,7 @@ function ChildrenPlannerInner() {
             body: JSON.stringify({
               characterName: name,
               storyText: storyRichText,
-              artStyle: visualStyle || "storybook",
+              artStyle: effectiveProjectStyle || "storybook",
               language: "English",
               childSafe: true,
               ageGroup,
@@ -686,7 +704,7 @@ function ChildrenPlannerInner() {
         body: JSON.stringify({
           characterName: name,
           storyText: text,
-          artStyle: visualStyle || "storybook",
+          artStyle: effectiveProjectStyle || "storybook",
           language: "English",
           childSafe: true,
           ageGroup,
@@ -749,7 +767,7 @@ function ChildrenPlannerInner() {
     setGeneratingPortrait(char.characterId);
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
-    const styleLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label || "storybook";
+    const styleLabel = VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label || "storybook";
     const portraitPrompt = [
       `children's story illustration, ${styleLabel} art style, age-appropriate, friendly, colorful, warm`,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
@@ -940,7 +958,7 @@ function ChildrenPlannerInner() {
           audience: AGE_AUDIENCE[ageGroup] || "children",
           language: "English",
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
-          childContext: { ageGroup, learningMode, safetyLevel, visualStyle },
+          childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
         }),
       });
       const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "story-expand");
@@ -999,7 +1017,7 @@ function ChildrenPlannerInner() {
         }
       }
 
-      const styleLabel = VISUAL_STYLES.find(v => v.id === visualStyle)?.label || visualStyle;
+      const styleLabel = VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label || effectiveProjectStyle;
       const storyWithStyle = `${summary || storyInput}\n\nVisual style: ${styleLabel}`;
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1174,11 +1192,11 @@ function ChildrenPlannerInner() {
     setGeneratingScenesFromStory(true);
     setLastAction("AI is planning scenes from your story...");
     try {
-      const storyText = `[Children Story — ${ageGroup} — ${visualStyle} style]\n${storyInput}\n${selectedCharIds.length > 0 ? `Characters: ${savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name).join(", ")}` : ""}`;
+      const storyText = `[Children Story — ${ageGroup} — ${effectiveProjectStyle} style]\n${storyInput}\n${selectedCharIds.length > 0 ? `Characters: ${savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => c.name).join(", ")}` : ""}`;
       const res = await fetch("/api/hybrid/scene-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storyText, characters: savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ characterId: c.characterId || c.id, name: c.name })), costPreference: "balanced", targetDuration: "2-5", projectId: `children_${Date.now()}`, styleHint: `${visualStyle}, children's book illustration, age-appropriate, friendly, colorful` }),
+        body: JSON.stringify({ storyText, characters: savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ characterId: c.characterId || c.id, name: c.name })), costPreference: "balanced", targetDuration: "2-5", projectId: `children_${Date.now()}`, styleHint: `${effectiveProjectStyle}, children's book illustration, age-appropriate, friendly, colorful` }),
       });
       const data = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(res, "scene-board-plan");
       const planned = (data.scenes || []).map((s, i) => ({
@@ -1215,9 +1233,9 @@ function ChildrenPlannerInner() {
           sceneId,
           sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
           characterIds: assignedChars,
-          projectStyle: sceneStyles[sceneId] || projectStyle,
+          projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
           mood: "friendly, warm, safe",
-          modelId: selectedImageModelId,
+          modelId: effectiveImageModelId,
         }),
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
@@ -1229,12 +1247,133 @@ function ChildrenPlannerInner() {
       if (url) {
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
         setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
+        // ACCUMULATE: also push this single image into the per-scene pool so it's
+        // available alongside Gen Max beats in the assembly picker. Without this,
+        // clicking Gen Image after Gen Max overwrites the active slot only and the
+        // image isn't visible in the multi-image spread.
+        setSceneBeatImages(prev => {
+          const existing = prev[sceneId] || [];
+          if (existing.includes(url)) return prev;
+          return { ...prev, [sceneId]: [...existing, url].slice(-30) };
+        });
+        setSelectedBeatImages(prev => {
+          const existing = prev[sceneId] || [];
+          return { ...prev, [sceneId]: [...existing, true].slice(-30) };
+        });
         setLastAction(`Scene ${scene.scene} image generated`);
       }
     } catch (err) {
       setLastAction(`Image generation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
     setGeneratingSceneImage(null);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  // GEN MAX — multi-beat images per scene (mirrors hybrid-planner)
+  //
+  // splitIntoActionBeats imported from @/lib/scene/action-beats (Phase B extraction)
+  // makeChildSceneBeatImages() fires one /api/hybrid/scene-image request per beat.
+  // Each beat gets its OWN image. The assembly loop later expands the scene into
+  // N segments, one per ticked beat.
+  // ════════════════════════════════════════════════════════════════════════
+
+  /**
+   * makeChildSceneBeatImages — generate N images for a scene.
+   *
+   * 2026-05-09 ACCUMULATE FIX:
+   *   - Old behavior: this function REPLACED sceneBeatImages[sceneId] with the new array,
+   *     so a second Gen Max wiped out the previous run's images. Henry's "ffff" project
+   *     hit this bug.
+   *   - New behavior: APPEND new images to the existing pool. Each click adds more.
+   *   - Per-scene custom count via sceneMaxTarget[sceneId] (default 4). Falls back to
+   *     beats from splitIntoActionBeats if scene description is rich enough; otherwise
+   *     fills the gap with seed-varied retries of the same description so user always
+   *     gets the requested count.
+   *
+   * @param scene the child scene to generate images for
+   * @param countOverride optional — explicit count for this single call; falls back to
+   *                      sceneMaxTarget[sceneId], then 4
+   */
+  async function makeChildSceneBeatImages(scene: ChildScene, countOverride?: number) {
+    const sceneId = `child_sc${String(scene.scene).padStart(2, "0")}`;
+    if (generatingMaxBeats.has(sceneId)) return;
+
+    const fullDesc = `${scene.title}. ${scene.visualDescription}`;
+    // 2026-05-10 default 8 (was 4) per Henry's "boring without pictures".
+    const targetCount = Math.max(1, Math.min(30, countOverride ?? sceneMaxTarget[sceneId] ?? 8));
+    const naturalBeats = splitIntoActionBeats(fullDesc);
+    // Build the prompt list:
+    //   1. up to targetCount beats from the description
+    //   2. if not enough natural beats, fill remainder with the full description varied by seed
+    const promptList: string[] = [];
+    for (let i = 0; i < targetCount; i++) {
+      promptList.push(naturalBeats.length > 1 && i < naturalBeats.length ? naturalBeats[i] : fullDesc);
+    }
+
+    setGeneratingMaxBeats(prev => new Set(prev).add(sceneId));
+    setMaxBeatsProgress(prev => ({ ...prev, [sceneId]: `Image 1/${promptList.length}…` }));
+    setLastAction(`Gen Max: generating ${promptList.length} images for Scene ${scene.scene}…`);
+
+    const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
+    const childStylePrefix = "children's book illustration, age-appropriate, friendly, colorful, ";
+    const newUrls: string[] = [];
+
+    for (let bi = 0; bi < promptList.length; bi++) {
+      setMaxBeatsProgress(prev => ({ ...prev, [sceneId]: `Image ${bi + 1}/${promptList.length}…` }));
+      try {
+        const res = await fetch("/api/hybrid/scene-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sceneId: `${sceneId}_b${bi}_${Date.now()}`,
+            sceneText: `${childStylePrefix}${promptList[bi]}`,
+            characterIds: assignedChars,
+            projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
+            mood: "friendly, warm, safe",
+            modelId: effectiveImageModelId,
+            // Unique seed per image so retries on the same description still produce variation.
+            seed: Math.floor(Math.random() * 1e9),
+          }),
+        });
+        const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, `child-beat-${bi}`);
+        const url = data.imageUrl || data.imagePath || "";
+        if (url) newUrls.push(url);
+      } catch (err) {
+        console.error(`[makeChildSceneBeatImages] image ${bi} failed:`, err);
+      }
+    }
+
+    // ACCUMULATE (don't replace). Cap at 30 to avoid runaway.
+    setSceneBeatImages(prev => {
+      const existing = prev[sceneId] || [];
+      const merged = [...existing, ...newUrls].slice(-30);
+      return { ...prev, [sceneId]: merged };
+    });
+    // New images default to ticked. Existing tick state preserved.
+    setSelectedBeatImages(prev => {
+      const existing = prev[sceneId] || [];
+      const additions = newUrls.map(() => true);
+      const merged = [...existing, ...additions].slice(-30);
+      return { ...prev, [sceneId]: merged };
+    });
+    // 2026-05-10 fix — set first new beat as the scene's active image ONLY if no
+    // active image yet. Without this, scene treated as "no image generated" by
+    // assembly + UI flags even though beats are visible.
+    if (newUrls.length > 0) {
+      setSceneImages(prev => prev[sceneId] ? prev : { ...prev, [sceneId]: newUrls[0] });
+      setChildScenes(prev => prev.map(s => s.scene === scene.scene && !s.imageUrl ? { ...s, imageUrl: newUrls[0] } : s));
+      // Auto-opt-in to multi-image mode so assembly expands the beats.
+      setUseMaxImageScenes(prev => prev.has(sceneId) ? prev : new Set(prev).add(sceneId));
+    }
+    setGeneratingMaxBeats(prev => { const n = new Set(prev); n.delete(sceneId); return n; });
+    setMaxBeatsProgress(prev => { const n = { ...prev }; delete n[sceneId]; return n; });
+    // Surface success vs requested so user knows when fewer land than asked.
+    const failed = promptList.length - newUrls.length;
+    if (failed > 0) {
+      setLastAction(`Scene ${scene.scene}: +${newUrls.length} of ${promptList.length} images (${failed} failed — check console)`);
+    } else {
+      setLastAction(`Scene ${scene.scene}: +${newUrls.length} images added`);
+    }
   }
 
   // ── Generate 3 image variations for a scene (Scene Board) ──
@@ -1261,9 +1400,9 @@ function ChildrenPlannerInner() {
               sceneId,
               sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
               characterIds: assignedChars,
-              projectStyle: sceneStyles[sceneId] || (visualStyle === "storybook" ? "storybook" : visualStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
+              projectStyle: sceneStyles[sceneId] || (effectiveProjectStyle === "storybook" ? "storybook" : effectiveProjectStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
               mood: "friendly, warm, safe",
-              modelId: selectedImageModelId,
+              modelId: effectiveImageModelId,
               seed: seeds[i],
             }),
           });
@@ -1436,7 +1575,7 @@ function ChildrenPlannerInner() {
       if (storyForTTS.length > 10) {
         try {
           // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
-          const autoProvider = narrationProvider || "piper";
+          const autoProvider = effectiveNarrationProvider || "piper";
           fixed.push(`Generating narration (${autoProvider})...`);
           const ttsRes = await fetch("/api/tts", {
             method: "POST",
@@ -1460,7 +1599,7 @@ function ChildrenPlannerInner() {
       if (!selectedMusicUrl && !generatedMusicUrl) {
         try {
           fixed.push("Generating background music...");
-          const supervisorTier = SOUND_TIERS.find(t => t.id === soundTier);
+          const supervisorTier = SOUND_TIERS.find(t => t.id === effectiveSoundTier);
           const supervisorProviderKey = supervisorTier?.providerKey ?? "stock";
           const musicRes = await fetch("/api/music/generate", {
             method: "POST",
@@ -1482,9 +1621,9 @@ function ChildrenPlannerInner() {
       } else { fixed.push("SFX available."); }
 
       // ── 5. Subtitle check ──
-      if ((subtitleConfig.mode as string) === "none") {
+      if ((effectiveSubtitleConfig.mode as string) === "none") {
         issues.push("Subtitles disabled — enable a style in Assembly for better accessibility.");
-      } else { fixed.push(`Subtitles: "${subtitleConfig.mode}" mode, ${subtitleConfig.position} position.`); }
+      } else { fixed.push(`Subtitles: "${effectiveSubtitleConfig.mode}" mode, ${effectiveSubtitleConfig.position} position.`); }
 
       const blockingIssues = issues.filter(i => !i.startsWith("No SFX") && !i.startsWith("Subtitles disabled"));
       const ok = missingMedia.length === 0 && selectedScenes.length > 0 && blockingIssues.length === 0;
@@ -1514,7 +1653,7 @@ function ChildrenPlannerInner() {
         body: JSON.stringify({
           projectType: "children",
           scenes: sceneList,
-          audioConfig: { narrationProvider: narrationProvider, narrationText: narrationText, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
+          audioConfig: { narrationProvider: effectiveNarrationProvider, narrationText: narrationText, musicUrl: selectedMusicUrl, musicName: selectedMusicName },
           characters: charList,
         }),
       });
@@ -1539,22 +1678,59 @@ function ChildrenPlannerInner() {
     setAssembledUrl(null);
     const progress: Record<number, string> = {};
     try {
-      const assemblyScenes: Array<{ scene: number; videoUrl: string }> = [];
+      // Each pushed segment carries:
+      //   scene:    UNIQUE sequential index (1,2,3...) so /api/video/assemble can write
+      //             temp files like scene_img_1.png / imgslide_1.mp4 without collisions.
+      //   parentScene: original parent scene number, used here only for subtitle text.
+      //   videoUrl: img:<url> for image, or direct video URL for video clips.
+      type Segment = { scene: number; videoUrl: string; parentScene: number };
+      const assemblyScenes: Segment[] = [];
+      let segCounter = 0;
       for (const s of scenesToAssemble) {
         const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
         const videoUrl = sceneVideos[sceneId];
         const imageUrl = sceneImages[sceneId] || s.imageUrl;
         const pref = assemblyMediaPrefs[sceneId] || "auto";
-        // user chose video explicitly
+
+        // MULTI-IMAGE SOURCE for "Use Max Image":
+        // Prefer Gen Max beats (different action moments). If none, fall back to Gen 4 variants
+        // (alternate renders of the same moment). Both are valid multi-image sources for Henry's
+        // "spread the scene across N small boxes" workflow.
+        const allBeats = sceneBeatImages[sceneId] && sceneBeatImages[sceneId].length > 1
+          ? sceneBeatImages[sceneId]
+          : (s.variantUrls && s.variantUrls.length > 1 ? s.variantUrls : null);
+        const beatChecks = selectedBeatImages[sceneId];
+        const tickedBeats = allBeats
+          ? allBeats.filter((_, bi) => beatChecks?.[bi] !== false)
+          : [];
+        const wantsImagePath = pref === "image" || (pref !== "video" && !videoUrl);
+        const userOptedIntoMax = useMaxImageScenes.has(sceneId);
+        if (wantsImagePath && userOptedIntoMax && tickedBeats.length > 1) {
+          // Push one assembly segment per ticked beat. CRITICAL: each gets a unique
+          // sequential scene number so /api/video/assemble's temp-file naming doesn't collide.
+          for (const beatUrl of tickedBeats) {
+            assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${beatUrl}`, parentScene: s.scene });
+          }
+          continue;
+        }
+
+        // Single-image / video path. Source priority:
+        //   1. user opted into Max + exactly one beat ticked → use that beat
+        //   2. scene's primary imageUrl → use that
+        //   3. allBeats[0] only as last-resort fallback when scene has no primary image
+        const singleImageSrc =
+          userOptedIntoMax && tickedBeats.length === 1 ? tickedBeats[0] :
+          imageUrl ? imageUrl :
+          (allBeats && allBeats.length > 0 ? allBeats[0] : undefined);
         if (pref === "video" && videoUrl) {
-          assemblyScenes.push({ scene: s.scene, videoUrl });
-        } else if (pref === "image" && imageUrl) {
-          assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
+          assemblyScenes.push({ scene: ++segCounter, videoUrl, parentScene: s.scene });
+        } else if (pref === "image" && singleImageSrc) {
+          assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${singleImageSrc}`, parentScene: s.scene });
         } else if (videoUrl) {
           // auto: prefer video if available
-          assemblyScenes.push({ scene: s.scene, videoUrl });
-        } else if (imageUrl) {
-          assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
+          assemblyScenes.push({ scene: ++segCounter, videoUrl, parentScene: s.scene });
+        } else if (singleImageSrc) {
+          assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${singleImageSrc}`, parentScene: s.scene });
         }
       }
       if (assemblyScenes.length === 0) { setLastAction("No video or images available. Generate scene content first."); setAssembling(false); return; }
@@ -1574,14 +1750,25 @@ function ChildrenPlannerInner() {
       if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
       // Attach scene text so assembly route can render subtitles
       const totalNarDuration = narrationText ? estimateTextDuration(narrationText) : 0;
-      const perSceneDuration = totalNarDuration > 0
-        ? Math.max(3, totalNarDuration / assemblyScenes.length)
+      // Map by parentScene so beat segments still resolve their PARENT title for subtitles.
+      const sceneByNum = new Map<number, ChildScene>();
+      for (const s of scenesToAssemble) sceneByNum.set(s.scene, s);
+      // Per-segment duration: divide narrator total by total SEGMENT count.
+      // A 4-beat scene now contributes 4 segments with unique scene numbers, so it gets
+      // 4× the screen time of a 1-image scene (proportional to its content).
+      const perSegmentDuration = totalNarDuration > 0
+        ? Math.max(2, totalNarDuration / assemblyScenes.length)
         : 5;
-      const scenesWithText = assemblyScenes.map((s, i) => ({
-        ...s,
-        duration: perSceneDuration,
-        text: scenesToAssemble[i]?.title ? `${scenesToAssemble[i].title}: ${scenesToAssemble[i].visualDescription || ""}` : "",
-      }));
+      // Strip the parentScene helper field before sending — /api/video/assemble doesn't
+      // know about it. Subtitle text is built from parent here.
+      const scenesWithText = assemblyScenes.map(({ parentScene, ...rest }) => {
+        const parent = sceneByNum.get(parentScene);
+        return {
+          ...rest,
+          duration: perSegmentDuration,
+          text: parent?.title ? `${parent.title}: ${parent.visualDescription || ""}` : "",
+        };
+      });
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1593,7 +1780,7 @@ function ChildrenPlannerInner() {
           narrationList,
           sfx: sfxList.length > 0 ? sfxList : undefined,
           aspectRatio: "16:9",
-          subtitleConfig,
+          subtitleConfig: effectiveSubtitleConfig,
           introUrl: introUrl || undefined,
           outroUrl: outroUrl || undefined,
         }),
@@ -1612,7 +1799,7 @@ function ChildrenPlannerInner() {
         try {
           await fetch("/api/assets", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: `Children Story — ${contentParam || "story"}`, type: "children-video", videoUrl: data.outputUrl, status: "review", metadata: { ageGroup, learningMode, visualStyle, scenes: assemblyScenes.length } }),
+            body: JSON.stringify({ title: `Children Story — ${contentParam || "story"}`, type: "children-video", videoUrl: data.outputUrl, status: "review", metadata: { ageGroup, learningMode, visualStyle: effectiveProjectStyle, scenes: assemblyScenes.length } }),
           });
         } catch { /* ignore */ }
         setAssemblyComplete(true);
@@ -1692,7 +1879,7 @@ function ChildrenPlannerInner() {
     try {
       const storyContext = expandedContent || textContent || readAlongText || "children story";
       const trackList = musicLibrary.map((t, i) => `${i + 1}. ${t.name} [tags: ${(t.tags || []).join(", ")}]`).join("\n");
-      const prompt = `You are a children content music supervisor. Pick the best background music track for this story:\n\nStory: ${storyContext.substring(0, 400)}\nAge group: ${ageGroup}, Learning mode: ${learningMode}, Visual style: ${visualStyle}, Tone: ${tone}\n\nTracks:\n${trackList}\n\nRespond with JSON only: {"trackNumber": <1-based index>, "trackName": "<name>", "reason": "<brief reason>"}`;
+      const prompt = `You are a children content music supervisor. Pick the best background music track for this story:\n\nStory: ${storyContext.substring(0, 400)}\nAge group: ${ageGroup}, Learning mode: ${learningMode}, Visual style: ${effectiveProjectStyle}, Tone: ${tone}\n\nTracks:\n${trackList}\n\nRespond with JSON only: {"trackNumber": <1-based index>, "trackName": "<name>", "reason": "<brief reason>"}`;
       const res = await fetch("/api/llm/chat", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: [{ role: "user", content: prompt }], provider: storyAiProvider === "auto" ? undefined : storyAiProvider }),
@@ -1726,10 +1913,10 @@ function ChildrenPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: text.slice(0, 3000),
-          provider: narrationProvider,
-          engine: narrationProvider,
+          provider: effectiveNarrationProvider,
+          engine: effectiveNarrationProvider,
           speed: narrationSpeed,
-          voiceId: narrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : undefined,
+          voiceId: effectiveNarrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : undefined,
         }),
       });
       if (!res.ok) {
@@ -1757,7 +1944,7 @@ function ChildrenPlannerInner() {
     try {
       const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
       // Resolve providerKey from the selected SOUND_TIERS entry
-      const activeTier = SOUND_TIERS.find(t => t.id === soundTier);
+      const activeTier = SOUND_TIERS.find(t => t.id === effectiveSoundTier);
       const resolvedProviderKey = activeTier?.providerKey ?? "stock";
       const res = await fetch("/api/music/generate", {
         method: "POST",
@@ -1812,7 +1999,7 @@ function ChildrenPlannerInner() {
       // Step 2: Generate background music
       try {
         const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
-        const activeTierForContent = SOUND_TIERS.find(t => t.id === soundTier);
+        const activeTierForContent = SOUND_TIERS.find(t => t.id === effectiveSoundTier);
         const contentProviderKey = activeTierForContent?.providerKey ?? "stock";
         const musicRes = await fetch("/api/music/generate", {
           method: "POST",
@@ -1868,6 +2055,32 @@ function ChildrenPlannerInner() {
 
   // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
   const urlProjectId = searchParams.get("projectId");
+
+  // ── Phase C.2: Project settings hook — reads from DB, patches asynchronously ──
+  const {
+    settings: projectSettings,
+    patch: patchProjectSettings,
+  } = useProjectSettings(urlProjectId || null);
+
+  // ── Phase C.2: Effective shims — hook value wins when loaded, local state is fallback ──
+  const effectiveProjectStyle = projectSettings.visualStyle ?? projectStyle;
+  const effectiveSoundTier = (projectSettings.soundTier ?? soundTier) as typeof soundTier;
+  const effectiveNarrationProvider = (projectSettings.narrationProvider ?? narrationProvider) as typeof narrationProvider;
+  const effectiveVideoModelId = projectSettings.videoModelVersion !== "auto"
+    ? (projectSettings.videoModelVersion ?? selectedVideoModelId)
+    : selectedVideoModelId;
+  const effectiveImageModelId = projectSettings.imageModelVersion !== "auto"
+    ? (projectSettings.imageModelVersion ?? selectedImageModelId)
+    : selectedImageModelId;
+  // SubtitleConfig: build from hook fields, spread over local config for non-migrated fields
+  const effectiveSubtitleConfig: typeof subtitleConfig = projectSettings
+    ? {
+        ...subtitleConfig,
+        mode: (projectSettings.subtitleMode as typeof subtitleConfig.mode) ?? subtitleConfig.mode,
+        highlightColor: projectSettings.subtitleHighlight ?? subtitleConfig.highlightColor,
+      }
+    : subtitleConfig;
+
   // BUG-15 pattern: guard flag — while restoring from DB we must NOT trigger the save effect
   const isRestoringRef = useRef(true);
   // Stable ref so save effect always uses current project ID
@@ -1909,6 +2122,11 @@ function ChildrenPlannerInner() {
             if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
             if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
             if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
+            // Restore Gen Max beats so they survive a page refresh.
+            if (d.sceneBeatImages && Object.keys(d.sceneBeatImages).length > 0) setSceneBeatImages(d.sceneBeatImages);
+            if (d.selectedBeatImages && Object.keys(d.selectedBeatImages).length > 0) setSelectedBeatImages(d.selectedBeatImages);
+            // Restore which scenes are in "Use Max Image" mode for assembly.
+            if (Array.isArray(d.useMaxImageScenes)) setUseMaxImageScenes(new Set(d.useMaxImageScenes));
             if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
             if (d.screenplay)       setScreenplay(d.screenplay);
             if (d.selectedMusicUrl) setSelectedMusicUrl(d.selectedMusicUrl);
@@ -1936,6 +2154,9 @@ function ChildrenPlannerInner() {
       textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
       ageGroup, safetyLevel, learningMode,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
+      sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
+      // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
+      useMaxImageScenes: Array.from(useMaxImageScenes),
       scriptSegments, screenplay, selectedMusicUrl, selectedMusicName,
       soundTier, modelSettings, activeTab,
       characters,
@@ -1948,7 +2169,9 @@ function ChildrenPlannerInner() {
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
-      savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos, scriptSegments, screenplay,
+      savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
+      sceneBeatImages, selectedBeatImages, useMaxImageScenes,
+      scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters]);
 
   // ── Load project list for "My Projects" panel ──
@@ -1988,7 +2211,7 @@ function ChildrenPlannerInner() {
             contentType: contentParam,
             ageGroup: ageGroup || ageParam,
             narrationStyle,
-            visualStyle,
+            visualStyle: effectiveProjectStyle,
             musicChoice,
             bilingual: isBilingual,
             lang: langParam,
@@ -2256,7 +2479,7 @@ function ChildrenPlannerInner() {
               <div>
                 <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Sound/SFX</p>
                 {SOUND_TIERS.map(tier => (
-                  <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); }}
+                  <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
                     style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.soundModel === tier.id ? childSafe : ds.color.line}`, background: modelSettings.soundModel === tier.id ? `${childSafe}12` : "transparent", color: modelSettings.soundModel === tier.id ? childSafe : "#fff", fontSize: 10, cursor: "pointer" }}>
                     <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
                   </button>
@@ -2278,9 +2501,9 @@ function ChildrenPlannerInner() {
               { id: "anime",        icon: "AN", name: "Anime",        color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia",  desc: "Japanese animation style. Big expressive eyes." },
               { id: "realistic",    icon: "RL", name: "Realistic",    color: "#ec4899", example: "Like: a real film or Netflix drama",            desc: "Photorealistic — looks like an actual photograph." },
             ].map(s => {
-              const isSel = projectStyle === s.id;
+              const isSel = effectiveProjectStyle === s.id;
               return (
-                <div key={s.id} onClick={() => { setProjectStyle(s.id); setLastAction(`Art style: ${s.name}`); }}
+                <div key={s.id} onClick={() => { setProjectStyle(s.id); patchProjectSettings({ visualStyle: s.id }).catch(() => {}); setLastAction(`Art style: ${s.name}`); }}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 10, cursor: "pointer", border: `1px solid ${isSel ? s.color : border}`, background: isSel ? `${s.color}10` : "transparent" }}>
                   <span style={{ fontSize: 11, fontWeight: 800, color: s.color, minWidth: 26, flexShrink: 0 }}>{s.icon}</span>
                   <div style={{ flex: 1 }}>
@@ -2317,6 +2540,8 @@ function ChildrenPlannerInner() {
     const data = {
       projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
       ageGroup, safetyLevel, learningMode, savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
+      sceneBeatImages, selectedBeatImages,  // Gen Max beats — survive flush + reload
+      useMaxImageScenes: Array.from(useMaxImageScenes),  // per-scene "use multi-image" opt-in
       scriptSegments, screenplay, selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab,
       characters,
       timestamp: Date.now(),
@@ -2344,6 +2569,8 @@ function ChildrenPlannerInner() {
     setTextContent(""); setExpandedContent(""); setVisualStyle("storybook"); setNarrationStyle("gentle");
     setMusicChoice("soft_story"); setAgeGroup("preschool"); setSafetyLevel("high"); setLearningMode("storybook");
     setSavedChars([]); setSelectedCharIds([]); setCharacters([]); setChildScenes([]); setSceneImages({}); setSceneVideos({});
+    setSceneBeatImages({}); setSelectedBeatImages({});
+    setUseMaxImageScenes(new Set());
     setScriptSegments([]); setScreenplay(""); setSelectedMusicUrl(null); setSelectedMusicName("");
     setSavedCuts([]); setActiveTab("design"); setLastAction("New project started");
     setShowProjects(false);
@@ -2377,6 +2604,9 @@ function ChildrenPlannerInner() {
         if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
         if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
         if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
+        if (d.sceneBeatImages && Object.keys(d.sceneBeatImages).length > 0) setSceneBeatImages(d.sceneBeatImages);
+        if (d.selectedBeatImages && Object.keys(d.selectedBeatImages).length > 0) setSelectedBeatImages(d.selectedBeatImages);
+        if (Array.isArray(d.useMaxImageScenes)) setUseMaxImageScenes(new Set(d.useMaxImageScenes));
         if (d.scriptSegments?.length > 0) setScriptSegments(d.scriptSegments);
         if (d.screenplay)       setScreenplay(d.screenplay);
         if (d.selectedMusicUrl) setSelectedMusicUrl(d.selectedMusicUrl);
@@ -3472,12 +3702,12 @@ function ChildrenPlannerInner() {
               <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon.Film style={{ width: 12, height: 12 }} />
-                Video Model: <span style={{ color: "#fff" }}>{selectedVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Video Model: <span style={{ color: "#fff" }}>{effectiveVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
                 style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${childSafe}40`, background: `${childSafe}10`, color: childSafe, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                 <Icon.Image style={{ width: 12, height: 12 }} />
-                Image Model: <span style={{ color: "#fff" }}>{selectedImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
+                Image Model: <span style={{ color: "#fff" }}>{effectiveImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
               </button>
               {/* Seed control */}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -3522,10 +3752,10 @@ function ChildrenPlannerInner() {
               { id: "elevenlabs",  label: "ElevenLabs",     color: C2 },
               { id: "karaoke",     label: "Karaoke",        color: childAccent },
             ] as const).map(p => (
-              <button key={p.id} onClick={() => setNarrationProvider(p.id)}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${narrationProvider === p.id ? p.color : border}`,
-                  background: narrationProvider === p.id ? `${p.color}12` : "transparent",
-                  color: narrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+              <button key={p.id} onClick={() => { setNarrationProvider(p.id); patchProjectSettings({ narrationProvider: p.id }).catch(() => {}); }}
+                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${effectiveNarrationProvider === p.id ? p.color : border}`,
+                  background: effectiveNarrationProvider === p.id ? `${p.color}12` : "transparent",
+                  color: effectiveNarrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                 {p.label}
               </button>
             ))}
@@ -3546,10 +3776,10 @@ function ChildrenPlannerInner() {
           <p style={labelStyle}>Visual Style</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
             {VISUAL_STYLES.map(v => {
-              const isActive = visualStyle === v.id;
+              const isActive = effectiveProjectStyle === v.id;
               const [c1, c2] = v.colors.split(",").map(s => s.trim());
               return (
-                <button key={v.id} onClick={() => { setVisualStyle(v.id); setLastAction(`Visual: ${v.label}`); }}
+                <button key={v.id} onClick={() => { setVisualStyle(v.id); patchProjectSettings({ visualStyle: v.id }).catch(() => {}); setLastAction(`Visual: ${v.label}`); }}
                   style={{ padding: "0", borderRadius: 12, border: `2px solid ${isActive ? childAccent : border}`, background: "transparent", cursor: "pointer", overflow: "hidden", transition: "border-color 0.15s" }}>
                   <div style={{ height: 36, background: `linear-gradient(135deg, ${c1}, ${c2})` }} />
                   <div style={{ padding: "8px 6px", textAlign: "center" }}>
@@ -3691,7 +3921,7 @@ function ChildrenPlannerInner() {
                           ? `\nScenes:\n${childScenes.slice(0, 5).map((s, i) => `Scene ${i + 1}: ${s.title || ""} — ${(s.visualDescription || "").slice(0, 100)}`).join("\n")}`
                           : "";
                         const charCtx = savedChars.length > 0 ? `\nCharacters: ${savedChars.map(c => c.name).join(", ")}` : "";
-                        const prompt = `You are a children's video sound designer. Read this story carefully and write ONE specific sound effect description (15-25 words) that matches the actual events and mood in the story. Be specific to what happens — mention characters, actions, settings from the story.\n\nStory: ${story.slice(0, 900)}${sceneCtx}${charCtx}\nStyle: ${visualStyle || "children's illustration"}, Age: ${ageGroup || "3-8"}, Tone: ${tone || "playful"}\n\nReply with ONLY the sound effect description. No intro text, no quotes.`;
+                        const prompt = `You are a children's video sound designer. Read this story carefully and write ONE specific sound effect description (15-25 words) that matches the actual events and mood in the story. Be specific to what happens — mention characters, actions, settings from the story.\n\nStory: ${story.slice(0, 900)}${sceneCtx}${charCtx}\nStyle: ${effectiveProjectStyle || "children's illustration"}, Age: ${ageGroup || "3-8"}, Tone: ${tone || "playful"}\n\nReply with ONLY the sound effect description. No intro text, no quotes.`;
                         const res = await fetch("/api/llm/chat", { method: "POST", headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({ prompt, role: "fast", maxTokens: 80 }) });
                         const d = await res.json();
@@ -3843,7 +4073,7 @@ function ChildrenPlannerInner() {
               { label: "Content Interpretation", check: "Text matches intended learning goal" },
               { label: "Age Appropriateness", check: `Content suitable for ${ageParam || "target"} age group` },
               { label: "Narration Style", check: `${NARRATION_STYLES.find(n => n.id === narrationStyle)?.label} selected` },
-              { label: "Visual Plan", check: `${VISUAL_STYLES.find(v => v.id === visualStyle)?.label} — child-safe colors` },
+              { label: "Visual Plan", check: `${VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label} — child-safe colors` },
               { label: "Word Difficulty", check: "Words match selected age level" },
               { label: "Music Suitability", check: `${MUSIC_CHOICES.find(m => m.id === musicChoice)?.label} — narration priority` },
             ].map(item => (
@@ -4094,28 +4324,192 @@ function ChildrenPlannerInner() {
                               {isGenerating ? "..." : videoUrl ? "Regen Vid" : "+ Make Video"}
                             </button>
                           </div>
-                          {/* Image / Video toggle — mirrors hybrid */}
-                          <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" as const }}>
-                            <span style={{ fontSize: 9, color: muted, alignSelf: "center" }}>USE IN ASSEMBLY:</span>
-                            <button
-                              onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "image" }))}
-                              disabled={!imageUrl}
-                              style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "image" ? childSafe : border}`, background: effectivePref === "image" && imageUrl ? `${childSafe}15` : "transparent", color: imageUrl ? (effectivePref === "image" ? childSafe : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "image" ? 700 : 400, cursor: imageUrl ? "pointer" : "not-allowed" }}>
-                              Image {effectivePref === "image" ? "SELECTED" : imageUrl ? "" : "(none)"}
-                            </button>
-                            <button
-                              onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "video" }))}
-                              disabled={!videoUrl}
-                              style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "video" ? "#f59e0b" : border}`, background: effectivePref === "video" && videoUrl ? "#f59e0b15" : "transparent", color: videoUrl ? (effectivePref === "video" ? "#f59e0b" : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "video" ? 700 : 400, cursor: videoUrl ? "pointer" : "not-allowed" }}>
-                              Video {effectivePref === "video" ? "SELECTED" : videoUrl ? "" : "(none)"}
-                            </button>
-                            {imageUrl && (
-                              <button onClick={() => setPreviewScene({ url: imageUrl, type: "image", title: s.title })}
-                                style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>
-                                Preview
-                              </button>
-                            )}
-                          </div>
+                          {/* Image / Video toggle — mirrors hybrid.
+                              Beat count badge: shows when Gen Max produced multiple beat images
+                              for this scene. Click to expand the beat strip below for ticking. */}
+                          {(() => {
+                            // Multi-image source: prefer Gen Max beats, fall back to Gen 4 variants.
+                            // Both behave the same for the picker — user just sees "N images" they can
+                            // mix into the assembly.
+                            const genMaxBeats = sceneBeatImages[sceneId] || [];
+                            const variants = (s.variantUrls && s.variantUrls.length > 1) ? s.variantUrls : [];
+                            const beats = genMaxBeats.length > 1 ? genMaxBeats : variants;
+                            const totalBeats = beats.length;
+                            const onCount = (selectedBeatImages[sceneId] || []).filter(Boolean).length;
+                            return (
+                              <div style={{ display: "flex", gap: 4, marginBottom: 6, flexWrap: "wrap" as const, alignItems: "center" }}>
+                                <span style={{ fontSize: 9, color: muted, alignSelf: "center" }}>USE IN ASSEMBLY:</span>
+                                <button
+                                  onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "image" }))}
+                                  disabled={!imageUrl && totalBeats === 0}
+                                  style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "image" ? childSafe : border}`, background: effectivePref === "image" && (imageUrl || totalBeats > 0) ? `${childSafe}15` : "transparent", color: (imageUrl || totalBeats > 0) ? (effectivePref === "image" ? childSafe : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "image" ? 700 : 400, cursor: (imageUrl || totalBeats > 0) ? "pointer" : "not-allowed" }}>
+                                  Image {effectivePref === "image" ? "SELECTED" : (imageUrl || totalBeats > 0) ? "" : "(none)"}
+                                </button>
+                                <button
+                                  onClick={() => setAssemblyMediaPrefs(prev => ({ ...prev, [sceneId]: "video" }))}
+                                  disabled={!videoUrl}
+                                  style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${effectivePref === "video" ? "#f59e0b" : border}`, background: effectivePref === "video" && videoUrl ? "#f59e0b15" : "transparent", color: videoUrl ? (effectivePref === "video" ? "#f59e0b" : muted) : "#444", fontSize: 9, fontWeight: effectivePref === "video" ? 700 : 400, cursor: videoUrl ? "pointer" : "not-allowed" }}>
+                                  Video {effectivePref === "video" ? "SELECTED" : videoUrl ? "" : "(none)"}
+                                </button>
+                                {/* Max image button — ALWAYS visible per Henry's spec.
+                                    Three states based on whether beats exist + opt-in:
+                                      A. Beats already generated AND user opted in  → "Max ON (M/N)"  (orange filled)
+                                      B. Beats already generated AND user not opted in → "Use Max Image (N)" (orange outline)
+                                      C. No beats yet                                  → "+ Gen Max (~N)" (orange dashed) — clicking
+                                         fires makeChildSceneBeatImages(scene) which generates beats AND auto-opts the scene in.
+                                    Hidden only if scene description is too short to split into multiple beats. */}
+                                {(() => {
+                                  const isMaxOn = useMaxImageScenes.has(sceneId);
+                                  const isGenerating = generatingMaxBeats.has(sceneId);
+                                  // If no beats yet, predict count from current description so the button can show "~N".
+                                  // Minimum 2 — if scene description is too short to split, we still show the button
+                                  // so user can manually trigger Gen Max. They might paste a longer description first.
+                                  const split = splitIntoActionBeats(`${s.title}. ${s.visualDescription}`).length;
+                                  const predictedBeats = totalBeats > 0
+                                    ? totalBeats
+                                    : Math.max(split, 2);
+                                  const includedCount = isMaxOn
+                                    ? (selectedBeatImages[sceneId] || []).filter(Boolean).length
+                                    : 1;
+                                  // STATE C — beats not yet generated. Button generates AND opts in.
+                                  // Bundled with a small count input so user picks N before generating.
+                                  if (totalBeats === 0) {
+                                    const target = sceneMaxTarget[sceneId] ?? 4;
+                                    return (
+                                      <span style={{ display: "inline-flex", alignItems: "center", gap: 0, borderRadius: 6, border: `1px dashed #ff9500`, overflow: "hidden" as const }}>
+                                        <input
+                                          type="number"
+                                          min={1}
+                                          max={30}
+                                          value={target}
+                                          onChange={e => {
+                                            const v = Math.max(1, Math.min(30, parseInt(e.target.value) || 4));
+                                            setSceneMaxTarget(prev => ({ ...prev, [sceneId]: v }));
+                                          }}
+                                          title="How many images to generate (1-30)"
+                                          style={{ width: 36, padding: "3px 4px", border: "none", background: "transparent", color: "#ff9500", fontSize: 9, fontWeight: 700, textAlign: "center" as const }}
+                                        />
+                                        <button
+                                          onClick={async () => {
+                                            if (isGenerating) return;
+                                            await makeChildSceneBeatImages(s);
+                                            setUseMaxImageScenes(prev => new Set(prev).add(sceneId));
+                                          }}
+                                          disabled={isGenerating}
+                                          title={`Generate ${target} images and append to scene pool`}
+                                          style={{
+                                            padding: "3px 9px",
+                                            border: "none", borderLeft: `1px dashed #ff9500`,
+                                            background: isGenerating ? "#2a2040" : "transparent",
+                                            color: isGenerating ? muted : "#ff9500",
+                                            fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" as const,
+                                            cursor: isGenerating ? "not-allowed" : "pointer",
+                                          }}>
+                                          {isGenerating
+                                            ? (maxBeatsProgress[sceneId] || "Generating…")
+                                            : `+ Gen Max`}
+                                        </button>
+                                      </span>
+                                    );
+                                  }
+                                  // STATE A or B — beats exist. Toggle picker.
+                                  return (
+                                    <button
+                                      onClick={() => setUseMaxImageScenes(prev => {
+                                        const n = new Set(prev);
+                                        if (n.has(sceneId)) {
+                                          n.delete(sceneId);
+                                        } else {
+                                          n.add(sceneId);
+                                          if (!selectedBeatImages[sceneId]) {
+                                            setSelectedBeatImages(p => ({ ...p, [sceneId]: beats.map(() => true) }));
+                                          }
+                                        }
+                                        return n;
+                                      })}
+                                      title={isMaxOn
+                                        ? `Using ${includedCount} of ${totalBeats} max images — click to revert to single image`
+                                        : `Click to use multiple beat images (${totalBeats} available) instead of one`}
+                                      style={{
+                                        padding: "3px 9px", borderRadius: 6,
+                                        border: `1px solid ${isMaxOn ? "#ff9500" : "#ff950060"}`,
+                                        background: isMaxOn ? "#ff9500" : "#ff950012",
+                                        color: isMaxOn ? "#000" : "#ff9500",
+                                        fontSize: 9, fontWeight: 700, whiteSpace: "nowrap" as const,
+                                        cursor: "pointer",
+                                      }}>
+                                      {isMaxOn ? `Max ON (${includedCount}/${totalBeats})` : `Use Max Image (${totalBeats})`}
+                                    </button>
+                                  );
+                                })()}
+                                {imageUrl && (
+                                  <button onClick={() => setPreviewScene({ url: imageUrl, type: "image", title: s.title })}
+                                    style={{ padding: "3px 9px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>
+                                    Preview
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                          {/* Multi-image picker — ALWAYS visible when scene has 2+ images (any source).
+                              Sources unified: Gen Max beats > Gen 4 variants > current+main pool.
+                              Henry's spec: don't hide images behind a click — spread them inline so user
+                              sees what's available and ticks/unticks per box. Default: every image included.
+                              When 0 ticked, assembly falls back to scene's primary image. */}
+                          {(() => {
+                            const genMaxBeats = sceneBeatImages[sceneId] || [];
+                            const variants = (s.variantUrls && s.variantUrls.length > 1) ? s.variantUrls : [];
+                            const beats = genMaxBeats.length > 1 ? genMaxBeats : variants;
+                            if (beats.length <= 1) return null;
+                            // Auto-opt this scene into multi-image mode the first time the picker renders
+                            // with images available — saves the user a click.
+                            if (!useMaxImageScenes.has(sceneId)) {
+                              setTimeout(() => setUseMaxImageScenes(prev => new Set(prev).add(sceneId)), 0);
+                            }
+                            return (
+                            <div style={{ marginTop: 4, marginBottom: 6, padding: "8px 10px", background: "#ff95000a", border: "1px solid #ff950025", borderRadius: 6 }}>
+                              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                                <span style={{ fontSize: 9, color: "#ff9500", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                                  Pick which images to include
+                                </span>
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sceneId]: beats.map(() => true) }))}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ff950060", background: "transparent", color: "#ff9500", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                    Select All
+                                  </button>
+                                  <button onClick={() => setSelectedBeatImages(prev => ({ ...prev, [sceneId]: beats.map(() => false) }))}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                                    Deselect All
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                                {beats.map((url, bi) => {
+                                  const checked = selectedBeatImages[sceneId]?.[bi] !== false;
+                                  return (
+                                    <label key={bi}
+                                      title={`Image ${bi + 1} — ${checked ? "included" : "skipped"} in assembly`}
+                                      style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
+                                      <img src={url} alt={`B${bi + 1}`}
+                                        style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
+                                        onClick={e => { e.preventDefault(); setPreviewScene({ url, type: "image", title: `${s.title} — Image ${bi + 1}` }); }} />
+                                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                        <input type="checkbox" checked={checked}
+                                          onChange={e => setSelectedBeatImages(prev => {
+                                            const arr = [...(prev[sceneId] || beats.map(() => true))];
+                                            arr[bi] = e.target.checked;
+                                            return { ...prev, [sceneId]: arr };
+                                          })}
+                                          style={{ width: 11, height: 11 }} />
+                                        <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>#{bi + 1}</span>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                            );
+                          })()}
                           {progress && (
                             <div style={{ marginTop: 4 }}>
                               <div style={{ height: 3, borderRadius: 2, background: border }}>
@@ -4146,7 +4540,7 @@ function ChildrenPlannerInner() {
                           setLastAction("Generating narration...");
                           try {
                             // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
-                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: narrationProvider || "piper", speed: 0.9 }) });
+                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: effectiveNarrationProvider || "piper", speed: 0.9 }) });
                             const d = await r.json() as { audioUrl?: string };
                             if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
                             else setLastAction("Narration generation failed");
@@ -4168,13 +4562,52 @@ function ChildrenPlannerInner() {
                         onClick={async () => {
                           setLastAction("Generating music...");
                           try {
-                            const mood = tone || "calm";
-                            const assemblyTier = SOUND_TIERS.find(t => t.id === soundTier);
+                            // CHILDREN-MUSIC-FIX (2026-05-08):
+                            // Old prompt was a generic one-liner ("calm children's story background music").
+                            // Music providers (Suno, Stable Audio) need instrument + tempo + structure cues
+                            // to produce something usable. Rich prompt below names instruments that work for
+                            // children content and explicitly excludes harsh percussion / synths.
+                            //
+                            // Duration: was hardcoded 30s — too short, music cuts off mid-narration. We try
+                            // to read the narrator audio's duration first; if unavailable, default to 90s
+                            // (children stories are typically 1-3 min) so the track loops/fits.
+                            const isSoft = (tone || "soft") === "soft";
+                            const richPrompt = isSoft
+                              ? "Gentle children's lullaby, soft solo piano with delicate music box and warm light strings, slow peaceful tempo around 70 BPM, calm comforting atmosphere, fairy tale storybook mood, fully instrumental, NO vocals, NO heavy drums, NO percussion, NO synths, dreamy bedtime story background"
+                              : "Playful children's adventure music, light cheerful ukulele with bright glockenspiel and gentle flute, moderate uplifting tempo around 100 BPM, joyful curious atmosphere, fairy tale wonder, fully instrumental, NO vocals, soft brushed percussion only, NO electric guitar, NO heavy drums, storybook adventure background";
+                            const moodTag = isSoft ? "calm" : "playful";
+
+                            // Narrator-audio probe → use real duration when we have it.
+                            let dur = 90;
+                            if (narratorAudioUrl) {
+                              try {
+                                const probed = await new Promise<number>((resolve) => {
+                                  const a = new Audio(narratorAudioUrl);
+                                  a.addEventListener("loadedmetadata", () => resolve(isFinite(a.duration) ? a.duration : 0));
+                                  a.addEventListener("error", () => resolve(0));
+                                  setTimeout(() => resolve(0), 4000);
+                                });
+                                if (probed > 10) dur = Math.min(Math.max(Math.ceil(probed), 30), 300);
+                              } catch { /* keep default */ }
+                            }
+
+                            const assemblyTier = SOUND_TIERS.find(t => t.id === effectiveSoundTier);
                             const assemblyProviderKey = assemblyTier?.providerKey ?? "stock";
-                            const r = await fetch("/api/music/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${mood} children's story background music, gentle and warm`, durationSeconds: 30, providerKey: assemblyProviderKey }) });
+                            const r = await fetch("/api/music/generate", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                prompt: richPrompt,
+                                durationSeconds: dur,
+                                genre: "children",
+                                mood: moodTag,
+                                hasLyrics: false,
+                                providerKey: assemblyProviderKey,
+                              }),
+                            });
                             const d = await r.json() as { url?: string; audioUrl?: string };
                             const url = d.url ?? d.audioUrl ?? "";
-                            if (url) { setGeneratedMusicUrl(url); setSelectedMusicUrl(url); setLastAction("Music ready"); }
+                            if (url) { setGeneratedMusicUrl(url); setSelectedMusicUrl(url); setLastAction(`Music ready (${moodTag}, ${dur}s)`); }
                             else setLastAction("Music generation failed");
                           } catch { setLastAction("Music error"); }
                         }}
@@ -4244,7 +4677,7 @@ function ChildrenPlannerInner() {
 
               {/* Subtitle style — rich configurator */}
               <div style={{ marginBottom: 6 }}>
-                <SubtitleStyler value={subtitleConfig} onChange={setSubtitleConfig} accentColor={childAccent} />
+                <SubtitleStyler value={effectiveSubtitleConfig} onChange={(newCfg) => { setSubtitleConfig(newCfg); patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {}); }} accentColor={childAccent} />
               </div>
 
               {/* Narration ↔ Subtitle match check */}
@@ -4256,7 +4689,7 @@ function ChildrenPlannerInner() {
                       const script = expandedContent || textContent || "";
                       if (!script.trim()) { setSubtitleMatchResult({ status: "warn", note: "No story text to check against." }); return; }
                       const res = await fetch("/api/free-mode/enhance", { method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ rawPrompt: `Check if these subtitle settings match the narration content. Subtitle mode: "${subtitleConfig.mode}", position: "${subtitleConfig.position}". Story: "${script.slice(0,300)}". Reply in one line: does the subtitle style match? Say MATCH or MISMATCH and why.`, mode: "text_to_video" }) });
+                        body: JSON.stringify({ rawPrompt: `Check if these subtitle settings match the narration content. Subtitle mode: "${effectiveSubtitleConfig.mode}", position: "${effectiveSubtitleConfig.position}". Story: "${script.slice(0,300)}". Reply in one line: does the subtitle style match? Say MATCH or MISMATCH and why.`, mode: "text_to_video" }) });
                       const d = await res.json() as { enhanced?: string };
                       const result = (d.enhanced || "").toLowerCase();
                       setSubtitleMatchResult({ status: result.includes("match") && !result.includes("mismatch") ? "ok" : "warn", note: d.enhanced || "Unable to check" });
@@ -4657,13 +5090,13 @@ function ChildrenPlannerInner() {
             <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select audio quality tier for this project. Higher tiers = better quality + higher cost.</p>
             <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
               {SOUND_TIERS.map(tier => (
-                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); }}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: `2px solid ${soundTier === tier.id ? childAccent : ds.color.line}`, background: soundTier === tier.id ? `${childAccent}12` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
+                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: `2px solid ${effectiveSoundTier === tier.id ? childAccent : ds.color.line}`, background: effectiveSoundTier === tier.id ? `${childAccent}12` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
                   <div>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: soundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: effectiveSoundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
                     <span style={{ display: "block", fontSize: 10, color: muted, marginTop: 2 }}>{tier.desc}</span>
                   </div>
-                  <span style={{ fontSize: 10, color: soundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono, flexShrink: 0, marginLeft: 8 }}>{tier.cost}</span>
+                  <span style={{ fontSize: 10, color: effectiveSoundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono, flexShrink: 0, marginLeft: 8 }}>{tier.cost}</span>
                 </button>
               ))}
             </div>
@@ -4693,7 +5126,7 @@ function ChildrenPlannerInner() {
             <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Layer 1 = Narrator (default: Piper free). Additional layers add secondary voice tracks.</p>
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 11, color: "#fff", fontWeight: 600, minWidth: 60 }}>Layer 1</span>
-              <select value={narrationProvider} onChange={e => setNarrationProvider(e.target.value as typeof narrationProvider)}
+              <select value={effectiveNarrationProvider} onChange={e => { setNarrationProvider(e.target.value as typeof narrationProvider); patchProjectSettings({ narrationProvider: e.target.value }).catch(() => {}); }}
                 style={{ flex: 1, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, outline: "none" }}>
                 <option value="piper">Piper (free local)</option>
                 <option value="fal-narrator">FAL Narrator (cloud)</option>
@@ -5065,7 +5498,7 @@ function ChildrenPlannerInner() {
                       {/* Bottom-right: Style override + Gen 4 + Regen */}
                       <div style={{ position: "absolute", bottom: 8, right: 8, display: "flex", gap: 4, alignItems: "center" }}>
                         <select
-                          value={sceneStyles[sceneId] || projectStyle || "storybook"}
+                          value={sceneStyles[sceneId] || effectiveProjectStyle || "storybook"}
                           onChange={e => { e.stopPropagation(); setSceneStyles(prev => ({ ...prev, [sceneId]: e.target.value })); }}
                           onClick={e => e.stopPropagation()}
                           title="Override style for this scene"
@@ -5085,6 +5518,26 @@ function ChildrenPlannerInner() {
                           style={{ padding: "5px 9px", borderRadius: 7, border: "none", background: isGenVar ? "#2a2040" : "#7c3aed30", color: isGenVar ? muted : "#a78bfa", fontSize: 9, fontWeight: 700, cursor: isGenImg || isGenVar ? "not-allowed" : "pointer" }}>
                           {isGenVar ? "Gen…" : "Gen 4"}
                         </button>
+                        {/* Gen Max — one image per action beat. Each beat becomes a separate
+                            assembly segment when the scene is rendered into the final video. */}
+                        {(() => {
+                          const beats = splitIntoActionBeats(`${scene.title}. ${scene.visualDescription}`);
+                          const isMaxing = generatingMaxBeats.has(sceneId);
+                          if (beats.length <= 1 && !sceneBeatImages[sceneId]?.length) return null;
+                          return (
+                            <button
+                              onClick={e => { e.stopPropagation(); makeChildSceneBeatImages(scene); }}
+                              disabled={isGenImg || isGenVar || isMaxing}
+                              title={`Generate one image per action beat (${beats.length} beats)`}
+                              style={{ padding: "5px 9px", borderRadius: 7, border: "none",
+                                background: isMaxing ? "#2a2040" : "linear-gradient(135deg,#ff6b00,#ff9500)",
+                                color: "#fff", fontSize: 9, fontWeight: 700,
+                                cursor: (isGenImg || isGenVar || isMaxing) ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap" as const }}>
+                              {isMaxing ? (maxBeatsProgress[sceneId] || "…") : `Gen Max (${beats.length})`}
+                            </button>
+                          );
+                        })()}
                         <button
                           onClick={e => { e.stopPropagation(); generateSceneBoardImage(scene); }}
                           disabled={isGenImg || isGenVar}
@@ -5108,6 +5561,42 @@ function ChildrenPlannerInner() {
                             <img src={url} alt={`Var ${vi + 1}`} style={{ width: 44, height: 44, objectFit: "cover", display: "block" }} />
                           </button>
                         ))}
+                      </div>
+                    )}
+                    {/* Beat thumbnails — Gen Max output. Each thumbnail has a checkbox.
+                        Ticked beats are expanded into multiple assembly segments. */}
+                    {sceneBeatImages[sceneId]?.length > 0 && (
+                      <div style={{ padding: "6px 8px", background: s2, borderTop: `1px solid ${border}` }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                          <span style={{ fontSize: 8, color: muted, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>
+                            Beats — tick to include in assembly
+                          </span>
+                          <span style={{ fontSize: 8, color: childAccent }}>
+                            {(selectedBeatImages[sceneId] || []).filter(Boolean).length}/{sceneBeatImages[sceneId].length} on
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", gap: 4, overflowX: "auto" as const, paddingBottom: 2 }}>
+                          {sceneBeatImages[sceneId].map((url, bi) => {
+                            const checked = selectedBeatImages[sceneId]?.[bi] !== false;
+                            return (
+                              <div key={bi} style={{ flexShrink: 0, textAlign: "center" }}>
+                                <img src={url} alt={`Beat ${bi + 1}`}
+                                  style={{ width: 56, height: 42, borderRadius: 4, objectFit: "cover" as const, display: "block", border: `2px solid ${checked ? childAccent : "#33334a"}`, opacity: checked ? 1 : 0.4, cursor: "zoom-in" }}
+                                  onClick={e => { e.stopPropagation(); setPreviewScene({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` }); }} />
+                                <label style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 3, marginTop: 2, cursor: "pointer", userSelect: "none" as const }}>
+                                  <input type="checkbox" checked={checked}
+                                    onChange={e => setSelectedBeatImages(prev => {
+                                      const arr = [...(prev[sceneId] || sceneBeatImages[sceneId].map(() => true))];
+                                      arr[bi] = e.target.checked;
+                                      return { ...prev, [sceneId]: arr };
+                                    })}
+                                    style={{ width: 11, height: 11, cursor: "pointer" }} />
+                                  <span style={{ fontSize: 7, color: checked ? "#fff" : muted }}>B{bi + 1}</span>
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 
@@ -5523,7 +6012,7 @@ function ChildrenPlannerInner() {
         const bestMatch = filteredModels.find(m => m.id === adviser.bestId) ?? filteredModels[filteredModels.length-1];
         const networkColor: Record<string,string> = { Segmind:"#22c55e", MuAPI:"#38bdf8", FAL:"#a78bfa", Runway:"#e879f9", Kling:"#f59e0b" };
         const isVideo = aidMode === "video";
-        const activeModelId = isVideo ? selectedVideoModelId : selectedImageModelId;
+        const activeModelId = isVideo ? effectiveVideoModelId : effectiveImageModelId;
         return (
           <div onClick={() => setShowAidPicker(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.85)", zIndex:9998, display:"flex", alignItems:"center", justifyContent:"center" }}>
             <div onClick={e => e.stopPropagation()} style={{ background:"#0d0d20", border:"1px solid #3b2f6e", borderRadius:16, width:500, maxWidth:"96vw", maxHeight:"90vh", display:"flex", flexDirection:"column", boxShadow:"0 0 60px rgba(100,50,200,0.4)" }}>
@@ -5589,12 +6078,12 @@ function ChildrenPlannerInner() {
                 {isVideo ? filteredModels.map((m, idx) => {
                   const isCheapest = m.id === cheapestMatch?.id;
                   const isBest = m.id === bestMatch?.id;
-                  const isSelected = selectedVideoModelId === m.id;
+                  const isSelected = effectiveVideoModelId === m.id;
                   const styleScore = aidStyle === "all" ? null : m.scores[aidStyle as Exclude<StyleKey,"all">];
                   const styleTag = aidStyle==="2d"?m.tags2d:aidStyle==="3d"?m.tags3d:aidStyle==="cartoon"?m.tagCartoon:aidStyle==="realistic"?m.tagRealistic:undefined;
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedVideoModelId(m.id); patchProjectSettings({ videoModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:isBest?`1px solid ${m.color}60`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:isBest?`${m.color}08`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -5617,12 +6106,12 @@ function ChildrenPlannerInner() {
                     </div>
                   );
                 }) : IMAGE_MODELS_AID.map((m, idx) => {
-                  const isSelected = selectedImageModelId === m.id;
+                  const isSelected = effectiveImageModelId === m.id;
                   const isCheapest = m.id === "fal_flux_schnell";
                   const isBest = m.id === "fal_flux_pro_ultra";
                   const netCol = networkColor[m.network] ?? "#888";
                   return (
-                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); setShowAidPicker(false); }}
+                    <div key={m.id} onClick={() => { setSelectedImageModelId(m.id); patchProjectSettings({ imageModelVersion: m.id }).catch(() => {}); setShowAidPicker(false); }}
                       style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"9px 12px", marginBottom:5, borderRadius:10, cursor:"pointer", border:isSelected?`1.5px solid ${m.color}`:"1px solid #1e1a3a", background:isSelected?`${m.color}15`:"#0a0820", transition:"all 0.12s" }}>
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
@@ -5738,7 +6227,7 @@ function ChildrenPlannerInner() {
         return (
           <SupervisorStatusBar
             plannerType="children"
-            designComplete={!!(ageGroup && visualStyle)}
+            designComplete={!!(ageGroup && effectiveProjectStyle)}
             storyComplete={!!(expandedContent || textContent)}
             charactersComplete={savedChars.length > 0}
             soundComplete={!!(narrationStyle && musicChoice)}

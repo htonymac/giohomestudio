@@ -31,6 +31,19 @@ export interface ModelEntry {
   sort_usage_count: number;
   is_active: boolean;
   notes: string;
+  // ── Phase E.1 — Health metadata (all optional for backward compat) ──
+  /** Logical model family: "flux", "ideogram", "pulid", "wan", "kling", "hailuo", "seedance", "veo", "runway", "ltx", "nano-banana", "segmind", "unknown" */
+  family?: string;
+  /** Semantic version string, e.g. "2.1", "1.6", "schnell", "pro" */
+  version?: string;
+  /** Lifecycle status. Missing = treated as "active". "broken" is set at runtime by provider-health. */
+  status?: "active" | "deprecated" | "sunset" | "broken";
+  /** ID of a newer model in the same family that should be used as fallback */
+  successor?: string;
+  /** ISO timestamp of last health probe */
+  health_last_checked?: string;
+  /** Result of last health probe */
+  health_ok?: boolean;
 }
 
 // ── IMAGE MODELS ────────────────────────────────────────────────────────────
@@ -65,6 +78,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Segmind Flux free tier — $0.0003–0.0005/image. Default for Free Mode.",
+    family: "flux",
+    version: "segmind",
+    status: "active",
   },
   // ── Ideogram Free tier ──
   {
@@ -95,6 +111,10 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Ideogram v2 free tier via fal. Use when text rendering matters.",
+    family: "ideogram",
+    version: "v2",
+    status: "active",
+    successor: "fal_ideogram_v3_turbo",
   },
   // ── Segmind ──
   {
@@ -125,6 +145,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Verified working — p-image endpoint, $0.005/image",
+    family: "segmind",
+    version: "pruna",
+    status: "active",
   },
   {
     id: "segmind_pruna_edit",
@@ -154,6 +177,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "segmind",
+    version: "pruna-edit",
+    status: "active",
   },
 
   // ── fal.ai Image Models ──
@@ -185,6 +211,10 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "flux",
+    version: "schnell",
+    status: "active",
+    successor: "fal_flux_pro",
   },
   {
     id: "fal_flux_dev",
@@ -214,6 +244,10 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "flux",
+    version: "dev",
+    status: "active",
+    successor: "fal_flux_pro",
   },
   {
     id: "fal_ideogram_v3_turbo",
@@ -243,6 +277,10 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "ideogram",
+    version: "v3-turbo",
+    status: "active",
+    successor: "fal_ideogram_v3_quality",
   },
   {
     id: "fal_seedream",
@@ -272,6 +310,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Verify exact fal endpoint",
+    family: "seedream",
+    version: "1",
+    status: "active",
   },
   {
     id: "fal_imagen4_fast",
@@ -301,6 +342,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: false,
     notes: "Verify exact fal endpoint availability",
+    family: "imagen",
+    version: "4-fast",
+    status: "deprecated",
   },
   {
     id: "fal_hunyuan",
@@ -330,6 +374,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: false,
     notes: "Verify exact fal endpoint availability",
+    family: "hunyuan",
+    version: "1",
+    status: "deprecated",
   },
   {
     id: "fal_nano_banana",
@@ -359,6 +406,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "nano-banana",
+    version: "2",
+    status: "active",
   },
   {
     id: "fal_flux_pro",
@@ -388,6 +438,10 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "flux",
+    version: "pro-1.1",
+    status: "active",
+    successor: "fal_flux_pro_ultra",
   },
   {
     id: "fal_flux_pro_ultra",
@@ -417,6 +471,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "flux",
+    version: "pro-ultra",
+    status: "active",
   },
   {
     id: "fal_ideogram_v3_quality",
@@ -446,6 +503,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "ideogram",
+    version: "v3-quality",
+    status: "active",
   },
   {
     id: "fal_ideogram_v3_transparent",
@@ -475,6 +535,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Output is always PNG with alpha channel. Never convert to JPEG.",
+    family: "ideogram",
+    version: "v3-transparent",
+    status: "active",
   },
   {
     id: "fal_recraft_v3",
@@ -504,6 +567,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "recraft",
+    version: "v3",
+    status: "active",
   },
 
   // ── Kie.ai Image Models ──
@@ -535,6 +601,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Free signup: 300 credits. Use as budget fallback when Segmind/fal rate-limit.",
+    family: "unknown",
+    version: "turbo",
+    status: "active",
   },
   {
     id: "kie_nano_banana_2",
@@ -564,6 +633,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "$0.04 per image via Kie.ai",
+    family: "nano-banana",
+    version: "2",
+    status: "active",
   },
   {
     id: "kie_gpt_image_1",
@@ -593,6 +665,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "$0.02 low / $0.07 medium / $0.19 high quality. Registry uses medium ($0.07).",
+    family: "unknown",
+    version: "gpt-image-1",
+    status: "active",
   },
   {
     id: "kie_flux_kontext",
@@ -622,6 +697,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Image editing via Kie.ai. Good for ad revision workflows.",
+    family: "flux",
+    version: "kontext",
+    status: "active",
   },
   {
     id: "kie_midjourney_v7",
@@ -651,6 +729,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Midjourney V7 proxied via Kie.ai. Premium aesthetic tier.",
+    family: "midjourney",
+    version: "v7",
+    status: "active",
   },
   // ── FAL Flux PuLID — face-lock / identity-preserved generation ──
   // Used automatically when a character has a photo-import reference image.
@@ -683,6 +764,9 @@ const IMAGE_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Auto-selected when character has referenceImages[] tagged photo-import. Requires public image URL.",
+    family: "pulid",
+    version: "flux",
+    status: "active",
   },
 ];
 
@@ -718,6 +802,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "3-15 second 720p clips ~10s generation",
+    family: "segmind",
+    version: "pruna-video",
+    status: "active",
   },
 
   // ── MuAPI Video Models (cheaper than FAL for same quality) ──
@@ -749,6 +836,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Seedance Lite — cheaper lite version of Seedance Pro",
+    family: "seedance",
+    version: "1-lite",
+    status: "active",
+    successor: "muapi_seedance_v1_pro",
   },
   {
     id: "muapi_seedance_v1_pro",
@@ -778,6 +869,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Seedance 1.0 Pro — cheaper than FAL equivalent",
+    family: "seedance",
+    version: "1-pro",
+    status: "active",
+    successor: "muapi_seedance_v2",
   },
   {
     id: "muapi_seedance_v2",
@@ -807,6 +902,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Seedance 2.0 — cheaper than FAL Seedance",
+    family: "seedance",
+    version: "2",
+    status: "active",
+    successor: "muapi_seedance_v2_1080p",
   },
   {
     id: "muapi_seedance_v2_1080p",
@@ -836,6 +935,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Seedance 2.0 at 1080p resolution",
+    family: "seedance",
+    version: "2-1080p",
+    status: "active",
   },
   {
     id: "muapi_wan_v2_1_480p",
@@ -865,6 +967,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Wan 2.1 at 480p — very cheap draft quality",
+    family: "wan",
+    version: "2.1-480p",
+    status: "active",
+    successor: "muapi_wan_v2_1_720p",
   },
   {
     id: "muapi_wan_v2_1_720p",
@@ -894,6 +1000,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "MuAPI Wan 2.1 at 720p",
+    family: "wan",
+    version: "2.1-720p",
+    status: "active",
+    successor: "fal_wan_pro",
   },
 
   // ── fal.ai Video Models ──
@@ -925,6 +1035,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "hailuo",
+    version: "01",
+    status: "active",
+    successor: "fal_hailuo_pro",
   },
   {
     id: "fal_kling_2_5_standard",
@@ -954,6 +1068,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "kling",
+    version: "2.5-standard",
+    status: "active",
+    successor: "fal_kling_2_5_turbo_pro",
   },
   {
     id: "fal_hailuo_pro",
@@ -983,6 +1101,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "hailuo",
+    version: "01-pro",
+    status: "active",
   },
   // ── FAL LTX Video (ultra cheap open-source) ──
   {
@@ -1013,6 +1134,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: false,
     notes: "DISABLED — gets stuck at 30% and times out. Do not use.",
+    family: "ltx",
+    version: "1",
+    status: "deprecated",
   },
   // ── FAL Wan Lite (cheap) ──
   {
@@ -1043,6 +1167,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "FAL Wan 2.1 1.3B — $0.025/clip at 480p, fast generation",
+    family: "wan",
+    version: "2.1-lite",
+    status: "active",
+    successor: "fal_wan_pro",
   },
   {
     id: "fal_wan_pro",
@@ -1072,6 +1200,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "wan",
+    version: "2.1-pro",
+    status: "active",
   },
   {
     id: "fal_kling_2_5_turbo_pro",
@@ -1101,6 +1232,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "kling",
+    version: "2.5-turbo-pro",
+    status: "active",
+    successor: "fal_kling_3_pro",
   },
   {
     id: "fal_kling_3_pro",
@@ -1130,6 +1265,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "",
+    family: "kling",
+    version: "3-pro",
+    status: "active",
   },
   {
     id: "fal_runway_gen4",
@@ -1159,6 +1297,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Runway via fal proxy",
+    family: "runway",
+    version: "gen4-turbo",
+    status: "active",
+    successor: "runway_gen4_direct",
   },
   {
     id: "runway_gen4_direct",
@@ -1188,6 +1330,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Direct Runway API — charges your Runway.com account credits",
+    family: "runway",
+    version: "gen4-direct",
+    status: "active",
   },
   {
     id: "fal_veo3_fast",
@@ -1217,6 +1362,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: false,
     notes: "Verify exact fal endpoint availability",
+    family: "veo",
+    version: "3-fast",
+    status: "deprecated",
+    successor: "fal_veo3_4k",
   },
   {
     id: "fal_veo3_4k",
@@ -1246,6 +1395,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: false,
     notes: "Verify exact fal endpoint availability",
+    family: "veo",
+    version: "3-4k",
+    status: "deprecated",
   },
 
   // ── Kling Direct (api.klingai.com) ──────────────────────────────────────
@@ -1277,6 +1429,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Direct Kling API via KLING_ACCESS_KEY / KLING_SECRET_KEY",
+    family: "kling",
+    version: "2.5-std-direct",
+    status: "active",
+    successor: "kling_direct_v2_5_pro",
   },
   {
     id: "kling_direct_v2_5_pro",
@@ -1306,6 +1462,9 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Kling v2.5 Pro mode via direct API",
+    family: "kling",
+    version: "2.5-pro-direct",
+    status: "active",
   },
   {
     id: "kling_direct_v1_5_std",
@@ -1335,6 +1494,10 @@ const VIDEO_MODELS: ModelEntry[] = [
     sort_usage_count: 0,
     is_active: true,
     notes: "Kling v1.5 Standard via direct API",
+    family: "kling",
+    version: "1.6-std-direct",
+    status: "active",
+    successor: "kling_direct_v2_5_std",
   },
 ];
 

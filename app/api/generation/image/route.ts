@@ -9,6 +9,7 @@ import { z } from "zod";
 import { env } from "@/config/env";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
 import { resolveCharacterTokens, attachCharacterReferences } from "@/lib/character-resolver";
+import { sanitizeStyleCollisions, getStyleCollisionNegative } from "@/lib/style/sanitizer";
 
 const schema = z.object({
   modelId: z.string().optional(),
@@ -19,7 +20,13 @@ const schema = z.object({
   seed: z.number().int().optional(),
   // BUG-02 Fix B: explicit character IDs to attach — no prompt token embedding needed
   characterIds: z.array(z.string()).optional(),
+  // STYLE-01: optional style cue. When set to a live-action style we run the
+  // sanitizer on the incoming prompt (strip "animated"/"cartoonish"/etc) and
+  // strengthen the negative prompt. Backward-compat: omit to keep old behavior.
+  projectStyle: z.string().optional(),
 });
+
+// sanitizeStyleCollisions, getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -60,11 +67,21 @@ export async function POST(req: NextRequest) {
     } catch { /* best-effort */ }
   }
 
+  // STYLE-01: if caller passed projectStyle, sanitize prompt + boost negative.
+  // No-op when projectStyle is omitted, so existing callers keep their current behavior.
+  // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
+  let finalNegative = parsed.data.negativePrompt || "";
+  if (parsed.data.projectStyle) {
+    finalPrompt = sanitizeStyleCollisions(finalPrompt, parsed.data.projectStyle);
+    finalNegative += getStyleCollisionNegative(parsed.data.projectStyle);
+  }
+
   const outputPath = path.join(env.storagePath, "images", `gen_${Date.now()}.png`);
 
   const result = await generateImage({
     ...parsed.data,
     prompt: finalPrompt,
+    negativePrompt: finalNegative || parsed.data.negativePrompt,
     outputPath,
   });
 

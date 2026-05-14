@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useGate } from "../../components/PreGenerationGate";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
+import { useProjectSettings } from "@/hooks/useProjectSettings";
 import ModelPicker from "../../components/ModelPicker";
 import { ds } from "../../../lib/designSystem";
 import { HeroTitle } from "../../components/hero/HeroTitle";
@@ -79,6 +80,19 @@ export default function SceneForgePage() {
   const [tier, setTier]                 = useState<AITier>("pro");
   const [videoModel, setVideoModel]     = useState<string>("muapi_seedance_v2");
   const [imageModel, setImageModel]     = useState<string>("fal_flux_dev");
+
+  // ── Phase C.6 — ProjectSettings hook (keyed to session DB key so settings persist) ──
+  const { settings: projectSettings, patch: patchProjectSettings } =
+    useProjectSettings(SCENE_FORGE_DB_KEY);
+
+  // effective* shims: hook value wins, local state is fallback
+  const effectiveProjectStyle      = projectSettings.visualStyle ?? style;
+  const effectiveAspectRatio       = projectSettings.aspectRatio ?? aspect;
+  const effectiveNarrationProvider = projectSettings.narrationProvider ?? voice;
+  const effectiveSoundTier         = projectSettings.soundTier ?? musicTier;
+  const effectiveVideoModelId      = (projectSettings.videoModelVersion !== "auto" ? projectSettings.videoModelVersion : null) ?? videoModel;
+  const effectiveImageModelId      = (projectSettings.imageModelVersion !== "auto" ? projectSettings.imageModelVersion : null) ?? imageModel;
+  // tier (AITier) has no equivalent hook field — skip per C.6 spec
 
   // Job
   const [job, setJob]     = useState<JobState>({ status: "idle", step: "", steps: [] });
@@ -206,7 +220,7 @@ export default function SceneForgePage() {
       const res = await fetch("/api/avatar/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl, topic, style, aspectRatio: aspect, duration, voice, addBroll, addMusic, musicTier, tier, videoModel, imageModel }),
+        body: JSON.stringify({ imageUrl, topic, style: effectiveProjectStyle, aspectRatio: effectiveAspectRatio, duration, voice: effectiveNarrationProvider, addBroll, addMusic, musicTier: effectiveSoundTier, tier, videoModel: effectiveVideoModelId, imageModel: effectiveImageModelId }),
       });
       const data = await safeJson<{ jobId?: string; error?: string }>(res, "avatar/create");
       if (data.error) throw new Error(data.error);
@@ -355,15 +369,15 @@ export default function SceneForgePage() {
             <label style={labelSt}>Video Style</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {STYLES.map(s => (
-                <button key={s.id} onClick={() => setStyle(s.id)} style={{
+                <button key={s.id} onClick={() => { setStyle(s.id); patchProjectSettings({ visualStyle: s.id }).catch(() => {}); }} style={{
                   display: "flex", gap: 10, alignItems: "center", padding: "10px 12px",
-                  background: style === s.id ? "rgba(167,139,250,0.12)" : ds.color.card,
-                  border: `1px solid ${style === s.id ? ds.color.lilac : ds.color.line2}`,
+                  background: effectiveProjectStyle === s.id ? "rgba(167,139,250,0.12)" : ds.color.card,
+                  border: `1px solid ${effectiveProjectStyle === s.id ? ds.color.lilac : ds.color.line2}`,
                   borderRadius: ds.radius.sm, cursor: "pointer", color: ds.color.ink, textAlign: "left",
                   transition: "all 0.15s",
                 }}>
                   <div style={{ textAlign: "left" }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: style === s.id ? ds.color.lilac : ds.color.ink2 }}>{s.label}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: effectiveProjectStyle === s.id ? ds.color.lilac : ds.color.ink2 }}>{s.label}</div>
                     <div style={{ fontSize: 10, color: ds.color.mute }}>{s.desc}</div>
                   </div>
                 </button>
@@ -392,11 +406,11 @@ export default function SceneForgePage() {
               <label style={labelSt}>Format</label>
               <div style={{ display: "flex", gap: 6 }}>
                 {RATIOS.map(r => (
-                  <button key={r.id} onClick={() => setAspect(r.id)} title={r.label} style={{
+                  <button key={r.id} onClick={() => { setAspect(r.id); patchProjectSettings({ aspectRatio: r.id }).catch(() => {}); }} title={r.label} style={{
                     flex: 1, padding: "8px 4px", borderRadius: 8,
-                    border: `1px solid ${aspect === r.id ? ds.color.lilac : ds.color.line2}`,
-                    background: aspect === r.id ? "rgba(167,139,250,0.12)" : ds.color.card,
-                    color: aspect === r.id ? ds.color.lilac : ds.color.mute,
+                    border: `1px solid ${effectiveAspectRatio === r.id ? ds.color.lilac : ds.color.line2}`,
+                    background: effectiveAspectRatio === r.id ? "rgba(167,139,250,0.12)" : ds.color.card,
+                    color: effectiveAspectRatio === r.id ? ds.color.lilac : ds.color.mute,
                     fontSize: 14, cursor: "pointer",
                   }}>
                     {r.icon}
@@ -424,10 +438,10 @@ export default function SceneForgePage() {
                   { id: "classic",     label: "GHS Classic",  desc: "Suno via Kie.ai — full songs",           badge: "PREMIUM", color: "#ff9a3c" },
                   { id: "premium",     label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      badge: "HIGHEST", color: "#a855f7" },
                 ] as const).map(opt => (
-                  <button key={opt.id} onClick={() => setMusicTier(opt.id)}
-                    style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${musicTier === opt.id ? opt.color : ds.color.line2}`, background: musicTier === opt.id ? `${opt.color}14` : ds.color.card, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <button key={opt.id} onClick={() => { setMusicTier(opt.id); patchProjectSettings({ soundTier: opt.id }).catch(() => {}); }}
+                    style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${effectiveSoundTier === opt.id ? opt.color : ds.color.line2}`, background: effectiveSoundTier === opt.id ? `${opt.color}14` : ds.color.card, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
-                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === opt.id ? opt.color : ds.color.mute, fontFamily: ds.font.sans }}>{opt.label}</p>
+                      <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: effectiveSoundTier === opt.id ? opt.color : ds.color.mute, fontFamily: ds.font.sans }}>{opt.label}</p>
                       <p style={{ margin: 0, fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.sans }}>{opt.desc}</p>
                     </div>
                     <span style={{ fontSize: 10, fontWeight: 700, color: opt.color, border: `1px solid ${opt.color}44`, borderRadius: 4, padding: "2px 6px", fontFamily: ds.font.mono }}>{opt.badge}</span>
@@ -441,8 +455,9 @@ export default function SceneForgePage() {
           {addBroll && (
             <div>
               <label style={labelSt}>B-roll Models</label>
-              <ModelPicker videoModel={videoModel} imageModel={imageModel}
-                onVideoChange={setVideoModel} onImageChange={setImageModel}
+              <ModelPicker videoModel={effectiveVideoModelId} imageModel={effectiveImageModelId}
+                onVideoChange={v => { setVideoModel(v); patchProjectSettings({ videoModelVersion: v }).catch(() => {}); }}
+                onImageChange={v => { setImageModel(v); patchProjectSettings({ imageModelVersion: v }).catch(() => {}); }}
                 accentColor={ds.color.lilac} compact />
             </div>
           )}
@@ -474,7 +489,7 @@ export default function SceneForgePage() {
                     const res = await fetch("/api/free-mode/enhance", {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ rawPrompt: `Rewrite this as a clear, punchy, engaging description for a ${style} style talking avatar video. Keep it concise and compelling. Original: ${topic}`, mode: "text_to_video" }),
+                      body: JSON.stringify({ rawPrompt: `Rewrite this as a clear, punchy, engaging description for a ${effectiveProjectStyle} style talking avatar video. Keep it concise and compelling. Original: ${topic}`, mode: "text_to_video" }),
                     });
                     if (res.ok) {
                       const d = await res.json() as { enhanced?: string; result?: string };

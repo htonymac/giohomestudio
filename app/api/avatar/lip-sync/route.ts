@@ -1,8 +1,20 @@
 // POST /api/avatar/lip-sync — FAL lip-sync wrapper
-// Primary: fal-ai/wav2lip (face_url + audio_url) — works with AI-generated/stylized portraits
-// Fallback: fal-ai/sadtalker (source_image_url + driven_audio_url) — works on realistic portraits
-// Input: { imageUrl, audioUrl, aspectRatio? }
-// Output: { videoUrl, provider }
+//
+// Provider tier (2026-05-08 upgrade — wav2lip alone produced choppy mouth motion):
+//   1. fal-ai/musetalk            — newer Tencent model, finer mouth detail (image + audio)
+//   2. fal-ai/sync-lipsync        — Sync Labs gold standard (video + audio only — skipped for still photos)
+//   3. fal-ai/wav2lip             — original primary, retained as fallback
+//   4. fal-ai/sadtalker           — final fallback for realistic portraits
+//
+// Each tier is tried in order; the first to return a video URL wins. Per-tier errors are
+// collected and returned in the 502 body when every tier fails, so the caller can see
+// which model rejected the input and why.
+//
+// Input:  { imageUrl, audioUrl, aspectRatio?, inputIsVideo? }
+//   inputIsVideo: when true the route routes to sync-lipsync FIRST (it requires video).
+//   When false / missing, sync-lipsync is skipped (it doesn't accept still photos).
+// Output: { videoUrl, provider, providerErrors? }
+//
 // Images: uploaded to Imgur (IMGUR_CLIENT_ID) or FAL CDN fallback
 // Audio:  uploaded to FAL CDN (FAL_KEY)
 // On server: set BASE_URL and no upload is needed at all
@@ -195,13 +207,14 @@ async function saveVideo(videoUrl: string, prefix: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
   try {
-    const { imageUrl, audioUrl, aspectRatio = "9:16" } = await req.json();
+    const { imageUrl, audioUrl, aspectRatio: _aspectRatio = "9:16", inputIsVideo = false } = await req.json();
 
     if (!imageUrl || !audioUrl) {
       return NextResponse.json({ error: "imageUrl and audioUrl required" }, { status: 400 });
     }
 
-    // Upload local files to FAL CDN so FAL workers can access them
+    // Upload local files to FAL CDN so FAL workers can access them.
+    // The "image" media type also covers video here — FAL CDN doesn't care.
     let publicImageUrl = imageUrl;
     let publicAudioUrl = audioUrl;
     try {
@@ -215,46 +228,71 @@ export async function POST(req: NextRequest) {
 
     let videoUrl: string | null = null;
     let usedProvider = "";
-    const providerErrors: string[] = [];
+    const providerErrors: Record<string, string> = {};
 
-    // Try 1: Wav2Lip — still image + audio → talking face video
-    // Accepts AI-generated/stylized portraits. Correct params: face_url + audio_url
-    try {
-      videoUrl = await falQueue("fal-ai/wav2lip", {
-        face_url: publicImageUrl,
-        audio_url: publicAudioUrl,
-      });
-      usedProvider = "wav2lip";
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      console.warn("[lip-sync] wav2lip failed:", msg);
-      providerErrors.push(`wav2lip: ${msg}`);
-    }
-
-    // Try 2: SadTalker — still image + audio → talking face (works on realistic portraits)
-    if (!videoUrl) {
+    /**
+     * Try a single FAL endpoint. If it succeeds, set videoUrl + usedProvider and return true.
+     * If it fails, append to providerErrors and return false so the caller continues.
+     * Errors are kept lightweight — full payload only in console.warn for ops.
+     */
+    async function tryProvider(name: string, endpoint: string, payload: Record<string, unknown>): Promise<boolean> {
+      if (videoUrl) return true; // short-circuit if a previous tier already won
       try {
-        videoUrl = await falQueue("fal-ai/sadtalker", {
-          source_image_url: publicImageUrl,
-          driven_audio_url: publicAudioUrl,
-        });
-        usedProvider = "sadtalker";
+        const result = await falQueue(endpoint, payload);
+        if (result) {
+          videoUrl = result;
+          usedProvider = name;
+          return true;
+        }
+        providerErrors[name] = "no video URL returned";
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.warn("[lip-sync] sadtalker failed:", msg);
-        providerErrors.push(`sadtalker: ${msg}`);
+        console.warn(`[lip-sync] ${name} failed:`, msg);
+        providerErrors[name] = msg.slice(0, 300);
       }
+      return false;
     }
 
+    // ── Tier 1: sync-lipsync — Sync Labs (video-only, gold standard) ──
+    // Only tried when caller marked the input as a video. For still photos, skip
+    // straight to musetalk/wav2lip/sadtalker which all accept face_url images.
+    if (inputIsVideo) {
+      await tryProvider("sync-lipsync", "fal-ai/sync-lipsync", {
+        video_url: publicImageUrl,
+        audio_url: publicAudioUrl,
+      });
+    }
+
+    // ── Tier 2: musetalk — newer Tencent model with finer mouth detail (image + audio) ──
+    // Better than wav2lip for AI-stylized portraits. Same input contract as wav2lip.
+    await tryProvider("musetalk", "fal-ai/musetalk", {
+      face_url: publicImageUrl,
+      audio_url: publicAudioUrl,
+    });
+
+    // ── Tier 3: wav2lip — original primary, kept as third fallback ──
+    await tryProvider("wav2lip", "fal-ai/wav2lip", {
+      face_url: publicImageUrl,
+      audio_url: publicAudioUrl,
+    });
+
+    // ── Tier 4: sadtalker — final fallback for realistic portraits ──
+    await tryProvider("sadtalker", "fal-ai/sadtalker", {
+      source_image_url: publicImageUrl,
+      driven_audio_url: publicAudioUrl,
+    });
+
     if (!videoUrl) {
-      const detail = providerErrors.join(" | ");
+      const detail = Object.entries(providerErrors).map(([k, v]) => `${k}: ${v}`).join(" | ");
       console.error("[lip-sync] all providers exhausted:", detail);
       return NextResponse.json(
         {
           error: "All lip-sync providers failed",
           providers: {
-            wav2lip: providerErrors.find(e => e.startsWith("wav2lip:")) ?? "not tried",
-            sadtalker: providerErrors.find(e => e.startsWith("sadtalker:")) ?? "not tried",
+            "sync-lipsync": providerErrors["sync-lipsync"] ?? (inputIsVideo ? "not tried" : "skipped (still photo)"),
+            musetalk:       providerErrors.musetalk        ?? "not tried",
+            wav2lip:        providerErrors.wav2lip         ?? "not tried",
+            sadtalker:      providerErrors.sadtalker       ?? "not tried",
           },
           detail,
         },
@@ -265,7 +303,13 @@ export async function POST(req: NextRequest) {
     const outPath = await saveVideo(videoUrl, `lipsync_${usedProvider}`);
     const relUrl = `/api/media/${outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
 
-    return NextResponse.json({ videoUrl: relUrl, rawUrl: videoUrl, provider: usedProvider });
+    return NextResponse.json({
+      videoUrl: relUrl,
+      rawUrl: videoUrl,
+      provider: usedProvider,
+      // Surface which providers we tried and what failed — handy for debugging in the UI.
+      providerErrors: Object.keys(providerErrors).length > 0 ? providerErrors : undefined,
+    });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Lip-sync failed";
     console.error("[lip-sync] unhandled error:", msg);
