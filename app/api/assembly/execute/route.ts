@@ -386,30 +386,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Subtitle burn-in (optional, graceful — skipped if FFmpeg lacks libass or no text) ──
-    // Generates an SRT from narration text, burns it on top of the final output.
-    // Failure here NEVER blocks the output — original video is always preserved.
+    // ── Subtitle burn-in via drawtext (no libass required) ──────────────────
+    // P2-F 2026-05-14: replaced subtitles= filter (needs libass, fails on Windows)
+    // with drawtext filter chain. Works on all FFmpeg builds out of the box.
+    // Failure here NEVER blocks output — original video always preserved.
     let subtitledOutputPath = "";
     if (assembly.exportSettings?.includeSubtitles) {
       const narrationWithText = fullAssembly.narration.filter(n => n.text && n.text.trim());
       if (narrationWithText.length > 0) {
         try {
-          // Build SRT from narration entries — split text into sentences, time proportionally
-          function buildSRT(entries: typeof narrationWithText): string {
-            function toSRTTime(sec: number): string {
-              const h = Math.floor(sec / 3600);
-              const m = Math.floor((sec % 3600) / 60);
-              const s = Math.floor(sec % 60);
-              const ms = Math.round((sec % 1) * 1000);
-              return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")},${String(ms).padStart(3,"0")}`;
-            }
-            const lines: string[] = [];
-            let idx = 1;
+          // Build timed subtitle entries from narration text
+          interface SubEntry { start: number; end: number; text: string; }
+          function buildSubEntries(entries: typeof narrationWithText): SubEntry[] {
+            const result: SubEntry[] = [];
             for (const entry of entries) {
               const text = entry.text!.trim();
               const dur = Math.max((entry.endTime || 0) - (entry.startTime || 0), 1);
-              // Split into sentences (~40 chars per subtitle card max)
-              const sentences = text.match(/[^.!?]+[.!?]*/g) || [text];
+              const sentences = text.match(/[^.!?,;]+[.!?,;]*/g) || [text];
               const totalChars = text.length || 1;
               let charsCursor = 0;
               for (const sentence of sentences) {
@@ -417,39 +410,72 @@ export async function POST(req: NextRequest) {
                 if (!s) continue;
                 const startFrac = charsCursor / totalChars;
                 const endFrac = Math.min((charsCursor + s.length) / totalChars, 1);
-                const start = (entry.startTime || 0) + startFrac * dur;
-                const end = (entry.startTime || 0) + endFrac * dur;
-                lines.push(`${idx}\n${toSRTTime(start)} --> ${toSRTTime(end)}\n${s}\n`);
-                idx++;
+                result.push({
+                  start: (entry.startTime || 0) + startFrac * dur,
+                  end: (entry.startTime || 0) + endFrac * dur,
+                  text: s,
+                });
                 charsCursor += s.length;
               }
             }
-            return lines.join("\n");
+            return result;
           }
-          const srtContent = buildSRT(narrationWithText);
-          const srtPath = path.join(outputDir, "subtitles.srt");
-          fs.writeFileSync(srtPath, srtContent, "utf-8");
 
-          const finalMergeStep = steps.find(s => s.id === "final_merge");
-          const unsub = finalMergeStep?.outputPath || "";
-          if (unsub && fs.existsSync(unsub)) {
-            const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
-            // subtitles= filter requires libass — fails gracefully if not compiled in
-            await execFileAsync(env.ffmpegPath, [
-              "-i", unsub,
-              "-vf", `subtitles=${srtPath.replace(/\\/g, "/")}:force_style='FontName=Arial,FontSize=22,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,Outline=2,Alignment=2'`,
-              "-c:a", "copy",
-              "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-              "-movflags", "+faststart",
-              "-y", subbedPath,
-            ], { timeout: 180000 });
-            if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
-              subtitledOutputPath = subbedPath;
-              console.log(`[assembly] Subtitle burn-in OK → ${path.basename(subbedPath)}`);
+          // Escape text for FFmpeg drawtext: \ → \\, ' → \', : → \:
+          function escDrawtext(t: string): string {
+            return t.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/:/g, "\\:");
+          }
+
+          // Wrap text at ~45 chars so it fits in standard aspect ratios
+          function wrapText(t: string, maxLen = 45): string {
+            if (t.length <= maxLen) return t;
+            const words = t.split(" ");
+            const lines: string[] = [];
+            let cur = "";
+            for (const w of words) {
+              if ((cur + " " + w).trim().length > maxLen && cur) {
+                lines.push(cur.trim());
+                cur = w;
+              } else {
+                cur = cur ? cur + " " + w : w;
+              }
+            }
+            if (cur) lines.push(cur.trim());
+            // drawtext supports \n for line breaks
+            return lines.join("\\n");
+          }
+
+          const subEntries = buildSubEntries(narrationWithText);
+          // Cap at 60 entries — beyond that the drawtext chain gets too long for FFmpeg
+          const capped = subEntries.slice(0, 60);
+
+          if (capped.length > 0) {
+            // Build drawtext filter chain: each entry is time-gated with enable='between(t,S,E)'
+            // Style: white text, black shadow, centered horizontally, 10% from bottom
+            const baseStyle = "fontsize=22:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2:x=(w-tw)/2:y=h*0.88";
+            const drawChain = capped.map(e =>
+              `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`
+            ).join(",");
+
+            const finalMergeStep = steps.find(s => s.id === "final_merge");
+            const unsub = finalMergeStep?.outputPath || "";
+            if (unsub && fs.existsSync(unsub)) {
+              const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
+              await execFileAsync(env.ffmpegPath, [
+                "-i", unsub,
+                "-vf", drawChain,
+                "-c:a", "copy",
+                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-y", subbedPath,
+              ], { timeout: 300000 });
+              if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
+                subtitledOutputPath = subbedPath;
+                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries) → ${path.basename(subbedPath)}`);
+              }
             }
           }
         } catch (subErr) {
-          // Subtitle burn failed (likely missing libass) — continue with original output
           console.warn("[assembly] Subtitle burn-in skipped:", subErr instanceof Error ? subErr.message.slice(0, 200) : subErr);
         }
       }
