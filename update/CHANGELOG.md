@@ -1,5 +1,55 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-14 — Hybrid Planner Phase 1–2 (Image Flip + Assembly Fixes)
+
+**What:** 5 phases of bug fixes and new features for Hybrid Planner assembly pipeline.
+
+**Phase 1-A — Scoped image storage (B1 fix)**
+- Scene images now saved locally at `/storage/scenes/{projectId}/{sceneId}/img_{ts}.png` at generation time.
+- Returned URL is local `/storage/...` path, not expiring FAL CDN URL.
+- Eliminates "black video" caused by expired CDN links in assembly.
+
+**Phase 1-B — Parallel preprocessing (B6 fix)**
+- `preprocessSegments()` in `execute/route.ts` now uses `Promise.all` instead of sequential for-loop.
+- 8 image segments: was 30–60s, now ~5s.
+
+**Phase 1-C — Music volume fix (B3 fix)**
+- `assembly-builder.ts` final_merge now uses `assembly.music[0]?.volume ?? 0.3` (from user slider).
+- Was: `duckingRules.musicDuckLevel` (hardcoded 0.08 = 8%).
+
+**Phase 1-D — Assembly readiness status badges**
+- Narration / Music / Subtitles status shown above "Assemble My Movie" button.
+
+**Phase 2-A — imageFlipSeconds field**
+- `ProjectSettings.imageFlipSeconds` (default 3s) added to Prisma schema, hook, and API.
+- `HybridScene.flipOverride` nullable per-scene override added.
+
+**Phase 2-B — Image Flip Time UI**
+- Assembly tab: flip time panel with 1s/2s/3s/5s/8s presets + custom input + live segment count preview.
+- Scene Board card: compact "flip: Xs" override per scene. Highlighted purple when overridden.
+
+**Phase 2-C — Auto-expand all multi-image scenes**
+- Removed `useMaxImageScenes` opt-in gate from assembly segment loop.
+- All scenes with 2+ ticked images now auto-expand. Each image gets `flipOverride ?? imageFlipSeconds` seconds.
+
+**Phase 2-D — Pre-flight image sufficiency check**
+- Calculates per-scene narration duration × needed images. Shows warning + "Generate N more" button.
+- Appears above Assemble button when narration is longer than available images × flip time.
+
+**Phase 2-F — Subtitle fix (B5 fix)**
+- Replaced `subtitles=` filter (requires libass, fails on Windows) with `drawtext` filter chain.
+- Works on all FFmpeg builds. Up to 60 timed entries, white text + black shadow, centered near bottom.
+
+**Why:** Hybrid planner was producing blank/broken videos. Images expired, music too loud, subtitles never appearing, 30s black opening.
+
+**Impact:** High — assembly pipeline now produces correct output with images, correct music levels, and subtitles.
+
+**Risk:** Low — all changes have TSC + next build clean. Graceful fallbacks throughout.
+
+**Files changed:** `app/api/hybrid/scene-image/route.ts`, `app/api/assembly/execute/route.ts`, `src/lib/assembly-builder.ts`, `app/dashboard/hybrid-planner/page.tsx`, `prisma/schema.prisma`, `src/hooks/useProjectSettings.ts`, `app/api/project/settings/route.ts`
+
+---
+
 ## 2026-05-07 — Gen Max (Multi-Beat Scene Images)
 
 **What:** Per-scene "Gen Max" button generates one image per action beat extracted from the scene description.
