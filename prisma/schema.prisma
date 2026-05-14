@@ -248,6 +248,7 @@ model CharacterVoice {
   keepSameToggle     Boolean  @default(true) // maintain appearance across scenes
   voiceProvider      String?  // "piper" | "elevenlabs" | "user_upload"
   projectAssociation String?  // linked project ID
+  lastSeenWardrobe   String?  // wardrobe last seen in scene image gen — injected for continuity
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 

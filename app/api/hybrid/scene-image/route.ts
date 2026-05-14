@@ -64,6 +64,7 @@ export async function POST(req: NextRequest) {
       hairstyle: string | null;
       culture: string | null;
       age: string | null;
+      lastSeenWardrobe: string | null; // 3-C: continuity tracker
     }> = [];
 
     if (characterIds && characterIds.length > 0) {
@@ -74,6 +75,19 @@ export async function POST(req: NextRequest) {
             { characterId: { in: characterIds } },
             { name: { in: characterIds } },
           ],
+        },
+        select: {
+          id: true,
+          characterId: true,
+          name: true,
+          visualDescription: true,
+          imageUrl: true,
+          referenceImages: true,
+          wardrobe: true,
+          hairstyle: true,
+          culture: true,
+          age: true,
+          lastSeenWardrobe: true,
         },
       });
 
@@ -89,6 +103,7 @@ export async function POST(req: NextRequest) {
           hairstyle: c.hairstyle,
           culture: c.culture,
           age: c.age,
+          lastSeenWardrobe: c.lastSeenWardrobe,
         });
       }
 
@@ -145,6 +160,7 @@ export async function POST(req: NextRequest) {
             hairstyle: ov.hairstyle || null,
             culture: null,
             age: null,
+            lastSeenWardrobe: null,
           });
         }
       }
@@ -196,7 +212,14 @@ export async function POST(req: NextRequest) {
     if (resolvedCharacters.length > 0) {
       const identityBlock = resolvedCharacters.map(c => {
         const desc = sanitizeStyleCollisions((c.visualDescription || "").slice(0, CHAR_DESC_LIMIT), styleId);
-        const wardrobe = c.wardrobe ? `, wearing: ${sanitizeStyleCollisions(c.wardrobe.slice(0, 120), styleId)}` : "";
+        // 3-C: Use lastSeenWardrobe for continuity when available; fall back to wardrobe default
+        const wardrobeSource = c.lastSeenWardrobe ?? c.wardrobe;
+        const wardrobePrefix = c.lastSeenWardrobe
+          ? `CONTINUITY: ${c.name} last seen wearing: `
+          : "wearing: ";
+        const wardrobe = wardrobeSource
+          ? `, ${wardrobePrefix}${sanitizeStyleCollisions(wardrobeSource.slice(0, 140), styleId)}`
+          : "";
         const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
         // 2026-05-10 AGE LOCK — when age is set, repeat it loudly so models don't default to adult.
         // "Bryan is 11 but image shows 30" was the bug. Plain age mention is too soft for the model.
@@ -309,6 +332,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // 3-D: Quick keyword supervisor — non-blocking check that key scene words appear in prompt.
+    // Fires BEFORE generation. Returns a warning in the response if coverage is low.
+    // No API cost — pure string matching.
+    const sceneKeywords = (sceneText || "").toLowerCase().match(/\b[a-z]{4,}\b/g) || [];
+    const promptLower = structuredPrompt.toLowerCase();
+    const missingKeywords = sceneKeywords.filter((k: string) => !promptLower.includes(k)).slice(0, 3);
+    const supervisorWarning = missingKeywords.length > 2
+      ? `Prompt may not fully capture: ${missingKeywords.join(", ")}`
+      : undefined;
+
     // 4. Generate image
     // Detect photo-import characters — route to face-lock model (PuLID) when present.
     // Checks both DB referenceImages tags AND client-supplied isPhotoImport flag
@@ -332,6 +365,11 @@ export async function POST(req: NextRequest) {
     const outputPath = path.join(scopedDir, `img_${imgTs}.png`);
     const localImageUrl = `/storage/scenes/${projectId || "unlinked"}/${sceneId || "unknown"}/img_${imgTs}.png`;
 
+    // 4-A: Multi-reference support note.
+    // generateImage() currently accepts a single referenceImageUrl (FAL PuLID only uses one).
+    // All collected referenceImageUrls are included in the response so callers can see what was
+    // available. When the provider supports multiple refs, pass the array here instead.
+    // For now we pass referenceImageUrls[0] (primary character ref) — same as before.
     // Phase E.1: provider-health auto-fallback for image generation.
     // If the chosen model returns a 404/422/"model not found" error, we mark it broken,
     // pick the best healthy model in the same family, and retry once.
@@ -344,7 +382,7 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
-      referenceImageUrl: referenceImageUrls[0],
+      referenceImageUrl: referenceImageUrls[0],  // 4-A: primary ref; array not yet supported by provider
       useIdentityLock: hasPhotoImportChar && !modelId,
     });
 
@@ -367,7 +405,7 @@ export async function POST(req: NextRequest) {
             height: 720,
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
-            referenceImageUrl: referenceImageUrls[0],
+            referenceImageUrl: referenceImageUrls[0],  // 4-A: primary ref
             useIdentityLock: hasPhotoImportChar && !modelId,
           });
           if (!result.success && result.model) {
@@ -388,6 +426,21 @@ export async function POST(req: NextRequest) {
     // Also look up full model entry to pass family info downstream (non-blocking)
     const usedModel = result.model ? getModelById(result.model.id) : null;
     void usedModel; // referenced for future use (E.2 UI badge)
+
+    // 3-C: Update lastSeenWardrobe for all DB-backed resolved characters after successful generation.
+    // This maintains wardrobe continuity across scenes — next gen for the same character
+    // will inject "CONTINUITY: [Name] last seen wearing: ..." into the prompt.
+    for (const c of resolvedCharacters) {
+      // Only update DB characters (have a real cuid id, not a session-only name/override)
+      if (c.wardrobe && c.id && c.id.length === 25 /* cuid length */) {
+        try {
+          await prisma.characterVoice.update({
+            where: { id: c.id },
+            data: { lastSeenWardrobe: c.wardrobe },
+          });
+        } catch { /* best effort — wardrobe continuity is non-blocking */ }
+      }
+    }
 
     // 5. Update HybridScene in DB if projectId + sceneId provided
     if (projectId && sceneId) {
@@ -437,7 +490,9 @@ export async function POST(req: NextRequest) {
       model: result.model?.id,
       provider: result.model?.provider_name,
       characters: resolvedCharacters.map(c => ({ id: c.id, characterId: c.characterId, name: c.name })),
-      referenceImages: referenceImageUrls,
+      referenceImages: referenceImageUrls,          // 4-A: all collected reference URLs (array)
+      referenceImagesUsed: referenceImageUrls.length, // 4-A: count for diagnostics
+      ...(supervisorWarning ? { supervisorWarning } : {}), // 3-D: keyword coverage warning
       ...(droppedCharacterIds.length > 0 ? { warning: `Generated without characters not in registry: ${droppedCharacterIds.join(", ")}` } : {}),
     });
   } catch (err) {

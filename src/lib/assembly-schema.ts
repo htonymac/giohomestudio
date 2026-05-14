@@ -162,6 +162,7 @@ export interface AssemblyJSON {
     includeWatermark: boolean;
     includeCredits: boolean;
     creditsText?: string;         // auto-generated attribution text
+    subtitleStyle?: "classic" | "cinema" | "neon" | "bold" | "none";  // 5-C subtitle style token
   };
 
   // Metadata
@@ -203,6 +204,7 @@ export function createEmptyAssembly(projectId: string, projectType: string, titl
       includeSubtitles: false,
       includeWatermark: false,
       includeCredits: false,
+      subtitleStyle: "classic",
     },
     plannerTier: "standard",
     soundLicenses: [],

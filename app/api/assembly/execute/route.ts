@@ -451,8 +451,21 @@ export async function POST(req: NextRequest) {
 
           if (capped.length > 0) {
             // Build drawtext filter chain: each entry is time-gated with enable='between(t,S,E)'
-            // Style: white text, black shadow, centered horizontally, 10% from bottom
-            const baseStyle = "fontsize=22:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2:x=(w-tw)/2:y=h*0.88";
+            // 5-C: subtitle style tokens — map exportSettings.subtitleStyle to drawtext params
+            const styleParams: Record<string, string> = {
+              cinema:  "fontsize=28:fontcolor=white:shadowcolor=black@0.9:shadowx=3:shadowy=3",
+              neon:    "fontsize=22:fontcolor=cyan:shadowcolor=magenta@0.8:shadowx=2:shadowy=0:boxcolor=black@0.4:box=1:boxborderw=4",
+              bold:    "fontsize=30:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4",
+              classic: "fontsize=22:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2",
+              none:    "",
+            };
+            const chosenStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
+            // If style is "none", skip subtitle burn-in entirely
+            if (chosenStyle === "none") {
+              // Skip — baseStyle empty means no subtitles
+            } else {
+            const subStyleBase = styleParams[chosenStyle] || styleParams.classic;
+            const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
             const drawChain = capped.map(e =>
               `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`
             ).join(",");
@@ -471,9 +484,10 @@ export async function POST(req: NextRequest) {
               ], { timeout: 300000 });
               if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
                 subtitledOutputPath = subbedPath;
-                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries) → ${path.basename(subbedPath)}`);
+                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, style=${chosenStyle}) → ${path.basename(subbedPath)}`);
               }
             }
+            } // end else (chosenStyle !== "none")
           }
         } catch (subErr) {
           console.warn("[assembly] Subtitle burn-in skipped:", subErr instanceof Error ? subErr.message.slice(0, 200) : subErr);

@@ -397,6 +397,18 @@ function HybridPlannerInner() {
   // Per-scene toggle so the user can mix: some scenes 1 image, some scenes multi-beat.
   const [useMaxImageScenes, setUseMaxImageScenes] = useState<Set<string>>(new Set());
 
+  // ── Phase 3-A: Saved locally — per-scene list of /storage/ image URLs ──
+  const [sceneLocalImages, setSceneLocalImages] = useState<Record<string, string[]>>({});
+
+  // ── Phase 3-B: Stale image badge — per-scene hash of description at last image gen ──
+  const [sceneDescHashes, setSceneDescHashes] = useState<Record<string, string>>({});
+
+  // ── Phase 4-B: Dialogue review modal ──
+  const [showDialogueReview, setShowDialogueReview] = useState(false);
+
+  // ── Phase 5-B: Model health — client-side set of recently-broken model IDs ──
+  const [brokenModels, setBrokenModels] = useState<Set<string>>(new Set());
+
   // ── Story tab — Scene Breakdown editing state ──
   // Only ONE scene is in edit mode at a time, identified by sceneId.
   // storyEditedDescription holds the textarea value while editing — committed to scene state on Save.
@@ -734,6 +746,8 @@ function HybridPlannerInner() {
           if (d.selectedBeatImages && Object.keys(d.selectedBeatImages).length > 0) setSelectedBeatImages(d.selectedBeatImages);
           // Restore which scenes are in "Use Max Image" mode for assembly.
           if (Array.isArray(d.useMaxImageScenes)) setUseMaxImageScenes(new Set(d.useMaxImageScenes));
+          // 3-B: Restore stale-image hash map
+          if (d.sceneDescHashes && Object.keys(d.sceneDescHashes).length > 0) setSceneDescHashes(d.sceneDescHashes);
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
@@ -815,6 +829,7 @@ function HybridPlannerInner() {
       subtitleStyle, storyMode, soundTier,
       screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
+      sceneDescHashes,  // 3-B: persist stale-image hash map across sessions
       // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
       useMaxImageScenes: Array.from(useMaxImageScenes),
       timestamp: Date.now(),
@@ -826,7 +841,7 @@ function HybridPlannerInner() {
       body: JSON.stringify({ localId: activeProjLocalId, data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices, sceneBeatImages, selectedBeatImages, useMaxImageScenes]);
+  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices, sceneBeatImages, selectedBeatImages, useMaxImageScenes, sceneDescHashes]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -879,6 +894,19 @@ function HybridPlannerInner() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, scenes.length]);
+
+  // ── Phase 3-A: Auto-load local saved images when scenes tab becomes active ──
+  useEffect(() => {
+    if (activeTab === "scenes" && projectId && scenes.length > 0) {
+      // Load for all scenes that have no local images loaded yet
+      for (const scene of scenes) {
+        if (!sceneLocalImages[scene.sceneId]) {
+          loadSceneLocalImages(scene.sceneId, projectId);
+        }
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, projectId, scenes.length]);
 
   // ── Drag reorder ──
   const [dragSource, setDragSource] = useState<number | null>(null);
@@ -1633,6 +1661,28 @@ function HybridPlannerInner() {
     setPreflightRunning(false);
   }
 
+  // ── Phase 3-B: Simple string hash (djb2 variant) ──────────────────────────
+  // Used to detect when scene description changes after last image gen.
+  function hashStr(s: string): string {
+    let h = 0;
+    for (const c of s) h = Math.imul(31, h) + c.charCodeAt(0) | 0;
+    return String(h >>> 0);
+  }
+
+  // ── Phase 3-A: Load saved local images for a scene ────────────────────────
+  async function loadSceneLocalImages(sceneId: string, projId: string) {
+    try {
+      const res = await fetch(`/api/hybrid/scene-images?projectId=${encodeURIComponent(projId)}&sceneId=${encodeURIComponent(sceneId)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.files)) {
+        setSceneLocalImages(prev => ({ ...prev, [sceneId]: data.files.map((f: { url: string }) => f.url) }));
+      }
+    } catch {
+      // non-blocking
+    }
+  }
+
   async function makeSceneImage(scene: HybridScene) {
     try { await requireGate(); } catch { return; }
     setGeneratingSceneImage(scene.sceneId);
@@ -1709,6 +1759,15 @@ function HybridPlannerInner() {
           return { ...prev, [scene.sceneId]: [...existing, true].slice(-30) };
         });
         if (data.model) setSceneImageModels(prev => ({ ...prev, [scene.sceneId]: data.model }));
+        // 3-B: Record description hash at time of image gen so stale badge can detect drift
+        const descHash = hashStr(scene.description || "");
+        setSceneDescHashes(prev => ({ ...prev, [scene.sceneId]: descHash }));
+        // 3-A: Reload saved local images for this scene after new image saved
+        if (projectId && scene.sceneId) {
+          loadSceneLocalImages(scene.sceneId, projectId);
+        }
+        // 5-B: Clear broken flag for model that just succeeded
+        if (data.model) setBrokenModels(prev => { const n = new Set(prev); n.delete(data.model); return n; });
         // New image means old video is stale — clear it so scene board shows the new image
         setSceneVideos(prev => prev[scene.sceneId] ? (({ [scene.sceneId]: _, ...rest }) => rest)(prev) : prev);
         setSceneVideoVersions(prev => prev[scene.sceneId] ? (({ [scene.sceneId]: _, ...rest }) => rest)(prev) : prev);
@@ -1749,6 +1808,8 @@ function HybridPlannerInner() {
       setSceneGenProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
       console.error("makeSceneImage failed:", err);
       setUiError(`Image generation failed for Scene ${scene.scene}. Please try again.`);
+      // 5-B: mark current model as broken so health dot turns red in picker
+      setBrokenModels(prev => new Set(prev).add(effectiveImageModelId));
     }
     setGeneratingSceneImage(null);
   }
@@ -3451,6 +3512,7 @@ function HybridPlannerInner() {
           includeSubtitles: effectiveSubtitleConfig.mode !== "none",
           includeWatermark: false,
           includeCredits: false,
+          subtitleStyle: subtitleStyle as "classic" | "cinema" | "neon" | "bold" | "none", // 5-C
         },
         rightsConfirmed: true,
         previewApproved: true,
@@ -4827,6 +4889,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap", marginBottom:2 }}>
+                          {/* 5-B: model health dot — red if in brokenModels set, green otherwise */}
+                          <span title={brokenModels.has(m.id) ? "Recently failed — may be unavailable" : "Healthy"} style={{ fontSize:12, color: brokenModels.has(m.id) ? "#ef4444" : "#22c55e", lineHeight:1 }}>●</span>
                           <span style={{ fontSize:11, fontWeight:700, color:"#e2d9f3" }}>{m.name}</span>
                           <span style={{ fontSize:8, fontWeight:700, background:netCol, color:"#000", borderRadius:3, padding:"1px 5px" }}>{m.network}</span>
                           {isCheapest && <span style={{ fontSize:8, fontWeight:700, background:"#22c55e", color:"#000", borderRadius:3, padding:"1px 5px" }}>CHEAPEST</span>}
@@ -4861,6 +4925,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <div style={{ fontSize:9, color:"#3a3060", fontWeight:700, minWidth:16, textAlign:"right", marginRight:8 }}>{idx+1}</div>
                       <div style={{ flex:1, minWidth:0 }}>
                         <div style={{ display:"flex", alignItems:"center", gap:5, flexWrap:"wrap", marginBottom:2 }}>
+                          {/* 5-B: model health dot */}
+                          <span title={brokenModels.has(m.id) ? "Recently failed — may be unavailable" : "Healthy"} style={{ fontSize:12, color: brokenModels.has(m.id) ? "#ef4444" : "#22c55e", lineHeight:1 }}>●</span>
                           <span style={{ fontSize:11, fontWeight:700, color:"#e2d9f3" }}>{m.name}</span>
                           <span style={{ fontSize:8, fontWeight:700, background:netCol, color:"#000", borderRadius:3, padding:"1px 5px" }}>{m.network}</span>
                           {isCheapest && <span style={{ fontSize:8, fontWeight:700, background:"#22c55e", color:"#000", borderRadius:3, padding:"1px 5px" }}>CHEAPEST</span>}
@@ -5859,6 +5925,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <>
                             <img src={sceneImages[scene.sceneId]} alt={scene.title}
                               style={{ width: "100%", borderRadius: 8, objectFit: "cover", maxHeight: 160, display: "block", marginBottom: 8 }} />
+                            {/* 3-B: Stale image badge — show when description changed since last gen */}
+                            {sceneImages[scene.sceneId] && sceneDescHashes[scene.sceneId] && sceneDescHashes[scene.sceneId] !== hashStr(scene.description || "") && (
+                              <div title="Scene description changed since last image was generated"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "#f59e0b20", border: "1px solid #f59e0b60", borderRadius: 6, padding: "3px 8px", marginBottom: 6, fontSize: 9, color: "#f59e0b", fontWeight: 700 }}>
+                                ⚠ stale
+                              </div>
+                            )}
                             <div style={{ display: "flex", gap: 6 }}>
                               <button onClick={() => setPreviewMedia({ url: sceneImages[scene.sceneId], type: "image", title: `${scene.sceneId}: ${scene.title}` })}
                                 style={{ flex: 1, padding: "5px 8px", borderRadius: 6, border: `1px solid ${blue}40`, background: `${blue}10`, color: blue, fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
@@ -5917,6 +5990,50 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                       </div>
                                     </div>
                                   )}
+                                </div>
+                              );
+                            })()}
+                            {/* 3-A: Saved Images panel — shows all /storage/ files for this scene */}
+                            {(() => {
+                              const localImgs = sceneLocalImages[scene.sceneId] || [];
+                              // Auto-load on first expand
+                              if (localImgs.length === 0 && projectId && scene.sceneId) {
+                                // Trigger async load — safe in render because loadSceneLocalImages is idempotent
+                                // Use a once-flag via a ref to avoid infinite loop
+                              }
+                              if (localImgs.length === 0) return null;
+                              return (
+                                <div style={{ marginTop: 8, borderTop: `1px solid ${border}`, paddingTop: 8 }}>
+                                  <div style={{ fontSize: 8, color: muted, marginBottom: 4, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                                    💾 Saved Locally ({localImgs.length})
+                                  </div>
+                                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                                    {localImgs.map((imgUrl, li) => (
+                                      <div key={li} style={{ position: "relative" as const, flexShrink: 0 }}>
+                                        <img src={imgUrl} alt={`Saved ${li + 1}`}
+                                          onClick={() => setSceneImages(prev => ({ ...prev, [scene.sceneId]: imgUrl }))}
+                                          title="Click to set as active image"
+                                          style={{ width: 40, height: 40, borderRadius: 4, objectFit: "cover", cursor: "pointer", border: sceneImages[scene.sceneId] === imgUrl ? `2px solid ${accent}` : `1px solid ${border}`, display: "block" }} />
+                                        <button
+                                          onClick={async (e) => {
+                                            e.stopPropagation();
+                                            try {
+                                              await fetch(`/api/hybrid/scene-images?file=${encodeURIComponent(imgUrl)}`, { method: "DELETE" });
+                                              setSceneLocalImages(prev => ({ ...prev, [scene.sceneId]: (prev[scene.sceneId] || []).filter(u => u !== imgUrl) }));
+                                            } catch { /* non-blocking */ }
+                                          }}
+                                          title="Delete this saved image"
+                                          style={{ position: "absolute" as const, top: -3, right: -3, width: 14, height: 14, borderRadius: "50%", background: "#ef4444", border: "none", color: "#fff", fontSize: 8, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0 }}>
+                                          ×
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <button
+                                    onClick={() => loadSceneLocalImages(scene.sceneId, projectId || "")}
+                                    style={{ marginTop: 4, padding: "3px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
+                                    Refresh
+                                  </button>
                                 </div>
                               );
                             })()}
@@ -8834,6 +8951,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   </button>
                 </div>
 
+                {/* 4-B: Review Dialogue Lines button */}
+                {scriptSegments.filter(s => s.type === "dialogue").length > 0 && (
+                  <button
+                    onClick={() => setShowDialogueReview(true)}
+                    style={{ marginBottom: 10, padding: "7px 16px", borderRadius: 8, border: `1px solid ${border}`, background: "#1a1a30", color: "#ddd", fontSize: 10, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    Review Dialogue Lines ({scriptSegments.filter(s => s.type === "dialogue").length})
+                  </button>
+                )}
+
                 {/* Story mode badges */}
                 {scriptSegments.length > 0 && (
                   <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -11334,6 +11460,48 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <button onClick={() => setPendingImportChar(null)}
                 style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Phase 4-B: Dialogue Review Modal ─────────────────────────────────── */}
+      {showDialogueReview && (
+        <div onClick={() => setShowDialogueReview(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background: "#13131f", border: `1px solid ${border}`, borderRadius: 14, padding: 20, width: "min(600px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 0 40px rgba(0,0,0,0.6)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Dialogue Lines Review</div>
+              <button onClick={() => setShowDialogueReview(false)}
+                style={{ background: "transparent", border: "none", color: muted, fontSize: 18, cursor: "pointer", padding: "2px 6px" }}>×</button>
+            </div>
+            <div style={{ fontSize: 10, color: muted, marginBottom: 12 }}>
+              {scriptSegments.filter(s => s.type === "dialogue").length} dialogue lines — review speaker assignments before generating voices
+            </div>
+            <div style={{ overflowY: "auto", flex: 1, borderRadius: 8, border: `1px solid ${border}`, overflow: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ background: "#1a1a2a", position: "sticky", top: 0 }}>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: muted, fontWeight: 600, fontSize: 9, textTransform: "uppercase", letterSpacing: 1, borderBottom: `1px solid ${border}`, width: "30%" }}>Speaker</th>
+                    <th style={{ padding: "8px 12px", textAlign: "left", color: muted, fontWeight: 600, fontSize: 9, textTransform: "uppercase", letterSpacing: 1, borderBottom: `1px solid ${border}` }}>Line</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scriptSegments.filter(s => s.type === "dialogue").map((seg, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${border}20`, background: i % 2 === 0 ? "transparent" : "#ffffff04" }}>
+                      <td style={{ padding: "7px 12px", color: accent, fontWeight: 700, verticalAlign: "top", wordBreak: "break-word" }}>{seg.speaker || "NARRATOR"}</td>
+                      <td style={{ padding: "7px 12px", color: "#ddd", lineHeight: 1.5, wordBreak: "break-word" }}>{seg.text}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ marginTop: 14, textAlign: "right" }}>
+              <button onClick={() => setShowDialogueReview(false)}
+                style={{ padding: "8px 20px", borderRadius: 8, border: `1px solid ${border}`, background: "#1a1a2a", color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                Close
               </button>
             </div>
           </div>
