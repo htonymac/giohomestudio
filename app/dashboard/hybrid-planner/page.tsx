@@ -10527,37 +10527,61 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         Total at the bottom = total assembly segments the video will produce. */}
                     {selectedSceneIds.length > 0 && (() => {
                       const orderedScenes = scenes.filter(s => selectedSceneIds.includes(s.sceneId));
+                      // P2-C: count reflects auto-expand (no optedIn gate)
+                      const totalStoryCharsPreview = orderedScenes.reduce((sum, s) => {
+                        const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+                        return sum + Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                      }, 0);
+                      const narrDurSec = narratorAudioDuration > 0 ? narratorAudioDuration / 1000 : 0;
+
                       const rows = orderedScenes.map(s => {
                         const sid = s.sceneId;
                         const allBeats = sceneBeatImages[sid] || [];
-                        const ticked = (selectedBeatImages[sid] || []).filter(Boolean).length;
-                        const optedIn = useMaxImageScenes.has(sid);
+                        const varPool = [sceneImages[sid], ...(prevSceneImages[sid] || [])].filter((u): u is string => !!u);
+                        const beatPool = allBeats.length > 1 ? allBeats : (varPool.length > 1 ? varPool : null);
+                        const ticked = beatPool
+                          ? beatPool.filter((_, bi) => selectedBeatImages[sid]?.[bi] !== false).length
+                          : 0;
                         const hasVideo = !!sceneVideos[sid];
                         const hasImg = !!sceneImages[sid];
+                        const sceneFlipSec = Math.max(1, s.flipOverride ?? effectiveFlipSeconds);
+                        // How many images does the narration need for this scene?
+                        const segText = scriptSegments.filter(seg => seg.sceneId === sid).map(seg => seg.text || "").join(" ");
+                        const sceneChars = Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        const sceneFrac = totalStoryCharsPreview > 0 ? sceneChars / totalStoryCharsPreview : 0;
+                        const sceneNarrSec = narrDurSec > 0 ? sceneFrac * narrDurSec : 0;
+                        const imgsNeeded = sceneNarrSec > 0 ? Math.ceil(sceneNarrSec / sceneFlipSec) : 0;
                         let count = 0;
                         let label = "";
                         if (hasVideo) {
                           count = 1; label = "video";
-                        } else if (optedIn && allBeats.length > 1 && ticked > 1) {
-                          count = ticked; label = `${ticked} max images`;
+                        } else if (beatPool && ticked > 1) {
+                          count = ticked; label = `${ticked} images`;
                         } else if (hasImg) {
                           count = 1; label = "1 image";
                         } else {
                           count = 0; label = "NO MEDIA";
                         }
-                        return { sid, title: s.title, count, label, allBeats: allBeats.length, optedIn, ticked };
+                        const deficit = !hasVideo && imgsNeeded > 0 ? Math.max(0, imgsNeeded - count) : 0;
+                        return { sid, title: s.title, count, label, allBeats: allBeats.length, ticked, imgsNeeded, deficit, sceneFlipSec, scene: s };
                       });
                       const totalSegments = rows.reduce((sum, r) => sum + r.count, 0);
                       const noMedia = rows.filter(r => r.count === 0).length;
+                      const totalDeficit = rows.reduce((sum, r) => sum + r.deficit, 0);
                       return (
                         <div style={{ padding: "10px 14px", borderRadius: 10, background: "#ff95000a", border: "1px solid #ff950030", marginBottom: 10 }}>
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
                             <p style={{ fontSize: 11, fontWeight: 700, color: "#ff9500", margin: 0 }}>
-                              📊 Pre-assembly preview — {totalSegments} total segments will go into the video
+                              📊 Pre-assembly preview — {totalSegments} total segments
                             </p>
-                            {noMedia > 0 && (
-                              <span style={{ fontSize: 10, color: red, fontWeight: 700 }}>⚠ {noMedia} scene{noMedia !== 1 ? "s" : ""} with no media</span>
-                            )}
+                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                              {noMedia > 0 && (
+                                <span style={{ fontSize: 10, color: red, fontWeight: 700 }}>⚠ {noMedia} no media</span>
+                              )}
+                              {totalDeficit > 0 && (
+                                <span style={{ fontSize: 10, color: gold, fontWeight: 700 }}>⚠ {totalDeficit} more images needed</span>
+                              )}
+                            </div>
                           </div>
                           <div style={{ display: "flex", flexDirection: "column" as const, gap: 2, maxHeight: 200, overflowY: "auto" as const, fontFamily: "monospace" as const, fontSize: 10 }}>
                             {rows.map(r => (
@@ -10565,14 +10589,67 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 <span style={{ minWidth: 48, color: r.count === 0 ? red : "#ff9500" }}>{r.sid}</span>
                                 <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>{r.title}</span>
                                 <span style={{ color: r.count === 0 ? red : r.count > 1 ? "#ff9500" : muted }}>→ {r.label}</span>
-                                {r.allBeats > 1 && !r.optedIn && (
-                                  <span style={{ color: muted, fontSize: 9 }}>({r.allBeats} max avail, not opted in)</span>
-                                )}
-                                {r.allBeats > 1 && r.optedIn && r.ticked < r.allBeats && (
-                                  <span style={{ color: muted, fontSize: 9 }}>({r.allBeats - r.ticked} unticked)</span>
+                                {r.deficit > 0 && (
+                                  <span style={{ color: gold, fontSize: 9 }}>need +{r.deficit}</span>
                                 )}
                               </div>
                             ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* ── Phase 2-D: Per-scene image sufficiency check ── */}
+                    {narratorAudioDuration > 0 && selectedSceneIds.length > 0 && (() => {
+                      const narrSec = narratorAudioDuration / 1000;
+                      const selectedScenes = scenes.filter(s => selectedSceneIds.includes(s.sceneId));
+                      const totalChars = selectedScenes.reduce((sum, s) => {
+                        const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+                        return sum + Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                      }, 0);
+                      const deficitRows = selectedScenes.map(s => {
+                        if (sceneVideos[s.sceneId]) return null;  // video scenes skip
+                        const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
+                        const chars = Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        const frac = totalChars > 0 ? chars / totalChars : 0;
+                        const sceneNarrSec = frac * narrSec;
+                        const sceneFlipSec = Math.max(1, s.flipOverride ?? effectiveFlipSeconds);
+                        const needed = Math.ceil(sceneNarrSec / sceneFlipSec);
+                        const allBeats = sceneBeatImages[s.sceneId] || [];
+                        const varPool = [sceneImages[s.sceneId], ...(prevSceneImages[s.sceneId] || [])].filter((u): u is string => !!u);
+                        const beatPool = allBeats.length > 1 ? allBeats : (varPool.length > 1 ? varPool : null);
+                        const have = beatPool
+                          ? beatPool.filter((_, bi) => selectedBeatImages[s.sceneId]?.[bi] !== false).length
+                          : (sceneImages[s.sceneId] ? 1 : 0);
+                        const deficit = Math.max(0, needed - have);
+                        return deficit > 0 ? { sid: s.sceneId, title: s.title, needed, have, deficit, scene: s } : null;
+                      }).filter((r): r is NonNullable<typeof r> => r !== null);
+
+                      if (deficitRows.length === 0) return null;
+                      return (
+                        <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f59e0b08", border: "1px solid #f59e0b30", marginBottom: 10 }}>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: gold, margin: "0 0 8px" }}>
+                            ⚠ Narration longer than available images — {deficitRows.reduce((s, r) => s + r.deficit, 0)} more images needed
+                          </p>
+                          <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                            {deficitRows.map(r => (
+                              <div key={r.sid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 7, background: "#f59e0b08", border: "1px solid #f59e0b20" }}>
+                                <span style={{ fontSize: 10, color: gold, fontWeight: 700, minWidth: 40 }}>{r.sid}</span>
+                                <span style={{ fontSize: 10, color: "#ddd", flex: 1, overflow: "hidden", textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const }}>{r.title}</span>
+                                <span style={{ fontSize: 9, color: muted, flexShrink: 0 }}>{r.have}/{r.needed} imgs</span>
+                                <button
+                                  onClick={async () => {
+                                    await makeSceneBeatImages(r.scene, r.deficit);
+                                    setUseMaxImageScenes(prev => new Set(prev).add(r.sid));
+                                  }}
+                                  disabled={generatingMaxBeats.has(r.sid)}
+                                  style={{ padding: "3px 8px", borderRadius: 5, border: "none", background: generatingMaxBeats.has(r.sid) ? "#2a2040" : gold, color: generatingMaxBeats.has(r.sid) ? muted : "#000", fontSize: 9, fontWeight: 700, cursor: generatingMaxBeats.has(r.sid) ? "not-allowed" : "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                                  {generatingMaxBeats.has(r.sid) ? (maxBeatsProgress[r.sid] || "Generating…") : `+ Generate ${r.deficit} more`}
+                                </button>
+                              </div>
+                            ))}
+                            <p style={{ fontSize: 9, color: muted, margin: "4px 0 0" }}>
+                              Or reduce Image Flip Time above to fit more narration into fewer images.
+                            </p>
                           </div>
                         </div>
                       );
