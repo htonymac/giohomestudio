@@ -112,6 +112,12 @@ Updated: 2026-04-30
 - Fix: AI Cast Generator card added as primary; calls /api/hybrid/character-extract; auto-adds to savedCharacters + cast. "or import saved →" is secondary small link.
 - Branch: fix/ghs-s4c-sceneboard-cast-preflight
 
+### [FIXED 2026-04-30 S4c FINAL] BUG — S4c complete: children inline chars, hybrid preflight
+- Was: children Characters tab navigated away; hybrid Assembly tab had no preflight; movie Cast button said "Generate Cast from Story" not "Build Story Characters with AI"
+- Fix: (1) Children Characters tab replaced with inline AI-first registry — "Build Story Characters with AI" primary, "or import saved" secondary, CharacterPicker inline, Gen.Portrait + Remove per card. (2) Hybrid planner Assembly: added runPreflight() + pre-flight state + Pre-Flight Review section at top of Assembly tab (always visible). (3) Movie Cast tab: renamed button to "Build Story Characters with AI", added portrait model selector (Flux Schnell/Pruna/Flux Dev), renamed "Gen. Image" to "Generate Portrait" with model param.
+- Playwright: 9/9 PASS
+- Commit: fa403c7 · Branch: fix/ghs-s4c-sceneboard-cast-preflight · Date: 2026-04-30
+
 ### [FIXED 2026-04-30 S4c] BUG — Children Scene Board empty/missing
 - Was: No dedicated Scene Board tab in children-planner
 - Fix: New "Scene Board" tab added between Style and Screenplay. generateScenesFromStory() calls /api/hybrid/scene-plan. Per-scene cards: editable description, inline character assignment, per-scene image gen via /api/hybrid/scene-image. Children-safe style prefix always prepended to image prompts.

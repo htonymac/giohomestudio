@@ -1,142 +1,18 @@
-# GHS Handoff — 2026-05-14 (TODOCORRECT pass complete — QC corrections + Semi-AI Collaboration + Phase D)
+# GHS Handoff — 2026-04-30 (S4c FINAL)
 
-## Done this session (TODOCORRECT14052026.md)
+## S4c — Movie Cast AI-first + Children Chars Inline + Preflight All Planners
+Branch: `fix/ghs-s4c-sceneboard-cast-preflight`
+Commit: fa403c7
 
-### Phase A — 23-Supervisor Pipeline
-- **A1 done**: `cast-bible.ts` — CH01/CH02 format fix, `makeCHId()` + `normalizeToCHIds()`
-- **A2 done**: `prompt-simplifier.ts` + `prompt-cast-validator.ts` — both new, fully functional
-- **A3 done**: `index.ts` fully rewritten — 21 supervisors wired in correct §25 order (was 11)
+**Done:**
+- Movie planner Cast tab: "Build Story Characters with AI" primary button + portrait model selector (Flux Schnell/Pruna/Flux Dev) + "Generate Portrait" per card + "or import saved" secondary
+- Children planner Characters tab: inline AI-first registry — Build Story Characters with AI, or import saved via CharacterPicker inline, Gen.Portrait, Remove per card. No more navigate-away to character-voices page.
+- Hybrid planner Assembly tab: runPreflight() added, Pre-Flight Review section added at top of assembly (always visible — before scenes.length === 0 guard)
+- Movie planner Assembly: Pre-Assembly Review already present (confirmed)
+- Children planner: Run Pre-flight Review button in Final tab (confirmed)
+- Playwright: 9/9 PASS
 
-### Phase B — ShotPlan type system
-- **B1 done**: `ShotPlan` interface in `types.ts` — shot_id (SH04-01 format), characters_visible (CH IDs), dialogue_line, camera/framing/lighting fields
-- **B2 partial**: `shots?: ShotPlan[]` on ScenePlan, `buildDefaultShot()` in `scene-demarcator.ts` — every scene gets 1 shot; shot-level cast-checking + continuity deferred
-
-### Phase C — Semi-AI Collaboration UI
-- **C3 done**: instruction textarea + quick chips + Parse Instruction → POST /api/story/tools/collabo-edit
-- **C4 done**: dialogue display `[CH01] Name: "line"` format enforced in console
-- **C5 done**: editHistory state + Collaboration Edits section in History tab with undo
-- **C1/C2 partial**: scene/shot navigator exists in collabo console; explicit shot list in left panel folder deferred
-
-### Phase D — Backend tools
-- **D1 done**: `app/api/story/tools/collabo-edit/route.ts` — Haiku intent parser + rule-based fallback
-- **D2 done**: structured JSON output, all action types + target types, clarification_needed flow
-- **D3 done**: `classifyScope()` pure logic rules table — LOW/MEDIUM/HIGH
-- **D4 deferred**: `apply-edit/route.ts` DB write path not built — changes patch local React state
-- **D5 done**: `StoryEditHistory` model added to `prisma/schema.prisma`
-
-### TypeScript
-- `tsc --noEmit` exit 0 — only pre-existing `sound-browser-check.spec.ts` Playwright type issue (unrelated)
-
-## Pending action required from Henry
-
-### DB migration (story QC tables)
-Use `prisma db push` NOT `prisma migrate dev`. Reason: ~50 tables in schema were created via `db push` and never added to migrations. Running `prisma migrate dev` compares the shadow DB (only 10 migrated tables) against the full schema and tries to CREATE all ~50 tables — this crashes on the live DB because they already exist.
-
-`prisma db push` compares against the LIVE DB directly, so it only creates what's actually missing (the story_qc_* and story_edit_history tables).
-
-Commands (after restarting dev server to release Prisma DLL lock):
-```
-npx prisma db push
-```
-This is idempotent — safe to re-run. It will only add the new story QC + edit history tables.
-
-### Migration history fix (already done — no action needed)
-- Added `prisma/migrations/20260401_commercial_base/migration.sql` — creates `commercial_projects` + `commercial_slides` tables that were missing from migration history
-- This fixes P3006 error: `20260405_commercial_motion` was trying to ALTER a table the shadow DB didn't have
-- The 3 other migrations that ALTER commercial_projects use `ADD COLUMN IF NOT EXISTS` so they're idempotent
-
-### After DB push succeeds
-2. Run `npx prisma generate` to regenerate Prisma client with new models
-3. **Browser test collaborative-editor**: go to `/dashboard/collaborative-editor`, use the Semi-AI console (instruction → Parse → Apply Change → check History tab)
-4. **If Apply Change should write to DB**: trigger D4 build — `app/api/story/tools/apply-edit/route.ts`
-
-## What NOT to touch
-- `/dashboard/hybrid-planner/page.tsx` — DO NOT MODIFY
-- Any other planner page — DO NOT MODIFY
-
----
-
-# GHS Handoff — 2026-05-02 (Smart Builder auto-refresh fix)
-
-## Done this session
-- **Smart Builder character not appearing in list** — fixed `app/dashboard/character-voices/page.tsx` L919 (handleBuild fires `onCreated()` right after `setResult(data)`) + L955 (X close button refreshes if a character was built). Logged in PROBLEM_AND_FIX.md entry #0.
-- Dev server confirmed up on port 3200, character-voices page returns 200.
-- Port audit clean: 3040=Marabiz, 3050=stale HMKSync local, 3060=HMKSync preview tunnel, 3200=GHS.
-
-## Branch / commit
-- Working tree edits only — NOT committed yet. Two-line fix in one file.
-
-## Next exact steps
-1. Browser-test: open `http://localhost:3200/dashboard/character-voices`, run Smart Builder, confirm new character shows in list immediately (no Done click needed).
-2. If green → commit on a feature branch (`fix/character-voices-auto-refresh`) and merge to main.
-3. Resume the broader GHS Apr30 list (`project_ghs_planner_corrections_apr30.md`): tab order, Sound tab 5-tier model selector, scene inline edit, bear fix S1-S12 not merged, slices SA-SE.
-
-## Open from prior sessions (still pending)
-- Merge `fix/ghs-db-persistence-pipeline` (was pending Apr 30)
-- Items from `project_ghs_session_apr24.md`: model selector in Ad Editor → model name chips → tab reorganization
-- Finance Phase 2
-
----
-
-# GHS Handoff — 2026-04-30 (critical pipeline fixes — branch: fix/ghs-pipeline-critical)
-
-## Completed this session
-1. **TASK 1 — Commercial narration (BUG-12 follow-up)**: safeJson on enhance-narration; AI Order section with phone/WhatsApp/intro/outro fields; reads slide imageUrls, builds contact-info narration
-2. **TASK 2 — Movie export audio**: assembleMovie() payload now includes narrationList, characterVoices, musicUrl, sfx. Added sceneNarrationAudioUrls state populated by generateSceneNarration()
-3. **TASK 3 — ElevenLabs**: confirmed working — key in .env.local, TTS route already has explicit error surfacing. Fixed music-video-planner broken assembly path
-4. **TASK 4 — Music video gaps**: assembleMusicVideo() delegated to assembleMovie(); safeJson added; sfx included
-5. **TASK 5 — Gen 3 variations**: both hybrid-planner and children-planner have Gen 3 button per scene card; variations function generates 3 images with different seeds; thumbnail strip shown for user to pick active
-
-## Commits on this branch
-- `fix(commercial): safeJson guards + narration AI order + intro/outro contact fields`
-- `fix(movie-assembly): include narration/voice/SFX in assemble payload`
-- `fix(elevenlabs): proper error surfacing + API key validation`
-- `feat(scene-board): multi-image variations (3 per scene, user picks)`
-
-## Next exact steps
-1. Merge fix/ghs-pipeline-critical to main
-2. Browser-verify commercial AI Order, movie export with audio, music-video assembly, Gen 3 buttons
-3. Continue: merge fix/ghs-db-persistence-pipeline (still pending from previous session)
-
----
-
-# GHS Handoff — 2026-04-30 (DB persistence + tab order + supervisor bar)
-
-## Branch: fix/ghs-db-persistence-pipeline
-
-### Completed this session
-1. Tab order corrected — all 4 planners now follow binding: Story→Characters→Sound→Scene Board→Assembly→Overview
-2. DB persistence added to children-planner + movie-planner (BUG-15 pattern with isRestoringRef)
-3. music-video-planner scene-plan payload fixed (storyText vs expandedStory)
-4. SupervisorStatusBar component created + wired into hybrid/children/movie planners
-5. Build: clean (0 errors)
-
-### In progress / blockers
-- Branches S1–S16 are still unmutated on their feature branches (merger decision pending — see project_ghs_planner_corrections_apr30.md)
-- This branch (fix/ghs-db-persistence-pipeline) needs to be merged
-
-### Next exact steps
-1. Merge fix/ghs-db-persistence-pipeline to main
-2. Continue with slice SA (merge S1–S12 to main + bear fix verification)
-3. Then slices SB–SE per project_ghs_planner_corrections_apr30.md
-
----
-
-# GHS Handoff — 2026-04-30 (S16 BUG-01 — MERGED TO MAIN)
-
-## All 17 branches merged. S1–S16 complete.
-
-### S16 files (BUG-01: AI Coordinator)
-- `src/modules/coordinator/index.ts` — Zustand coordinator store with persist, canAdvanceTo guard
-- `app/components/CoordinatorProvider.tsx` — React wrapper + useCoordinator hook + pathname detection
-- `app/layout.tsx` — CoordinatorProvider added to layout tree
-- `app/api/hybrid/coordinator-status/route.ts` — GET endpoint for stage/section status + supervisor advice
-- `app/dashboard/hybrid-planner/page.tsx` — coordinator guard in assembleScenes (additive, non-breaking)
-
-### Next exact steps
-1. Run `npx next build` on merged main to verify zero compilation errors
-2. Run Playwright full-coverage suite
-3. Push to main and browser-verify live
+**Next:** S13 — AI Motion Video SSE guard + Scene Forge lip sync (see uncomplete.md)
 
 ---
 
@@ -151,6 +27,8 @@ Branch: `fix/ghs-bug-04-payload-json-guard`
 - `lib/api-utils.ts` created with `safeJson<T>()` — wraps 6 calls in children-planner + 1 in movie-planner
 - TypeScript clean (tsc --noEmit), next build green
 - Playwright: no JSON crash, bad payload returns JSON 400 (not HTML)
+
+**Next:** S4 — BUG-04b tab order + character picker (see uncomplete.md)
 
 ---
 

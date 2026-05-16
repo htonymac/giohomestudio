@@ -737,6 +737,18 @@ function Editor() {
     setProcessing(true);
     setChatLog(p => [...p, { role: "ai", text: `Generating voice for: "${narrText.slice(0, 50)}..."` }]);
 
+    // ── Phase C4: resolve character voice from Cast Bible ──
+    // If the active narration belongs to a character (speakerId set), look up their
+    // voice in castTray. Use castTray voiceName as the voiceId for TTS calls when available.
+    const speakerName = activeNarr?.speakerId;
+    const castChar = speakerName
+      ? castTray.find(c => c.name === speakerName || c.characterId === speakerName)
+      : null;
+    const characterVoiceName = castChar?.voiceName || null;
+    const defaultVoiceId = "21m00Tcm4TlvDq8ikWAM";
+    // Use character voiceName as voiceId when available (ElevenLabs accepts voice names as IDs in some endpoints)
+    const resolvedVoiceId = characterVoiceName || defaultVoiceId;
+
     try {
       // Premium: Gemini Flash TTS via fal.ai
       if (voiceEngine === "gemini") {
@@ -758,7 +770,7 @@ function Editor() {
       if (voiceEngine === "elevenlabs") {
         const elRes = await fetch("/api/tts", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: narrText, engine: "elevenlabs", voiceId: "21m00Tcm4TlvDq8ikWAM" }),
+          body: JSON.stringify({ text: narrText, engine: "elevenlabs", voiceId: resolvedVoiceId }),
         });
         const elData = await elRes.json();
         if (elData.audioUrl) {
@@ -801,10 +813,10 @@ function Editor() {
         setChatLog(p => [...p, { role: "ai", text: `Voice generated! Narration audio ready. Will be mixed into assembly.` }]);
         saveVersion("Voice generated");
       } else {
-        // Piper not available — try ElevenLabs
+        // Piper not available — try ElevenLabs (use character voice from Cast Bible if available)
         const elRes = await fetch("/api/voices/preview", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: narrText, voiceId: "21m00Tcm4TlvDq8ikWAM" }), // default voice
+          body: JSON.stringify({ text: narrText, voiceId: resolvedVoiceId }),
         });
         if (elRes.ok && elRes.headers.get("content-type")?.includes("audio")) {
           const blob = await elRes.blob();

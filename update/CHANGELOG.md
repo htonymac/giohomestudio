@@ -1,5 +1,19 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-16 — Session 12: Establishing Shot Image Gen + Assembly Wire-in + Modal Scroll-Lock + Voice Cast Bible
+
+**Branch:** `feat/ghs-finishline`
+
+**What:** 3 tasks. (1) Establishing shot `imageUrl` field added to interface; "🖼 Gen Image" button in mini-card fires `/api/hybrid/establishing-shot/generate`; image preview shown at 80px wide. Establishing shots with `imageUrl` are prepended as short image segments before their scenes during `assembleScenes()`. (2) `useEffect` scroll-lock added to hybrid-planner — `document.body.style.overflow = "hidden"` when any of: `previewMedia`, `showAidPicker`, `importLibraryOpen`, `showCharacterPicker`, `pendingImportChar`, `showDialogueReview` is open. (3) `generateNarration()` in collaborative-editor now looks up `activeNarr.speakerId` in `castTray` and uses `castTray[].voiceName` as `voiceId` for ElevenLabs/Piper calls instead of hardcoded default.
+
+**Impact:** Assembly now includes establishing shots as visual bookends. Modal scroll jank eliminated. Character dialogue lines use character's assigned voice instead of narrator default.
+
+**Risk:** Low. No deletions, no schema changes, 0 new TSC errors. Pre-existing `assembly/execute/route.ts` TS2367 error unchanged.
+
+**Files:**
+- `app/dashboard/hybrid-planner/page.tsx` — `EstablishingShot.imageUrl?`, `genEstablishingShotImage()`, Gen Image button + preview, establishing shot prepend in `assembleScenes()`, scroll-lock `useEffect`
+- `app/dashboard/collaborative-editor/page.tsx` — Cast Bible voice lookup in `generateNarration()`
+
 ## 2026-05-15 — Session 11: Collab Editor 3-Panel + Apply-Edit Route + Subtitle Tokens + Scroll-Lock + Establishing Shot Generate + Wave C Multi-Image
 
 **Branch:** `feat/ghs-collab-and-polish`
@@ -310,6 +324,13 @@ Seven audio pipeline bugs fixed end-to-end. Scene image action extraction. Per-s
 **Risk:** Low — additive. TTS route retains legacy `engine` field for backward compat. FAL Narrator gated on `FAL_KEY` env var presence.
 **Branch:** fix/ghs-bug-09-voice-tiers
 **Playwright:** 17/17 PASS, 90s, screenshots C:/tmp/bug-09-*.png
+
+## 2026-04-30 — S4c FINAL: children chars inline, hybrid preflight, movie cast rename + portrait model
+**What:** Children planner Characters tab converted to inline AI-first registry (Build Story Characters with AI, or import saved, Gen.Portrait, Remove per card, no navigate-away). Hybrid planner Assembly tab gains runPreflight() + Pre-Flight Review section always visible at top. Movie planner Cast tab: primary button renamed to "Build Story Characters with AI"; portrait model selector (Flux Schnell/Pruna/Flux Dev) added; "Gen. Image" → "Generate Portrait" with model param passed.
+**Why:** Prior S4c commit left children Characters tab still navigating to external page; hybrid Assembly had no preflight; movie button label incorrect per spec.
+**Impact:** All 3 planners now fully spec-compliant for S4c. Playwright 9/9 PASS.
+**Risk:** Low — additive only. CharacterPicker already imported in children-planner. Preflight is optional, never gates assembly.
+**Branch:** fix/ghs-s4c-sceneboard-cast-preflight · Commit: fa403c7
 
 ## 2026-04-30 — S4c: AI Cast from Story + Children Scene Board + Pre-assembly Preflight
 **What:** (A) Movie-planner Cast tab — AI Cast Generator is now primary action; reads story text via /api/hybrid/character-extract, auto-adds to cast. "Import saved" demoted to secondary link. (B) Children-planner — new "Scene Board" tab added; per-scene cards with editable description, character assignment inline, AI image generation per scene via /api/hybrid/scene-image. generateScenesFromStory() calls scene-plan API. (C) Pre-assembly preflight added to Assembly tab (movie-planner) and Final tab (children-planner) — runs /api/hybrid/pre-flight, shows green/yellow/red checklist.

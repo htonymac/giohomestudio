@@ -143,6 +143,7 @@ interface EstablishingShot {
   purpose: string;
   location: string;
   timeOfDay: string;
+  imageUrl?: string;
 }
 
 const ESTABLISHING_TYPE_LABEL: Record<string, string> = {
@@ -955,6 +956,13 @@ function HybridPlannerInner() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, projectId, scenes.length]);
+
+  // ── Body scroll-lock when any full-screen modal is open ──
+  useEffect(() => {
+    const anyModal = !!previewMedia || showAidPicker || importLibraryOpen || showCharacterPicker || !!pendingImportChar || showDialogueReview;
+    document.body.style.overflow = anyModal ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [previewMedia, showAidPicker, importLibraryOpen, showCharacterPicker, pendingImportChar, showDialogueReview]);
 
   // ── Drag reorder ──
   const [dragSource, setDragSource] = useState<number | null>(null);
@@ -2582,6 +2590,34 @@ function HybridPlannerInner() {
     }
   }
 
+  // Generate an image for an existing establishing shot via FAL FLUX.
+  async function genEstablishingShotImage(sceneId: string) {
+    const shot = establishingShots[sceneId];
+    if (!shot) return;
+    setEstablishingSceneId(sceneId); // reuse existing "generating" state
+    try {
+      const res = await fetch("/api/hybrid/establishing-shot/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId, shot, provider: "flux-dev" }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setEstablishingShots(prev => ({
+          ...prev,
+          [sceneId]: { ...prev[sceneId], imageUrl: data.imageUrl },
+        }));
+        setLastAction(`Establishing shot image ready for ${sceneId}`);
+      } else {
+        setLastAction(`Establishing shot gen failed: ${data.error || "unknown"}`);
+      }
+    } catch (e) {
+      setLastAction(`Establishing shot gen error: ${String(e)}`);
+    } finally {
+      setEstablishingSceneId(null);
+    }
+  }
+
   // Add establishing shots across ALL scenes in one AI call — reads full story context.
   async function addAllEstablishingShots() {
     if (establishingAll || scenes.length === 0) return;
@@ -3737,6 +3773,34 @@ function HybridPlannerInner() {
         ...(outroScene ? [{ ...outroScene, scene: assembleSceneList.length + (introScene ? 2 : 1) }] : []),
       ];
 
+      // ── Prepend establishing shots before their scene ──
+      // Each scene with a generated establishing shot imageUrl gets a short image segment inserted before it.
+      const withEstablishing: typeof finalSceneList = [];
+      for (const seg of finalSceneList) {
+        const segSceneId = (seg as { sceneId?: string }).sceneId;
+        if (segSceneId && establishingShots[segSceneId]?.imageUrl) {
+          const eShot = establishingShots[segSceneId];
+          withEstablishing.push({
+            scene: (seg as { scene?: number }).scene ? (seg as { scene: number }).scene - 0.5 : -0.5,
+            sceneId: `${segSceneId}_establish`,
+            videoUrl: "",
+            imageUrl: eShot.imageUrl,
+            mode: "image" as const,
+            duration: eShot.durationSeconds || 3,
+            motionDuration: eShot.durationSeconds || 3,
+            narrationScript: "",
+            description: `Establishing shot: ${eShot.type}`,
+            title: `[Establishing] ${eShot.type}`,
+            flipOverride: null,
+            text: "",
+            animation: "none" as const,
+          } as typeof finalSceneList[0]);
+        }
+        withEstablishing.push(seg);
+      }
+      // Replace finalSceneList reference for assembly — use withEstablishing from here on
+      const finalSceneListWithEstablishing = withEstablishing;
+
       // ── Build narrationList — narrator + all character voices with timing ──
       // storyMode controls which audio tracks are included:
       //   narration-only → narrator only, no character voices
@@ -3887,7 +3951,7 @@ function HybridPlannerInner() {
         narrationTracks: narrationList.length,
         musicUrl: effectiveMusicUrl || "NONE",
         sfxCount: sfxList.length,
-        sceneCount: finalSceneList.length,
+        sceneCount: finalSceneListWithEstablishing.length,
         subtitleStyle,
       }));
 
@@ -3895,7 +3959,7 @@ function HybridPlannerInner() {
       const effProjId = projectId || activeProjLocalId || `hybrid_${Date.now()}`;
       // totalDuration = narrator audio + fixed intro/outro card durations.
       // Intro/outro use fixed durations (5s/10s) not narrator proportion.
-      const sceneBaseDuration = finalSceneList.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
+      const sceneBaseDuration = finalSceneListWithEstablishing.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
       const narratorDurSec = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : 0;
       const introOutroFixed = (introScene ? (introScene.duration || 5) : 0) + (outroScene ? (outroScene.duration || 10) : 0);
       const totalDuration = narratorDurSec > 0
@@ -3908,7 +3972,7 @@ function HybridPlannerInner() {
       const masterDurForSegs = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration;
       // Only count main scene chars — intro/outro (no sceneId) have no narration text.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const totalStoryChars = (finalSceneList as any[]).reduce((sum: number, s: { sceneId?: string; description?: string; title?: string; narrationScript?: string }) => {
+      const totalStoryChars = (finalSceneListWithEstablishing as any[]).reduce((sum: number, s: { sceneId?: string; description?: string; title?: string; narrationScript?: string }) => {
         if (!s.sceneId) return sum;  // skip intro/outro cards
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
         const text = segText || s.narrationScript || s.description || s.title || "";
@@ -3919,9 +3983,9 @@ function HybridPlannerInner() {
       let segIdx = 0;
       const assemblySegments: AssemblySegment[] = [];
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      for (let si = 0; si < (finalSceneList as any[]).length; si++) {
+      for (let si = 0; si < (finalSceneListWithEstablishing as any[]).length; si++) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const s = (finalSceneList as any[])[si] as { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number; narrationScript?: string; description?: string; title?: string };
+        const s = (finalSceneListWithEstablishing as any[])[si] as { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number; narrationScript?: string; description?: string; title?: string };
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
         const sceneText = segText || s.narrationScript || s.description || s.title || "";
         const textFraction = Math.max(sceneText.length, 20) / totalStoryChars;
@@ -8917,12 +8981,27 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   </div>
                                   <p style={{ fontSize: 9, color: "#fbbf2470", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{es.prompt}</p>
                                 </div>
-                                <button
-                                  onClick={() => setEstablishingShots(prev => { const n = { ...prev }; delete n[s.sceneId]; return n; })}
-                                  title="Remove establishing shot"
-                                  style={{ background: "transparent", border: "none", color: "#fbbf2460", fontSize: 12, cursor: "pointer", padding: "2px 4px", flexShrink: 0, lineHeight: 1 }}>
-                                  ✕
-                                </button>
+                                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                                  {/* Image preview if generated */}
+                                  {es.imageUrl && (
+                                    <img src={es.imageUrl} alt="Establishing shot" style={{ width: 80, height: 45, objectFit: "cover", borderRadius: 4, border: "1px solid rgba(251,191,36,0.3)" }} />
+                                  )}
+                                  <div style={{ display: "flex", gap: 4 }}>
+                                    <button
+                                      onClick={() => genEstablishingShotImage(s.sceneId)}
+                                      disabled={establishingSceneId === s.sceneId}
+                                      title="Generate image for this establishing shot"
+                                      style={{ background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.3)", color: "#fbbf24", fontSize: 9, cursor: establishingSceneId === s.sceneId ? "not-allowed" : "pointer", padding: "2px 6px", borderRadius: 4, lineHeight: 1.4, whiteSpace: "nowrap" as const }}>
+                                      {establishingSceneId === s.sceneId ? "…" : "🖼 Gen Image"}
+                                    </button>
+                                    <button
+                                      onClick={() => setEstablishingShots(prev => { const n = { ...prev }; delete n[s.sceneId]; return n; })}
+                                      title="Remove establishing shot"
+                                      style={{ background: "transparent", border: "none", color: "#fbbf2460", fontSize: 12, cursor: "pointer", padding: "2px 4px", lineHeight: 1 }}>
+                                      ✕
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             );
                           })()}

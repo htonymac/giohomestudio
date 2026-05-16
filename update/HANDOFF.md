@@ -1,8 +1,34 @@
-# GHS HANDOFF — Session 11 (Collab Editor 3-Panel + Apply-Edit + Subtitle Tokens + Wave C Multi-Image)
+# GHS HANDOFF — Session 12 (Establishing Shot Assembly + Scroll-Lock + Voice Cast Bible)
 
-**Last updated:** 2026-05-15
-**Build:** `npx tsc --noEmit` exit=0 (zero production errors)
-**Branch:** `feat/ghs-collab-and-polish` — committed (9d0c879), NOT pushed to main
+**Last updated:** 2026-05-16
+**Build:** `npx tsc --noEmit` — 1 pre-existing error in `assembly/execute/route.ts` (TS2367, not my code), 0 new errors
+**Branch:** `feat/ghs-finishline` — committed, NOT pushed to main
+
+---
+
+## ✅ Done Session 12 (2026-05-16)
+
+### Task 1 — Establishing Shot: Generate Image + Wire into Assembly ✅
+- `EstablishingShot` interface: added `imageUrl?: string`
+- `genEstablishingShotImage(sceneId)`: async function fires `/api/hybrid/establishing-shot/generate` with `{sceneId, shot, provider:"flux-dev"}`, stores `imageUrl` in `establishingShots` state
+- Mini-card UI: "🖼 Gen Image" button + 80×45 image preview when `shot.imageUrl` set
+- `assembleScenes()`: establishing shots prepended as image segments (`mode:"image"`, `duration:eShot.durationSeconds||3`) before their main scene in `finalSceneListWithEstablishing`
+
+### Task 2 — Modal Scroll-Lock ✅
+- `useEffect` in hybrid-planner watching `previewMedia`, `showAidPicker`, `importLibraryOpen`, `showCharacterPicker`, `pendingImportChar`, `showDialogueReview`
+- Sets `document.body.style.overflow = "hidden"` when any modal open, clears on close + cleanup
+
+### Task 3 — Voice Cast Bible Wiring ✅
+- `generateNarration()` in collaborative-editor: added Cast Bible lookup before TTS calls
+- Reads `activeNarr.speakerId` → finds `castTray` member by name match → extracts `voiceName`
+- `resolvedVoiceId = characterVoiceName || defaultVoiceId` used for all ElevenLabs calls in function
+
+---
+
+## ⚡ IMMEDIATE — nothing blocking
+Commit on `feat/ghs-finishline`. TSC passes (pre-existing execute/route.ts error only). Dev server on :3200.
+
+---
 **Dev server:** localhost:3200 (HP Omen) | **Debug Chrome:** :9222
 **DB:** giohomestudio_db | **Schema:** `imageFlipSeconds` + `flipOverride` + `lastSeenWardrobe` live
 
