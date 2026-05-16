@@ -1342,16 +1342,20 @@ function HybridPlannerInner() {
         nameStyle: storyNameStyle || undefined,
       };
 
-      // QC always checks the full story narrative — not brief scene descriptions.
-      // Scene descriptions are too sparse for keyword/structure supervisors to work correctly.
-      // narrationScript is the authoritative per-scene content if scenes have been voiced.
-      let qcStoryText = expandedSummary || idea;
-      if (!qcStoryText.trim() && scenes.length > 0) {
-        // Fallback: use narration scripts if available, else descriptions
+      // QC text source: prefer current scene content so fixes show on re-run.
+      // Scenes with narrationScript/description are more accurate than expandedSummary
+      // (which is frozen at expand-time and doesn't reflect QC fixes).
+      const scenesHaveContent = scenes.length > 0 &&
+        scenes.some(s => (s.narrationScript || s.description || "").trim().length > 20);
+      let qcStoryText: string;
+      if (scenesHaveContent) {
         qcStoryText = scenes
+          .slice().sort((a, b) => a.scene - b.scene)
           .map(s => (s.narrationScript?.trim() || s.description?.trim() || "").replace(/\n+/g, " "))
           .filter(Boolean)
           .join("\n\n");
+      } else {
+        qcStoryText = expandedSummary || idea;
       }
 
       // Build full ScenePlan-shaped objects so scene-level supervisors have real data
