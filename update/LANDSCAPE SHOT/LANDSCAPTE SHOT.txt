@@ -1,0 +1,184 @@
+Implement an “Establishing Shot & Scene Opener System” in GHS.
+
+I am not asking for random scenery shots. I want proper movie-language scene openers.
+
+Meaning:
+An establishing shot is a wide cinematic shot used before a scene to show the location, mood, scale, time of day, and emotional setup before the main action begins.
+
+Examples:
+- city view before entering an office scene
+- tower/building exterior before showing people inside
+- village landscape before a cultural story starts
+- battlefield wide shot before war begins
+- palace exterior before royal dialogue
+- road/market/forest view before the characters appear
+- luxury apartment exterior before a real estate ad
+- aerial/drone view before a new location
+
+Create a dedicated planner/supervisor called:
+
+Establishing Shot & Scene Opener System
+
+It should decide when to insert a cinematic establishing shot before a scene.
+
+Core rule:
+Before every major scene, the system should check whether the viewer needs to understand the place, mood, scale, time, or coming action before the main scene starts.
+
+Add an establishing shot when:
+1. The story/movie begins.
+2. The location changes.
+3. The time of day changes.
+4. The mood changes strongly.
+5. War, fight, danger, chase, romance, tragedy, celebration, or emotional scene is about to happen.
+6. A character enters an important building, palace, office, hospital, school, shop, house, warehouse, battlefield, village, city, or secret location.
+7. The scene needs cinematic breathing space before action or dialogue.
+8. The user selects cinematic, movie, epic, documentary, children story, real estate, commercial, or cultural mode.
+9. The story needs better geography or visual context.
+
+Do NOT add establishing shots when:
+1. The scene is continuing in the same room/location.
+2. Fast action is already happening and a wide shot would slow it down.
+3. It is a very short ad and timing is strict.
+4. The viewer already understands the location.
+5. It will make the video unnecessarily long.
+
+Add these establishing shot types:
+
+1. Opening Establishing Shot
+- Used at the beginning of a movie/story/ad.
+- Shows the world before the story starts.
+
+2. Location Establishing Shot
+- Used when entering a new place.
+
+3. Transition Establishing Shot
+- Used between scenes to move from one location/time/mood to another.
+
+4. Mood Establishing Shot
+- Used to create emotion before the scene starts.
+
+5. Pre-Action Establishing Shot
+- Used before war, fight, chase, danger, attack, or big event.
+
+6. Exterior Building Shot
+- Shows outside of a building before going inside.
+
+7. Aerial Establishing Shot
+- Drone-style wide view for city, village, estate, battlefield, kingdom, island, market, or large location.
+
+8. Beauty Shot
+- Used for luxury, real estate, hotels, apartments, products, ads, brand videos, or premium locations.
+
+Default duration rules:
+- Fast transition: 2–3 seconds
+- Normal establishing shot: 4–6 seconds
+- Cinematic scene opener: 6–8 seconds
+- Epic movie intro: 10–15 seconds
+- Commercial/ad establishing shot: 2–4 seconds
+
+Default should be 5 seconds unless the mode requires more or less.
+
+The establishing shot prompt must include:
+- shot type
+- location
+- time of day
+- mood
+- important visual details
+- camera movement
+- story purpose
+- no dialogue unless needed
+
+Prompt format:
+
+“Cinematic [shot type] establishing shot of [location], during [time of day], with [mood], showing [important visual details], camera [movement], designed to introduce [next scene/purpose].”
+
+Examples:
+
+1. City:
+“Cinematic aerial establishing shot of Lagos city at sunset, busy roads, tall buildings, glowing streetlights, warm orange sky, slow drone movement forward, realistic and atmospheric, designed to introduce a modern business scene.”
+
+2. Tower:
+“Wide exterior establishing shot of a tall glass office tower at night, lights glowing in many windows, cars passing below, slight rain on the road, slow camera tilt upward, serious corporate mood, designed to introduce an office meeting scene.”
+
+3. Before war:
+“Epic wide establishing shot of a silent battlefield at dawn, smoke drifting across the ground, broken weapons scattered, soldiers lined up in the distance, dark clouds overhead, slow cinematic push-in, tense emotional atmosphere before war begins.”
+
+4. Village:
+“Peaceful wide establishing shot of a Nigerian village in the early morning, small houses, palm trees, smoke rising from cooking fires, children walking along a dusty road, warm sunlight, calm emotional tone, designed to introduce a cultural family story.”
+
+5. Palace:
+“Grand cinematic establishing shot of an ancient African palace on a hill, guards standing at the gate, golden sunrise behind the building, drums faintly heard, slow camera movement forward, majestic and powerful atmosphere, designed to introduce a royal scene.”
+
+Implementation requirements:
+
+1. Add a scene analysis step before final shot generation.
+2. For each scene, detect:
+   - location
+   - time of day
+   - mood
+   - scene importance
+   - whether location changed
+   - whether action is about to happen
+   - whether the viewer needs visual context
+3. If needed, insert an establishing shot before the main scene shot.
+4. Store the establishing shot as its own shot/segment in the scene plan.
+5. It must not replace the main scene. It comes before the main action.
+6. The system must mark the shot type clearly, for example:
+   shotRole: "establishing_shot"
+   establishingType: "opening" | "location" | "transition" | "mood" | "pre_action" | "exterior_building" | "aerial" | "beauty"
+7. The system must include durationSeconds.
+8. The system must include camera movement.
+9. The system must include mood and purpose.
+10. The system must avoid repeating the same establishing shot too many times.
+
+Also add UI/control options:
+
+User should be able to choose:
+
+Establishing Shots:
+- Auto
+- Minimal
+- Cinematic
+- Epic
+- Off
+
+Behavior:
+- Auto: system decides normally.
+- Minimal: only add when location/time changes.
+- Cinematic: add more scene openers for movie feel.
+- Epic: longer, dramatic openers for big scenes.
+- Off: do not add establishing shots.
+
+Add this especially to:
+- Movie Creator
+- Hybrid Movie
+- Children Story Video
+- Children Story Hybrid
+- Commercial/Ad Builder
+- Real Estate / Apartment Ads
+- Documentary-style videos
+- Cultural story mode
+
+Important:
+This system should not create useless filler. Every establishing shot must have a story reason:
+- show location
+- show mood
+- show danger
+- show scale
+- show beauty
+- show time change
+- prepare viewer before main action
+
+Final expected output:
+The scene planner should produce a structured sequence like:
+
+Scene 1:
+- Shot 1: Opening Establishing Shot, 5s
+- Shot 2: Main Character Introduction, 6s
+- Shot 3: Dialogue/Action, 8s
+
+Scene 2:
+- Shot 1: Transition Establishing Shot, 4s
+- Shot 2: Main Scene Action, 7s
+
+Do not just add a text explanation. Implement the planning logic, data structure, prompt generation rules, and UI setting for controlling establishing shots.
