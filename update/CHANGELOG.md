@@ -1,5 +1,122 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-15 — Session 10: Story QC Fix System + Establishing Shot + Voice Auto-Assign + Name Library v1.1.0
+
+**What:** 5 features shipped. Story QC now has Fix/Fix All buttons that apply suggestions to all scenes via one batch LLM call. Per-scene AI chat box (Ask AI) added to scene edit panel. Character voices auto-assign by gender on detection. Full Establishing Shot system built (API + UI). Name library expanded with 7 new cultural regions.
+
+**Impact:** QC workflow is now a full loop — run QC → click Fix → re-run QC, all in one panel. Scene editing has AI assistance inline. Voice pipeline no longer requires manual assignment. Establishing shots give stories cinematic depth (available to build on in Assembly).
+
+**Risk:** Low. All additions, no deletions. TSC clean (0 errors).
+
+**Files:**
+- `app/api/hybrid/scene-edit/route.ts` — +`batch_polish`, +`custom` mode, +`establish`, +`establish_all` ops
+- `app/dashboard/hybrid-planner/page.tsx` — +establishing shot system, +QC fix system, +Ask AI, +voice auto-assign, +4 culture options
+- `src/data/character-names.json` — v1.1.0, +7 regions, +4 continents, +700 names
+- `update/LANDSCAPE SHOT/ESTABLISHING_SHOT_SPEC.md` — NEW spec doc (15KB)
+
+---
+
+## 2026-05-14 — Story QC Layer corrections + Semi-AI Collaboration UI + Phase D backend (TODOCORRECT14052026)
+
+**What:** Full correction + extension pass per TODOCORRECT14052026.md. Character IDs fixed to CH01 format, 2 missing supervisors written, all 21 supervisors wired in correct §25 order, ShotPlan type system added, Semi-AI Collaboration Console added to collaborative-editor, Intent Parser backend tool built, StoryEditHistory Prisma model added.
+
+**Character ID format fix (`src/lib/story-supervisors/cast-bible.ts`):**
+- IDs changed from `char_name_001` → `CH01`, `CH02`, `CH03` format
+- Added `makeCHId(index)` + `normalizeToCHIds()` — protagonist always gets CH01
+
+**New supervisors:**
+- `prompt-simplifier.ts` — detects overly complex vocabulary, enforces 2.4 words/sec rule, blocks adult language in children_story
+- `prompt-cast-validator.ts` — per-scene/per-prompt validation: blocks race/age/gender changes vs Cast Bible
+
+**index.ts fully rewritten:** all 21 supervisors wired in §25 order (was 11 before)
+
+**ShotPlan type system (`src/lib/story-supervisors/types.ts`):**
+- `ShotPlan` interface: shot_id (SH04-01), characters_visible, speaking_character_id, dialogue_line, camera/lighting fields
+- `shots?: ShotPlan[]` added to `ScenePlan`
+- `scene-demarcator.ts`: `buildDefaultShot()` — every scene gets at least 1 shot
+
+**Semi-AI Collaboration Console (`app/dashboard/collaborative-editor/page.tsx`):**
+- Scene/shot navigator with CH01/CH02 chips, dialogue display `[CH01] Name: "line"`
+- Quick Edit chips, instruction textarea, Parse Instruction → POST /api/story/tools/collabo-edit
+- Scope badge (LOW/MEDIUM/HIGH), cost estimate, Confirm panel → Apply Change → editHistory
+- Edit History tab: undo per entry, before→after snapshot
+
+**Phase D backend:**
+- `app/api/story/tools/collabo-edit/route.ts` — Claude Haiku intent parser + rule-based fallback + change scope classifier
+- `prisma/schema.prisma` — `StoryEditHistory` model added (id, projectId, instruction, resolvedObjectId, changeType, scope, beforeSnapshot, afterSnapshot, timestamp, undone)
+
+**TypeScript:** tsc --noEmit exit 0 (only pre-existing `sound-browser-check.spec.ts` Playwright type error unrelated to these changes)
+
+**Pending (requires dev server restart by Henry):**
+- `npx prisma migrate dev --name story-qc-layer` — 7 QC models
+- `npx prisma migrate dev --name story-edit-history` — StoryEditHistory model
+
+**Risk:** D4 apply-edit DB route deferred — changes currently patch local React state only.
+
+---
+
+## 2026-05-14 — Story Quality Control Layer (22-supervisor pipeline, Semi-AI Collaborative Mode)
+
+**What:** Full Story QC system built for Hybrid Planner — 22 TypeScript supervisors, 7 Prisma models, 5 API routes, UI controls in Story tab.
+
+**Supervisors built (`src/lib/story-supervisors/`):**
+- Core: `types.ts`, `story-contract.ts`, `index.ts` — shared types + `runFullStoryQCPipeline()` 11-stage orchestrator
+- Analysis: `story-screening.ts`, `culture-supervisor.ts`, `cast-bible.ts`, `cast-checking.ts`
+- Structure: `scene-demarcator.ts`, `scene-density.ts`, `emotion-intensifier.ts`, `continuity-supervisor.ts`
+- Production: `music-supervisor.ts`, `provider-compatibility.ts`, `final-gatekeeper.ts`
+- Auxiliary: `music-continuity.ts`, `dialogue-voice-supervisor.ts`, `subtitle-style-supervisor.ts`, `short-story-supervisor.ts`, `long-story-supervisor.ts`, `location-environment-supervisor.ts`, `costume-props-supervisor.ts`, `scene-prompt-builder.ts`
+
+**API routes (`app/api/story/`):**
+- `POST /api/story/supervise` — main endpoint; runs full 11-stage pipeline
+- `POST /api/story/generate-contract` — builds StoryContract from user inputs
+- `POST /api/story/build-cast-bible` — extracts character identities via Claude Haiku
+- `POST /api/story/demarcate-scenes` — splits story into timed ScenePlans
+- `POST /api/story/final-gatekeeper` — standalone gatekeeper check
+
+**Prisma schema (`prisma/schema.prisma`):** 7 new models — `StoryQCProject`, `StoryQCContract`, `StoryQCDraft`, `StoryQCCastMember`, `StoryQCScenePlan`, `StorySupervisorReport`, `StoryGenerationPlan`
+
+**Hybrid Planner Story tab additions:**
+- 6 QC selectors: Story Type, Scene Duration, Emotional Intensity, Language Level, Subtitle Style, Generation Mode
+- QC Results Panel: score circle, per-category scores, blocking issues, warnings, fixes, Cast Bible table, Scene navigator, approve/override actions
+
+**Impact:** Zero TypeScript errors (tsc --noEmit exit 0). Dev server live, Story tab renders. Pipeline runs in-memory — no DB write path yet.
+
+**Risk:** `npx prisma generate` blocked by dev server DLL lock — run after server restart.
+
+---
+
+## 2026-05-14 — Hybrid Planner Phase 2-5 verification + Assembly tab unlock fix
+
+**What:** Test suite (17 tests) + Assembly tab accessibility fix.
+
+**Assembly tab lock fix:**
+- Changed unlock condition from `scenesDone` (requires scenes + images) to `scenes.length > 0` (just needs scenes).
+- Pre-flight check in the tab already warns about missing images — no need to lock the whole tab.
+- Also fixed bottom progress bar unlock to match.
+
+**Step 9 auto-open:**
+- Assembly tab now auto-opens Step 9 (Assemble Movie) on first visit, so flip panel + narration/subtitle status are immediately visible.
+
+**Test suite — 17/17 passing (`tests/hybrid-phase2-5-verify.spec.ts`):**
+- API: scene-images GET/DELETE, project settings GET, scene-intelligence POST
+- UI: Assembly tab flip panel, preset buttons (1s/2s/3s/5s/8s), per-scene flip override on Scene Board
+- UI: subtitle status in Assembly, narration status badge, Assemble button
+- UI: AI model health dots, no crash-level console errors, screenshot
+
+**Sound browser check — 6/6 passing (`tests/sound-browser-check.spec.ts`):**
+- Sound tier selector, Auto Time Stamp / Auto Audio Plans / Auto Shot Plans buttons
+- Assembly flip panel, subtitle status badge, no console errors
+
+**Pending (needs dev server restart):**
+- `PATCH /api/project/settings` → imageFlipSeconds still returns 500. Root cause: Prisma module cache (globalThis.prisma singleton).
+- **Fix:** `! npm run dev` in GioHomeStudio terminal to restart dev server.
+
+**Impact:** Assembly tab now accessible without generating images first. Tests confirm all Phase 2-5 features are present.
+
+**Risk:** Low. Unlock relaxed from "scenes+images" to "scenes". Pre-flight check inside assembly handles missing-images warning.
+
+---
+
 ## 2026-05-14 — Hybrid Planner Phase 1–2 (Image Flip + Assembly Fixes)
 
 **What:** 5 phases of bug fixes and new features for Hybrid Planner assembly pipeline.

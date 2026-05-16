@@ -1,4 +1,4 @@
-// GHS Phase A — Project Settings API
+// GHS Phase A — Project Settings API (updated 2026-05-14: imageFlipSeconds)
 // GET  /api/project/settings?projectId=...   → returns settings or defaults if no row exists
 // PATCH /api/project/settings                 → upserts fields, returns merged result
 

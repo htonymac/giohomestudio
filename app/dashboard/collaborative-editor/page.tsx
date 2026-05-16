@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { createEmptyAssembly, type AssemblyJSON, type AssemblySegment, type NarrationEntry, type MusicEntry, type SFXEntry, type OverlayEntry } from "@/lib/assembly-schema";
+import type { ScenePlan, ShotPlan, CastBibleEntry } from "@/lib/story-supervisors/types";
 import TimelineEngine, { assemblyToTimelineClips } from "../../components/TimelineEngine";
 import ReviewPanels from "../../components/ReviewPanels";
 import KeyboardShortcutsPanel from "../../components/KeyboardShortcutsPanel";
@@ -178,6 +179,18 @@ function Editor() {
   const [hybridDuration, setHybridDuration] = useState("1min");
   const [hybridAudience, setHybridAudience] = useState("general");
   const [hybridCostPref, setHybridCostPref] = useState("balanced");
+
+  // ── Semi-AI Collaboration state ──
+  const [qcScenes, setQcScenes] = useState<ScenePlan[]>([]);
+  const [qcCastBible, setQcCastBible] = useState<CastBibleEntry[]>([]);
+  const [collaboActiveSceneIdx, setCollaboActiveSceneIdx] = useState(0);
+  const [collaboActiveShotIdx, setCollaboActiveShotIdx] = useState(0);
+  const [collaboInstruction, setCollaboInstruction] = useState("");
+  const [collaboProcessing, setCollaboProcessing] = useState(false);
+  type ResolvedEdit = { action: string; target_type: string; target_id: string; payload: Record<string, unknown>; scope: "low" | "medium" | "high"; requiresRegeneration: boolean; estimatedCost: number; clarification_needed?: boolean; specific_question?: string };
+  const [collaboResolvedEdit, setCollaboResolvedEdit] = useState<ResolvedEdit | null>(null);
+  type EditHistoryEntry = { id: string; instruction: string; resolvedObjectId: string; changeType: string; scope: string; timestamp: string; undone: boolean; before: unknown; after: unknown };
+  const [editHistory, setEditHistory] = useState<EditHistoryEntry[]>([]);
 
   // ── In/Out trim points ──
   const [inPoint, setInPoint] = useState<number | null>(null);
@@ -3327,6 +3340,168 @@ function Editor() {
                 TAB: AI — Create + Instruct + FAL
                 ═══════════════════════════════ */} {tab === "ai" && (
               <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+
+                {/* ── SEMI-AI COLLABORATION CONSOLE ── */}
+                {qcScenes.length > 0 ? (
+                  <div style={{ marginBottom: 12, border: `1px solid ${purple}30`, borderRadius: 10, overflow: "hidden" }}>
+                    {/* Scene + Shot navigator */}
+                    <div style={{ background: `${purple}10`, padding: "8px 10px", borderBottom: `1px solid ${purple}20` }}>
+                      <div style={{ fontSize: 9, fontWeight: 700, color: purple, textTransform: "uppercase", letterSpacing: 1, marginBottom: 5 }}>Semi-AI Collaboration</div>
+                      {/* Scene selector */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 9, color: muted, flexShrink: 0 }}>Scene</span>
+                        <button onClick={() => { setCollaboActiveSceneIdx(i => Math.max(0, i - 1)); setCollaboActiveShotIdx(0); }} disabled={collaboActiveSceneIdx === 0} style={{ padding: "1px 6px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>◀</button>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: text, flex: 1, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {qcScenes[collaboActiveSceneIdx]?.scene_id ?? "—"}: {qcScenes[collaboActiveSceneIdx]?.title ?? ""}
+                        </span>
+                        <button onClick={() => { setCollaboActiveSceneIdx(i => Math.min(qcScenes.length - 1, i + 1)); setCollaboActiveShotIdx(0); }} disabled={collaboActiveSceneIdx >= qcScenes.length - 1} style={{ padding: "1px 6px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>▶</button>
+                      </div>
+                      {/* Active scene info */}
+                      {(() => {
+                        const sc = qcScenes[collaboActiveSceneIdx];
+                        const shot: ShotPlan | undefined = sc?.shots?.[collaboActiveShotIdx];
+                        if (!sc) return null;
+                        const speakingChar = qcCastBible.find(c => c.character_id === shot?.speaking_character_id);
+                        return (
+                          <div>
+                            {/* Shot selector */}
+                            {sc.shots && sc.shots.length > 0 && (
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                <span style={{ fontSize: 9, color: muted, flexShrink: 0 }}>Shot</span>
+                                <button onClick={() => setCollaboActiveShotIdx(i => Math.max(0, i - 1))} disabled={collaboActiveShotIdx === 0} style={{ padding: "1px 6px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>◀</button>
+                                <span style={{ fontSize: 9, color: muted, flex: 1, textAlign: "center" }}>{shot?.shot_id ?? "SH01-01"}</span>
+                                <button onClick={() => setCollaboActiveShotIdx(i => Math.min((sc.shots?.length ?? 1) - 1, i + 1))} disabled={collaboActiveShotIdx >= (sc.shots?.length ?? 1) - 1} style={{ padding: "1px 6px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>▶</button>
+                              </div>
+                            )}
+                            {/* Character chips */}
+                            {sc.characters?.length > 0 && (
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 4 }}>
+                                {sc.characters.map(cid => {
+                                  const ch = qcCastBible.find(c => c.character_id === cid);
+                                  const isSpeaking = shot?.speaking_character_id === cid;
+                                  return (
+                                    <span key={cid} style={{ padding: "2px 6px", borderRadius: 10, fontSize: 8, fontWeight: 700, background: isSpeaking ? `${purple}25` : `${border}40`, color: isSpeaking ? purple : muted, border: `1px solid ${isSpeaking ? purple + "50" : border}` }}>
+                                      {cid} {ch ? `· ${ch.name}` : ""}{isSpeaking ? " 🎙" : ""}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {/* Dialogue display — character-owned */}
+                            {shot?.dialogue_line && (
+                              <div style={{ padding: "4px 8px", borderRadius: 6, background: `${gold}08`, border: `1px solid ${gold}20`, marginBottom: 4 }}>
+                                <div style={{ fontSize: 8, color: gold, marginBottom: 1 }}>{speakingChar ? `[${shot.speaking_character_id}] ${speakingChar.name}` : shot.speaking_character_id || "Dialogue"}</div>
+                                <div style={{ fontSize: 10, color: text, fontStyle: "italic" }}>&ldquo;{shot.dialogue_line}&rdquo;</div>
+                              </div>
+                            )}
+                            {/* Emotion + location */}
+                            <div style={{ display: "flex", gap: 6, fontSize: 8, color: muted }}>
+                              <span>{sc.emotion}</span><span>·</span><span>{sc.location}</span><span>·</span><span>{sc.duration}s</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Instruction box */}
+                    <div style={{ padding: "8px 10px" }}>
+                      <div style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Tell AI what to change on this scene/shot:</div>
+                      {/* Quick edit chips */}
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 6 }}>
+                        {["Change dialogue", "Swap SFX", "Change camera", "Change music", "Regenerate shot", "Reorder scene"].map(chip => (
+                          <button key={chip} onClick={() => setCollaboInstruction(chip + " — ")} style={{ padding: "2px 7px", borderRadius: 10, border: `1px solid ${purple}40`, background: `${purple}08`, color: purple, fontSize: 8, cursor: "pointer" }}>{chip}</button>
+                        ))}
+                      </div>
+                      <textarea value={collaboInstruction} onChange={e => setCollaboInstruction(e.target.value)} placeholder="e.g. Remove rain sound from this shot..." rows={2}
+                        style={{ width: "100%", padding: "6px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: text, fontSize: 11, resize: "none", boxSizing: "border-box" }} />
+
+                      {/* Scope badge + Parse button */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+                        {collaboResolvedEdit && (
+                          <span style={{ padding: "2px 8px", borderRadius: 8, fontSize: 8, fontWeight: 700, background: collaboResolvedEdit.scope === "high" ? `${red}15` : collaboResolvedEdit.scope === "medium" ? `${gold}15` : `${green}15`, color: collaboResolvedEdit.scope === "high" ? red : collaboResolvedEdit.scope === "medium" ? gold : green }}>
+                            {collaboResolvedEdit.scope.toUpperCase()} SCOPE
+                          </span>
+                        )}
+                        <button onClick={async () => {
+                          if (!collaboInstruction.trim()) return;
+                          setCollaboProcessing(true);
+                          setCollaboResolvedEdit(null);
+                          try {
+                            const sc = qcScenes[collaboActiveSceneIdx];
+                            const res = await fetch("/api/story/tools/collabo-edit", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                instruction: collaboInstruction,
+                                contextObjectId: sc?.shots?.[collaboActiveShotIdx]?.shot_id ?? sc?.scene_id,
+                                projectState: { scenes: qcScenes.slice(0, 20), characters: qcCastBible },
+                              }),
+                            });
+                            const d = await res.json();
+                            if (d.error) { toast(`Parse failed: ${d.error}`, "error"); }
+                            else { setCollaboResolvedEdit(d); }
+                          } catch { toast("Network error: could not reach collabo-edit API", "error"); }
+                          setCollaboProcessing(false);
+                        }} disabled={collaboProcessing || !collaboInstruction.trim()}
+                          style={{ flex: 1, padding: "5px 10px", borderRadius: 6, border: "none", background: collaboProcessing ? border : purple, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                          {collaboProcessing ? "Parsing..." : "Parse Instruction"}
+                        </button>
+                      </div>
+
+                      {/* Change confirmation panel */}
+                      {collaboResolvedEdit && !collaboResolvedEdit.clarification_needed && (
+                        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: s2 }}>
+                          <div style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Planned change:</div>
+                          <div style={{ fontSize: 10, color: text, marginBottom: 2 }}><b>{collaboResolvedEdit.action}</b> → {collaboResolvedEdit.target_type} <span style={{ color: purple }}>{collaboResolvedEdit.target_id}</span></div>
+                          {collaboResolvedEdit.requiresRegeneration && <div style={{ fontSize: 9, color: gold, marginBottom: 2 }}>⚡ Requires regeneration · Est. cost: {collaboResolvedEdit.estimatedCost} cr</div>}
+                          <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                            <button onClick={() => setCollaboResolvedEdit(null)} style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>Cancel</button>
+                            <button onClick={async () => {
+                              const sc = qcScenes[collaboActiveSceneIdx];
+                              const before = JSON.parse(JSON.stringify(sc));
+                              // Apply change to local scene state
+                              const updated = qcScenes.map((s, i) => {
+                                if (i !== collaboActiveSceneIdx) return s;
+                                const edit = collaboResolvedEdit!;
+                                if (edit.target_type === "SFX" && edit.action === "REMOVE") {
+                                  const val = edit.payload["value"] as string;
+                                  return { ...s, sfx_cues: s.sfx_cues.filter(sfx => !sfx.toLowerCase().includes(val.toLowerCase())) };
+                                }
+                                if (edit.target_type === "DIALOGUE") {
+                                  return { ...s, shots: s.shots?.map((sh, si) => si === collaboActiveShotIdx ? { ...sh, dialogue_line: String(edit.payload["value"] ?? sh.dialogue_line) } : sh) };
+                                }
+                                if (edit.target_type === "MUSIC") {
+                                  return { ...s, music_cue: String(edit.payload["value"] ?? s.music_cue) };
+                                }
+                                return s;
+                              });
+                              setQcScenes(updated);
+                              const entry: EditHistoryEntry = { id: `edit_${Date.now()}`, instruction: collaboInstruction, resolvedObjectId: collaboResolvedEdit!.target_id, changeType: collaboResolvedEdit!.action, scope: collaboResolvedEdit!.scope, timestamp: new Date().toISOString(), undone: false, before, after: updated[collaboActiveSceneIdx] };
+                              setEditHistory(h => [entry, ...h]);
+                              setCollaboResolvedEdit(null);
+                              setCollaboInstruction("");
+                              toast(`Change applied: ${collaboResolvedEdit!.action} on ${collaboResolvedEdit!.target_id}`, "success");
+                            }} style={{ flex: 2, padding: "4px 8px", borderRadius: 6, border: "none", background: green, color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Apply Change</button>
+                          </div>
+                        </div>
+                      )}
+                      {collaboResolvedEdit?.clarification_needed && (
+                        <div style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, border: `1px solid ${gold}40`, background: `${gold}08`, fontSize: 10, color: gold }}>
+                          {collaboResolvedEdit.specific_question}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  /* Import QC data prompt */
+                  <div style={{ marginBottom: 10, padding: "8px 10px", borderRadius: 8, border: `1px dashed ${purple}40`, background: `${purple}05` }}>
+                    <div style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Run Story QC in Hybrid Planner, then import here for scene-level collaboration.</div>
+                    <button onClick={() => { window.location.href = "/dashboard/hybrid-planner"; }} style={{ width: "100%", padding: "5px 10px", borderRadius: 6, border: `1px solid ${purple}40`, background: `${purple}10`, color: purple, fontSize: 9, cursor: "pointer" }}>
+                      → Open Hybrid Planner (run QC first)
+                    </button>
+                  </div>
+                )}
+
                 {/* AI Auto-Assemble — intelligent pipeline */}
                 <button data-testid="auto-assemble-btn" onClick={async () => {
                   const instruction = editInput.trim();
@@ -4245,6 +4420,34 @@ function Editor() {
                 TAB: HISTORY
                 ═══════════════════════════════ */} {tab === "history" && (
               <div>
+                {/* Collabo Edit History */}
+                {editHistory.length > 0 && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: purple, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Collaboration Edits</div>
+                    {editHistory.map((entry, i) => (
+                      <div key={entry.id} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${entry.undone ? border : purple + "25"}`, background: entry.undone ? "transparent" : `${purple}05`, marginBottom: 5, opacity: entry.undone ? 0.5 : 1 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 2 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: text, flex: 1 }}>{entry.instruction.slice(0, 60)}</span>
+                          <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 6, background: entry.scope === "high" ? `${red}20` : entry.scope === "medium" ? `${gold}20` : `${green}20`, color: entry.scope === "high" ? red : entry.scope === "medium" ? gold : green, marginLeft: 4, flexShrink: 0 }}>{entry.scope}</span>
+                        </div>
+                        <div style={{ fontSize: 9, color: muted }}>{entry.changeType} → {entry.resolvedObjectId}</div>
+                        <div style={{ fontSize: 8, color: muted, marginTop: 1 }}>{new Date(entry.timestamp).toLocaleTimeString()}</div>
+                        {!entry.undone && (
+                          <button onClick={() => {
+                            // Undo: restore before snapshot to that scene
+                            const sceneId = entry.resolvedObjectId.startsWith("SH") ? entry.resolvedObjectId.split("-")[0].replace("SH", "") : null;
+                            if (sceneId) {
+                              setQcScenes(scenes => scenes.map((s, idx) => idx === parseInt(sceneId) - 1 ? (entry.before as ScenePlan) : s));
+                            }
+                            setEditHistory(h => h.map((e, ei) => ei === i ? { ...e, undone: true } : e));
+                          }} style={{ marginTop: 4, fontSize: 8, color: purple, background: "none", border: `1px solid ${purple}30`, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>↩ Undo</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* Assembly version history */}
+                <div style={{ fontSize: 9, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Assembly Versions</div>
                 {versions.length === 0 ? (
                   <p style={{ fontSize: 12, color: muted, textAlign: "center", padding: 20 }}>No history yet — changes appear here</p>
                 ) : versions.map((v, i) => (

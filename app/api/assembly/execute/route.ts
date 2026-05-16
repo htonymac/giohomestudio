@@ -94,7 +94,21 @@ async function preprocessOneSegment(
   const url = rawUrl.replace(/^img:/, "");
 
   if (!url || url.startsWith("bg:") || url.startsWith("linear-gradient")) {
-    console.log(`[assembly] ${seg.sceneId}: skipped (gradient/empty)`);
+    // No image yet — generate solid dark background clip so this scene isn't silently dropped
+    const duration = seg.duration || 5;
+    const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
+    try {
+      await execFileAsync(env.ffmpegPath, [
+        "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
+        "-t", String(duration),
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
+      ], { timeout: 30000 });
+      if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 0) {
+        console.log(`[assembly] ${seg.sceneId}: gradient → solid bg clip (${duration}s)`);
+        return { id: seg.id, clipPath };
+      }
+    } catch { /* fallback failed — skip */ }
+    console.log(`[assembly] ${seg.sceneId}: skipped (gradient/empty, ffmpeg color failed)`);
     return null;
   }
 
@@ -557,7 +571,7 @@ export async function POST(req: NextRequest) {
         await prisma.contentItem.create({
           data: {
             originalInput: assembly.title || "Assembly Output",
-            status: "APPROVED",
+            status: "IN_REVIEW",
             outputMode: "hybrid",
             mergedOutputPath: finalOutputPath,
             durationSeconds: Math.round(finalDuration),

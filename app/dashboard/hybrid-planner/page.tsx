@@ -134,6 +134,23 @@ interface HybridScene {
   flipOverride?: number | null;  // seconds per image for this scene; null = use project imageFlipSeconds
 }
 
+interface EstablishingShot {
+  type: "opening" | "location" | "transition" | "mood" | "pre_action" | "exterior_building" | "aerial" | "beauty";
+  prompt: string;
+  durationSeconds: number;
+  cameraMovement: string;
+  mood: string;
+  purpose: string;
+  location: string;
+  timeOfDay: string;
+}
+
+const ESTABLISHING_TYPE_LABEL: Record<string, string> = {
+  opening: "Opening", location: "Location", transition: "Transition",
+  mood: "Mood", pre_action: "Pre-Action", exterior_building: "Exterior",
+  aerial: "Aerial", beauty: "Beauty",
+};
+
 const SCENE_TYPES = [
   { id: "image-led", label: "Image", color: "#00d4ff", desc: "Still with narration", credits: 1 },
   { id: "video-led", label: "Video", color: "#a855f7", desc: "Full motion", credits: 4 },
@@ -418,6 +435,12 @@ function HybridPlannerInner() {
   // storyPolishingMode tells which button is busy (default/add_action/intense/reduce_action/emotional).
   const [storyPolishingSceneId, setStoryPolishingSceneId] = useState<string | null>(null);
   const [storyPolishingMode, setStoryPolishingMode] = useState<"default" | "add_action" | "intense" | "reduce_action" | "emotional" | null>(null);
+  const [storyEditAiQuery, setStoryEditAiQuery] = useState<Record<string, string>>({});
+  const [fixingQC, setFixingQC] = useState(false);
+  const [qcFixDoneMsg, setQcFixDoneMsg] = useState<string | null>(null);
+  const [establishingShots, setEstablishingShots] = useState<Record<string, EstablishingShot>>({});
+  const [establishingSceneId, setEstablishingSceneId] = useState<string | null>(null);
+  const [establishingAll, setEstablishingAll] = useState(false);
   const [storyBreakingSceneId, setStoryBreakingSceneId] = useState<string | null>(null);
   const [storyExpandingScenes, setStoryExpandingScenes] = useState(false);
   // LLM provider for all Story-tab AI ops (polish/break/expand). Same model menu as AI Chat.
@@ -432,6 +455,29 @@ function HybridPlannerInner() {
   const [storyNameStyleOpen, setStoryNameStyleOpen] = useState(false);
   const [storyCountryOpen, setStoryCountryOpen] = useState(false);
   const [storyCountryQuery, setStoryCountryQuery] = useState("");
+
+  // ── Story Quality Control Layer ───────────────────────────────────────────
+  const [storyType, setStoryType] = useState<string>("short_story");
+  const [sceneDurationSec, setSceneDurationSec] = useState<number>(5);
+  const [storyEmotionalIntensity, setStoryEmotionalIntensity] = useState<string>("normal");
+  const [storyLanguageLevel, setStoryLanguageLevel] = useState<string>("normal_english");
+  const [storySubtitleStyle, setStorySubtitleStyle] = useState<string>("normal_movie");
+  const [storyGenerationMode, setStoryGenerationMode] = useState<string>("hybrid");
+  const [storyQCRunning, setStoryQCRunning] = useState(false);
+  const [storyQCResult, setStoryQCResult] = useState<null | {
+    gatekeeper: {
+      passed: boolean;
+      score: number;
+      blockingIssues: string[];
+      warnings: string[];
+      suggestedFixes: string[];
+      revisedData?: { scores: Record<string, number>; readyForGeneration: boolean };
+    };
+    castBible: Array<{ character_id: string; name: string; ethnicity: string; role: string; clothing: string }>;
+    scenes: Array<{ scene_id: string; scene_number: number; title: string; duration: number; emotion: string; voiceover_text: string; image_prompt: string; music_cue: string; provider_recommendation: string }>;
+    supervisorResults: Record<string, { passed: boolean; score: number; blockingIssues: string[]; warnings: string[] }>;
+  }>(null);
+  const [storyQCSceneIndex, setStoryQCSceneIndex] = useState<number>(0);
 
   // ── New Scene Duration (user sets seconds) ──
   const [newSceneDuration, setNewSceneDuration] = useState(5);
@@ -884,11 +930,13 @@ function HybridPlannerInner() {
     if (activeTab === "assembly" && scenes.length > 0 && !assemblyInitialized) {
       setSelectedSceneIds(scenes.map(s => s.sceneId));
       setAssemblyInitialized(true);
+      setOpenPipelineStep(9); // jump straight to Assemble step so flip panel + status badges are visible
     }
     // When scenes change (new scene added), add it to selection if assembly tab was already initialized
     if (assemblyInitialized && scenes.length > 0) {
       setSelectedSceneIds(prev => {
-        const newIds = scenes.map(s => s.sceneId).filter(id => !prev.includes(id));
+        const prevSet = new Set(prev);
+        const newIds = scenes.map(s => s.sceneId).filter(id => !prevSet.has(id));
         return newIds.length > 0 ? [...prev, ...newIds] : prev;
       });
     }
@@ -1026,6 +1074,9 @@ function HybridPlannerInner() {
           nameRegion: storyRegion || undefined,
           nameStyle: storyNameStyle || undefined,
           country: storyCountry || undefined,
+          languageLevel: storyLanguageLevel || undefined,
+          storyType: storyType || undefined,
+          emotionalIntensity: storyEmotionalIntensity || undefined,
           customNames: (() => {
             try { return JSON.parse(sessionStorage.getItem("ghs_custom_names") || "[]"); } catch { return []; }
           })(),
@@ -1107,6 +1158,19 @@ function HybridPlannerInner() {
           return true;
         });
         setCharacters(dedupedChars);
+        // Auto-assign Piper voices by gender — don't overwrite any the user already picked
+        setCharacterPiperVoices(prev => {
+          const auto: Record<string, string> = {};
+          for (const c of dedupedChars) {
+            if (prev[c.characterId]) continue;
+            const g = (c.gender || "").toLowerCase();
+            if (g === "female") auto[c.characterId] = "en_US-amy-medium";
+            else if (g === "male" && /narrat/i.test(c.roleType)) auto[c.characterId] = "en_US-libritts-high";
+            else if (g === "male") auto[c.characterId] = "en_US-ryan-high";
+            else auto[c.characterId] = "en_US-lessac-medium";
+          }
+          return { ...auto, ...prev };
+        });
         setProjectPhase("CHARACTERS_EXTRACTED");
         setLastAction(`${dedupedChars.length} characters found — breaking story into scenes...`);
       } else if (expandedObj.characterList?.length > 0) {
@@ -1126,6 +1190,18 @@ function HybridPlannerInner() {
           });
         });
         setCharacters(extractedChars);
+        setCharacterPiperVoices(prev => {
+          const auto: Record<string, string> = {};
+          for (const c of extractedChars) {
+            if (prev[c.characterId]) continue;
+            const g = (c.gender || "").toLowerCase();
+            if (g === "female") auto[c.characterId] = "en_US-amy-medium";
+            else if (g === "male" && /narrat/i.test(c.roleType)) auto[c.characterId] = "en_US-libritts-high";
+            else if (g === "male") auto[c.characterId] = "en_US-ryan-high";
+            else auto[c.characterId] = "en_US-lessac-medium";
+          }
+          return { ...auto, ...prev };
+        });
         setProjectPhase("CHARACTERS_EXTRACTED");
       }
       setLoadingCharacters(false);
@@ -1170,7 +1246,7 @@ function HybridPlannerInner() {
           sceneType: (s.sceneType as string) || "image-led",
           narrationMode: "light", narrationStrength: "medium", narrationScript: "",
           musicStyle: (s.musicSuggestion as string) || "", musicIntensity: "medium",
-          sfx: (s.soundSuggestion as string) || "", ambience: "", motionDuration: (s.durationEstimate as number) || 5,
+          sfx: (s.soundSuggestion as string) || "", ambience: "", motionDuration: (s.durationEstimate as number) || sceneDurationSec,
           imageTreatment: "Static",
           credits: SCENE_TYPES.find(t => t.id === (s.sceneType as string))?.credits || 2,
           reason: "", characterIds: (s.characterIds as string[]) || [],
@@ -1220,6 +1296,169 @@ function HybridPlannerInner() {
       setUiError("Story expansion failed: " + String(err));
     }
     setExpanding(false);
+  }
+
+  // ── Story Quality Control — runs the full supervisor pipeline ──────────────
+  async function runStoryQC() {
+    if (!expandedSummary && !idea.trim()) return;
+    setStoryQCRunning(true);
+    setStoryQCResult(null);
+    setQcFixDoneMsg(null);
+    setLastAction("Story QC running — validating against supervisor pipeline...");
+    try {
+      // Build duration in seconds from targetDuration string
+      let totalSec = 60;
+      if (targetDuration === "30-60s") totalSec = 45;
+      else if (targetDuration === "1-2 min") totalSec = 90;
+      else if (targetDuration === "2-3 min") totalSec = 150;
+      else if (targetDuration === "3-5 min") totalSec = 240;
+      else if (targetDuration === "5-10 min") totalSec = 450;
+      else if (targetDuration === "10+ min") totalSec = 720;
+      else if (targetDuration.startsWith("custom:")) {
+        const m = parseInt(targetDuration.match(/(\d+)m/)?.[1] || "0");
+        const s = parseInt(targetDuration.match(/(\d+)s/)?.[1] || "0");
+        totalSec = m * 60 + s;
+      }
+
+      const contract = {
+        storyId: projectId || `story_${Date.now()}`,
+        country: storyCountry || "General",
+        culture: storyRegion || "general",
+        storyType,
+        totalDurationSeconds: totalSec,
+        sceneDurationSeconds: sceneDurationSec,
+        estimatedSceneCount: Math.max(1, Math.round(totalSec / sceneDurationSec)),
+        languageLevel: storyLanguageLevel,
+        emotionalIntensity: storyEmotionalIntensity,
+        subtitleStyle: storySubtitleStyle,
+        generationMode: storyGenerationMode,
+        targetAudience: audienceType,
+        ageRating: audienceType === "children" ? "G" : "PG",
+        defaultCastAssumptions: {
+          ethnicity: (storyCountry === "Nigeria" || storyRegion === "africa") ? "Black Nigerian/African" : "context-appropriate",
+          countryContext: storyCountry || "General",
+          allowWhiteCastOnlyIfUserRequests: true,
+        },
+        nameStyle: storyNameStyle || undefined,
+      };
+
+      // QC always checks the full story narrative — not brief scene descriptions.
+      // Scene descriptions are too sparse for keyword/structure supervisors to work correctly.
+      // narrationScript is the authoritative per-scene content if scenes have been voiced.
+      let qcStoryText = expandedSummary || idea;
+      if (!qcStoryText.trim() && scenes.length > 0) {
+        // Fallback: use narration scripts if available, else descriptions
+        qcStoryText = scenes
+          .map(s => (s.narrationScript?.trim() || s.description?.trim() || "").replace(/\n+/g, " "))
+          .filter(Boolean)
+          .join("\n\n");
+      }
+
+      // Build full ScenePlan-shaped objects so scene-level supervisors have real data
+      const qcScenes = scenes.map(s => ({
+        scene_id: s.sceneId,
+        scene_number: s.scene,
+        title: s.title,
+        duration: s.motionDuration || sceneDurationSec,
+        summary: s.description || "",
+        voiceover_text: s.narrationScript?.trim() || s.description || "",
+        characters: s.characterIds || [],
+        location: s.location || "unspecified",
+        time_of_day: "daytime",
+        emotion: s.emotionalWeight || "neutral",
+        visual_prompt: s.description || "",
+        image_prompt: s.description || "",
+        video_prompt: "",
+        negative_prompt: "blurry, distorted, text, watermark",
+        dialogue: "",
+        subtitle_text: s.narrationScript?.trim() || s.description || "",
+        subtitle_style: storySubtitleStyle,
+        music_cue: s.musicStyle || "ambient",
+        sfx_cues: s.sfx ? [s.sfx] : [],
+        camera_style: "medium shot",
+        continuity_notes: [] as string[],
+        provider_recommendation: "image_plus_motion" as const,
+        provider_reason: "hybrid planner default",
+      }));
+
+      // Build Cast Bible from UI's characters so QC recognises all defined characters.
+      // Without this, Stage 4 AI-generates the Cast Bible from story text and misses
+      // secondary characters (TAIWO, KEHINDE, etc.) → cast_consistency floods with warnings.
+      // buildCharacterLookup maps both character_id AND name (lowercase), so whether
+      // s.characterIds contains IDs or display names, the lookup finds them.
+      const knownCharIds = new Set(characters.map(c => c.characterId.toLowerCase()));
+      const knownCharNames = new Set(characters.map(c => c.displayName.toLowerCase()));
+      // Collect scene character IDs that aren't in the formal characters list → add as placeholders
+      // AI scene expansion uses display names (e.g. "TAIWO") not UUIDs — these need placeholder entries.
+      const extraCharIds = new Set<string>();
+      scenes.forEach(s => {
+        (s.characterIds || []).forEach(id => {
+          if (id && !knownCharIds.has(id.toLowerCase()) && !knownCharNames.has(id.toLowerCase())) {
+            extraCharIds.add(id);
+          }
+        });
+      });
+      const castBibleFromChars = [
+        ...characters.map((c) => ({
+          character_id: c.characterId,
+          name: c.displayName,
+          age: c.ageRange || "adult",
+          gender: c.gender || "unknown",
+          ethnicity: (c.colorDescription || c.skinTone || "").toLowerCase().includes("dark")
+            ? "Black/African" : "context-appropriate",
+          skin_tone: c.skinTone || "",
+          body_type: c.bodyBuild || "",
+          hair: c.hairStyle || "",
+          clothing: c.wardrobeStyle || "",
+          role: c.roleType || "supporting",
+          personality: c.emotionProfile || c.speechStyle || "",
+          voice_style: c.speechStyle || "",
+          relationship: "",
+        })),
+        // Placeholder entries for AI-assigned names not yet in the Characters tab
+        ...Array.from(extraCharIds).map(id => ({
+          character_id: id, name: id,
+          age: "adult", gender: "unknown", ethnicity: "context-appropriate",
+          skin_tone: "", body_type: "", hair: "", clothing: "",
+          role: "supporting", personality: "", voice_style: "", relationship: "",
+        })),
+      ];
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 90000);
+      let res: Response;
+      try {
+        res = await fetch("/api/story/supervise", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            storyText: qcStoryText,
+            contract,
+            castBible: castBibleFromChars,
+            scenes: qcScenes,
+            projectId: projectId || undefined,
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+      const data = await res!.json();
+      if (!res!.ok || data.error) {
+        setLastAction(`Story QC failed: ${data.error || "Unknown error"}`);
+      } else {
+        setStoryQCResult(data);
+        setStoryQCSceneIndex(0);
+        const gatePassed = data.gatekeeper?.passed;
+        const score = data.gatekeeper?.score || 0;
+        setLastAction(`Story QC complete — Score: ${score}/100 ${gatePassed ? "✓ Passed" : "⚠ Issues found"}`);
+      }
+    } catch (err) {
+      const msg = (err instanceof Error && err.name === "AbortError") ? "QC timed out (90s) — try again" : String(err);
+      setLastAction(`Story QC error: ${msg}`);
+    } finally {
+      setStoryQCRunning(false);
+    }
   }
 
   // ── Scene Intelligence Pass — auto-detects environment + ambient sounds for each scene ──
@@ -2092,6 +2331,291 @@ function HybridPlannerInner() {
     }
   }
 
+  // AI chat — apply user's free-text instruction to the scene currently being edited.
+  async function polishSceneCustom(scene: HybridScene) {
+    const query = storyEditAiQuery[scene.sceneId]?.trim();
+    if (!query || storyPolishingSceneId === scene.sceneId) return;
+    setStoryPolishingSceneId(scene.sceneId);
+    setStoryPolishingMode(null);
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "polish",
+          polishMode: "custom",
+          customInstruction: query,
+          provider: effectiveLlmProvider,
+          scene: {
+            sceneId: scene.sceneId, title: scene.title,
+            description: storyEditedDescription || scene.description,
+            location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (!data.ok) { setUiError(`AI fix failed: ${data.error || "unknown"}`); return; }
+      setStoryEditedDescription(data.scene?.description || scene.description);
+      setStoryEditAiQuery(prev => ({ ...prev, [scene.sceneId]: "" }));
+      setLastAction(`Scene ${scene.scene} revised — review and Save to commit`);
+    } catch (err) {
+      setUiError(`AI fix error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setStoryPolishingSceneId(null);
+    }
+  }
+
+  // Apply a single QC suggestion to ALL scenes in one batch LLM call (fast).
+  async function fixQCSuggestion(suggestion: string) {
+    if (fixingQC || scenes.length === 0) return;
+    setFixingQC(true);
+    setQcFixDoneMsg(null);
+    setLastAction(`QC fix: sending all ${scenes.length} scenes to AI…`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      let res: Response;
+      try {
+        res = await fetch("/api/hybrid/scene-edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            op: "batch_polish",
+            customInstruction: suggestion,
+            provider: effectiveLlmProvider,
+            scenes: scenes.map(s => ({ sceneId: s.sceneId, title: s.title, description: s.description, location: s.location, timeOfDay: s.timeOfDay, mood: s.mood })),
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+      const data = await res!.json();
+      if (data.ok && Array.isArray(data.scenes)) {
+        for (const updated of data.scenes) {
+          const idx = scenes.findIndex(s => s.sceneId === updated.sceneId);
+          if (idx !== -1) updateScene(scenes[idx].scene, { description: updated.description, ...(updated.title ? { title: updated.title } : {}) });
+        }
+        setQcFixDoneMsg(`Fix applied to ${data.scenes.length} scenes — re-run QC to verify`);
+      } else {
+        setQcFixDoneMsg(`Fix failed: ${data.error || "unknown"}`);
+      }
+    } catch (err) {
+      const msg = (err instanceof Error && err.name === "AbortError") ? "Fix timed out (60s) — try again" : String(err);
+      setQcFixDoneMsg(`Fix error: ${msg}`);
+    } finally {
+      setFixingQC(false);
+    }
+  }
+
+  // Direct truncation for word-count violations — guaranteed to pass QC unlike LLM rewrites.
+  function applyWordCountFixes(fixes: string[]): number {
+    let applied = 0;
+    for (const fix of fixes) {
+      if (!/trim\s+voiceover/i.test(fix)) continue;
+      const maxWordsMatch = fix.match(/to\s+(\d+)\s+words/i);
+      const sceneIdMatch = fix.match(/in\s+scene\s+"([^"]+)"/i);
+      if (!maxWordsMatch || !sceneIdMatch) continue;
+      const maxWords = parseInt(maxWordsMatch[1]);
+      const sceneId = sceneIdMatch[1];
+      const target = scenes.find(s =>
+        s.sceneId === sceneId ||
+        `SC${String(s.scene).padStart(2, "0")}` === sceneId
+      );
+      if (!target) continue;
+      // QC checks narrationScript first, then description — truncate both so QC passes.
+      const patch: Partial<HybridScene> = {};
+      const narr = target.narrationScript?.trim() || "";
+      const desc = target.description?.trim() || "";
+      const narrWords = narr.split(/\s+/).filter(w => w.length > 0);
+      const descWords = desc.split(/\s+/).filter(w => w.length > 0);
+      if (narr && narrWords.length > maxWords) {
+        patch.narrationScript = narrWords.slice(0, maxWords).join(" ");
+      }
+      if (descWords.length > maxWords) {
+        patch.description = descWords.slice(0, maxWords).join(" ");
+      }
+      if (Object.keys(patch).length > 0) {
+        updateScene(target.scene, patch);
+        applied++;
+      }
+    }
+    return applied;
+  }
+
+  // Apply ALL QC suggestions: word-count fixes = direct truncation (instant + guaranteed).
+  // Other fixes = one combined LLM batch_polish call.
+  async function fixAllQCSuggestions() {
+    if (!storyQCResult || fixingQC || scenes.length === 0) return;
+    setQcFixDoneMsg(null);
+
+    const raw = storyQCResult.gatekeeper.suggestedFixes;
+
+    // Word-count violations: truncate directly, no LLM.
+    const wordCountApplied = applyWordCountFixes(raw);
+
+    // Other fixes: deduplicate and send as one LLM call.
+    const otherFixes = raw.filter(f => !/trim\s+voiceover/i.test(f));
+    const seen = new Map<string, string>();
+    for (const fix of otherFixes) {
+      const base = fix.replace(/\s+(?:in|across)\s+(?:scene\s+)?"?SC\w+"?\.?$/i, "").trim();
+      if (!seen.has(base)) {
+        seen.set(base, fix.replace(/in scene "SC\w+"/i, "across all scenes"));
+      }
+    }
+    const deduped = Array.from(seen.values());
+    const skipped = otherFixes.length - deduped.length;
+
+    let msg = "";
+    if (wordCountApplied > 0) msg += `${wordCountApplied} voiceover(s) trimmed directly. `;
+    if (deduped.length > 0) {
+      setLastAction(`Fix All: trimmed ${wordCountApplied} voiceovers, sending ${deduped.length} other fixes to AI…`);
+      await fixQCSuggestion(deduped.join(". Also: "));
+      msg += `${deduped.length} other fix(es) applied (${skipped} duplicates skipped).`;
+    }
+    setQcFixDoneMsg(`${msg} — re-run QC to verify`);
+  }
+
+  // Per-scene QC fix — word-count = direct truncation; others = single LLM polish call.
+  async function fixSceneQC(scene: HybridScene) {
+    if (!storyQCResult) { setLastAction("Run QC first to generate fix suggestions"); return; }
+    const sceneRef = `SC${String(scene.scene).padStart(2, "0")}`;
+    const sceneFixes = storyQCResult.gatekeeper.suggestedFixes.filter(f =>
+      f.toUpperCase().includes(sceneRef) ||
+      f.includes(scene.sceneId) ||
+      f.toLowerCase().includes(`scene ${scene.scene}`)
+    );
+    if (sceneFixes.length === 0) {
+      setLastAction(`No QC issues targeting Scene ${scene.scene} — run QC to refresh`);
+      return;
+    }
+
+    // Word-count fix: direct truncation — guaranteed accurate.
+    const wordCountApplied = applyWordCountFixes(sceneFixes);
+
+    // Other fixes: send to LLM.
+    const otherFixes = sceneFixes.filter(f => !/trim\s+voiceover/i.test(f));
+    if (wordCountApplied > 0 && otherFixes.length === 0) {
+      setLastAction(`Scene ${scene.scene}: voiceover trimmed to word limit — re-run QC to verify`);
+      return;
+    }
+    if (otherFixes.length === 0) {
+      setLastAction(`No fixable issues for Scene ${scene.scene}`);
+      return;
+    }
+
+    const instruction = `Fix these QC issues for this scene: ${otherFixes.join(". ")}`;
+    setStoryPolishingSceneId(scene.sceneId);
+    setStoryPolishingMode(null);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60000);
+    try {
+      let res: Response;
+      try {
+        res = await fetch("/api/hybrid/scene-edit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            op: "polish",
+            polishMode: "custom",
+            customInstruction: instruction,
+            provider: effectiveLlmProvider,
+            scene: { sceneId: scene.sceneId, title: scene.title, description: scene.description, location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood },
+          }),
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+      const data = await res!.json();
+      const newDescription = data.scene?.description || data.description;
+      const newTitle = data.scene?.title || data.title;
+      if (data.ok && newDescription) {
+        updateScene(scene.scene, { description: newDescription, ...(newTitle ? { title: newTitle } : {}) });
+        setLastAction(`Scene ${scene.scene} QC fix applied — re-run QC to verify`);
+      } else {
+        setLastAction(`Scene ${scene.scene} fix failed: ${data.error || "unknown"}`);
+      }
+    } catch (err) {
+      const msg = (err instanceof Error && err.name === "AbortError") ? "timed out (60s)" : String(err);
+      setLastAction(`Scene ${scene.scene} fix error: ${msg}`);
+    } finally {
+      setStoryPolishingSceneId(null);
+      setStoryPolishingMode(null);
+    }
+  }
+
+  // Add an establishing shot for ONE scene — AI reads scene + prev scene and decides type/prompt.
+  async function addEstablishingShot(scene: HybridScene) {
+    if (establishingSceneId === scene.sceneId) return;
+    setEstablishingSceneId(scene.sceneId);
+    try {
+      const sceneIdx = scenes.findIndex(s => s.sceneId === scene.sceneId);
+      const prev = sceneIdx > 0 ? scenes[sceneIdx - 1] : null;
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "establish",
+          provider: effectiveLlmProvider,
+          scene: { sceneId: scene.sceneId, title: scene.title, description: scene.description, location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood },
+          prevScene: prev ? { sceneId: prev.sceneId, title: prev.title, description: prev.description, location: prev.location, timeOfDay: prev.timeOfDay, mood: prev.mood } : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.needed && data.shot) {
+        setEstablishingShots(prev2 => ({ ...prev2, [scene.sceneId]: data.shot }));
+        setLastAction(`Establishing shot added before Scene ${scene.scene}`);
+      } else if (data.ok && !data.needed) {
+        setLastAction(`Scene ${scene.scene}: no establishing shot needed`);
+      } else {
+        setLastAction(`Establishing shot error: ${data.error || "unknown"}`);
+      }
+    } catch (e) {
+      setLastAction(`Establishing shot error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setEstablishingSceneId(null);
+    }
+  }
+
+  // Add establishing shots across ALL scenes in one AI call — reads full story context.
+  async function addAllEstablishingShots() {
+    if (establishingAll || scenes.length === 0) return;
+    setEstablishingAll(true);
+    setLastAction("Analyzing all scenes for establishing shots…");
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "establish_all",
+          provider: effectiveLlmProvider,
+          scenes: scenes.map(s => ({ sceneId: s.sceneId, title: s.title, description: s.description, location: s.location, timeOfDay: s.timeOfDay, mood: s.mood })),
+          storyText: expandedSummary || idea,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.results)) {
+        const newShots: Record<string, EstablishingShot> = {};
+        let count = 0;
+        for (const result of data.results as Array<{ sceneId: string; needed: boolean; shot: EstablishingShot | null }>) {
+          if (result.needed && result.shot) {
+            newShots[result.sceneId] = result.shot;
+            count++;
+          }
+        }
+        setEstablishingShots(prev => ({ ...prev, ...newShots }));
+        setLastAction(`Added ${count} establishing shot${count !== 1 ? "s" : ""} across ${scenes.length} scenes`);
+      } else {
+        setLastAction(`Establish all error: ${data.error || "unknown"}`);
+      }
+    } catch (e) {
+      setLastAction(`Establish all error: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setEstablishingAll(false);
+    }
+  }
+
   // Splits one scene into two consecutive scenes at an AI-chosen breakpoint.
   // The resulting halves inherit all unchanged fields (sceneType, motionDuration, etc.)
   // from the original. After insertion we renumber every scene so sceneId stays in sync
@@ -2200,7 +2724,7 @@ function HybridPlannerInner() {
             musicStyle: tpl?.musicStyle || "",
             musicIntensity: tpl?.musicIntensity || "",
             sfx: "", ambience: "",
-            motionDuration: tpl?.motionDuration || 5,
+            motionDuration: tpl?.motionDuration || sceneDurationSec,
             imageTreatment: tpl?.imageTreatment || "Static",
             credits: tpl?.credits || 1, reason: "AI-expanded",
             characterIds: tpl?.characterIds || [],
@@ -2445,14 +2969,21 @@ function HybridPlannerInner() {
 
   // ── Narrator audio generation — routes to the selected provider ─────────────
   async function generateNarrationPiper() {
-    // BUG-16a: Pass ONLY narrator-typed segments to TTS — dialogue lines are handled
-    // separately by character voices. Sending the full script caused narrator audio
-    // to cover the entire script including dialogue, creating overlap.
-    // scriptSegments use type "narration" for narrator lines (per parse-script API)
+    // Build narration text from all scenes' narrationScript (authoritative — updated by QC and editing).
+    // This covers ALL scenes even when scriptSegments only parsed 1 scene.
+    // BUG-16a: exclude dialogue segments — dialogue is handled by character voices separately.
+    const allScenesNarration = scenes
+      .slice().sort((a, b) => a.scene - b.scene)
+      .map(s => s.narrationScript || s.description || "")
+      .filter(Boolean)
+      .join(" ");
     const narratorSegments = scriptSegments.filter(s => s.type === "narration");
-    const narrationText = narratorSegments.length > 0
-      ? narratorSegments.map(s => s.text).join(" ")
-      : (fullScript || expandedSummary || idea);
+    const parsedNarrationText = narratorSegments.map(s => s.text).join(" ");
+    const narrationText = allScenesNarration.trim()
+      ? allScenesNarration
+      : parsedNarrationText.trim()
+        ? parsedNarrationText
+        : (fullScript || expandedSummary || idea);
 
     if (!narrationText.trim()) { setUiError("No narration text found. Parse your script first."); return; }
     setGeneratingNarration(true);
@@ -2475,6 +3006,16 @@ function HybridPlannerInner() {
         if (data.audioUrl) {
           setNarratorAudioUrl(data.audioUrl);
           setLastAction(`Narrator audio ready via ${data.engine || narratorVoice}`);
+          // Measure duration so assembly clock is correct (these providers don't return durationMs)
+          try {
+            const dur = await new Promise<number>((resolve) => {
+              const a = new Audio(data.audioUrl);
+              a.onloadedmetadata = () => resolve(Math.round(a.duration * 1000));
+              a.onerror = () => resolve(0);
+              setTimeout(() => resolve(0), 8000);
+            });
+            if (dur > 0) setNarratorAudioDuration(dur);
+          } catch { /* ignore — server-side ffprobe fallback handles this */ }
         } else {
           setUiError(data.error || `${narratorVoice} narration failed`);
         }
@@ -3119,10 +3660,16 @@ function HybridPlannerInner() {
 
         return {
           scene: i + 1,
+          sceneId: s.sceneId,               // REQUIRED: beat images, proportional duration, script matching
           videoUrl: mediaUrl,
           imageUrl: imageUrl ?? undefined,
           mode: effectiveMode,
           duration: s.motionDuration || 5,
+          motionDuration: s.motionDuration,
+          narrationScript: s.narrationScript || "",
+          description: s.description || "",
+          title: s.title || "",
+          flipOverride: s.flipOverride ?? null,
           text: overlayText,
           animation: "none" as const,
         };
@@ -3342,18 +3889,23 @@ function HybridPlannerInner() {
 
       // ── Phase 1.6: Build AssemblyJSON and use /api/assembly/execute ──────────
       const effProjId = projectId || activeProjLocalId || `hybrid_${Date.now()}`;
-      // totalDuration must be at least as long as the narrator audio.
-      // Scene motionDurations can be tiny (0.4s from short clips) giving a 4s total that cuts everything.
+      // totalDuration = narrator audio + fixed intro/outro card durations.
+      // Intro/outro use fixed durations (5s/10s) not narrator proportion.
       const sceneBaseDuration = finalSceneList.reduce((sum: number, s: { motionDuration?: number; duration?: number }) => sum + (s.motionDuration || s.duration || 5), 0);
       const narratorDurSec = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : 0;
-      const totalDuration = Math.max(sceneBaseDuration, narratorDurSec || sceneBaseDuration);
+      const introOutroFixed = (introScene ? (introScene.duration || 5) : 0) + (outroScene ? (outroScene.duration || 10) : 0);
+      const totalDuration = narratorDurSec > 0
+        ? narratorDurSec + introOutroFixed   // narrator is clock; add fixed card time
+        : Math.max(sceneBaseDuration, narratorDurSec || sceneBaseDuration);
 
       // Compute per-segment duration from narration proportion (narration is the master clock).
-      // Each segment fills the same proportion of total duration as its scene text fills total story text.
+      // Only main scene segments are proportionally scaled — intro/outro use fixed durations.
       // Falls back to motionDuration if no narration text is available (e.g. no script parsed).
       const masterDurForSegs = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration;
+      // Only count main scene chars — intro/outro (no sceneId) have no narration text.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const totalStoryChars = (finalSceneList as any[]).reduce((sum: number, s: { sceneId?: string; description?: string; title?: string; narrationScript?: string }) => {
+        if (!s.sceneId) return sum;  // skip intro/outro cards
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
         const text = segText || s.narrationScript || s.description || s.title || "";
         return sum + Math.max(text.length, 20);
@@ -3369,10 +3921,13 @@ function HybridPlannerInner() {
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
         const sceneText = segText || s.narrationScript || s.description || s.title || "";
         const textFraction = Math.max(sceneText.length, 20) / totalStoryChars;
-        // Use narration-proportional duration if narration is available, else fall back to motionDuration
-        const sceneDur = effectiveNarrDurMs > 0
-          ? Math.max(textFraction * masterDurForSegs, 2)  // minimum 2s per segment
-          : (s.motionDuration || s.duration || 5);
+        // Intro/outro cards (no sceneId) keep their fixed duration — don't proportionally scale them.
+        // Only main scene segments are scaled by narration proportion.
+        const sceneDur = !s.sceneId
+          ? (s.duration || 5)
+          : effectiveNarrDurMs > 0
+            ? Math.max(textFraction * masterDurForSegs, 2)  // minimum 2s per scene
+            : (s.motionDuration || s.duration || 5);
 
         // ── Beat image expansion (P2-C: auto-expand all scenes with 2+ images) ──────────────
         // P2-C 2026-05-14: removed userOptedIntoMax opt-in gate.
@@ -3399,7 +3954,9 @@ function HybridPlannerInner() {
         const tickedBeats = allBeatImgs
           ? allBeatImgs.filter((_, bi) => beatChecks?.[bi] !== false)
           : [];
-        if (!s.videoUrl && tickedBeats.length > 1) {
+        // s.mode === "video" means a Wan clip is available; s.videoUrl may still be "img:xxx" for image scenes
+        const hasWanVideo = (s as { mode?: string }).mode === "video";
+        if (!hasWanVideo && tickedBeats.length > 1) {
           // Multi-image path: each image gets sceneFlipSec seconds exactly
           for (let bi = 0; bi < tickedBeats.length; bi++) {
             assemblySegments.push({
@@ -3416,19 +3973,20 @@ function HybridPlannerInner() {
             segCursor += sceneFlipSec;
           }
         } else {
-          // Single-image / video path. Source priority:
-          //   1. beat image if exactly one ticked
-          //   2. scene's primary imageUrl
-          //   3. allBeatImgs[0] as last-resort fallback
-          const singleDur = s.videoUrl ? sceneDur : sceneFlipSec;
-          const singleSrc = s.videoUrl
-            || (tickedBeats.length === 1 ? tickedBeats[0] : "")
-            || s.imageUrl
-            || (allBeatImgs && allBeatImgs.length > 0 ? allBeatImgs[0] : "")
-            || "";
+          // Single-image / video path.
+          // Duration: always sceneDur (narration-proportional) so the image holds for the exact time
+          // the narrator speaks about this scene. sceneFlipSec is only for multi-beat flip sequences.
+          const singleDur = sceneDur;
+          const singleSrc = hasWanVideo
+            ? (s.videoUrl || "")
+            : ((tickedBeats.length >= 1 ? tickedBeats[0] : "")
+                || s.imageUrl
+                || (allBeatImgs && allBeatImgs.length > 0 ? allBeatImgs[0] : "")
+                || s.videoUrl   // last resort: may be "img:xxx" for image scenes
+                || "");
           assemblySegments.push({
             id: `seg_${segIdx++}`,
-            type: s.videoUrl ? "video" : "image",
+            type: hasWanVideo ? "video" : "image",
             sourceUrl: singleSrc,
             startTime: segCursor,
             endTime: segCursor + singleDur,
@@ -3570,13 +4128,7 @@ function HybridPlannerInner() {
           setLastAction(`Assembly complete — ears check failed: ${String(earErr).slice(0, 80)}`);
         }
 
-        // Save to asset library
-        try {
-          await fetch("/api/assets", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: projectTitle, type: "video", url: data.outputUrl, source: "hybrid-planner", projectId }),
-          });
-        } catch (saveErr) { console.error("Asset library save failed:", saveErr); }
+        // Asset library + Review save is handled server-side in /api/assembly/execute (saveVideoAsset + ContentItem IN_REVIEW)
       } else {
         setAssemblyComplete(true);
         const apiErrMsg = data.error ? `: ${data.error}` : "";
@@ -4376,7 +4928,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       musicIntensity: "medium",
       sfx: "",
       ambience: "",
-      motionDuration: 5,
+      motionDuration: sceneDurationSec,
       imageTreatment: "Static",
       credits: 1,
       reason: "Imported from asset library",
@@ -5200,7 +5752,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           { id: "audio",      label: "Sound",       n: 3, done: soundDone,      unlocked: storyDone },
           { id: "characters", label: "Characters",  n: 4, done: charactersDone, unlocked: storyDone },
           { id: "scenes",     label: "Scenes",      n: 5, done: scenesDone,     unlocked: charactersDone },
-          { id: "assembly",   label: "Assembly",    n: 6, done: assemblyDone,   unlocked: scenesDone },
+          { id: "assembly",   label: "Assembly",    n: 6, done: assemblyDone,   unlocked: scenes.length > 0 }, // pre-flight inside assembly handles missing images
         ];
         return (
           <div style={{ display: "flex", alignItems: "center", marginBottom: 12, padding: "10px 16px", background: "#080d10", borderRadius: 12, border: `1px solid ${border}`, gap: 0 }}>
@@ -5257,7 +5809,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         const tabUnlocked: Record<string, boolean> = {
           story: true, script: storyDone, audio: storyDone,
           characters: storyDone, scenes: charactersDone,
-          screenplay: scriptDone, assembly: scenesDone,
+          screenplay: scriptDone, assembly: scenes.length > 0, // pre-flight handles missing images — no need to gate on sceneImages
           overview: true, trends: true,
         };
         return (
@@ -7939,15 +8491,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ marginTop: 12 }}>
               {(() => {
                 const CULTURE_OPTIONS = [
-                  { id: "africa",        label: "Africa",        emoji: "🌍" },
-                  { id: "american",      label: "American",      emoji: "🇺🇸" },
-                  { id: "asia",          label: "Asia",          emoji: "🌏" },
-                  { id: "europe",        label: "Europe",        emoji: "🇪🇺" },
-                  { id: "north_america", label: "N. America",    emoji: "🌎" },
-                  { id: "latin_america", label: "Latin America", emoji: "🌎" },
-                  { id: "middle_east",   label: "Middle East",   emoji: "🕌" },
-                  { id: "oceania",       label: "Oceania",       emoji: "🌏" },
-                  { id: "fantasy",       label: "Fantasy",       emoji: "✨" },
+                  { id: "africa",         label: "Africa",             emoji: "🌍" },
+                  { id: "american",       label: "American",           emoji: "🇺🇸" },
+                  { id: "asia",           label: "Asia",               emoji: "🌏" },
+                  { id: "europe",         label: "Europe",             emoji: "🇪🇺" },
+                  { id: "french_culture", label: "French",             emoji: "🇫🇷" },
+                  { id: "spanish_culture",label: "Spanish",            emoji: "🇪🇸" },
+                  { id: "north_america",  label: "N. America",         emoji: "🌎" },
+                  { id: "latin_america",  label: "Latin America",      emoji: "🌎" },
+                  { id: "middle_east",    label: "Middle East",        emoji: "🕌" },
+                  { id: "oceania",        label: "Oceania",            emoji: "🌏" },
+                  { id: "mythology",      label: "Mythology & Legend", emoji: "⚡" },
+                  { id: "indigenous",     label: "Indigenous Cultures",emoji: "🌿" },
+                  { id: "fantasy",        label: "Fantasy",            emoji: "✨" },
                 ] as const;
                 const NAME_STYLE_OPTIONS = [
                   { id: "western",  label: "Western (Anglo)" },
@@ -8146,6 +8702,103 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             </div>
 
+            {/* ── Story QC Intake Settings ── */}
+            <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
+              <p style={{ fontSize: 9, color: accent, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Story QC Settings</p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 6 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Story Type</label>
+                  <select value={storyType} onChange={e => setStoryType(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[
+                      { v: "short_story", l: "Short Story" },
+                      { v: "long_story", l: "Long Story" },
+                      { v: "children_story", l: "Children Story" },
+                      { v: "movie", l: "Movie" },
+                      { v: "ad_commercial", l: "Ad / Commercial" },
+                      { v: "skit", l: "Skit" },
+                      { v: "moral_lesson", l: "Moral Lesson" },
+                      { v: "folklore", l: "Folklore" },
+                      { v: "documentary", l: "Documentary" },
+                      { v: "faith_story", l: "Faith / Religious" },
+                      { v: "educational", l: "Educational" },
+                    ].map(o => <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Scene Duration</label>
+                  <select value={sceneDurationSec} onChange={e => setSceneDurationSec(Number(e.target.value))} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[{ v: 5, l: "5 sec / scene" }, { v: 8, l: "8 sec / scene" }, { v: 10, l: "10 sec / scene" }, { v: 15, l: "15 sec / scene" }, { v: 20, l: "20 sec / scene" }].map(o => (
+                      <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Emotional Intensity</label>
+                  <select value={storyEmotionalIntensity} onChange={e => setStoryEmotionalIntensity(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[
+                      { v: "normal", l: "Normal" },
+                      { v: "more_emotional", l: "More Emotional" },
+                      { v: "very_emotional", l: "Very Emotional" },
+                      { v: "cinematic", l: "Cinematic" },
+                      { v: "funny", l: "Funny" },
+                      { v: "dark", l: "Dark" },
+                      { v: "inspirational", l: "Inspirational" },
+                      { v: "suspense", l: "Suspense" },
+                      { v: "action_heavy", l: "Action Heavy" },
+                    ].map(o => <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Language Level</label>
+                  <select value={storyLanguageLevel} onChange={e => setStoryLanguageLevel(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[
+                      { v: "normal_english", l: "Normal English" },
+                      { v: "simple_english", l: "Simple English" },
+                      { v: "nigerian_english", l: "Nigerian English" },
+                      { v: "childrens_english", l: "Children English" },
+                      { v: "voiceover_friendly", l: "Voiceover Friendly" },
+                      { v: "subtitle_friendly", l: "Subtitle Friendly" },
+                    ].map(o => <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Subtitle Style</label>
+                  <select value={storySubtitleStyle} onChange={e => {
+                    setStorySubtitleStyle(e.target.value);
+                    // Sync to assembly subtitle style
+                    const map: Record<string, "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"> = {
+                      normal_movie: "classic", children_story: "bold", karaoke: "neon",
+                      action: "bold", emotional: "cinema", educational: "minimal",
+                    };
+                    if (map[e.target.value]) setSubtitleStyle(map[e.target.value]);
+                  }} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[
+                      { v: "normal_movie", l: "Normal Movie" },
+                      { v: "children_story", l: "Children Story" },
+                      { v: "karaoke", l: "Karaoke / Highlight" },
+                      { v: "action", l: "Action" },
+                      { v: "emotional", l: "Emotional" },
+                      { v: "educational", l: "Educational" },
+                    ].map(o => <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 8 }}>Generation Mode</label>
+                  <select value={storyGenerationMode} onChange={e => setStoryGenerationMode(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
+                    {[
+                      { v: "hybrid", l: "Hybrid (Image + Video + Audio)" },
+                      { v: "full_video", l: "Full Video" },
+                      { v: "image_storybook", l: "Image Storybook" },
+                      { v: "voiceover_story", l: "Voiceover Story" },
+                      { v: "children_song", l: "Children Song / Dance" },
+                    ].map(o => <option key={o.v} value={o.v} style={{ background: surface }}>{o.l}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
 
             <button onClick={expandStory} disabled={!idea.trim() || expanding}
@@ -8216,13 +8869,22 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, margin: 0 }}>
                       Scene Breakdown ({scenes.length})
                     </p>
-                    <button onClick={expandSceneList} disabled={storyExpandingScenes}
-                      title="AI expands the scene list — adds in-between beats. Same arc, same characters, same ending."
-                      style={{ padding: "5px 12px", borderRadius: 8, border: "none",
-                        background: storyExpandingScenes ? "#2a2a40" : "linear-gradient(135deg, #ff6b00, #ff9500)",
-                        color: "#fff", fontSize: 9, fontWeight: 700, cursor: storyExpandingScenes ? "not-allowed" : "pointer" }}>
-                      {storyExpandingScenes ? "Expanding…" : "+ Expand Scenes"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={expandSceneList} disabled={storyExpandingScenes}
+                        title="AI expands the scene list — adds in-between beats. Same arc, same characters, same ending."
+                        style={{ padding: "5px 12px", borderRadius: 8, border: "none",
+                          background: storyExpandingScenes ? "#2a2a40" : "linear-gradient(135deg, #ff6b00, #ff9500)",
+                          color: "#fff", fontSize: 9, fontWeight: 700, cursor: storyExpandingScenes ? "not-allowed" : "pointer" }}>
+                        {storyExpandingScenes ? "Expanding…" : "+ Expand Scenes"}
+                      </button>
+                      <button onClick={addAllEstablishingShots} disabled={establishingAll || scenes.length === 0}
+                        title="AI reads your full story and inserts cinematic establishing shots before scenes that need them."
+                        style={{ padding: "5px 12px", borderRadius: 8, border: "none",
+                          background: (establishingAll || scenes.length === 0) ? "#2a2a40" : "linear-gradient(135deg, #fbbf24, #d97706)",
+                          color: "#000", fontSize: 9, fontWeight: 700, cursor: (establishingAll || scenes.length === 0) ? "not-allowed" : "pointer" }}>
+                        {establishingAll ? "Analyzing…" : "📷 Establish All"}
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {scenes.map(s => {
@@ -8231,6 +8893,30 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       const breaking = storyBreakingSceneId === s.sceneId;
                       return (
                         <div key={s.sceneId} style={{ background: editing ? "#0d0d18" : "#ffffff05", border: `1px solid ${editing ? accent + "55" : "transparent"}`, borderRadius: 8, padding: editing ? 10 : 6 }}>
+                          {/* Establishing shot mini-card — shown above main scene when present */}
+                          {establishingShots[s.sceneId] && (() => {
+                            const es = establishingShots[s.sceneId];
+                            return (
+                              <div style={{ margin: editing ? "-10px -10px 10px -10px" : "-6px -6px 6px -6px", padding: "7px 10px", background: "rgba(251,191,36,0.08)", borderBottom: "1px solid rgba(251,191,36,0.22)", borderRadius: "8px 8px 0 0", display: "flex", alignItems: "flex-start", gap: 8 }}>
+                                <span style={{ fontSize: 13, lineHeight: 1 }}>📷</span>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap" as const, marginBottom: 2 }}>
+                                    <span style={{ fontSize: 9, fontWeight: 700, color: "#fbbf24", textTransform: "uppercase" as const, letterSpacing: 0.5 }}>Establishing Shot</span>
+                                    <span style={{ fontSize: 8, color: "#fbbf2490", background: "#ffffff0a", borderRadius: 3, padding: "1px 5px" }}>{ESTABLISHING_TYPE_LABEL[es.type] || es.type}</span>
+                                    <span style={{ fontSize: 8, color: "#fbbf2490" }}>{es.durationSeconds}s</span>
+                                    <span style={{ fontSize: 8, color: "#fbbf2460" }}>· {es.cameraMovement}</span>
+                                  </div>
+                                  <p style={{ fontSize: 9, color: "#fbbf2470", margin: 0, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{es.prompt}</p>
+                                </div>
+                                <button
+                                  onClick={() => setEstablishingShots(prev => { const n = { ...prev }; delete n[s.sceneId]; return n; })}
+                                  title="Remove establishing shot"
+                                  style={{ background: "transparent", border: "none", color: "#fbbf2460", fontSize: 12, cursor: "pointer", padding: "2px 4px", flexShrink: 0, lineHeight: 1 }}>
+                                  ✕
+                                </button>
+                              </div>
+                            );
+                          })()}
                           {/* Header row */}
                           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: editing ? 0 : "2px 4px", marginBottom: editing ? 8 : 0 }}>
                             <span style={{ fontSize: 9, fontFamily: "monospace", color: blue, minWidth: 32 }}>{s.sceneId}</span>
@@ -8313,6 +8999,50 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                     </button>
                                   );
                                 })}
+                                <button
+                                  onClick={() => addEstablishingShot(s)}
+                                  disabled={!!establishingSceneId}
+                                  title="AI inserts a cinematic wide shot before this scene if needed."
+                                  style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                    background: establishingSceneId === s.sceneId ? "#2a2a40" : "linear-gradient(135deg, #fbbf24, #d97706)",
+                                    color: "#000", fontSize: 9, fontWeight: 700, cursor: !!establishingSceneId ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  {establishingSceneId === s.sceneId ? "Analyzing…" : "📷 Establish"}
+                                </button>
+                                <button
+                                  onClick={runStoryQC}
+                                  disabled={storyQCRunning || polishing}
+                                  title="Run QC check on all scenes"
+                                  style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                    background: storyQCRunning ? "#2a2a40" : "linear-gradient(135deg, #a855f7, #7c3aed)",
+                                    color: "#fff", fontSize: 9, fontWeight: 700, cursor: (storyQCRunning || polishing) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  {storyQCRunning ? "QC…" : "🔍 QC"}
+                                </button>
+                                <button
+                                  onClick={() => fixSceneQC(s)}
+                                  disabled={polishing || fixingQC || !storyQCResult}
+                                  title={storyQCResult ? "Apply QC fixes targeting this scene" : "Run QC first"}
+                                  style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                    background: (polishing || fixingQC || !storyQCResult) ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #15803d)",
+                                    color: "#fff", fontSize: 9, fontWeight: 700, cursor: (polishing || fixingQC || !storyQCResult) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  🔧 Fix
+                                </button>
+                              </div>
+
+                              {/* AI custom instruction — user types free-text, AI rewrites scene */}
+                              <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                                <input
+                                  value={storyEditAiQuery[s.sceneId] || ""}
+                                  onChange={e => setStoryEditAiQuery(prev => ({ ...prev, [s.sceneId]: e.target.value }))}
+                                  onKeyDown={async e => { if (e.key === "Enter" && storyEditAiQuery[s.sceneId]?.trim()) await polishSceneCustom(s); }}
+                                  placeholder="Ask AI: make it shorter, add rain, more emotional, change location..."
+                                  style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "6px 10px" }}
+                                />
+                                <button
+                                  onClick={() => polishSceneCustom(s)}
+                                  disabled={polishing || !storyEditAiQuery[s.sceneId]?.trim()}
+                                  style={{ padding: "6px 12px", borderRadius: 8, border: "none", background: (polishing || !storyEditAiQuery[s.sceneId]?.trim()) ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #16a34a)", color: "#fff", fontSize: 9, fontWeight: 700, cursor: (polishing || !storyEditAiQuery[s.sceneId]?.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  {storyPolishingSceneId === s.sceneId && !storyPolishingMode ? "Thinking…" : "Ask AI"}
+                                </button>
                               </div>
 
                               {/* Commit / cancel / break */}
@@ -8355,6 +9085,212 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   Skip to Scenes
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* ── Story Quality Control Panel ────────────────────────────── */}
+          {expandedSummary && (
+            <div style={{ ...cardStyle, borderColor: `${accent}30`, background: "rgba(168,85,247,0.04)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: accent }}>Story Quality Control</p>
+                  <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>
+                    Run supervisor pipeline — validates cast, culture, timing, music, continuity before generation
+                  </p>
+                </div>
+                <button
+                  onClick={runStoryQC}
+                  disabled={storyQCRunning}
+                  style={{
+                    padding: "10px 20px", borderRadius: 10, border: "none",
+                    background: storyQCRunning ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #7c3aed)`,
+                    color: "#fff", fontSize: 11, fontWeight: 700, cursor: storyQCRunning ? "not-allowed" : "pointer",
+                    whiteSpace: "nowrap" as const,
+                  }}>
+                  {storyQCRunning ? "Running QC…" : "Run Story QC"}
+                </button>
+              </div>
+
+              {/* Contract summary */}
+              <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6, marginBottom: 12 }}>
+                {[
+                  { label: storyType.replace(/_/g, " "), color: accent },
+                  { label: `${sceneDurationSec}s/scene`, color: blue },
+                  { label: storyEmotionalIntensity.replace(/_/g, " "), color: gold },
+                  { label: storyLanguageLevel.replace(/_/g, " "), color: purple },
+                  { label: storyGenerationMode.replace(/_/g, " "), color: "#22c55e" },
+                  ...(storyCountry ? [{ label: storyCountry, color: "#f472b6" }] : []),
+                ].map((b, i) => (
+                  <span key={i} style={{ ...badgeStyle(b.color), textTransform: "capitalize" as const }}>{b.label}</span>
+                ))}
+              </div>
+
+              {/* QC Results */}
+              {storyQCResult && (
+                <div>
+                  {/* Overall score */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: storyQCResult.gatekeeper.passed ? "rgba(34,197,94,0.08)" : "rgba(239,68,68,0.08)", border: `1px solid ${storyQCResult.gatekeeper.passed ? "#22c55e" : "#ef4444"}30` }}>
+                    <div style={{ width: 48, height: 48, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: storyQCResult.gatekeeper.passed ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)", fontSize: 18, fontWeight: 800, color: storyQCResult.gatekeeper.passed ? "#22c55e" : "#ef4444", flexShrink: 0 }}>
+                      {storyQCResult.gatekeeper.score}
+                    </div>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: storyQCResult.gatekeeper.passed ? "#22c55e" : "#ef4444" }}>
+                        {storyQCResult.gatekeeper.passed ? "QC Passed" : "QC Issues Found"}
+                      </p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>
+                        {storyQCResult.gatekeeper.blockingIssues.length} blocking · {storyQCResult.gatekeeper.warnings.length} warnings
+                      </p>
+                    </div>
+                    {storyQCResult.gatekeeper.revisedData?.scores && (
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginLeft: "auto" }}>
+                        {Object.entries(storyQCResult.gatekeeper.revisedData.scores).map(([key, val]) => (
+                          <div key={key} style={{ textAlign: "center" as const }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: (val as number) >= 70 ? "#22c55e" : (val as number) >= 50 ? gold : "#ef4444" }}>{val as number}</div>
+                            <div style={{ fontSize: 7, color: muted, textTransform: "capitalize" as const }}>{key.replace(/_/g, " ")}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Blocking issues */}
+                  {storyQCResult.gatekeeper.blockingIssues.length > 0 && (
+                    <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)" }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: "#ef4444", marginBottom: 6 }}>Blocking Issues</p>
+                      {storyQCResult.gatekeeper.blockingIssues.map((issue, i) => (
+                        <p key={i} style={{ fontSize: 10, color: "#fca5a5", marginBottom: 3, paddingLeft: 8 }}>• {issue}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Warnings */}
+                  {storyQCResult.gatekeeper.warnings.length > 0 && (
+                    <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: gold, marginBottom: 6 }}>Warnings</p>
+                      {storyQCResult.gatekeeper.warnings.map((w, i) => (
+                        <p key={i} style={{ fontSize: 10, color: "#fde68a", marginBottom: 3, paddingLeft: 8 }}>⚠ {w}</p>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Suggested fixes */}
+                  {storyQCResult.gatekeeper.suggestedFixes.length > 0 && (
+                    <div style={{ marginBottom: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.25)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: blue, margin: 0 }}>Suggested Fixes</p>
+                        <button onClick={fixAllQCSuggestions} disabled={fixingQC || scenes.length === 0}
+                          style={{ padding: "3px 10px", borderRadius: 6, border: "none", background: (fixingQC || scenes.length === 0) ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0066aa)`, color: "#fff", fontSize: 9, fontWeight: 700, cursor: (fixingQC || scenes.length === 0) ? "not-allowed" : "pointer" }}>
+                          {fixingQC ? "Fixing…" : "Fix All"}
+                        </button>
+                      </div>
+                      {storyQCResult.gatekeeper.suggestedFixes.map((fix, i) => (
+                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+                          <p style={{ fontSize: 10, color: "#bfdbfe", flex: 1, margin: 0 }}>→ {fix}</p>
+                          <button onClick={() => fixQCSuggestion(fix)} disabled={fixingQC || scenes.length === 0}
+                            style={{ padding: "2px 8px", borderRadius: 5, border: `1px solid ${blue}40`, background: "transparent", color: blue, fontSize: 9, cursor: (fixingQC || scenes.length === 0) ? "not-allowed" : "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                            Fix
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Fix-done banner — appears after any Fix button completes */}
+                  {qcFixDoneMsg && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, padding: "10px 14px", borderRadius: 10, background: "rgba(34,197,94,0.10)", border: "1px solid rgba(34,197,94,0.35)" }}>
+                      <span style={{ fontSize: 16 }}>✅</span>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: "#22c55e", flex: 1, margin: 0 }}>{qcFixDoneMsg}</p>
+                      <button
+                        onClick={() => { setQcFixDoneMsg(null); runStoryQC(); }}
+                        disabled={storyQCRunning}
+                        style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: storyQCRunning ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #7c3aed)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: storyQCRunning ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        {storyQCRunning ? "Running…" : "Re-run QC"}
+                      </button>
+                      <button onClick={() => setQcFixDoneMsg(null)}
+                        style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Cast Bible */}
+                  {storyQCResult.castBible.length > 0 && (
+                    <div style={{ marginBottom: 10 }}>
+                      <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Cast Bible ({storyQCResult.castBible.length})</p>
+                      <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                        {storyQCResult.castBible.map(c => (
+                          <div key={c.character_id} style={{ display: "flex", gap: 8, padding: "6px 10px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff10", alignItems: "flex-start" }}>
+                            <span style={{ fontSize: 8, fontFamily: "monospace", color: accent, minWidth: 80, flexShrink: 0 }}>{c.character_id}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", minWidth: 80, flexShrink: 0 }}>{c.name}</span>
+                            <span style={{ fontSize: 8, color: purple, flexShrink: 0 }}>{c.role}</span>
+                            <span style={{ fontSize: 8, color: muted, flex: 1 }}>{c.ethnicity} · {c.clothing}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Scene Plans */}
+                  {storyQCResult.scenes.length > 0 && (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, margin: 0 }}>Scene Plans ({storyQCResult.scenes.length})</p>
+                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                          <button onClick={() => setStoryQCSceneIndex(i => Math.max(0, i - 1))} disabled={storyQCSceneIndex === 0}
+                            style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: storyQCSceneIndex === 0 ? "not-allowed" : "pointer" }}>←</button>
+                          <span style={{ fontSize: 9, color: muted }}>{storyQCSceneIndex + 1} / {storyQCResult.scenes.length}</span>
+                          <button onClick={() => setStoryQCSceneIndex(i => Math.min(storyQCResult!.scenes.length - 1, i + 1))} disabled={storyQCSceneIndex >= storyQCResult.scenes.length - 1}
+                            style={{ padding: "3px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: storyQCSceneIndex >= storyQCResult.scenes.length - 1 ? "not-allowed" : "pointer" }}>→</button>
+                        </div>
+                      </div>
+                      {(() => {
+                        const sc = storyQCResult.scenes[storyQCSceneIndex];
+                        if (!sc) return null;
+                        return (
+                          <div style={{ padding: "10px 12px", borderRadius: 8, background: "#ffffff05", border: `1px solid ${border}` }}>
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                              <span style={{ fontSize: 8, fontFamily: "monospace", color: blue }}>{sc.scene_id}</span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", flex: 1 }}>{sc.title}</span>
+                              <span style={badgeStyle(purple)}>{sc.emotion}</span>
+                              <span style={badgeStyle(gold)}>{sc.duration}s</span>
+                              <span style={{ fontSize: 8, color: sc.provider_recommendation === "video" ? "#ef4444" : "#22c55e" }}>{sc.provider_recommendation?.replace(/_/g, " ")}</span>
+                            </div>
+                            {sc.voiceover_text && <p style={{ fontSize: 10, color: "rgba(255,255,255,0.75)", fontStyle: "italic", marginBottom: 4 }}>"{sc.voiceover_text}"</p>}
+                            {sc.image_prompt && <p style={{ fontSize: 9, color: muted, marginBottom: 4 }}><strong style={{ color: accent }}>Image:</strong> {sc.image_prompt.slice(0, 180)}{sc.image_prompt.length > 180 ? "…" : ""}</p>}
+                            {sc.music_cue && <p style={{ fontSize: 9, color: "#fbbf24" }}>♪ {sc.music_cue}</p>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, paddingTop: 10, borderTop: `1px solid ${border}` }}>
+                    {storyQCResult.gatekeeper.passed ? (
+                      <button
+                        onClick={() => {
+                          setLastAction("Story QC approved — scenes accepted as QC validated");
+                          setActiveTab("scenes");
+                        }}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: `linear-gradient(135deg, #22c55e, #16a34a)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                        Approved — Continue to Scenes
+                      </button>
+                    ) : (
+                      <button
+                        onClick={runStoryQC}
+                        disabled={storyQCRunning}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 10, border: "none", background: storyQCRunning ? "#2a2a40" : `linear-gradient(135deg, ${accent}, #7c3aed)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: storyQCRunning ? "not-allowed" : "pointer" }}>
+                        {storyQCRunning ? "Re-running QC…" : "Re-run QC"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setActiveTab("scenes")}
+                      style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
+                      Continue Anyway
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -10951,6 +11887,24 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           </a>
                           <button onClick={() => setActiveTab("screenplay")}
                             style={{ ...btnPrimary, background: "#2a2a40", border: `1px solid ${purple}40`, color: purple }}>Screenplay</button>
+                        </div>
+                        {/* Quick links to find the video in other parts of GHS */}
+                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                          <a href="/dashboard/assets?type=video" target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: "none" }}>
+                            <button style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}08`, color: accent, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                              View in Asset Library
+                            </button>
+                          </a>
+                          <a href="/dashboard/review" target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: "none" }}>
+                            <button style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `1px solid ${gold}30`, background: `${gold}08`, color: gold, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                              Review Queue
+                            </button>
+                          </a>
+                          <a href="/dashboard/registry" target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: "none" }}>
+                            <button style={{ width: "100%", padding: "7px 10px", borderRadius: 8, border: `1px solid ${purple}30`, background: `${purple}08`, color: purple, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                              All Content
+                            </button>
+                          </a>
                         </div>
                       </div>
                     )}

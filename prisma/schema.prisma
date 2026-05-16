@@ -1290,3 +1290,179 @@ model ProjectSettings {
   @@index([tenantId])
   @@map("project_settings")
 }
+
+// ── Story Quality Control Layer ───────────────────────────────────────────────
+// GHS Story Supervisor Pipeline — Source of Truth: update/ghs story structure/
+
+model StoryQCProject {
+  id                String                  @id @default(cuid())
+  title             String
+  rawStoryText      String                  @db.Text
+  status            String                  @default("draft") // draft | qc_running | qc_passed | qc_failed | generating
+  contractId        String?                 @unique
+  contract          StoryQCContract?        @relation("ProjectContract")
+  draft             StoryQCDraft?
+  castMembers       StoryQCCastMember[]
+  scenePlans        StoryQCScenePlan[]
+  supervisorReports StorySupervisorReport[]
+  generationPlan    StoryGenerationPlan?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@map("story_qc_projects")
+}
+
+model StoryQCContract {
+  id                   String         @id @default(cuid())
+  projectId            String         @unique
+  country              String
+  culture              String
+  storyType            String // short_story | long_story | children_story | movie | ad_commercial | skit | moral_lesson | folklore | documentary | faith_story | educational
+  totalDurationSeconds Int
+  sceneDurationSeconds Int
+  estimatedSceneCount  Int
+  languageLevel        String // normal_english | simple_english | nigerian_english | childrens_english | voiceover_friendly | subtitle_friendly
+  emotionalIntensity   String // normal | more_emotional | very_emotional | cinematic | funny | dark | inspirational | suspense | action_heavy
+  subtitleStyle        String // normal_movie | children_story | karaoke | action | emotional | educational
+  generationMode       String // full_video | hybrid | image_storybook | voiceover_story | children_song
+  targetAudience       String         @default("general")
+  ageRating            String         @default("PG")
+  defaultEthnicity     String?
+  allowRaceOverride    Boolean        @default(true)
+  musicStyle           String?
+  nameStyle            String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  project              StoryQCProject @relation("ProjectContract", fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("story_qc_contracts")
+}
+
+model StoryQCDraft {
+  id              String         @id @default(cuid())
+  projectId       String         @unique
+  originalText    String         @db.Text
+  simplifiedText  String?        @db.Text
+  screeningScore  Int            @default(0)
+  screeningPassed Boolean        @default(false)
+  screeningIssues Json? // string[]
+  culturePassed   Boolean        @default(false)
+  cultureIssues   Json? // string[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  project         StoryQCProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("story_qc_drafts")
+}
+
+model StoryQCCastMember {
+  id             String         @id @default(cuid())
+  projectId      String
+  characterId    String // char_mama_001 format
+  name           String
+  age            String?
+  gender         String?
+  ethnicity      String?
+  skinTone       String?
+  bodyType       String?
+  hair           String?
+  clothing       String?
+  role           String?
+  personality    String?
+  voiceStyle     String?
+  relationship   String?
+  emotionalArc   String?
+  firstScene     String?
+  scenes         Json? // string[]
+  costumeChanges Json? // [{scene, change}]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  project        StoryQCProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, characterId])
+  @@map("story_qc_cast_members")
+}
+
+model StoryQCScenePlan {
+  id                     String         @id @default(cuid())
+  projectId              String
+  sceneId                String // scene_001, scene_002...
+  sceneNumber            Int
+  duration               Int
+  title                  String
+  summary                String?        @db.Text
+  characters             Json? // string[]
+  location               String?
+  timeOfDay              String?
+  emotion                String?
+  visualPrompt           String?        @db.Text
+  imagePrompt            String?        @db.Text
+  videoPrompt            String?        @db.Text
+  negativePrompt         String?        @db.Text
+  voiceoverText          String?        @db.Text
+  dialogue               String?        @db.Text
+  subtitleText           String?        @db.Text
+  subtitleStyle          String?
+  musicCue               String?
+  sfxCues                Json? // string[]
+  cameraStyle            String?
+  continuityNotes        Json? // string[]
+  providerRecommendation String? // image_plus_motion | video | image_voiceover | hybrid
+  providerReason         String?
+  status                 String         @default("draft") // draft | approved | generating | generated
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  project                StoryQCProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, sceneId])
+  @@map("story_qc_scene_plans")
+}
+
+model StorySupervisorReport {
+  id             String         @id @default(cuid())
+  projectId      String
+  supervisorName String // story_screening | culture_check | cast_bible | etc.
+  passed         Boolean
+  score          Int
+  blockingIssues Json // string[]
+  warnings       Json // string[]
+  suggestedFixes Json // string[]
+  revisedData    Json? // supervisor-specific output
+  runAt          DateTime       @default(now())
+  project        StoryQCProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, supervisorName])
+  @@map("story_supervisor_reports")
+}
+
+model StoryGenerationPlan {
+  id               String         @id @default(cuid())
+  projectId        String         @unique
+  totalScenes      Int
+  totalDuration    Int
+  estimatedCost    Json? // { image: number, video: number, audio: number }
+  readyToGenerate  Boolean        @default(false)
+  gatekeeperScore  Int            @default(0)
+  gatekeeperIssues Json? // string[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  project          StoryQCProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("story_generation_plans")
+}
+
+model StoryEditHistory {
+  id               String   @id @default(cuid())
+  projectId        String
+  instruction      String   @db.Text
+  resolvedObjectId String
+  changeType       String
+  scope            String   // low | medium | high
+  beforeSnapshot   Json?
+  afterSnapshot    Json?
+  timestamp        DateTime @default(now())
+  undone           Boolean  @default(false)
+
+  @@index([projectId])
+  @@map("story_edit_history")
+}

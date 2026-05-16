@@ -1,3 +1,61 @@
+# GHS Handoff — 2026-05-14 (TODOCORRECT pass complete — QC corrections + Semi-AI Collaboration + Phase D)
+
+## Done this session (TODOCORRECT14052026.md)
+
+### Phase A — 23-Supervisor Pipeline
+- **A1 done**: `cast-bible.ts` — CH01/CH02 format fix, `makeCHId()` + `normalizeToCHIds()`
+- **A2 done**: `prompt-simplifier.ts` + `prompt-cast-validator.ts` — both new, fully functional
+- **A3 done**: `index.ts` fully rewritten — 21 supervisors wired in correct §25 order (was 11)
+
+### Phase B — ShotPlan type system
+- **B1 done**: `ShotPlan` interface in `types.ts` — shot_id (SH04-01 format), characters_visible (CH IDs), dialogue_line, camera/framing/lighting fields
+- **B2 partial**: `shots?: ShotPlan[]` on ScenePlan, `buildDefaultShot()` in `scene-demarcator.ts` — every scene gets 1 shot; shot-level cast-checking + continuity deferred
+
+### Phase C — Semi-AI Collaboration UI
+- **C3 done**: instruction textarea + quick chips + Parse Instruction → POST /api/story/tools/collabo-edit
+- **C4 done**: dialogue display `[CH01] Name: "line"` format enforced in console
+- **C5 done**: editHistory state + Collaboration Edits section in History tab with undo
+- **C1/C2 partial**: scene/shot navigator exists in collabo console; explicit shot list in left panel folder deferred
+
+### Phase D — Backend tools
+- **D1 done**: `app/api/story/tools/collabo-edit/route.ts` — Haiku intent parser + rule-based fallback
+- **D2 done**: structured JSON output, all action types + target types, clarification_needed flow
+- **D3 done**: `classifyScope()` pure logic rules table — LOW/MEDIUM/HIGH
+- **D4 deferred**: `apply-edit/route.ts` DB write path not built — changes patch local React state
+- **D5 done**: `StoryEditHistory` model added to `prisma/schema.prisma`
+
+### TypeScript
+- `tsc --noEmit` exit 0 — only pre-existing `sound-browser-check.spec.ts` Playwright type issue (unrelated)
+
+## Pending action required from Henry
+
+### DB migration (story QC tables)
+Use `prisma db push` NOT `prisma migrate dev`. Reason: ~50 tables in schema were created via `db push` and never added to migrations. Running `prisma migrate dev` compares the shadow DB (only 10 migrated tables) against the full schema and tries to CREATE all ~50 tables — this crashes on the live DB because they already exist.
+
+`prisma db push` compares against the LIVE DB directly, so it only creates what's actually missing (the story_qc_* and story_edit_history tables).
+
+Commands (after restarting dev server to release Prisma DLL lock):
+```
+npx prisma db push
+```
+This is idempotent — safe to re-run. It will only add the new story QC + edit history tables.
+
+### Migration history fix (already done — no action needed)
+- Added `prisma/migrations/20260401_commercial_base/migration.sql` — creates `commercial_projects` + `commercial_slides` tables that were missing from migration history
+- This fixes P3006 error: `20260405_commercial_motion` was trying to ALTER a table the shadow DB didn't have
+- The 3 other migrations that ALTER commercial_projects use `ADD COLUMN IF NOT EXISTS` so they're idempotent
+
+### After DB push succeeds
+2. Run `npx prisma generate` to regenerate Prisma client with new models
+3. **Browser test collaborative-editor**: go to `/dashboard/collaborative-editor`, use the Semi-AI console (instruction → Parse → Apply Change → check History tab)
+4. **If Apply Change should write to DB**: trigger D4 build — `app/api/story/tools/apply-edit/route.ts`
+
+## What NOT to touch
+- `/dashboard/hybrid-planner/page.tsx` — DO NOT MODIFY
+- Any other planner page — DO NOT MODIFY
+
+---
+
 # GHS Handoff — 2026-05-02 (Smart Builder auto-refresh fix)
 
 ## Done this session

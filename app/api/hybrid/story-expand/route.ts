@@ -21,6 +21,11 @@ interface StoryExpandRequest {
   provider?: string; // "auto" | "claude" | "openai" | "grok" | "ollama" | "claude:claude-opus-4-6" | "openai:o3-mini" etc.
   tier?: "free" | "standard" | "pro"; // GHS AI tier — maps to model selection
   nameRegion?: string; // continent/region id for culturally authentic name injection
+  nameStyle?: string;
+  country?: string;
+  languageLevel?: string; // e.g. "normal_english", "simple_english", "nigerian_english"
+  storyType?: string;     // e.g. "short_story", "feature", "reel"
+  emotionalIntensity?: string; // e.g. "normal", "high", "low"
   customNames?: string[]; // user-imported custom names (injected as approved pool)
 }
 
@@ -213,6 +218,10 @@ export async function POST(req: NextRequest) {
     if (body.tone) controlLines.push(`Desired tone: ${body.tone}`);
     if (body.targetDurationLabel) controlLines.push(`Target movie length: ${body.targetDurationLabel} (${durSec} seconds)`);
     if (body.language) controlLines.push(`Language: ${body.language}`);
+    if (body.languageLevel) controlLines.push(`Language level/style: ${body.languageLevel.replace(/_/g, " ")}`);
+    if (body.storyType) controlLines.push(`Story type: ${body.storyType.replace(/_/g, " ")}`);
+    if (body.emotionalIntensity) controlLines.push(`Emotional intensity: ${body.emotionalIntensity}`);
+    if (body.country) controlLines.push(`Story country/setting: ${body.country}`);
     if (body.costPreference) controlLines.push(`Cost preference: ${body.costPreference}`);
     if (body.audience) controlLines.push(`Target audience: ${body.audience}`);
 

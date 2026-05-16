@@ -544,3 +544,50 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 8. **Legacy button restyled**: Smaller padding, grey/transparent border, muted color, opacity 0.7, added caption below: "Old single-voice path. Replaced by Multi-Cast above for proper character voices."
 
 **Rollback path:** Revert the 8 edits above in `movie-planner/page.tsx`. No API routes, no DB schema, no other files touched. The old `effectiveNarrationProvider` was the only provider field — restoring its usage in the generate body reverts step 5. Deleting the IIFE wrapper around the MCD button restores step 4-7.
+
+---
+
+## 38. Character voices always default to Lessac regardless of gender (2026-05-15)
+
+**Problem:** Every character in Character Voices section showed "Lessac (Neutral Male)" even for female characters. No other Piper voices (Amy, Ryan, LibriTTS) were ever auto-selected.
+**Root cause:** `characterPiperVoices` state starts as empty `{}`. The voice dropdown at line 8938 falls back to `"en_US-lessac-medium"` when no entry exists. No code ever auto-populated the state on character detection — so every character hit the Lessac fallback.
+**Fix:** Added auto-assign logic at both character detection call sites (lines 1137 + 1156 in `page.tsx`). After `setCharacters()`, immediately calls `setCharacterPiperVoices(prev => ...)` mapping each character's `gender` field: female → Amy, male narrator → LibriTTS, male → Ryan, unknown → Lessac. Does NOT overwrite entries the user already manually set (uses `{ ...auto, ...prev }` merge order).
+**Files:** `app/dashboard/hybrid-planner/page.tsx` — two locations where setCharacters is called in expandStory().
+**Prevention:** Any time characters are detected/set, always auto-assign voices. Never leave `characterPiperVoices` empty — it will always fall back to Lessac in the render loop.
+
+---
+
+## 39. Generate Per-Line Voices — all lines spoken in Lessac even with different voices selected (2026-05-15)
+
+**Problem:** Even after manually selecting different Piper voices per character in the UI, clicking "Generate Per-Line Voices" produced all clips in the same Lessac voice.
+**Root cause:** Same root cause as #38 — `characterPiperVoices` was empty `{}` when characters were detected. The UI showed "Lessac" in the dropdown (the hardcoded fallback), and `generatePerLineVoices()` at line 2771 reads `characterPiperVoices[char.characterId] || "en_US-lessac-medium"` — which always resolved to Lessac because the map was empty.
+**Fix:** Fix #38 resolves this — once voices are auto-assigned on character detection, `characterPiperVoices` is populated and both the UI and the generate function use the correct voices.
+**Prevention:** Voice generation functions must never silently fall back to a default without showing that fallback in the UI. The UI fallback and the generation fallback must be identical.
+
+---
+
+## 40. Scene edit panel — no way to give AI a custom instruction (2026-05-15)
+
+**Problem:** The scene edit panel in the Story tab had 5 predefined polish buttons (Polish, Add Action, Make Intense, Reduce Action, Make Emotional) but no way for the user to type a custom instruction (e.g. "add rain", "make it funnier", "cut to 2 sentences").
+**Root cause:** `polishSceneText()` only accepted hardcoded modes. No text input existed in the edit panel UI.
+**Fix:**
+1. Added `"custom"` mode to `PolishMode` type in `app/api/hybrid/scene-edit/route.ts`. `runPolish()` now accepts `customInstruction?: string` — when mode is "custom", uses the instruction string as the AI goal instead of a predefined intent.
+2. Added `storyEditAiQuery: Record<string, string>` state for per-scene query text.
+3. Added `polishSceneCustom(scene)` function that reads the query and calls scene-edit API with `polishMode: "custom"`.
+4. Added text input + "Ask AI" button row between the action buttons and Save/Cancel in the scene edit panel. Enter key also triggers the AI call.
+**Files:** `app/api/hybrid/scene-edit/route.ts`, `app/dashboard/hybrid-planner/page.tsx`.
+**Prevention:** Any AI action UI that has predefined modes should also expose a free-text fallback.
+
+---
+
+## 41. Story QC Suggested Fixes — no Fix buttons (2026-05-15)
+
+**Problem:** The QC panel showed "Suggested Fixes" as a plain text list with no way to apply them. User had to manually edit each scene based on the suggestion.
+**Root cause:** UI was display-only. No action buttons or handler functions existed.
+**Fix:**
+1. Added `fixingQC: boolean` state (loading gate).
+2. Added `fixQCSuggestion(suggestion)` — loops through all scenes sequentially, calls scene-edit API with `polishMode: "custom"` and the suggestion as `customInstruction`, applies result via `updateScene()`.
+3. Added `fixAllQCSuggestions()` — runs all suggestions in sequence by calling `fixQCSuggestion` for each.
+4. Updated Suggested Fixes UI: header row now has "Fix All" button; each suggestion row has an individual "Fix" button. Both buttons are disabled when no scenes exist or fix is in progress.
+**Files:** `app/dashboard/hybrid-planner/page.tsx`.
+**Prevention:** Any AI output that suggests actions must have a clickable "Apply" path. A list of suggestions with no way to act on them is a dead-end UX.

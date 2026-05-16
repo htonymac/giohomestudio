@@ -1,8 +1,8 @@
 {
   "meta": {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "GHS Character Name Library — culturally authentic names by region. Used to inject appropriate names into story-expand prompts.",
-    "regions": ["west_africa","east_africa","north_africa","central_africa","southern_africa","south_asia","east_asia","southeast_asia","central_asia","western_europe","southern_europe","northern_europe","eastern_europe","north_america","latin_america","brazil","caribbean","indigenous_americas","middle_east","turkey_caucasus","oceania_pacific","universal_fantasy"]
+    "regions": ["west_africa","east_africa","north_africa","central_africa","southern_africa","south_asia","east_asia","southeast_asia","central_asia","western_europe","southern_europe","northern_europe","eastern_europe","north_america","latin_america","brazil","caribbean","indigenous_americas","middle_east","turkey_caucasus","oceania_pacific","universal_fantasy","french","spanish","greek_roman_myth","norse_viking_myth","celtic_myth","aztec_mayan","native_american"]
   },
   "continents": [
     {
@@ -52,6 +52,30 @@
       "label": "Fantasy / Universal",
       "emoji": "✨",
       "regions": ["universal_fantasy"]
+    },
+    {
+      "id": "french_culture",
+      "label": "French",
+      "emoji": "🇫🇷",
+      "regions": ["french"]
+    },
+    {
+      "id": "spanish_culture",
+      "label": "Spanish",
+      "emoji": "🇪🇸",
+      "regions": ["spanish"]
+    },
+    {
+      "id": "mythology",
+      "label": "Mythology & Legend",
+      "emoji": "⚡",
+      "regions": ["greek_roman_myth","norse_viking_myth","celtic_myth"]
+    },
+    {
+      "id": "indigenous",
+      "label": "Indigenous Cultures",
+      "emoji": "🌿",
+      "regions": ["native_american","aztec_mayan"]
     }
   ],
   "regions": {
@@ -425,6 +449,132 @@
         "Sina","Losa","Fiafia","Mele","Ioane","Sāmoa","Faolani","Tūtū","Fepulea'i","Alofagia",
         "Mele","Losa","Fua","Hulita","Malia","Siuliagi","Salote","Tevita","Tupou","Sosefina",
         "Litiana","Adi","Mere","Silina","Vani","Karalaini","Asenaca","Lavinia","Salote","Ilisapeci"
+      ]
+    },
+    "french": {
+      "label": "French",
+      "cultures": ["Parisian","Provençal","Breton","Alsatian","Occitan"],
+      "male": [
+        "Théodore","Gaspard","Clément","Honoré","Achille","Étienne","Renaud","Thibault","Sébastien","Florent",
+        "Mathieu","Edouard","Armand","Gustave","Bertrand","Lucien","Marcel","Fernand","Gaston","Raoul",
+        "Augustin","Cyprien","Damien","Émile","Fabien","Germain","Hippolyte","Ignace","Jérôme","Laurent",
+        "Maxime","Nicolas","Octave","Pascal","Quentin","Rémi","Sylvain","Tanguy","Ulysse","Valentin",
+        "Yves","Zacharie","Baptiste","Corentin","Dorian","Florian","Gaël","Henri","Jourdain","Killian"
+      ],
+      "female": [
+        "Céleste","Marguerite","Colette","Hortense","Agnès","Adèle","Blanche","Camille","Delphine","Élise",
+        "Fleur","Geneviève","Hélène","Inès","Joëlle","Laure","Madeleine","Nadine","Odette","Pauline",
+        "Rosalie","Simone","Thérèse","Valentine","Vivienne","Aurélie","Brigitte","Chloé","Dominique","Estelle",
+        "Françoise","Gaëlle","Isabelle","Juliette","Léonie","Mathilde","Nathalie","Océane","Pascaline","Renée",
+        "Solène","Tiphaine","Violette","Yvonne","Angélique","Béatrice","Cécile","Elodie","Fabienne","Gwenaëlle"
+      ]
+    },
+    "spanish": {
+      "label": "Spanish",
+      "cultures": ["Castilian","Andalusian","Catalan","Basque","Galician","Mexican"],
+      "male": [
+        "Alejandro","Rodrigo","Sebastián","Emilio","Jesús","Mateo","Andrés","Felipe","Guillermo","Héctor",
+        "Ignacio","Javier","Lorenzo","Miguel","Nicolás","Óscar","Pablo","Raúl","Salvador","Tomás",
+        "Valentín","Xavier","Adrián","Benjamín","Cristóbal","Diego","Ernesto","Fernando","Gerardo","Horacio",
+        "Iñigo","Joaquín","Leandro","Marcos","Narciso","Óliver","Patricio","Rubén","Santiago","Teodoro",
+        "Uriel","Víctor","Agustín","Bautista","Celestino","Demetrio","Esteban","Fermín","Gilberto","Hernán"
+      ],
+      "female": [
+        "Sofía","Valentina","Lucía","Camila","Gabriela","Isabella","Martina","Valeria","Daniela","Alejandra",
+        "Adriana","Beatriz","Catalina","Dolores","Esperanza","Fernanda","Gloria","Hortensia","Inés","Josefina",
+        "Lourdes","Manuela","Natividad","Paloma","Rafaela","Soledad","Teresa","Úrsula","Verónica","Ximena",
+        "Yolanda","Amparo","Belén","Consuelo","Encarna","Florencia","Graciela","Herminia","Inmaculada","Juana",
+        "Leticia","Mercedes","Nieves","Pilar","Remedios","Salomé","Trinidad","Violeta","Ascensión","Carmen"
+      ]
+    },
+    "greek_roman_myth": {
+      "label": "Greek & Roman Mythology",
+      "cultures": ["Ancient Greek","Ancient Roman","Olympian","Heroic Age"],
+      "male": [
+        "Zeus","Jupiter","Apollo","Ares","Mars","Hermes","Mercury","Poseidon","Neptune","Dionysus",
+        "Bacchus","Hephaestus","Vulcan","Hades","Pluto","Achilles","Odysseus","Heracles","Perseus","Theseus",
+        "Jason","Orpheus","Aeneas","Icarus","Midas","Narcissus","Adonis","Ganymede","Patroclus","Hector",
+        "Paris","Priam","Agamemnon","Menelaus","Prometheus","Atlas","Cronus","Saturn","Eros","Cupid",
+        "Helios","Sol","Pan","Faun","Castor","Pollux","Theron","Daedalus","Bellerophon","Peleus"
+      ],
+      "female": [
+        "Athena","Minerva","Aphrodite","Venus","Artemis","Diana","Hera","Juno","Demeter","Ceres",
+        "Persephone","Proserpina","Hestia","Vesta","Nike","Victoria","Helen","Penelope","Circe","Medea",
+        "Cassandra","Clytemnestra","Antigone","Iphigenia","Ariadne","Phaedra","Psyche","Daphne","Galatea","Alcmene",
+        "Andromache","Hecuba","Calypso","Medusa","Selene","Luna","Eos","Aurora","Tyche","Fortuna",
+        "Nemesis","Iris","Calliope","Thetis","Hypatia","Nausicaa","Electra","Europa","Cassiopeia","Pandora"
+      ]
+    },
+    "norse_viking_myth": {
+      "label": "Norse & Viking Mythology",
+      "cultures": ["Norse","Viking","Asgardian","Eddaic"],
+      "male": [
+        "Odin","Thor","Loki","Freyr","Tyr","Baldur","Heimdall","Bragi","Vidar","Váli",
+        "Ullr","Forseti","Höðr","Mimir","Njord","Surtr","Thrym","Hrym","Ymir","Sigurd",
+        "Gunnar","Ragnar","Bjorn","Erik","Ivar","Olaf","Harald","Leif","Ulf","Hrolf",
+        "Knut","Sweyn","Halfdan","Skalla","Magni","Modi","Hoenir","Aegir","Hymir","Starkad",
+        "Orvar-Odd","Völund","Helgi","Bothvar","Asmund","Eysteinn","Sigvard","Hákon","Eirik","Ketill"
+      ],
+      "female": [
+        "Freya","Frigg","Sif","Idunn","Skadi","Hel","Rán","Nerthus","Eir","Hlín",
+        "Gná","Snotra","Vár","Vör","Syn","Brynhildr","Sigrún","Göndul","Hildr","Skuld",
+        "Herfjötur","Geirskögul","Þrúðr","Mist","Skögul","Gudrun","Sigrid","Astrid","Ragnhild","Thyra",
+        "Aud","Unn","Vigdis","Ragnfrid","Alfhild","Thora","Ingrid","Bergljot","Hallgerd","Yrsa",
+        "Swanhild","Hervor","Gunnhild","Valdis","Ranveig","Joreid","Solveig","Ragnborg","Þóra","Heiðrún"
+      ]
+    },
+    "celtic_myth": {
+      "label": "Celtic Mythology",
+      "cultures": ["Irish Celtic","Welsh Celtic","Scottish Gaelic","Gaulish","Brythonic"],
+      "male": [
+        "Lugh","Finn","Cormac","Conall","Diarmuid","Naoise","Manannán","Dagda","Midir","Óengus",
+        "Donn","Elatha","Nuada","Fionn","Lleu","Gwydion","Pryderi","Manawydan","Bran","Peredur",
+        "Owain","Taliesin","Myrddin","Caradoc","Ossian","Cian","Fergus","Conchobar","Bres","Balor",
+        "Ogma","Goibniu","Lir","Ailill","Goll","Caílte","Laeg","Setanta","Amergin","Bile",
+        "Donn Bó","Fionnbarra","Rónán","Cathal","Niall","Ruadhán","Flann","Máel","Eochaid","Conn"
+      ],
+      "female": [
+        "Morrigan","Brigid","Danu","Étaín","Gráinne","Deirdre","Áine","Boann","Fand","Niamh",
+        "Scáthach","Medb","Rhiannon","Arianrhod","Ceridwen","Branwen","Blodeuwedd","Modron","Macha","Badb",
+        "Nemain","Clíodhna","Tlachtga","Aoife","Fionnuala","Sadb","Emer","Ériu","Banba","Fódla",
+        "Tailtiu","Clothra","Muirenn","Lí Ban","Muirgheal","Sionann","Bé Bind","Creidne","Étromma","Fithir",
+        "Findabair","Luighseach","Muirenn","Caoilfhinn","Gobnait","Íte","Lasair","Mella","Orla","Sorcha"
+      ]
+    },
+    "aztec_mayan": {
+      "label": "Aztec & Mayan",
+      "cultures": ["Nahuatl (Aztec)","Yucatec Mayan","Quechua (Inca)","Zapotec"],
+      "male": [
+        "Quetzalcoatl","Huitzilopochtli","Tlaloc","Tezcatlipoca","Xipe Totec","Mixcoatl","Ehecatl","Xolotl","Nanahuatzin","Tonatiuh",
+        "Mictlantecuhtli","Cipactli","Moctezuma","Cuauhtémoc","Itzcoatl","Nezahualcoyotl","Chimalli","Tezozomoc","Ahuizotl","Hunahpu",
+        "Xbalanque","Ixpiyacoc","Itzamná","Kukulkan","Bacab","Chaac","Pakal","Cuitláhuac","Axayacatl","Tízoc",
+        "Acamapichtli","Huitzilihuitl","Chimalpopoca","Yaxchilán","Balaj Chan","Siyah Chan","Uaxaclajuun","Copán","Amaru","Tupac",
+        "Atahualpa","Huascar","Sinchi","Cusi","Viracocha","Wayra","Lautaro","Caupolicán","Nahuel","Huenú"
+      ],
+      "female": [
+        "Coatlicue","Xochiquetzal","Cihuacoatl","Tlazolteotl","Chalchiuhtlicue","Ixchel","Ixmucane","Xochicueitl","Mayahuel","Toci",
+        "Itzpapalotl","Chicomecóatl","Huixtocihuatl","Xilonen","Coyolxauhqui","Tonantzin","Atlatonan","Malinalxochitl","Chimalma","Ilamatecuhtli",
+        "Citlalicue","Ix Chel","Ix Tab","Sak Kuk","Lady Xoc","Malintzin","Atotoztli","Ilancueitl","Chimalxochitl","Papantzin",
+        "Miahuaxochitl","Tiacapan","Quiauhxochitl","Xoco","Xochitl","Citlali","Tonanzin","Chantico","Nalin","Qori",
+        "Mama Ocllo","Sisa","Kori","Sumaq","Rayen","Lien","Antu","Kimün","Railén","Inti"
+      ]
+    },
+    "native_american": {
+      "label": "Native American",
+      "cultures": ["Lakota Sioux","Cherokee","Navajo","Apache","Ojibwe","Iroquois","Comanche","Crow"],
+      "male": [
+        "Crazy Horse","Sitting Bull","Red Cloud","Black Elk","Spotted Tail","Gall","Little Wound","Sequoyah","Attakullakulla","Dragging Canoe",
+        "Ridge","Boudinot","Manuelito","Barboncito","Narbona","Geronimo","Cochise","Victorio","Nana","Loco",
+        "Tecumseh","Pontiac","Osceola","Cornplanter","Red Jacket","Hiawatha","Dekanawida","Quanah Parker","Ten Bears","Iron Jacket",
+        "Plenty Coups","Curly","Two Moons","Chief Joseph","Black Hawk","Keokuk","Little Turtle","Tenskwatawa","Spotted Eagle","Rain-in-the-Face",
+        "White Bull","Kicking Bear","Short Bull","Dull Knife","Little Wolf","Ahanu","Chayton","Elan","Honovi","Takoda"
+      ],
+      "female": [
+        "Sacagawea","Pocahontas","Lozen","Pretty Shield","Buffalo Bird Woman","Winona","Minnehaha","Chipeta","Wetamoo","Cockacoeske",
+        "Tekakwitha","Molly Brant","Nanyehi","Running Eagle","Yellow Woman","Mourning Dove","Sarah Winnemucca","Susette La Flesche","Zitkala-Sa","Owl Woman",
+        "Corn Woman","Spider Woman","Sky Woman","Deer Woman","Morning Star Woman","Blue Corn Woman","White Shell Woman","Changing Woman","Turquoise Woman","Falling Star Woman",
+        "Hawk Feather Woman","Brave Heart Woman","Sharp Wind Woman","River Woman","Red Willow Woman","Aiyana","Aponi","Aquene","Chenoa","Halona",
+        "Kachina","Kaya","Kimama","Leotie","Luyu","Macha","Malia","Mansi","Xochitl","Citlali"
       ]
     },
     "universal_fantasy": {
