@@ -1,5 +1,27 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-15 — Session 11: Collab Editor 3-Panel + Apply-Edit Route + Subtitle Tokens + Scroll-Lock + Establishing Shot Generate + Wave C Multi-Image
+
+**Branch:** `feat/ghs-collab-and-polish`
+
+**What:** 6 tasks shipped. Collaborative editor extended with shot-level scene folders (C1), active shot preview panel (C2), apply-edit API wiring (C3), subtitle style tokens per-segment (Task 3), modal scroll-lock (Task 4), establishing shot image generation route (Task 5), and Wave C multi-image character import UI (Task 6).
+
+**Impact:** Collaborative editor now shows the full 3-panel shot system — left panel reveals shots within scenes, center panel shows active shot details with editable image prompt and dialogue line. Apply Change now persists edits to `StoryEditHistory` via D4 route. Per-segment subtitle styles (neon/cinema/bold/minimal) override the global export style at FFmpeg time. Modal scroll-lock prevents body scroll on any modal open. Establishing shot generation is wired to FAL FLUX. Character picker shows multi-angle thumbnail strips; character-voices page allows uploading up to 4 reference images per character.
+
+**Risk:** Low. All additions/extensions, no deletions, no planner files modified. TSC: 0 errors.
+
+**Files:**
+- `src/lib/assembly-schema.ts` — +`dialogue_line`, `ownerCharacterId`, `subtitleStyle`, `imageUrl`, `videoPrompt`, `imagePrompt`, `providerRecommendation` on `AssemblySegment`
+- `app/api/assembly/execute/route.ts` — per-segment `subtitleStyle` override via `getSegmentStyleAt()`
+- `app/api/story/tools/apply-edit/route.ts` — NEW: Phase D4, inserts `StoryEditHistory` on confirmed edits
+- `app/api/hybrid/establishing-shot/generate/route.ts` — NEW: FAL FLUX wide establishing shot image gen
+- `src/types/character.ts` — NEW: shared `CharacterIdentity` + `ReferenceImage` types
+- `app/components/CharacterPicker.tsx` — multi-image thumbnail strip for characters with >1 reference image
+- `app/dashboard/character-voices/page.tsx` — multi-image upload (up to 4, with angle labels) in VoiceForm
+- `app/dashboard/collaborative-editor/page.tsx` — C1 shots in folders, C2 active shot preview, C3 apply-edit wired, C4 dialogue_line display, modal scroll-lock
+
+---
+
 ## 2026-05-15 — Session 10: Story QC Fix System + Establishing Shot + Voice Auto-Assign + Name Library v1.1.0
 
 **What:** 5 features shipped. Story QC now has Fix/Fix All buttons that apply suggestions to all scenes via one batch LLM call. Per-scene AI chat box (Ask AI) added to scene edit panel. Character voices auto-assign by gender on detection. Full Establishing Shot system built (API + UI). Name library expanded with 7 new cultural regions.

@@ -1,16 +1,46 @@
-# GHS HANDOFF — Session 10 (Story QC Fix + Establishing Shot + Name Library)
+# GHS HANDOFF — Session 11 (Collab Editor 3-Panel + Apply-Edit + Subtitle Tokens + Wave C Multi-Image)
 
 **Last updated:** 2026-05-15
 **Build:** `npx tsc --noEmit` exit=0 (zero production errors)
+**Branch:** `feat/ghs-collab-and-polish` — committed (9d0c879), NOT pushed to main
 **Dev server:** localhost:3200 (HP Omen) | **Debug Chrome:** :9222
 **DB:** giohomestudio_db | **Schema:** `imageFlipSeconds` + `flipOverride` + `lastSeenWardrobe` live
 
 ---
 
 ## ⚡ IMMEDIATE — nothing blocking
-Dev server is running. No restart needed. TSC clean. All session work is uncommitted — commit when Henry gives GO.
+Feature branch committed. Dev server may need restart to pick up new API routes. TSC clean.
 
 ---
+
+## ✅ Done Session 11 (2026-05-15)
+
+### Task 1 — Phase C: Collaborative Editor 3-Panel Scene System
+- C1: Left panel shots in expanded scene folders. Shows `shot_id` chip, speaking char chip, duration. Click sets `collaboActiveSceneIdx` + `collaboActiveShotIdx`. "Add Shot" button (shows info toast — shots come from Story QC).
+- C2: Active Shot Preview at top of Scene tab. Active scene title, shot ID, char chip, `[CH01] "dialogue"` format, image prompt textarea (editable, updates `qcScenes`), provider badge, preview image slot (uses `segment.imageUrl || sourceUrl`, max 240px).
+- C3: Apply Change now POSTs to `/api/story/tools/apply-edit` (fire-and-forget) after applying local state change.
+- C4: `dialogue_line` and `ownerCharacterId` added to `AssemblySegment` type.
+- C5: `editHistory` already tracks all collabo edits chronologically — history tab unchanged (already correct).
+
+### Task 2 — Phase D4: apply-edit route
+- `app/api/story/tools/apply-edit/route.ts` — NEW
+- POST `{projectId, resolvedEdit, confirmed}` → validates confirmed + clarification_needed → inserts `StoryEditHistory` → returns `{success, historyId}`.
+
+### Task 3 — Subtitle Style Tokens → FFmpeg
+- `subtitleStyle?: "neon" | "cinema" | "bold" | "minimal"` added to `AssemblySegment`.
+- Execute route: `getSegmentStyleAt(midTime)` finds which segment covers each subtitle entry's midpoint time, uses its `subtitleStyle` override if set, else falls back to global `exportSettings.subtitleStyle`.
+
+### Task 4 — Modal Scroll-Lock
+- `useEffect` in collaborative editor: `document.body.style.overflow = "hidden"` when `showImport || showReview || showCharacterPicker || showShortcuts` open. Cleared on close + unmount.
+
+### Task 5 — Establishing Shot Generate Route
+- `app/api/hybrid/establishing-shot/generate/route.ts` — NEW
+- POST `{sceneId, shot, provider?}` → prepends "Wide establishing shot" → calls FAL FLUX (dev or pro) → returns `{imageUrl}`.
+
+### Task 6 — Wave C: Multi-Image Character Import
+- `src/types/character.ts` — NEW: shared `CharacterIdentity` + `ReferenceImage` interfaces.
+- `CharacterPicker.tsx`: thumbnail strip shows when `referenceImages.length > 1` (max 4 tiles, 24px, angle label, tooltip).
+- `character-voices/page.tsx`: `VoiceForm` extended with "Reference images" section — upload up to 4 (reuses `/api/character-voices/upload-image`), remove button, angle label input, count indicator (N/4).
 
 ## ✅ Done this session (2026-05-15)
 
@@ -79,16 +109,17 @@ Dev server is running. No restart needed. TSC clean. All session work is uncommi
 | Item | Gate |
 |---|---|
 | Phase D — drop local-state fallbacks in 7 planners | Needs Henry GO + browser-verify all 7 planners |
-| Wave C — multi-image character import (>1 ref image per character) | Not started |
+| Wave C — multi-image character import (>1 ref image per character) | ✅ DONE Session 11 |
 | Wave D — Continuity supervisor (tier-attached, always-ON, depth scales by tier) | Not started |
 | Wave E — Wardrobe sidecar (rolls into Wave D) | Not started |
 | Wave F — Pre-gen dialogue review UI | Not started |
 | E2E full path: Expand → Scene Board → Gen Image → Assembly | Not done |
 | Branch `fix/ghs-pipeline-recovery-may05` not merged to main | Pending |
 | `KIE_AI_API_KEY` + `MUBERT_PAT` not in `.env` | Music tiers fall back to stock library |
-| Subtitle style tokens (neon/cinema/bold) not mapped to FFmpeg force_style | Low priority |
-| Modal scroll-lock on Terms / AI Chat / legal modals | Only Preview lightbox fixed |
-| Establishing Shot → Assembly integration | Designed, not built — establishing shots don't yet generate images or affect video assembly |
+| Subtitle style tokens per-segment | ✅ DONE Session 11 — `subtitleStyle` on AssemblySegment, `getSegmentStyleAt()` in execute route |
+| Modal scroll-lock on Terms / AI Chat / legal modals | ✅ DONE Session 11 (collab editor modals); Terms/legal modals in other pages still pending |
+| Establishing Shot → image generation | ✅ DONE Session 11 — `/api/hybrid/establishing-shot/generate` route wired to FAL FLUX |
+| Establishing Shot → Assembly video integration (Wan animation, timeline slot) | Not built — next step |
 
 ---
 
