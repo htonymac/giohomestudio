@@ -478,48 +478,47 @@ export async function POST(req: NextRequest) {
             };
             const globalStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
             // If style is "none", skip subtitle burn-in entirely
-            if (globalStyle === "none") {
-              // Skip — baseStyle empty means no subtitles
-            } else {
-            // Helper: find segment active at a given midpoint time
-            const sortedSegments = [...(fullAssembly.segments || [])].sort(
-              (a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)
-            );
-            function getSegmentStyleAt(midTime: number): string {
-              const seg = sortedSegments.find(
-                s => (s.startTime ?? 0) <= midTime && (s.endTime ?? Infinity) > midTime
+            if (globalStyle !== "none") {
+              // Helper: find segment active at a given midpoint time for per-segment style override
+              const sortedSegments = [...(fullAssembly.segments || [])].sort(
+                (a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)
               );
-              const segStyle = seg?.subtitleStyle;
-              if (segStyle && styleParams[segStyle]) {
-                return styleParams[segStyle];
+              function getSegmentStyleAt(midTime: number): string {
+                const seg = sortedSegments.find(
+                  s => (s.startTime ?? 0) <= midTime && (s.endTime ?? Infinity) > midTime
+                );
+                const segStyle = seg?.subtitleStyle;
+                if (segStyle && styleParams[segStyle]) {
+                  return styleParams[segStyle];
+                }
+                return styleParams[globalStyle] || styleParams.classic;
               }
-              return styleParams[globalStyle] || styleParams.classic;
-            }
-            const drawChain = capped.map(e => {
-              const midTime = (e.start + e.end) / 2;
-              const subStyleBase = getSegmentStyleAt(midTime);
-              const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
-              return `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`;
-            }).join(",");
 
-            const finalMergeStep = steps.find(s => s.id === "final_merge");
-            const unsub = finalMergeStep?.outputPath || "";
-            if (unsub && fs.existsSync(unsub)) {
-              const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
-              await execFileAsync(env.ffmpegPath, [
-                "-i", unsub,
-                "-vf", drawChain,
-                "-c:a", "copy",
-                "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
-                "-y", subbedPath,
-              ], { timeout: 300000 });
-              if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
-                subtitledOutputPath = subbedPath;
-                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, globalStyle=${globalStyle}) → ${path.basename(subbedPath)}`);
+              const drawChain = capped.map(e => {
+                const midTime = (e.start + e.end) / 2;
+                const subStyleBase = getSegmentStyleAt(midTime);
+                const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
+                return `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`;
+              }).join(",");
+
+              const finalMergeStep = steps.find(s => s.id === "final_merge");
+              const unsub = finalMergeStep?.outputPath || "";
+              if (unsub && fs.existsSync(unsub)) {
+                const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
+                await execFileAsync(env.ffmpegPath, [
+                  "-i", unsub,
+                  "-vf", drawChain,
+                  "-c:a", "copy",
+                  "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                  "-movflags", "+faststart",
+                  "-y", subbedPath,
+                ], { timeout: 300000 });
+                if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
+                  subtitledOutputPath = subbedPath;
+                  console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, globalStyle=${globalStyle}) → ${path.basename(subbedPath)}`);
+                }
               }
-            }
-            } // end else (chosenStyle !== "none")
+            } // globalStyle !== "none"
           }
         } catch (subErr) {
           console.warn("[assembly] Subtitle burn-in skipped:", subErr instanceof Error ? subErr.message.slice(0, 200) : subErr);
