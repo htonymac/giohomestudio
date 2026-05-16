@@ -27,7 +27,8 @@ const MOOD_MUSIC_MAP: Record<string, { style: string; lyrics: string }> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { sceneNumber, mood, musicStyle, intensity, durationSeconds, sceneType } = body;
+    const { sceneId, sceneNumber, mood, musicStyle, intensity, durationSeconds, sceneType, genre, tone } = body;
+    // UI sends sceneId (hybrid planner) — route also accepts legacy sceneNumber for compat
 
     const dur = durationSeconds ?? 10;
     const moodKey = (mood ?? "cinematic").toLowerCase();
@@ -35,6 +36,8 @@ export async function POST(req: NextRequest) {
 
     // Adjust prompt based on scene type (hybrid doctrine)
     let prompt = musicStyle ?? mapping.style;
+    if (genre) prompt += `, ${genre}`;
+    if (tone) prompt += `, ${tone} tone`;
     if (sceneType === "image-led") prompt += ", background music bed, subtle, supportive";
     if (sceneType === "video-led") prompt += ", dynamic, drives the action, energetic";
     if (sceneType === "audio-bridge") prompt += ", atmospheric transition, ambient, flowing";
@@ -70,13 +73,15 @@ export async function POST(req: NextRequest) {
     const audioRes = await fetch(audioUrl);
     const outDir = path.join(env.storagePath, "music", "scene");
     fs.mkdirSync(outDir, { recursive: true });
-    const outPath = path.join(outDir, `scene_${sceneNumber ?? "x"}_${Date.now()}.mp3`);
+    const fileKey = sceneId ? sceneId.replace(/[^a-zA-Z0-9_-]/g, "") : `n${sceneNumber ?? "x"}`;
+    const outPath = path.join(outDir, `scene_${fileKey}_${Date.now()}.mp3`);
     fs.writeFileSync(outPath, Buffer.from(await audioRes.arrayBuffer()));
 
     const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
     return NextResponse.json({
       outputUrl: `/api/media/${relPath}`,
-      sceneNumber,
+      sceneId: sceneId ?? null,
+      sceneNumber: sceneNumber ?? null,
       mood: moodKey,
       duration: dur,
       credits: 1,

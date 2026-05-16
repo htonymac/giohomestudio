@@ -4087,6 +4087,11 @@ function HybridPlannerInner() {
         body: JSON.stringify({ assembly: assemblyJSON, skipApprovalCheck: true }),
       });
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setUiError(`Assembly failed: ${data.error || `HTTP ${res.status}`}`);
+        setLastAction(`Assembly error: ${data.error || `HTTP ${res.status}`}`);
+        return;
+      }
       if (data.warning) setUiError(data.warning);
       if (data.outputUrl) {
         setAssembledVideoUrl(data.outputUrl);

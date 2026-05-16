@@ -167,7 +167,7 @@ async function planSceneAudio(scene: {
   });
 
   const llmResult = await callLLM(prompt, "You are an audio planning assistant for film production.", {
-    role: "planning" as any,
+    role: "fast",
     maxTokens: 800,
     temperature: 0.5,
   });
@@ -259,7 +259,7 @@ async function planScenesInline(
         `Scene: ${scene.title}. ${scene.description}`,
         "Respond with ONLY the narration text, no quotes, no labels.",
       ].join("\n");
-      const nr = await callLLM(narrationPrompt, "You are a film narrator.", { role: "narration" as any, maxTokens: 120, temperature: 0.7 });
+      const nr = await callLLM(narrationPrompt, "You are a film narrator.", { role: "fast", maxTokens: 120, temperature: 0.7 });
       narration = nr.ok ? nr.text.trim() : "";
     }
 
