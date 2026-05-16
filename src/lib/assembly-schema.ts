@@ -32,6 +32,19 @@ export interface AssemblySegment {
   shotId?: string;        // links segment to HybridShot (SH01, SH02...)
   sceneType?: string;     // image-led, video-led, image-to-video, audio-bridge, hybrid
 
+  // Dialogue — collaborative editor
+  dialogue_line?: string;         // e.g. "[CH01] \"line text\""
+  ownerCharacterId?: string;      // character ID owning this shot's dialogue
+
+  // Per-segment subtitle style override
+  subtitleStyle?: "neon" | "cinema" | "bold" | "minimal";
+
+  // Media generation
+  imageUrl?: string;              // generated image URL for this segment
+  videoPrompt?: string;           // video generation prompt
+  imagePrompt?: string;           // image generation prompt
+  providerRecommendation?: string; // suggested provider for this segment
+
   // Motion + timing (advanced)
   metadata?: {
     motionPreset?: string;      // from motion-presets.ts

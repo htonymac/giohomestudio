@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { parseCharacterId } from "@/lib/character-id";
+import type { ReferenceImage } from "@/types/character";
 
 interface Character {
   id: string;
@@ -24,6 +25,19 @@ interface Character {
   accent: string | null;
   language: string | null;
   referenceImages: unknown;
+}
+
+/** Parse referenceImages field (Json? from Prisma) into typed array */
+function parseRefImages(raw: unknown): ReferenceImage[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return (raw as Array<Record<string, unknown>>)
+    .filter(item => typeof item?.url === "string" && item.url)
+    .map(item => ({
+      url: item.url as string,
+      angle: typeof item.angle === "string" ? item.angle : undefined,
+      label: typeof item.label === "string" ? item.label : undefined,
+    }))
+    .slice(0, 4); // max 4 images
 }
 
 interface CharacterPickerProps {
@@ -106,6 +120,7 @@ export default function CharacterPicker({ onSelect, onCreateNew, selectedId, com
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
           const parsed = c.characterId ? parseCharacterId(c.characterId) : null;
           const imgSrc = normalizeImageUrl(c.imageUrl);
+          const refImages = parseRefImages(c.referenceImages);
 
           return (
             <div
@@ -154,6 +169,31 @@ export default function CharacterPicker({ onSelect, onCreateNew, selectedId, com
                   <p style={{ fontSize: 9, color: muted, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}>
                     {c.visualDescription}
                   </p>
+                )}
+
+                {/* Multi-image thumbnail strip — shows when character has >1 reference image */}
+                {refImages.length > 1 && (
+                  <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
+                    {refImages.map((img, idx) => (
+                      <div
+                        key={idx}
+                        title={img.angle || img.label || `Image ${idx + 1}`}
+                        style={{
+                          width: 24, height: 24, borderRadius: 4, overflow: "hidden",
+                          border: `1px solid ${border}`, flexShrink: 0,
+                        }}
+                      >
+                        <img
+                          src={normalizeImageUrl(img.url)}
+                          alt={img.label || img.angle || `ref ${idx + 1}`}
+                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                        />
+                      </div>
+                    ))}
+                    <span style={{ fontSize: 8, color: muted, alignSelf: "center", marginLeft: 2 }}>
+                      {refImages.length} angles
+                    </span>
+                  </div>
                 )}
               </div>
 

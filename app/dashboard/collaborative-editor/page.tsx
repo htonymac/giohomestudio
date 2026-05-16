@@ -288,6 +288,13 @@ function Editor() {
     return () => document.removeEventListener("mousedown", close);
   }, [showIntroMenu, showOutroMenu]);
 
+  // Modal scroll-lock — prevent body scroll when any modal is open
+  useEffect(() => {
+    const anyOpen = showImport || showReview || showCharacterPicker || showShortcuts;
+    document.body.style.overflow = anyOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [showImport, showReview, showCharacterPicker, showShortcuts]);
+
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["narration", "music", "sfx"]));
   const toggleSection = (s: string) => setExpandedSections(prev => { const n = new Set(prev); if (n.has(s)) n.delete(s); else n.add(s); return n; });
 
@@ -1700,6 +1707,38 @@ function Editor() {
               </div>
               {/* Expanded folder content — per-layer details */} {isExpanded && (
                 <div style={{ padding: "4px 8px 6px", borderTop: `1px solid ${border}`, fontSize: 8 }}>
+                  {/* ── C1: Shots from qcScenes — shown when story QC data is available ── */}
+                  {qcScenes[i]?.shots && qcScenes[i].shots!.length > 0 && (
+                    <div style={{ marginBottom: 6, paddingBottom: 6, borderBottom: `1px solid ${border}` }}>
+                      <div style={{ fontSize: 7, color: purple, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>Shots</div>
+                      {qcScenes[i].shots!.map((shot, si) => {
+                        const isActiveShot = collaboActiveSceneIdx === i && collaboActiveShotIdx === si;
+                        return (
+                          <div key={shot.shot_id}
+                            onClick={e => { e.stopPropagation(); setCollaboActiveSceneIdx(i); setCollaboActiveShotIdx(si); setActiveSegIdx(i); }}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 4, padding: "3px 4px", borderRadius: 4, cursor: "pointer", marginBottom: 2,
+                              background: isActiveShot ? `${purple}15` : "transparent",
+                              border: `1px solid ${isActiveShot ? purple : "transparent"}`,
+                            }}>
+                            {/* shot_id chip */}
+                            <span style={{ fontSize: 7, fontFamily: "monospace", padding: "1px 3px", borderRadius: 3, background: `${purple}20`, color: purple, flexShrink: 0 }}>{shot.shot_id}</span>
+                            {/* speaking character chip */}
+                            {shot.speaking_character_id && (
+                              <span style={{ fontSize: 7, padding: "1px 3px", borderRadius: 3, background: `${cyan}15`, color: cyan, flexShrink: 0 }}>{shot.speaking_character_id}</span>
+                            )}
+                            {/* duration */}
+                            <span style={{ fontSize: 7, color: muted, marginLeft: "auto", flexShrink: 0 }}>{shot.duration}s</span>
+                          </div>
+                        );
+                      })}
+                      {/* Add Shot button */}
+                      <button onClick={e => { e.stopPropagation(); toast("Add Shot: use Story QC in Hybrid Planner to plan shots", "info"); }}
+                        style={{ width: "100%", padding: "3px 0", borderRadius: 4, border: `1px dashed ${border}`, background: "transparent", color: muted, fontSize: 7, cursor: "pointer", marginTop: 2 }}>
+                        + Add Shot
+                      </button>
+                    </div>
+                  )}
                   {/* Source */}
                   <p style={{ color: muted, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {seg.sourceUrl?.split("/").pop() || "No source file"}
@@ -3459,10 +3498,11 @@ function Editor() {
                             <button onClick={async () => {
                               const sc = qcScenes[collaboActiveSceneIdx];
                               const before = JSON.parse(JSON.stringify(sc));
+                              const editSnap = collaboResolvedEdit!;
                               // Apply change to local scene state
                               const updated = qcScenes.map((s, i) => {
                                 if (i !== collaboActiveSceneIdx) return s;
-                                const edit = collaboResolvedEdit!;
+                                const edit = editSnap;
                                 if (edit.target_type === "SFX" && edit.action === "REMOVE") {
                                   const val = edit.payload["value"] as string;
                                   return { ...s, sfx_cues: s.sfx_cues.filter(sfx => !sfx.toLowerCase().includes(val.toLowerCase())) };
@@ -3476,11 +3516,17 @@ function Editor() {
                                 return s;
                               });
                               setQcScenes(updated);
-                              const entry: EditHistoryEntry = { id: `edit_${Date.now()}`, instruction: collaboInstruction, resolvedObjectId: collaboResolvedEdit!.target_id, changeType: collaboResolvedEdit!.action, scope: collaboResolvedEdit!.scope, timestamp: new Date().toISOString(), undone: false, before, after: updated[collaboActiveSceneIdx] };
+                              const entry: EditHistoryEntry = { id: `edit_${Date.now()}`, instruction: collaboInstruction, resolvedObjectId: editSnap.target_id, changeType: editSnap.action, scope: editSnap.scope, timestamp: new Date().toISOString(), undone: false, before, after: updated[collaboActiveSceneIdx] };
                               setEditHistory(h => [entry, ...h]);
                               setCollaboResolvedEdit(null);
                               setCollaboInstruction("");
-                              toast(`Change applied: ${collaboResolvedEdit!.action} on ${collaboResolvedEdit!.target_id}`, "success");
+                              toast(`Change applied: ${editSnap.action} on ${editSnap.target_id}`, "success");
+                              // Persist to DB (Phase D4)
+                              fetch("/api/story/tools/apply-edit", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ projectId: assembly.projectId, resolvedEdit: { ...editSnap, scope: editSnap.scope as "low" | "medium" | "high" }, confirmed: true }),
+                              }).catch(() => {}); // fire-and-forget — local state already applied
                             }} style={{ flex: 2, padding: "4px 8px", borderRadius: 6, border: "none", background: green, color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Apply Change</button>
                           </div>
                         </div>
@@ -3749,6 +3795,78 @@ function Editor() {
                 TAB: SCENE — Per-scene controls
                 ═══════════════════════════════ */} {tab === "scene" && (
               <div>
+
+                {/* ── C2: Active Shot Preview ── shows when qcScenes data is available */}
+                {qcScenes.length > 0 && (() => {
+                  const sc = qcScenes[collaboActiveSceneIdx];
+                  const shot: ShotPlan | undefined = sc?.shots?.[collaboActiveShotIdx];
+                  const segPreview = assembly.segments[collaboActiveSceneIdx];
+                  return sc ? (
+                    <div style={{ marginBottom: 16, padding: "10px 12px", borderRadius: 10, border: `1px solid ${border}`, background: s2 }}>
+                      {/* Scene title */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: purple, textTransform: "uppercase", letterSpacing: 1 }}>Active Scene</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sc.scene_id}: {sc.title}</span>
+                      </div>
+
+                      {shot && (
+                        <div style={{ marginBottom: 8 }}>
+                          {/* Shot ID + character chip */}
+                          <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 5 }}>
+                            <span style={{ fontSize: 8, fontFamily: "monospace", padding: "1px 4px", borderRadius: 3, background: `${purple}20`, color: purple }}>{shot.shot_id}</span>
+                            {shot.speaking_character_id && (
+                              <span style={{ fontSize: 8, padding: "1px 5px", borderRadius: 3, background: `${cyan}15`, color: cyan }}>{shot.speaking_character_id}</span>
+                            )}
+                            {shot.provider_recommendation && (
+                              <span style={{ fontSize: 7, padding: "1px 4px", borderRadius: 3, background: `${gold}15`, color: gold, marginLeft: "auto" }}>{shot.provider_recommendation}</span>
+                            )}
+                          </div>
+
+                          {/* Dialogue line */}
+                          {shot.dialogue_line && (
+                            <div style={{ fontSize: 11, color: text, marginBottom: 6, padding: "4px 8px", borderRadius: 6, background: `${purple}08`, borderLeft: `2px solid ${purple}` }}>
+                              <span style={{ color: purple, fontWeight: 700, marginRight: 4 }}>[{shot.speaking_character_id}]</span>
+                              "{shot.dialogue_line}"
+                            </div>
+                          )}
+
+                          {/* Image/Video prompt — editable */}
+                          <div style={{ marginBottom: 4 }}>
+                            <div style={{ fontSize: 8, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Image / Video Prompt</div>
+                            <textarea
+                              value={shot.image_prompt || shot.video_prompt || ""}
+                              onChange={e => {
+                                const val = e.target.value;
+                                const updScenes = qcScenes.map((s2, i2) => {
+                                  if (i2 !== collaboActiveSceneIdx) return s2;
+                                  return { ...s2, shots: s2.shots?.map((sh, si2) => si2 === collaboActiveShotIdx ? { ...sh, image_prompt: val } : sh) };
+                                });
+                                setQcScenes(updScenes);
+                              }}
+                              placeholder="Describe the visual prompt for this shot..."
+                              rows={3}
+                              style={{ width: "100%", background: "#080b10", border: `1px solid ${border}`, borderRadius: 6, padding: "6px 8px", color: text, fontSize: 10, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Preview image slot — if segment has imageUrl or sourceUrl */}
+                      {(segPreview?.imageUrl || (segPreview?.sourceUrl && !segPreview.sourceUrl.startsWith("bg:"))) && (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ fontSize: 8, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: "0.06em" }}>Preview</div>
+                          <img
+                            src={segPreview.imageUrl || segPreview.sourceUrl}
+                            alt="scene preview"
+                            style={{ maxWidth: 240, maxHeight: 160, borderRadius: 8, objectFit: "cover", border: `1px solid ${border}` }}
+                            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+
                 {/* Motion Preset */}
                 <div style={{ marginBottom: 14 }}>
                   <button onClick={() => toggleSection("motion")} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: 6 }}>

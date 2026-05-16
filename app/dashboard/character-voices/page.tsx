@@ -259,6 +259,8 @@ function VoiceForm({
   const [previewing, setPreviewing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [refUploading, setRefUploading] = useState(false);
+  const [refUploadError, setRefUploadError] = useState("");
   const set = (k: string, v: string | boolean | null) =>
     setForm(f => ({ ...f, [k]: v === "" ? null : v }));
 
@@ -280,6 +282,50 @@ function VoiceForm({
       setUploading(false);
       e.target.value = "";
     }
+  }
+
+  async function handleRefImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const existing = (form.referenceImages as ReferenceImage[] | null) ?? [];
+    if (existing.length >= 4) {
+      setRefUploadError("Maximum 4 reference images allowed.");
+      return;
+    }
+    setRefUploading(true);
+    setRefUploadError("");
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const res = await fetch("/api/character-voices/upload-image", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setRefUploadError(data.error ?? "Upload failed"); return; }
+      const newImg: ReferenceImage = { url: data.url, angle: "", label: "" };
+      setForm(f => ({
+        ...f,
+        referenceImages: [...(((f.referenceImages as ReferenceImage[]) ?? [])), newImg],
+      }));
+    } catch {
+      setRefUploadError("Upload failed. Check connection.");
+    } finally {
+      setRefUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  function removeRefImage(idx: number) {
+    setForm(f => ({
+      ...f,
+      referenceImages: ((f.referenceImages as ReferenceImage[]) ?? []).filter((_, i) => i !== idx),
+    }));
+  }
+
+  function updateRefImage(idx: number, key: keyof ReferenceImage, value: string) {
+    setForm(f => {
+      const imgs = [...(((f.referenceImages as ReferenceImage[]) ?? []))];
+      imgs[idx] = { ...imgs[idx], [key]: value };
+      return { ...f, referenceImages: imgs };
+    });
   }
 
   async function handlePreview() {
@@ -508,6 +554,64 @@ function VoiceForm({
           )}
         </div>
         {uploadError && <p style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{uploadError}</p>}
+      </div>
+
+      {/* ── Row 5b: Multi-angle reference images (up to 4) ── */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>
+          Reference images
+          <span style={{ color: "#3a3a5a", fontWeight: "normal" }}> — up to 4 angles for character consistency</span>
+        </label>
+        {/* Existing reference images */}
+        {Array.isArray(form.referenceImages) && (form.referenceImages as ReferenceImage[]).length > 0 && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+            {(form.referenceImages as ReferenceImage[]).map((img, idx) => (
+              <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                <div style={{ position: "relative" }}>
+                  <img
+                    src={normalizeImageUrl(img.url)}
+                    alt={img.label || `ref ${idx + 1}`}
+                    style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", border: "1px solid #2a2a40" }}
+                  />
+                  <button
+                    onClick={() => removeRefImage(idx)}
+                    title="Remove"
+                    style={{
+                      position: "absolute", top: -6, right: -6, width: 16, height: 16,
+                      background: "#f87171", color: "#fff", border: "none", borderRadius: "50%",
+                      fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+                    }}
+                  >x</button>
+                </div>
+                <input
+                  value={img.angle || ""}
+                  onChange={e => updateRefImage(idx, "angle", e.target.value)}
+                  placeholder="angle"
+                  style={{ width: 56, fontSize: 9, background: ds.color.paper, color: ds.color.ink2, border: `1px solid ${ds.color.line2}`, borderRadius: 4, padding: "2px 4px", textAlign: "center" }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Add image button — shows up to 4 total */}
+        {(((form.referenceImages as ReferenceImage[]) ?? []).length < 4) && (
+          <label style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            background: "#1a1a2e", border: "1px solid #3a3a5a", borderRadius: 6,
+            padding: "6px 12px", fontSize: 12, color: refUploading ? "#5a5a7a" : "#9090b0",
+            cursor: refUploading ? "wait" : "pointer",
+          }}>
+            {refUploading ? "Uploading…" : `+ Add Reference Image (${((form.referenceImages as ReferenceImage[]) ?? []).length}/4)`}
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              onChange={handleRefImageUpload}
+              disabled={refUploading}
+            />
+          </label>
+        )}
+        {refUploadError && <p style={{ fontSize: 11, color: "#f87171", marginTop: 4 }}>{refUploadError}</p>}
       </div>
 
       {/* ── Row 6: Visual description ── */}

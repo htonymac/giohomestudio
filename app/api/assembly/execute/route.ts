@@ -466,23 +466,41 @@ export async function POST(req: NextRequest) {
           if (capped.length > 0) {
             // Build drawtext filter chain: each entry is time-gated with enable='between(t,S,E)'
             // 5-C: subtitle style tokens — map exportSettings.subtitleStyle to drawtext params
+            // Per-segment subtitleStyle overrides the global export setting for that time window.
             const styleParams: Record<string, string> = {
               cinema:  "fontsize=28:fontcolor=white:shadowcolor=black@0.9:shadowx=3:shadowy=3",
               neon:    "fontsize=22:fontcolor=cyan:shadowcolor=magenta@0.8:shadowx=2:shadowy=0:boxcolor=black@0.4:box=1:boxborderw=4",
               bold:    "fontsize=30:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4",
               classic: "fontsize=22:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2",
+              // Per-segment overrides (subtitleStyle on AssemblySegment)
+              minimal: "fontsize=22:fontcolor=white@0.9:borderw=0:bordercolor=black",
               none:    "",
             };
-            const chosenStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
+            const globalStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
             // If style is "none", skip subtitle burn-in entirely
-            if (chosenStyle === "none") {
+            if (globalStyle === "none") {
               // Skip — baseStyle empty means no subtitles
             } else {
-            const subStyleBase = styleParams[chosenStyle] || styleParams.classic;
-            const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
-            const drawChain = capped.map(e =>
-              `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`
-            ).join(",");
+            // Helper: find segment active at a given midpoint time
+            const sortedSegments = [...(fullAssembly.segments || [])].sort(
+              (a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)
+            );
+            function getSegmentStyleAt(midTime: number): string {
+              const seg = sortedSegments.find(
+                s => (s.startTime ?? 0) <= midTime && (s.endTime ?? Infinity) > midTime
+              );
+              const segStyle = seg?.subtitleStyle;
+              if (segStyle && styleParams[segStyle]) {
+                return styleParams[segStyle];
+              }
+              return styleParams[globalStyle] || styleParams.classic;
+            }
+            const drawChain = capped.map(e => {
+              const midTime = (e.start + e.end) / 2;
+              const subStyleBase = getSegmentStyleAt(midTime);
+              const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
+              return `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`;
+            }).join(",");
 
             const finalMergeStep = steps.find(s => s.id === "final_merge");
             const unsub = finalMergeStep?.outputPath || "";
@@ -498,7 +516,7 @@ export async function POST(req: NextRequest) {
               ], { timeout: 300000 });
               if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
                 subtitledOutputPath = subbedPath;
-                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, style=${chosenStyle}) → ${path.basename(subbedPath)}`);
+                console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, globalStyle=${globalStyle}) → ${path.basename(subbedPath)}`);
               }
             }
             } // end else (chosenStyle !== "none")
