@@ -438,6 +438,8 @@ function HybridPlannerInner() {
   const [storyPolishingMode, setStoryPolishingMode] = useState<"default" | "add_action" | "intense" | "reduce_action" | "emotional" | null>(null);
   const [storyEditAiQuery, setStoryEditAiQuery] = useState<Record<string, string>>({});
   const [fixingQC, setFixingQC] = useState(false);
+  const [contextCheckResults, setContextCheckResults] = useState<Record<string, { status: "ok" | "warn" | "checking"; note: string }>>({});
+  const [fixingContext, setFixingContext] = useState(false);
   const [qcFixDoneMsg, setQcFixDoneMsg] = useState<string | null>(null);
   const [establishingShots, setEstablishingShots] = useState<Record<string, EstablishingShot>>({});
   const [establishingSceneId, setEstablishingSceneId] = useState<string | null>(null);
@@ -2568,6 +2570,81 @@ function HybridPlannerInner() {
     } finally {
       setStoryPolishingSceneId(null);
       setStoryPolishingMode(null);
+    }
+  }
+
+  // ── Context Check: reads scene text, scores clarity, no LLM needed ──────────
+  function checkSceneContext(scene: HybridScene) {
+    const text = (scene.description || "").trim();
+    if (!text) {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: "No description. Add scene detail so AI can generate properly." } }));
+      return;
+    }
+    setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "checking", note: "Checking…" } }));
+    const words = text.split(/\s+/).filter(Boolean);
+    const bigWords = words.filter(w => w.replace(/[^a-zA-Z]/g, "").length > 10);
+    const sentences = text.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+    const avgWPS = words.length / Math.max(sentences.length, 1);
+    if (words.length < 5) {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: `Too short (${words.length} words). Add more description.` } }));
+    } else if (bigWords.length > words.length * 0.3) {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: `${bigWords.length} complex words in ${words.length} total. Click Fix Context to simplify.` } }));
+    } else if (avgWPS > 35) {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: `Avg ${Math.round(avgWPS)} words/sentence — too dense. Click Fix Context to break up.` } }));
+    } else {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "ok", note: `Clear (${words.length} words, ${sentences.length} sentences, avg ${Math.round(avgWPS)} w/s).` } }));
+    }
+  }
+
+  // ── Context Fix: AI rewrites scene to be simple and understandable ───────────
+  async function fixSceneContext(scene: HybridScene) {
+    if (storyPolishingSceneId === scene.sceneId) return;
+    setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "checking", note: "Rewriting for clarity…" } }));
+    setStoryPolishingSceneId(scene.sceneId);
+    setStoryPolishingMode(null);
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "polish",
+          polishMode: "custom",
+          customInstruction: "Rewrite this scene description to be clear, simple, and easy to understand. Use short sentences. Remove jargon and complex words. Any viewer should immediately understand what is happening.",
+          provider: effectiveLlmProvider,
+          scene: { sceneId: scene.sceneId, title: scene.title, description: scene.description, location: scene.location, timeOfDay: scene.timeOfDay, mood: scene.mood },
+        }),
+      });
+      const data = await res.json();
+      const newDescription = data.scene?.description || data.description;
+      if (data.ok && newDescription) {
+        updateScene(scene.scene, { description: newDescription });
+        setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "ok", note: "Fixed — scene is now clearer. Review and save." } }));
+        setLastAction(`Scene ${scene.scene} context fixed`);
+      } else {
+        setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: `Fix failed: ${data.error || "unknown"}` } }));
+      }
+    } catch (err) {
+      setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: `Error: ${err instanceof Error ? err.message : String(err)}` } }));
+    } finally {
+      setStoryPolishingSceneId(null);
+      setStoryPolishingMode(null);
+    }
+  }
+
+  // ── Context Check all scenes (sequential) ───────────────────────────────────
+  function checkContextAll() {
+    for (const scene of scenes) checkSceneContext(scene);
+  }
+
+  // ── Context Fix all scenes (sequential async) ────────────────────────────────
+  async function fixContextAll() {
+    if (fixingContext || scenes.length === 0) return;
+    setFixingContext(true);
+    try {
+      for (const scene of scenes) await fixSceneContext(scene);
+      setLastAction("Context fix applied to all scenes — review changes");
+    } finally {
+      setFixingContext(false);
     }
   }
 
@@ -9135,9 +9212,38 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                   style={{ padding: "6px 10px", borderRadius: 8, border: "none",
                                     background: (polishing || fixingQC || !storyQCResult) ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #15803d)",
                                     color: "#fff", fontSize: 9, fontWeight: 700, cursor: (polishing || fixingQC || !storyQCResult) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                                  🔧 Fix
+                                  🔧 QC Fix
+                                </button>
+                                <button
+                                  onClick={() => checkSceneContext(s)}
+                                  disabled={polishing}
+                                  title="Check if this scene is clear and easy to understand"
+                                  style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                    background: polishing ? "#2a2a40" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                                    color: "#fff", fontSize: 9, fontWeight: 700, cursor: polishing ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  📋 Context
+                                </button>
+                                <button
+                                  onClick={() => fixSceneContext(s)}
+                                  disabled={polishing}
+                                  title="AI rewrites scene to be clearer and easier to understand"
+                                  style={{ padding: "6px 10px", borderRadius: 8, border: "none",
+                                    background: polishing ? "#2a2a40" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                                    color: "#000", fontSize: 9, fontWeight: 700, cursor: polishing ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                                  ✏ Fix Context
                                 </button>
                               </div>
+                              {/* Context check result for this scene */}
+                              {contextCheckResults[s.sceneId] && (
+                                <div style={{ marginTop: 4, padding: "5px 10px", borderRadius: 6,
+                                  background: contextCheckResults[s.sceneId].status === "ok" ? "rgba(34,197,94,0.08)" : contextCheckResults[s.sceneId].status === "checking" ? "rgba(168,85,247,0.08)" : "rgba(245,158,11,0.10)",
+                                  border: `1px solid ${contextCheckResults[s.sceneId].status === "ok" ? "#22c55e" : contextCheckResults[s.sceneId].status === "checking" ? "#a855f7" : "#f59e0b"}30` }}>
+                                  <p style={{ fontSize: 9, color: contextCheckResults[s.sceneId].status === "ok" ? "#22c55e" : contextCheckResults[s.sceneId].status === "checking" ? "#a855f7" : "#fbbf24", margin: 0 }}>
+                                    {contextCheckResults[s.sceneId].status === "checking" ? "⟳ " : contextCheckResults[s.sceneId].status === "ok" ? "✓ " : "⚠ "}
+                                    {contextCheckResults[s.sceneId].note}
+                                  </p>
+                                </div>
+                              )}
 
                               {/* AI custom instruction — user types free-text, AI rewrites scene */}
                               <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
@@ -9202,7 +9308,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           {/* ── Story Quality Control Panel ────────────────────────────── */}
           {expandedSummary && (
             <div style={{ ...cardStyle, borderColor: `${accent}30`, background: "rgba(168,85,247,0.04)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 700, color: accent }}>Story Quality Control</p>
                   <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>
@@ -9219,6 +9325,28 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     whiteSpace: "nowrap" as const,
                   }}>
                   {storyQCRunning ? "Running QC…" : "Run Story QC"}
+                </button>
+              </div>
+              {/* Context Check / Fix row — all scenes at once */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 14, padding: "8px 12px", borderRadius: 8, background: "#ffffff04", border: `1px solid ${border}` }}>
+                <p style={{ fontSize: 9, color: muted, margin: 0, alignSelf: "center", flex: 1 }}>Context clarity tools — check if story is easy to understand, then fix:</p>
+                <button
+                  onClick={checkContextAll}
+                  disabled={scenes.length === 0}
+                  title="Check all scenes for clarity and understandability"
+                  style={{ padding: "6px 14px", borderRadius: 8, border: "none",
+                    background: scenes.length === 0 ? "#2a2a40" : "linear-gradient(135deg, #0ea5e9, #0284c7)",
+                    color: "#fff", fontSize: 10, fontWeight: 700, cursor: scenes.length === 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                  📋 Context Check (All)
+                </button>
+                <button
+                  onClick={fixContextAll}
+                  disabled={fixingContext || scenes.length === 0}
+                  title="AI rewrites all scenes to be clearer and simpler"
+                  style={{ padding: "6px 14px", borderRadius: 8, border: "none",
+                    background: (fixingContext || scenes.length === 0) ? "#2a2a40" : "linear-gradient(135deg, #f59e0b, #d97706)",
+                    color: "#000", fontSize: 10, fontWeight: 700, cursor: (fixingContext || scenes.length === 0) ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                  {fixingContext ? "Fixing…" : "✏ Fix Context (All)"}
                 </button>
               </div>
 
@@ -11084,20 +11212,31 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               }} accentColor={accent} />
               {/* Check Narration ↔ Subtitle Match */}
               <button
-                onClick={async () => {
-                  setSubtitleMatchResult({ status: "checking", note: "Checking..." });
-                  try {
-                    const storyText = fullScript || expandedSummary || idea || "";
-                    const res = await fetch("/api/free-mode/enhance", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ prompt: `Does subtitle mode "${effectiveSubtitleConfig.mode}" match this story tone? Story: "${storyText.slice(0, 300)}" Reply with OK or WARN and one short reason.`, task: "check" }),
-                    });
-                    const d = await res.json();
-                    const note = d.enhanced || d.text || d.result || "Check complete";
-                    const isWarn = note.toLowerCase().includes("warn") || note.toLowerCase().includes("mismatch") || note.toLowerCase().includes("not match");
-                    setSubtitleMatchResult({ status: isWarn ? "warn" : "ok", note });
-                  } catch { setSubtitleMatchResult({ status: "warn", note: "Check failed" }); }
+                onClick={() => {
+                  setSubtitleMatchResult({ status: "checking", note: "Checking…" });
+                  const narratorText = scenes
+                    .slice().sort((a: HybridScene, b: HybridScene) => a.scene - b.scene)
+                    .map((s: HybridScene) => s.narrationScript || s.description || "")
+                    .filter(Boolean)
+                    .join(" ")
+                    .trim();
+                  const subMode = effectiveSubtitleConfig.mode;
+                  if (!narratorText) {
+                    setSubtitleMatchResult({ status: "warn", note: "No narration text found. Go to Audio tab → generate narration first." });
+                    return;
+                  }
+                  if (subMode === "none") {
+                    const wc = narratorText.split(/\s+/).filter(Boolean).length;
+                    setSubtitleMatchResult({ status: "warn", note: `Subtitles are OFF. Narration has ${wc} words — enable Subtitle Mode above to show them during video.` });
+                    return;
+                  }
+                  const subtitleQC = storyQCResult?.supervisorResults?.["subtitle_style"];
+                  if (subtitleQC && !subtitleQC.passed && subtitleQC.blockingIssues.length > 0) {
+                    setSubtitleMatchResult({ status: "warn", note: subtitleQC.blockingIssues[0] });
+                    return;
+                  }
+                  const wc = narratorText.split(/\s+/).filter(Boolean).length;
+                  setSubtitleMatchResult({ status: "ok", note: `Ready: ${wc} words · mode: ${subMode} · style: ${subtitleStyle === "none" ? "classic (auto)" : subtitleStyle}. Will render on assembly.` });
                 }}
                 style={{ marginTop: 10, padding: "7px 16px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                 Check Narration → Subtitle Match
