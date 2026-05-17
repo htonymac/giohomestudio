@@ -25,6 +25,15 @@ Updated every push. Use this to roll back to any point in the day.
 
 ---
 
+## 2026-05-17
+
+| Time (UTC-7) | Commit | Description |
+|---|---|---|
+| morning | `45fbae9` | chore(db): add migration file for QC + EditHistory models — fixes migrate dev reset prompt |
+| morning | `a369d4c` | fix(hybrid): context check results now visible in global panel (were hidden in per-scene edit only) |
+
+---
+
 ## HOW TO ROLL BACK TO ANY PUSH
 
 ```
