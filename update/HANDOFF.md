@@ -1,8 +1,44 @@
-# GHS HANDOFF — Session 12 (Establishing Shot Assembly + Scroll-Lock + Voice Cast Bible)
+# GHS HANDOFF — Session 13 (Subtitle Overhaul + Image Fix + Intro/Outro + Story QC Plan)
 
 **Last updated:** 2026-05-16
-**Build:** `npx tsc --noEmit` — 1 pre-existing error in `assembly/execute/route.ts` (TS2367, not my code), 0 new errors
-**Branch:** `feat/ghs-finishline` — committed, NOT pushed to main
+**Build:** `npx tsc --noEmit` — 1 pre-existing error in `tests/sound-browser-check.spec.ts`, 0 new errors
+**Git:** Committed + pushed to main (commit 84a0c9c)
+
+---
+
+## ✅ Done Session 13 (2026-05-16)
+
+### Subtitle System Overhaul
+- **Root fix 1 — Wrong text:** Subtitle text was `fullScript || expandedSummary` but TTS audio was from `allScenesNarration` (per-scene narrationScript). Fixed: `assembleScenes()` now computes `subtitleAllScenes` the same way `generateNarrationPiper()` does.
+- **Root fix 2 — Font failure:** FFmpeg `drawtext` on Windows silently fails without `fontfile`. Fixed: resolves `env.fontDir/arial.ttf` (confirmed at `C:/Windows/Fonts/arial.ttf`), injects into all style strings.
+- **Root fix 3 — Timing:** Changed `buildSubEntries` from char-count proportion to word-count proportion. Min 1.5s per subtitle, strictly capped at narration window end.
+- **Root fix 4 — Style gate:** When `subtitleStyle="none"` but subtitles are ON, now defaults to "classic" before sending to execute route.
+- **Root fix 5 — endTime=99999:** Narrator endTime fallback changed from `99999` → `n.startTime + totalDuration`.
+- **All styles:** Added `box=1:boxcolor=black@0.65` backing bar — readable even if shadows don't render.
+- **Diagnostic logging:** subtitle section now logs font path, style, entry count, first window. Inner drawtext errors logged with full message + filter chain sample.
+
+### Image URL Fix
+- `scene-image/route.ts`: Returns `/api/media/...` not `/storage/...`. Browser can fetch `/api/media/` — not `/storage/`.
+- `page.tsx` restore: Patches legacy `/storage/` URLs in saved localStorage on load.
+
+### Intro/Outro Persistence
+- Save side: `introUrl, outroUrl, introEnabled, outroEnabled` added to localStorage save effect.
+- Restore side: Added restore code that reads them back from localStorage on mount.
+
+---
+
+## ⚡ NEXT — Story QC Layer (planned, not yet built)
+
+### Items queued for next session:
+1. **Context Check button** — per-scene + all-scene. Checks if story makes sense, flow is logical, transitions work.
+2. **Content Fix button** — per-scene. Applies AI fix to unclear/broken content.
+3. **QC Check button** — runs full 23-supervisor pipeline on selected scope.
+4. **QC Fix button** — applies supervisor suggestions automatically.
+5. **Check Narration → Subtitle Match button** — NOT WORKING (button exists but logic broken — needs investigation).
+6. **Dialogue Agent Supervisor** — 13 supervisors wired but dialogue supervisor behavior needs review.
+7. **Full spec review** — read `update/ghs story structure/ghs_story_quality_control_layer_full_supervisor_plan.md` and verify all items done.
+
+---
 
 ---
 
