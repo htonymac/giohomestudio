@@ -1,8 +1,10 @@
-# GHS HANDOFF — Session 14 (Context Buttons + Subtitle Check Fix + Dialogue Wiring Verified)
+# GHS HANDOFF — Session 14 (Context Buttons + Subtitle Check Fix + Hybrid Image Spec)
 
 **Last updated:** 2026-05-16
 **Build:** `npx tsc --noEmit --skipLibCheck` — 1 pre-existing error in `tests/sound-browser-check.spec.ts`, 0 new errors
-**Git:** Committed + pushed to main (commit 7f4ffbf)
+**Git:** Committed + pushed to main (commit 731be32)
+**New spec:** `update/REBRANDHYBRIDIMAGE.md` — Hybrid image-first story structuring + Children pacing engine
+**Push log:** `update/GITPUSHLIST.md` — all today's pushes with timestamp + description
 
 ---
 
@@ -39,12 +41,36 @@
 
 ---
 
-## ⚡ NEXT — Remaining gaps from TODOCORRECT14052026.md
+## ⚡ NEXT — Two major new build tracks (specced 2026-05-16)
 
-1. **C3 Quick Edit Chips** (collaborative editor): `[Change Dialogue] [Swap SFX] [Change Camera] [Reorder Scene] [Regenerate Shot]` chips — pre-fill instruction box when clicked. NOT YET BUILT.
-2. **C5 Undo button** (collaborative editor): Restore `beforeSnapshot` from edit history — needs `beforeSnapshot` to be persisted in `apply-edit/route.ts`. NOT YET BUILT.
-3. **B2 shot-level validation** — deferred per spec (needs Henry GO).
-4. **Subtitle final test** — user needs to assemble a video and verify subtitles render. Dev server must be restarted to pick up `execute/route.ts` changes from Session 13.
+### Track H: Hybrid Image-First Story Structuring
+Full spec: `update/REBRANDHYBRIDIMAGE.md` — Part 1
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| H1 | `POST /api/hybrid/structure-story` — Haiku rewrites idea as tagged visual script | [ ] |
+| H2 | `scene-demarcator.ts` reads `[VISUAL] [ACTION] [BEAT]` tags → scene intent field | [ ] |
+| H3 | `scene-prompt-builder.ts` injects tag-specific cinematic modifiers | [ ] |
+| H4 | "Structure for Images" button in Hybrid story tab (before Expand) | [ ] |
+| H5 | Tag badge on scene cards (VISUAL / ACTION / BEAT / NARRATION) | [ ] |
+
+### Track C: Children's Pacing Engine (COMPLETELY SEPARATE from hybrid)
+Full spec: `update/REBRANDHYBRIDIMAGE.md` — Part 2
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| C1 | `ChildrenPacingPlan` type in `src/types/children.ts` | [ ] |
+| C2 | `POST /api/children/build-pacing-plan` — Haiku generates word-level timing plan | [ ] |
+| C3 | `POST /api/children/generate-narration` — SSML pauses injected, ElevenLabs call | [ ] |
+| C4 | Children assembly route — timing-driven not scene-driven | [ ] |
+| C5 | Karaoke subtitle renderer — word-by-word + letter-by-letter highlight | [ ] |
+| C6 | Wire into children-planner UI | [ ] |
+
+### Remaining TODOCORRECT14052026 gaps
+1. **C3 Quick Edit Chips** (collaborative editor) — NOT YET BUILT
+2. **C5 Undo button** (collaborative editor) — needs beforeSnapshot in apply-edit — NOT YET BUILT
+3. **Subtitle final test** — restart dev server, assemble video, verify subtitles render
+4. **B2 shot-level validation** — deferred, needs Henry GO
 
 ---
 
