@@ -9430,6 +9430,31 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </button>
               </div>
 
+              {/* Context check summary — visible in global panel after Context Check (All) */}
+              {Object.keys(contextCheckResults).length > 0 && (
+                <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 8, background: "#ffffff04", border: `1px solid ${border}` }}>
+                  <p style={{ fontSize: 9, color: muted, fontWeight: 700, letterSpacing: 0.5, margin: "0 0 8px 0" }}>CONTEXT CHECK RESULTS</p>
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
+                    {scenes.map(sc => {
+                      const r = contextCheckResults[sc.sceneId];
+                      if (!r) return null;
+                      const col = r.status === "ok" ? "#22c55e" : r.status === "checking" ? "#a855f7" : "#f59e0b";
+                      return (
+                        <div key={sc.sceneId} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "5px 8px", borderRadius: 6, background: `${col}08`, border: `1px solid ${col}25` }}>
+                          <span style={{ fontSize: 9, color: col, fontWeight: 700, whiteSpace: "nowrap" as const, minWidth: 60 }}>S{sc.scene}: {r.status === "checking" ? "⟳" : r.status === "ok" ? "✓ OK" : "⚠ WARN"}</span>
+                          <span style={{ fontSize: 9, color: "rgba(255,255,255,0.7)", lineHeight: 1.4 }}>{r.note}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+                    <span style={{ fontSize: 9, color: "#22c55e" }}>✓ {Object.values(contextCheckResults).filter(r => r.status === "ok").length} OK</span>
+                    <span style={{ fontSize: 9, color: "#f59e0b" }}>⚠ {Object.values(contextCheckResults).filter(r => r.status === "warn").length} need fix</span>
+                    <button onClick={() => setContextCheckResults({})} style={{ marginLeft: "auto", padding: "2px 8px", borderRadius: 5, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 9, cursor: "pointer" }}>Clear</button>
+                  </div>
+                </div>
+              )}
+
               {/* Contract summary */}
               <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6, marginBottom: 12 }}>
                 {[
