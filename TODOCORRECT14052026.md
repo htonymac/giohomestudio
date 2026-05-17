@@ -16,14 +16,15 @@
 | B2 — Shot-level cast/continuity | ⏸ DEFERRED | Needs Henry GO |
 | C1 — Left panel scene folders | ✅ COMPLETE | Shot list, char chip, duration, click to activate |
 | C2 — Center panel active shot | ✅ COMPLETE | Title, shot ID, dialogue, prompt, provider badge, preview |
-| C3 — AI Console | ✅ MOSTLY | Instruction box + scope + confirm panel + Apply Change — Quick Edit Chips NOT built |
+| C3 — AI Console | ✅ COMPLETE | Quick Edit Chips with full templates — commit b3d0f54 |
 | C4 — Dialogue mapping | ✅ COMPLETE | [CH01] format, Cast Bible voice lookup wired |
-| C5 — Edit History | ✅ MOSTLY | Chronological list done — Undo button NOT built |
+| C5 — Edit History | ✅ COMPLETE | Undo fixed (both ID formats) + beforeSnapshot saved — commit b3d0f54 |
 | D1–D3 — Intent parser | ✅ COMPLETE | collabo-edit/route.ts — Haiku + fallback |
-| D4 — apply-edit route | ✅ COMPLETE | apply-edit/route.ts — DB persist live |
-| D5 — StoryEditHistory model | ✅ COMPLETE | Prisma schema line 1454 |
+| D4 — apply-edit route | ✅ COMPLETE | apply-edit/route.ts — DB persist live + beforeSnapshot |
+| D5 — StoryEditHistory model | ✅ COMPLETE | Prisma schema + db push applied |
 
-**Remaining gaps:** C3 Quick Edit Chips · C5 Undo button · B2 shot-level validation (deferred)
+**Remaining gaps:** B2 shot-level validation (deferred — needs Henry GO)
+**ALL OTHER ITEMS: COMPLETE** ✅ as of 2026-05-16
 
 ---
 
@@ -131,8 +132,8 @@ Full correct order per doc §25:
 
 ### C3 — Right Panel: AI Collaboration Console ✅ MOSTLY DONE Session 11
 - [x] Instruction text box: "Tell AI what to change..."
-- [ ] Quick Edit Chips: [Change Dialogue] [Swap SFX] [Change Camera] [Reorder Scene] [Regenerate Shot] — NOT BUILT
-- [ ] Chip clicked → pre-fills instruction box with template — NOT BUILT
+- [x] Quick Edit Chips: [Change Dialogue] [Swap SFX] [Change Camera] [Change Music] [Reorder Scene] [Regenerate Shot] — BUILT commit b3d0f54
+- [x] Chip clicked → pre-fills instruction box with full actionable template — BUILT
 - [x] Change Scope indicator: LOW / MEDIUM / HIGH badge (from Phase D response)
 - [x] Confirm panel: what will change + cost estimate + [Cancel] [Apply Change]
 - [x] After Apply → patches local state + POSTs to apply-edit (fire-and-forget) + logs to editHistory
@@ -147,7 +148,7 @@ Full correct order per doc §25:
 ### C5 — Edit History tab ✅ MOSTLY DONE Session 11
 - [x] editHistory state tracks all collabo edits chronologically
 - [x] Each entry: timestamp, instruction, resolvedObjectId, changeType, scope, afterSnapshot
-- [ ] Undo button per entry (restores before_snapshot) — NOT BUILT (beforeSnapshot not persisted in apply-edit)
+- [x] Undo button per entry — FIXED commit b3d0f54 (both SH01-01 and scene_001 ID formats handled, beforeSnapshot saved to DB)
 
 ---
 

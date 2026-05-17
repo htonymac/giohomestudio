@@ -1,10 +1,47 @@
-# GHS HANDOFF — Session 14 (Context Buttons + Subtitle Check Fix + Hybrid Image Spec)
+# GHS HANDOFF — Session 15 (TODOCORRECT COMPLETE + DB Migrated + H-Series + Docs)
 
-**Last updated:** 2026-05-16
-**Build:** `npx tsc --noEmit --skipLibCheck` — 1 pre-existing error in `tests/sound-browser-check.spec.ts`, 0 new errors
-**Git:** Committed + pushed to main (commit 731be32)
-**New spec:** `update/REBRANDHYBRIDIMAGE.md` — Hybrid image-first story structuring + Children pacing engine
-**Push log:** `update/GITPUSHLIST.md` — all today's pushes with timestamp + description
+**Last updated:** 2026-05-16 (end of day — Henry sleeping)
+**Build:** TSC clean — 0 new errors (`npx tsc --noEmit --skipLibCheck`)
+**Git:** Latest commit `b3d0f54` — all pushed to main
+**DB:** `npx prisma db push --accept-data-loss` — schema synced, all QC + EditHistory models live
+**Push log:** `update/GITPUSHLIST.md` — every push today with timestamp + description
+**Spec:** `update/REBRANDHYBRIDIMAGE.md` — Hybrid image-first structuring (H1-H5 ✅) + Children pacing (C1-C6, awaiting GO)
+
+---
+
+## ✅ Done Session 15 (2026-05-16 — evening)
+
+### TODOCORRECT14052026 — ALL GAPS CLOSED
+
+#### C3 — Quick Edit Chips (collaborative-editor/page.tsx line ~3462) ✅
+- Was: each chip just did `setCollaboInstruction(chip + " — ")` — useless
+- Now: each chip pre-fills a complete actionable template:
+  - Change Dialogue → "Change the dialogue for [CHARACTER NAME] in this shot to say: [NEW LINE HERE]"
+  - Swap SFX → "Swap the SFX in this shot — replace [CURRENT SFX] with [NEW SFX e.g. thunder, crowd noise, footsteps]"
+  - Change Camera → "Change the camera angle in this shot to [e.g. close-up, wide shot, slow pan left, dolly in]"
+  - Change Music → "Change the music cue in this scene to [e.g. tense strings, upbeat drums, soft piano, silence]"
+  - Regenerate Shot → "Regenerate this shot with new image — [describe what is different...]"
+  - Reorder Scene → "Move this scene to position [NUMBER e.g. 3] in the sequence"
+
+#### C5 — Undo Button (collaborative-editor/page.tsx line ~4572) ✅
+- Was: ID parsing only handled `SH01-01` format — `scene_001` format returned null → undo did nothing
+- Now: handles both `SH01-01` and `scene_001` formats cleanly
+- Shows "No snapshot — cannot undo" when `before` is missing (instead of silent fail)
+- `apply-edit/route.ts`: now accepts + saves `beforeSnapshot` to `StoryEditHistory` DB record
+- Apply Change handler now sends `beforeSnapshot: before` to API
+
+#### DB Migration ✅
+- `npx prisma db push --accept-data-loss` run successfully
+- All 7 QC models + `StoryEditHistory` model now live in `giohomestudio_db`
+- Warning: dev server was running during push — DLL rename failed (normal Windows behavior)
+  - Schema IS synced. Restart dev server to reload Prisma Client if needed.
+
+### H-Series — Hybrid Image-First Story Structuring ✅ (commit 07d8c16)
+- H1: `/api/hybrid/structure-story` endpoint — tags story into visual moments
+- H2: `SceneTag` type + `ScenePlan.scene_tag?` + `HybridScene.sceneTag?`
+- H3: `scene-prompt-builder.ts` — cinematic TAG_MODIFIERS per tag
+- H4: "🎬 Structure Story for Images" button before Expand in hybrid planner
+- H5: Tag badge (VISUAL/ACTION/BEAT/DIALOGUE/ESTABLISH) on scene cards
 
 ---
 

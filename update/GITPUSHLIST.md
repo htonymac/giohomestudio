@@ -19,6 +19,8 @@ Updated every push. Use this to roll back to any point in the day.
 | 19:47 | `731be32` | docs: update HANDOFF.md — session 14 complete |
 | 20:15 | `5453547` | docs: REBRANDHYBRIDIMAGE spec + GITPUSHLIST + HANDOFF session 14 update |
 | 20:45 | `07d8c16` | feat(hybrid): H-series — image-first story structuring (H1-H5) complete |
+| 21:10 | `52ab835` | docs: mark H-series complete in HANDOFF + GITPUSHLIST + REBRANDHYBRIDIMAGE |
+| 21:35 | `b3d0f54` | feat: C3 Quick Edit Chips templates + C5 Undo fix + beforeSnapshot DB persist |
 
 ---
 
