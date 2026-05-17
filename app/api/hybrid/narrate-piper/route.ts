@@ -64,10 +64,16 @@ function findPiperBinary(): string | null {
 
   for (const c of candidates) {
     try {
-      if (c === "piper" || c === "piper.exe") return c;
       if (fs.existsSync(c)) return c;
     } catch { /* skip */ }
   }
+  // Check PATH by trying to resolve "piper" / "piper.exe" via which/where
+  try {
+    const { execSync } = require("child_process");
+    const cmd = process.platform === "win32" ? "where piper.exe 2>nul" : "which piper 2>/dev/null";
+    const result = execSync(cmd, { timeout: 3000 }).toString().trim();
+    if (result) return result.split("\n")[0].trim();
+  } catch { /* not in PATH */ }
   return null;
 }
 
@@ -388,6 +394,10 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[narrate-piper] Error:", msg);
+    // ENOENT from spawn = binary not in PATH → surface as piperNotInstalled so UI shows download prompt
+    if (msg.includes("ENOENT") || msg.includes("Failed to start Piper")) {
+      return NextResponse.json({ ok: false, piperNotInstalled: true, error: msg }, { status: 200 });
+    }
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
