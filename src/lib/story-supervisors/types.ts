@@ -95,6 +95,15 @@ export interface ShotPlan {
   provider_recommendation?: "image_plus_motion" | "video" | "image_voiceover" | "hybrid";
 }
 
+export type SceneTag =
+  | "VISUAL"      // key moment — image carries the story, no narration needed
+  | "ACTION"      // physical movement — chase, jump, fight, run, collapse
+  | "BEAT"        // emotional pause — reaction, silence, realization
+  | "DIALOGUE"    // character speaking
+  | "NARRATION"   // narrator speaks over image
+  | "TRANSITION"  // scene/time change bridge
+  | "ESTABLISH";  // first wide shot of a new location
+
 export interface ScenePlan {
   scene_id: string;
   scene_number: number;
@@ -119,7 +128,9 @@ export interface ScenePlan {
   continuity_notes: string[];
   provider_recommendation: "image_plus_motion" | "video" | "image_voiceover" | "hybrid";
   provider_reason: string;
-  shots?: ShotPlan[]; // shot-level breakdown (Scene is a Folder of Shots)
+  shots?: ShotPlan[];         // shot-level breakdown (Scene is a Folder of Shots)
+  scene_tag?: SceneTag;       // visual intent tag from structure-story step
+  image_intent?: string;      // specific one-line image description from structure-story
 }
 
 export interface StoryQCInput {

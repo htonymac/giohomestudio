@@ -132,6 +132,8 @@ interface HybridScene {
   costEstimate: number;
   status: "draft" | "approved" | "blocked" | "generating" | "generated";
   flipOverride?: number | null;  // seconds per image for this scene; null = use project imageFlipSeconds
+  sceneTag?: "VISUAL" | "ACTION" | "BEAT" | "DIALOGUE" | "NARRATION" | "TRANSITION" | "ESTABLISH";
+  imageIntent?: string;
 }
 
 interface EstablishingShot {
@@ -446,6 +448,8 @@ function HybridPlannerInner() {
   const [establishingAll, setEstablishingAll] = useState(false);
   const [storyBreakingSceneId, setStoryBreakingSceneId] = useState<string | null>(null);
   const [storyExpandingScenes, setStoryExpandingScenes] = useState(false);
+  const [structuring, setStructuring] = useState(false);
+  const [structuredTagBreakdown, setStructuredTagBreakdown] = useState<Record<string, number> | null>(null);
   // LLM provider for all Story-tab AI ops (polish/break/expand). Same model menu as AI Chat.
   const [storyEditProvider, setStoryEditProvider] = useState<"auto" | "ollama" | "openai" | "claude">("auto");
 
@@ -1070,6 +1074,46 @@ function HybridPlannerInner() {
       "10+ min":  "10+ min",
     };
     return { seconds: map[dur] || 150, label: labelMap[dur] || dur };
+  }
+
+  // Structure story for images — runs BEFORE expand to tag each moment visually
+  async function structureStoryForImages() {
+    if (!idea.trim() || structuring) return;
+    setStructuring(true);
+    setLastAction("Structuring story for visual storytelling…");
+    try {
+      const { seconds: durSeconds } = parseDurationToSeconds(targetDuration);
+      const res = await fetch("/api/hybrid/structure-story", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storyIdea: idea.trim(),
+          storyType,
+          genre,
+          tone,
+          country: storyCountry,
+          targetDuration: durSeconds,
+        }),
+      });
+      const d = await res.json();
+      if (!d.ok || !d.structuredScenes) {
+        setLastAction(`Structure failed: ${d.error || "unknown"} — continuing with original idea`);
+        return;
+      }
+      // Apply tags to existing scenes or store breakdown for expand step
+      setStructuredTagBreakdown(d.tagBreakdown);
+      // Rebuild idea with visual structure annotations so expand picks them up
+      const taggedLines = (d.structuredScenes as Array<{ tag: string; description: string; imageIntent: string; durationHint: number }>)
+        .map((s) => `[${s.tag}] ${s.description}`)
+        .join("\n");
+      const cinematicIdea = `${idea.trim()}\n\n--- Visual Structure ---\n${taggedLines}`;
+      setIdea(cinematicIdea);
+      setLastAction(`Story structured: ${d.structuredScenes.length} visual moments tagged (${d.tagBreakdown?.VISUAL || 0} visual, ${d.tagBreakdown?.ACTION || 0} action, ${d.tagBreakdown?.BEAT || 0} beat). Now click Expand.`);
+    } catch (err) {
+      setLastAction(`Structure error: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setStructuring(false);
+    }
   }
 
   async function expandStory() {
@@ -7122,10 +7166,28 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       )}
 
                       {/* Info row */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" as const, alignItems: "center" }}>
                         <span style={{ fontSize: 9, color: muted }}>{scene.credits} cr</span>
                         <span style={{ fontSize: 9, color: muted }}>{scene.motionDuration || 5}s</span>
                         {scene.narrationStrength && <span style={{ fontSize: 9, color: gold }}>Narr: {scene.narrationStrength}</span>}
+                        {scene.sceneTag && (
+                          <span style={{ fontSize: 7, padding: "2px 7px", borderRadius: 20, fontWeight: 700, textTransform: "uppercase" as const,
+                            background: scene.sceneTag === "VISUAL" ? "rgba(0,212,255,0.15)"
+                              : scene.sceneTag === "ACTION" ? "rgba(239,68,68,0.15)"
+                              : scene.sceneTag === "BEAT" ? "rgba(168,85,247,0.15)"
+                              : scene.sceneTag === "DIALOGUE" ? "rgba(34,197,94,0.15)"
+                              : scene.sceneTag === "ESTABLISH" ? "rgba(245,158,11,0.15)"
+                              : "rgba(255,255,255,0.08)",
+                            color: scene.sceneTag === "VISUAL" ? "#00d4ff"
+                              : scene.sceneTag === "ACTION" ? "#ef4444"
+                              : scene.sceneTag === "BEAT" ? "#a855f7"
+                              : scene.sceneTag === "DIALOGUE" ? "#22c55e"
+                              : scene.sceneTag === "ESTABLISH" ? "#f59e0b"
+                              : muted,
+                          }}>
+                            {scene.sceneTag}
+                          </span>
+                        )}
                       </div>
 
                       {/* Video player — shows active (latest) version */}
@@ -8974,8 +9036,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
 
+            {/* Structure for Images — hybrid-only pre-step that tags each moment visually */}
+            <button onClick={structureStoryForImages} disabled={!idea.trim() || structuring || expanding}
+              title="Rewrites your story to make images carry emotions and actions — run before Expand for cinematic results"
+              style={{ width: "100%", padding: "10px 20px", borderRadius: 10, border: `1px solid ${accent}40`,
+                background: (!idea.trim() || structuring || expanding) ? "#2a2a40" : `${accent}15`,
+                color: (!idea.trim() || structuring || expanding) ? muted : accent,
+                fontSize: 11, fontWeight: 700, cursor: (!idea.trim() || structuring || expanding) ? "not-allowed" : "pointer", marginTop: 10 }}>
+              {structuring ? "Structuring for images…" : "🎬 Structure Story for Images"}
+            </button>
+            {structuredTagBreakdown && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginTop: 6 }}>
+                {Object.entries(structuredTagBreakdown).filter(([, v]) => v > 0).map(([tag, count]) => (
+                  <span key={tag} style={{ fontSize: 8, padding: "2px 7px", borderRadius: 20, background: `${accent}15`, color: accent, fontWeight: 700 }}>
+                    {tag}: {count}
+                  </span>
+                ))}
+              </div>
+            )}
             <button onClick={expandStory} disabled={!idea.trim() || expanding}
-              style={{ ...btnPrimary, width: "100%", background: (!idea.trim() || expanding) ? "#2a2a40" : accent, cursor: (!idea.trim() || expanding) ? "not-allowed" : "pointer", marginTop: 10 }}>
+              style={{ ...btnPrimary, width: "100%", background: (!idea.trim() || expanding) ? "#2a2a40" : accent, cursor: (!idea.trim() || expanding) ? "not-allowed" : "pointer", marginTop: 8 }}>
               {expanding ? "AI is expanding your story..." : "Expand with AI Intelligence"}
             </button>
           </div>

@@ -1,6 +1,18 @@
 // Scene Prompt Builder — finalizes each scene's complete prompt package
 
-import type { SupervisorResult, ScenePlan, CastBibleEntry, StoryContract } from "./types";
+import type { SupervisorResult, ScenePlan, SceneTag, CastBibleEntry, StoryContract } from "./types";
+
+// Tag-specific cinematic modifiers injected into image prompts
+// when scene_tag is set by the structure-story step
+const TAG_MODIFIERS: Record<SceneTag, string> = {
+  VISUAL:     "dramatic focal point, cinematic composition, emotional weight, story-telling image",
+  ACTION:     "dynamic camera angle, sense of motion, physical energy, tension, action shot",
+  BEAT:       "close-up, stillness, emotional expression, soft focus background, intimate moment",
+  DIALOGUE:   "character facing camera, clear facial expression, natural lighting, conversational framing",
+  NARRATION:  "establishing context, wide environment visible, atmospheric, cinematic background",
+  TRANSITION: "in-between moment, time-lapse feeling, movement across space, bridge shot",
+  ESTABLISH:  "wide establishing shot, full environment visible, depth of field, scene-setting",
+};
 
 function buildNegativePrompt(contract: StoryContract, scene: ScenePlan): string {
   const base = "blurry, low quality, distorted, watermark, text overlay, signature";
@@ -45,9 +57,20 @@ export function runScenePromptBuilder(
   for (const scene of scenes) {
     const negativePrompt = scene.negative_prompt || buildNegativePrompt(contract, scene);
 
+    // Use image_intent from structure-story if available, else fall back to existing prompts
+    const baseImageText = scene.image_intent
+      ? `${scene.image_intent}. ${scene.image_prompt || scene.visual_prompt || ""}`
+      : (scene.image_prompt || scene.visual_prompt || "");
+
+    // Inject tag-specific cinematic modifier when scene_tag is set
+    const tagModifier = scene.scene_tag ? TAG_MODIFIERS[scene.scene_tag] : null;
+    const imageBase = tagModifier
+      ? `${baseImageText} — ${tagModifier}`
+      : baseImageText;
+
     // Inject cast bible into image/video prompts for identity consistency
     const imagePrompt = injectCastBibleIntoCaptions(
-      scene.image_prompt || scene.visual_prompt || "",
+      imageBase,
       scene.characters || [],
       castBible
     );
