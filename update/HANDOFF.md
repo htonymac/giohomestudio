@@ -130,22 +130,33 @@ Feature branch committed. Dev server may need restart to pick up new API routes.
 
 ---
 
+## ✅ Completed (previously listed as pending)
+
+| Item | Status |
+|---|---|
+| Wave C — multi-image character import (>1 ref image per character) | ✅ DONE Session 11 — `ReferenceImage` type, CharacterPicker strip, 4-image upload UI |
+| Wave D — Continuity supervisor tier-attached | ✅ DONE — `runContinuityCheck(scenes, castBible, tier?)` tier param live; standard/pro/premium depth scaling |
+| Wave E — Wardrobe sidecar | ✅ DONE — `checkWardrobeContinuity()` in continuity-supervisor.ts; fires on premium/premium_best tier |
+| Wave F — Pre-gen dialogue review UI | ✅ DONE — `dialogueReview` state in collaborative-editor; approve/reject/edit per shot; "Generate Approved Lines" button |
+| Subtitle style tokens per-segment | ✅ DONE Session 11 — `subtitleStyle` on AssemblySegment, `getSegmentStyleAt()` in execute route |
+| Establishing Shot → image generation | ✅ DONE Session 11 — `/api/hybrid/establishing-shot/generate` wired to FAL FLUX |
+| Modal scroll-lock (collabo editor + hybrid planner) | ✅ DONE Sessions 11–12 |
+
 ## ❌ Still pending (not built, needs Henry GO or future session)
 
 | Item | Gate |
 |---|---|
 | Phase D — drop local-state fallbacks in 7 planners | Needs Henry GO + browser-verify all 7 planners |
-| Wave C — multi-image character import (>1 ref image per character) | ✅ DONE Session 11 |
-| Wave D — Continuity supervisor (tier-attached, always-ON, depth scales by tier) | Not started |
-| Wave E — Wardrobe sidecar (rolls into Wave D) | Not started |
-| Wave F — Pre-gen dialogue review UI | Not started |
-| E2E full path: Expand → Scene Board → Gen Image → Assembly | Not done |
-| Branch `fix/ghs-pipeline-recovery-may05` not merged to main | Pending |
-| `KIE_AI_API_KEY` + `MUBERT_PAT` not in `.env` | Music tiers fall back to stock library |
-| Subtitle style tokens per-segment | ✅ DONE Session 11 — `subtitleStyle` on AssemblySegment, `getSegmentStyleAt()` in execute route |
-| Modal scroll-lock on Terms / AI Chat / legal modals | ✅ DONE Session 11 (collab editor modals); Terms/legal modals in other pages still pending |
-| Establishing Shot → image generation | ✅ DONE Session 11 — `/api/hybrid/establishing-shot/generate` route wired to FAL FLUX |
-| Establishing Shot → Assembly video integration (Wan animation, timeline slot) | Not built — next step |
+| E2E full path: Expand → Scene Board → Gen Image → Assembly | Not done — no code needed, just test run |
+| Branch `fix/ghs-pipeline-recovery-may05` not merged to main | Pending Henry GO |
+| `KIE_AI_API_KEY` + `MUBERT_PAT` not in `.env` | Henry's call — music tiers fall back to stock library |
+| Establishing Shot → Wan animation (timeline slot, slow drift) | Not built — establishing shot image gen done, video animation not wired |
+| Modal scroll-lock on Terms / AI Chat / legal modals (non-collab pages) | Partial — collab + hybrid done; other pages still pending |
+| Prisma migrations not run | `npx prisma migrate dev --name story-edit-history` pending (needs dev server restart) |
+| C3 Quick Edit Chips ([Change Dialogue] [Swap SFX] etc.) | Not built — instruction text box works, chips not added |
+| C5 Undo button per edit history entry | Not built — beforeSnapshot not persisted in apply-edit route |
+| B2 cast-checking.ts shot-level validation | Deferred — explicitly marked, needs Henry GO |
+| B2 continuity-supervisor.ts shot-level tracking | Deferred — explicitly marked, needs Henry GO |
 
 ---
 

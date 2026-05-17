@@ -1,4 +1,5 @@
 # GHS Correction + Build Plan — 14 May 2026
+**Last verified:** 2026-05-16
 
 ## RULE: Do NOT touch Hybrid Planner or any other planner
 ## Collaboration UI goes in: /dashboard/collaborative-editor/page.tsx
@@ -6,9 +7,29 @@
 
 ---
 
+## OVERALL STATUS (updated 2026-05-16)
+
+| Phase | Status | Notes |
+|---|---|---|
+| A — 23-Supervisor Pipeline | ✅ COMPLETE | All supervisors wired in correct §25 order |
+| B1 — ShotPlan type | ✅ COMPLETE | ShotPlan + ScenePlan shots[] + buildDefaultShot |
+| B2 — Shot-level cast/continuity | ⏸ DEFERRED | Needs Henry GO |
+| C1 — Left panel scene folders | ✅ COMPLETE | Shot list, char chip, duration, click to activate |
+| C2 — Center panel active shot | ✅ COMPLETE | Title, shot ID, dialogue, prompt, provider badge, preview |
+| C3 — AI Console | ✅ MOSTLY | Instruction box + scope + confirm panel + Apply Change — Quick Edit Chips NOT built |
+| C4 — Dialogue mapping | ✅ COMPLETE | [CH01] format, Cast Bible voice lookup wired |
+| C5 — Edit History | ✅ MOSTLY | Chronological list done — Undo button NOT built |
+| D1–D3 — Intent parser | ✅ COMPLETE | collabo-edit/route.ts — Haiku + fallback |
+| D4 — apply-edit route | ✅ COMPLETE | apply-edit/route.ts — DB persist live |
+| D5 — StoryEditHistory model | ✅ COMPLETE | Prisma schema line 1454 |
+
+**Remaining gaps:** C3 Quick Edit Chips · C5 Undo button · B2 shot-level validation (deferred)
+
+---
+
 ## STATUS KEY
 - [ ] Not started
-- [~] In progress
+- [~] In progress / partial
 - [x] Done
 
 ---
@@ -94,39 +115,39 @@ Full correct order per doc §25:
 
 ### RULE: Do NOT create a new page. Add to existing collaborative-editor/page.tsx
 
-### C1 — Left Panel: Scene Folder System
-- [~] Scene list rendered as expandable folders (existing folder system already in editor)
-- [ ] Each scene folder shows: scene title, status badge, shot count
-- [ ] Expand scene → shows shot list inside (shot_id, speaking character ID chip, duration)
-- [ ] Click shot → activates that shot in Center Panel
-- [ ] "Add Shot" button per scene
+### C1 — Left Panel: Scene Folder System ✅ DONE Session 11 (2026-05-15)
+- [x] Scene list rendered as expandable folders
+- [x] Each scene folder shows: scene title, shot count
+- [x] Expand scene → shows shot list (shot_id chip, speaking char chip, duration)
+- [x] Click shot → sets collaboActiveSceneIdx + collaboActiveShotIdx (activates Center Panel)
+- [x] "Add Shot" button per scene (shows info toast — shots come from Story QC)
 
-### C2 — Center Panel: Active Shot Preview
-- [ ] Shows: active scene title, active shot ID, character chip (e.g. CH01: Emeka)
-- [ ] Shows current dialogue line for that shot
-- [ ] Shows image prompt / video prompt text (read-only, editable via AI Console)
-- [ ] Shows provider_recommendation badge (video / image+motion / image_voiceover)
-- [ ] Preview image slot (if scene image exists, show it)
+### C2 — Center Panel: Active Shot Preview ✅ DONE Session 11 (2026-05-15)
+- [x] Shows: active scene title, active shot ID, character chip (CH01: Name)
+- [x] Shows current dialogue line in [CH01] "line text" format
+- [x] Image prompt textarea — editable, updates qcScenes state
+- [x] Provider recommendation badge (video / image+motion / image_voiceover)
+- [x] Preview image slot (segment.imageUrl || sourceUrl, max 240px)
 
-### C3 — Right Panel: AI Collaboration Console
+### C3 — Right Panel: AI Collaboration Console ✅ MOSTLY DONE Session 11
 - [x] Instruction text box: "Tell AI what to change..."
-- [ ] Quick Edit Chips: [Change Dialogue] [Swap SFX] [Change Camera] [Reorder Scene] [Regenerate Shot]
-- [ ] When chip clicked → pre-fills instruction box with template
-- [ ] Change Scope indicator: shows LOW / MEDIUM / HIGH (from Phase D response)
-- [ ] Confirm panel: shows what will change, cost estimate, [Cancel] [Apply Change] buttons
-- [ ] After Apply → updates scene/shot state + logs to Edit History
+- [ ] Quick Edit Chips: [Change Dialogue] [Swap SFX] [Change Camera] [Reorder Scene] [Regenerate Shot] — NOT BUILT
+- [ ] Chip clicked → pre-fills instruction box with template — NOT BUILT
+- [x] Change Scope indicator: LOW / MEDIUM / HIGH badge (from Phase D response)
+- [x] Confirm panel: what will change + cost estimate + [Cancel] [Apply Change]
+- [x] After Apply → patches local state + POSTs to apply-edit (fire-and-forget) + logs to editHistory
 
-### C4 — Dialogue works perfectly
-- [ ] Every dialogue line in every shot is mapped to a Character ID (CH01, CH02)
-- [ ] Dialogue display shows: [CH01] "line text" format
-- [ ] Editing a dialogue line updates shot.dialogue_line and CH01's voice mapping
-- [ ] No dialogue line ever appears without a character ID owner
-- [ ] Voice generation (when triggered) always reads Character Voice ID from Cast Bible — never random
+### C4 — Dialogue works perfectly ✅ DONE Sessions 11–12
+- [x] dialogue_line and ownerCharacterId on AssemblySegment type
+- [x] Dialogue display shows [CH01] "line text" format in center panel
+- [x] Editing dialogue line updates shot.dialogue_line in qcScenes state
+- [x] Voice generation reads character voice from castTray by characterId (Session 12 Cast Bible wiring)
+- [ ] Hard enforcement: no dialogue line ever stored without character ID — not enforced at DB level
 
-### C5 — Edit History tab
-- [ ] Tab shows chronological list of all collaboration edits
-- [ ] Each entry: timestamp, instruction, resolved object ID, scope, before→after diff
-- [ ] Undo button per entry (restores before_snapshot)
+### C5 — Edit History tab ✅ MOSTLY DONE Session 11
+- [x] editHistory state tracks all collabo edits chronologically
+- [x] Each entry: timestamp, instruction, resolvedObjectId, changeType, scope, afterSnapshot
+- [ ] Undo button per entry (restores before_snapshot) — NOT BUILT (beforeSnapshot not persisted in apply-edit)
 
 ---
 
@@ -152,11 +173,12 @@ Full correct order per doc §25:
   - character visual, environment rebuild, full shot regenerate, full scene regenerate → HIGH
 - [x] Scope drives: cost estimate shown to user before action runs
 
-### D4 — Project State Update + Edit History
-- [~] `app/api/story/tools/apply-edit/route.ts` — deferred (local state patch in UI for now)
-  - POST body: { projectId, resolvedEdit (from D1 output), confirmed: true }
-  - Patches the specific field on Shot/Scene/Character object in DB
-  - Appends to StorySupervisorReport or new EditHistoryEntry model
+### D4 — Project State Update + Edit History ✅ DONE Session 11 (2026-05-15)
+- [x] `app/api/story/tools/apply-edit/route.ts` — 91 lines, LIVE
+  - POST body: { projectId, resolvedEdit, confirmed: true }
+  - Validates confirmed flag + rejects if clarification_needed
+  - Inserts StoryEditHistory to DB, returns { success, historyId }
+  - Note: patches local UI state first (fire-and-forget to DB)
 
 ### D5 — Edit History DB model (add to prisma schema)
 - [x] `StoryEditHistory` model added to prisma/schema.prisma:

@@ -413,23 +413,29 @@ export async function POST(req: NextRequest) {
           interface SubEntry { start: number; end: number; text: string; }
           function buildSubEntries(entries: typeof narrationWithText): SubEntry[] {
             const result: SubEntry[] = [];
+            const MIN_DUR = 1.5;
             for (const entry of entries) {
               const text = entry.text!.trim();
-              const dur = Math.max((entry.endTime || 0) - (entry.startTime || 0), 1);
-              const sentences = text.match(/[^.!?,;]+[.!?,;]*/g) || [text];
-              const totalChars = text.length || 1;
-              let charsCursor = 0;
-              for (const sentence of sentences) {
-                const s = sentence.trim();
-                if (!s) continue;
-                const startFrac = charsCursor / totalChars;
-                const endFrac = Math.min((charsCursor + s.length) / totalChars, 1);
-                result.push({
-                  start: (entry.startTime || 0) + startFrac * dur,
-                  end: (entry.startTime || 0) + endFrac * dur,
-                  text: s,
-                });
-                charsCursor += s.length;
+              const entryStart = entry.startTime || 0;
+              const rawEnd = entry.endTime || 0;
+              // Guard against legacy 99999 fallback — cap at a sane window
+              const entryEnd = rawEnd > 9000 ? entryStart + 300 : Math.max(rawEnd, entryStart + 1);
+              const totalDur = entryEnd - entryStart;
+              // Split on sentence-ending punctuation; fall back to 200-char chunks if no punctuation
+              const raw = text.match(/[^.!?]+[.!?]*/g) || [text];
+              const sentences = raw.map(s => s.trim()).filter(Boolean);
+              if (sentences.length === 0) continue;
+              // Word-count proportion — speech speed is roughly proportional to word count,
+              // not character count (short words vs long words read at similar pace).
+              const wordCounts = sentences.map(s => Math.max(s.split(/\s+/).filter(Boolean).length, 1));
+              const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+              let cursor = entryStart;
+              for (let i = 0; i < sentences.length; i++) {
+                if (cursor >= entryEnd) break;
+                const dur = Math.max((wordCounts[i] / totalWords) * totalDur, MIN_DUR);
+                const end = Math.min(cursor + dur, entryEnd);
+                result.push({ start: cursor, end, text: sentences[i] });
+                cursor = end;
               }
             }
             return result;
@@ -464,16 +470,29 @@ export async function POST(req: NextRequest) {
           const capped = subEntries.slice(0, 60);
 
           if (capped.length > 0) {
+            // Resolve font file — drawtext on Windows silently fails without an explicit fontfile.
+            // env.fontDir = C:\Windows\Fonts on Windows, /usr/share/fonts on Linux.
+            const arialPath = path.join(env.fontDir, "arial.ttf");
+            const dejavuPath = path.join(env.fontDir, "truetype", "dejavu", "DejaVuSans.ttf");
+            const dejavuPath2 = path.join(env.fontDir, "DejaVuSans.ttf");
+            const fontFilePath = fs.existsSync(arialPath) ? arialPath
+              : fs.existsSync(dejavuPath) ? dejavuPath
+              : fs.existsSync(dejavuPath2) ? dejavuPath2
+              : null;
+            // fontfile value for FFmpeg filter — use forward slashes, single-quote to protect colon in C:
+            const fontFileOpt = fontFilePath
+              ? `fontfile='${fontFilePath.replace(/\\/g, "/")}'`
+              : "";
+            const withFont = (s: string) => fontFileOpt ? `${fontFileOpt}:${s}` : s;
+
             // Build drawtext filter chain: each entry is time-gated with enable='between(t,S,E)'
-            // 5-C: subtitle style tokens — map exportSettings.subtitleStyle to drawtext params
-            // Per-segment subtitleStyle overrides the global export setting for that time window.
+            // box=1 gives a background bar — readable even when shadows fail on minimal FFmpeg builds.
             const styleParams: Record<string, string> = {
-              cinema:  "fontsize=28:fontcolor=white:shadowcolor=black@0.9:shadowx=3:shadowy=3",
-              neon:    "fontsize=22:fontcolor=cyan:shadowcolor=magenta@0.8:shadowx=2:shadowy=0:boxcolor=black@0.4:box=1:boxborderw=4",
-              bold:    "fontsize=30:fontcolor=white:shadowcolor=black:shadowx=4:shadowy=4",
-              classic: "fontsize=22:fontcolor=white:shadowcolor=black@0.8:shadowx=2:shadowy=2",
-              // Per-segment overrides (subtitleStyle on AssemblySegment)
-              minimal: "fontsize=22:fontcolor=white@0.9:borderw=0:bordercolor=black",
+              cinema:  withFont("fontsize=28:fontcolor=white:box=1:boxcolor=black@0.75:boxborderw=10:shadowcolor=black@0.9:shadowx=2:shadowy=2"),
+              neon:    withFont("fontsize=24:fontcolor=cyan:box=1:boxcolor=black@0.7:boxborderw=10:shadowcolor=magenta@0.6:shadowx=1:shadowy=0"),
+              bold:    withFont("fontsize=30:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=12:shadowcolor=black:shadowx=3:shadowy=3"),
+              classic: withFont("fontsize=22:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=8:shadowcolor=black@0.8:shadowx=2:shadowy=2"),
+              minimal: withFont("fontsize=22:fontcolor=white:box=1:boxcolor=black@0.4:boxborderw=6"),
               none:    "",
             };
             const globalStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
@@ -494,6 +513,8 @@ export async function POST(req: NextRequest) {
                 return styleParams[globalStyle] || styleParams.classic;
               }
 
+              console.log(`[subtitle] font=${fontFilePath || "NONE"} style=${globalStyle} entries=${capped.length} firstWindow=[${capped[0]?.start.toFixed(1)},${capped[0]?.end.toFixed(1)}]`);
+
               const drawChain = capped.map(e => {
                 const midTime = (e.start + e.end) / 2;
                 const subStyleBase = getSegmentStyleAt(midTime);
@@ -505,23 +526,30 @@ export async function POST(req: NextRequest) {
               const unsub = finalMergeStep?.outputPath || "";
               if (unsub && fs.existsSync(unsub)) {
                 const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
-                await execFileAsync(env.ffmpegPath, [
-                  "-i", unsub,
-                  "-vf", drawChain,
-                  "-c:a", "copy",
-                  "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
-                  "-movflags", "+faststart",
-                  "-y", subbedPath,
-                ], { timeout: 300000 });
-                if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
-                  subtitledOutputPath = subbedPath;
-                  console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, globalStyle=${globalStyle}) → ${path.basename(subbedPath)}`);
+                try {
+                  await execFileAsync(env.ffmpegPath, [
+                    "-i", unsub,
+                    "-vf", drawChain,
+                    "-c:a", "copy",
+                    "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                    "-movflags", "+faststart",
+                    "-y", subbedPath,
+                  ], { timeout: 300000 });
+                  if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
+                    subtitledOutputPath = subbedPath;
+                    console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, style=${globalStyle}) → ${path.basename(subbedPath)}`);
+                  }
+                } catch (dtErr) {
+                  console.error("[subtitle] drawtext FAILED:", dtErr instanceof Error ? dtErr.message.slice(0, 400) : dtErr);
+                  console.error("[subtitle] chain sample:", drawChain.slice(0, 300));
                 }
+              } else {
+                console.warn("[subtitle] final_merge output not found — skipping burn-in. unsub=", unsub);
               }
             } // globalStyle !== "none"
           }
         } catch (subErr) {
-          console.warn("[assembly] Subtitle burn-in skipped:", subErr instanceof Error ? subErr.message.slice(0, 200) : subErr);
+          console.error("[assembly] Subtitle burn-in error:", subErr instanceof Error ? subErr.message.slice(0, 400) : subErr);
         }
       }
     }

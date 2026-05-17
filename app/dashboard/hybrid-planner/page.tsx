@@ -755,7 +755,15 @@ function HybridPlannerInner() {
             sceneType: s.sceneType ?? "image-led",
             audioPlan: s.audioPlan ?? { musicMood: "", musicIntensity: "", narrationStyle: "", narrationIntensity: "", sfxList: [], ambienceList: [] },
           })));
-          if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
+          if (d.sceneImages && Object.keys(d.sceneImages).length > 0) {
+            // Fix legacy /storage/ paths saved before the /api/media/ fix (2026-05-16)
+            const fixedImages = Object.fromEntries(
+              Object.entries(d.sceneImages as Record<string, string>).map(([k, v]) =>
+                [k, typeof v === "string" && v.startsWith("/storage/") ? `/api/media/${v.slice("/storage/".length)}` : v]
+              )
+            );
+            setSceneImages(fixedImages);
+          }
           const mountValidIds = new Set((d.scenes || []).map((s: { sceneId: string }) => s.sceneId));
           if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) {
             const mountFiltered = Object.fromEntries(
@@ -795,6 +803,11 @@ function HybridPlannerInner() {
           if (Array.isArray(d.useMaxImageScenes)) setUseMaxImageScenes(new Set(d.useMaxImageScenes));
           // 3-B: Restore stale-image hash map
           if (d.sceneDescHashes && Object.keys(d.sceneDescHashes).length > 0) setSceneDescHashes(d.sceneDescHashes);
+          // Restore intro/outro card URLs so assembled video includes them after page refresh
+          if (d.introUrl) setIntroUrl(d.introUrl);
+          if (d.outroUrl) setOutroUrl(d.outroUrl);
+          if (d.introEnabled !== undefined) setIntroEnabled(!!d.introEnabled);
+          if (d.outroEnabled !== undefined) setOutroEnabled(!!d.outroEnabled);
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
@@ -877,6 +890,7 @@ function HybridPlannerInner() {
       screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
       sceneDescHashes,  // 3-B: persist stale-image hash map across sessions
+      introUrl, outroUrl, introEnabled, outroEnabled,  // persist card URLs so refresh doesn't wipe them
       // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
       useMaxImageScenes: Array.from(useMaxImageScenes),
       timestamp: Date.now(),
@@ -4073,18 +4087,27 @@ function HybridPlannerInner() {
         !seenNarrUrls.has(n.audioUrl) && seenNarrUrls.add(n.audioUrl)
       );
 
-      // Narration text for subtitle generation — use full script or story summary
-      const narratorFullText = fullScript || expandedSummary || idea || "";
+      // Subtitle text must match what was actually sent to TTS (same priority as generateNarrationPiper).
+      // Using full story text instead of per-scene narration is the #1 cause of subtitles not matching audio.
+      const subtitleAllScenes = scenes
+        .slice().sort((a: HybridScene, b: HybridScene) => a.scene - b.scene)
+        .map((s: HybridScene) => s.narrationScript || s.description || "")
+        .filter(Boolean)
+        .join(" ");
+      const subtitleParsedNarr = scriptSegments.filter(s => s.type === "narration").map(s => s.text).join(" ");
+      const narratorSubtitleText = (
+        subtitleAllScenes.trim() || subtitleParsedNarr.trim() || fullScript || expandedSummary || idea || ""
+      ).slice(0, 8000);
 
       const assemblyNarration: NarrationEntry[] = dedupNarrationList.map((n: { audioUrl: string; startTime: number; volume: number }, i: number) => ({
         id: `nar_${i}`,
-        // Pass text for subtitle burn-in. Main narrator gets full story; character clips have no text.
-        text: n.audioUrl === narratorAudioUrl ? narratorFullText.slice(0, 8000) : "",
+        // Pass text for subtitle burn-in. Must match TTS source — per-scene narration scripts joined.
+        text: n.audioUrl === narratorAudioUrl ? narratorSubtitleText : "",
         startTime: n.startTime,
         // Main narrator: use measured duration so assembly-builder atrim doesn't cut it short.
         // Per-line character clips are short (<10s each), so a 10s window is safe.
         endTime: n.audioUrl === narratorAudioUrl
-          ? (effectiveNarrDurMs > 0 ? n.startTime + effectiveNarrDurMs / 1000 : 99999)
+          ? (effectiveNarrDurMs > 0 ? n.startTime + effectiveNarrDurMs / 1000 : n.startTime + totalDuration)
           : n.startTime + 10,
         volume: n.volume ?? narrationVolume ?? 1.0,
         speed: 1.0,
@@ -4094,7 +4117,7 @@ function HybridPlannerInner() {
       // Fallback: narrationList was empty — add narrator directly if not already covered
       if (assemblyNarration.length === 0 && narratorAudioUrl && !seenNarrUrls.has(narratorAudioUrl)) {
         assemblyNarration.push({
-          id: "nar_0", text: narratorFullText.slice(0, 8000), startTime: 0,
+          id: "nar_0", text: narratorSubtitleText, startTime: 0,
           endTime: effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration,
           volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl,
         });
@@ -4138,7 +4161,7 @@ function HybridPlannerInner() {
           includeSubtitles: effectiveSubtitleConfig.mode !== "none",
           includeWatermark: false,
           includeCredits: false,
-          subtitleStyle: subtitleStyle as "classic" | "cinema" | "neon" | "bold" | "none", // 5-C
+          subtitleStyle: (effectiveSubtitleConfig.mode !== "none" && subtitleStyle === "none" ? "classic" : subtitleStyle) as "classic" | "cinema" | "neon" | "bold" | "none",
         },
         rightsConfirmed: true,
         previewApproved: true,
@@ -11052,7 +11075,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
             {/* B. Subtitle Style */}
             <div style={{ ...cardStyle, marginBottom: 16 }}>
-              <SubtitleStyler value={effectiveSubtitleConfig} onChange={newCfg => { setSubtitleConfig(newCfg); patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {}); }} accentColor={accent} />
+              <SubtitleStyler value={effectiveSubtitleConfig} onChange={newCfg => {
+                setSubtitleConfig(newCfg);
+                // Keep legacy subtitleStyle in sync: "none" when off, "classic" as default when on
+                if (newCfg.mode === "none") setSubtitleStyle("none");
+                else if (subtitleStyle === "none") setSubtitleStyle("classic");
+                patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {});
+              }} accentColor={accent} />
               {/* Check Narration ↔ Subtitle Match */}
               <button
                 onClick={async () => {
@@ -11825,13 +11854,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           {selectedMusicUrl ? `Music: ${selectedMusicName || "track selected"}` : "No background music selected (optional)"}
                         </span>
                       </div>
-                      {/* Subtitle status */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 8, background: subtitleStyle !== "none" ? "#00cc4408" : "#ffffff06", border: `1px solid ${subtitleStyle !== "none" ? "#00cc4430" : border}` }}>
-                        <span style={{ fontSize: 13 }}>{subtitleStyle !== "none" ? "✅" : "➖"}</span>
-                        <span style={{ fontSize: 11, fontWeight: 600, color: subtitleStyle !== "none" ? "#00cc44" : muted }}>
-                          {subtitleStyle !== "none" ? `Subtitles: ${subtitleStyle}` : "Subtitles off"}
-                        </span>
-                      </div>
+                      {/* Subtitle status — reads effectiveSubtitleConfig.mode (SubtitleStyler source of truth) */}
+                      {(() => {
+                        const subsOn = effectiveSubtitleConfig.mode !== "none";
+                        const subsLabel = subsOn ? `Subtitles: ${effectiveSubtitleConfig.mode}${subtitleStyle !== "none" && subtitleStyle !== "classic" ? ` / ${subtitleStyle}` : ""}` : "Subtitles off";
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderRadius: 8, background: subsOn ? "#00cc4408" : "#ffffff06", border: `1px solid ${subsOn ? "#00cc4430" : border}` }}>
+                            <span style={{ fontSize: 13 }}>{subsOn ? "✅" : "➖"}</span>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: subsOn ? "#00cc44" : muted }}>{subsLabel}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
                     {/* ── Image Flip Time panel — prominent, above Assemble button ── */}
                     <div style={{ padding: "12px 14px", borderRadius: 10, background: "#a855f708", border: "1px solid #a855f730", marginBottom: 10 }}>

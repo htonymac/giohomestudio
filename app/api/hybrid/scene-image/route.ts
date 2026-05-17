@@ -363,7 +363,7 @@ export async function POST(req: NextRequest) {
     const scopedDir = path.join(env.storagePath, "scenes", projectId || "unlinked", sceneId || "unknown");
     fs.mkdirSync(scopedDir, { recursive: true });
     const outputPath = path.join(scopedDir, `img_${imgTs}.png`);
-    const localImageUrl = `/storage/scenes/${projectId || "unlinked"}/${sceneId || "unknown"}/img_${imgTs}.png`;
+    const localImageUrl = `/api/media/scenes/${projectId || "unlinked"}/${sceneId || "unknown"}/img_${imgTs}.png`;
 
     // 4-A: Multi-reference support note.
     // generateImage() currently accepts a single referenceImageUrl (FAL PuLID only uses one).
