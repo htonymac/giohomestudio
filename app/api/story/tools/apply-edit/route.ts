@@ -28,12 +28,13 @@ interface ApplyEditBody {
   projectId: string;
   resolvedEdit: CollaboEditResult;
   confirmed: boolean;
+  beforeSnapshot?: object;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body: ApplyEditBody = await req.json();
-    const { projectId, resolvedEdit, confirmed } = body;
+    const { projectId, resolvedEdit, confirmed, beforeSnapshot } = body;
 
     if (!projectId || !resolvedEdit) {
       return NextResponse.json(
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
         resolvedObjectId: resolvedEdit.target_id,
         changeType,
         scope,
+        beforeSnapshot: beforeSnapshot ?? undefined,
         afterSnapshot: resolvedEdit.payload as object,
         undone: false,
       },

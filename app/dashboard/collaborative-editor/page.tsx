@@ -3457,10 +3457,17 @@ function Editor() {
                     {/* Instruction box */}
                     <div style={{ padding: "8px 10px" }}>
                       <div style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Tell AI what to change on this scene/shot:</div>
-                      {/* Quick edit chips */}
+                      {/* Quick edit chips — each pre-fills a complete actionable template */}
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginBottom: 6 }}>
-                        {["Change dialogue", "Swap SFX", "Change camera", "Change music", "Regenerate shot", "Reorder scene"].map(chip => (
-                          <button key={chip} onClick={() => setCollaboInstruction(chip + " — ")} style={{ padding: "2px 7px", borderRadius: 10, border: `1px solid ${purple}40`, background: `${purple}08`, color: purple, fontSize: 8, cursor: "pointer" }}>{chip}</button>
+                        {([
+                          { label: "Change Dialogue", template: "Change the dialogue for [CHARACTER NAME] in this shot to say: [NEW LINE HERE]" },
+                          { label: "Swap SFX", template: "Swap the SFX in this shot — replace [CURRENT SFX] with [NEW SFX e.g. thunder, crowd noise, footsteps]" },
+                          { label: "Change Camera", template: "Change the camera angle in this shot to [e.g. close-up, wide shot, slow pan left, dolly in]" },
+                          { label: "Change Music", template: "Change the music cue in this scene to [e.g. tense strings, upbeat drums, soft piano, silence]" },
+                          { label: "Regenerate Shot", template: "Regenerate this shot with new image — [describe what is different, e.g. more dramatic lighting, different expression]" },
+                          { label: "Reorder Scene", template: "Move this scene to position [NUMBER e.g. 3] in the sequence" },
+                        ] as const).map(chip => (
+                          <button key={chip.label} onClick={() => setCollaboInstruction(chip.template)} style={{ padding: "2px 7px", borderRadius: 10, border: `1px solid ${purple}40`, background: `${purple}08`, color: purple, fontSize: 8, cursor: "pointer" }}>{chip.label}</button>
                         ))}
                       </div>
                       <textarea value={collaboInstruction} onChange={e => setCollaboInstruction(e.target.value)} placeholder="e.g. Remove rain sound from this shot..." rows={2}
@@ -3537,7 +3544,7 @@ function Editor() {
                               fetch("/api/story/tools/apply-edit", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ projectId: assembly.projectId, resolvedEdit: { ...editSnap, scope: editSnap.scope as "low" | "medium" | "high" }, confirmed: true }),
+                                body: JSON.stringify({ projectId: assembly.projectId, resolvedEdit: { ...editSnap, scope: editSnap.scope as "low" | "medium" | "high" }, confirmed: true, beforeSnapshot: before }),
                               }).catch(() => {}); // fire-and-forget — local state already applied
                             }} style={{ flex: 2, padding: "4px 8px", borderRadius: 6, border: "none", background: green, color: "#fff", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>Apply Change</button>
                           </div>
@@ -4562,15 +4569,32 @@ function Editor() {
                         </div>
                         <div style={{ fontSize: 9, color: muted }}>{entry.changeType} → {entry.resolvedObjectId}</div>
                         <div style={{ fontSize: 8, color: muted, marginTop: 1 }}>{new Date(entry.timestamp).toLocaleTimeString()}</div>
-                        {!entry.undone && (
+                        {!entry.undone && !!entry.before && (
                           <button onClick={() => {
-                            // Undo: restore before snapshot to that scene
-                            const sceneId = entry.resolvedObjectId.startsWith("SH") ? entry.resolvedObjectId.split("-")[0].replace("SH", "") : null;
-                            if (sceneId) {
-                              setQcScenes(scenes => scenes.map((s, idx) => idx === parseInt(sceneId) - 1 ? (entry.before as ScenePlan) : s));
+                            // Resolve scene index from resolvedObjectId — handles SH01-01 and scene_001 formats
+                            const oid = entry.resolvedObjectId;
+                            const sceneIdx = (() => {
+                              if (oid.startsWith("SH")) {
+                                const n = parseInt(oid.split("-")[0].replace("SH", ""), 10);
+                                return isNaN(n) ? -1 : n - 1;
+                              }
+                              if (oid.startsWith("scene_")) {
+                                const n = parseInt(oid.replace("scene_", ""), 10);
+                                return isNaN(n) ? -1 : n - 1;
+                              }
+                              return -1;
+                            })();
+                            if (sceneIdx >= 0) {
+                              setQcScenes(scenes => scenes.map((s, idx) => idx === sceneIdx ? (entry.before as ScenePlan) : s));
+                              toast(`Undo applied — scene restored`, "success");
+                            } else {
+                              toast("Cannot undo: scene reference unclear", "error");
                             }
                             setEditHistory(h => h.map((e, ei) => ei === i ? { ...e, undone: true } : e));
                           }} style={{ marginTop: 4, fontSize: 8, color: purple, background: "none", border: `1px solid ${purple}30`, borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>↩ Undo</button>
+                        )}
+                        {!entry.undone && !entry.before && (
+                          <span style={{ marginTop: 4, display: "block", fontSize: 8, color: muted as string }}>No snapshot — cannot undo</span>
                         )}
                       </div>
                     ))}
