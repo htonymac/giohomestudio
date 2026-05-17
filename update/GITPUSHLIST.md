@@ -17,6 +17,8 @@ Updated every push. Use this to roll back to any point in the day.
 | 19:33 | `886c61f` | docs: update HANDOFF.md — Session 13 state + next session queue |
 | 19:46 | `7f4ffbf` | fix: Context Check/Fix buttons + subtitle match checker (broken API call replaced) |
 | 19:47 | `731be32` | docs: update HANDOFF.md — session 14 complete |
+| 20:15 | `5453547` | docs: REBRANDHYBRIDIMAGE spec + GITPUSHLIST + HANDOFF session 14 update |
+| 20:45 | `07d8c16` | feat(hybrid): H-series — image-first story structuring (H1-H5) complete |
 
 ---
 

@@ -340,11 +340,11 @@ These are independent. Can build H series first, then C series.
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| H1 | structure-story API endpoint | [ ] |
-| H2 | scene-demarcator reads tags | [ ] |
-| H3 | prompt-builder uses tag modifiers | [ ] |
-| H4 | "Structure for Images" UI button | [ ] |
-| H5 | Tag badge on scene cards | [ ] |
+| H1 | structure-story API endpoint | [x] commit 07d8c16 |
+| H2 | SceneTag type + ScenePlan/HybridScene extensions | [x] commit 07d8c16 |
+| H3 | prompt-builder TAG_MODIFIERS | [x] commit 07d8c16 |
+| H4 | "Structure for Images" UI button | [x] commit 07d8c16 |
+| H5 | Tag badge on scene cards | [x] commit 07d8c16 |
 | C1 | ChildrenPacingPlan type | [ ] |
 | C2 | build-pacing-plan API | [ ] |
 | C3 | children narration with SSML | [ ] |

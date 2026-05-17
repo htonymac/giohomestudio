@@ -43,16 +43,16 @@
 
 ## ⚡ NEXT — Two major new build tracks (specced 2026-05-16)
 
-### Track H: Hybrid Image-First Story Structuring
+### Track H: Hybrid Image-First Story Structuring ✅ COMPLETE (commit 07d8c16)
 Full spec: `update/REBRANDHYBRIDIMAGE.md` — Part 1
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| H1 | `POST /api/hybrid/structure-story` — Haiku rewrites idea as tagged visual script | [ ] |
-| H2 | `scene-demarcator.ts` reads `[VISUAL] [ACTION] [BEAT]` tags → scene intent field | [ ] |
-| H3 | `scene-prompt-builder.ts` injects tag-specific cinematic modifiers | [ ] |
-| H4 | "Structure for Images" button in Hybrid story tab (before Expand) | [ ] |
-| H5 | Tag badge on scene cards (VISUAL / ACTION / BEAT / NARRATION) | [ ] |
+| H1 | `POST /api/hybrid/structure-story` — Haiku rewrites idea as tagged visual script | ✅ |
+| H2 | `SceneTag` type + `ScenePlan.scene_tag?` + `HybridScene.sceneTag?` | ✅ |
+| H3 | `scene-prompt-builder.ts` TAG_MODIFIERS — cinematic modifier per tag | ✅ |
+| H4 | "🎬 Structure Story for Images" button before Expand + tag breakdown chips | ✅ |
+| H5 | Tag badge (VISUAL/ACTION/BEAT/DIALOGUE/ESTABLISH) on scene cards | ✅ |
 
 ### Track C: Children's Pacing Engine (COMPLETELY SEPARATE from hybrid)
 Full spec: `update/REBRANDHYBRIDIMAGE.md` — Part 2
