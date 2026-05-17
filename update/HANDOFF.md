@@ -1,42 +1,52 @@
-# GHS HANDOFF — Session 13 (Subtitle Overhaul + Image Fix + Intro/Outro + Story QC Plan)
+# GHS HANDOFF — Session 14 (Context Buttons + Subtitle Check Fix + Dialogue Wiring Verified)
 
 **Last updated:** 2026-05-16
-**Build:** `npx tsc --noEmit` — 1 pre-existing error in `tests/sound-browser-check.spec.ts`, 0 new errors
-**Git:** Committed + pushed to main (commit 84a0c9c)
+**Build:** `npx tsc --noEmit --skipLibCheck` — 1 pre-existing error in `tests/sound-browser-check.spec.ts`, 0 new errors
+**Git:** Committed + pushed to main (commit 7f4ffbf)
 
 ---
 
-## ✅ Done Session 13 (2026-05-16)
+## ✅ Done Session 14 (2026-05-16)
 
-### Subtitle System Overhaul
-- **Root fix 1 — Wrong text:** Subtitle text was `fullScript || expandedSummary` but TTS audio was from `allScenesNarration` (per-scene narrationScript). Fixed: `assembleScenes()` now computes `subtitleAllScenes` the same way `generateNarrationPiper()` does.
-- **Root fix 2 — Font failure:** FFmpeg `drawtext` on Windows silently fails without `fontfile`. Fixed: resolves `env.fontDir/arial.ttf` (confirmed at `C:/Windows/Fonts/arial.ttf`), injects into all style strings.
-- **Root fix 3 — Timing:** Changed `buildSubEntries` from char-count proportion to word-count proportion. Min 1.5s per subtitle, strictly capped at narration window end.
-- **Root fix 4 — Style gate:** When `subtitleStyle="none"` but subtitles are ON, now defaults to "classic" before sending to execute route.
-- **Root fix 5 — endTime=99999:** Narrator endTime fallback changed from `99999` → `n.startTime + totalDuration`.
-- **All styles:** Added `box=1:boxcolor=black@0.65` backing bar — readable even if shadows don't render.
-- **Diagnostic logging:** subtitle section now logs font path, style, entry count, first window. Inner drawtext errors logged with full message + filter chain sample.
+### Context Check / Fix Buttons Built
+- **Per-scene panel** (line ~9139 in hybrid-planner): Added `📋 Context` + `✏ Fix Context` buttons beside existing QC buttons
+  - `checkSceneContext(scene)`: heuristic clarity check — word count, big-word ratio, avg words/sentence. No LLM needed.
+  - `fixSceneContext(scene)`: calls `/api/hybrid/scene-edit` with simplification instruction. Updates scene description in place.
+  - Per-scene result badge rendered below the button row.
+- **Global Story QC panel** (line ~9212): Added `📋 Context Check (All)` + `✏ Fix Context (All)` button row
+  - `checkContextAll()`: runs `checkSceneContext` on all scenes
+  - `fixContextAll()`: async loop over all scenes — runs `fixSceneContext` sequentially
+  - Shows loading state while fixing.
+- State: `contextCheckResults: Record<string, {status, note}>` + `fixingContext: boolean` added.
 
-### Image URL Fix
-- `scene-image/route.ts`: Returns `/api/media/...` not `/storage/...`. Browser can fetch `/api/media/` — not `/storage/`.
-- `page.tsx` restore: Patches legacy `/storage/` URLs in saved localStorage on load.
+### Renamed: QC Fix button
+- Old label "🔧 Fix" → "🔧 QC Fix" — clearer distinction from "✏ Fix Context"
 
-### Intro/Outro Persistence
-- Save side: `introUrl, outroUrl, introEnabled, outroEnabled` added to localStorage save effect.
-- Restore side: Added restore code that reads them back from localStorage on mount.
+### Check Narration → Subtitle Match — Fixed
+- Was calling `/api/free-mode/enhance` with `task: "check"` (wrong endpoint — that route reads `rawPrompt`, not `prompt`, and does prompt enhancement not subtitle checking)
+- Replaced with synchronous local check:
+  1. Collects narration text same way as `assembleScenes()` (scenes sorted → narrationScript || description)
+  2. If no narration → warn "generate narration first"
+  3. If subtitle mode is "none" → warn with word count + instruction to enable
+  4. If `storyQCResult.supervisorResults["subtitle_style"]` has blocking issues → surfaces first issue
+  5. Otherwise → "ok" with word count + active mode + active style
+
+### Dialogue Supervisor — Verified wired
+- `src/lib/story-supervisors/index.ts` line 214: `runDialogueVoiceCheck(scenes, castBible, contract)` called
+- Result stored as `supervisorResults["dialogue_voice"]`
+- All 21 supervisor results stored, passed to `runFinalGatekeeper`
+- Dialogue results surface in Story QC panel under supervisor scores
 
 ---
 
-## ⚡ NEXT — Story QC Layer (planned, not yet built)
+## ⚡ NEXT — Remaining gaps from TODOCORRECT14052026.md
 
-### Items queued for next session:
-1. **Context Check button** — per-scene + all-scene. Checks if story makes sense, flow is logical, transitions work.
-2. **Content Fix button** — per-scene. Applies AI fix to unclear/broken content.
-3. **QC Check button** — runs full 23-supervisor pipeline on selected scope.
-4. **QC Fix button** — applies supervisor suggestions automatically.
-5. **Check Narration → Subtitle Match button** — NOT WORKING (button exists but logic broken — needs investigation).
-6. **Dialogue Agent Supervisor** — 13 supervisors wired but dialogue supervisor behavior needs review.
-7. **Full spec review** — read `update/ghs story structure/ghs_story_quality_control_layer_full_supervisor_plan.md` and verify all items done.
+1. **C3 Quick Edit Chips** (collaborative editor): `[Change Dialogue] [Swap SFX] [Change Camera] [Reorder Scene] [Regenerate Shot]` chips — pre-fill instruction box when clicked. NOT YET BUILT.
+2. **C5 Undo button** (collaborative editor): Restore `beforeSnapshot` from edit history — needs `beforeSnapshot` to be persisted in `apply-edit/route.ts`. NOT YET BUILT.
+3. **B2 shot-level validation** — deferred per spec (needs Henry GO).
+4. **Subtitle final test** — user needs to assemble a video and verify subtitles render. Dev server must be restarted to pick up `execute/route.ts` changes from Session 13.
+
+---
 
 ---
 
