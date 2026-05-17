@@ -168,21 +168,21 @@ export function soundTierToMCDConfig(id: GhsSoundTierId): {
  * Map a GhsSoundTierId to the narration provider string expected by
  * /api/hybrid/narrate-piper (voiceProvider field).
  *
- * "ghs-sound"    → "piper"     (en_US-lessac-medium, free local)
- * "ghs-plus"     → "karaoke"   (GHS Karaoke pipeline)
- * "ghs-pro"      → "karaoke"   (GHS Karaoke pipeline + FAL for music separately)
- * "ghs-premium"  → "kie-suno"  (Kie.ai Suno — falls back to piper if key missing)
+ * "ghs-sound"    → "piper"        (en_US-lessac-medium, free local)
+ * "ghs-plus"     → "fal-narrator" (FAL AI Kokoro TTS — cloud, no install needed)
+ * "ghs-pro"      → "fal-narrator" (FAL AI Kokoro TTS + FAL music separately)
+ * "ghs-premium"  → "kie-suno"     (Kie.ai Suno — falls back to fal-narrator if key missing)
  */
 export function soundTierToNarrationProvider(
   id: GhsSoundTierId,
-): "piper" | "karaoke" | "kie-suno" {
+): "piper" | "fal-narrator" | "kie-suno" {
   switch (id) {
     case "ghs-sound":
       return "piper";
     case "ghs-plus":
-      return "karaoke";
+      return "fal-narrator";
     case "ghs-pro":
-      return "karaoke";
+      return "fal-narrator";
     case "ghs-premium":
       return "kie-suno";
   }

@@ -3,16 +3,16 @@
 // GHS sound tier dispatch (soundTier field).
 //
 // voiceProvider values accepted:
-//   "piper"      — Piper TTS local (free, GHS Sound tier)
-//   "karaoke"    — GHS Karaoke pipeline (GHS Plus / GHS Pro tiers)
-//   "elevenlabs" — ElevenLabs cloud (ELEVENLABS_API_KEY required)
-//   "kie-suno"   — Kie.ai Suno V5 (KIE_AI_API_KEY required; falls back to piper)
-//   "fal-narrator" | "fal-narrator-gemini" — FAL kokoro (FAL_KEY required)
+//   "piper"          — Piper TTS local (free, GHS Sound tier)
+//   "elevenlabs"     — ElevenLabs cloud (ELEVENLABS_API_KEY required)
+//   "fal-narrator"   — FAL AI Kokoro standard (FAL_KEY required; GHS Plus / GHS Pro)
+//   "fal-narrator-gemini" — FAL AI Kokoro full model (FAL_KEY required)
+//   "kie-suno"       — Kie.ai Suno V5 (KIE_AI_API_KEY required; falls back to fal-narrator)
 //
 // soundTier is a convenience alias:
-//   "ghs-sound"    → voiceProvider = "piper",   model = "en_US-lessac-medium"
-//   "ghs-plus"     → voiceProvider = "karaoke"
-//   "ghs-pro"      → voiceProvider = "karaoke"  (FAL music handled separately)
+//   "ghs-sound"    → voiceProvider = "piper",        model = "en_US-lessac-medium"
+//   "ghs-plus"     → voiceProvider = "fal-narrator"  (FAL Kokoro cloud TTS)
+//   "ghs-pro"      → voiceProvider = "fal-narrator"  (FAL Kokoro + FAL music separately)
 //   "ghs-premium"  → voiceProvider = "kie-suno" (falls back to piper if no KIE key)
 //
 // If the requested Piper model is not found locally it auto-downloads from
@@ -316,15 +316,55 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Route to Karaoke pipeline (GHS Plus / GHS Pro) ───────────────────────
-    // The karaoke pipeline handles voice styling via browser SpeechSynthesis.
-    // No audio file is saved server-side — playback happens in-browser only.
+    // ── Route to FAL Kokoro (GHS Plus / GHS Pro) ─────────────────────────────
+    if (voiceProvider === "fal-narrator" || voiceProvider === "fal-narrator-gemini") {
+      if (!process.env.FAL_KEY) {
+        return NextResponse.json({ ok: false, error: "FAL_KEY not configured. Add it to .env to use GHS Plus narration." }, { status: 200 });
+      }
+      try {
+        const falEndpoint = voiceProvider === "fal-narrator-gemini"
+          ? "https://fal.run/fal-ai/kokoro"
+          : "https://fal.run/fal-ai/kokoro/american-english";
+        const falRes = await fetch(falEndpoint, {
+          method: "POST",
+          headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: sanitizeForTTS(text.trim()), voice: voiceId || "af_sky", speed: speed || 1.0 }),
+        });
+        if (!falRes.ok) {
+          const errBody = await falRes.text();
+          throw new Error(`FAL ${falRes.status}: ${errBody.slice(0, 200)}`);
+        }
+        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falAudioUrl = falData.audio_url || falData.audio?.url;
+        if (!falAudioUrl) throw new Error("FAL returned no audio URL");
+
+        const audioRes = await fetch(falAudioUrl);
+        if (!audioRes.ok) throw new Error(`Failed to download FAL audio: ${audioRes.status}`);
+
+        const outDir = getOutputDir();
+        const fileName = outputName
+          ? `${outputName.replace(/[^a-z0-9_-]/gi, "_")}_fal.mp3`
+          : `narration_fal_${Date.now()}.mp3`;
+        const outputPath = path.join(outDir, fileName);
+        fs.writeFileSync(outputPath, Buffer.from(await audioRes.arrayBuffer()));
+
+        const durationMs = estimateWavDuration(outputPath);
+        const relativePath = path.relative(path.join(process.cwd(), "storage"), outputPath).replace(/\\/g, "/");
+        const audioUrl = `/api/media/${relativePath}`;
+        return NextResponse.json({ ok: true, audioUrl, durationMs, provider: "fal-narrator", model: "kokoro" });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error("[narrate-piper] FAL narrator error:", msg);
+        return NextResponse.json({ ok: false, error: `FAL narrator failed: ${msg}` }, { status: 200 });
+      }
+    }
+
+    // ── Karaoke pipeline fallback (legacy) ────────────────────────────────────
     if (voiceProvider === "karaoke") {
       return NextResponse.json({
         ok: false,
         karaokeMode: true,
-        provider: "karaoke",
-        error: "Karaoke / GHS Plus mode uses browser Web Speech API. No server audio file generated. Playback is in-browser only.",
+        error: "Karaoke provider requires GHS Plus or GHS Pro tier — use GHS Sound for free Piper TTS.",
       }, { status: 200 });
     }
 
