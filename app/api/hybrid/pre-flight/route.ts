@@ -75,12 +75,22 @@ export async function POST(req: NextRequest) {
     }
 
     // ── CHECK 0b: Script segments parsed ────────────────────────────────────
+    // Warn when script segments are missing OR don't cover the scene count —
+    // a planner with 12 scenes but 1 parsed segment means narration is incomplete.
     if (scriptSegments.length === 0) {
       checks.push({
         id: "script_segments",
         label: "Script segments",
         status: "warn",
         detail: "No script segments parsed yet. Run Parse Script in the Audio tab for narration-ready output.",
+        autoFixAvailable: false,
+      });
+    } else if (scenes.length > 0 && scriptSegments.length < Math.ceil(scenes.length / 2)) {
+      checks.push({
+        id: "script_segments",
+        label: `Script parsed (${scriptSegments.length} segment${scriptSegments.length !== 1 ? "s" : ""} for ${scenes.length} scenes)`,
+        status: "warn",
+        detail: `Only ${scriptSegments.length} segment(s) for ${scenes.length} scenes — narration may be incomplete. Re-run Parse Script in the Audio tab.`,
         autoFixAvailable: false,
       });
     } else {

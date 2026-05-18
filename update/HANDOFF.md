@@ -1,4 +1,61 @@
-# GHS HANDOFF — Session 15 (TODOCORRECT COMPLETE + DB Migrated + H-Series + Docs)
+# GHS HANDOFF — Session 16 (Era/Culture Lock + Children Pacing Engine IN PROGRESS)
+
+**Last updated:** 2026-05-18
+**Build:** TSC clean — 0 new errors (pre-existing test error only)
+**Git:** Uncommitted — era/culture lock changes across 6 files
+
+---
+
+## ✅ Done Session 16 (2026-05-18)
+
+### Era & Culture Lock System — COMPLETE across all 3 planners
+- `src/lib/era-culture-lock.ts` — NEW: `buildFullLock()`, `toStaticFrame()`, 17 era entries, 14 culture entries
+- `app/api/hybrid/scene-image/route.ts` — era lock FIRST in prompt, static frame, negative blocker
+- `app/api/hybrid/scene-plan/route.ts` — era sceneContext in LLM prompt
+- `app/api/hybrid/story-expand/route.ts` — era/culture in controlLines + systemPrompt
+- All 3 planners: storyEra/storyCulture state, save/load, all API calls wired, portrait prompt injection, UI inputs in Story tab, era badge on Scene Board header
+- `update/UPDATE_MOVIE_era.md` — full spec doc saved
+
+### Files changed (uncommitted)
+- `app/dashboard/hybrid-planner/page.tsx`
+- `app/dashboard/children-planner/page.tsx`
+- `app/dashboard/movie-planner/page.tsx`
+- `app/api/hybrid/scene-image/route.ts`
+- `app/api/hybrid/scene-plan/route.ts`
+- `app/api/hybrid/story-expand/route.ts`
+- `src/lib/era-culture-lock.ts` (NEW)
+- `update/UPDATE_MOVIE_era.md` (NEW)
+
+---
+
+## ✅ Children's Pacing Engine (C1–C6) — COMPLETE
+
+Spec: `update/REBRANDHYBRIDIMAGE.md` Part 2.
+
+| Phase | File | Status |
+|-------|------|--------|
+| C1 | `src/types/children.ts` | ✅ done |
+| C2 | `app/api/children/build-pacing-plan/route.ts` | ✅ done |
+| C3 | `app/api/children/generate-narration/route.ts` | ✅ done |
+| C4 | `app/api/children/assemble/route.ts` | ✅ done |
+| C5 | `app/components/ChildrenKaraokeSubtitle.tsx` | ✅ done |
+| C6 | `app/dashboard/children-planner/page.tsx` wired | ✅ done |
+
+---
+
+## ❌ Still pending
+
+| Item | Gate |
+|---|---|
+| Phase D — drop local-state fallbacks in 7 planners | Needs Henry GO |
+| C6 wire children-planner UI | After C1-C5 done |
+| `KIE_AI_API_KEY` + `MUBERT_PAT` | Henry's call |
+| Establishing Shot → Wan animation | Not built |
+| Prisma migrations | `npx prisma migrate dev` pending |
+
+---
+
+## Previous Session 15 (TODOCORRECT COMPLETE + DB Migrated + H-Series + Docs)
 
 **Last updated:** 2026-05-16 (end of day — Henry sleeping)
 **Build:** TSC clean — 0 new errors (`npx tsc --noEmit --skipLibCheck`)

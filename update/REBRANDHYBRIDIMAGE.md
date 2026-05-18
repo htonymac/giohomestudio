@@ -345,9 +345,9 @@ These are independent. Can build H series first, then C series.
 | H3 | prompt-builder TAG_MODIFIERS | [x] commit 07d8c16 |
 | H4 | "Structure for Images" UI button | [x] commit 07d8c16 |
 | H5 | Tag badge on scene cards | [x] commit 07d8c16 |
-| C1 | ChildrenPacingPlan type | [ ] |
-| C2 | build-pacing-plan API | [ ] |
-| C3 | children narration with SSML | [ ] |
-| C4 | children assembly route | [ ] |
-| C5 | karaoke subtitle renderer | [ ] |
-| C6 | children-planner UI wiring | [ ] |
+| C1 | ChildrenPacingPlan type | [x] commit pending |
+| C2 | build-pacing-plan API | [x] commit pending |
+| C3 | children narration with SSML | [x] commit pending |
+| C4 | children assembly route | [x] commit pending |
+| C5 | karaoke subtitle renderer | [x] commit pending |
+| C6 | children-planner UI wiring | [x] commit pending |

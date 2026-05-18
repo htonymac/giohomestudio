@@ -14,18 +14,38 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
+import { buildFullLock } from "@/lib/era-culture-lock";
 
 interface CharacterInput {
   characterId: string;
   displayName: string;
   role: string;
+  ageRange?: string;
+  gender?: string;
+  skinTone?: string;
   visualDescription?: string;
 }
 
-function buildPrompt(storyText: string, characters: CharacterInput[], costPreference: string): string {
+function buildCharacterLine(c: CharacterInput): string {
+  // Build a compact identity line so the LLM knows exactly who each character is visually.
+  // Example output: "Baba Sule (protagonist) — adult male, dark skin tone. Traditional Nigerian village elder."
+  const parts: string[] = [];
+  if (c.ageRange && c.ageRange !== "unknown") parts.push(c.ageRange);
+  if (c.gender && c.gender !== "unknown") parts.push(c.gender);
+  if (c.skinTone) parts.push(`${c.skinTone} skin`);
+  const identity = parts.length > 0 ? ` — ${parts.join(", ")}` : "";
+  const desc = c.visualDescription ? `. ${c.visualDescription}` : "";
+  return `- ${c.displayName} (${c.role})${identity}${desc}`;
+}
+
+function buildPrompt(storyText: string, characters: CharacterInput[], costPreference: string, genre?: string, tone?: string, eraContext?: string): string {
   const charList = characters.length > 0
-    ? characters.map(c => `- ${c.displayName} (${c.role})${c.visualDescription ? ": " + c.visualDescription : ""}`).join("\n")
+    ? characters.map(buildCharacterLine).join("\n")
     : "- No named characters yet";
+
+  const genreBlock = genre ? `\nGENRE / STYLE: ${genre}` : "";
+  const toneBlock = tone ? `\nTONE: ${tone}` : "";
+  const eraBlock = eraContext ? `\n\n${eraContext}` : "";
 
   return `You are a professional film scene planner for an AI animation studio.
 
@@ -39,7 +59,9 @@ ${storyText.slice(0, 8000)}
 CHARACTERS:
 ${charList}
 
-COST PREFERENCE: ${costPreference || "balanced"}
+COST PREFERENCE: ${costPreference || "balanced"}${genreBlock}${toneBlock}${eraBlock}
+
+${genre ? `IMPORTANT: All scene descriptions, locations, clothing, and visual details MUST reflect the "${genre}" genre. Use culturally authentic settings, fashion, and context appropriate to this genre. Do NOT default to generic or Western settings if the genre implies a specific cultural context.` : ""}
 
 Rules:
 - Aim for 5-10 scenes depending on story length
@@ -50,13 +72,14 @@ Rules:
   * audio-bridge: sound/narration only, no visual (time jumps, transitions)
   * hybrid: mix of still and motion within the scene
 - Use the character IDs from the list above in characterIds
-- description must be a vivid, visual sentence describing exactly what is seen in this scene (AI uses this to generate the image)
+- description must be a vivid, visual sentence describing exactly what is seen in this scene (AI uses this directly for image generation)
+- CRITICAL CHARACTER RULE: Every scene description MUST explicitly name the character AND state their age, gender, and skin tone. Example: "Baba Sule, a 45-year-old Nigerian man with dark skin and grey hair, stands in a rural compound wearing traditional attire." Never write "a man" or "he" — always use the character's name and physical identity.
 - If cost preference is "efficient", prefer image-led. If "premium", use more video-led.
 - CRITICAL: Use the EXACT character names from the CHARACTERS list above in your scene descriptions and titles. Never rename characters or refer to them as "the villain" or "the hero" when a name is given.
 - CRITICAL: Do NOT combine characters who are separate individuals into a group. If "Vex" is one character and "Bryan" is another, they appear separately unless the story says they're together.
 - Scene titles must name a specific story event (e.g. "Vex Breaks Into the System", "Bryan's Last Stand"), not generic labels (e.g. "Scene 3", "The Confrontation").
 - Scenes must follow the story's actual narrative order — do not invent new plot beats or skip major story events.
-- Scene descriptions must describe what is SEEN visually — use character names and locations from the story.
+- Scene descriptions must describe what is SEEN visually — use character names, their physical appearance, and culturally authentic locations from the story.
 
 Return ONLY a valid JSON array, no markdown:
 [
@@ -82,19 +105,24 @@ Return ONLY a valid JSON array, no markdown:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { storyText, characters = [], costPreference = "balanced" } = body as {
+    const { storyText, characters = [], costPreference = "balanced", genre, tone, storyEra, storyCulture } = body as {
       storyText?: string;
       characters?: CharacterInput[];
       costPreference?: string;
       targetDuration?: string;
       projectId?: string;
+      genre?: string;
+      tone?: string;
+      storyEra?: string;
+      storyCulture?: string;
     };
 
     if (!storyText || storyText.trim().length < 10) {
       return NextResponse.json({ error: "storyText is required" }, { status: 400 });
     }
 
-    const prompt = buildPrompt(storyText, characters, costPreference);
+    const eraLock = buildFullLock(storyEra || "", storyCulture || "", genre || "");
+    const prompt = buildPrompt(storyText, characters, costPreference, genre, tone, eraLock.sceneContext || undefined);
     const llmResult = await callLLM(
       prompt,
       "You are a film scene planner. Return only valid JSON arrays. Be specific and visual in scene descriptions.",

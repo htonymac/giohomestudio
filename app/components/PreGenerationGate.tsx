@@ -101,7 +101,8 @@ function GateModalUI({ open, onConfirm, onCancel }: GateModalProps) {
             padding: "36px 32px",
             width: "100%",
             maxWidth: 600,
-            minHeight: 420,
+            maxHeight: "calc(100vh - 48px)",
+            overflowY: "auto",
             boxShadow: "0 20px 70px rgba(0,0,0,0.7), 0 0 0 1px rgba(168,85,247,0.2)",
           }}
         >

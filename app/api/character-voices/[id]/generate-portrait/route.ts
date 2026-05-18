@@ -1,7 +1,10 @@
 // POST /api/character-voices/[id]/generate-portrait
-// Generate character portrait. Routes to PuLID (fal_flux_pulid) if the character
-// has a photo-import reference image — preserving the uploaded face identity.
-// Accepts: { style?, usePhotoFacelock? } in request body.
+// Generates 3 portrait shots of the character in parallel:
+//   shot 1 — front-facing portrait (becomes the main imageUrl)
+//   shot 2 — three-quarter angle view
+//   shot 3 — close-up face / expression detail
+// All 3 are saved to referenceImages so the scene board has multiple references.
+// Accepts: { style?, usePhotoFacelock? }
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -11,8 +14,54 @@ import { getLateAnchor } from "@/lib/style/late-anchor";
 
 interface ReferenceImage { url: string; angle?: string; label?: string }
 
-// sanitizeStyleCollisions, getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
-// getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
+// The three framing directives that make each shot distinct.
+const SHOT_FRAMES = [
+  {
+    angle: "front",
+    label: "main",
+    framing: "Front-facing portrait, neutral expression, full upper body, clean background.",
+  },
+  {
+    angle: "three-quarter",
+    label: "variation_1",
+    framing: "Three-quarter angle view, slight left turn, upper body, showing side of face, clean background.",
+  },
+  {
+    angle: "closeup",
+    label: "variation_2",
+    framing: "Close-up portrait, face and shoulders only, showing facial details, expression, clean background.",
+  },
+];
+
+async function generateOneShot(
+  origin: string,
+  prompt: string,
+  framing: string,
+  negative: string,
+  referenceImageUrl: string | undefined,
+  useIdentityLock: boolean,
+): Promise<string | null> {
+  const fullPrompt = `${prompt} ${framing}`;
+  const res = await fetch(`${origin}/api/generation/image`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      prompt: fullPrompt,
+      negativePrompt: negative,
+      width: 512,
+      height: 768,
+      referenceImageUrl: useIdentityLock ? referenceImageUrl : undefined,
+      useIdentityLock,
+    }),
+  });
+  if (!res.ok) return null;
+  const data = await res.json() as { imageUrl?: string; imagePath?: string };
+  if (data.imageUrl) return data.imageUrl;
+  if (data.imagePath) {
+    return `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+  }
+  return null;
+}
 
 export async function POST(
   req: NextRequest,
@@ -31,11 +80,13 @@ export async function POST(
   const desc = character.visualDescription?.trim();
   if (!desc) return NextResponse.json({ error: "No visualDescription set on this character" }, { status: 422 });
 
-  // Detect photo-import reference image
-  const refImages = Array.isArray(character.referenceImages) ? character.referenceImages as unknown as ReferenceImage[] : [];
-  const photoRef = refImages.find(r => r.label === "photo-import" || r.label === "main");
+  // Detect photo-import reference for face-lock
+  const existingRefs = Array.isArray(character.referenceImages)
+    ? character.referenceImages as unknown as ReferenceImage[]
+    : [];
+  const photoRef = existingRefs.find(r => r.label === "photo-import" || r.label === "main");
   const photoUrl = photoRef?.url ?? (character.imageUrl?.includes("/upload/") ? character.imageUrl : undefined);
-  const isPhotoImport = body.usePhotoFacelock === true || !!photoRef;
+  const useIdentityLock = body.usePhotoFacelock === true || !!photoRef;
 
   const style = body.style || "3d-cinematic";
   const preset = getStylePreset(style);
@@ -46,61 +97,54 @@ export async function POST(
     ? "male character, "
     : "";
 
-  // Sanitize the visual description for the chosen style. Stops "animated voice"
-  // (a personality trait) from being read as an animation cue when realistic is selected.
   const cleanDesc = sanitizeStyleCollisions(desc, style);
+  const negative = (preset.negative || "") + getStyleCollisionNegative(style);
 
-  // getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
-  const prompt = [
+  // Shared base prompt — each shot appends its own framing directive
+  const basePrompt = [
     preset.prefix,
     `CHARACTER ${character.name.toUpperCase()} — EXACT FIXED APPEARANCE:`,
     `${genderHint}${cleanDesc}`,
-    "Front-facing portrait, neutral pose, clean background.",
     "High quality, sharp focus, consistent character design.",
     getLateAnchor(style),
   ].filter(Boolean).join(". ");
 
-  // Strengthen negative prompt for live-action — block animation/render words explicitly.
-  // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
-  const finalNegative = (preset.negative || "") + getStyleCollisionNegative(style);
-
-  // Route through /api/generation/image — handles PuLID routing internally
   const origin = req.nextUrl.origin;
-  const genRes = await fetch(`${origin}/api/generation/image`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      prompt,
-      negativePrompt: finalNegative,
-      width: 512,
-      height: 768,
-      referenceImageUrl: isPhotoImport ? (photoUrl ?? undefined) : undefined,
-      useIdentityLock: isPhotoImport,
-    }),
-  });
 
-  if (!genRes.ok) {
-    const errText = await genRes.text().catch(() => "");
-    return NextResponse.json({ error: `Image generation failed: ${errText.slice(0, 300)}` }, { status: 502 });
+  // Generate all 3 shots in parallel
+  const [url1, url2, url3] = await Promise.all(
+    SHOT_FRAMES.map(shot =>
+      generateOneShot(origin, basePrompt, shot.framing, negative, photoUrl, useIdentityLock)
+    )
+  );
+
+  if (!url1) {
+    return NextResponse.json({ error: "Primary portrait generation failed" }, { status: 502 });
   }
 
-  const genData = await genRes.json() as { imageUrl?: string; imagePath?: string; error?: string };
-  if (genData.error) return NextResponse.json({ error: genData.error }, { status: 502 });
-
-  const imageUrl = genData.imageUrl || (genData.imagePath
-    ? `/api/media/${genData.imagePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`
-    : null);
-
-  if (!imageUrl) return NextResponse.json({ error: "No image URL returned" }, { status: 502 });
+  // Build referenceImages: keep any existing photo-import entry, then add the 3 new shots
+  const photoImports = existingRefs.filter(r => r.label === "photo-import");
+  const newRefs: ReferenceImage[] = [
+    ...photoImports,
+    { url: url1, angle: "front",         label: "main" },
+    ...(url2 ? [{ url: url2, angle: "three-quarter", label: "variation_1" }] : []),
+    ...(url3 ? [{ url: url3, angle: "closeup",       label: "variation_2" }] : []),
+  ];
 
   const updated = await prisma.characterVoice.update({
     where: { id },
-    data: { imageUrl },
+    data: {
+      imageUrl: url1,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      referenceImages: newRefs as any,
+    },
   });
 
   return NextResponse.json({
-    imageUrl,
+    imageUrl: url1,
+    referenceImages: newRefs,
+    shotsGenerated: newRefs.filter(r => r.label !== "photo-import").length,
     character: { id: updated.id, name: updated.name },
-    faceLocked: isPhotoImport,
+    faceLocked: useIdentityLock,
   });
 }

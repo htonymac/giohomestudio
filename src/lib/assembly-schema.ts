@@ -176,6 +176,18 @@ export interface AssemblyJSON {
     includeCredits: boolean;
     creditsText?: string;         // auto-generated attribution text
     subtitleStyle?: "classic" | "cinema" | "neon" | "bold" | "none";  // 5-C subtitle style token
+    // Full SubtitleStyler config — overrides subtitleStyle when present
+    subtitleConfig?: {
+      mode: string;
+      fontFamily: "sans" | "serif" | "mono" | "display";
+      fontSize: number;
+      textColor: string;
+      highlightColor: string;
+      bgBox: boolean;
+      bgOpacity: number;
+      position: "bottom" | "center" | "top";
+      animation: string;
+    };
   };
 
   // Metadata

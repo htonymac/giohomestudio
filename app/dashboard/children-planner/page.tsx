@@ -19,6 +19,8 @@ import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
+import ChildrenKaraokeSubtitle from "../../components/ChildrenKaraokeSubtitle";
+import type { ChildrenPacingPlan, ChildrenNarrationTimingEntry } from "@/types/children";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Child Video Planner — PRODUCTION WORKSHOP
@@ -449,6 +451,7 @@ function ChildrenPlannerInner() {
   const [savingCharacter, setSavingCharacter] = useState<string | null>(null);
   // ── Per-character portrait model selector ────────────────────────────────
   const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
+  const [charRefImages, setCharRefImages] = useState<Record<string, Array<{url: string; angle: string; label: string}>>>({});
   const [savedCharacter, setSavedCharacter] = useState<string | null>(null);
   const [imagePickerForCharId, setImagePickerForCharId] = useState<string | null>(null);
   const [imagePickerAssets, setImagePickerAssets] = useState<Array<{ id: string; name: string; fileUrl?: string; filePath?: string; source?: string }>>([]);
@@ -460,6 +463,18 @@ function ChildrenPlannerInner() {
   const [photoImportName, setPhotoImportName] = useState("");
   const [photoDragOver, setPhotoDragOver] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
+  // ── Children Pacing Engine state ─────────────────────────────────────────
+  const [pacingPlan, setPacingPlan] = useState<ChildrenPacingPlan | null>(null);
+  const [buildingPacingPlan, setBuildingPacingPlan] = useState(false);
+  const [pacingAudioUrl, setPacingAudioUrl] = useState("");
+  const [pacingTimingMap, setPacingTimingMap] = useState<ChildrenNarrationTimingEntry[]>([]);
+  const [pacingActiveEntryIdx, setPacingActiveEntryIdx] = useState(0);
+  const [buildingPacingNarration, setBuildingPacingNarration] = useState(false);
+  const [assemblingPacingVideo, setAssemblingPacingVideo] = useState(false);
+  const [pacingVideoUrl, setPacingVideoUrl] = useState("");
+  // ── Era & Culture Lock ────────────────────────────────────────────────────
+  const [storyEra, setStoryEra] = useState("");
+  const [storyCulture, setStoryCulture] = useState("");
 
   // Final export
   const [finalVideoUrl, setFinalVideoUrl] = useState("");
@@ -489,6 +504,8 @@ function ChildrenPlannerInner() {
           tone: "warm, educational, age-appropriate",
           audience: AGE_AUDIENCE[ageGroup] || "children",
           language: "English",
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
           childContext: {
             ageGroup,
             learningMode,
@@ -750,15 +767,37 @@ function ChildrenPlannerInner() {
     setPhotoImportLog("");
   }
 
-  // Persist portrait URL to character-voices DB so the image survives across projects/planners
-  async function persistPortraitToRegistry(char: CharacterIdentity, imageUrl: string) {
-    const dbId = char.dbId || savedChars.find(s => s.characterId === char.characterId)?.id;
-    if (!dbId) return;
+  // Persist portrait to character-voices DB (creates if no dbId, updates if exists)
+  async function persistPortraitToRegistry(char: CharacterIdentity, imageUrl: string, refShots?: Array<{url: string; angle: string; label: string}>) {
+    let dbId = char.dbId || savedChars.find(s => s.characterId === char.characterId)?.id;
     try {
+      if (!dbId) {
+        // Create the character in the registry
+        const createRes = await fetch("/api/character-voices", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: char.displayName,
+            gender: char.gender || "unknown",
+            age: char.ageRange || "child",
+            visualDescription: char.species ? `${char.species}. ${char.bodyBuild || ""}`.trim() : char.displayName,
+            characterId: char.characterId,
+          }),
+        });
+        if (createRes.status === 409) {
+          const existing = await createRes.json();
+          dbId = existing.id;
+        } else if (createRes.ok) {
+          const created = await createRes.json();
+          dbId = created.id;
+          setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, dbId } : c));
+        }
+      }
+      if (!dbId) return;
       await fetch(`/api/character-voices/${dbId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
+        body: JSON.stringify({ imageUrl, ...(refShots ? { referenceImages: refShots } : {}) }),
       });
     } catch { /* best-effort */ }
   }
@@ -768,32 +807,54 @@ function ChildrenPlannerInner() {
     const visualDescFull = buildVisualDescription(char);
     const visualDesc = visualDescFull.slice(0, 1200);
     const styleLabel = VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label || "storybook";
-    const portraitPrompt = [
-      `children's story illustration, ${styleLabel} art style, age-appropriate, friendly, colorful, warm`,
-      `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
-      visualDesc || `${char.displayName}, ${char.gender} ${char.ageRange}`,
-      "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
-      "Show the character clearly from head to toe. Friendly and safe for children.",
-      "Consistent design, professional quality.",
-    ].filter(Boolean).join(". ");
     const isPhotoImport = char.tags?.includes("photo-import");
     const effectiveModelId = overrideModelId
       || charPortraitModel[char.characterId]
       || (isPhotoImport ? "fal_flux_pulid" : undefined);
+
+    const eraLine = (storyEra || storyCulture) ? `Set in ${[storyEra, storyCulture].filter(Boolean).join(", ")}. Clothing, accessories, and props MUST reflect this era and culture exactly.` : "";
+    const basePrompt = [
+      `children's story illustration, ${styleLabel} art style, age-appropriate, friendly, colorful, warm`,
+      eraLine || undefined,
+      `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
+      visualDesc || `${char.displayName}, ${char.gender} ${char.ageRange}`,
+      "CHARACTER REFERENCE SHEET — show full body head to toe, clean background, friendly and safe for children.",
+      "Consistent design, professional quality.",
+    ].filter(Boolean).join(". ");
+
+    const ANGLE_SHOTS = [
+      { angle: "front",         label: "main",        framing: "FULL BODY front view, standing neutral pose, facing camera, visible from head to toe including feet, clean plain background." },
+      { angle: "three-quarter", label: "variation_1", framing: "FULL BODY three-quarter angle view, slight left turn, standing pose, entire body visible from head to feet, clean plain background." },
+      { angle: "side",          label: "variation_2", framing: "FULL BODY side profile view, 90-degree turn, standing pose, full height visible from head to feet, clean plain background." },
+    ];
+
+    async function genOneShot(framing: string): Promise<string | null> {
+      try {
+        const res = await fetch("/api/generation/image", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: `${basePrompt} ${framing}`, modelId: effectiveModelId, width: 768, height: 1024, seed: genSeed !== null ? genSeed : undefined }),
+        });
+        const d = await res.json();
+        if (d.error) return null;
+        return d.imageUrl || (d.imagePath ? normalizeImageUrl(d.imagePath) : null);
+      } catch { return null; }
+    }
+
     try {
-      const res = await fetch("/api/generation/image", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: portraitPrompt, modelId: effectiveModelId, width: 768, height: 960, seed: genSeed !== null ? genSeed : undefined }),
-      });
-      const d = await res.json();
-      if (d.error) { setUiError(`Portrait failed: ${d.error}`); setGeneratingPortrait(null); return; }
-      const url = d.imageUrl || (d.imagePath ? normalizeImageUrl(d.imagePath) : null);
-      if (url) {
-        setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: url, hasImage: true, imageLocked: false } : c));
-        setLastAction(`Portrait generated for ${char.displayName} — AI reading image...`);
-        persistPortraitToRegistry(char, url);
-        analyzeCharacterImage(char.characterId, url);
-      }
+      const [url1, url2, url3] = await Promise.all(ANGLE_SHOTS.map(s => genOneShot(s.framing)));
+      if (!url1) { setUiError(`Portrait failed for ${char.displayName}`); setGeneratingPortrait(null); return; }
+
+      const shots = [
+        { url: url1, angle: ANGLE_SHOTS[0].angle, label: ANGLE_SHOTS[0].label },
+        ...(url2 ? [{ url: url2, angle: ANGLE_SHOTS[1].angle, label: ANGLE_SHOTS[1].label }] : []),
+        ...(url3 ? [{ url: url3, angle: ANGLE_SHOTS[2].angle, label: ANGLE_SHOTS[2].label }] : []),
+      ];
+
+      setCharRefImages(prev => ({ ...prev, [char.characterId]: shots }));
+      setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: url1, hasImage: true, imageLocked: false } : c));
+      setLastAction(`${shots.length} portrait shots generated for ${char.displayName} — AI reading image...`);
+      persistPortraitToRegistry(char, url1, shots);
+      analyzeCharacterImage(char.characterId, url1);
     } catch (err) {
       setUiError(`Portrait generation failed for ${char.displayName}: ${err instanceof Error ? err.message : String(err)}`);
     }
@@ -1019,19 +1080,31 @@ function ChildrenPlannerInner() {
 
       const styleLabel = VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label || effectiveProjectStyle;
       const storyWithStyle = `${summary || storyInput}\n\nVisual style: ${styleLabel}`;
+      const charIdentityMap = new Map(characters.map(ci => [ci.characterId, ci]));
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           storyText: storyWithStyle,
-          characters: savedChars.map(c => ({
-            characterId: c.id,
-            displayName: c.name,
-            role: c.role || "character",
-          })),
+          characters: savedChars.map(c => {
+            const ci = charIdentityMap.get(c.characterId || c.id);
+            return {
+              characterId: c.id,
+              displayName: c.name,
+              role: c.role || "character",
+              ageRange: ci?.ageRange || "child",
+              gender: ci?.gender || "unknown",
+              skinTone: ci?.skinTone || "",
+              visualDescription: c.visualDescription || ci?.species || "",
+            };
+          }),
+          genre: "children",
+          tone: `${ageGroup} age-appropriate, friendly, educational`,
           costPreference: "budget",
           targetDuration: movieSceneDuration,
           projectId: `children_${Date.now()}`,
           styleHint: styleLabel,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const sceneData = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(sceneRes, "scene-plan");
@@ -1236,6 +1309,8 @@ function ChildrenPlannerInner() {
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
           mood: "friendly, warm, safe",
           modelId: effectiveImageModelId,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
@@ -1331,6 +1406,8 @@ function ChildrenPlannerInner() {
             projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
             mood: "friendly, warm, safe",
             modelId: effectiveImageModelId,
+            storyEra: storyEra || undefined,
+            storyCulture: storyCulture || undefined,
             // Unique seed per image so retries on the same description still produce variation.
             seed: Math.floor(Math.random() * 1e9),
           }),
@@ -1403,6 +1480,8 @@ function ChildrenPlannerInner() {
               projectStyle: sceneStyles[sceneId] || (effectiveProjectStyle === "storybook" ? "storybook" : effectiveProjectStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
               mood: "friendly, warm, safe",
               modelId: effectiveImageModelId,
+              storyEra: storyEra || undefined,
+              storyCulture: storyCulture || undefined,
               seed: seeds[i],
             }),
           });
@@ -1901,6 +1980,93 @@ function ChildrenPlannerInner() {
     setAiPickingMusic(false);
   }
 
+  // ── Children Pacing Engine functions ─────────────────────────────────────
+  async function buildPacingPlan() {
+    const storyText = expandedContent || readAlongText || textContent || "";
+    if (!storyText.trim()) { setLastAction("Enter story content first"); return; }
+    setBuildingPacingPlan(true);
+    try {
+      const res = await fetch("/api/children/build-pacing-plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storyText,
+          mode: learningMode === "word" || learningMode === "phonics" ? "learning" : "story",
+          wordList: undefined,
+          targetAgeGroup: ageGroup === "toddler" ? "2-4" : ageGroup === "preschool" || ageGroup === "early" ? "5-7" : "8-10",
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.plan) {
+        setPacingPlan(data.plan);
+        setLastAction(`Pacing plan built — ${data.plan.entries.length} timed entries`);
+      } else {
+        setLastAction(`Pacing plan failed: ${data.error || "unknown error"}`);
+      }
+    } catch (err) {
+      setLastAction(`Pacing plan error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setBuildingPacingPlan(false);
+  }
+
+  async function generatePacingNarration() {
+    if (!pacingPlan) { setLastAction("Build pacing plan first"); return; }
+    setBuildingPacingNarration(true);
+    try {
+      const voiceId = Object.values(characterVoices)[0] || "en_US-lessac-medium";
+      const res = await fetch("/api/children/generate-narration", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: pacingPlan, voiceId }),
+      });
+      const data = await res.json();
+      if (data.ok && data.audioUrl) {
+        setPacingAudioUrl(data.audioUrl);
+        setPacingTimingMap(data.timingMap || []);
+        setLastAction(`Pacing narration ready — ${Math.round((data.durationMs || 0) / 1000)}s`);
+      } else {
+        setLastAction(`Narration failed: ${data.error || "unknown"}`);
+      }
+    } catch (err) {
+      setLastAction(`Narration error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setBuildingPacingNarration(false);
+  }
+
+  async function assemblePacingVideo() {
+    if (!pacingPlan || !pacingAudioUrl) { setLastAction("Build pacing plan + narration first"); return; }
+    setAssemblingPacingVideo(true);
+    try {
+      const scenes = childScenes
+        .filter(s => assemblySelectedIds.includes(`child_sc${String(s.scene).padStart(2, "0")}`))
+        .map((s, i) => ({
+          sceneId: `child_sc${String(s.scene).padStart(2, "0")}`,
+          imageUrl: sceneImages[`child_sc${String(s.scene).padStart(2, "0")}`] || s.imageUrl || "",
+          imageConceptKey: s.title || `scene_${i}`,
+        }))
+        .filter(s => s.imageUrl);
+      const res = await fetch("/api/children/assemble", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: activeProjectIdRef.current || "ghs_children_default",
+          plan: pacingPlan,
+          timingMap: pacingTimingMap,
+          audioUrl: pacingAudioUrl,
+          scenes,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && data.videoUrl) {
+        setPacingVideoUrl(data.videoUrl);
+        setGeneratedVideoUrl(data.videoUrl);
+        setLastAction("Pacing video assembled");
+      } else {
+        setLastAction(`Assembly failed: ${data.error || "unknown"}`);
+      }
+    } catch (err) {
+      setLastAction(`Assembly error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    setAssemblingPacingVideo(false);
+  }
+
   // ── Narration-only TTS generation ──
   async function generateNarration() {
     const text = textContent?.trim() || narrationText?.trim();
@@ -2134,6 +2300,8 @@ function ChildrenPlannerInner() {
             if (d.soundTier)        setSoundTier(d.soundTier);
             if (d.modelSettings)    setModelSettings(d.modelSettings);
             if (d.activeTab)        setActiveTab(d.activeTab);
+            if (d.storyEra)         setStoryEra(d.storyEra);
+            if (d.storyCulture)     setStoryCulture(d.storyCulture);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -2153,6 +2321,7 @@ function ChildrenPlannerInner() {
       projectTitle,
       textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
       ageGroup, safetyLevel, learningMode,
+      storyEra, storyCulture,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
       // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
@@ -2169,6 +2338,7 @@ function ChildrenPlannerInner() {
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
+      storyEra, storyCulture,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       sceneBeatImages, selectedBeatImages, useMaxImageScenes,
       scriptSegments, screenplay,
@@ -3232,8 +3402,26 @@ function ChildrenPlannerInner() {
                       </div>
                       <button onClick={() => generateCharacterPortrait(char)} disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
-                        {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
+                        {isGenerating ? "Generating 3 shots..." : char.imageUrl ? "Regenerate (3 shots)" : "Generate Portrait (3 shots)"}
                       </button>
+                      {charRefImages[char.characterId]?.length > 0 && (
+                        <div style={{ flexBasis: "100%", marginTop: 10, padding: "10px 12px", background: s2, borderRadius: 8, border: `1px solid ${border}` }}>
+                          <p style={{ fontSize: 9, color: muted, marginBottom: 6, fontWeight: 600 }}>Full body shots — click to set as main</p>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {charRefImages[char.characterId].map((shot, i) => {
+                              const isMain = char.imageUrl === shot.url;
+                              const ANGLE_NAME: Record<string, string> = { front: "Front", "three-quarter": "3/4 View", side: "Side" };
+                              return (
+                                <div key={i} onClick={() => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: shot.url } : c))}
+                                  style={{ cursor: "pointer", textAlign: "center" }}>
+                                  <img src={shot.url} alt={shot.angle} style={{ width: 56, height: 80, objectFit: "cover", borderRadius: 6, border: isMain ? `2px solid ${ds.color.lilac}` : `1px solid ${border}`, display: "block" }} />
+                                  <span style={{ fontSize: 8, color: isMain ? ds.color.lilac : muted, fontWeight: isMain ? 700 : 400 }}>{isMain ? "MAIN" : ANGLE_NAME[shot.angle] || shot.angle}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {char.imageUrl && (() => {
                         const isAnalyzing = analyzingCharacter === char.characterId;
                         return (
@@ -3515,6 +3703,33 @@ function ChildrenPlannerInner() {
               contentParam === "storybook" ? "Write your children's story:\nOnce upon a time, there was a little cat named Sam. Sam loved to play in the garden..." :
               "Enter your content here..."}
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
+
+          {/* Era & Culture Lock */}
+          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div>
+              <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
+              <input
+                value={storyEra}
+                onChange={e => setStoryEra(e.target.value)}
+                placeholder="e.g. Today, 1819, 899 AD, 300 BC"
+                style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 10px", color: "#fff", fontSize: 10, outline: "none" }}
+              />
+            </div>
+            <div>
+              <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Culture / Setting</label>
+              <input
+                value={storyCulture}
+                onChange={e => setStoryCulture(e.target.value)}
+                placeholder="e.g. Contemporary Lagos, Victorian England"
+                style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 10px", color: "#fff", fontSize: 10, outline: "none" }}
+              />
+            </div>
+          </div>
+          {(storyEra || storyCulture) && (
+            <p style={{ fontSize: 8, color: "#fb923c", marginTop: 4, fontWeight: 600 }}>
+              Era lock active: {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+            </p>
+          )}
 
           {/* AI Content Expansion */}
           <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
@@ -4838,6 +5053,68 @@ function ChildrenPlannerInner() {
                 </div>
               )}
 
+              {/* ── Children's Pacing Engine (word-timed narration) ── */}
+              <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}30`, padding: 20 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 6 }}>Pacing Engine (Advanced)</p>
+                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
+                  Build a word-timed narration plan — slower speed, breathing room between sentences, karaoke-style subtitles.
+                  For toddler/preschool stories and learning mode.
+                </p>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
+                  <button
+                    onClick={buildPacingPlan}
+                    disabled={buildingPacingPlan || !(expandedContent || textContent)}
+                    style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childAccent}`, background: buildingPacingPlan ? `${childAccent}10` : `${childAccent}20`, color: buildingPacingPlan || !(expandedContent || textContent) ? muted : childAccent, fontSize: 12, fontWeight: 600, cursor: buildingPacingPlan || !(expandedContent || textContent) ? "not-allowed" : "pointer" }}>
+                    {buildingPacingPlan ? "Building plan..." : pacingPlan ? "Rebuild Plan" : "Build Pacing Plan"}
+                  </button>
+                  {pacingPlan && (
+                    <button
+                      onClick={generatePacingNarration}
+                      disabled={buildingPacingNarration}
+                      style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childSafe}`, background: buildingPacingNarration ? `${childSafe}10` : `${childSafe}20`, color: buildingPacingNarration ? muted : childSafe, fontSize: 12, fontWeight: 600, cursor: buildingPacingNarration ? "not-allowed" : "pointer" }}>
+                      {buildingPacingNarration ? "Generating narration..." : pacingAudioUrl ? "Regenerate Narration" : "Generate Pacing Narration"}
+                    </button>
+                  )}
+                  {pacingPlan && pacingAudioUrl && (
+                    <button
+                      onClick={assemblePacingVideo}
+                      disabled={assemblingPacingVideo}
+                      style={{ padding: "9px 18px", borderRadius: 10, border: "none", background: assemblingPacingVideo ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, ${childSafe})`, color: "#000", fontSize: 12, fontWeight: 700, cursor: assemblingPacingVideo ? "not-allowed" : "pointer" }}>
+                      {assemblingPacingVideo ? "Assembling..." : "Assemble Pacing Video"}
+                    </button>
+                  )}
+                </div>
+                {pacingPlan && (
+                  <p style={{ fontSize: 10, color: childSafe, marginTop: 8 }}>
+                    Plan ready — {pacingPlan.entries.length} entries, {Math.round(pacingPlan.totalDurationMs / 1000)}s total, mode: {pacingPlan.mode}
+                  </p>
+                )}
+                {pacingAudioUrl && (
+                  <p style={{ fontSize: 10, color: "#7dd3fc", marginTop: 4 }}>Narration audio ready</p>
+                )}
+                {pacingVideoUrl && (
+                  <div style={{ marginTop: 12 }}>
+                    <p style={{ fontSize: 10, color: childSafe, marginBottom: 6 }}>Pacing video assembled</p>
+                    <video src={pacingVideoUrl} controls style={{ width: "100%", borderRadius: 8, maxHeight: 280 }} />
+                  </div>
+                )}
+                {/* Karaoke preview — shows active entry highlight */}
+                {pacingPlan && pacingPlan.entries.length > 0 && (
+                  <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: "#0d0621", border: `1px solid ${childAccent}20`, position: "relative" as const, minHeight: 60 }}>
+                    <p style={{ fontSize: 9, color: muted, marginBottom: 6 }}>Subtitle preview — entry {pacingActiveEntryIdx + 1}/{pacingPlan.entries.length}</p>
+                    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                      <button onClick={() => setPacingActiveEntryIdx(i => Math.max(0, i - 1))} style={{ padding: "3px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 10, cursor: "pointer" }}>&#8592;</button>
+                      <button onClick={() => setPacingActiveEntryIdx(i => Math.min(pacingPlan.entries.length - 1, i + 1))} style={{ padding: "3px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 10, cursor: "pointer" }}>&#8594;</button>
+                    </div>
+                    <ChildrenKaraokeSubtitle
+                      entry={pacingPlan.entries[pacingActiveEntryIdx]}
+                      elapsedMs={0}
+                      mode={pacingPlan.mode}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Big assemble button */}
               <button onClick={assembleMovie} disabled={assembling || assemblySelectedIds.length === 0}
                 style={{ width: "100%", padding: "16px 20px", borderRadius: 14, border: "none", background: (assembling || assemblySelectedIds.length === 0) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: assemblySelectedIds.length === 0 ? muted : "#fff", fontSize: 16, fontWeight: 800, cursor: (assembling || assemblySelectedIds.length === 0) ? "not-allowed" : "pointer", marginBottom: 12, letterSpacing: 0.3 }}>
@@ -5350,8 +5627,17 @@ function ChildrenPlannerInner() {
       {activeTab === "sceneBoard" && (
         <div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board</h2>
-            <span style={{ fontSize: 11, color: muted }}>{childScenes.length} scene{childScenes.length !== 1 ? "s" : ""}</span>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board</h2>
+              <div style={{ display: "flex", gap: 8, marginTop: 3, flexWrap: "wrap" as const }}>
+                <span style={{ fontSize: 9, color: muted }}>{childScenes.length} scene{childScenes.length !== 1 ? "s" : ""}</span>
+                {(storyEra || storyCulture) && (
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "#fb923c18", color: "#fb923c", fontWeight: 600 }}>
+                    {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* ── CONTINUOUS MOTION TOGGLE ──────────────────────────────────── */}

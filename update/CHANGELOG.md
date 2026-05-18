@@ -379,3 +379,30 @@ Seven audio pipeline bugs fixed end-to-end. Scene image action extraction. Per-s
 - **Why:** Mubert is required for instrumental tracks >47s. Key was undocumented.
 - **Impact:** Developers know to configure it. No runtime change.
 - **Risk:** None
+
+## 2026-05-18 — Era & Culture Lock System (All 3 Planners)
+**What:** Complete era/culture lock system built across all 3 planners (hybrid, children, movie) and all 3 API routes (scene-image, scene-plan, story-expand).
+(A) `src/lib/era-culture-lock.ts` — NEW utility: 17 era entries (Paleolithic→Contemporary), 14 culture entries, `buildFullLock(storyEra, storyCulture, artStyle)` → `{positive, negative, sceneContext, label}`, `toStaticFrame(description)` strips action verbs → "Cinematic still frame" for image model.
+(B) `app/api/hybrid/scene-image/route.ts` — era lock injected FIRST in prompt, static frame conversion, negative era blocker in negative prompt.
+(C) `app/api/hybrid/scene-plan/route.ts` — era sceneContext injected into LLM prompt via `eraBlock`.
+(D) `app/api/hybrid/story-expand/route.ts` — era/culture fields added to controlLines + systemPrompt.
+(E) All 3 planners: `storyEra`/`storyCulture` state added, saved/loaded, wired to all API calls (story-expand, scene-plan, all scene-image calls including Gen Max beats + variations). Era context injected into character portrait `basePrompt` for era-accurate clothing/accessories.
+(F) UI: Era & Culture Lock input section added to Story tab (all 3 planners). Era badge added to Scene Board header (all 3 planners). Lock active indicator shown when fields have values.
+(G) `update/UPDATE_MOVIE_era.md` — full spec doc (12 sections, 15 build steps, critical rules).
+**Why:** Scene images were defaulting to wrong era (Nollywood story generated cave-man imagery). Model needs explicit era commitment BEFORE processing characters/scenes, plus negative blocker to prevent wrong-era elements.
+**Impact:** All scene images, scene plans, and story expansions are now era+culture aware. 899 AD story won't show smartphones. 1819 England won't show modern buildings. All 3 planners, all generation paths covered.
+**Risk:** Low — additive. storyEra/storyCulture are optional — empty values skip era lock entirely. No existing prompts modified, only prepended/appended.
+**TypeScript:** 0 new errors (pre-existing test error only).
+
+## 2026-05-18 — Children's Pacing Engine (C1–C6) COMPLETE
+**What:** Full children's pacing engine built — separate from the adult hybrid pipeline.
+(C1) `src/types/children.ts` — NEW: ChildrenPacingEntry, ChildrenPacingPlan, ChildrenNarrationTimingEntry types.
+(C2) `app/api/children/build-pacing-plan/route.ts` — NEW: LLM generates word-timed pacing plan from story text. Story mode = sentence entries + 700ms pauses. Learning mode = word_intro + letter_spell sequence + word_repeat + sentence_read per word. Age multiplier (1.4× toddler, 1.1× preschool, 0.9× older).
+(C3) `app/api/children/generate-narration/route.ts` — NEW: Builds SSML script with `<break>` tags and `<prosody rate="slow/x-slow">`, calls ElevenLabs `/stream`. Falls back to Piper at localhost:5000/tts. Returns audioUrl + timingMap.
+(C4) `app/api/children/assemble/route.ts` — NEW: Timing-driven assembly. Per-entry image hold durations. FFmpeg concat filter. Outputs `storage/children/assembled_XXX.mp4`.
+(C5) `app/components/ChildrenKaraokeSubtitle.tsx` — NEW: React component for word_by_word, letter_by_letter, full, none highlight modes. CSS keyframe pulse for letter_by_letter. No external deps.
+(C6) `app/dashboard/children-planner/page.tsx` — Added imports, 8 state vars, buildPacingPlan(), generatePacingNarration(), assemblePacingVideo(). Pacing Engine card in Assembly tab with progressive build buttons + karaoke preview navigator.
+**Why:** Children's planner was using adult hybrid pipeline — wrong speed, no breathing room, no word-level subtitle timing. Educational mode (spelling, phonics) was impossible.
+**Impact:** Children can now use a separate timing-aware pipeline with SSML pauses and karaoke subtitles. Adult hybrid pipeline untouched.
+**Risk:** Low — entirely additive. Old assemble button still works. New Pacing Engine is optional (new card at bottom of Assembly tab).
+**TypeScript:** 0 new errors.

@@ -257,6 +257,10 @@ function MoviePlannerInner() {
   const [castPortraitModel, setCastPortraitModel] = useState<string>("segmind_flux");
   // ── Per-character portrait model selector ────────────────────────────────
   const [charPortraitModel, setCharPortraitModel] = useState<Record<string, string>>({});
+  const [charRefImages, setCharRefImages] = useState<Record<string, Array<{url: string; angle: string; label: string}>>>({});
+  // ── Era & Culture Lock ────────────────────────────────────────────────────
+  const [storyEra, setStoryEra] = useState("");
+  const [storyCulture, setStoryCulture] = useState("");
 
   // ── AI Planning ──
   const [planning, setPlanning] = useState(false);
@@ -603,6 +607,8 @@ function MoviePlannerInner() {
             if (d.modelSettings)   setModelSettings(d.modelSettings);
             if (d.savedCuts?.length > 0) setSavedCuts(d.savedCuts);
             if (d.activeTab)       setActiveTab(d.activeTab);
+            if (d.storyEra)        setStoryEra(d.storyEra);
+            if (d.storyCulture)    setStoryCulture(d.storyCulture);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -620,6 +626,7 @@ function MoviePlannerInner() {
     if (isRestoringRef.current) return;
     const data = {
       title, idea, expandedStory, genre, style, format, tone,
+      storyEra, storyCulture,
       savedCharacters, selectedCast, moviePlan,
       sceneImages, sceneVideos, scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, narrationProvider,
@@ -632,9 +639,9 @@ function MoviePlannerInner() {
       body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_movie_draft", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, idea, expandedStory, genre, style, format, tone, savedCharacters, selectedCast,
-      moviePlan, sceneImages, sceneVideos, scriptSegments, screenplay, selectedMusicUrl,
-      selectedMusicName, narrationProvider, soundTier, modelSettings, savedCuts, activeTab]);
+  }, [title, idea, expandedStory, genre, style, format, tone, storyEra, storyCulture,
+      savedCharacters, selectedCast, moviePlan, sceneImages, sceneVideos, scriptSegments, screenplay,
+      selectedMusicUrl, selectedMusicName, narrationProvider, soundTier, modelSettings, savedCuts, activeTab]);
 
   // Load project list + check for continue
   useEffect(() => {
@@ -879,6 +886,8 @@ function MoviePlannerInner() {
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const data = await res.json();
@@ -1111,6 +1120,8 @@ function MoviePlannerInner() {
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           tier: aiTier,
           styleHint: style || undefined,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const expandData = await expandRes.json();
@@ -1166,13 +1177,26 @@ function MoviePlannerInner() {
 
       // STEP 3: Scene Breakdown
       const sceneSummary = style ? `${storySummary}\n\nVisual style: ${style}` : storySummary;
+      const charRegistryMap = new Map(savedCharacters.map(sc => [sc.id, sc]));
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           storyText: sceneSummary,
-          characters: extractedChars.map(c => ({ characterId: c.id, displayName: c.name, role: c.role })),
+          characters: extractedChars.map(c => {
+            const reg = charRegistryMap.get(c.id);
+            return {
+              characterId: c.id,
+              displayName: c.name,
+              role: c.role,
+              visualDescription: c.description || reg?.description || "",
+            };
+          }),
+          genre: genre || undefined,
+          tone: tone || undefined,
           projectId: projectId || undefined,
           styleHint: style || undefined,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const sceneData = await safeJson<{ scenes?: Record<string, unknown>[] }>(sceneRes, "scene-plan");
@@ -1251,7 +1275,7 @@ function MoviePlannerInner() {
       const expandRes = await fetch("/api/hybrid/story-expand", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storyInput: idea, genre, tone, mode: "movie-plan" }),
+        body: JSON.stringify({ storyInput: idea, genre, tone, mode: "movie-plan", storyEra: storyEra || undefined, storyCulture: storyCulture || undefined }),
       });
       const expandData = await expandRes.json();
       const summary = expandData.expandedStory?.summary || expandData.summary || idea;
@@ -2570,6 +2594,33 @@ function MoviePlannerInner() {
 
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
 
+            {/* Era & Culture Lock */}
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div>
+                <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
+                <input
+                  value={storyEra}
+                  onChange={e => setStoryEra(e.target.value)}
+                  placeholder="e.g. 2024, 1819, 899 AD, 300 BC, Today"
+                  style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Culture / Setting</label>
+                <input
+                  value={storyCulture}
+                  onChange={e => setStoryCulture(e.target.value)}
+                  placeholder="e.g. Contemporary Lagos, Victorian England, Yoruba Kingdom"
+                  style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
+                />
+              </div>
+            </div>
+            {(storyEra || storyCulture) && (
+              <p style={{ fontSize: 8, color: "#fb923c", marginTop: 4, fontWeight: 600 }}>
+                Era lock active — all scene images: {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+              </p>
+            )}
+
             <div style={{ display: "flex", gap: 10, marginBottom: 0, marginTop: 10 }}>
               <button onClick={() => expandStory()} disabled={!idea.trim() || expanding}
                 style={{ ...btnPrimary, flex: 1, background: !idea.trim() || expanding ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #16a34a)", cursor: !idea.trim() || expanding ? "not-allowed" : "pointer" }}>
@@ -3069,24 +3120,64 @@ function MoviePlannerInner() {
                               <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
                             </select>
                           </div>
-                          <button onClick={() => {
+                          <button onClick={async () => {
                             const modelId = charPortraitModel[char.id] || castPortraitModel;
-                            fetch("/api/generation/image", {
-                              method: "POST", headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ prompt: `${movieCharacterStyle.replace(/_/g, " ")} style character portrait: ${char.name}. ${char.description || ""}. Professional character reference, front view, high quality rendering.`, width: 768, height: 768, modelId }),
-                            }).then(r => r.json()).then(d => {
-                              if (d.imageUrl || d.imagePath) {
+                            const styleLabel = movieCharacterStyle.replace(/_/g, " ");
+                            const eraLine = (storyEra || storyCulture) ? `Set in ${[storyEra, storyCulture].filter(Boolean).join(", ")}. Clothing, accessories, and props MUST reflect this era and culture exactly.` : "";
+                            const basePrompt = [
+                              `${styleLabel} style full body character: ${char.name}.`,
+                              char.description || "",
+                              eraLine || undefined,
+                              "Professional character reference sheet, full body head to toe, clean background, high quality rendering.",
+                            ].filter(Boolean).join(" ");
+                            const ANGLE_SHOTS = [
+                              { angle: "front",         label: "main",        framing: "FULL BODY front view, standing neutral pose, facing camera, visible from head to toe including feet, clean plain background." },
+                              { angle: "three-quarter", label: "variation_1", framing: "FULL BODY three-quarter angle view, slight left turn, standing pose, entire body visible from head to feet, clean plain background." },
+                              { angle: "side",          label: "variation_2", framing: "FULL BODY side profile view, 90-degree turn, standing pose, full height visible from head to feet, clean plain background." },
+                            ];
+                            async function genOneShot(framing: string): Promise<string | null> {
+                              try {
+                                const r = await fetch("/api/generation/image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: `${basePrompt} ${framing}`, width: 768, height: 1024, modelId }) });
+                                const d = await r.json();
                                 const raw = d.imageUrl || d.imagePath || "";
-                                const url = raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
-                                setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url } : c));
-                                setLastAction(`Portrait generated for ${char.name}`);
-                                fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url }) }).catch(() => {});
-                              }
-                            }).catch((err) => { console.error("genCharImage:", err); setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); });
+                                if (!raw) return null;
+                                return raw.startsWith("http") || raw.startsWith("/api/") ? raw : `/api/media/${raw.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+                              } catch { return null; }
+                            }
+                            try {
+                              const [url1, url2, url3] = await Promise.all(ANGLE_SHOTS.map(s => genOneShot(s.framing)));
+                              if (!url1) { setErrorMsg(`Portrait generation failed for ${char.name}`); return; }
+                              const shots = [
+                                { url: url1, angle: ANGLE_SHOTS[0].angle, label: ANGLE_SHOTS[0].label },
+                                ...(url2 ? [{ url: url2, angle: ANGLE_SHOTS[1].angle, label: ANGLE_SHOTS[1].label }] : []),
+                                ...(url3 ? [{ url: url3, angle: ANGLE_SHOTS[2].angle, label: ANGLE_SHOTS[2].label }] : []),
+                              ];
+                              setCharRefImages(prev => ({ ...prev, [char.id]: shots }));
+                              setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: url1 } : c));
+                              setLastAction(`${shots.length} portrait shots generated for ${char.name}`);
+                              fetch(`/api/character-voices/${char.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ imageUrl: url1, referenceImages: shots }) }).catch(() => {});
+                            } catch (err) { setErrorMsg(`Failed to generate portrait for ${char.name}: ${err instanceof Error ? err.message : "Unknown error"}`); }
                           }}
                             style={{ padding: "5px 8px", borderRadius: 6, border: `1px solid ${purple}30`, background: `${purple}06`, color: purple, fontSize: 9, cursor: "pointer" }}>
-                            Generate Portrait
+                            {charRefImages[char.id]?.length > 0 ? "Regenerate (3 shots)" : "Generate Portrait (3 shots)"}
                           </button>
+                          {charRefImages[char.id]?.length > 0 && (
+                            <div style={{ flexBasis: "100%", marginTop: 8, padding: "8px 10px", background: "#0f172a", borderRadius: 6, border: `1px solid ${purple}20` }}>
+                              <p style={{ fontSize: 8, color: muted, marginBottom: 5, fontWeight: 600 }}>Full body shots — click to set as main</p>
+                              <div style={{ display: "flex", gap: 4 }}>
+                                {charRefImages[char.id].map((shot, i) => {
+                                  const isMain = savedCharacters.find(c => c.id === char.id)?.imageUrl === shot.url;
+                                  const ANGLE_NAME: Record<string, string> = { front: "Front", "three-quarter": "3/4", side: "Side" };
+                                  return (
+                                    <div key={i} onClick={() => setSavedCharacters(prev => prev.map(c => c.id === char.id ? { ...c, imageUrl: shot.url } : c))} style={{ cursor: "pointer", textAlign: "center" }}>
+                                      <img src={shot.url} alt={shot.angle} style={{ width: 48, height: 72, objectFit: "cover", borderRadius: 5, border: isMain ? `2px solid ${purple}` : `1px solid ${border}`, display: "block" }} />
+                                      <span style={{ fontSize: 7, color: isMain ? purple : muted, fontWeight: isMain ? 700 : 400 }}>{isMain ? "MAIN" : ANGLE_NAME[shot.angle] || shot.angle}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -3183,7 +3274,16 @@ function MoviePlannerInner() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board ({totalScenes} scenes)</h2>
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Scene Board ({totalScenes} scenes)</h2>
+              {(storyEra || storyCulture) && (
+                <div style={{ marginTop: 3 }}>
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "#fb923c18", color: "#fb923c", fontWeight: 600 }}>
+                    {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+                  </span>
+                </div>
+              )}
+            </div>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setSceneViewMode("grid")} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${sceneViewMode === "grid" ? accent : border}`, background: sceneViewMode === "grid" ? `${accent}10` : "transparent", color: sceneViewMode === "grid" ? accent : muted, fontSize: 10, cursor: "pointer" }}>Grid</button>
               <button onClick={() => setSceneViewMode("list")} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${sceneViewMode === "list" ? accent : border}`, background: sceneViewMode === "list" ? `${accent}10` : "transparent", color: sceneViewMode === "list" ? accent : muted, fontSize: 10, cursor: "pointer" }}>List</button>

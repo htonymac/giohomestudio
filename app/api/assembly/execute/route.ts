@@ -472,13 +472,26 @@ export async function POST(req: NextRequest) {
           if (capped.length > 0) {
             // Resolve font file — drawtext on Windows silently fails without an explicit fontfile.
             // env.fontDir = C:\Windows\Fonts on Windows, /usr/share/fonts on Linux.
-            const arialPath = path.join(env.fontDir, "arial.ttf");
+            const subCfg = assembly.exportSettings?.subtitleConfig;
+            // Font family → candidate filenames (first existing file wins)
+            const fontCandidates: string[] = subCfg?.fontFamily === "serif"
+              ? ["georgia.ttf", "times.ttf", "timesbd.ttf", "arial.ttf"]
+              : subCfg?.fontFamily === "mono"
+              ? ["cour.ttf", "DejaVuSansMono.ttf", "arial.ttf"]
+              : subCfg?.fontFamily === "display"
+              ? ["impact.ttf", "ariblk.ttf", "arial.ttf"]
+              : ["arial.ttf", "DejaVuSans.ttf"]; // sans (default)
             const dejavuPath = path.join(env.fontDir, "truetype", "dejavu", "DejaVuSans.ttf");
             const dejavuPath2 = path.join(env.fontDir, "DejaVuSans.ttf");
-            const fontFilePath = fs.existsSync(arialPath) ? arialPath
-              : fs.existsSync(dejavuPath) ? dejavuPath
-              : fs.existsSync(dejavuPath2) ? dejavuPath2
-              : null;
+            let fontFilePath: string | null = null;
+            for (const candidate of fontCandidates) {
+              const p = path.join(env.fontDir, candidate);
+              if (fs.existsSync(p)) { fontFilePath = p; break; }
+            }
+            if (!fontFilePath) {
+              if (fs.existsSync(dejavuPath)) fontFilePath = dejavuPath;
+              else if (fs.existsSync(dejavuPath2)) fontFilePath = dejavuPath2;
+            }
             // fontfile value for FFmpeg filter — use forward slashes, single-quote to protect colon in C:
             const fontFileOpt = fontFilePath
               ? `fontfile='${fontFilePath.replace(/\\/g, "/")}'`
@@ -488,16 +501,36 @@ export async function POST(req: NextRequest) {
             // Build drawtext filter chain: each entry is time-gated with enable='between(t,S,E)'
             // box=1 gives a background bar — readable even when shadows fail on minimal FFmpeg builds.
             const styleParams: Record<string, string> = {
-              cinema:  withFont("fontsize=28:fontcolor=white:box=1:boxcolor=black@0.75:boxborderw=10:shadowcolor=black@0.9:shadowx=2:shadowy=2"),
-              neon:    withFont("fontsize=24:fontcolor=cyan:box=1:boxcolor=black@0.7:boxborderw=10:shadowcolor=magenta@0.6:shadowx=1:shadowy=0"),
-              bold:    withFont("fontsize=30:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=12:shadowcolor=black:shadowx=3:shadowy=3"),
-              classic: withFont("fontsize=22:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=8:shadowcolor=black@0.8:shadowx=2:shadowy=2"),
-              minimal: withFont("fontsize=22:fontcolor=white:box=1:boxcolor=black@0.4:boxborderw=6"),
+              cinema:  withFont("fontsize=36:fontcolor=white:box=1:boxcolor=black@0.75:boxborderw=12:shadowcolor=black@0.9:shadowx=2:shadowy=2"),
+              neon:    withFont("fontsize=32:fontcolor=cyan:box=1:boxcolor=black@0.7:boxborderw=11:shadowcolor=magenta@0.6:shadowx=1:shadowy=0"),
+              bold:    withFont("fontsize=40:fontcolor=white:box=1:boxcolor=black@0.8:boxborderw=14:shadowcolor=black:shadowx=3:shadowy=3"),
+              classic: withFont("fontsize=32:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=11:shadowcolor=black@0.8:shadowx=2:shadowy=2"),
+              minimal: withFont("fontsize=32:fontcolor=white:box=1:boxcolor=black@0.4:boxborderw=8"),
               none:    "",
             };
             const globalStyle = assembly.exportSettings?.subtitleStyle ?? "classic";
             // If style is "none", skip subtitle burn-in entirely
             if (globalStyle !== "none") {
+              // Build dynamic style from SubtitleConfig when present
+              let defaultDrawStyle: string;
+              if (subCfg) {
+                const textHex = (subCfg.textColor || "#ffffff").replace("#", "0x");
+                const bgOpacity = Math.min(1, Math.max(0, subCfg.bgOpacity ?? 0.75));
+                const fontSize = Math.min(80, Math.max(18, subCfg.fontSize ?? 32));
+                const borderW = Math.round(fontSize * 0.35);
+                const boxPart = subCfg.bgBox !== false
+                  ? `:box=1:boxcolor=black@${bgOpacity.toFixed(2)}:boxborderw=${borderW}`
+                  : "";
+                defaultDrawStyle = withFont(`fontsize=${fontSize}:fontcolor=${textHex}${boxPart}:shadowcolor=black@0.8:shadowx=2:shadowy=2`);
+              } else {
+                defaultDrawStyle = styleParams[globalStyle] || styleParams.classic;
+              }
+
+              // Y position from SubtitleConfig position setting
+              const subY = subCfg?.position === "top" ? "h*0.06"
+                : subCfg?.position === "center" ? "(h-th)/2"
+                : "h*0.88"; // bottom (default)
+
               // Helper: find segment active at a given midpoint time for per-segment style override
               const sortedSegments = [...(fullAssembly.segments || [])].sort(
                 (a, b) => (a.startTime ?? 0) - (b.startTime ?? 0)
@@ -510,15 +543,15 @@ export async function POST(req: NextRequest) {
                 if (segStyle && styleParams[segStyle]) {
                   return styleParams[segStyle];
                 }
-                return styleParams[globalStyle] || styleParams.classic;
+                return defaultDrawStyle;
               }
 
-              console.log(`[subtitle] font=${fontFilePath || "NONE"} style=${globalStyle} entries=${capped.length} firstWindow=[${capped[0]?.start.toFixed(1)},${capped[0]?.end.toFixed(1)}]`);
+              console.log(`[subtitle] font=${fontFilePath || "NONE"} style=${globalStyle} cfg=${subCfg ? `fontSize=${subCfg.fontSize} pos=${subCfg.position}` : "legacy"} entries=${capped.length} firstWindow=[${capped[0]?.start.toFixed(1)},${capped[0]?.end.toFixed(1)}]`);
 
               const drawChain = capped.map(e => {
                 const midTime = (e.start + e.end) / 2;
                 const subStyleBase = getSegmentStyleAt(midTime);
-                const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=h*0.88`;
+                const baseStyle = `${subStyleBase}:x=(w-tw)/2:y=${subY}`;
                 return `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`;
               }).join(",");
 

@@ -3,17 +3,18 @@
 // GHS sound tier dispatch (soundTier field).
 //
 // voiceProvider values accepted:
-//   "piper"          — Piper TTS local (free, GHS Sound tier)
-//   "elevenlabs"     — ElevenLabs cloud (ELEVENLABS_API_KEY required)
-//   "fal-narrator"   — FAL AI Kokoro standard (FAL_KEY required; GHS Plus / GHS Pro)
+//   "piper"               — Piper TTS local (free, GHS Sound tier)
+//   "karaoke"             — GHS Karaoke pipeline: FAL Kokoro TTS if FAL_KEY set, else Piper fallback
+//   "elevenlabs"          — ElevenLabs cloud (ELEVENLABS_API_KEY required)
+//   "fal-narrator"        — FAL AI Kokoro standard (FAL_KEY required; GHS Plus / GHS Pro)
 //   "fal-narrator-gemini" — FAL AI Kokoro full model (FAL_KEY required)
-//   "kie-suno"       — Kie.ai Suno V5 (KIE_AI_API_KEY required; falls back to fal-narrator)
+//   "kie-suno"            — Kie.ai Suno V5 (KIE_AI_API_KEY required; falls back to piper)
 //
 // soundTier is a convenience alias:
-//   "ghs-sound"    → voiceProvider = "piper",        model = "en_US-lessac-medium"
-//   "ghs-plus"     → voiceProvider = "fal-narrator"  (FAL Kokoro cloud TTS)
-//   "ghs-pro"      → voiceProvider = "fal-narrator"  (FAL Kokoro + FAL music separately)
-//   "ghs-premium"  → voiceProvider = "kie-suno" (falls back to piper if no KIE key)
+//   "ghs-sound"    → voiceProvider = "piper",    model = "en_US-lessac-medium"
+//   "ghs-plus"     → voiceProvider = "karaoke"   (FAL Kokoro or Piper fallback)
+//   "ghs-pro"      → voiceProvider = "karaoke"   (FAL Kokoro or Piper fallback)
+//   "ghs-premium"  → voiceProvider = "kie-suno"  (falls back to piper if no KIE key)
 //
 // If the requested Piper model is not found locally it auto-downloads from
 // huggingface.co/rhasspy/piper-voices — no HF account required (public repo).
@@ -264,6 +265,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── Karaoke pipeline → FAL Kokoro (or Piper fallback) ────────────────────
+    // GHS Plus / GHS Pro: karaoke narration uses FAL Kokoro TTS.
+    // Full karaoke audio enhancement (Demucs/RVC) requires Linux post-migration.
+    if (voiceProvider === "karaoke") {
+      if (process.env.FAL_KEY) {
+        voiceProvider = "fal-narrator";
+      } else {
+        voiceProvider = "piper";
+        model = "en_US-lessac-medium";
+      }
+    }
+
     // ── Route to ElevenLabs if requested ──────────────────────────────────────
     if (voiceProvider === "elevenlabs") {
       if (!env.elevenlabs?.apiKey) {
@@ -357,15 +370,6 @@ export async function POST(req: NextRequest) {
         console.error("[narrate-piper] FAL narrator error:", msg);
         return NextResponse.json({ ok: false, error: `FAL narrator failed: ${msg}` }, { status: 200 });
       }
-    }
-
-    // ── Karaoke pipeline fallback (legacy) ────────────────────────────────────
-    if (voiceProvider === "karaoke") {
-      return NextResponse.json({
-        ok: false,
-        karaokeMode: true,
-        error: "Karaoke provider requires GHS Plus or GHS Pro tier — use GHS Sound for free Piper TTS.",
-      }, { status: 200 });
     }
 
     // 1 — Check Piper binary

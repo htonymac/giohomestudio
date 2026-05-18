@@ -823,16 +823,20 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ style: charStyle }),
                   });
-                  const d = await res.json() as { imageUrl?: string; error?: string };
+                  const d = await res.json() as { imageUrl?: string; referenceImages?: ReferenceImage[]; shotsGenerated?: number; error?: string };
                   if (d.imageUrl) {
                     if (v.imageUrl) setPrevImage(v.imageUrl);
-                    onUpdate(v.id, { imageUrl: d.imageUrl });
+                    // Save main portrait + all 3 generated shots
+                    onUpdate(v.id, {
+                      imageUrl: d.imageUrl,
+                      ...(d.referenceImages ? { referenceImages: d.referenceImages as unknown as null } : {}),
+                    });
                   }
                 } catch { /* ignore */ } finally { setGenPortrait(false); }
               }}
               style={{ background: `${ds.color.lilac}18`, color: ds.color.lilac, border: `1px solid ${ds.color.lilac}44`, borderRadius: ds.radius.xs, padding: "5px 12px", fontSize: 12, cursor: genPortrait ? "wait" : "pointer", fontFamily: ds.font.sans, opacity: genPortrait ? 0.6 : 1 }}
             >
-              {genPortrait ? "Generating…" : v.imageUrl ? "Regenerate" : "Generate Portrait"}
+              {genPortrait ? "Generating 3 shots…" : v.imageUrl ? "Regenerate (3 shots)" : "Generate Portrait (3 shots)"}
             </button>
           )}
           {/* Preview Portrait */}
@@ -929,27 +933,63 @@ function VoiceCard({ v, onEdit, onDelete, editingId, onUpdate, saving, onPreview
         </div>
       </div>
 
-      {/* Reference image thumbnail strip */}
-      {Array.isArray(v.referenceImages) && v.referenceImages.length > 0 && (
-        <div style={{ display: "flex", gap: 4, padding: "0 18px 12px", alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: ds.color.mute2, marginRight: 2, fontFamily: ds.font.mono }}>Ref photos:</span>
-          {(v.referenceImages as ReferenceImage[]).map(r => (
-            <img
-              key={r.angle}
-              src={normalizeImageUrl(r.url)}
-              alt={r.label}
-              title={r.label}
-              style={{ width: 28, height: 28, borderRadius: ds.radius.xs, objectFit: "cover", border: `1px solid ${ds.color.line2}` }}
-            />
-          ))}
-          <a
-            href={`/dashboard/character-voices/${v.id}`}
-            style={{ fontSize: 10, color: ds.color.mute2, marginLeft: 4, textDecoration: "none", fontFamily: ds.font.mono }}
-          >
-            {(v.referenceImages as ReferenceImage[]).length}/5 →
-          </a>
-        </div>
-      )}
+      {/* Generated portrait shots gallery — shown after Generate Portrait runs */}
+      {Array.isArray(v.referenceImages) && v.referenceImages.length > 0 && (() => {
+        const refs = v.referenceImages as ReferenceImage[];
+        const generated = refs.filter(r => r.label === "main" || r.label?.startsWith("variation_"));
+        const photoImports = refs.filter(r => r.label === "photo-import");
+        if (generated.length === 0 && photoImports.length === 0) return null;
+        const ANGLE_LABEL: Record<string, string> = { front: "Front", "three-quarter": "3/4 View", closeup: "Close-up" };
+        return (
+          <div style={{ padding: "0 18px 14px" }}>
+            {generated.length > 0 && (
+              <>
+                <p style={{ fontSize: 10, color: ds.color.mute2, fontFamily: ds.font.mono, marginBottom: 6 }}>
+                  Generated shots ({generated.length}) — click any to set as main portrait
+                </p>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {generated.map((r, i) => {
+                    const isMain = r.url === v.imageUrl;
+                    return (
+                      <div key={i} style={{ position: "relative", cursor: "pointer" }}
+                        onClick={() => onUpdate(v.id, { imageUrl: r.url })}
+                        title={`Set as main portrait — ${ANGLE_LABEL[r.angle ?? ""] || r.angle || r.label}`}>
+                        <img
+                          src={normalizeImageUrl(r.url)}
+                          alt={r.label}
+                          style={{
+                            width: 72, height: 96, objectFit: "cover", borderRadius: ds.radius.sm,
+                            border: `2px solid ${isMain ? ds.color.lilac : ds.color.line2}`,
+                            display: "block",
+                          }}
+                        />
+                        <span style={{
+                          position: "absolute", bottom: 0, left: 0, right: 0,
+                          background: "rgba(0,0,0,0.65)", color: "#fff",
+                          fontSize: 8, textAlign: "center", padding: "2px 0",
+                          fontFamily: ds.font.mono,
+                          borderBottomLeftRadius: ds.radius.sm, borderBottomRightRadius: ds.radius.sm,
+                        }}>
+                          {isMain ? "✓ MAIN" : (ANGLE_LABEL[r.angle ?? ""] || r.label)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+            {photoImports.length > 0 && (
+              <div style={{ display: "flex", gap: 4, marginTop: 8, alignItems: "center" }}>
+                <span style={{ fontSize: 10, color: ds.color.mute2, fontFamily: ds.font.mono }}>Photo ref:</span>
+                {photoImports.map((r, i) => (
+                  <img key={i} src={normalizeImageUrl(r.url)} alt="photo-import"
+                    style={{ width: 28, height: 28, borderRadius: ds.radius.xs, objectFit: "cover", border: `1px solid ${ds.color.line2}` }} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

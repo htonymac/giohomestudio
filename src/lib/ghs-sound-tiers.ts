@@ -18,7 +18,7 @@ export const GHS_SOUND_TIERS = [
   {
     id: "ghs-sound",
     label: "GHS Sound",
-    description: "Built-in voice synthesis. Fast and free.",
+    description: "Piper TTS narration (local, free, offline) + stock music + no lip-sync.",
     provider: "piper",
     model: "en_US-lessac-medium",
     isFree: true,
@@ -31,16 +31,17 @@ export const GHS_SOUND_TIERS = [
     estCostPer100s: "$0.00",          // shown in tooltip
     quality: "Hobby / draft",
     includes: [
-      "Piper TTS (local, free)",
-      "Stock music + SFX",
-      "Multi-cast dialogue with pacing",
-      "No lip-sync (still images / direct video)",
+      "Piper TTS narration (local, free, offline)",
+      "Piper voices for dialogue (basic, no emotion)",
+      "Stock music library",
+      "Stock SFX library",
+      "No lip-sync",
     ],
   },
   {
     id: "ghs-plus",
     label: "GHS Plus",
-    description: "Enhanced voice with GHS Karaoke processing + multi-cast dialogue.",
+    description: "FAL AI Kokoro narration + ElevenLabs dialogue + FAL MuSeTalk lip-sync.",
     provider: "karaoke",
     model: "karaoke-pipeline",
     isFree: false,
@@ -52,17 +53,18 @@ export const GHS_SOUND_TIERS = [
     estCostPer100s: "~$0.80",
     quality: "70% Gemini feel",
     includes: [
+      "FAL AI Kokoro narration (cloud TTS, no install)",
       "ElevenLabs v1 TTS for dialogue",
-      "Karaoke pipeline for narration",
-      "Stock / FAL backing music",
-      "Multi-cast dialogue with auto emotion + pacing",
-      "FAL musetalk lip-sync on scene videos",
+      "ElevenLabs basic emotion detection (!/? /CAPS)",
+      "Stock music library",
+      "Stock SFX library",
+      "FAL MuSeTalk lip-sync on scene videos",
     ],
   },
   {
     id: "ghs-pro",
     label: "GHS Pro",
-    description: "Karaoke + AI music + multi-cast dialogue with lip-sync.",
+    description: "FAL AI Kokoro narration + FAL Stable Audio music + Scene Intelligence SFX.",
     provider: "karaoke+fal",
     model: "karaoke-pipeline+fal-stable-audio",
     isFree: false,
@@ -75,17 +77,18 @@ export const GHS_SOUND_TIERS = [
     estCostPer100s: "~$0.95",
     quality: "70% Gemini feel + AI music",
     includes: [
+      "FAL AI Kokoro narration (cloud TTS, no install)",
       "ElevenLabs v1 TTS for dialogue",
-      "Karaoke pipeline for narration",
-      "FAL Stable Audio for music",
-      "Multi-cast dialogue with emotion + pacing",
-      "FAL musetalk lip-sync",
+      "ElevenLabs basic emotion (detects !/? /CAPS)",
+      "FAL Stable Audio AI music (≤47s per scene)",
+      "Stock SFX + Scene Intelligence (auto-detects environment sounds)",
+      "FAL MuSeTalk lip-sync",
     ],
   },
   {
     id: "ghs-premium",
     label: "GHS Premium",
-    description: "Premium AI music via Kie Suno + studio-grade multi-cast dialogue.",
+    description: "Kie.ai Suno V5 music + ElevenLabs v3 emotion dialogue + Sync Labs lip-sync.",
     provider: "kie-suno",
     model: "suno-v5",
     isFree: false,
@@ -98,10 +101,12 @@ export const GHS_SOUND_TIERS = [
     estCostPer100s: "~$1.30",
     quality: "90% Gemini feel",
     includes: [
-      "ElevenLabs v3 TTS with emotion tags",
-      "Kie Suno V5 music",
-      "Multi-cast dialogue with rich emotion + pacing",
-      "Sync Labs lip-sync (gold standard)",
+      "Kie.ai Suno V5 narration (premium music-grade TTS)",
+      "Kie.ai Suno V5 AI music (full lyrical + instrumental)",
+      "ElevenLabs v3 TTS for dialogue",
+      "ElevenLabs v3 rich emotion tags (<emotion> in text)",
+      "Stock SFX + Scene Intelligence",
+      "Sync Labs lip-sync (gold standard, video-only)",
     ],
   },
 ] as const;
@@ -168,21 +173,21 @@ export function soundTierToMCDConfig(id: GhsSoundTierId): {
  * Map a GhsSoundTierId to the narration provider string expected by
  * /api/hybrid/narrate-piper (voiceProvider field).
  *
- * "ghs-sound"    → "piper"        (en_US-lessac-medium, free local)
- * "ghs-plus"     → "fal-narrator" (FAL AI Kokoro TTS — cloud, no install needed)
- * "ghs-pro"      → "fal-narrator" (FAL AI Kokoro TTS + FAL music separately)
- * "ghs-premium"  → "kie-suno"     (Kie.ai Suno — falls back to fal-narrator if key missing)
+ * "ghs-sound"    → "piper"      (en_US-lessac-medium, free local)
+ * "ghs-plus"     → "karaoke"    (GHS Karaoke pipeline: FAL Kokoro or Piper fallback)
+ * "ghs-pro"      → "karaoke"    (GHS Karaoke pipeline: FAL Kokoro or Piper fallback)
+ * "ghs-premium"  → "kie-suno"   (Kie.ai Suno — falls back to piper if key missing)
  */
 export function soundTierToNarrationProvider(
   id: GhsSoundTierId,
-): "piper" | "fal-narrator" | "kie-suno" {
+): "piper" | "karaoke" | "kie-suno" {
   switch (id) {
     case "ghs-sound":
       return "piper";
     case "ghs-plus":
-      return "fal-narrator";
+      return "karaoke";
     case "ghs-pro":
-      return "fal-narrator";
+      return "karaoke";
     case "ghs-premium":
       return "kie-suno";
   }

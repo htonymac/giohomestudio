@@ -6,12 +6,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
 import namesData from "@/data/character-names.json";
+import { buildFullLock } from "@/lib/era-culture-lock";
 
 // ── Types ────────────────────────────────────────────────────────
 
 interface StoryExpandRequest {
   storyInput: string;
   genre?: string;
+  storyEra?: string;
+  storyCulture?: string;
   tone?: string;
   targetDuration?: number;   // seconds
   targetDurationLabel?: string; // human label e.g. "15 min"
@@ -216,6 +219,8 @@ export async function POST(req: NextRequest) {
     const controlLines: string[] = [];
     if (body.genre) controlLines.push(`Genre: ${body.genre}`);
     if (body.tone) controlLines.push(`Desired tone: ${body.tone}`);
+    if (body.storyEra) controlLines.push(`Story era / time period: ${body.storyEra}`);
+    if (body.storyCulture) controlLines.push(`Story culture / setting: ${body.storyCulture}`);
     if (body.targetDurationLabel) controlLines.push(`Target movie length: ${body.targetDurationLabel} (${durSec} seconds)`);
     if (body.language) controlLines.push(`Language: ${body.language}`);
     if (body.languageLevel) controlLines.push(`Language level/style: ${body.languageLevel.replace(/_/g, " ")}`);
@@ -300,12 +305,18 @@ Return ONLY this JSON — no explanation, no markdown fences:
   "fullScript": "The complete narration — approximately ${targetWordCount} words. Scene by scene. Every beat covered. Written as a narrator speaks. Complete all scenes — do not stop or summarize early. If near the token limit, finish the current scene cleanly then write '[END]'."
 }`;
 
+    const eraLock = buildFullLock(body.storyEra || "", body.storyCulture || "", body.genre || "");
+    const eraSystemContext = eraLock.sceneContext
+      ? ` ${eraLock.sceneContext} The story MUST stay within the bounds of this era and culture throughout — characters must use only technology, clothing, language, and environments that existed in this time period and place.`
+      : "";
+
     const systemPrompt =
       "You are GHS Story Intelligence — a creative story director and screenwriter. When given a brief story idea, you develop it into a full cinematic production: you invent character names, make every character visually and emotionally distinct from the others, write a complete flowing narration script at the requested length, and build a structured narrative arc. You respond ONLY with valid JSON. No markdown. No preamble. No explanation. Never truncate the fullScript — always write the complete script. " +
       "CRITICAL RULE: Unless the story explicitly mentions animals or non-human creatures, all characters are HUMAN. " +
       "Do NOT default characters to bears, cartoon animals, or anthropomorphic creatures. " +
       "Human characters must have human anatomy, human skin tones, and human faces. " +
-      "Only introduce animal characters when the story idea explicitly calls for them.";
+      "Only introduce animal characters when the story idea explicitly calls for them." +
+      eraSystemContext;
 
     // Reasoning phase (~500 tokens) + full script + JSON overhead
     // thinking tags are stripped before parsing, but still count toward generation budget

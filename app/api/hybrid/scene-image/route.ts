@@ -16,6 +16,7 @@ import { getLateAnchor } from "@/lib/style/late-anchor";
 import { extractSceneAction } from "@/lib/scene/action-extractor";
 import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getModelById } from "@/lib/generation/model-registry";
+import { buildFullLock, toStaticFrame } from "@/lib/era-culture-lock";
 import { env } from "@/config/env";
 import * as path from "path";
 import * as fs from "fs";
@@ -43,6 +44,8 @@ export async function POST(req: NextRequest) {
       characterOverrides, // array of {characterId, name, visualDescription, imageUrl, wardrobe, hairstyle}
                           // passed from client with computed visual descriptions — more precise than DB
       productImages,   // optional: string[] of product image URLs to use as visual references
+      storyEra,        // "2024", "1819", "899 AD", "300 BC", etc. — era/year lock
+      storyCulture,    // "Contemporary Lagos", "Victorian England", "Yoruba Kingdom", etc.
     } = body;
 
     // ── VISUAL STYLE DIRECTIVE — shared from src/lib/style-presets.ts ──
@@ -178,13 +181,21 @@ export async function POST(req: NextRequest) {
     const cleanSceneText = sanitizeStyleCollisions(sceneText || "", styleId);
     const sceneActionDirective = extractSceneAction(cleanSceneText);
 
-    // 2. Build structured image prompt — STYLE LOCK FIRST, then CHARACTER IDENTITY
-    // Order: [Style directive] → [Character identity] → [Scene] → [Action directive] → [Reinforcement] → [Settings] → [Quality]
-    // Style is FIRST so the model commits to the render style before processing anything else.
-    // This prevents random style drift between 3D cinematic and flat cartoon.
+    // ── ERA + CULTURE LOCK — computed once, used in prompt AND negative ──
+    const eraLock = buildFullLock(storyEra || "", storyCulture || "", styleId);
+
+    // Convert scene text to a static cinematic frame (removes action verbs that cause chaos imagery)
+    const staticSceneText = toStaticFrame(cleanSceneText.slice(0, 300));
+
+    // 2. Build structured image prompt — ERA LOCK FIRST (defines the visual world), then STYLE, then CHARACTERS
+    // Order: [Era+Culture lock] → [Style directive] → [Character identity] → [Scene] → [Action directive] → [Settings] → [Quality]
+    // Era lock is ABSOLUTE FIRST — the model must commit to the correct era before processing anything else.
     const promptParts: string[] = [];
 
-    // ── STYLE LOCK (absolute first position) ──
+    // ── ERA + CULTURE LOCK (absolute first position) ──
+    if (eraLock.positive) promptParts.push(eraLock.positive);
+
+    // ── STYLE LOCK ──
     promptParts.push(stylePreset.prefix);
 
     // ── ANIMAL DETECTION — check scene text AND character species/descriptions ──
@@ -221,10 +232,18 @@ export async function POST(req: NextRequest) {
           ? `, ${wardrobePrefix}${sanitizeStyleCollisions(wardrobeSource.slice(0, 140), styleId)}`
           : "";
         const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
-        // 2026-05-10 AGE LOCK — when age is set, repeat it loudly so models don't default to adult.
-        // "Bryan is 11 but image shows 30" was the bug. Plain age mention is too soft for the model.
+        // 2026-05-10 AGE LOCK — repeat age loudly so models don't default to adult.
+        // "Bryan is 11 but image shows 30" was the bug. Categorical "adult" alone is too vague;
+        // map each tier to a concrete visual directive the image model will honour.
+        const AGE_VISUAL: Record<string, string> = {
+          child:       "6-10 year old child — small body, young face, child height and proportions. NOT a teen or adult.",
+          teen:        "13-17 year old teenager — adolescent face, teenage build. NOT a young child or adult.",
+          young_adult: "20-28 year old young adult — youthful adult face and body.",
+          adult:       "35-50 year old adult — fully mature face, adult proportions.",
+          elder:       "65+ year old elder — white or grey hair, wrinkled face, aged posture. NOT young.",
+        };
         const ageLock = c.age
-          ? `, AGE: ${c.age} — body proportions, face, height, voice all match age ${c.age}, do NOT render as adult unless ${c.age} is "adult"`
+          ? `, AGE LOCK: ${AGE_VISUAL[c.age] ?? c.age}. Render with accurate age-appropriate anatomy.`
           : "";
         return `${c.name}: ${desc}${wardrobe}${hairstyle}${ageLock}`;
       }).join(" | ");
@@ -264,9 +283,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── SCENE DESCRIPTION + ACTION DIRECTIVE ──
-    // cleanSceneText is the sanitized version (style collision words swapped for live-action styles).
+    // staticSceneText = cleanSceneText converted to a still-frame description (action verbs removed)
     // PROTECTED: action directive must stay — it prevents "calm standing" images for tense scenes.
-    promptParts.push(cleanSceneText.slice(0, 300));
+    promptParts.push(staticSceneText);
     promptParts.push(sceneActionDirective);
 
     // ── HUMAN CHARACTER GUARD — INJECTED LATE (after character block) for maximum override force ──
@@ -305,7 +324,8 @@ export async function POST(req: NextRequest) {
     const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body";
     // Style-collision negatives — extra muscle behind the negative when live-action is selected.
     // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + getStyleCollisionNegative(styleId);
+    const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

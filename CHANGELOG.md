@@ -1,5 +1,39 @@
 # GHS Changelog
 
+## 2026-05-17 — Hybrid Planner: subtitle, QC fix, Parse Script, pre-flight UX
+
+### What
+1. **Subtitles burn into final MP4 across all narration modes**
+   - `page.tsx` ~L4370: subtitle gate now reads `subtitleStyle !== "none" || effectiveSubtitleConfig.mode !== "none"` (was just legacy `subtitleStyle`). Coerces sent `subtitleStyle` to `"classic"` when only new picker is the signal — execute route has a parallel gate that would re-kill it.
+   - `page.tsx` ~L4313: narration `text` falls back to matching `scriptSegments.find(s => s.audioUrl === n.audioUrl)?.text` for per-line FAL/Karaoke audio (was `""` → execute filtered all entries out → no drawtext).
+2. **`parseScript` per-scene Path A**
+   - When 2+ scenes have content, build one segment per scene directly. Skips LLM. Old code parsed master story text (one paragraph) and returned 1 segment for 12 scenes.
+   - Logs `[parseScript] scenes=N withContent=M` for debugging.
+3. **QC fix routing extended (`applyFixDirect`)**
+   - Handlers added for `Trim story to under N words` (truncates `expandedSummary` or `idea`) and `Change first scene music to "..."` (writes `scene.musicStyle`). Both previously went to LLM `batch_polish` which scrambled descriptions.
+   - `applyWordCountFixes` regex now accepts curly + straight quotes around scene IDs.
+4. **Outro subtitle bleed fixed**
+   - `narratorFallbackSec = Math.max(sceneBaseDuration - introOutroFixed, 1)` used as narrator endTime fallback when `effectiveNarrDurMs === 0`. Old fallback `totalDuration` included 15s intro+outro padding → subtitles ran into outro card.
+5. **PreGenerationGate modal CSS**
+   - `minHeight: 420` → `maxHeight: calc(100vh - 48px)` + `overflowY: auto`. No more forced page-scroll on small viewports.
+6. **Pre-Flight button visual + Check Subtitle Sync action**
+   - Button: text `▶ Run Pre-Flight Check`, solid purple fill. Old "AI Audio & Audit" text was identical to section header.
+   - Subtitle check: inline `Enable Subtitles` button when status is warn AND mode is "none". Replaces fragile `note.includes("Subtitles OFF")` string match.
+7. **Pre-flight route: warn on insufficient script coverage**
+   - `app/api/hybrid/pre-flight/route.ts`: when `scriptSegments.length < ceil(scenes.length / 2)`, returns `status: "warn"`. Old code blindly returned ok for any non-zero count.
+
+### Why
+Three symptom-level complaints from Henry:
+- Subtitles silently missing on final video despite enabling them — multi-gate failure where legacy `subtitleStyle` state stuck at "none" from old saved projects.
+- QC fix buttons appeared to do nothing — word-count "trim voiceover" fixes were routed to LLM via `fixQCSuggestion` instead of direct truncation; story-level "trim story" had no handler at all.
+- Parse Script produced 1 segment for 12 scenes — LLM was parsing the lumped master story (one paragraph, no line breaks, no quoted dialogue).
+
+### Impact
+- TypeScript clean (pre-existing test file error in `tests/sound-browser-check.spec.ts` unchanged).
+- All changes additive — no functions deleted.
+- Risk: low. Subtitle change is the highest-blast-radius; backward-compatible because old projects had `subtitleStyle = "classic"` by default so the OR gate is no looser for them.
+- Files touched: `app/components/PreGenerationGate.tsx`, `app/dashboard/hybrid-planner/page.tsx`, `app/api/hybrid/pre-flight/route.ts`.
+
 ## 2026-04-30 — Critical pipeline fixes: commercial narration, movie assembly audio, music-video, Gen 3 variations (branch: fix/ghs-pipeline-critical)
 
 ### What

@@ -1,3 +1,58 @@
+# GHS Handoff — 2026-05-17 (Hybrid subtitle + QC + Parse Script)
+
+## Where we stopped
+Session focus: Hybrid Planner subtitle pipeline, QC fix flow, Parse Script per-scene, pre-flight UX.
+All TypeScript clean. Dev server needs a HARD restart (kill `next dev`, delete `.next`, restart) — Henry confirmed during testing that HMR was inconsistent on `page.tsx` (12k+ lines).
+
+## What landed today
+
+### `app/components/PreGenerationGate.tsx`
+- `minHeight: 420` → `maxHeight: calc(100vh - 48px)` + `overflowY: auto`. Modal no longer forces page scroll on small viewports.
+
+### `app/dashboard/hybrid-planner/page.tsx`
+1. **Outro subtitle bleed**: extracted `narratorFallbackSec = Math.max(sceneBaseDuration - introOutroFixed, 1)` and used for narrator `endTime` fallback when `effectiveNarrDurMs === 0`. Old code fell back to `totalDuration` which includes 15s intro+outro → subtitles bled into outro card.
+2. **Subtitle gate hardened** (line ~4370): `subtitlesOn = subtitleStyle !== "none" || effectiveSubtitleConfig.mode !== "none"`. Old gate `subtitleStyle !== "none"` failed for saved projects where legacy state was `"none"` but the new mode picker was active. Also coerce `sentSubtitleStyle = "classic"` on the wire when only the new picker is the signal — execute route has its own `if (globalStyle !== "none")` gate that would otherwise re-kill it.
+3. **Subtitle text source widened** (line ~4313): each narration entry now falls back to `scriptSegments.find(s => s.audioUrl === n.audioUrl)?.text` when it isn't the master narrator. Per-line FAL/Karaoke narration now carries subtitle text.
+4. **`parseScript` rewritten**: Path A — when 2+ scenes have `narrationScript || description`, build one segment per scene directly. Skips LLM. Path B (LLM master-story parse) kept as fallback. Fixes "1 segment for 12 scenes" bug. Logs `[parseScript] scenes=N withContent=M` to DevTools console.
+5. **QC fix routing**: added `applyFixDirect` with handlers for `Trim story to under N words` (truncates `expandedSummary` or `idea` directly) and `Change first scene music to "..."` (writes `scene.musicStyle`). Previously both went to LLM `batch_polish` which scrambled descriptions.
+6. **Pre-Flight button**: renamed to `▶ Run Pre-Flight Check`, solid purple fill. Old "AI Audio & Audit" text was identical to the section header — looked like a label not a button.
+7. **Check Subtitle Sync**: when status warns AND `effectiveSubtitleConfig.mode === "none"`, an inline `Enable Subtitles` button now flips style to classic/dramatic in one click. Replaces fragile `note.includes("Subtitles OFF")` string-match condition.
+8. **`applyWordCountFixes` regex**: scene-id capture now accepts curly + straight quotes — `/in\s+scene\s+["""']?([A-Za-z0-9_]+)["""']?/i`. Old regex only matched standard ASCII `"`.
+9. **"Trim story" rewritten correctly**: was updating `expandedSummary` — but QC reads `qcStoryText` built by joining each scene's `narrationScript || description`, so the truncation did nothing for re-run QC. Now trims each scene proportionally (ratio = maxW/totalWords, floor 5 words per scene). Joined total drops under the target → STORY_QUALITY blocker clears on re-run.
+10. **`fixSceneQC` routes through `applyFixDirect`**: per-scene "🔧 QC Fix" button now applies music/story/word-count fixes directly before falling through to LLM. Matches the global "Fix All" routing.
+
+### `app/api/hybrid/pre-flight/route.ts`
+- New warn branch: when `scriptSegments.length < ceil(scenes.length / 2)`, returns `status: "warn"` with label `Script parsed (N segment(s) for M scenes)`. Old code blindly reported `status: "ok"` for any non-zero count.
+
+## Not yet verified by Henry
+
+- **Final MP4 subtitles after clean rebuild** — gate fix is in, but Henry's last test was on a stale dev build. Execute route was NOT modified — still gates on `assembly.exportSettings?.includeSubtitles`. If still missing post-restart, instrument the server log line `[subtitle] font=... style=... entries=N` to see what arrives.
+- **Re-parse Script button click** — after restart, DevTools console should log `[parseScript] scenes=N withContent=M`. If silent, build is still stale.
+
+## Blockers
+None functional. Process blocker: hot reload unreliable on `app/dashboard/hybrid-planner/page.tsx`. Cold-restart after every edit to that file.
+
+## Next exact steps
+1. Henry: stop `next dev`, `rm -rf .next`, restart, hard-reload browser (Ctrl+Shift+R).
+2. Click Re-parse Script → DevTools console must log `[parseScript] scenes=12 withContent=12`. Segment chip must change 1 → 12.
+3. Generate narration → Assemble → confirm subtitles burn into final MP4.
+4. Story QC → click Fix on `Trim story to under 300 words` → re-run QC → STORY_QUALITY blocker should clear.
+5. If subtitles still missing post-restart: server log will show why drawtext skipped (`narrationWithText.length === 0` means no entry has text; `globalStyle === "none"` means sentSubtitleStyle path didn't coerce).
+
+## Files touched
+- `app/components/PreGenerationGate.tsx`
+- `app/dashboard/hybrid-planner/page.tsx`
+- `app/api/hybrid/pre-flight/route.ts`
+
+## Files read but NOT modified (constraint: don't touch what you don't own)
+- `app/api/assembly/execute/route.ts` — subtitle drawtext pipeline lives here; only consumes the assembly JSON we now build correctly
+- `app/api/hybrid/parse-script/route.ts` — still used as Path B fallback
+- `app/api/hybrid/scene-edit/route.ts` — LLM polish, used by QC fixes that aren't direct-apply
+- `src/lib/assembly-schema.ts` — schema unchanged
+- `src/lib/ghs-sound-tiers.ts` — unchanged
+
+---
+
 # GHS Handoff — 2026-04-30 (S4c FINAL)
 
 ## S4c — Movie Cast AI-first + Children Chars Inline + Preflight All Planners
@@ -166,3 +221,445 @@ Flow LOCK rule: Music Gen disabled until tempo + lyrics + flow + brief all compl
 | (post-keys) | Long instrumentals via Mubert | needs MUBERT_PAT |
 
 Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture finalized. Migration prep done. Linux migration is the next big move when GHS reaches the front of your queue.
+
+## 2026-05-17 22:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-17 23:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ```
+
+## 2026-05-17 23:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ```
+
+## 2026-05-18 00:24 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ```
+
+## 2026-05-18 01:31 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ```
+
+## 2026-05-18 02:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ```
+
+## 2026-05-18 02:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+   M test-results/.last-run.json
+  ```
+
+## 2026-05-18 03:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+  ```
+
+## 2026-05-18 03:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M src/lib/assembly-schema.ts
+   M src/lib/ghs-sound-tiers.ts
+  ```
+
+## 2026-05-18 05:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 05:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 15:38 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 15:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 16:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 16:31 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+  ```
+
+## 2026-05-18 16:43 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 17:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 18:12 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:28 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 19:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/components/PreGenerationGate.tsx
+   M app/dashboard/character-voices/page.tsx
+  ```
+
+## 2026-05-18 20:06 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/api/hybrid/story-expand/route.ts
+   M app/components/PreGenerationGate.tsx
+  ```
+
+## 2026-05-18 21:46 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6992d21 fix(narration): GHS Plus/Pro now use FAL Kokoro TTS instead of broken karaoke`
+- working tree:
+  ```
+   M CHANGELOG.md
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M app/api/character-voices/[id]/generate-portrait/route.ts
+   M app/api/hybrid/narrate-piper/route.ts
+   M app/api/hybrid/pre-flight/route.ts
+   M app/api/hybrid/scene-image/route.ts
+   M app/api/hybrid/scene-plan/route.ts
+   M app/api/hybrid/story-expand/route.ts
+   M app/components/PreGenerationGate.tsx
+  ```

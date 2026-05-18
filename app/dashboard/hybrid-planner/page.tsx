@@ -236,6 +236,8 @@ function HybridPlannerInner() {
   const [idea, setIdea] = useState("");
   const [genre, setGenre] = useState("");
   const [tone, setTone] = useState("");
+  const [storyEra, setStoryEra] = useState("");
+  const [storyCulture, setStoryCulture] = useState("");
   const [targetDuration, setTargetDuration] = useState("2-3 min");
   const [customDurationMin, setCustomDurationMin] = useState(5);
   const [customDurationSec, setCustomDurationSec] = useState(0);
@@ -343,6 +345,8 @@ function HybridPlannerInner() {
   const [generatingPortrait, setGeneratingPortrait] = useState<string | null>(null);
   // ── Per-character style override (Realistic / 3D / Cartoon etc.) ──────────
   const [charStyles, setCharStyles] = useState<Record<string, string>>({});
+  // 3-angle full-body shots per character — keyed by characterId
+  const [charRefImages, setCharRefImages] = useState<Record<string, Array<{url: string; angle: string; label: string}>>>({});
   // ── Per-character img2ai (photo → AI) state ──────────────────────────────
   const [img2aiRunning, setImg2aiRunning] = useState<Set<string>>(new Set());
   // ── Previous character portrait — one undo level per character ───────────
@@ -742,6 +746,8 @@ function HybridPlannerInner() {
           if (d.idea) setIdea(d.idea);
           if (d.genre) setGenre(d.genre);
           if (d.tone) setTone(d.tone);
+          if (d.storyEra) setStoryEra(d.storyEra);
+          if (d.storyCulture) setStoryCulture(d.storyCulture);
           if (d.expandedSummary) setExpandedSummary(d.expandedSummary);
           if (d.fullScript) setFullScript(d.fullScript);
           if (d.characters?.length > 0) {
@@ -761,16 +767,16 @@ function HybridPlannerInner() {
             sceneType: s.sceneType ?? "image-led",
             audioPlan: s.audioPlan ?? { musicMood: "", musicIntensity: "", narrationStyle: "", narrationIntensity: "", sfxList: [], ambienceList: [] },
           })));
-          if (d.sceneImages && Object.keys(d.sceneImages).length > 0) {
-            // Fix legacy /storage/ paths saved before the /api/media/ fix (2026-05-16)
-            const fixedImages = Object.fromEntries(
-              Object.entries(d.sceneImages as Record<string, string>).map(([k, v]) =>
-                [k, typeof v === "string" && v.startsWith("/storage/") ? `/api/media/${v.slice("/storage/".length)}` : v]
-              )
-            );
-            setSceneImages(fixedImages);
-          }
           const mountValidIds = new Set((d.scenes || []).map((s: { sceneId: string }) => s.sceneId));
+          if (d.sceneImages && Object.keys(d.sceneImages).length > 0) {
+            // Fix legacy /storage/ paths + drop images for scene IDs not in this project
+            const fixedImages = Object.fromEntries(
+              Object.entries(d.sceneImages as Record<string, string>)
+                .filter(([id]) => mountValidIds.has(id))
+                .map(([k, v]) => [k, typeof v === "string" && v.startsWith("/storage/") ? `/api/media/${v.slice("/storage/".length)}` : v])
+            );
+            if (Object.keys(fixedImages).length > 0) setSceneImages(fixedImages);
+          }
           if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) {
             const mountFiltered = Object.fromEntries(
               Object.entries(d.sceneVideos as Record<string, string>).filter(([id]) => mountValidIds.has(id))
@@ -886,7 +892,7 @@ function HybridPlannerInner() {
     if (!activeProjLocalId) return;
     if (isRestoringRef.current) return;
     const data = {
-      projectId, projectTitle, projectPhase, idea, genre, tone,
+      projectId, projectTitle, projectPhase, idea, genre, tone, storyEra, storyCulture,
       expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, lastAction,
       projectStyle, savedCuts, archivedScenes,
       narratorAudioUrl, selectedMusicUrl, selectedMusicName,
@@ -1132,6 +1138,8 @@ function HybridPlannerInner() {
           storyInput: idea.trim(),
           genre: genre || undefined,
           tone: tone || undefined,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || undefined,
           language: effectiveLanguage,
           audience: audienceType,
           costPreference,
@@ -1292,8 +1300,15 @@ function HybridPlannerInner() {
           characterId: c.characterId,
           displayName: c.displayName,
           role: c.roleType,
+          ageRange: c.ageRange || "adult",
+          gender: c.gender || "unknown",
+          skinTone: c.skinTone || "",
           visualDescription: charVisualMap.get(c.displayName.toUpperCase()) || "",
         })),
+        genre: genre || undefined,
+        tone: tone || undefined,
+        storyEra: storyEra || undefined,
+        storyCulture: storyCulture || undefined,
         costPreference,
         targetDuration,
         projectId: projectId || undefined,
@@ -1353,6 +1368,11 @@ function HybridPlannerInner() {
           })),
           storySummary
         );
+
+        // Auto-run supervisor QC after expand so culture, cast, continuity, and prompt
+        // corrections are applied immediately — without requiring a manual QC button click.
+        // Small delay so scene state has settled before QC reads it.
+        setTimeout(() => runStoryQC(), 1500);
       } else {
         setLastAction(`Story expanded · ${extractedChars.length} characters ready — scenes will be planned in Characters tab`);
       }
@@ -1523,7 +1543,38 @@ function HybridPlannerInner() {
         setStoryQCSceneIndex(0);
         const gatePassed = data.gatekeeper?.passed;
         const score = data.gatekeeper?.score || 0;
-        setLastAction(`Story QC complete — Score: ${score}/100 ${gatePassed ? "✓ Passed" : "⚠ Issues found"}`);
+
+        // Apply supervisor-corrected scenes back into the planner.
+        // The 23-supervisor chain (culture, cast, continuity, emotion, music, prompt-builder)
+        // rewrites image_prompt, voiceover_text, music_cue, and sfx_cues on each scene.
+        // Without this merge, those corrections exist only in the QC result panel and are
+        // never actually used — which is why supervisors appeared to "do nothing".
+        if (Array.isArray(data.scenes) && data.scenes.length > 0) {
+          const supervisedMap = new Map<string, Record<string, unknown>>();
+          for (const sp of data.scenes as Record<string, unknown>[]) {
+            if (sp.scene_id) supervisedMap.set(sp.scene_id as string, sp);
+          }
+          setScenes(prev => prev.map(hs => {
+            const sp = supervisedMap.get(hs.sceneId);
+            if (!sp) return hs;
+            const newDesc = (sp.image_prompt || sp.visual_prompt) as string | undefined;
+            const newNarr = sp.voiceover_text as string | undefined;
+            const newMusic = sp.music_cue as string | undefined;
+            const newSfx = Array.isArray(sp.sfx_cues) && (sp.sfx_cues as string[]).length > 0
+              ? (sp.sfx_cues as string[]).join(", ")
+              : undefined;
+            return {
+              ...hs,
+              description:     (newDesc && newDesc.trim())  ? newDesc.trim()  : hs.description,
+              narrationScript: (newNarr && newNarr.trim())  ? newNarr.trim()  : hs.narrationScript,
+              musicStyle:      (newMusic && newMusic.trim()) ? newMusic.trim() : hs.musicStyle,
+              sfx:             newSfx ?? hs.sfx,
+            };
+          }));
+        }
+
+        const applied = data.scenes?.length ?? 0;
+        setLastAction(`Story QC complete — Score: ${score}/100 ${gatePassed ? "✓ Passed" : "⚠ Issues found"}${applied > 0 ? ` · ${applied} scenes updated` : ""}`);
       }
     } catch (err) {
       const msg = (err instanceof Error && err.name === "AbortError") ? "QC timed out (90s) — try again" : String(err);
@@ -2034,6 +2085,8 @@ function HybridPlannerInner() {
           modelId: transparentBg && effectiveImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : effectiveImageModelId,
           transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || effectiveProjectStyle || undefined,
         }),
       });
       const data = await res.json();
@@ -2159,6 +2212,8 @@ function HybridPlannerInner() {
             modelId: transparentBg && effectiveImageModelId.includes("ideogram_v3") ? "fal_ideogram_v3_transparent" : effectiveImageModelId,
             transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
+            storyEra: storyEra || undefined,
+            storyCulture: storyCulture || effectiveProjectStyle || undefined,
           }),
         });
         const data = await res.json();
@@ -2290,6 +2345,8 @@ function HybridPlannerInner() {
             characterOverrides,
             modelId: effectiveImageModelId,
             seed: Math.floor(Math.random() * 1e9),
+            storyEra: storyEra || undefined,
+            storyCulture: storyCulture || effectiveProjectStyle || undefined,
           }),
         });
         if (!res.ok) {
@@ -2486,7 +2543,8 @@ function HybridPlannerInner() {
     for (const fix of fixes) {
       if (!/trim\s+voiceover/i.test(fix)) continue;
       const maxWordsMatch = fix.match(/to\s+(\d+)\s+words/i);
-      const sceneIdMatch = fix.match(/in\s+scene\s+"([^"]+)"/i);
+      // Accept any quote style (", ", ", ') around the scene ID
+      const sceneIdMatch = fix.match(/in\s+scene\s+[“”"']?([A-Za-z0-9_]+)[“”"']?/i);
       if (!maxWordsMatch || !sceneIdMatch) continue;
       const maxWords = parseInt(maxWordsMatch[1]);
       const sceneId = sceneIdMatch[1];
@@ -2526,8 +2584,16 @@ function HybridPlannerInner() {
     // Word-count violations: truncate directly, no LLM.
     const wordCountApplied = applyWordCountFixes(raw);
 
-    // Other fixes: deduplicate and send as one LLM call.
-    const otherFixes = raw.filter(f => !/trim\s+voiceover/i.test(f));
+    // Direct-apply music cue changes — don't send to LLM (it would update description instead)
+    let directApplied = wordCountApplied;
+    const remainingFixes = raw.filter(f => !/trim\s+voiceover/i.test(f));
+    const otherFixes = remainingFixes.filter(f => {
+      if (/change.*music|music.*change/i.test(f) && applyFixDirect(f)) {
+        directApplied++;
+        return false;
+      }
+      return true;
+    });
     const seen = new Map<string, string>();
     for (const fix of otherFixes) {
       const base = fix.replace(/\s+(?:in|across)\s+(?:scene\s+)?"?SC\w+"?\.?$/i, "").trim();
@@ -2539,13 +2605,80 @@ function HybridPlannerInner() {
     const skipped = otherFixes.length - deduped.length;
 
     let msg = "";
-    if (wordCountApplied > 0) msg += `${wordCountApplied} voiceover(s) trimmed directly. `;
+    if (directApplied > 0) msg += `${directApplied} fix(es) applied directly. `;
     if (deduped.length > 0) {
-      setLastAction(`Fix All: trimmed ${wordCountApplied} voiceovers, sending ${deduped.length} other fixes to AI…`);
+      setLastAction(`Fix All: applied ${directApplied} directly, sending ${deduped.length} other fix(es) to AI…`);
       await fixQCSuggestion(deduped.join(". Also: "));
-      msg += `${deduped.length} other fix(es) applied (${skipped} duplicates skipped).`;
+      msg += `${deduped.length} other fix(es) applied via AI (${skipped} duplicates skipped).`;
     }
     setQcFixDoneMsg(`${msg} — re-run QC to verify`);
+  }
+
+  // Route a single suggested fix: try direct field updates first, fall back to LLM.
+  // Returns true when handled directly so the caller can skip the LLM path.
+  function applyFixDirect(fix: string): boolean {
+    // Word-count voiceover — always truncate directly, no LLM needed
+    if (/trim\s+voiceover/i.test(fix)) {
+      const applied = applyWordCountFixes([fix]);
+      setQcFixDoneMsg(applied > 0
+        ? "Voiceover trimmed — re-run QC to verify"
+        : "Could not parse scene ID — run Fix All instead");
+      return true;
+    }
+    // Story-level word-count trim.
+    // Important: QC's "story" is the JOIN of each scene's narrationScript|description
+    // (built as qcStoryText at line ~1419). Truncating expandedSummary does NOTHING
+    // for QC — we must trim each scene proportionally so the joined total drops.
+    // Example fix: "Trim story to under 300 words for short_story."
+    if (/trim\s+story/i.test(fix)) {
+      const m = fix.match(/(?:under|to)\s+(\d+)\s+words/i);
+      const maxW = m ? parseInt(m[1]) : 0;
+      if (maxW > 0) {
+        const sortedScenes = scenes.slice().sort((a, b) => a.scene - b.scene);
+        type SceneRow = { scene: number; field: "narrationScript" | "description"; words: string[] };
+        const rows: SceneRow[] = sortedScenes.map(s => {
+          const narr = s.narrationScript?.trim() || "";
+          const desc = s.description?.trim() || "";
+          // Pick the field QC will actually read (narrationScript first, fallback description)
+          const field: "narrationScript" | "description" = narr ? "narrationScript" : "description";
+          const text = narr || desc;
+          return { scene: s.scene, field, words: text.split(/\s+/).filter(Boolean) };
+        });
+        const totalWords = rows.reduce((sum, r) => sum + r.words.length, 0);
+        if (totalWords <= maxW) {
+          setQcFixDoneMsg(`Story already under ${maxW} words (${totalWords}) — re-run QC`);
+          return true;
+        }
+        // Trim each scene by the same ratio, with a floor of 5 words per scene
+        const ratio = maxW / totalWords;
+        for (const r of rows) {
+          const newCount = Math.max(5, Math.floor(r.words.length * ratio));
+          if (newCount < r.words.length) {
+            const trimmed = r.words.slice(0, newCount).join(" ");
+            updateScene(r.scene, { [r.field]: trimmed } as Partial<HybridScene>);
+          }
+        }
+        setQcFixDoneMsg(`Story trimmed from ${totalWords} to ~${maxW} words across ${rows.length} scenes — re-run QC to verify`);
+        return true;
+      }
+    }
+    // Music cue change — update musicStyle directly on the target scene
+    if (/change.*music|music.*change/i.test(fix)) {
+      // Extract quoted value: …to "soft ambient…" or similar
+      const quoted = fix.match(/to\s+["""']([^"""'\n]{3,80})["""']/i);
+      const newStyle = quoted?.[1]?.trim();
+      // Target first scene if no specific scene mentioned
+      const sceneIdMatch = fix.match(/scene\s+["""']?([A-Za-z0-9_]+)["""']?/i);
+      const targetScene = sceneIdMatch
+        ? scenes.find(s => s.sceneId === sceneIdMatch[1] || `SC${String(s.scene).padStart(2, "0")}` === sceneIdMatch[1])
+        : scenes.slice().sort((a, b) => a.scene - b.scene)[0];
+      if (newStyle && targetScene) {
+        updateScene(targetScene.scene, { musicStyle: newStyle });
+        setQcFixDoneMsg("Music cue updated — re-run QC to verify");
+        return true;
+      }
+    }
+    return false;
   }
 
   // Per-scene QC fix — word-count = direct truncation; others = single LLM polish call.
@@ -2565,18 +2698,31 @@ function HybridPlannerInner() {
     // Word-count fix: direct truncation — guaranteed accurate.
     const wordCountApplied = applyWordCountFixes(sceneFixes);
 
-    // Other fixes: send to LLM.
-    const otherFixes = sceneFixes.filter(f => !/trim\s+voiceover/i.test(f));
-    if (wordCountApplied > 0 && otherFixes.length === 0) {
-      setLastAction(`Scene ${scene.scene}: voiceover trimmed to word limit — re-run QC to verify`);
-      return;
+    // Music / story trim / other direct-apply fixes — handle before LLM.
+    let directApplied = wordCountApplied;
+    const afterWordCount = sceneFixes.filter(f => !/trim\s+voiceover/i.test(f));
+    const llmOnlyFixes: string[] = [];
+    for (const f of afterWordCount) {
+      if (applyFixDirect(f)) directApplied++;
+      else llmOnlyFixes.push(f);
     }
-    if (otherFixes.length === 0) {
-      setLastAction(`No fixable issues for Scene ${scene.scene}`);
+
+    if (directApplied > 0 && llmOnlyFixes.length === 0) {
+      setLastAction(`Scene ${scene.scene}: ${directApplied} fix(es) applied directly — re-run QC to verify`);
       return;
     }
 
-    const instruction = `Fix these QC issues for this scene: ${otherFixes.join(". ")}`;
+    // Remaining fixes (couldn't apply directly) → send to LLM.
+    if (llmOnlyFixes.length === 0) {
+      if (directApplied > 0) {
+        setLastAction(`Scene ${scene.scene}: ${directApplied} fix(es) applied — re-run QC to verify`);
+      } else {
+        setLastAction(`No fixable issues for Scene ${scene.scene}`);
+      }
+      return;
+    }
+
+    const instruction = `Fix these QC issues for this scene: ${llmOnlyFixes.join(". ")}`;
     setStoryPolishingSceneId(scene.sceneId);
     setStoryPolishingMode(null);
     const controller = new AbortController();
@@ -2617,9 +2763,9 @@ function HybridPlannerInner() {
     }
   }
 
-  // ── Context Check: reads scene text, scores clarity, no LLM needed ──────────
+  // ── Context Check: AI-powered scene clarity check via scene-edit polish op ──
   function checkSceneContext(scene: HybridScene) {
-    const text = (scene.description || "").trim();
+    const text = (scene.narrationScript || scene.description || "").trim();
     if (!text) {
       setContextCheckResults(prev => ({ ...prev, [scene.sceneId]: { status: "warn", note: "No description. Add scene detail so AI can generate properly." } }));
       return;
@@ -3104,12 +3250,45 @@ function HybridPlannerInner() {
 
   // ── Script parser — splits story into narrator + dialogue segments ──────────
   async function parseScript() {
-    // Use fullScript (scaled to target duration) if available, otherwise summary, then raw idea
-    const textToParse = fullScript || expandedSummary || idea;
-    if (!textToParse.trim()) { setUiError("Write or expand your story first."); return; }
     setParsingScript(true);
-    setLastAction("AI is reading your story and splitting narrator / character dialogue...");
+    setLastAction("Parsing script…");
     try {
+      // ── Path A: scenes already have per-scene narrationScript ─────────────
+      // Build one segment per scene so per-scene narration / subtitles can sync.
+      // Fires whenever 2+ scenes have content — avoids the LLM's "1 lumped segment"
+      // failure mode that happens when the master story is one paragraph.
+      const sortedScenes = scenes.slice().sort((a, b) => a.scene - b.scene);
+      const sceneTexts = sortedScenes.map(s => (s.narrationScript || s.description || "").trim());
+      const scenesWithContent = sceneTexts.filter(t => t.length > 5).length;
+      console.log(`[parseScript] scenes=${sortedScenes.length} withContent=${scenesWithContent}`);
+
+      if (scenesWithContent >= 2) {
+        const sceneSegments: ScriptSegment[] = sortedScenes
+          .map((s, i) => ({
+            id: `seg_scene_${s.sceneId}`,
+            type: "narration" as const,
+            speaker: "narrator",
+            text: sceneTexts[i],
+            lineIndex: i,
+            sceneId: s.sceneId,
+          }))
+          .filter(seg => seg.text.length > 0);
+        setScriptSegments(sceneSegments);
+        setStoryMode("narration-only");
+        setShowScriptReview(true);
+        setLastAction(`Script parsed — ${sceneSegments.length} segments from ${sortedScenes.length} scenes`);
+        setParsingScript(false);
+        return;
+      }
+
+      // ── Path B: no per-scene narration — fall back to LLM on master story ─
+      const textToParse = fullScript || expandedSummary || idea;
+      if (!textToParse.trim()) {
+        setUiError("Write or expand your story first.");
+        setParsingScript(false);
+        return;
+      }
+      setLastAction("AI is reading your story and splitting narrator / character dialogue...");
       const res = await fetch("/api/hybrid/parse-script", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -3161,6 +3340,7 @@ function HybridPlannerInner() {
         : (fullScript || expandedSummary || idea);
 
     if (!narrationText.trim()) { setUiError("No narration text found. Parse your script first."); return; }
+    if (narratorVoice === "none") { setUiError("Narration is set to Off. Select a tier to enable."); return; }
     setGeneratingNarration(true);
     setPiperDownloading(false);
 
@@ -3199,15 +3379,8 @@ function HybridPlannerInner() {
       return;
     }
 
-    // Karaoke provider — browser SpeechSynthesis (no server call needed)
-    if (narratorVoice === "karaoke") {
-      setUiError("Karaoke mode uses browser speech synthesis — no audio file generated. Playback happens in-browser only.");
-      setGeneratingNarration(false);
-      return;
-    }
-
-    // Piper (default) — uses existing narrate-piper endpoint
-    setLastAction("Generating narrator audio with Piper...");
+    // Piper / Karaoke (default) — uses existing narrate-piper endpoint
+    setLastAction("Generating narrator audio...");
     try {
       const res = await fetch("/api/hybrid/narrate-piper", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -4208,6 +4381,10 @@ function HybridPlannerInner() {
         !seenNarrUrls.has(n.audioUrl) && seenNarrUrls.add(n.audioUrl)
       );
 
+      // Fallback narrator end-time used when effectiveNarrDurMs is 0 (e.g. after page refresh).
+      // Excludes intro/outro card time so subtitles don't bleed into the title cards.
+      const narratorFallbackSec = Math.max(sceneBaseDuration - introOutroFixed, 1);
+
       // Subtitle text must match what was actually sent to TTS (same priority as generateNarrationPiper).
       // Using full story text instead of per-scene narration is the #1 cause of subtitles not matching audio.
       const subtitleAllScenes = scenes
@@ -4222,13 +4399,18 @@ function HybridPlannerInner() {
 
       const assemblyNarration: NarrationEntry[] = dedupNarrationList.map((n: { audioUrl: string; startTime: number; volume: number }, i: number) => ({
         id: `nar_${i}`,
-        // Pass text for subtitle burn-in. Must match TTS source — per-scene narration scripts joined.
-        text: n.audioUrl === narratorAudioUrl ? narratorSubtitleText : "",
+        // Subtitle text — drawtext needs this. Three sources, in priority:
+        //   1. Master narrator audio → full joined story text
+        //   2. Per-segment audio (FAL/karaoke split) → that segment's text
+        //   3. Character voice without matching segment → empty (no subtitle)
+        text: n.audioUrl === narratorAudioUrl
+          ? narratorSubtitleText
+          : (scriptSegments.find(s => s.audioUrl === n.audioUrl)?.text?.trim() || ""),
         startTime: n.startTime,
         // Main narrator: use measured duration so assembly-builder atrim doesn't cut it short.
         // Per-line character clips are short (<10s each), so a 10s window is safe.
         endTime: n.audioUrl === narratorAudioUrl
-          ? (effectiveNarrDurMs > 0 ? n.startTime + effectiveNarrDurMs / 1000 : n.startTime + totalDuration)
+          ? (effectiveNarrDurMs > 0 ? n.startTime + effectiveNarrDurMs / 1000 : n.startTime + narratorFallbackSec)
           : n.startTime + 10,
         volume: n.volume ?? narrationVolume ?? 1.0,
         speed: 1.0,
@@ -4239,7 +4421,7 @@ function HybridPlannerInner() {
       if (assemblyNarration.length === 0 && narratorAudioUrl && !seenNarrUrls.has(narratorAudioUrl)) {
         assemblyNarration.push({
           id: "nar_0", text: narratorSubtitleText, startTime: 0,
-          endTime: effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : totalDuration,
+          endTime: effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : narratorFallbackSec,
           volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl,
         });
       }
@@ -4269,6 +4451,21 @@ function HybridPlannerInner() {
         licenseType: "cc0",
       }));
 
+      // ── Subtitle gate ──
+      // Two state values can indicate "subtitles on":
+      //   1. subtitleStyle (legacy)  — "classic" | "cinema" | ... | "none"
+      //   2. effectiveSubtitleConfig.mode (new picker) — "dramatic" | "highlight" | ... | "none"
+      // If EITHER is non-"none", burn in subtitles. Saved projects from earlier
+      // builds can have subtitleStyle="none" while the new mode picker is set —
+      // gating on subtitleStyle alone caused subtitles to silently skip.
+      const subtitlesOn = subtitleStyle !== "none" || effectiveSubtitleConfig.mode !== "none";
+      // Execute route also gates on subtitleStyle !== "none" — coerce to "classic"
+      // when the new picker is the only signal, so drawtext actually runs.
+      const sentSubtitleStyle: "classic" | "cinema" | "neon" | "bold" | "none" =
+        subtitleStyle === "none" && subtitlesOn
+          ? "classic"
+          : (subtitleStyle as "classic" | "cinema" | "neon" | "bold" | "none");
+
       const assemblyJSON = {
         ...createEmptyAssembly(effProjId, "hybrid", projectTitle),
         totalDuration,
@@ -4279,10 +4476,11 @@ function HybridPlannerInner() {
         exportSettings: {
           format: "mp4" as const,
           quality: "standard" as const,
-          includeSubtitles: effectiveSubtitleConfig.mode !== "none",
+          includeSubtitles: subtitlesOn,
           includeWatermark: false,
           includeCredits: false,
-          subtitleStyle: (effectiveSubtitleConfig.mode !== "none" && subtitleStyle === "none" ? "classic" : subtitleStyle) as "classic" | "cinema" | "neon" | "bold" | "none",
+          subtitleStyle: sentSubtitleStyle,
+          subtitleConfig: subtitlesOn ? effectiveSubtitleConfig : undefined,
         },
         rightsConfirmed: true,
         previewApproved: true,
@@ -4826,15 +5024,75 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
   }
 
   // ── Generate portrait for a character using their full visual description ──
-  async function persistPortraitToRegistry(char: CharacterIdentity, imageUrl: string) {
-    if (!char.dbId) return;
+  // Upserts the character to the Character Registry and saves imageUrl + all 3 reference shots.
+  // Creates the registry entry if it doesn't exist yet (no dbId) so every planner character
+  // is automatically searchable in the main character library after portrait generation.
+  async function persistPortraitToRegistry(
+    char: CharacterIdentity,
+    imageUrl: string,
+    refShots?: Array<{url: string; angle: string; label: string}>,
+  ) {
     try {
-      await fetch(`/api/character-voices/${char.dbId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageUrl }),
+      let targetId = char.dbId;
+
+      if (!targetId) {
+        // Character not yet in registry — create it now
+        const visualDescription = [char.species, char.colorDescription, char.clothingDetails, char.distinctiveFeatures]
+          .filter(Boolean).join(", ") || null;
+        const createRes = await fetch("/api/character-voices", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: char.displayName,
+            characterId: char.characterId,
+            gender: char.gender,
+            role: char.roleType,
+            age: char.ageRange,
+            voiceId: char.voiceId || null,
+            language: char.language || null,
+            imageUrl,
+            visualDescription,
+            defaultSpeechStyle: char.speechStyle || null,
+            personality: char.emotionProfile || null,
+          }),
+        });
+        if (createRes.ok || createRes.status === 201) {
+          const created = await createRes.json().catch(() => ({}));
+          targetId = created.id || created.voice?.id || null;
+          // Patch the planner character state with the new dbId so future saves are direct
+          if (targetId) {
+            setCharacters(prev => prev.map(c =>
+              c.characterId === char.characterId ? { ...c, dbId: targetId as string } : c
+            ));
+          }
+        } else if (createRes.status === 409) {
+          // Already exists — look up the existing id
+          const listRes = await fetch("/api/character-voices");
+          if (listRes.ok) {
+            const listData = await listRes.json();
+            const existing = (listData.voices || []).find(
+              (v: { name: string; id: string }) => v.name.toUpperCase() === char.displayName.toUpperCase()
+            );
+            targetId = existing?.id || null;
+            if (targetId) {
+              setCharacters(prev => prev.map(c =>
+                c.characterId === char.characterId ? { ...c, dbId: targetId as string } : c
+              ));
+            }
+          }
+        }
+      }
+
+      if (!targetId) return; // couldn't resolve id — skip
+
+      // PATCH with imageUrl + referenceImages (the 3 angle shots)
+      const patchBody: Record<string, unknown> = { imageUrl };
+      if (refShots && refShots.length > 0) patchBody.referenceImages = refShots;
+
+      await fetch(`/api/character-voices/${targetId}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patchBody),
       });
-    } catch { /* best-effort */ }
+    } catch { /* best-effort — never block portrait display on registry failure */ }
   }
 
   async function generateCharacterPortrait(char: CharacterIdentity, overrideStyle?: string, overrideModelId?: string) {
@@ -4845,9 +5103,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
     const stylePrefix =
       effectiveStyle === "realistic"
-        ? "Ultra-realistic photographic portrait, cinematic lighting, real person aesthetic, no cartoon or CGI"
+        ? "Ultra-realistic photographic full body shot, cinematic lighting, real person aesthetic, no cartoon or CGI"
         : effectiveStyle === "nollywood"
-        ? "Nollywood film portrait, realistic Nigerian cinema aesthetic, warm skin tones, natural lighting"
+        ? "Nollywood film full body shot, realistic Nigerian cinema aesthetic, warm skin tones, natural lighting"
         : effectiveStyle === "2d-cartoon"
         ? "2D cartoon illustration, clean bold outlines, flat cel-shaded colors, Disney storybook art style"
         : effectiveStyle === "anime"
@@ -4858,7 +5116,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
         : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
 
-    // Build age anchor — PuLID ignores age buried in description; must be FIRST tokens
+    // Build age anchor — age must be FIRST tokens so image models honour it
     const ageRaw = char.ageRange || char.ageAppearance || "";
     const ageNum = parseInt(ageRaw);
     const isChild = ageNum > 0 && ageNum < 18;
@@ -4868,78 +5126,99 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         : `${ageRaw},`
       : "";
 
-    // Build portrait prompt — age anchor goes FIRST so PuLID cannot ignore it
-    const portraitPrompt = [
+    const isPhotoImport = char.tags?.includes("photo-import") && !!char.imageUrl;
+    const referenceImageUrl = isPhotoImport ? char.imageUrl : undefined;
+    const forceIdentityLock = isPhotoImport;
+    const effectiveModelId = overrideModelId
+      || charPortraitModel[char.characterId]
+      || (isPhotoImport ? "fal_flux_pulid" : undefined);
+
+    const negativePrompt = (() => {
+      const ageBlock = isChild
+        ? "adult, mature face, grown up, aged, wrinkles, 20 years old, 30 years old, man, woman, adult body"
+        : "";
+      const styleBlock = effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+        ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+        : effectiveStyle === "2d-cartoon"
+        ? "3D render, photorealistic, CGI, bokeh, realistic"
+        : effectiveStyle === "3d-cinematic"
+        ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
+        : "";
+      return [ageBlock, styleBlock, "cropped, cut off, partial body, headshot only"].filter(Boolean).join(", ");
+    })();
+
+    // The 3 full-body angle framings — must show the character head to toe
+    const ANGLE_SHOTS = [
+      { angle: "front",         label: "main",       framing: "FULL BODY front view, standing neutral pose, facing camera, visible from head to toe including feet, clean plain background." },
+      { angle: "three-quarter", label: "variation_1", framing: "FULL BODY three-quarter angle view, slight left turn, standing pose, entire body visible from head to feet, clean plain background." },
+      { angle: "side",          label: "variation_2", framing: "FULL BODY side profile view, 90-degree turn, standing pose, full height visible from head to feet, clean plain background." },
+    ];
+
+    // Build shared base prompt
+    const basePrompt = [
       ageAnchor,
       stylePrefix,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
       visualDesc || `${char.displayName}, ${char.gender}`,
-      "CHARACTER REFERENCE SHEET — front-facing full body portrait, neutral pose, clean background.",
-      "Show the character clearly from head to toe.",
-      "Consistent design, professional quality, no background distractions.",
+      "CHARACTER REFERENCE SHEET — consistent design, professional quality, no background distractions.",
     ].filter(Boolean).join(" ");
 
-    // Detect photo-import: if character was built from a real uploaded photo,
-    // pass it as referenceImageUrl so PuLID (fal_flux_pulid) preserves the face
-    const isPhotoImport = char.tags?.includes("photo-import") && !!char.imageUrl;
-    const referenceImageUrl = isPhotoImport ? char.imageUrl : undefined;
-    // For Photo→AI button: always force identity lock if reference image is present
-    const forceIdentityLock = isPhotoImport;
-
     try {
-      // Determine effective model: override arg → per-character selection → auto PuLID for photo-import → let backend default
-      const effectiveModelId = overrideModelId
-        || charPortraitModel[char.characterId]
-        || (isPhotoImport ? "fal_flux_pulid" : undefined);
+      // Generate all 3 angle shots in parallel
+      const shotResults = await Promise.all(
+        ANGLE_SHOTS.map(shot =>
+          fetch("/api/generation/image", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: `${basePrompt} ${shot.framing}`,
+              modelId: effectiveModelId,
+              negativePrompt,
+              referenceImageUrl: referenceImageUrl || undefined,
+              useIdentityLock: forceIdentityLock,
+              width: 768, height: 1024,
+              seed: genSeed !== null ? genSeed : undefined,
+            }),
+          }).then(r => r.json()).catch(() => null)
+        )
+      );
 
-      const res = await fetch("/api/generation/image", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: portraitPrompt,
-          modelId: effectiveModelId,
-          negativePrompt: (() => {
-            const ageBlock = isChild
-              ? "adult, mature face, grown up, aged, wrinkles, 20 years old, 30 years old, teenager, pubescent, man, woman, adult body"
-              : "";
-            const styleBlock = effectiveStyle === "realistic" || effectiveStyle === "nollywood"
-              ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
-              : effectiveStyle === "2d-cartoon"
-              ? "3D render, photorealistic, CGI, bokeh, realistic"
-              : effectiveStyle === "3d-cinematic"
-              ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
-              : "";
-            return [ageBlock, styleBlock].filter(Boolean).join(", ");
-          })(),
-          referenceImageUrl: referenceImageUrl || undefined,
-          useIdentityLock: forceIdentityLock,
-          width: 768, height: 960,
-          seed: genSeed !== null ? genSeed : undefined,
-        }),
-      });
-      const d = await res.json();
-      if (d.error) {
-        setUiError(`Portrait failed: ${d.error}`);
+      // Resolve URLs
+      const shots = ANGLE_SHOTS.map((shot, i) => {
+        const d = shotResults[i];
+        if (!d || d.error) return null;
+        const url = d.imageUrl || (d.imagePath ? assetToMediaUrl(d.imagePath) : null);
+        return url ? { url, angle: shot.angle, label: shot.label } : null;
+      }).filter((s): s is {url: string; angle: string; label: string} => s !== null);
+
+      const mainShot = shots.find(s => s.label === "main") ?? shots[0] ?? null;
+
+      if (!mainShot) {
+        setUiError(`Portrait failed: no images returned. Check generation model and try again.`);
         setGeneratingPortrait(null);
         return;
       }
-      // imagePath is a local file path — convert to /api/media/ URL for display
-      const url = d.imageUrl || (d.imagePath ? assetToMediaUrl(d.imagePath) : null);
-      if (url) {
-        // Save old portrait so user can undo
-        if (char.imageUrl) {
-          setPrevCharImages(prev => ({ ...prev, [char.characterId]: char.imageUrl! }));
-        }
-        setCharacters(prev => prev.map(c =>
-          c.characterId === char.characterId
-            ? { ...c, imageUrl: url, hasImage: true, imageLocked: false }
-            : c
-        ));
-        setLastAction(`Portrait generated for ${char.displayName} — AI is now reading the image...`);
-        persistPortraitToRegistry(char, url);
-        analyzeCharacterImage(char.characterId, url);
-      } else {
-        setUiError(`Portrait generated but image URL missing. Check server logs.`);
+
+      // Save old portrait for undo
+      if (char.imageUrl) {
+        setPrevCharImages(prev => ({ ...prev, [char.characterId]: char.imageUrl! }));
       }
+
+      // Update planner character state: main image + all 3 reference shots
+      setCharacters(prev => prev.map(c =>
+        c.characterId === char.characterId
+          ? { ...c, imageUrl: mainShot.url, hasImage: true, imageLocked: false }
+          : c
+      ));
+      setCharRefImages(prev => ({ ...prev, [char.characterId]: shots }));
+
+      setLastAction(`3 full-body shots generated for ${char.displayName} — saving to registry...`);
+
+      // Auto-save to Character Registry (creates entry if first time, patches if exists)
+      persistPortraitToRegistry(char, mainShot.url, shots);
+
+      // Analyse the main portrait to auto-fill visual fields
+      analyzeCharacterImage(char.characterId, mainShot.url);
+
     } catch (err) {
       console.error("Portrait gen failed:", err);
       setUiError(`Portrait generation failed for ${char.displayName}: ${err instanceof Error ? err.message : String(err)}`);
@@ -5251,6 +5530,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           mood: newSceneMood, timeOfDay: newSceneTimeOfDay,
           projectStyle: effectiveProjectStyle,
           seed: genSeed !== null ? genSeed : undefined,
+          storyEra: storyEra || undefined,
+          storyCulture: storyCulture || effectiveProjectStyle || undefined,
         }),
       });
       const data = await res.json();
@@ -5814,10 +6095,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ display: "flex", alignItems: "center", gap: 6, background: showStylePicker ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: "6px 10px", cursor: "pointer", color: "#fff" }}>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.45)" }}>Art Style:</span>
                 <span style={{ fontSize: 13 }}>
-                  {effectiveProjectStyle === "3d-cinematic" ? "3D" : effectiveProjectStyle === "2d-cartoon" ? "2D" : effectiveProjectStyle === "anime" ? "AN" : effectiveProjectStyle === "storybook" ? "SB" : "RL"}
+                  {effectiveProjectStyle === "3d-cinematic" ? "3D" : effectiveProjectStyle === "2d-cartoon" ? "2D" : effectiveProjectStyle === "anime" ? "AN" : effectiveProjectStyle === "storybook" ? "SB" : effectiveProjectStyle === "nollywood" ? "NW" : effectiveProjectStyle === "comic" ? "CB" : "RL"}
                 </span>
                 <span style={{ fontSize: 11, fontWeight: 700 }}>
-                  {effectiveProjectStyle === "3d-cinematic" ? "3D Cinematic" : effectiveProjectStyle === "2d-cartoon" ? "2D Cartoon" : effectiveProjectStyle === "anime" ? "Anime" : effectiveProjectStyle === "storybook" ? "Storybook" : "Realistic"}
+                  {effectiveProjectStyle === "3d-cinematic" ? "3D Cinematic" : effectiveProjectStyle === "2d-cartoon" ? "2D Cartoon" : effectiveProjectStyle === "anime" ? "Anime" : effectiveProjectStyle === "storybook" ? "Storybook" : effectiveProjectStyle === "nollywood" ? "Nollywood" : effectiveProjectStyle === "comic" ? "Comic Book" : "Realistic"}
                 </span>
                 <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)" }}>▾</span>
               </button>
@@ -6466,6 +6747,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <span style={{ fontSize: 9, color: purple }}>{characters.length} characters</span>
                 {selectedMusicName && <span style={{ fontSize: 9, color: gold }}>{selectedMusicName}</span>}
                 <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: `${blue}15`, color: blue }}>{effectiveProjectStyle}</span>
+                {(storyEra || storyCulture) && (
+                  <span style={{ fontSize: 9, padding: "1px 6px", borderRadius: 4, background: "#fb923c18", color: "#fb923c", fontWeight: 600 }}>
+                    {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+                  </span>
+                )}
                 {savedCuts.length > 0 && <span style={{ fontSize: 9, color: gold }}>{savedCuts.length} cut{savedCuts.length !== 1 ? "s" : ""}</span>}
               </div>
             </div>
@@ -8232,8 +8518,49 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={() => generateCharacterPortrait(char, charStyles[char.characterId])}
                         disabled={isGenerating}
                         style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${blue}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
-                        {isGenerating ? "Generating..." : char.imageUrl ? "Regenerate Portrait" : "Generate Portrait"}
+                        {isGenerating ? "Generating 3 shots…" : char.imageUrl ? "Regen (3 angles)" : "Generate (3 angles)"}
                       </button>
+                      {/* 3-angle full-body gallery — own row below all buttons */}
+                      {charRefImages[char.characterId]?.length > 0 && (
+                        <div style={{ flexBasis: "100%", marginTop: 10, padding: "10px 12px", background: "#0d0621", borderRadius: 8, border: "1px solid #4c1d9530" }}>
+                          <p style={{ fontSize: 9, color: "#64748b", fontFamily: "monospace", marginBottom: 6, fontWeight: 600 }}>
+                            Full body shots — click to set as main
+                          </p>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {charRefImages[char.characterId].map((shot, i) => {
+                              const isMain = shot.url === char.imageUrl;
+                              const ANGLE_NAME: Record<string, string> = { front: "Front", "three-quarter": "3/4", side: "Side" };
+                              return (
+                                <div key={i} style={{ position: "relative", cursor: "pointer" }}
+                                  onClick={() => setCharacters(prev => prev.map(c =>
+                                    c.characterId === char.characterId
+                                      ? { ...c, imageUrl: shot.url }
+                                      : c
+                                  ))}
+                                  title={`Set as main — ${ANGLE_NAME[shot.angle] || shot.angle}`}>
+                                  <img
+                                    src={shot.url}
+                                    alt={shot.angle}
+                                    style={{
+                                      width: 56, height: 80, objectFit: "cover", display: "block",
+                                      borderRadius: 6,
+                                      border: `2px solid ${isMain ? "#a855f7" : "#ffffff20"}`,
+                                    }}
+                                  />
+                                  <span style={{
+                                    position: "absolute", bottom: 0, left: 0, right: 0,
+                                    background: "rgba(0,0,0,0.7)", color: "#fff",
+                                    fontSize: 7, textAlign: "center", padding: "1px 0",
+                                    borderBottomLeftRadius: 4, borderBottomRightRadius: 4,
+                                  }}>
+                                    {isMain ? "✓ MAIN" : (ANGLE_NAME[shot.angle] || shot.angle)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {/* AI Read Look — analyses the portrait and auto-fills all visual fields */}
                       {char.imageUrl && (() => {
                         const isAnalyzing = analyzingCharacter === char.characterId;
@@ -8937,6 +9264,41 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               </div>
             </div>
 
+            {/* ── Era & Culture Lock ── */}
+            <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
+              <p style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>
+                Era &amp; Culture Lock
+                <span style={{ fontSize: 8, fontWeight: 400, color: muted, marginLeft: 6, textTransform: "none" as const, letterSpacing: 0 }}>
+                  — pins all images to the correct time period &amp; culture
+                </span>
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 9 }}>Story Era / Year</label>
+                  <input
+                    value={storyEra}
+                    onChange={e => setStoryEra(e.target.value)}
+                    placeholder="e.g. 2024, 1819, 899 AD, 300 BC, Today"
+                    style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
+                  />
+                </div>
+                <div>
+                  <label style={{ ...labelStyle, fontSize: 9 }}>Story Culture / Setting</label>
+                  <input
+                    value={storyCulture}
+                    onChange={e => setStoryCulture(e.target.value)}
+                    placeholder="e.g. Contemporary Lagos, Victorian England, Yoruba Kingdom"
+                    style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
+                  />
+                </div>
+              </div>
+              {(storyEra || storyCulture) && (
+                <p style={{ fontSize: 8, color: "#fb923c", marginTop: 5, fontWeight: 600 }}>
+                  Lock active — all scene images: {[storyEra, storyCulture].filter(Boolean).join(" · ")}
+                </p>
+              )}
+            </div>
+
             {/* ── Story QC Intake Settings ── */}
             <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
               <p style={{ fontSize: 9, color: accent, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Story QC Settings</p>
@@ -9530,7 +9892,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       {storyQCResult.gatekeeper.suggestedFixes.map((fix, i) => (
                         <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
                           <p style={{ fontSize: 10, color: "#bfdbfe", flex: 1, margin: 0 }}>→ {fix}</p>
-                          <button onClick={() => fixQCSuggestion(fix)} disabled={fixingQC || scenes.length === 0}
+                          <button onClick={() => { if (!applyFixDirect(fix)) fixQCSuggestion(fix); }} disabled={fixingQC || scenes.length === 0}
                             style={{ padding: "2px 8px", borderRadius: 5, border: `1px solid ${blue}40`, background: "transparent", color: blue, fontSize: 9, cursor: (fixingQC || scenes.length === 0) ? "not-allowed" : "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
                             Fix
                           </button>
@@ -9678,7 +10040,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Sound Tier</p>
                   <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>GHS Sound = Piper TTS (free). GHS Plus/Pro = Karaoke pipeline. GHS Premium = Kie Suno V5 (KIE_AI_API_KEY). Set tier in Sound tab for full control.</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
                     {([
                       { id: "ghs-sound",   label: "GHS Sound",   color: accent },
                       { id: "ghs-plus",    label: "GHS Plus",    color: gold },
@@ -9691,16 +10053,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           setSoundTier(tier.id);
                           patchProjectSettings({ soundTier: tier.id }).catch(() => {});
                           if (tier.id === "ghs-sound") setNarratorVoice("piper");
-                          else if (tier.id === "ghs-plus") setNarratorVoice("piper");
-                          else if (tier.id === "ghs-pro") setNarratorVoice("fal-narrator");
+                          else if (tier.id === "ghs-plus") setNarratorVoice("karaoke");
+                          else if (tier.id === "ghs-pro") setNarratorVoice("karaoke");
                           else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
                         }}
-                        style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${effectiveSoundTier === tier.id ? tier.color : border}`,
-                          background: effectiveSoundTier === tier.id ? `${tier.color}15` : "transparent",
-                          color: effectiveSoundTier === tier.id ? tier.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                        style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${effectiveSoundTier === tier.id && narratorVoice !== "none" ? tier.color : border}`,
+                          background: effectiveSoundTier === tier.id && narratorVoice !== "none" ? `${tier.color}15` : "transparent",
+                          color: effectiveSoundTier === tier.id && narratorVoice !== "none" ? tier.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                         {tier.label}
                       </button>
                     ))}
+                    <button
+                      onClick={() => setNarratorVoice("none")}
+                      style={{ padding: "7px 6px", borderRadius: 8, border: `1px solid ${narratorVoice === "none" ? "#ef4444" : border}`,
+                        background: narratorVoice === "none" ? "#ef444415" : "transparent",
+                        color: narratorVoice === "none" ? "#ef4444" : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                      Off
+                    </button>
                   </div>
 
                   {narratorVoice === "piper" && (
@@ -9775,7 +10144,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   {narratorVoice === "karaoke" && (
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: `${gold}08`, border: `1px solid ${gold}20` }}>
                       <p style={{ fontSize: 10, color: gold, fontWeight: 600 }}>GHS Plus / GHS Pro — Karaoke Pipeline</p>
-                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>Uses GHS Karaoke pipeline (browser Web Speech API). No API key needed. Playback is in-browser only — no audio file is saved server-side. GHS Pro additionally uses FAL Stable Audio for background music generation.</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3, marginBottom: 10 }}>Uses GHS Karaoke pipeline with FAL Kokoro TTS. Requires FAL_KEY in .env (falls back to Piper if absent). GHS Pro also uses FAL Stable Audio for background music.</p>
+                      <button onClick={generateNarrationPiper} disabled={generatingNarration}
+                        style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
+                          background: generatingNarration ? "#2a2a40" : gold, color: "#000" }}>
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (Karaoke)" : "Generate via Karaoke"}
+                      </button>
                     </div>
                   )}
 
@@ -9790,6 +10164,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           background: generatingNarration ? "#2a2a40" : purple, color: "#fff" }}>
                         {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (GHS Premium)" : "Generate via GHS Premium"}
                       </button>
+                    </div>
+                  )}
+
+                  {narratorVoice === "none" && (
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "#ef444408", border: "1px solid #ef444430" }}>
+                      <p style={{ fontSize: 10, color: "#ef4444", fontWeight: 600 }}>Narration Off</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3 }}>No narrator audio will be generated. Select a tier above to enable narration.</p>
                     </div>
                   )}
 
@@ -10882,8 +11263,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               )}
             </div>
             <button onClick={runPreflight} disabled={preflightRunning}
-              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-              {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
+              style={{ width: "100%", padding: "11px", borderRadius: 10, border: `1px solid ${purple}60`, background: preflightRunning ? "#2a2040" : purple, color: "#fff", fontSize: 12, fontWeight: 700, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0, letterSpacing: "-0.01em" }}>
+              {preflightRunning ? "⟳ Running checks…" : "▶ Run Pre-Flight Check"}
             </button>
             {preflightResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -11316,6 +11697,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {});
               }} accentColor={accent} />
               {/* Check Narration ↔ Subtitle Match */}
+              <p style={{ fontSize: 10, color: muted, marginTop: 12, marginBottom: 6 }}>Verify narration text will render as subtitles on the final video.</p>
               <button
                 onClick={() => {
                   setSubtitleMatchResult({ status: "checking", note: "Checking…" });
@@ -11332,7 +11714,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   }
                   if (subMode === "none") {
                     const wc = narratorText.split(/\s+/).filter(Boolean).length;
-                    setSubtitleMatchResult({ status: "warn", note: `Subtitles are OFF. Narration has ${wc} words — enable Subtitle Mode above to show them during video.` });
+                    setSubtitleMatchResult({ status: "warn", note: `Subtitles OFF — ${wc} words will not render. Click "Enable Subtitles" below.` });
                     return;
                   }
                   const subtitleQC = storyQCResult?.supervisorResults?.["subtitle_style"];
@@ -11341,14 +11723,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     return;
                   }
                   const wc = narratorText.split(/\s+/).filter(Boolean).length;
-                  setSubtitleMatchResult({ status: "ok", note: `Ready: ${wc} words · mode: ${subMode} · style: ${subtitleStyle === "none" ? "classic (auto)" : subtitleStyle}. Will render on assembly.` });
+                  setSubtitleMatchResult({ status: "ok", note: `${wc} words · mode: ${subMode} · style: ${subtitleStyle === "none" ? "classic (auto)" : subtitleStyle} — subtitles will render on assembly.` });
                 }}
-                style={{ marginTop: 10, padding: "7px 16px", borderRadius: 8, border: `1px solid ${accent}40`, background: `${accent}10`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                Check Narration → Subtitle Match
+                style={{ padding: "8px 18px", borderRadius: 8, border: `1px solid ${accent}50`, background: `${accent}18`, color: accent, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                ▶ Check Subtitle Sync
               </button>
               {subtitleMatchResult && (
                 <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 8, background: subtitleMatchResult.status === "warn" ? `${red}10` : `${accent}10`, border: `1px solid ${subtitleMatchResult.status === "warn" ? red : accent}30` }}>
                   <p style={{ fontSize: 11, color: subtitleMatchResult.status === "warn" ? red : accent }}>{subtitleMatchResult.status === "checking" ? "⟳ " : subtitleMatchResult.status === "warn" ? "⚠ " : "✓ "}{subtitleMatchResult.note.slice(0, 200)}</p>
+                  {subtitleMatchResult.status === "warn" && effectiveSubtitleConfig.mode === "none" && (
+                    <button
+                      onClick={() => {
+                        setSubtitleStyle("classic");
+                        setSubtitleConfig(prev => ({ ...prev, mode: "dramatic" }));
+                        patchProjectSettings({ subtitleMode: "dramatic", subtitleEnabled: true }).catch(() => {});
+                        setSubtitleMatchResult({ status: "ok", note: "Subtitles enabled (classic/dramatic). Run check again to confirm." });
+                      }}
+                      style={{ marginTop: 6, padding: "5px 14px", borderRadius: 6, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
+                      Enable Subtitles
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -11914,8 +12308,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         )}
                       </div>
                       <button onClick={runPreflight} disabled={preflightRunning}
-                        style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${purple}30`, background: preflightRunning ? "#2a2040" : `${purple}10`, color: purple, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-                        {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
+                        style={{ width: "100%", padding: "11px", borderRadius: 10, border: `1px solid ${purple}60`, background: preflightRunning ? "#2a2040" : purple, color: "#fff", fontSize: 12, fontWeight: 700, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0, letterSpacing: "-0.01em" }}>
+                        {preflightRunning ? "⟳ Running checks…" : "▶ Run Pre-Flight Check"}
                       </button>
                       {preflightResult && (
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -12602,6 +12996,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               { id: "anime", icon: "AN", name: "Anime", color: "#a855f7", example: "Like: Naruto, Dragon Ball, My Hero Academia", desc: "Japanese animation style. Big expressive eyes, clean lines, dynamic poses." },
               { id: "storybook", icon: "SB", name: "Storybook", color: "#22c55e", example: "Like: children's picture books, Peppa Pig", desc: "Soft, warm and painterly. Looks like illustrations from a kids' book. Gentle and cozy." },
               { id: "realistic", icon: "RL", name: "Realistic", color: "#ec4899", example: "Like: a real film or Netflix drama", desc: "Photorealistic — looks like an actual photograph or live-action movie scene." },
+              { id: "nollywood", icon: "NW", name: "Nollywood", color: "#f97316", example: "Like: Nigerian cinema, African drama films", desc: "Warm African cinema aesthetic. Rich skin tones, vibrant traditional and modern Nigerian fashion, cinematic drama." },
+              { id: "comic", icon: "CB", name: "Comic Book", color: "#ef4444", example: "Like: Marvel, DC Comics, superhero action", desc: "Bold ink outlines, halftone shading, dynamic poses. Classic comic book art style." },
             ].map(style => {
               const isSelected = effectiveProjectStyle === style.id;
               return (
