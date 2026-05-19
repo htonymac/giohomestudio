@@ -405,6 +405,19 @@ export async function POST(req: NextRequest) {
     // with drawtext filter chain. Works on all FFmpeg builds out of the box.
     // Failure here NEVER blocks output — original video always preserved.
     let subtitledOutputPath = "";
+    const subtitleStatus = {
+      requested: !!assembly.exportSettings?.includeSubtitles,
+      attempted: false,
+      succeeded: false,
+      reason: "",
+      entries: 0,
+      fontUsed: "",
+    };
+    if (!assembly.exportSettings?.includeSubtitles) {
+      subtitleStatus.reason = "includeSubtitles=false in exportSettings";
+    } else if (!fullAssembly.narration.some(n => n.text && n.text.trim())) {
+      subtitleStatus.reason = "narration entries have no .text field — client did not send text";
+    }
     if (assembly.exportSettings?.includeSubtitles) {
       const narrationWithText = fullAssembly.narration.filter(n => n.text && n.text.trim());
       if (narrationWithText.length > 0) {
@@ -443,7 +456,20 @@ export async function POST(req: NextRequest) {
 
           // Escape text for FFmpeg drawtext: \ → \\, ' → \', : → \:
           function escDrawtext(t: string): string {
-            return t.replace(/\\/g, "\\\\").replace(/'/g, "\\'").replace(/:/g, "\\:");
+            // FFmpeg drawtext text='...' value escaping:
+            // - preserve our \n line-break sequences (set by wrapText) — protect them first
+            // - escape any other backslashes
+            // - escape colons (filter param separator)
+            // - escape apostrophes (inside single quotes); FFmpeg accepts \' inside text=
+            // Also escape brackets/comma which can break the outer filter chain.
+            const NL = "NL";
+            return t
+              .replace(/\\n/g, NL)
+              .replace(/\\/g, "\\\\")
+              .replace(/:/g, "\\:")
+              .replace(/'/g, "\\'")
+              .replace(/%/g, "\\%")
+              .replace(new RegExp(NL, "g"), "\\n");
           }
 
           // Wrap text at ~45 chars so it fits in standard aspect ratios
@@ -555,6 +581,9 @@ export async function POST(req: NextRequest) {
                 return `drawtext=${baseStyle}:text='${escDrawtext(wrapText(e.text))}':enable='between(t,${e.start.toFixed(3)},${e.end.toFixed(3)})'`;
               }).join(",");
 
+              subtitleStatus.attempted = true;
+              subtitleStatus.entries = capped.length;
+              subtitleStatus.fontUsed = fontFilePath || "none";
               const finalMergeStep = steps.find(s => s.id === "final_merge");
               const unsub = finalMergeStep?.outputPath || "";
               if (unsub && fs.existsSync(unsub)) {
@@ -570,18 +599,28 @@ export async function POST(req: NextRequest) {
                   ], { timeout: 300000 });
                   if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
                     subtitledOutputPath = subbedPath;
+                    subtitleStatus.succeeded = true;
                     console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, style=${globalStyle}) → ${path.basename(subbedPath)}`);
+                  } else {
+                    subtitleStatus.reason = "subtitled file produced but empty or missing";
                   }
                 } catch (dtErr) {
+                  subtitleStatus.reason = `drawtext failed: ${dtErr instanceof Error ? dtErr.message.slice(0, 300) : String(dtErr)}`;
                   console.error("[subtitle] drawtext FAILED:", dtErr instanceof Error ? dtErr.message.slice(0, 400) : dtErr);
                   console.error("[subtitle] chain sample:", drawChain.slice(0, 300));
                 }
               } else {
+                subtitleStatus.reason = `final_merge output not found at ${unsub}`;
                 console.warn("[subtitle] final_merge output not found — skipping burn-in. unsub=", unsub);
               }
+            } else {
+              subtitleStatus.reason = `globalStyle is 'none' (subtitleStyle=${globalStyle})`;
             } // globalStyle !== "none"
+          } else {
+            subtitleStatus.reason = "no subtitle entries built from narration text";
           }
         } catch (subErr) {
+          subtitleStatus.reason = `subtitle build error: ${subErr instanceof Error ? subErr.message.slice(0, 300) : String(subErr)}`;
           console.error("[assembly] Subtitle burn-in error:", subErr instanceof Error ? subErr.message.slice(0, 400) : subErr);
         }
       }
@@ -699,6 +738,7 @@ export async function POST(req: NextRequest) {
       duration: finalDuration,
       steps: results,
       cost,
+      subtitleStatus,
       assembly: {
         projectId: assembly.projectId,
         version: assembly.version,

@@ -4516,6 +4516,12 @@ function HybridPlannerInner() {
         return;
       }
       if (data.warning) setUiError(data.warning);
+      // Surface subtitle status — silent failures used to leave the user wondering why no captions appeared
+      if (data.subtitleStatus?.requested && !data.subtitleStatus?.succeeded) {
+        const why = data.subtitleStatus.reason || "unknown reason";
+        setUiError(`Subtitles requested but not burned in: ${why}`);
+        console.warn("[subtitle] burn-in failed:", data.subtitleStatus);
+      }
       if (data.outputUrl) {
         setAssembledVideoUrl(data.outputUrl);
         setAssemblyComplete(true);
