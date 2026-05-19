@@ -437,10 +437,9 @@ export async function POST(req: NextRequest) {
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
       referenceImageUrl: referenceImageUrls[0],
-      // Identity lock only for photo-imports — PuLID requires a PUBLIC URL for the reference image.
-      // Local /api/media/ portrait paths are not accessible by FAL, so enabling it for all portraits
-      // would cause all scene-image calls to fail. Photo-imports are already public URLs.
-      useIdentityLock: hasPhotoImportChar && !modelId,
+      // Identity lock for any character that has a portrait URL.
+      // image-provider.ts auto-uploads local /api/media/ portraits to FAL CDN before PuLID call.
+      useIdentityLock: (hasPhotoImportChar || referenceImageUrls.length > 0) && !modelId,
     });
 
     if (!result.success && result.model) {
@@ -462,7 +461,7 @@ export async function POST(req: NextRequest) {
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
             referenceImageUrl: referenceImageUrls[0],
-            useIdentityLock: hasPhotoImportChar && !modelId,
+            useIdentityLock: (hasPhotoImportChar || referenceImageUrls.length > 0) && !modelId,
           });
           if (!result.success && result.model) {
             markBroken(result.model.id, result.error ?? "fallback also failed");

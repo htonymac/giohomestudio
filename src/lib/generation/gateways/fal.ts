@@ -28,6 +28,7 @@ export interface FalImageRequest {
   numImages?: number;
   seed?: number;
   steps?: number;
+  face_image_url?: string; // PuLID face reference — must be a public URL
 }
 
 export interface FalVideoRequest {
@@ -223,6 +224,7 @@ export async function falGenerateImage(req: FalImageRequest): Promise<FalRespons
   if (req.negativePrompt) input.negative_prompt = req.negativePrompt;
   if (req.seed) input.seed = req.seed;
   if (req.steps) input.num_inference_steps = req.steps;
+  if (req.face_image_url) input.face_image_url = req.face_image_url;
 
   console.log(`[fal] Image: ${req.endpoint}`);
   return submitAndPoll(req.endpoint, input);
