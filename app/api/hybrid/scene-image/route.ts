@@ -208,11 +208,11 @@ export async function POST(req: NextRequest) {
     // ── STYLE LOCK ──
     promptParts.push(stylePreset.prefix);
 
-    // ── ANIMAL DETECTION — check scene text AND character species/descriptions ──
-    // "explicit animal" = sceneText OR character visualDescription OR override species contains known animal words
+    // ── ANIMAL DETECTION — explicit species from characterOverrides ONLY ──
+    // NEVER scan scene text for "bear" — causes false positives when "bear" is used as a verb
+    // ("cannot bear", "bearing gifts", "unbearable") which disables all bear protection.
+    // Animal mode only activates when a character's species field is explicitly set.
     const sceneTextLower = (sceneText || "").toLowerCase();
-    const ANIMAL_PATTERN = /\b(bear|wolf|lion|fox|rabbit|dog|cat|animal|creature|beast|paws|snout)\b/;
-    const sceneHasAnimal = ANIMAL_PATTERN.test(sceneTextLower);
 
     // Check characterOverrides species field — client sends this from CharacterIdentity
     const overrideSpecies: string[] = [];
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
     }
     const ANIMAL_SPECIES = new Set(["bear", "wolf", "lion", "fox", "rabbit", "dog", "cat", "tiger", "elephant", "monkey"]);
     const charSpeciesIsAnimal = overrideSpecies.some(s => ANIMAL_SPECIES.has(s));
-    const explicitAnimal = sceneHasAnimal || charSpeciesIsAnimal;
+    const explicitAnimal = charSpeciesIsAnimal; // scene text removed — too many verb false-positives
 
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
@@ -347,7 +347,7 @@ export async function POST(req: NextRequest) {
     // bear-guard: hard negative — always block bear/animal features on human characters
     const bearNegative = explicitAnimal
       ? ""
-      : ", bear, bear face, bear head, bear body, bear anatomy, grizzly bear, brown bear, animal face, animal head on human body, furry creature, snout, paws, anthropomorphic animal, non-human face, creature head, monster head";
+      : ", bear, bears, bear face, bear head, bear body, bear anatomy, grizzly bear, brown bear, polar bear, bear ears, bear hat, bear mask, bear costume, bear headwear, panda ears, animal ears, cat ears, animal head on human body, furry creature, snout, paws, animal face, anthropomorphic animal, non-human face, creature head, monster head, animal in background, animal standing nearby";
     // Hybrid-feature guard — always block species merging
     const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body, animal head replacing human head";
 
