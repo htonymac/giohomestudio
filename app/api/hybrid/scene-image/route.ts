@@ -174,11 +174,21 @@ export async function POST(req: NextRequest) {
     // extractSceneAction imported from @/lib/scene/action-extractor (Phase B extraction)
     // PROTECTED: preserve the extractSceneAction() call and promptParts.push(sceneActionDirective) below exactly as written.
 
+    // Strip screenplay/narrative jargon FIRST — terms like "inciting incident", "narrative arc",
+    // "protagonist establishes" confuse image models and produce inaccurate scene renders.
+    function sanitizeNarrativeJargon(text: string): string {
+      return text
+        .replace(/\b(inciting\s+incident|story\s+beat|narrative\s+(arc|tension|structure|progression)|character\s+(arc|development|motivation)|plot\s+(twist|point|progression|development)|back\s*story|scene\s+setup|transition\s+moment|rising\s+action|falling\s+action|denouement|dramatic\s+irony|third\s+act|second\s+act|first\s+act|act\s+[123]|story\s+structure|turning\s+point|story\s+world|foreshadow\w*|exposition|subtext)\b/gi, "")
+        .replace(/\b(establishing\s+the\s+(\w+\s+)?conflict|introduces?\s+the\s+(main|central)|central\s+conflict\s+of\s+the\s+story|(this\s+scene\s+)?(sets\s+up|establishes|introduces|demonstrates)\s+the)\b/gi, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+    }
+
     // Sanitize the scene text for the chosen style BEFORE it touches the prompt or
     // the action extractor. This way "her voice was animated" never reaches the model
     // when style=realistic.
     const styleId = (projectStyle || "3d-cinematic") as string;
-    const cleanSceneText = sanitizeStyleCollisions(sceneText || "", styleId);
+    const cleanSceneText = sanitizeStyleCollisions(sanitizeNarrativeJargon(sceneText || ""), styleId);
     const sceneActionDirective = extractSceneAction(cleanSceneText);
 
     // ── ERA + CULTURE LOCK — computed once, used in prompt AND negative ──
@@ -219,6 +229,10 @@ export async function POST(req: NextRequest) {
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
     // Each field is run through the style sanitizer so a description like "his
     // animated face" doesn't sabotage realistic gen.
+    // Per-character anti-stereotype negatives — built from actual description to counter
+    // name-driven model bias (e.g. "Mama Iyabo" → model defaults to old market-woman stereotype)
+    const charNegatives: string[] = [];
+
     const CHAR_DESC_LIMIT = 400;
     if (resolvedCharacters.length > 0) {
       const identityBlock = resolvedCharacters.map(c => {
@@ -226,15 +240,12 @@ export async function POST(req: NextRequest) {
         // 3-C: Use lastSeenWardrobe for continuity when available; fall back to wardrobe default
         const wardrobeSource = c.lastSeenWardrobe ?? c.wardrobe;
         const wardrobePrefix = c.lastSeenWardrobe
-          ? `CONTINUITY: ${c.name} last seen wearing: `
+          ? `same outfit as before: `
           : "wearing: ";
         const wardrobe = wardrobeSource
           ? `, ${wardrobePrefix}${sanitizeStyleCollisions(wardrobeSource.slice(0, 140), styleId)}`
           : "";
         const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
-        // 2026-05-10 AGE LOCK — repeat age loudly so models don't default to adult.
-        // "Bryan is 11 but image shows 30" was the bug. Categorical "adult" alone is too vague;
-        // map each tier to a concrete visual directive the image model will honour.
         const AGE_VISUAL: Record<string, string> = {
           child:       "6-10 year old child — small body, young face, child height and proportions. NOT a teen or adult.",
           teen:        "13-17 year old teenager — adolescent face, teenage build. NOT a young child or adult.",
@@ -245,39 +256,55 @@ export async function POST(req: NextRequest) {
         const ageLock = c.age
           ? `, AGE LOCK: ${AGE_VISUAL[c.age] ?? c.age}. Render with accurate age-appropriate anatomy.`
           : "";
-        return `${c.name}: ${desc}${wardrobe}${hairstyle}${ageLock}`;
+        const identityAnchor = c.imageUrl
+          ? ` EXACT SAME FACE AND APPEARANCE as reference portrait — do NOT change this character's age, build, or face.`
+          : "";
+
+        // Build anti-stereotype negative for this character based on what they actually look like
+        if (c.imageUrl || desc) {
+          const antiAge = (c.age === "young_adult" || c.age === "adult")
+            ? `old ${c.name}, elderly ${c.name}, aged ${c.name}`
+            : c.age === "child" ? `adult ${c.name}, tall ${c.name}` : "";
+          const descLower = desc.toLowerCase();
+          const antiHeadwrap = (!descLower.includes("headwrap") && !descLower.includes("gele") && !descLower.includes("head wrap"))
+            ? `headwrap on ${c.name}, gele on ${c.name}, head covering on ${c.name}`
+            : "";
+          const antiHeavy = (descLower.includes("slim") || descLower.includes("thin") || descLower.includes("slender"))
+            ? `heavy ${c.name}, obese ${c.name}, overweight ${c.name}, heavy-set ${c.name}`
+            : "";
+          const antiYoung = (c.age === "elder") ? `young ${c.name}, youthful ${c.name}` : "";
+          [antiAge, antiHeadwrap, antiHeavy, antiYoung].filter(Boolean).forEach(n => charNegatives.push(n));
+        }
+
+        // Appearance-first ordering: description BEFORE name to fight name-stereotype bias
+        // (model sees physical description first, then "this person is named X" — not the reverse)
+        if (desc) {
+          return `${desc}${wardrobe}${hairstyle}${ageLock}${identityAnchor} (this character is named ${c.name})`;
+        }
+        return `${c.name}: ${wardrobe.replace(", ", "")}${hairstyle}${ageLock}${identityAnchor}`;
       }).join(" | ");
       promptParts.push(identityBlock);
 
       // ── CHARACTER ANATOMY SEPARATION (2026-05-09) ──
-      // When a scene has 2+ characters AND a mix of human + animal species, image models
-      // tend to fuse features (e.g. "bear with boy's face"). Inject explicit separation
-      // directive listing each character's species + anatomy, so the model treats them
-      // as DISTINCT bodies, not a hybrid creature.
+      // ONLY uses explicit species from characterOverrides — never infers species from visual
+      // description text (that caused false-positive bear heads when desc had "bear" anywhere).
       if (resolvedCharacters.length >= 2) {
         const speciesByName: string[] = [];
         for (const c of resolvedCharacters) {
-          // Pick species hint from override or from visualDescription; default human.
           const ovs = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
-            ?.find(o => o.name === c.name)?.species;
-          const desc = (c.visualDescription || "").toLowerCase();
-          const isAnimal = ovs && ANIMAL_SPECIES.has(ovs.toLowerCase())
-            ? true
-            : ANIMAL_PATTERN.test(desc);
+            ?.find(o => o.name === c.name)?.species?.toLowerCase() ?? "";
+          // Only treat as animal if the species field EXPLICITLY names an animal
+          const isAnimal = ANIMAL_SPECIES.has(ovs);
           if (isAnimal) {
-            const animalKind = (ovs && ANIMAL_SPECIES.has(ovs.toLowerCase()))
-              ? ovs
-              : (desc.match(ANIMAL_PATTERN)?.[1] ?? "animal");
-            speciesByName.push(`${c.name} is a ${animalKind} (${animalKind} face, ${animalKind} body, ${animalKind} anatomy — NOT human)`);
+            speciesByName.push(`${c.name} is a ${ovs} (${ovs} face, ${ovs} body, ${ovs} anatomy — NOT human)`);
           } else {
-            speciesByName.push(`${c.name} is a human (human face, human body, human skin — NOT an animal)`);
+            speciesByName.push(`${c.name} is a human (human face, human body, human skin — NOT an animal, NOT a bear, NOT any animal)`);
           }
         }
         promptParts.push(
-          `STRICT CHARACTER SEPARATION — ${resolvedCharacters.length} different characters with DIFFERENT bodies. ` +
+          `${resolvedCharacters.length} separate human characters, each with their own face and body. ` +
           speciesByName.join(". ") + ". " +
-          "Do NOT merge their features. Do NOT put a human face on an animal body. Do NOT put an animal face on a human body. " +
-          "Each character is a SEPARATE individual with their OWN anatomy."
+          "Do NOT replace any character's head with an animal head. Each person has a fully human face."
         );
       }
     }
@@ -293,9 +320,8 @@ export async function POST(req: NextRequest) {
     // Late-position injection overrides early style-prefix bias from the model.
     if (!explicitAnimal) {
       promptParts.push(
-        "IMPORTANT: Every character in this scene is a HUMAN BEING. Human faces, human skin, human bodies, human anatomy. " +
-        "Do NOT generate bears, wolves, animals, anthropomorphic creatures, fur-covered characters, snouts, or paws. " +
-        "All cast members are human children or human adults."
+        "ALL characters are human beings with human faces and human bodies. " +
+        "No bear heads, no animal heads, no fur, no snouts, no paws. Every person has a normal human face."
       );
     }
 
@@ -317,15 +343,23 @@ export async function POST(req: NextRequest) {
 
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
-    // bear-guard: hard negative appended whenever characters are human (not explicit animal scene)
-    const bearNegative = explicitAnimal ? "" : ", bear, bear face, bear body, bear anatomy, furry creature, animal face, snout, paws, animal head, anthropomorphic animal, non-human character";
-    // Hybrid-feature guard (2026-05-09) — when scene mixes humans + animals, models tend to merge.
-    // Always block hybrid features regardless of style. Cheap insurance.
-    const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body";
+
+    // bear-guard: hard negative — always block bear/animal features on human characters
+    const bearNegative = explicitAnimal
+      ? ""
+      : ", bear, bear face, bear head, bear body, bear anatomy, grizzly bear, brown bear, animal face, animal head on human body, furry creature, snout, paws, anthropomorphic animal, non-human face, creature head, monster head";
+    // Hybrid-feature guard — always block species merging
+    const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body, animal head replacing human head";
+
+    // Phone negative — unless scene description explicitly mentions phones/smartphones
+    const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
+    const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
+
     // Style-collision negatives — extra muscle behind the negative when live-action is selected.
     // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
     const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + getStyleCollisionNegative(styleId) + eraNegative;
+    const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {
@@ -402,12 +436,14 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
-      referenceImageUrl: referenceImageUrls[0],  // 4-A: primary ref; array not yet supported by provider
+      referenceImageUrl: referenceImageUrls[0],
+      // Identity lock only for photo-imports — PuLID requires a PUBLIC URL for the reference image.
+      // Local /api/media/ portrait paths are not accessible by FAL, so enabling it for all portraits
+      // would cause all scene-image calls to fail. Photo-imports are already public URLs.
       useIdentityLock: hasPhotoImportChar && !modelId,
     });
 
     if (!result.success && result.model) {
-      // Check if this looks like a provider-side failure (not a local validation error)
       const errStr = result.error ?? "";
       const isProviderErr = /404|422|not found|unavailable|model.*error|endpoint.*error/i.test(errStr);
       if (isProviderErr) {
@@ -425,7 +461,7 @@ export async function POST(req: NextRequest) {
             height: 720,
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
-            referenceImageUrl: referenceImageUrls[0],  // 4-A: primary ref
+            referenceImageUrl: referenceImageUrls[0],
             useIdentityLock: hasPhotoImportChar && !modelId,
           });
           if (!result.success && result.model) {

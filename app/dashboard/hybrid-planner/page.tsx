@@ -1356,6 +1356,8 @@ function HybridPlannerInner() {
         setSceneImages({});
         setSceneVideoVersions({});
         setSceneIntelligence({});
+        setSceneBeatImages({});
+        setSelectedBeatImages({});
         setScenes(builtScenes);
         setProjectPhase("SCENES_READY");
         setLastAction(`${extractedChars.length} characters · ${builtScenes.length} scenes ready — review below then go to Characters`);
@@ -2064,16 +2066,22 @@ function HybridPlannerInner() {
     }, 600);
 
     const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
-    const characterOverrides = sceneChars.map(c => ({
-      characterId: c.characterId,
-      name: c.displayName,
-      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
-      visualDescription: buildVisualDescription(c),
-      imageUrl: c.imageUrl || null,
-      wardrobe: c.clothingDetails || c.wardrobeStyle || null,
-      hairstyle: c.hairStyle || null,
-      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
-    }));
+    const characterOverrides = sceneChars.map(c => {
+      // Use front-angle portrait (index 0) for PuLID face-lock reference.
+      // Front angle has the clearest face view — PuLID extracts face from it best.
+      const angles = charRefImages[c.characterId];
+      const bestPortraitUrl = angles?.[0]?.url || c.imageUrl || null;
+      return {
+        characterId: c.characterId,
+        name: c.displayName,
+        species: c.species || "human",
+        visualDescription: buildVisualDescription(c),
+        imageUrl: bestPortraitUrl,
+        wardrobe: c.clothingDetails || c.wardrobeStyle || null,
+        hairstyle: c.hairStyle || null,
+        isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
+      };
+    });
     try {
       const res = await fetch("/api/hybrid/scene-image", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -2086,7 +2094,7 @@ function HybridPlannerInner() {
           transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
           storyEra: storyEra || undefined,
-          storyCulture: storyCulture || effectiveProjectStyle || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const data = await res.json();
@@ -2186,16 +2194,20 @@ function HybridPlannerInner() {
     setLastAction(`Generating 3 variations for Scene ${scene.scene}...`);
 
     const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
-    const characterOverrides = sceneChars.map(c => ({
-      characterId: c.characterId,
-      name: c.displayName,
-      species: c.species || "human",   // bear-guard: pass species so scene-image can detect animal chars
-      visualDescription: buildVisualDescription(c),
-      imageUrl: c.imageUrl || null,
-      wardrobe: c.clothingDetails || c.wardrobeStyle || null,
-      hairstyle: c.hairStyle || null,
-      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
-    }));
+    const characterOverrides = sceneChars.map(c => {
+      const angles = charRefImages[c.characterId];
+      const bestPortraitUrl = angles?.[1]?.url || angles?.[0]?.url || c.imageUrl || null;
+      return {
+        characterId: c.characterId,
+        name: c.displayName,
+        species: c.species || "human",
+        visualDescription: buildVisualDescription(c),
+        imageUrl: bestPortraitUrl,
+        wardrobe: c.clothingDetails || c.wardrobeStyle || null,
+        hairstyle: c.hairStyle || null,
+        isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
+      };
+    });
 
     const seeds = [Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9), Math.floor(Math.random() * 1e9)];
     const results: string[] = [];
@@ -2213,7 +2225,7 @@ function HybridPlannerInner() {
             transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
             storyEra: storyEra || undefined,
-            storyCulture: storyCulture || effectiveProjectStyle || undefined,
+            storyCulture: storyCulture || undefined,
           }),
         });
         const data = await res.json();
@@ -2311,16 +2323,20 @@ function HybridPlannerInner() {
     setLastAction(`Gen Max: generating ${promptList.length} images for Scene ${scene.scene}…`);
 
     const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
-    const characterOverrides = sceneChars.map(c => ({
-      characterId: c.characterId,
-      name: c.displayName,
-      species: c.species || "human",
-      visualDescription: buildVisualDescription(c),
-      imageUrl: c.imageUrl || null,
-      wardrobe: c.clothingDetails || c.wardrobeStyle || null,
-      hairstyle: c.hairStyle || null,
-      isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
-    }));
+    const characterOverrides = sceneChars.map(c => {
+      const angles = charRefImages[c.characterId];
+      const bestPortraitUrl = angles?.[1]?.url || angles?.[0]?.url || c.imageUrl || null;
+      return {
+        characterId: c.characterId,
+        name: c.displayName,
+        species: c.species || "human",
+        visualDescription: buildVisualDescription(c),
+        imageUrl: bestPortraitUrl,
+        wardrobe: c.clothingDetails || c.wardrobeStyle || null,
+        hairstyle: c.hairStyle || null,
+        isPhotoImport: !!(c.tags?.includes("photo-import") && c.imageUrl),
+      };
+    });
 
     // 2026-05-10 — single-attempt retry on failure (1 retry per slot) so 8/8 actually delivers.
     // Sequential calls; each scene-image takes 30-60s on FAL. 8 sequential = 4-8 min total.
@@ -2346,7 +2362,7 @@ function HybridPlannerInner() {
             modelId: effectiveImageModelId,
             seed: Math.floor(Math.random() * 1e9),
             storyEra: storyEra || undefined,
-            storyCulture: storyCulture || effectiveProjectStyle || undefined,
+            storyCulture: storyCulture || undefined,
           }),
         });
         if (!res.ok) {
@@ -3251,18 +3267,18 @@ function HybridPlannerInner() {
   // ── Script parser — splits story into narrator + dialogue segments ──────────
   async function parseScript() {
     setParsingScript(true);
+    // Collapse the review panel while parsing so user sees work is happening on re-parse
+    setShowScriptReview(false);
     setLastAction("Parsing script…");
     try {
-      // ── Path A: scenes already have per-scene narrationScript ─────────────
-      // Build one segment per scene so per-scene narration / subtitles can sync.
-      // Fires whenever 2+ scenes have content — avoids the LLM's "1 lumped segment"
-      // failure mode that happens when the master story is one paragraph.
       const sortedScenes = scenes.slice().sort((a, b) => a.scene - b.scene);
       const sceneTexts = sortedScenes.map(s => (s.narrationScript || s.description || "").trim());
       const scenesWithContent = sceneTexts.filter(t => t.length > 5).length;
-      console.log(`[parseScript] scenes=${sortedScenes.length} withContent=${scenesWithContent}`);
 
-      if (scenesWithContent >= 2) {
+      // Path A: scenes have per-scene narrationScript AND user is on first parse (no existing segments).
+      // On re-parse, always use LLM (Path B) so story text edits are respected.
+      const isReparsing = scriptSegments.length > 0;
+      if (scenesWithContent >= 2 && !isReparsing) {
         const sceneSegments: ScriptSegment[] = sortedScenes
           .map((s, i) => ({
             id: `seg_scene_${s.sceneId}`,
@@ -3281,7 +3297,8 @@ function HybridPlannerInner() {
         return;
       }
 
-      // ── Path B: no per-scene narration — fall back to LLM on master story ─
+      // Path B: LLM parse — used on first parse when no scenes, AND always on re-parse
+      // so story text edits are picked up even after scenes were generated.
       const textToParse = fullScript || expandedSummary || idea;
       if (!textToParse.trim()) {
         setUiError("Write or expand your story first.");
@@ -5105,7 +5122,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       effectiveStyle === "realistic"
         ? "Ultra-realistic photographic full body shot, cinematic lighting, real person aesthetic, no cartoon or CGI"
         : effectiveStyle === "nollywood"
-        ? "Nollywood film full body shot, realistic Nigerian cinema aesthetic, warm skin tones, natural lighting"
+        ? "Nollywood film full body shot, realistic Nigerian cinema aesthetic, BLACK WEST AFRICAN character, dark rich melanated skin, deep brown complexion, natural warm lighting"
         : effectiveStyle === "2d-cartoon"
         ? "2D cartoon illustration, clean bold outlines, flat cel-shaded colors, Disney storybook art style"
         : effectiveStyle === "anime"
@@ -5137,8 +5154,10 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       const ageBlock = isChild
         ? "adult, mature face, grown up, aged, wrinkles, 20 years old, 30 years old, man, woman, adult body"
         : "";
-      const styleBlock = effectiveStyle === "realistic" || effectiveStyle === "nollywood"
+      const styleBlock = effectiveStyle === "realistic"
         ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin"
+        : effectiveStyle === "nollywood"
+        ? "cartoon, 3D CGI, anime, illustration, sketch, painting, digital art, plastic skin, white skin, light skin, pale skin, European features, Caucasian"
         : effectiveStyle === "2d-cartoon"
         ? "3D render, photorealistic, CGI, bokeh, realistic"
         : effectiveStyle === "3d-cinematic"
@@ -5154,10 +5173,26 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       { angle: "side",          label: "variation_2", framing: "FULL BODY side profile view, 90-degree turn, standing pose, full height visible from head to feet, clean plain background." },
     ];
 
+    // Nigerian/African context — force dark skin even if colorDescription is empty/wrong
+    const isNigerianContext = effectiveStyle === "nollywood"
+      || ["nigeri", "nollywood", "yoruba", "igbo", "hausa", "lagos", "abuja", "african"].some(kw =>
+        (storyCulture || "").toLowerCase().includes(kw) || (storyCountry || "").toLowerCase().includes(kw));
+    const hasExplicitLightSkin = !!(char.colorDescription || char.skinTone || "").toLowerCase().match(/\b(light|fair|pale|white|beige)\b/);
+    const skinAnchor = (isNigerianContext && !hasExplicitLightSkin)
+      ? "BLACK WEST AFRICAN, dark rich melanated skin, deep brown complexion, African features,"
+      : "";
+
+    // Era + culture lock for clothing/setting accuracy
+    const eraLine = (storyEra || storyCulture)
+      ? `Era: ${[storyEra, storyCulture].filter(Boolean).join(", ")}. Clothing, hairstyle, and accessories MUST reflect this time period and culture exactly.`
+      : "";
+
     // Build shared base prompt
     const basePrompt = [
       ageAnchor,
       stylePrefix,
+      skinAnchor,
+      eraLine,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
       visualDesc || `${char.displayName}, ${char.gender}`,
       "CHARACTER REFERENCE SHEET — consistent design, professional quality, no background distractions.",
@@ -5531,7 +5566,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           projectStyle: effectiveProjectStyle,
           seed: genSeed !== null ? genSeed : undefined,
           storyEra: storyEra || undefined,
-          storyCulture: storyCulture || effectiveProjectStyle || undefined,
+          storyCulture: storyCulture || undefined,
         }),
       });
       const data = await res.json();
@@ -7724,29 +7759,54 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                       style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
                                       Deselect All
                                     </button>
+                                    <button onClick={() => {
+                                      const checked = selectedBeatImages[sceneId] || beats.map(() => true);
+                                      const kept = beats.filter((_, i) => !checked[i]);
+                                      const keptChecks = checked.filter((_, i) => !checked[i]);
+                                      setSceneBeatImages(prev => ({ ...prev, [sceneId]: kept }));
+                                      setSelectedBeatImages(prev => ({ ...prev, [sceneId]: keptChecks }));
+                                    }}
+                                      style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ef444460", background: "transparent", color: "#ef4444", fontSize: 8, cursor: "pointer" }}>
+                                      Del Selected
+                                    </button>
+                                    <button onClick={() => {
+                                      setSceneBeatImages(prev => ({ ...prev, [sceneId]: [] }));
+                                      setSelectedBeatImages(prev => ({ ...prev, [sceneId]: [] }));
+                                    }}
+                                      style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ef444460", background: "#ef44440a", color: "#ef4444", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                      Del All
+                                    </button>
                                   </div>
                                 </div>
                                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
                                   {beats.map((url, bi) => {
                                     const checked = selectedBeatImages[sceneId]?.[bi] !== false;
                                     return (
-                                      <label key={bi}
-                                        title={`Beat ${bi + 1} — ${checked ? "included" : "skipped"} in assembly`}
-                                        style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
-                                        <img src={url} alt={`B${bi + 1}`}
-                                          style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
-                                          onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` }); }} />
-                                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                                          <input type="checkbox" checked={checked}
-                                            onChange={e => setSelectedBeatImages(prev => {
-                                              const arr = [...(prev[sceneId] || beats.map(() => true))];
-                                              arr[bi] = e.target.checked;
-                                              return { ...prev, [sceneId]: arr };
-                                            })}
-                                            style={{ width: 11, height: 11 }} />
-                                          <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>B{bi + 1}</span>
-                                        </div>
-                                      </label>
+                                      <div key={bi} style={{ position: "relative" as const }}>
+                                        <label
+                                          title={`Beat ${bi + 1} — ${checked ? "included" : "skipped"} in assembly`}
+                                          style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
+                                          <img src={url} alt={`B${bi + 1}`}
+                                            style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
+                                            onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Beat ${bi + 1}` }); }} />
+                                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                            <input type="checkbox" checked={checked}
+                                              onChange={e => setSelectedBeatImages(prev => {
+                                                const arr = [...(prev[sceneId] || beats.map(() => true))];
+                                                arr[bi] = e.target.checked;
+                                                return { ...prev, [sceneId]: arr };
+                                              })}
+                                              style={{ width: 11, height: 11 }} />
+                                            <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>B{bi + 1}</span>
+                                          </div>
+                                        </label>
+                                        <button
+                                          onClick={e => { e.stopPropagation(); setSceneBeatImages(prev => { const a = [...(prev[sceneId] || [])]; a.splice(bi, 1); return { ...prev, [sceneId]: a }; }); setSelectedBeatImages(prev => { const a = [...(prev[sceneId] || beats.map(() => true))]; a.splice(bi, 1); return { ...prev, [sceneId]: a }; }); }}
+                                          title="Remove this beat image"
+                                          style={{ position: "absolute" as const, top: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "#ef4444", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, zIndex: 2 }}>
+                                          ×
+                                        </button>
+                                      </div>
                                     );
                                   })}
                                 </div>
@@ -8645,15 +8705,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${prevCharImages[char.characterId] ? "#f59e0b40" : "#33333340"}`, background: prevCharImages[char.characterId] ? "#f59e0b08" : "transparent", color: prevCharImages[char.characterId] ? "#f59e0b" : "#555", fontSize: 10, fontWeight: 700, cursor: prevCharImages[char.characterId] ? "pointer" : "not-allowed", opacity: prevCharImages[char.characterId] ? 1 : 0.4 }}>
                         Undo Image
                       </button>
-                      {/* Remove Image — clear portrait entirely */}
-                      {char.imageUrl && (
+                      {/* Remove Image — clear portrait + all 3 angle shots */}
+                      {(char.imageUrl || charRefImages[char.characterId]?.length > 0) && (
                         <button
                           onClick={() => {
                             if (char.imageUrl) setPrevCharImages(p => ({ ...p, [char.characterId]: char.imageUrl! }));
                             setCharacters(cs => cs.map(c => c.characterId === char.characterId ? { ...c, imageUrl: undefined, hasImage: false, imageLocked: false } : c));
-                            setLastAction(`${char.displayName} portrait removed`);
+                            setCharRefImages(prev => { const n = { ...prev }; delete n[char.characterId]; return n; });
+                            setLastAction(`${char.displayName} portrait + all angles removed`);
                           }}
-                          title="Remove this portrait image"
+                          title="Remove portrait and all 3 angle shots"
                           style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #ef444440", background: "#ef444408", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                           Remove Image
                         </button>
@@ -11594,29 +11655,54 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                     style={{ padding: "2px 8px", borderRadius: 4, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 8, cursor: "pointer" }}>
                                     Deselect All
                                   </button>
+                                  <button onClick={() => {
+                                    const checked = selectedBeatImages[sid] || beats.map(() => true);
+                                    const kept = beats.filter((_, i) => !checked[i]);
+                                    const keptChecks = checked.filter((_, i) => !checked[i]);
+                                    setSceneBeatImages(prev => ({ ...prev, [sid]: kept }));
+                                    setSelectedBeatImages(prev => ({ ...prev, [sid]: keptChecks }));
+                                  }}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ef444460", background: "transparent", color: "#ef4444", fontSize: 8, cursor: "pointer" }}>
+                                    Del Selected
+                                  </button>
+                                  <button onClick={() => {
+                                    setSceneBeatImages(prev => ({ ...prev, [sid]: [] }));
+                                    setSelectedBeatImages(prev => ({ ...prev, [sid]: [] }));
+                                  }}
+                                    style={{ padding: "2px 8px", borderRadius: 4, border: "1px solid #ef444460", background: "#ef44440a", color: "#ef4444", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                                    Del All
+                                  </button>
                                 </div>
                               </div>
                               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
                                 {beats.map((url, bi) => {
                                   const checked = selectedBeatImages[sid]?.[bi] !== false;
                                   return (
-                                    <label key={bi}
-                                      title={`Image ${bi + 1} — ${checked ? "included" : "skipped"}`}
-                                      style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
-                                      <img src={url} alt={`#${bi + 1}`}
-                                        style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
-                                        onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Image ${bi + 1}` }); }} />
-                                      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                                        <input type="checkbox" checked={checked}
-                                          onChange={e => setSelectedBeatImages(prev => {
-                                            const arr = [...(prev[sid] || beats.map(() => true))];
-                                            arr[bi] = e.target.checked;
-                                            return { ...prev, [sid]: arr };
-                                          })}
-                                          style={{ width: 11, height: 11 }} />
-                                        <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>#{bi + 1}</span>
-                                      </div>
-                                    </label>
+                                    <div key={bi} style={{ position: "relative" as const }}>
+                                      <label
+                                        title={`Image ${bi + 1} — ${checked ? "included" : "skipped"}`}
+                                        style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, padding: 3, borderRadius: 5, border: `2px solid ${checked ? "#ff9500" : "#33334a"}`, background: checked ? "#ff950018" : "transparent", cursor: "pointer", userSelect: "none" as const }}>
+                                        <img src={url} alt={`#${bi + 1}`}
+                                          style={{ width: 60, height: 44, objectFit: "cover" as const, borderRadius: 3, opacity: checked ? 1 : 0.4 }}
+                                          onClick={e => { e.preventDefault(); setPreviewMedia({ url, type: "image", title: `${scene.title} — Image ${bi + 1}` }); }} />
+                                        <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                                          <input type="checkbox" checked={checked}
+                                            onChange={e => setSelectedBeatImages(prev => {
+                                              const arr = [...(prev[sid] || beats.map(() => true))];
+                                              arr[bi] = e.target.checked;
+                                              return { ...prev, [sid]: arr };
+                                            })}
+                                            style={{ width: 11, height: 11 }} />
+                                          <span style={{ fontSize: 8, color: checked ? "#ff9500" : muted, fontWeight: 700 }}>#{bi + 1}</span>
+                                        </div>
+                                      </label>
+                                      <button
+                                        onClick={e => { e.stopPropagation(); setSceneBeatImages(prev => { const a = [...(prev[sid] || [])]; a.splice(bi, 1); return { ...prev, [sid]: a }; }); setSelectedBeatImages(prev => { const a = [...(prev[sid] || beats.map(() => true))]; a.splice(bi, 1); return { ...prev, [sid]: a }; }); }}
+                                        title="Remove this image"
+                                        style={{ position: "absolute" as const, top: -4, right: -4, width: 14, height: 14, borderRadius: "50%", background: "#ef4444", border: "none", color: "#fff", fontSize: 9, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1, padding: 0, zIndex: 2 }}>
+                                        ×
+                                      </button>
+                                    </div>
                                   );
                                 })}
                               </div>

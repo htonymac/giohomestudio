@@ -663,3 +663,149 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
    M app/api/hybrid/story-expand/route.ts
    M app/components/PreGenerationGate.tsx
   ```
+
+## 2026-05-18 22:58 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-18 23:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-18 23:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-18 23:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 03:21 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 03:35 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 03:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 03:58 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 04:12 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 15:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 16:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d18f767 feat(era-lock+children-pacing): Era/Culture Lock system + Children Pacing Engine C1-C6`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/hybrid/scene-image/route.ts
+   M app/dashboard/hybrid-planner/page.tsx
+   M playwright-report/index.html
+   M test-results/.last-run.json
+   M update/HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
