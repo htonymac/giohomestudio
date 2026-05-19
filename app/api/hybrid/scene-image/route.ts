@@ -439,7 +439,7 @@ export async function POST(req: NextRequest) {
       referenceImageUrl: referenceImageUrls[0],
       // Identity lock for any character that has a portrait URL.
       // image-provider.ts auto-uploads local /api/media/ portraits to FAL CDN before PuLID call.
-      useIdentityLock: (hasPhotoImportChar || referenceImageUrls.length > 0) && !modelId,
+      useIdentityLock: hasPhotoImportChar || referenceImageUrls.length > 0,
     });
 
     if (!result.success && result.model) {
@@ -461,7 +461,7 @@ export async function POST(req: NextRequest) {
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
             referenceImageUrl: referenceImageUrls[0],
-            useIdentityLock: (hasPhotoImportChar || referenceImageUrls.length > 0) && !modelId,
+            useIdentityLock: hasPhotoImportChar || referenceImageUrls.length > 0,
           });
           if (!result.success && result.model) {
             markBroken(result.model.id, result.error ?? "fallback also failed");

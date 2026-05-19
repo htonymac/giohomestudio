@@ -61,11 +61,14 @@ export interface ImageGenerateResult {
 }
 
 export async function generateImage(req: ImageGenerateRequest): Promise<ImageGenerateResult> {
-  // Route to face-lock model when caller requests identity preservation
+  // Route to face-lock model when caller requests identity preservation.
+  // Override the user's model UNLESS they specifically picked a non-FLUX model
+  // (e.g., Ideogram for transparent BG) — those choices win.
   let effectiveModelId = req.modelId;
-  if (req.useIdentityLock && req.referenceImageUrl && !req.modelId) {
+  const userPickedNonFlux = !!req.modelId && !req.modelId.toLowerCase().includes("flux");
+  if (req.useIdentityLock && req.referenceImageUrl && !userPickedNonFlux) {
     effectiveModelId = "fal_flux_pulid";
-    console.log(`[ImageProvider] Identity lock requested — routing to fal_flux_pulid`);
+    console.log(`[ImageProvider] Identity lock → fal_flux_pulid (was: ${req.modelId || "default"})`);
   }
 
   const model = effectiveModelId ? getModelById(effectiveModelId) : getDefaultImageModel();
