@@ -1,3 +1,8 @@
+## READ THIS FIRST → `update/HANDOFF_SPECS.md`
+Canonical handoff: current state, locked product decisions, what's open, deploy commands, traps. Supersedes the historical chatter below.
+
+---
+
 # GHS Handoff — 2026-05-17 (Hybrid subtitle + QC + Parse Script)
 
 ## Where we stopped
@@ -806,6 +811,17 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
    M playwright-report/index.html
    M test-results/.last-run.json
    M update/HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 20:46 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2f6647e fix(face-lock): auto-upload portraits to FAL CDN — enables PuLID for all characters`
+- working tree:
+  ```
+   M playwright-report/index.html
+   M test-results/.last-run.json
   ?? storage/scenes/
   ?? storage/test_narration_mix.mp3
   ```

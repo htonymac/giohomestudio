@@ -1,3 +1,8 @@
+## READ THIS FIRST → `update/HANDOFF_SPECS.md`
+Canonical handoff: current state, locked product decisions, what's open, deploy commands, traps. Supersedes the historical chatter below.
+
+---
+
 # GHS HANDOFF — Session 17 (Image Quality + Character Consistency + Beat Picker Fixes)
 
 **Last updated:** 2026-05-19
