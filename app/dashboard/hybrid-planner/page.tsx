@@ -11886,7 +11886,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Intro</p>
                   {introUrl
-                    ? <video src={introUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    ? (/\.(mp4|webm|mov)$/i.test(introUrl)
+                        ? <video src={introUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                        : <img src={introUrl} alt="Intro card" style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />)
                     : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No intro</p></div>}
                   <button onClick={async () => {
                     setGeneratingIntro(true);
@@ -11904,7 +11906,9 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Outro</p>
                   {outroUrl
-                    ? <video src={outroUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                    ? (/\.(mp4|webm|mov)$/i.test(outroUrl)
+                        ? <video src={outroUrl} controls style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />
+                        : <img src={outroUrl} alt="Outro card" style={{ width: "100%", borderRadius: 8, marginBottom: 8 }} />)
                     : <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 8, border: `1px dashed ${border}`, marginBottom: 8 }}><p style={{ fontSize: 11, color: muted }}>No outro</p></div>}
                   <button onClick={async () => {
                     setGeneratingOutro(true);
