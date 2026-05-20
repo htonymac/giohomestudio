@@ -4886,23 +4886,47 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       }
 
       const a = data.analysis;
-      // Fill all fields — overwrite empty ones, keep manually-typed ones
+      // Fill all fields — overwrite empty ones, keep manually-typed ones.
+      // CRITICAL: story-extracted skinTone/ageRange are the source of truth — never let
+      // the picture-reading AI override them with what the (possibly wrong) portrait shows.
+      // Without this, a portrait that came out white would make AI Read write "fair skin"
+      // into colorDescription, throwing away the story's "dark brown skin".
       setCharacters(prev => prev.map(c => {
         if (c.characterId !== charId) return c;
+        // Detect skin/ethnicity conflict between story (c.skinTone) and AI's read of portrait (a.colorDescription)
+        const skinHasEthnicity = (c.skinTone || "").length > 3;
+        const aiSaysLight = /\b(fair|pale|light|white|caucasian|tan)\b/i.test(a.colorDescription || "");
+        const storySaysDark = /\b(dark|brown|black|melanated|african|nigerian)\b/i.test(c.skinTone || "");
+        const aiSaysDark = /\b(dark|brown|black|melanated|african)\b/i.test(a.colorDescription || "");
+        const storySaysLight = /\b(fair|pale|light|white|caucasian)\b/i.test(c.skinTone || "");
+        const ethnicityConflict = (storySaysDark && aiSaysLight) || (storySaysLight && aiSaysDark);
         return {
           ...c,
           species:              c.species || a.species || "",
           bodyBuild:            c.bodyBuild || a.bodyBuild || "",
-          colorDescription:     c.colorDescription || a.colorDescription || "",
+          // Prefer existing colorDescription → story's skinTone → AI's read.
+          // If AI's read conflicts with story's skin tone, force story to win.
+          colorDescription:     c.colorDescription
+                                  || (ethnicityConflict ? c.skinTone : (skinHasEthnicity ? c.skinTone : a.colorDescription))
+                                  || a.colorDescription
+                                  || "",
           faceFeatures:         c.faceFeatures || a.faceFeatures || "",
           clothingDetails:      c.clothingDetails || a.clothingDetails || "",
           accessories:          c.accessories || a.accessories || "",
           distinctiveFeatures:  c.distinctiveFeatures || a.distinctiveFeatures || "",
-          ageAppearance:        c.ageAppearance || a.ageAppearance || "",
+          // Don't let AI's ageAppearance ("appears 10-12 years old") override a story-set ageRange ("adult")
+          ageAppearance:        c.ageAppearance || (c.ageRange ? "" : a.ageAppearance) || "",
           gender:               c.gender || (a.gender !== "unknown" ? a.gender : ""),
           roleType:             c.roleType || a.suggestedRole || c.roleType,
         };
       }));
+      if (typeof window !== "undefined") {
+        const conflict = /\b(dark|brown|black|melanated|african)\b/i.test(data.analysis.colorDescription || "") !==
+          /\b(dark|brown|black|melanated|african)\b/i.test((characters.find(x => x.characterId === charId)?.skinTone) || "");
+        if (conflict) {
+          console.warn(`[AI Read] Skin tone conflict for ${charId}: story=${characters.find(x => x.characterId === charId)?.skinTone} vs AI-read=${data.analysis.colorDescription}. Story wins.`);
+        }
+      }
 
       const providerLabel = data.provider === "ollama-vision" ? "Local (Ollama)" : data.provider === "claude-vision" ? "Claude" : data.provider === "gpt-vision" ? "GPT-4o" : data.provider || "AI";
       const confidence = a.confidence === "high" ? "high confidence" : a.confidence === "medium" ? "medium confidence" : "low confidence";
