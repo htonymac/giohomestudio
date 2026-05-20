@@ -519,8 +519,11 @@ export async function POST(req: NextRequest) {
               else if (fs.existsSync(dejavuPath2)) fontFilePath = dejavuPath2;
             }
             // fontfile value for FFmpeg filter — use forward slashes, single-quote to protect colon in C:
+            // Windows fontfile must have colons escaped — FFmpeg drawtext treats `:`
+            // as a filter param separator even inside single quotes.
+            // `C:/Windows/Fonts/arial.ttf` → `C\\:/Windows/Fonts/arial.ttf`
             const fontFileOpt = fontFilePath
-              ? `fontfile='${fontFilePath.replace(/\\/g, "/")}'`
+              ? `fontfile='${fontFilePath.replace(/\\/g, "/").replace(/:/g, "\\:")}'`
               : "";
             const withFont = (s: string) => fontFileOpt ? `${fontFileOpt}:${s}` : s;
 
@@ -605,7 +608,7 @@ export async function POST(req: NextRequest) {
                     subtitleStatus.reason = "subtitled file produced but empty or missing";
                   }
                 } catch (dtErr) {
-                  subtitleStatus.reason = `drawtext failed: ${dtErr instanceof Error ? dtErr.message.slice(0, 300) : String(dtErr)}`;
+                  subtitleStatus.reason = `drawtext failed: ${dtErr instanceof Error ? dtErr.message.slice(0, 1200) : String(dtErr)}`;
                   console.error("[subtitle] drawtext FAILED:", dtErr instanceof Error ? dtErr.message.slice(0, 400) : dtErr);
                   console.error("[subtitle] chain sample:", drawChain.slice(0, 300));
                 }
