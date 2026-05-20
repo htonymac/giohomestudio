@@ -257,7 +257,7 @@ export async function POST(req: NextRequest) {
       const speechStyle = ch.speechStyle || "normal";
       const country = ch.country || "";
       const personality = ch.personality || "";
-      // skinTone fallback chain: LLM-extracted → inferred from visualDescription/personality/ethnicity → empty
+      // skinTone fallback chain: LLM-extracted → inferred from visualDescription/personality/ethnicity → story scan → empty
       const ethnicity = ch.ethnicity || "";
       let skinTone = ch.skinTone || "";
       if (!skinTone) {
@@ -265,11 +265,19 @@ export async function POST(req: NextRequest) {
           [visualDescription, personality, ethnicity, country].filter(Boolean).join(" "),
         );
       }
-      // Final fallback: scan the full story for ethnicity keywords as a last-resort dominant-context inference
-      if (!skinTone && typeof expandedStory === "object") {
-        const storyText = (expandedStory.fullScript || expandedStory.expandedSummary || expandedStory.idea || "")
-          .toString().toLowerCase();
-        skinTone = inferSkinToneFromText(storyText);
+      // Final fallback: scan EVERY string field in expandedStory for ethnicity keywords.
+      // story-expand uses field names like summary / narrativeArc / characterList — so a
+      // narrow allowlist misses them. Walk the object and concatenate everything.
+      if (!skinTone && expandedStory && typeof expandedStory === "object") {
+        const allText: string[] = [];
+        const walk = (val: unknown) => {
+          if (typeof val === "string") allText.push(val);
+          else if (Array.isArray(val)) val.forEach(walk);
+          else if (val && typeof val === "object") Object.values(val).forEach(walk);
+        };
+        walk(expandedStory);
+        const combined = allText.join(" ").toLowerCase().slice(0, 20000);
+        skinTone = inferSkinToneFromText(combined);
       }
 
       // Generate persistent character ID
