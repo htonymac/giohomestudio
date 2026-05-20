@@ -76,12 +76,34 @@ For each character, return a JSON array with objects containing:
 - name: character's full name (string)
 - roleType: one of "hero", "heroine", "villain", "narrator", "support", "elder", "child", "comic_relief"
 - gender: "male" or "female"
-- age: age group — "child", "teen", "young_adult", "adult", or "elder"
+- age: REQUIRED — "child", "teen", "young_adult", "adult", or "elder"
 - visualDescription: a brief visual description of appearance, clothing, and distinguishing features
-- speechStyle: default speaking style — "normal", "whisper", "emotional", "commanding", or "trembling"
+- speechStyle: "normal", "whisper", "emotional", "commanding", or "trembling"
 - country: country of origin if mentioned or implied (e.g. "Nigeria", "USA")
-- skinTone: skin tone if described (e.g. "dark", "fair", "brown")
+- skinTone: REQUIRED — skin tone and ethnic features (never blank)
+- ethnicity: REQUIRED — racial/ethnic group (e.g. "Black", "Latina", "White", "Asian", "Middle Eastern", "South Asian")
 - personality: one-sentence personality summary
+
+CRITICAL — skinTone and age MUST always be filled. Never blank.
+
+Skin tone inference rules (use these when story doesn't say literally):
+- "Latina/Latino/Hispanic/Mexican/Cuban" → "olive-brown Latina skin, Hispanic features, dark hair, dark eyes"
+- "Black/African-American/Nigerian/African/Yoruba/Igbo/Hausa" → "dark brown skin, African features, melanated"
+- "Asian/Chinese/Japanese/Korean/Filipino/Vietnamese" → "fair Asian skin, East Asian features"
+- "White/Caucasian/European/British/Irish/Italian/Russian" → "fair Caucasian skin, European features"
+- "Middle Eastern/Arab/Persian/Turkish/Lebanese" → "olive-tan skin, Middle Eastern features"
+- "Indian/South Asian/Pakistani/Bangladeshi" → "warm brown skin, South Asian features"
+- "Native American/Indigenous" → "warm brown skin, Indigenous features"
+- If story explicitly says skin color (e.g. "dark brown skin", "pale fair skin") → use that exact phrase
+- If story gives NO ethnicity clue at all → look at country/setting; otherwise default to story's dominant ethnic context
+
+Age inference rules:
+- "child/kid/boy/girl" → "child"
+- "teen/teenager/teenage/adolescent" → "teen"
+- "young/twenties/early thirties" → "young_adult"
+- "thirties/forties/middle-aged" → "adult"
+- "elder/old/elderly/grandmother/grandfather/sixties or older" → "elder"
+- If truly ambiguous → "adult"
 
 Rules:
 - Include EVERY character that speaks or is named
@@ -91,6 +113,26 @@ Rules:
 
 Story:
 ${story}`;
+}
+
+// Belt-and-suspenders: if LLM returned blank skinTone, infer from visualDescription/personality text
+function inferSkinToneFromText(text: string): string {
+  const t = (text || "").toLowerCase();
+  if (/\b(latina|latino|hispanic|mexican|cuban|chicana|chicano|puerto\s*rican)\b/.test(t))
+    return "olive-brown Latina skin, Hispanic features, dark hair, dark eyes";
+  if (/\b(black|african[-\s]?american|nigerian|yoruba|igbo|hausa|african|west\s*african|east\s*african)\b/.test(t))
+    return "dark brown skin, African features, melanated";
+  if (/\b(asian|chinese|japanese|korean|filipino|vietnamese|thai|indonesian)\b/.test(t))
+    return "fair Asian skin, East Asian features";
+  if (/\b(middle\s*eastern|arab|arabic|persian|iranian|turkish|lebanese|egyptian)\b/.test(t))
+    return "olive-tan skin, Middle Eastern features";
+  if (/\b(indian|south\s*asian|pakistani|bangladeshi|sri\s*lankan)\b/.test(t))
+    return "warm brown skin, South Asian features";
+  if (/\b(native\s*american|indigenous|navajo|cherokee)\b/.test(t))
+    return "warm brown skin, Indigenous features";
+  if (/\b(white|caucasian|european|british|irish|italian|german|russian|scandinavian)\b/.test(t))
+    return "fair Caucasian skin, European features";
+  return "";
 }
 
 // ── Extract characters from LLM response ─────────────────────
@@ -210,8 +252,21 @@ export async function POST(req: NextRequest) {
       const visualDescription = ch.visualDescription || "";
       const speechStyle = ch.speechStyle || "normal";
       const country = ch.country || "";
-      const skinTone = ch.skinTone || "";
       const personality = ch.personality || "";
+      // skinTone fallback chain: LLM-extracted → inferred from visualDescription/personality/ethnicity → empty
+      const ethnicity = ch.ethnicity || "";
+      let skinTone = ch.skinTone || "";
+      if (!skinTone) {
+        skinTone = inferSkinToneFromText(
+          [visualDescription, personality, ethnicity, country].filter(Boolean).join(" "),
+        );
+      }
+      // Final fallback: scan the full story for ethnicity keywords as a last-resort dominant-context inference
+      if (!skinTone && typeof expandedStory === "object") {
+        const storyText = (expandedStory.fullScript || expandedStory.expandedSummary || expandedStory.idea || "")
+          .toString().toLowerCase();
+        skinTone = inferSkinToneFromText(storyText);
+      }
 
       // Generate persistent character ID
       const characterId = generateCharacterId({
@@ -245,6 +300,15 @@ export async function POST(req: NextRequest) {
         continue;
       }
 
+      // Inject skinTone into visualDescription so image model sees ethnicity/skin first.
+      // Only prepend when the description doesn't already mention skin/ethnicity terms,
+      // so explicit story-text descriptions aren't duplicated.
+      const descLower = (visualDescription || "").toLowerCase();
+      const alreadyHasSkin = /\b(skin|brown|dark|fair|pale|olive|melanated|complexion|black|white|asian|latina|latino|hispanic|african)\b/.test(descLower);
+      const enrichedVisualDescription = (skinTone && !alreadyHasSkin)
+        ? `${skinTone}, ${visualDescription}`.replace(/,\s*$/, "")
+        : (visualDescription || skinTone || "");
+
       // Create new CharacterVoice record in database
       const record = await prisma.characterVoice.create({
         data: {
@@ -253,7 +317,7 @@ export async function POST(req: NextRequest) {
           gender,
           role: roleType,
           age,
-          visualDescription: visualDescription || null,
+          visualDescription: enrichedVisualDescription || null,
           defaultSpeechStyle: speechStyle,
           isNarrator,
           voiceId: voice.voiceId,
