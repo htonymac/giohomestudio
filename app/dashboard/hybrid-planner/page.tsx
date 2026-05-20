@@ -1214,14 +1214,15 @@ function HybridPlannerInner() {
             tags: [],
             hasVoice: !!(c.voiceId as string),
             hasImage: false,
-            // Mark as needing AI build — visual fields empty until user clicks Build
-            species: "",
+            // Visual fields — populated from extraction (ethnicity + age MUST flow through
+            // so portrait gen prompts include them BEFORE auto-AI-Read can override)
+            species: "human",
             bodyBuild: "",
-            colorDescription: "",
+            colorDescription: (c.colorDescription as string) || (c.skinTone as string) || "",
             faceFeatures: "",
-            clothingDetails: (c.visualDescription as string) || "",
+            clothingDetails: "",
             accessories: "",
-            distinctiveFeatures: "",
+            distinctiveFeatures: (c.visualDescription as string) || "",
             ageAppearance: "",
           });
         });

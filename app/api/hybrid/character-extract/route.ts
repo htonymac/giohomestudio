@@ -241,6 +241,10 @@ export async function POST(req: NextRequest) {
       voiceId: string;
       voiceName: string;
       dbId: string;
+      visualDescription: string;
+      skinTone: string;
+      ageRange: string;
+      colorDescription: string;
     }> = [];
 
     for (let i = 0; i < rawCharacters.length; i++) {
@@ -296,6 +300,10 @@ export async function POST(req: NextRequest) {
           voiceId: existing.voiceId || voice.voiceId,
           voiceName: existing.voiceName || voice.voiceName,
           dbId: existing.id,
+          visualDescription: existing.visualDescription || "",
+          skinTone: skinTone || "",
+          ageRange: existing.age || age,
+          colorDescription: skinTone || "",
         });
         continue;
       }
@@ -339,6 +347,13 @@ export async function POST(req: NextRequest) {
         voiceId: voice.voiceId,
         voiceName: voice.voiceName,
         dbId: record.id,
+        // NEW: ship the ethnicity/visual data to the client so it can populate React state
+        // BEFORE portrait generation runs. Without these, c.skinTone was empty when
+        // auto-AI-Read ran and the wrong-portrait colorDescription overrode the story.
+        visualDescription: enrichedVisualDescription || "",
+        skinTone: skinTone || "",
+        ageRange: age,
+        colorDescription: skinTone || "",  // mirror so client's buildVisualDescription sees ethnicity
       });
     }
 
