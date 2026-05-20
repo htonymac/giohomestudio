@@ -1,237 +1,376 @@
-# GHS HANDOFF — Session 17 (Image Quality + Character Consistency + Beat Picker Fixes)
+# GHS HANDOFF — Session 18 (Ethnicity Pipeline End-to-End + Subtitle + Face Lock)
 
-**Last updated:** 2026-05-19
-**Build:** TSC clean — 0 new errors (pre-existing test error only)
-**Git:** UNCOMMITTED — session 17 changes across 3 files
+**Last updated:** 2026-05-20
+**Build:** TSC clean — 0 new errors (pre-existing test error in tests/sound-browser-check.spec.ts only)
+**Git:** All committed and pushed to `main`. HEAD = `863b493`.
 **Port:** 3200 | **DB:** giohomestudio_db (PostgreSQL + Prisma)
 
 ---
 
-## WHAT WAS BUILT THIS SESSION (Session 17)
+## ⚠ CRITICAL — IF FACES STILL WRONG AFTER RESTART
 
-### 1. Beat Image Picker — Delete Buttons
+Run this exact sequence (browser was likely caching old client bundle):
+
+```powershell
+# 1. Stop dev server (Ctrl+C)
+# 2. Delete Next.js build cache
+Remove-Item -Recurse -Force .next
+# 3. Restart
+npm run dev
+# 4. Wait for "✓ Ready in ..." in terminal
+# 5. In browser, Ctrl+Shift+R (HARD refresh)
+# 6. Start a BRAND NEW project (don't reuse old ones — their broken
+#    visualDescription is baked into hybrid_saved_states DB rows)
+```
+
+Existing broken projects (Twins Guns Hybrid Project with Marcus Cole, Dante Cole,
+LIEUTENANT RIVERA showing as white) **cannot be fixed by code** — their character
+data is already persisted with `colorDescription: "fair skin"` etc. Either:
+- Delete the broken characters one-by-one in Character tab, then re-extract
+- OR start a fresh project
+
+Verify the fix works by:
+1. Open browser DevTools (F12) → Network tab
+2. Click "Expand with AI" in a new project
+3. Find `character-extract` response → click → Response tab
+4. Look at `characters[0].skinTone` / `colorDescription` / `visualDescription`
+5. All three should contain "dark brown..." or whatever ethnicity the story implies
+
+---
+
+## WHAT WAS BUILT THIS SESSION (Session 18) — 13 commits, all on `main`
+
+Each fix removed a specific bug or added a missing data path. None broke
+existing functionality. Order matters — earlier fixes are required for later
+ones to be reachable.
+
+### 1. `a39b3a3` — Session 17 features (recap)
+Beat picker delete buttons, Nollywood skin lock, narrative jargon stripper,
+charRefImages portrait used by scene gen, bear-head fix v1, phone negative,
+description-first character ordering, anti-stereotype negatives, storyCulture
+fallback bug, re-parse script fix.
+
+### 2. `2f6647e` — Face-lock: auto-upload portraits to FAL CDN
+**File:** `src/lib/generation/gateways/fal.ts`, `src/lib/generation/selectors/image-provider.ts`
+- Added `face_image_url` field to `FalImageRequest`
+- `falGenerateImage` now forwards `face_image_url` to FAL API
+- `resolvePublicPortraitUrl()` reads local `/api/media/...` portraits from
+  disk → uploads to FAL Storage → caches public URL (module-level Map)
+- Previously: PuLID never had a public URL to face-lock against. Now it does.
+
+### 3. `2312034` — Bear-head root cause fixed
+**File:** `app/api/hybrid/scene-image/route.ts`
+Removed `sceneHasAnimal` (regex `/\b(bear|wolf|...)\b/` on scene text). Any
+sentence with "bear" as a verb ("cannot bear", "bearing gifts", "unbearable")
+matched and **disabled all bear protection** for that scene.
+Now: `explicitAnimal = charSpeciesIsAnimal` only (explicit species field).
+
+### 4. `83a965d` — PuLID modelId bypass removed
+**File:** `app/api/hybrid/scene-image/route.ts`, `src/lib/generation/selectors/image-provider.ts`
+Both files had `&& !modelId` guards on `useIdentityLock`. The hybrid planner
+always passes `effectiveImageModelId` (default FLUX), so the guard made PuLID
+NEVER activate. Fix:
+- `scene-image/route.ts`: `useIdentityLock = hasPhotoImportChar || referenceImageUrls.length > 0`
+- `image-provider.ts`: override to PuLID **unless** user picked a non-FLUX model
+  (Ideogram with transparent BG etc. — that choice wins)
+
+### 5. `26de934` — Subtitle line-break preservation + surfaced status
+**File:** `app/api/assembly/execute/route.ts`, `app/dashboard/hybrid-planner/page.tsx`
+- `escDrawtext()` protects `\n` from wrapText BEFORE escaping backslashes
+- Added `subtitleStatus` to assembly response: `{ requested, attempted, succeeded, reason, entries, fontUsed }`
+- Client surfaces failure reason via `setUiError()` red banner
+
+### 6. `3c6b658` — Age field flows from Character tab to scene gen
+**File:** `app/dashboard/hybrid-planner/page.tsx`, `app/api/hybrid/scene-image/route.ts`
+**WHY:** Same character appeared as 30yo in scene 1, 60yo in scene 2 — because
+`makeSceneImage`, `makeSceneImageVariations`, `makeSceneBeatImages` built
+`characterOverrides` WITHOUT including `age`. Server's `c.age` defaulted to
+null → no `AGE LOCK` block in prompt → model used name-driven stereotypes.
+- All 3 client overrides now send `age: c.ageRange || null`
+- Server `ov` type accepts `age?: string | null`
+- Server override loop: `if (ov.age) match.age = ov.age`
+- Session-only characters get `age: ov.age || null` (was hardcoded null)
+- Added diagnostic log:
+  `[scene-image] sceneId=X chars=N ages=[...] portraits=N faceLock=true firstPortrait=https://fal.media/...`
+
+### 7. `829ea62` — Extraction prompt requires skinTone + ethnicity inference
+**File:** `app/api/hybrid/character-extract/route.ts`
+- LLM prompt requires skinTone, age, ethnicity for every character
+- Inference table: "Latina" → olive-brown Hispanic, "Black/African" → dark
+  brown melanated, "Asian" → fair Asian, etc.
+- Server `inferSkinToneFromText()` fallback if LLM returns blank
+- Story full-text scan as last-resort dominant ethnic context
+- Injects computed skinTone into visualDescription before DB save
+
+### 8. `b65cce5` — Face-lock UI diagnostic
+**File:** `app/api/hybrid/scene-image/route.ts`, `app/dashboard/hybrid-planner/page.tsx`
+Scene image API response now includes:
+```typescript
+faceLock: {
+  requested: boolean,
+  used: boolean,
+  modelUsed: string,
+  portraitCount: number,
+  reason: string,
+}
+```
+Client surfaces in red banner if PuLID requested but didn't activate, green
+in lastAction if it did.
+
+### 9. `1774db4` — Auto-AI-Read anti-override
 **File:** `app/dashboard/hybrid-planner/page.tsx`
+**WHY:** `analyzeCharacterImage()` runs **automatically** after every portrait
+generation (line 5275). If the portrait was wrong (white when story said
+"dark brown"), AI Read described the wrong portrait and wrote "fair skin"
+into colorDescription — overwriting the original story-based ethnicity.
 
-Added to BOTH pickers (Scene Board ~line 7713 + Assembly tab ~line 11583):
-- **× button per tile** — red circle overlay top-right of each beat image. Splices that index out of `sceneBeatImages[sceneId]` AND `selectedBeatImages[sceneId]`
-- **Del Selected button** — removes all ticked images from both arrays
-- **Del All button** — wipes all beat images for that scene instantly
-- Tiles now wrapped in `position:relative` div to hold the overlay button
+Fix merges with conflict detection:
+- Prefers existing colorDescription → story's skinTone → AI's read
+- Explicit ethnicity conflict detection: if story says dark and AI says
+  light (or vice versa), story wins
+- ageAppearance protection: if `c.ageRange` set, AI's "appears 10-12 years
+  old" can't override
 
-### 2. Old Scene Images Contamination Fix
-**File:** `app/dashboard/hybrid-planner/page.tsx` line ~1353
-
-When `expandStory()` gets new scene data from API, it now clears:
-```typescript
-setSceneBeatImages({});
-setSelectedBeatImages({});
-```
-(alongside existing `setSceneImages({})`, `setSceneVideos({})` etc.)
-
-Previously beat images from Story A leaked into Story B because scene IDs (SC01, SC02…) are reused.
-
-### 3. Nollywood / Nigerian Skin Tone Lock
-**File:** `app/dashboard/hybrid-planner/page.tsx` — `generateCharacterPortrait()` function
-
-Detects Nigerian/African context when:
-- `effectiveStyle === "nollywood"` OR
-- `storyCulture`/`storyCountry` contains "nigeri/yoruba/igbo/hausa/lagos/abuja/african"
-
-Injects:
-- `skinAnchor` = `"BLACK WEST AFRICAN, dark rich melanated skin, deep brown complexion, African features,"` — placed in `basePrompt` BEFORE the visual description
-- `stylePrefix` for nollywood strengthened to include "BLACK WEST AFRICAN character, dark rich melanated skin"
-- `negativePrompt` for nollywood: blocks "white skin, light skin, pale skin, European features, Caucasian"
-
-**Only fires when `char.colorDescription`/`char.skinTone` doesn't explicitly say light/fair/pale** — manual overrides respected.
-
-### 4. Era/Culture Lock in Character Portraits (Hybrid Planner)
-**File:** `app/dashboard/hybrid-planner/page.tsx` — `generateCharacterPortrait()` function
-
-Added `eraLine` injection (was already in movie-planner + children-planner but was MISSING from hybrid-planner):
-```typescript
-const eraLine = (storyEra || storyCulture)
-  ? `Era: ${[storyEra, storyCulture].filter(Boolean).join(", ")}. Clothing, hairstyle, and accessories MUST reflect this time period and culture exactly.`
-  : "";
-```
-Placed in basePrompt between skinAnchor and character identity block.
-
-### 5. Remove Image Button — Clears All 3 Angles
-**File:** `app/dashboard/hybrid-planner/page.tsx` — line ~8675
-
-"Remove Image" button now clears BOTH:
-- `char.imageUrl` (main portrait) — was already done
-- `charRefImages[char.characterId]` (all 3 angle shots) — **NEW**
-
-Previously clicking Remove Image left the 3 angle thumbnails visible in the card.
-
-Button now also shows when angles exist even if main imageUrl is gone.
-
-### 6. Narrative Jargon Stripper for Scene Image Prompts
-**File:** `app/api/hybrid/scene-image/route.ts`
-
-Added `sanitizeNarrativeJargon()` function applied BEFORE style sanitization:
-- Strips: "inciting incident", "narrative arc", "character arc", "character development", "plot twist", "backstory", "scene setup", "exposition", "establishing the conflict", etc.
-- These screenplay terms confused image models and caused inaccurate scene renders
-- Scene description reaches image model as clean visual language only
-
-### 7. Scene Generation Uses Portrait Cache (charRefImages)
-**File:** `app/dashboard/hybrid-planner/page.tsx` — `makeSceneImage()`, `makeSceneImageVariations()`, `makeSceneBeatImages()`
-
-All 3 functions now pass the **front-angle portrait** (`charRefImages[c.characterId][0]`) as the reference image URL instead of the single `c.imageUrl`. Falls back to `c.imageUrl` if no angles exist.
-
-Front angle chosen because it has the clearest face view — best for models that use image conditioning.
-
-### 8. Animal Head / Bear Head Bug — Fixed (Root Cause Found)
-**File:** `app/api/hybrid/scene-image/route.ts`
-
-**Root cause:** Character separation block was doing `ANIMAL_PATTERN.test(visualDescription)` — if ANY character's visual description contained "bear" (e.g. "bear-like strength", "bearing confident posture" from AI analysis), that character was labeled `"[Name] is a bear (bear face, bear body...)"` in the prompt → model drew a bear head.
-
-**Fix:** The per-character species loop NOW uses ONLY the explicit `species` field from `characterOverrides`, never the description text:
-```typescript
-const isAnimal = ANIMAL_SPECIES.has(ovs);  // was: ovs ? ANIMAL_SPECIES.has(ovs) : ANIMAL_PATTERN.test(desc)
-```
-
-Also strengthened negatives: `"bear head, bear face, animal head on human body, animal head replacing human head"`.
-
-Separation block text changed from ALL-CAPS instruction-style to plain language.
-
-### 9. Phone/Smartphone Negative
-**File:** `app/api/hybrid/scene-image/route.ts`
-
-Added `phoneNegative` — blocks "holding smartphones, holding phones, staring at phones, mobile phone in hand" unless the scene description explicitly mentions "phone/smartphone/mobile/call/WhatsApp".
-
-Prevents the model from defaulting to "modern scene = everyone has a smartphone" for background extras.
-
-### 10. Character Anti-Stereotype Negatives + Description-First Ordering
-**File:** `app/api/hybrid/scene-image/route.ts`
-
-**Description-first ordering:** Character identity block now outputs:
-```
-"[physical description], wearing: [clothing], hair: [hairstyle] (this character is named Mama Iyabo)"
-```
-instead of:
-```
-"MAMA IYABO: [description]"
-```
-Model processes appearance FIRST, name is just a label — prevents name-driven stereotype bias (e.g. "Mama Iyabo" → old market woman).
-
-**Per-character anti-stereotype negatives built from description:**
-- If `age === "young_adult"` or `"adult"` → adds `"old [name], elderly [name], aged [name]"` to negative
-- If clothing has no headwrap/gele → adds `"headwrap on [name], gele on [name]"` to negative  
-- If description has "slim/thin/slender" → adds `"heavy [name], obese [name], overweight [name]"` to negative
-
-### 11. storyCulture Fallback Bug Fix
+### 10. `daae5db` — Intro/outro preview shows `<img>` not `<video>`
 **File:** `app/dashboard/hybrid-planner/page.tsx`
+generate-card API returns PNG `imageUrl`, but preview panels rendered it in
+a `<video controls>` tag → "No video with supported format" error.
+Now branches on URL extension. Final video pipeline was unaffected (always
+handled `img:` prefix correctly in FFmpeg).
 
-Was: `storyCulture: storyCulture || effectiveProjectStyle || undefined`
-Fixed: `storyCulture: storyCulture || undefined`
-
-The old code was passing the art style ("nollywood") as the culture value when `storyCulture` was empty, corrupting the era-culture-lock system with wrong data.
-
-### 12. Parse Script / Re-Parse Fix
-**File:** `app/dashboard/hybrid-planner/page.tsx` — `parseScript()` function
-
-**Problem:** After first parse + story update, clicking "Re-parse" used stale scene data (Path A ran silently with no visible change, and story text edits were ignored).
-
-**Fix:**
-1. On **re-parse** (`scriptSegments.length > 0`): always uses Path B (LLM) so updated `fullScript`/`expandedSummary` is respected
-2. On **first parse**: Path A (fast, from scenes) when scenes have content; Path B (LLM) otherwise
-3. `setShowScriptReview(false)` at start of parse → panel collapses then re-appears → user gets visual feedback
-
----
-
-## ⚠️ KNOWN LIMITATIONS (not bugs, just model constraints)
-
-### Character Consistency (Mama Iyabo / face drift)
-Mama Iyabo looks different across scenes despite having a portrait. Root cause: standard FAL FLUX doesn't do face-locking from reference images. Only `fal_flux_pulid` (PuLID) does — but PuLID requires a **PUBLIC URL** for the face reference image. Our portraits live at `/api/media/...` (local server) which FAL cannot access.
-
-**What we did:** Description-first ordering + anti-stereotype negatives + identity anchor text. These help significantly but don't fully lock appearance.
-
-**Full fix when ready:** Host portrait images on a CDN/public URL (R2, S3, etc.), then re-enable identity lock for portrait characters:
+### 11. `221c608` — Subtitle Windows fontfile colon escape
+**File:** `app/api/assembly/execute/route.ts`
+FFmpeg drawtext on Windows requires `\:` escape for the colon in
+`fontfile='C:/Windows/Fonts/arial.ttf'` even inside single quotes. The
+parser was treating the `:` as a filter param separator. Fix:
 ```typescript
-// In scene-image/route.ts generateImage() call:
-useIdentityLock: (hasPhotoImportChar || referenceImageUrls.length > 0) && !modelId,
+fontFilePath.replace(/\\/g, "/").replace(/:/g, "\\:")
 ```
-Currently this line is commented out / set to `hasPhotoImportChar` only to prevent generation failures.
+Also bumped surfaced error message from 300 → 1200 chars.
+
+### 12. `64df85d` — Extraction response includes ethnicity (THE one)
+**File:** `app/api/hybrid/character-extract/route.ts`, `app/dashboard/hybrid-planner/page.tsx`
+**ROOT CAUSE OF ALL THE WHITE-CHARACTER PAIN THIS SESSION:**
+Server saved ethnicity to DB but returned only minimal fields to client
+(characterId, name, role, gender, age, voiceId, dbId). Client had empty
+`skinTone` in React state → portrait gen had no ethnicity in prompt → white
+portrait → auto-AI-Read of white portrait → "fair skin" overrode story →
+every scene showed white characters.
+
+Fix:
+- character-extract response now includes `visualDescription`, `skinTone`,
+  `colorDescription`, `ageRange` for every character (new + existing matches)
+- TypeScript type for createdCharacters extended
+- Client mapping (hybrid-planner.tsx line 1220) populates colorDescription
+  from `c.colorDescription || c.skinTone` (was hardcoded empty)
+- `distinctiveFeatures` gets visualDescription (was incorrectly stuffed into
+  clothingDetails)
+
+### 13. `863b493` — Walk full expandedStory for ethnicity inference
+**File:** `app/api/hybrid/character-extract/route.ts`
+**WHY:** When story-expand returns a `characterList` with empty `skinTone`,
+the LLM call is SKIPPED. The fallback inference only scanned narrow fields
+(`fullScript || expandedSummary || idea`), but story-expand uses field
+names like `summary`, `narrativeArc`. So the fallback never ran on actual
+story text. Fix: walk the entire expandedStory object recursively, collect
+every string, run ethnicity regex on the combined text.
+
+Verified working live via direct API test:
+```
+ALEX skinTone="dark brown skin, African features, melanated"
+     colorDesc="dark brown skin, African features, melanated"
+BEN  same ✓
+```
 
 ---
 
-## UNCOMMITTED FILES (Session 17)
+## ENTIRE ETHNICITY DATA PIPELINE (after this session)
 
 ```
-M  app/dashboard/hybrid-planner/page.tsx
-M  app/api/hybrid/scene-image/route.ts
-```
-
-Session 16 files also uncommitted (see previous handoff entry).
-
-**Commit when ready:**
-```bash
-git add app/dashboard/hybrid-planner/page.tsx app/api/hybrid/scene-image/route.ts
-git add app/dashboard/children-planner/page.tsx app/dashboard/movie-planner/page.tsx
-git add app/api/hybrid/scene-plan/route.ts app/api/hybrid/story-expand/route.ts
-git add src/lib/era-culture-lock.ts src/types/children.ts
-git add app/api/children/ app/components/ChildrenKaraokeSubtitle.tsx
-git add update/CHANGELOG.md update/HANDOFF.md
-git commit -m "Session 16+17: Era/Culture Lock, Children Pacing C1-C6, beat picker delete, Nollywood skin fix, bear head fix, phone negative, character consistency improvements"
+story text typed by user
+        ↓
+story-expand → characterList (may be missing skinTone)
+        ↓
+character-extract
+  - If characterList present: mapCharacterIdentity (LLM skipped)
+  - Else: LLM extraction with strict skinTone+ethnicity required
+        ↓
+Fallback inference chain:
+  1. LLM-extracted skinTone
+  2. inferSkinToneFromText(visualDescription + personality + ethnicity + country)
+  3. inferSkinToneFromText(walk entire expandedStory)
+        ↓
+visualDescription enrichment:
+  enrichedVisualDescription = skinTone + ", " + visualDescription
+  (only if description doesn't already mention skin/ethnicity terms)
+        ↓
+Server saves to DB:
+  characterVoice.visualDescription = enrichedVisualDescription
+        ↓
+Server returns to client:
+  { characterId, name, role, gender, age, voiceId, dbId,
+    visualDescription, skinTone, ageRange, colorDescription }   ← NEW
+        ↓
+Client maps into characters[] state:
+  c.colorDescription = response.colorDescription || response.skinTone
+  c.distinctiveFeatures = response.visualDescription
+  c.species = "human"
+        ↓
+Portrait generation:
+  generateCharacterPortrait(char) → buildVisualDescription(char) → prompt
+  Prompt includes c.colorDescription with "dark brown skin..."
+        ↓
+Portrait result (may still come out wrong due to model bias)
+        ↓
+analyzeCharacterImage auto-runs:
+  Merge logic preserves c.colorDescription if filled
+  Detects ethnicity conflict (story says dark + AI says light)
+  Story wins
+        ↓
+Scene image generation:
+  makeSceneImage sends characterOverrides with age, species, etc.
+  scene-image/route.ts applies overrides over DB record
+  Portrait URL → resolvePublicPortraitUrl() → uploaded to FAL CDN
+  useIdentityLock=true → image-provider routes to fal_flux_pulid
+  face_image_url forwarded to FAL → PuLID face-locks scene to portrait
 ```
 
 ---
 
-## ACTIVE STATE
+## KNOWN LIMITATIONS / UNFIXED
 
-### Era & Culture Lock — COMPLETE (Session 16)
+### A. Existing broken projects can't be auto-fixed
+Code can only protect NEW extractions. If a project was created before today's
+fixes, its `hybrid_saved_states.data.characters[]` has baked-in wrong
+`colorDescription` like "fair skin". Three options:
+- Manually edit each broken character (Define Appearance button)
+- Delete those characters in Character tab, re-extract (uses new prompt)
+- Start a brand new project
+
+### B. Outro mid-video bug (unresolved — needs more info)
+User reported outro appearing in middle of assembled video. Code at line
+4097 puts intro→scenes→outro in correct order. Likely cause:
+- Either an outro image got added as a regular scene (creating 2 outros), OR
+- Saved `assemblyOrder` array has outro sceneId mid-array, OR
+- Drag-and-drop reorder left it mid-list
+
+**NOT TOUCHED THIS SESSION** — needs user to confirm which scenario.
+
+### C. character-build endpoint not strengthened
+`/api/hybrid/character-build` has its own LLM prompt with:
+> "be specific and DIFFERENT from existing characters"
+This may cause LLM to artificially diversify ethnicity (Alex=Black, Ben=light)
+when story says both are Black. Not yet fixed.
+
+### D. Diagnostic tests left in tests/ folder
+- `tests/diagnose-ethnicity-bug.spec.ts` — Playwright UI test (flaky on Expand AI timing)
+- `tests/verify-ethnicity-e2e.spec.ts` — same, end-to-end
+- `tests/test-extraction-api.mjs` — direct API test (works, useful)
+- `tests/verify-walk-fix.mjs` — verifies walk fallback (works)
+- `tests/fix-broken-characters.mjs` — find/delete broken character-voices
+- `tests/fix-project-characters.mjs` — find/patch broken project characters
+- `tests/find-marcus-cole.mjs` — search projects for specific char names
+
+These can be deleted or kept as diagnostic harness.
+
+---
+
+## ACTIVE STATE (Era/Culture Lock + Children Pacing — from Session 16)
+
+### Era & Culture Lock — COMPLETE
 - `src/lib/era-culture-lock.ts` — `buildFullLock()` + `toStaticFrame()`, 17 eras, 14 cultures
-- All 3 planners: `storyEra`/`storyCulture` inputs + save/load + API wiring + era badge
-- scene-image route: ERA LOCK FIRST in prompt, negative blocker
+- All 3 planners: `storyEra`/`storyCulture` inputs + era badge
+- scene-image: ERA LOCK FIRST in prompt, negative blocker
 
-### Children Pacing Engine — COMPLETE (Session 16)
+### Children Pacing Engine — C1-C6 COMPLETE
 - `src/types/children.ts`, `app/api/children/build-pacing-plan/`, `generate-narration/`, `assemble/`
-- `app/components/ChildrenKaraokeSubtitle.tsx` (4 modes: word_by_word, letter_by_letter, full, none)
+- `app/components/ChildrenKaraokeSubtitle.tsx` (4 modes)
 - `children-planner.tsx`: buildPacingPlan(), generatePacingNarration(), assemblePacingVideo()
 
 ### H-Series — COMPLETE (Session 15)
-H1-H5 image-first story structuring in hybrid planner (`/api/hybrid/structure-story`)
+H1-H5 image-first story structuring in hybrid planner
 
 ---
 
-## NEXT STEPS (what to build next)
+## NEXT STEPS (priority order)
 
 | Priority | Item | Notes |
 |---|---|---|
-| HIGH | Establish public CDN for portrait images | Enables full character face-lock via PuLID. Portraits at `/api/media/...` are localhost-only. |
+| HIGH | Verify Session 18 fixes work after `.next` deletion + hard refresh | The verify-walk-fix test confirms server-side, but user-side stale bundle may mask the fix |
+| HIGH | Outro mid-video bug | Need user confirmation: did outro appear twice or just mid-array? |
 | HIGH | C6 pacing engine save/load | `pacingPlan`, `pacingAudioUrl`, `pacingVideoUrl` not persisted to DB — lost on page refresh |
-| MED | Prisma migrations | `npx prisma migrate dev` — pending schema changes |
-| MED | Establishing Shot & Scene Opener | Spec at `update/LANDSCAPE SHOT/ESTABLISHING_SHOT_SPEC.md`. 8 types, 5 modes. Trigger: "build establishing shot" |
-| LOW | SFX semantic category system | 60 categories, royalty-free files, Ollama maps action→category |
-| LOW | Subtitle style tokens | Currently always Arial 22px white; ignores `subtitleConfig.mode` |
+| MED  | Strengthen `character-build` prompt | Same ethnicity inference + remove "DIFFERENT from existing" pressure when story implies same race |
+| MED  | "Re-extract from story" button | One-click fix for broken existing characters without losing other project state |
+| MED  | Prisma migrations | `npx prisma migrate dev` — pending schema changes |
+| MED  | Establishing Shot & Scene Opener | Spec at `update/LANDSCAPE SHOT/ESTABLISHING_SHOT_SPEC.md`. 8 types, 5 modes |
+| LOW  | SFX semantic category system | 60 categories, royalty-free, Ollama maps action→category |
+| LOW  | Subtitle style tokens | Currently always Arial; ignores `subtitleConfig.mode` |
 
 ---
 
-## KEY PROTECTED CODE (DO NOT REMOVE OR SIMPLIFY)
+## KEY PROTECTED CODE (DO NOT REMOVE)
 
-1. **`extractSceneAction()` call** in `app/api/hybrid/scene-image/route.ts` — PROTECTED comment in file. Injects body-language/action directives. Lost once, had to re-add.
-2. **`amix=duration=longest:normalize=0`** in `app/api/assembly/execute/route.ts` — NEVER duration=first, NEVER -shortest
-3. **`-stream_loop -1`** on video in `app/api/assembly/execute/route.ts` final_merge — required when narrator > scene duration
-4. **`effectiveNarrDurMs` recovery** in `assembleScenes()` — recovers narrator duration after hard refresh via browser Audio element
+1. **`extractSceneAction()`** in `app/api/hybrid/scene-image/route.ts` line 192 — PROTECTED comment. Injects body-language/action directives.
+2. **`sanitizeNarrativeJargon()`** in `app/api/hybrid/scene-image/route.ts` line 179 — strips screenplay terms before image prompt.
+3. **`amix=duration=longest:normalize=0`** in `app/api/assembly/execute/route.ts` — NEVER duration=first, NEVER -shortest.
+4. **`-stream_loop -1`** on video in final_merge — required when narrator > scene duration.
+5. **`effectiveNarrDurMs` recovery** in `assembleScenes()` — recovers narrator duration after hard refresh via browser Audio element.
+6. **PuLID auto-upload** in `image-provider.ts` `resolvePublicPortraitUrl()` — FAL needs public URLs.
+7. **AI-Read anti-override** in `analyzeCharacterImage()` merge — preserves story ethnicity over portrait read.
 
 ---
 
 ## HOW TO DEBUG
 
-### Scene images wrong era/culture/skin
-1. Check `storyEra` and `storyCulture` state in hybrid planner (Story tab, Era & Culture Lock section)
-2. Check character `colorDescription` field — if it says "light skin" from old AI analysis, that overrides the skin anchor. Clear it in Visual Identity Builder
-3. The skin anchor only fires for nollywood/Nigerian context. Other styles: set `colorDescription` manually
+### Faces still wrong color/age after restart
+1. Delete `.next` folder, restart, hard refresh (Ctrl+Shift+R)
+2. Open DevTools → Network tab → trigger Expand AI
+3. Inspect `character-extract` response → `characters[0].skinTone` / `colorDescription`
+4. If those fields are populated correctly → React state hydration bug (try a brand new project)
+5. If those fields are empty → server hasn't picked up new code (the `.next` step didn't work)
 
-### Bear head appearing
-Now fixed at root. If it reappears: check `characterOverrides[].species` in the scene-image API request (DevTools Network tab). If any character has `species: "bear"` unintentionally, that's the source.
+### Subtitle didn't burn in
+Look at the red banner at top of page after assembly. The reason is printed
+(format: `"Subtitles requested but not burned in: <exact reason>"`).
+- "drawtext failed: ..." → escape issue, check the chain sample
+- "narration entries have no .text field" → client didn't send text
+- "subtitled file produced but empty or missing" → FFmpeg silent failure
 
-### Characters look different across scenes
-Fundamental model limitation. Partial mitigation via description-first + anti-stereotype negatives. Full fix = CDN portraits + PuLID (see Known Limitations above).
+### PuLID face-lock not firing
+Each scene image generation now writes a console log:
+```
+[scene-image] sceneId=SC01 chars=1 ages=[adult] portraits=1 faceLock=true firstPortrait=https://fal.media/...
+```
+If `faceLock=false` → no portrait was provided
+If `firstPortrait=/api/media/...` (not `fal.media`) → upload to FAL CDN failed
 
-### Beat images from old story still showing
-Should be fixed (expandStory now clears `sceneBeatImages`). If it happens: click "Start Over" button to hard-reset all state, or manually click "Del All" on each scene's beat picker.
+### Bear head reappeared
+Check `characterOverrides[].species` in the scene-image API request (DevTools
+Network tab). If any character has `species: "bear"` unintentionally, that's
+the source. Sanitize the character's species field.
+
+---
+
+## TEST UTILITIES (tests/ folder)
+
+```bash
+# Verify extraction returns ethnicity correctly
+node tests/test-extraction-api.mjs
+
+# Verify walk-fallback infers ethnicity from story even when characterList is empty
+node tests/verify-walk-fix.mjs
+
+# List/patch broken characters in character-voices DB
+node tests/fix-broken-characters.mjs        # dry run
+node tests/fix-broken-characters.mjs --fix  # apply
+
+# Find/patch broken characters in saved-state project JSON
+node tests/fix-project-characters.mjs       # dry run
+node tests/fix-project-characters.mjs --apply  # apply
+
+# E2E Playwright (flaky on Expand AI button timing)
+npx playwright test tests/verify-ethnicity-e2e.spec.ts --project=chromium
+```
 
 ---
 
@@ -244,3 +383,6 @@ GHS = **3200** | Marabiz = 3040 | Octogent ghs = 8788
 
 ## DB
 `giohomestudio_db` (PostgreSQL) — Prisma ORM — migrations pending
+
+## REPO
+`https://github.com/htonymac/giohomestudio.git` — branch `main`, HEAD `863b493`
