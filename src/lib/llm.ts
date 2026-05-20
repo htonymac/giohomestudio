@@ -206,7 +206,10 @@ async function callOllama(
     return { ok: false, error: "Ollama: not reachable (not running locally)" };
   }
 
-  // Ollama IS running — cap generation at 15s so slow local models don't block the fallback chain.
+  // Ollama generation timeout. 14B-class models on an RTX 3060 take 20-40s for the first
+  // generation (VRAM warmup) and 10-25s for structured JSON output. 15s was too aggressive
+  // and made every "quality" role call fail. Default raised to 90s. Callers can override
+  // via opts.timeoutMs.
   try {
     const res = await fetch(`${ollamaBase}/api/chat`, {
       method: "POST",
@@ -221,7 +224,7 @@ async function callOllama(
         keep_alive: "10m",
         options: { temperature: opts.temperature ?? 0.4, num_predict: opts.maxTokens ?? 1200 },
       }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 15000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 90000),
     });
     if (!res.ok) return { ok: false, error: `Ollama HTTP ${res.status}` };
     const data = await res.json();
