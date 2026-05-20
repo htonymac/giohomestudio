@@ -2107,6 +2107,17 @@ function HybridPlannerInner() {
         setSceneGenProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; });
       } else if (data.imageUrl || data.imagePath) {
         const url = data.imageUrl || `/api/media/${data.imagePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`;
+        // Surface face-lock diagnostic — so user can see whether the portrait actually locked the face
+        if (data.faceLock) {
+          const fl = data.faceLock;
+          if (fl.requested && !fl.used) {
+            setUiError(`Scene ${scene.scene}: Face-lock requested but did NOT apply — model used ${fl.modelUsed} instead of fal_flux_pulid. Portrait may have failed to upload. Faces will drift.`);
+          } else if (fl.requested && fl.used) {
+            setLastAction(`Scene ${scene.scene} ✓ face-locked to portrait (${fl.modelUsed})`);
+          } else {
+            setLastAction(`Scene ${scene.scene} done (no portrait → no face-lock — ${fl.reason})`);
+          }
+        }
         setSceneGenProgress(prev => ({ ...prev, [scene.sceneId]: { percent: 100, message: "Done!", type: "image" } }));
         setTimeout(() => setSceneGenProgress(prev => { const n = { ...prev }; delete n[scene.sceneId]; return n; }), 1500);
         setSceneImages(prev => {

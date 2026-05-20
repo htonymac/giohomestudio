@@ -543,6 +543,21 @@ export async function POST(req: NextRequest) {
     // Return local /storage/ URL as imageUrl — CDN URLs (FAL) expire within hours.
     // page.tsx stores this as scene.imageUrl → flows into assembly segment sourceUrl.
     // execute/route.ts resolveMediaPath() handles /storage/ prefix correctly.
+    // Build a clear face-lock diagnostic so the UI can show what happened.
+    // faceLockRequested: caller asked for identity lock (portrait present)
+    // faceLockUsed: PuLID model actually ran (model.id === fal_flux_pulid AND result succeeded)
+    const faceLockUsed = result.success && result.model?.id === "fal_flux_pulid";
+    const faceLockDiagnostic = {
+      requested: willFaceLock,
+      used: faceLockUsed,
+      modelUsed: result.model?.id || null,
+      portraitCount: referenceImageUrls.length,
+      reason: willFaceLock
+        ? (faceLockUsed
+            ? "PuLID face-lock applied"
+            : `model fell back to ${result.model?.id} — portrait may have failed to upload to FAL CDN`)
+        : "no portrait provided",
+    };
     return NextResponse.json({
       success: true,
       imageUrl: result.imagePath ? localImageUrl : result.imageUrl,
@@ -550,9 +565,10 @@ export async function POST(req: NextRequest) {
       prompt: structuredPrompt,
       model: result.model?.id,
       provider: result.model?.provider_name,
-      characters: resolvedCharacters.map(c => ({ id: c.id, characterId: c.characterId, name: c.name })),
+      characters: resolvedCharacters.map(c => ({ id: c.id, characterId: c.characterId, name: c.name, age: c.age })),
       referenceImages: referenceImageUrls,          // 4-A: all collected reference URLs (array)
       referenceImagesUsed: referenceImageUrls.length, // 4-A: count for diagnostics
+      faceLock: faceLockDiagnostic,                  // NEW: visible PuLID status for client UI
       ...(supervisorWarning ? { supervisorWarning } : {}), // 3-D: keyword coverage warning
       ...(droppedCharacterIds.length > 0 ? { warning: `Generated without characters not in registry: ${droppedCharacterIds.join(", ")}` } : {}),
     });
