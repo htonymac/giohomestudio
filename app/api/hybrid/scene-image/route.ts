@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
     const photoImportCharIds = new Set<string>();
 
     if (characterOverrides && Array.isArray(characterOverrides)) {
-      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null; isPhotoImport?: boolean }>) {
+      for (const ov of characterOverrides as Array<{ characterId?: string; name?: string; visualDescription?: string; wardrobe?: string; hairstyle?: string; imageUrl?: string | null; isPhotoImport?: boolean; age?: string | null }>) {
         if (ov.isPhotoImport) {
           if (ov.characterId) photoImportCharIds.add(ov.characterId);
           if (ov.name) photoImportCharIds.add(ov.name);
@@ -150,6 +150,10 @@ export async function POST(req: NextRequest) {
           if (ov.hairstyle) match.hairstyle = ov.hairstyle;
           // Only override imageUrl if the client explicitly passes a locked reference
           if (ov.imageUrl) match.imageUrl = ov.imageUrl;
+          // Age override — client is source of truth (Character tab). Without this the
+          // AGE LOCK block was empty, letting the model default to name-driven stereotypes
+          // (e.g. "Mama Iyabo" → old market woman) regardless of the portrait's actual age.
+          if (ov.age) match.age = ov.age;
         } else if (ov.name && ov.visualDescription) {
           // Character exists only in session (not in DB yet) — add directly from override
           resolvedCharacters.push({
@@ -162,7 +166,7 @@ export async function POST(req: NextRequest) {
             wardrobe: ov.wardrobe || null,
             hairstyle: ov.hairstyle || null,
             culture: null,
-            age: null,
+            age: ov.age || null,
             lastSeenWardrobe: null,
           });
         }
@@ -428,6 +432,8 @@ export async function POST(req: NextRequest) {
     // If the chosen model returns a 404/422/"model not found" error, we mark it broken,
     // pick the best healthy model in the same family, and retry once.
     // Routes that call generateImage() without this wrapper still work unchanged (backward compat).
+    const willFaceLock = hasPhotoImportChar || referenceImageUrls.length > 0;
+    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
     let result = await generateImage({
       modelId: modelId || undefined,
       prompt: structuredPrompt,
@@ -439,7 +445,7 @@ export async function POST(req: NextRequest) {
       referenceImageUrl: referenceImageUrls[0],
       // Identity lock for any character that has a portrait URL.
       // image-provider.ts auto-uploads local /api/media/ portraits to FAL CDN before PuLID call.
-      useIdentityLock: hasPhotoImportChar || referenceImageUrls.length > 0,
+      useIdentityLock: willFaceLock,
     });
 
     if (!result.success && result.model) {
