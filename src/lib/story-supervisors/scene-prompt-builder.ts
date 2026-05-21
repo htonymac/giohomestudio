@@ -32,17 +32,42 @@ function buildNegativePrompt(contract: StoryContract, scene: ScenePlan): string 
 function injectCastBibleIntoCaptions(prompt: string, characters: string[], castBible: CastBibleEntry[]): string {
   if (!characters || characters.length === 0) return prompt;
 
+  // Match by character_id OR name (case-insensitive). Scene-plan AI returns short
+  // CH01-style placeholders OR display names; cast bible may be keyed either way.
   const identities = characters
-    .map(id => castBible.find(c => c.character_id === id))
+    .map(id => {
+      if (!id) return null;
+      const idLower = id.toLowerCase();
+      return castBible.find(c =>
+        c.character_id === id ||
+        c.character_id?.toLowerCase() === idLower ||
+        c.name?.toLowerCase() === idLower,
+      );
+    })
     .filter(Boolean) as CastBibleEntry[];
 
   if (identities.length === 0) return prompt;
 
+  // Build cast description with ONLY populated fields. Earlier version wrote
+  // " skin, , wearing " when fields were blank — and when clothing got
+  // accidentally populated with mood/atmosphere text upstream it surfaced as
+  // "wearing serene, peaceful atmosphere..." which made image models confused.
+  const FORBIDDEN_CLOTHING = /\b(atmosphere|mood|tone|tones|lighting|light|warm natural|soft natural|peaceful|serene|cinematic|aesthetic)\b/i;
   const castDescription = identities
-    .map(c => `${c.name}: ${c.age} ${c.gender}, ${c.ethnicity}, ${c.skin_tone} skin, ${c.hair}, wearing ${c.clothing}`)
+    .map(c => {
+      const parts: string[] = [`${c.name}: ${c.age || "adult"} ${c.gender || ""}`.trim()];
+      if (c.ethnicity && c.ethnicity !== "context-appropriate") parts.push(c.ethnicity);
+      if (c.skin_tone && c.skin_tone.trim().length > 1) parts.push(`${c.skin_tone} skin`);
+      if (c.hair && c.hair.trim().length > 1) parts.push(c.hair);
+      // Wardrobe — skip if empty OR contaminated with mood/atmosphere text
+      if (c.clothing && c.clothing.trim().length > 1 && !FORBIDDEN_CLOTHING.test(c.clothing)) {
+        parts.push(`wearing ${c.clothing}`);
+      }
+      return parts.join(", ");
+    })
     .join("; ");
 
-  if (prompt.includes(castDescription)) return prompt;
+  if (!castDescription || prompt.includes(castDescription)) return prompt;
   return `${prompt} — Characters: ${castDescription}`;
 }
 
