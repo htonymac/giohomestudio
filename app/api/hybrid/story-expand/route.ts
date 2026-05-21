@@ -30,6 +30,13 @@ interface StoryExpandRequest {
   storyType?: string;     // e.g. "short_story", "feature", "reel"
   emotionalIntensity?: string; // e.g. "normal", "high", "low"
   customNames?: string[]; // user-imported custom names (injected as approved pool)
+  // Children-mode context — strict vocabulary + reading-level overrides when set.
+  childContext?: {
+    ageGroup?: "toddler" | "preschool" | "early" | "older";
+    learningMode?: string;
+    safetyLevel?: "high" | "medium" | "low" | string;
+    visualStyle?: string;
+  };
 }
 
 interface CharacterEntry {
@@ -230,9 +237,61 @@ export async function POST(req: NextRequest) {
     if (body.costPreference) controlLines.push(`Cost preference: ${body.costPreference}`);
     if (body.audience) controlLines.push(`Target audience: ${body.audience}`);
 
-    const controlBlock = controlLines.length > 0
+    // ── Children-mode reading-level enforcement ────────────────────────────────
+    // When children-planner sends childContext, inject strict vocabulary rules per age group.
+    // Without these, the LLM writes a generic kids story with adult vocabulary.
+    let childRules = "";
+    if (body.childContext?.ageGroup) {
+      const ag = body.childContext.ageGroup;
+      const safety = body.childContext.safetyLevel || "high";
+      if (ag === "toddler") {
+        // 2-3 year olds
+        childRules = `\n\n━━ TODDLER READING RULES (2-3 years) — STRICT ━━
+- USE MOSTLY 2-LETTER and 3-LETTER WORDS: cat, dog, sun, run, mom, dad, big, red, hi, up, in, on, go, no, hot, hat, sit, fun, see, eat, me, we, you, hug, fly, day, sky, see
+- Some 4-letter words are OK: jump, play, blue, baby, bird, walk, ball, milk, time, bear, fish, frog, like, love
+- AVOID any word longer than 5 letters unless absolutely essential. NO words like "wonderful", "discovered", "remembered", "important".
+- SENTENCES: 3 to 5 words MAX. Example: "The cat sees the sun." NOT: "The cat looked out and noticed the warm bright sun shining."
+- REPETITION IS GOOD: repeat the same simple phrase across scenes. Toddlers love repetition.
+- CONCRETE NOUNS ONLY: things they can touch and see (animals, food, family, toys, weather). NO abstract concepts.
+- NO sarcasm, irony, metaphor, or complex emotions. Just literal action.
+- TONE: warm, gentle, predictable.
+- SAFETY: ${safety} — no fear, no loss, no danger, no conflict. Happy resolution always.`;
+      } else if (ag === "preschool") {
+        // 3-5 year olds
+        childRules = `\n\n━━ PRESCHOOL READING RULES (3-5 years) — STRICT ━━
+- USE PRIMARILY 2, 3, AND 4-LETTER WORDS: cat, dog, sun, fun, big, red, mom, dad, run, jump, see, eat, play, walk, look, fish, bird, ball, milk, baby, blue, soft, kind, like, love, time, home, day, sky, tree, leaf, rock, sand, warm, cold, fast, slow, hop, sit, hug, hold, find, sing, swim, ride, draw.
+- 5-LETTER WORDS ALLOWED SPARINGLY: happy, smile, water, green, table, chair, lunch, sleep, three, woods, mouse, tiger, smile.
+- AVOID 6+ letter words. NO "wonderful", "magnificent", "adventure", "discovered", "remembered", "perfectly".
+- SENTENCES: 4 to 7 words MAX. Example: "Tim and Ann run to the tree." Then: "They see a small fish jump."
+- USE PHONICS-FRIENDLY WORDS: words a child can sound out (consonant + vowel patterns).
+- REPETITION is encouraged — use the same phrase or rhyme across scenes for rhythm.
+- CONCRETE STORIES: simple plot — go somewhere, see something, feel a small feeling, come back happy.
+- NO scary content, NO loss, NO complex emotions. Curiosity and joy only.
+- TONE: warm, playful, bedtime-friendly.
+- SAFETY: ${safety} — happy ending always.`;
+      } else if (ag === "early") {
+        // 5-7 year olds
+        childRules = `\n\n━━ EARLY READER RULES (5-7 years) — STRICT ━━
+- USE WORDS UP TO 6 LETTERS COMFORTABLY. 7-letter words OK if phonetically clear.
+- AVOID 8+ letter words unless they are sounded out easily (e.g. "butterfly" is OK).
+- SENTENCES: 5 to 10 words. Mix short and slightly longer for rhythm.
+- INTRODUCE simple feelings: happy, sad, scared, brave, kind, proud — but always resolve positively.
+- Light conflict OK (lost ball, missing pet) — must resolve happily.
+- TONE: encouraging, friendly, lessons about kindness/sharing/courage.
+- SAFETY: ${safety} — gentle storylines only.`;
+      } else if (ag === "older") {
+        // 8-10 year olds
+        childRules = `\n\n━━ OLDER CHILD READING RULES (8-10 years) ━━
+- Normal vocabulary OK. Sentences 6 to 14 words.
+- Real plot tension allowed — light suspense, friendship challenges, mild adventure.
+- TONE: engaging, character-driven, age-appropriate excitement.
+- SAFETY: ${safety} — no graphic violence, no adult themes.`;
+      }
+    }
+
+    const controlBlock = (controlLines.length > 0
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
-      : "";
+      : "") + childRules;
 
     // ── Name pool injection ───────────────────────────────────────────────
     const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;

@@ -125,9 +125,11 @@ const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
 
 // ── 5-Tier Sound Model Selector ──
+// providerKey must match /api/music/generate schema: "kie" | "mubert" | "stable_audio" | "stock" | "auto"
+// "karaoke" was an invalid key — the music API returned 400 and no music ever generated.
 const SOUND_TIERS = [
-  { id: "piper",          label: "GHS Standard", desc: "Piper TTS — free, always available",      cost: "Free",    providerKey: "piper" },
-  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "GHS Karaoke built-in",                    cost: "Low",     providerKey: "karaoke" },
+  { id: "piper",          label: "GHS Standard", desc: "Piper TTS — free, always available",      cost: "Free",    providerKey: "stock" },
+  { id: "ghs_karaoke",    label: "GHS Pro",      desc: "GHS Karaoke built-in",                    cost: "Low",     providerKey: "stable_audio" },
   { id: "fal_karaoke",    label: "GHS Karaoke",  desc: "FAL karaoke music generation",            cost: "Mid",     providerKey: "stable_audio" },
   { id: "kie_classic",    label: "GHS Classic",  desc: "Suno via Kie.ai — full lyrical songs",   cost: "Premium", providerKey: "kie" },
   { id: "kie_premium",    label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      cost: "Highest", providerKey: "kie" },
@@ -2089,13 +2091,16 @@ function ChildrenPlannerInner() {
         const errBody = await res.text().catch(() => res.statusText);
         throw new Error(`TTS error ${res.status}: ${errBody}`);
       }
-      const data = await res.json() as { audioUrl?: string; error?: string };
+      const data = await res.json() as { audioUrl?: string; error?: string; engine?: string; message?: string };
       if (data.error) throw new Error(data.error);
       if (data.audioUrl) {
         setNarratorAudioUrl(data.audioUrl);
-        setLastAction("Narration generated");
+        setLastAction(`Narration generated (${data.engine || effectiveNarrationProvider})`);
+      } else if (data.engine === "browser-speech") {
+        // Karaoke mode uses Web Speech API in-browser, no file generated.
+        setLastAction("Karaoke mode active — narration will play via browser speech at playback time.");
       } else {
-        throw new Error("No audio URL returned");
+        throw new Error(data.message || "No audio URL returned");
       }
     } catch (err) {
       setUiError(err instanceof Error ? err.message : "Narration generation failed");
