@@ -247,6 +247,30 @@ export async function POST(req: NextRequest) {
       colorDescription: string;
     }> = [];
 
+    // ── Option B: Story-wide dominant ethnicity ──
+    // Walk the entire expandedStory ONCE, extract dominant ethnicity. Used per-character
+    // when the LLM defaulted to "fair/light" — if the story is overwhelmingly Black/
+    // Latina/Asian/etc., apply that dominant unless the character has an explicit
+    // contradicting ethnicity word near their name.
+    let _dominantSkin = "";
+    let _combinedStory = "";
+    if (expandedStory && typeof expandedStory === "object") {
+      const allText: string[] = [];
+      const walk = (val: unknown) => {
+        if (typeof val === "string") allText.push(val);
+        else if (Array.isArray(val)) val.forEach(walk);
+        else if (val && typeof val === "object") Object.values(val).forEach(walk);
+      };
+      walk(expandedStory);
+      _combinedStory = allText.join(" ").toLowerCase().slice(0, 20000);
+      _dominantSkin = inferSkinToneFromText(_combinedStory);
+    }
+    const LIGHT_DEFAULT_PATTERN = /\b(fair|pale|light\s+tan|light\s+skin|caucasian|peach|cream)\b/i;
+    const dominantIsNonLight = _dominantSkin && !/\b(fair|pale|light|caucasian)\b/i.test(_dominantSkin);
+    if (_dominantSkin) {
+      console.log(`[character-extract] Story dominant ethnicity: "${_dominantSkin}"`);
+    }
+
     for (let i = 0; i < rawCharacters.length; i++) {
       const ch = rawCharacters[i];
       const name = (ch.name || `CHARACTER_${i + 1}`).toUpperCase().trim();
@@ -265,19 +289,36 @@ export async function POST(req: NextRequest) {
           [visualDescription, personality, ethnicity, country].filter(Boolean).join(" "),
         );
       }
-      // Final fallback: scan EVERY string field in expandedStory for ethnicity keywords.
-      // story-expand uses field names like summary / narrativeArc / characterList — so a
-      // narrow allowlist misses them. Walk the object and concatenate everything.
-      if (!skinTone && expandedStory && typeof expandedStory === "object") {
-        const allText: string[] = [];
-        const walk = (val: unknown) => {
-          if (typeof val === "string") allText.push(val);
-          else if (Array.isArray(val)) val.forEach(walk);
-          else if (val && typeof val === "object") Object.values(val).forEach(walk);
-        };
-        walk(expandedStory);
-        const combined = allText.join(" ").toLowerCase().slice(0, 20000);
-        skinTone = inferSkinToneFromText(combined);
+      // Empty-skinTone fallback: use precomputed story-wide dominant
+      if (!skinTone && _dominantSkin) {
+        skinTone = _dominantSkin;
+      }
+
+      // ── Option B override: LLM defaulted to generic-light when story dominant is non-light ──
+      // Catches cases like "Story has 3 Black inventors but LLM put 'fair skin' for Andre".
+      // Only overrides when:
+      //   1. Story's dominant ethnicity is non-light (Black/Latina/Asian/etc.)
+      //   2. This character's skinTone is generic-light from the LLM default
+      //   3. The character does NOT have an explicit light-skin ethnicity word near their name
+      //      in the story text (so "Black Malik and white Andre" still respects Andre's white)
+      if (dominantIsNonLight && LIGHT_DEFAULT_PATTERN.test(skinTone)) {
+        const firstName = name.toLowerCase().split(/\s+/)[0];
+        const nameRegex = new RegExp(`\\b${firstName.replace(/[^a-z0-9]/g, "")}\\b`, "g");
+        let hasExplicitLight = false;
+        let m: RegExpExecArray | null;
+        while ((m = nameRegex.exec(_combinedStory)) !== null) {
+          const window = _combinedStory.slice(Math.max(0, m.index - 100), m.index + 100);
+          if (/\b(white|caucasian|fair[-\s]skinned|pale[-\s]skinned|european[-\s]descent)\b/i.test(window)) {
+            hasExplicitLight = true;
+            break;
+          }
+        }
+        if (!hasExplicitLight) {
+          console.log(`[character-extract] Option B override: ${name} "${skinTone}" → "${_dominantSkin}" (story dominant context)`);
+          skinTone = _dominantSkin;
+        } else {
+          console.log(`[character-extract] ${name} kept "${skinTone}" — story has explicit white/Caucasian near their name`);
+        }
       }
 
       // Generate persistent character ID

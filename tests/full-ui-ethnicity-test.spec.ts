@@ -133,7 +133,7 @@ test("ethnicity full UI test", async ({ page }) => {
   log("\nUI rendered:");
   uiDescs.forEach((d, i) => log(`  [${i}]: ${d}`));
 
-  const serverDark = (extractResp || []).every(c =>
+  const serverDark = (extractResp || []).every((c: { skinTone?: string; colorDescription?: string }) =>
     /(dark|brown|african|melanated)/i.test([c.skinTone, c.colorDescription].filter(Boolean).join(" "))
   );
   const uiDark = uiDescs.every(d => /(dark|brown|african|melanated)/i.test(d));
