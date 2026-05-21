@@ -279,6 +279,9 @@ function ChildrenPlannerInner() {
   // ── Design tab state ──
   const [ageGroup, setAgeGroup] = useState<"toddler" | "preschool" | "early" | "older">("preschool");
   const [safetyLevel, setSafetyLevel] = useState<"maximum" | "high" | "standard">("high");
+  // Story length picker — explicit duration target sent to story-expand.
+  // Without this the LLM writes a generic short kids story regardless of intent.
+  const [storyLengthMin, setStoryLengthMin] = useState<number>(5);
   const [designComplete, setDesignComplete] = useState(false);
   const [expandingContent, setExpandingContent] = useState(false);
   const [expandedContent, setExpandedContent] = useState("");
@@ -1012,18 +1015,17 @@ function ChildrenPlannerInner() {
     setExpanding(true);
     setLastAction("AI is building your children story...");
 
-    // Parse duration / story-type cues from the user's text — the planner has no UI
-    // for these yet, so the user's plain-English request ("39 min long", "poem", etc.)
-    // would otherwise be ignored.
+    // Story length: picker first, then text-cue overrides if user typed a duration
+    // directly into the prompt ("39 min long", "very long", etc.)
     const lower = storyInput.toLowerCase();
-    let parsedDurationSec: number | undefined;
+    let parsedDurationSec: number = storyLengthMin * 60;  // start from picker
     const minMatch = lower.match(/(\d+)\s*(?:-\s*\d+\s*)?\s*(?:min|minute)/);
     const hourMatch = lower.match(/(\d+)\s*hour/);
     if (hourMatch) parsedDurationSec = parseInt(hourMatch[1]) * 3600;
     else if (minMatch) parsedDurationSec = parseInt(minMatch[1]) * 60;
-    if (lower.includes("very long") && !parsedDurationSec) parsedDurationSec = 30 * 60;
-    if (lower.includes("long story") && !parsedDurationSec) parsedDurationSec = 20 * 60;
-    const targetDurationLabel = parsedDurationSec ? `${Math.round(parsedDurationSec / 60)} min` : undefined;
+    else if (lower.includes("very long")) parsedDurationSec = Math.max(parsedDurationSec, 30 * 60);
+    else if (lower.includes("long story")) parsedDurationSec = Math.max(parsedDurationSec, 20 * 60);
+    const targetDurationLabel = `${Math.round(parsedDurationSec / 60)} min`;
 
     const wantsPoem = /\b(poem|poetry|rhyme|rhyming|verse|song|musical)\b/i.test(storyInput);
     const storyType = wantsPoem ? "rhyming_poem" : "story_book";
@@ -1054,6 +1056,10 @@ function ChildrenPlannerInner() {
           targetDuration: parsedDurationSec,
           targetDurationLabel,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+          // pro tier = Claude Sonnet quality model. Without this children expansion fell
+          // back to "fast" (haiku/ollama) which writes short generic kid stories regardless
+          // of target word count. Hybrid sends tier:"pro" and produces full-length results.
+          tier: "pro",
           childContext: { ageGroup: effectiveAgeGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
         }),
       });
@@ -2540,6 +2546,28 @@ function ChildrenPlannerInner() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Story Length */}
+        <div style={{ ...cardStyle, marginBottom: 12 }}>
+          <span style={labelStyle}>Story Length</span>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+            {[
+              { min: 2,  label: "2 min",   note: "Tiny" },
+              { min: 5,  label: "5 min",   note: "Short" },
+              { min: 10, label: "10 min",  note: "Medium" },
+              { min: 20, label: "20 min",  note: "Long" },
+              { min: 40, label: "40 min",  note: "Very long" },
+              { min: 60, label: "60 min",  note: "Movie" },
+            ].map(L => (
+              <div key={L.min} onClick={() => setStoryLengthMin(L.min)}
+                style={{ padding: 8, borderRadius: 8, border: `1px solid ${storyLengthMin === L.min ? childAccent : border}`, background: storyLengthMin === L.min ? `${childAccent}15` : s2, cursor: "pointer", textAlign: "center" as const }}>
+                <div style={{ color: storyLengthMin === L.min ? childAccent : "#fff", fontWeight: 700, fontSize: 12 }}>{L.label}</div>
+                <div style={{ color: muted, fontSize: 9 }}>{L.note}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 10, color: muted, marginTop: 8, marginBottom: 0 }}>You can also type duration into the Story Idea (e.g. &quot;39 min long&quot;) and it will override this setting.</p>
         </div>
 
         {/* Learning Mode */}
