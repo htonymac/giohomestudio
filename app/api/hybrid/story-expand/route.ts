@@ -241,6 +241,8 @@ export async function POST(req: NextRequest) {
     // When children-planner sends childContext, inject strict vocabulary rules per age group.
     // Without these, the LLM writes a generic kids story with adult vocabulary.
     let childRules = "";
+    // Poem / rhyme format — applied AFTER per-age rules below
+    const wantsPoem = body.storyType === "rhyming_poem" || /\b(poem|poetry|rhyme|rhyming|verse|song|musical)\b/i.test(body.storyInput || "");
     if (body.childContext?.ageGroup) {
       const ag = body.childContext.ageGroup;
       const safety = body.childContext.safetyLevel || "high";
@@ -289,9 +291,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Poem / rhyme overlay — fires when user explicitly asked for a poem
+    let poemRules = "";
+    if (wantsPoem) {
+      poemRules = `\n\n━━ POEM / RHYME FORMAT — STRICT ━━
+- Write the entire fullScript as a RHYMING POEM (NOT prose paragraphs).
+- Use AABB or ABAB rhyme scheme — be consistent across the whole story.
+- Each line should be 5-9 syllables (sing-song rhythm).
+- Group lines into 4-line stanzas with a blank line between each stanza.
+- Every stanza should advance the story by one beat (a scene, an action, a feeling).
+- The rhyme MUST sound natural when read aloud — no awkward word inversions.
+- Example pattern:
+  "The sun came up so bright and round,
+   The little cat jumped to the ground.
+   She ran across the grassy lane,
+   To find her friend who walked the same."`;
+    }
+
     const controlBlock = (controlLines.length > 0
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
-      : "") + childRules;
+      : "") + childRules + poemRules;
 
     // ── Name pool injection ───────────────────────────────────────────────
     const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;

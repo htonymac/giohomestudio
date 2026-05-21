@@ -1011,6 +1011,35 @@ function ChildrenPlannerInner() {
     if (!storyInput.trim()) { setLastAction("Enter content first"); return; }
     setExpanding(true);
     setLastAction("AI is building your children story...");
+
+    // Parse duration / story-type cues from the user's text — the planner has no UI
+    // for these yet, so the user's plain-English request ("39 min long", "poem", etc.)
+    // would otherwise be ignored.
+    const lower = storyInput.toLowerCase();
+    let parsedDurationSec: number | undefined;
+    const minMatch = lower.match(/(\d+)\s*(?:-\s*\d+\s*)?\s*(?:min|minute)/);
+    const hourMatch = lower.match(/(\d+)\s*hour/);
+    if (hourMatch) parsedDurationSec = parseInt(hourMatch[1]) * 3600;
+    else if (minMatch) parsedDurationSec = parseInt(minMatch[1]) * 60;
+    if (lower.includes("very long") && !parsedDurationSec) parsedDurationSec = 30 * 60;
+    if (lower.includes("long story") && !parsedDurationSec) parsedDurationSec = 20 * 60;
+    const targetDurationLabel = parsedDurationSec ? `${Math.round(parsedDurationSec / 60)} min` : undefined;
+
+    const wantsPoem = /\b(poem|poetry|rhyme|rhyming|verse|song|musical)\b/i.test(storyInput);
+    const storyType = wantsPoem ? "rhyming_poem" : "story_book";
+
+    // If user mentioned a specific age in their text ("3 and 4 year old", "5 year"),
+    // honor it over the dropdown — common case is they type the age in the prompt.
+    const ageInText = lower.match(/(\d+)\s*(?:and\s*\d+\s*)?\s*year[\s-]*old/);
+    let effectiveAgeGroup = ageGroup;
+    if (ageInText) {
+      const n = parseInt(ageInText[1]);
+      if (n <= 3) effectiveAgeGroup = "toddler";
+      else if (n <= 5) effectiveAgeGroup = "preschool";
+      else if (n <= 7) effectiveAgeGroup = "early";
+      else effectiveAgeGroup = "older";
+    }
+
     try {
       const expandRes = await fetch("/api/hybrid/story-expand", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -1018,10 +1047,14 @@ function ChildrenPlannerInner() {
           storyInput,
           genre: "children",
           tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
-          audience: AGE_AUDIENCE[ageGroup] || "children",
+          audience: AGE_AUDIENCE[effectiveAgeGroup] || "children",
           language: "English",
+          languageLevel: effectiveAgeGroup === "toddler" || effectiveAgeGroup === "preschool" ? "simple_english" : "normal_english",
+          storyType,
+          targetDuration: parsedDurationSec,
+          targetDurationLabel,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
-          childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
+          childContext: { ageGroup: effectiveAgeGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
         }),
       });
       const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "story-expand");
