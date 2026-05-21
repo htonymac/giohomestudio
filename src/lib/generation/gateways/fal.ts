@@ -224,7 +224,18 @@ export async function falGenerateImage(req: FalImageRequest): Promise<FalRespons
   if (req.negativePrompt) input.negative_prompt = req.negativePrompt;
   if (req.seed) input.seed = req.seed;
   if (req.steps) input.num_inference_steps = req.steps;
-  if (req.face_image_url) input.face_image_url = req.face_image_url;
+  if (req.face_image_url) {
+    input.face_image_url = req.face_image_url;
+    // PuLID identity strength tuning — defaults of id_weight=1.0 + start_step=4 lock
+    // the entire portrait state (face, body, pose, clothing) into every scene.
+    // Lower id_weight + later start_step lets the scene prompt (action, clothing,
+    // location) win while keeping face consistency.
+    if (req.endpoint.includes("flux-pulid")) {
+      input.id_weight = 0.75;     // default 1.0 — 0.75 = face stays, body/clothes free
+      input.start_step = 6;       // default 4 — apply identity later, prompt sets composition first
+      input.true_cfg = 1.0;       // default 1.0 — keep
+    }
+  }
 
   console.log(`[fal] Image: ${req.endpoint}`);
   return submitAndPoll(req.endpoint, input);
