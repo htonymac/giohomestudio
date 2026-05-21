@@ -5229,7 +5229,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         : effectiveStyle === "3d-cinematic"
         ? "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart"
         : "";
-      return [ageBlock, styleBlock, "cropped, cut off, partial body, headshot only"].filter(Boolean).join(", ");
+      // Anti-shirtless guard — image models default Black male characters to shirtless
+      // fitness poses when no clothing is specified. The default clothing line in
+      // basePrompt does most of the work; this is the safety net.
+      const clothingBlock = "shirtless, bare chested, topless, no shirt, half nude, half naked, naked torso, exposed chest, fitness model pose, gym poster, swimwear, underwear, briefs, speedo, fully nude, just shorts";
+      return [ageBlock, styleBlock, clothingBlock, "cropped, cut off, partial body, headshot only"].filter(Boolean).join(", ");
     })();
 
     // The 3 full-body angle framings — must show the character head to toe
@@ -5253,6 +5257,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       ? `Era: ${[storyEra, storyCulture].filter(Boolean).join(", ")}. Clothing, hairstyle, and accessories MUST reflect this time period and culture exactly.`
       : "";
 
+    // Force a clothing line when the character has no wardrobe/clothing fields set —
+    // otherwise the image model defaults Black male characters to shirtless fitness shots,
+    // and PuLID then locks every scene to that shirtless body.
+    const descLower = (visualDesc || "").toLowerCase();
+    const hasClothingMention = /\b(wearing|shirt|jacket|coat|dress|gown|hoodie|sweater|jumper|trouser|pant|jean|skirt|robe|kaftan|outfit|uniform|tunic|suit|blouse|t-shirt|top)\b/i.test(descLower);
+    const clothingFloor = hasClothingMention
+      ? ""
+      : "fully clothed in everyday modest clothing — shirt or top fully covering the torso, jeans or trousers covering the legs.";
+
     // Build shared base prompt
     const basePrompt = [
       ageAnchor,
@@ -5261,6 +5274,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       eraLine,
       `CHARACTER ${char.displayName.toUpperCase()} — EXACT FIXED APPEARANCE:`,
       visualDesc || `${char.displayName}, ${char.gender}`,
+      clothingFloor,
       "CHARACTER REFERENCE SHEET — consistent design, professional quality, no background distractions.",
     ].filter(Boolean).join(" ");
 
