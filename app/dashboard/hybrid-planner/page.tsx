@@ -2066,7 +2066,14 @@ function HybridPlannerInner() {
       }));
     }, 600);
 
-    const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
+    // Match by characterId OR displayName (case-insensitive). Scene-plan AI returns names
+    // like "ANDRE", but Character tab has formal IDs like "XX_ANDRE08R35DARKBROW".
+    // Without the name fallback, the scene generates without the character's portrait/age/ethnicity.
+    const sceneChars = characters.filter(c => scene.characterIds?.some(id => {
+      if (!id) return false;
+      const idLower = id.toLowerCase();
+      return id === c.characterId || idLower === c.displayName.toLowerCase();
+    }));
     const characterOverrides = sceneChars.map(c => {
       // Use front-angle portrait (index 0) for PuLID face-lock reference.
       // Front angle has the clearest face view — PuLID extracts face from it best.
@@ -2206,7 +2213,14 @@ function HybridPlannerInner() {
     setGeneratingVariations(prev => new Set(prev).add(scene.sceneId));
     setLastAction(`Generating 3 variations for Scene ${scene.scene}...`);
 
-    const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
+    // Match by characterId OR displayName (case-insensitive). Scene-plan AI returns names
+    // like "ANDRE", but Character tab has formal IDs like "XX_ANDRE08R35DARKBROW".
+    // Without the name fallback, the scene generates without the character's portrait/age/ethnicity.
+    const sceneChars = characters.filter(c => scene.characterIds?.some(id => {
+      if (!id) return false;
+      const idLower = id.toLowerCase();
+      return id === c.characterId || idLower === c.displayName.toLowerCase();
+    }));
     const characterOverrides = sceneChars.map(c => {
       const angles = charRefImages[c.characterId];
       const bestPortraitUrl = angles?.[1]?.url || angles?.[0]?.url || c.imageUrl || null;
@@ -2336,7 +2350,14 @@ function HybridPlannerInner() {
     setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Image 1/${promptList.length}…` }));
     setLastAction(`Gen Max: generating ${promptList.length} images for Scene ${scene.scene}…`);
 
-    const sceneChars = characters.filter(c => scene.characterIds?.includes(c.characterId));
+    // Match by characterId OR displayName (case-insensitive). Scene-plan AI returns names
+    // like "ANDRE", but Character tab has formal IDs like "XX_ANDRE08R35DARKBROW".
+    // Without the name fallback, the scene generates without the character's portrait/age/ethnicity.
+    const sceneChars = characters.filter(c => scene.characterIds?.some(id => {
+      if (!id) return false;
+      const idLower = id.toLowerCase();
+      return id === c.characterId || idLower === c.displayName.toLowerCase();
+    }));
     const characterOverrides = sceneChars.map(c => {
       const angles = charRefImages[c.characterId];
       const bestPortraitUrl = angles?.[1]?.url || angles?.[0]?.url || c.imageUrl || null;
