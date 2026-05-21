@@ -246,9 +246,12 @@ export async function POST(req: NextRequest) {
         const wardrobePrefix = c.lastSeenWardrobe
           ? `same outfit as before: `
           : "wearing: ";
+        // If no wardrobe was specified anywhere, force a fully-clothed default. PuLID
+        // locked to a shirtless portrait will otherwise carry the shirtless state into
+        // every scene. The scene-appropriate clothing direction overrides the body lock.
         const wardrobe = wardrobeSource
           ? `, ${wardrobePrefix}${sanitizeStyleCollisions(wardrobeSource.slice(0, 140), styleId)}`
-          : "";
+          : `, fully clothed in scene-appropriate everyday clothing — shirt, top, or jacket covering the torso`;
         const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
         const AGE_VISUAL: Record<string, string> = {
           child:       "6-10 year old child — small body, young face, child height and proportions. NOT a teen or adult.",
@@ -359,11 +362,17 @@ export async function POST(req: NextRequest) {
     const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
     const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
 
+    // Nudity / shirtless negative — fires unless the scene explicitly calls for it (beach,
+    // shower, swim, etc.). Stops the model defaulting to shirtless fitness-style portraits,
+    // which is a strong bias for Black male characters when PuLID locks a shirtless portrait.
+    const sceneIsNudeContext = /\b(shirtless|bare\s*chest|topless|swim|swimming|beach|pool|shower|bathing|bath|sauna|gym|workout|fitness|sex|nude|naked|nudity)\b/i.test(sceneText || "");
+    const nudityNegative = sceneIsNudeContext ? "" : ", shirtless, bare chested, topless, no shirt, half nude, half naked, naked torso, fitness pose, athletic poster pose, swimwear, underwear, briefs, fully nude";
+
     // Style-collision negatives — extra muscle behind the negative when live-action is selected.
     // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
     const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
     const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {
