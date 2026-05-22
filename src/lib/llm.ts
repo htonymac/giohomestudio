@@ -224,7 +224,7 @@ async function callOllama(
         keep_alive: "10m",
         options: { temperature: opts.temperature ?? 0.4, num_predict: opts.maxTokens ?? 1200 },
       }),
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 90000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 300000),
     });
     if (!res.ok) return { ok: false, error: `Ollama HTTP ${res.status}` };
     const data = await res.json();
@@ -271,11 +271,17 @@ export async function callLLM(
     return callKieDeepSeek(prompt, system, m, opts);
   }
 
+  // When forceModel is a Claude-specific model name (e.g. "claude-sonnet-4-6"),
+  // it cannot be passed to GPT/Grok/Ollama on fallback — they don't have that model.
+  // Strip provider-specific model name when falling through to a different provider.
+  const optsForOtherProviders: LLMOptions = { ...opts, forceModel: undefined };
+  const optsForClaude = opts;
+
   const providers: Array<() => Promise<LLMResult>> = [
-    () => callClaude(prompt, system, speed, opts),
-    () => callGPT(prompt, system, speed, opts),
-    () => callGrok(prompt, system, speed, opts),
-    () => callOllama(prompt, system, role, opts),
+    () => callClaude(prompt, system, speed, optsForClaude),
+    () => callGPT(prompt, system, speed, optsForOtherProviders),
+    () => callGrok(prompt, system, speed, optsForOtherProviders),
+    () => callOllama(prompt, system, role, optsForOtherProviders),
   ];
 
   const errors: string[] = [];
