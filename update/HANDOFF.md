@@ -13,14 +13,19 @@
 | `07318e1` | **F1+F2+F3 scene composition** — id_weight 0.75→0.55, location-first prompt order, anti-portrait directives |
 | `76f1de1` | Story-expand: length enforcement (forces full word count even with strict child rules) + rich `scenes[]` array with video_prompt + voiceover + dialogue + sfx_music per scene (ChatGPT-style structured output) |
 | `4e52c02` | **Phase A+B toolbars** — Movie planner gets 6 new scene editor buttons (Action/Intense/Calm/Emotion/Establish/QC). Children planner gets 8 child-safe buttons (Polish/Funny/Playful/Adventure/Emotion/Action/Establish/QC/Word Check). NEW `/api/children/word-filter` endpoint with 80+ adult-word→gentle-replacement map. |
+| `b677585` | **F4 drop PuLID for multi-character scenes** — PuLID dominates composition when locking 2+ characters; now multi-char scenes use the default model with text-only character descriptions. Single-char scenes still use PuLID. **Phase D substitution-doesn't-switch fix** — _portraitCdnCache now includes file mtime + size in key, so regenerated portraits invalidate cached CDN URL. |
 
-**Browser-verified:**
-- Children planner story expansion works (Playwright test passes, 10 scenes returned)
+**Browser/API-verified:**
+- Children planner story expansion (Playwright 2 runs passed, 10 scenes returned)
 - Word-filter: "Peter killed the scary monster with his sword, blood everywhere" → "Peter stopped the silly creature with his wand, paint everywhere"
-- Funny mode: "Tim and Ann sit quietly..." → rich story with cat joke ending
+- Funny mode: "Tim and Ann sit quietly..." → cat collapse joke
+- Playful mode: "Tim and Ann walk in the garden" → "bounce into the sun-kissed garden, giggling like they're playing hide-and-seek..."
+- Adventure mode: "The kids sit at home" → "hidden compartment filled with tiny tools and curious contraptions"
 
 **Still needs Henry visual check:**
-- Scene composition: regen SC01 of Bryan story, expect Brooklyn neighborhood not 3-person row
+- Scene composition: regen SC01 of Bryan story → expect Brooklyn neighborhood, not 3-person row
+- Phase D substitution: regen a portrait, then regen scene → should use NEW portrait now
+- Multi-char scenes (F4): should show scene location, not portrait-style row
 
 ---
 
