@@ -201,9 +201,16 @@ export async function POST(req: NextRequest) {
     // Convert scene text to a static cinematic frame (removes action verbs that cause chaos imagery)
     const staticSceneText = toStaticFrame(cleanSceneText.slice(0, 300));
 
-    // 2. Build structured image prompt — ERA LOCK FIRST (defines the visual world), then STYLE, then CHARACTERS
-    // Order: [Era+Culture lock] → [Style directive] → [Character identity] → [Scene] → [Action directive] → [Settings] → [Quality]
-    // Era lock is ABSOLUTE FIRST — the model must commit to the correct era before processing anything else.
+    // 2. Build structured image prompt
+    // F2 (2026-05-21): location/action moved EARLY so FLUX commits to scene composition
+    // BEFORE identity lock applies. Earlier order put character first → portrait pose
+    // dominated → every scene looked like a character reference sheet.
+    //
+    // New order: [Era lock] → [Style] → [LOCATION + TIME + MOOD] → [SCENE TEXT + ACTION]
+    //         → [Character identity (LATE)] → [Late style anchor] → [Quality]
+    //
+    // Era stays at position 0 — absolute world rule. Character moved to late position so
+    // it acts as a refinement layer over an already-composed scene.
     const promptParts: string[] = [];
 
     // ── ERA + CULTURE LOCK (absolute first position) ──
@@ -211,6 +218,20 @@ export async function POST(req: NextRequest) {
 
     // ── STYLE LOCK ──
     promptParts.push(stylePreset.prefix);
+
+    // ── F2: SCENE SETTINGS pushed EARLY so composition forms before character lock ──
+    if (location) promptParts.push(`Location: ${location}`);
+    if (timeOfDay) promptParts.push(timeOfDay);
+    if (mood) promptParts.push(`${mood} mood`);
+    if (cameraFraming) promptParts.push(cameraFraming);
+
+    // ── F3: Anti-portrait directive (only for realistic-family styles) ──
+    const isRealisticFamily = styleId === "realistic" || styleId === "nollywood" || styleId === "3d-cinematic";
+    if (isRealisticFamily) {
+      promptParts.push(
+        "cinematic scene shot, environmental composition, background fully visible, characters integrated into location, action moment with the environment, NOT a portrait, NOT a character reference sheet, NOT a character lineup",
+      );
+    }
 
     // ── ANIMAL DETECTION — explicit species from characterOverrides ONLY ──
     // NEVER scan scene text for "bear" — causes false positives when "bear" is used as a verb
@@ -332,11 +353,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── SCENE SETTINGS ──
-    if (location) promptParts.push(`${location}`);
-    if (mood) promptParts.push(`${mood} mood`);
-    if (cameraFraming) promptParts.push(cameraFraming);
-    if (timeOfDay) promptParts.push(timeOfDay);
+    // (Settings moved EARLY by F2 — no late-position duplicate needed.)
 
     // ── STYLE QUALITY SUFFIX ──
     promptParts.push(stylePreset.suffix);
@@ -362,6 +379,14 @@ export async function POST(req: NextRequest) {
     const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
     const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
 
+    // F3: Anti-portrait negative — fires only for realistic-family styles where the
+    // model otherwise defaults to character-reference-sheet compositions (3 people
+    // standing in a row, plain backdrop). Skip for cartoon/storybook where simpler
+    // compositions are sometimes correct.
+    const antiPortraitNegative = isRealisticFamily
+      ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row"
+      : "";
+
     // Nudity / shirtless negative — fires unless the scene explicitly calls for it (beach,
     // shower, swim, etc.). Stops the model defaulting to shirtless fitness-style portraits,
     // which is a strong bias for Black male characters when PuLID locks a shirtless portrait.
@@ -372,7 +397,7 @@ export async function POST(req: NextRequest) {
     // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
     const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
     const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

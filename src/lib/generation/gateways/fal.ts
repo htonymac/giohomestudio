@@ -231,8 +231,11 @@ export async function falGenerateImage(req: FalImageRequest): Promise<FalRespons
     // Lower id_weight + later start_step lets the scene prompt (action, clothing,
     // location) win while keeping face consistency.
     if (req.endpoint.includes("flux-pulid")) {
-      input.id_weight = 0.75;     // default 1.0 — 0.75 = face stays, body/clothes free
-      input.start_step = 6;       // default 4 — apply identity later, prompt sets composition first
+      // F1: lower id_weight further. 0.75 still locked portrait composition into
+      // every scene (Henry's "3 people standing in a row" issue). 0.55 lets prompt
+      // dictate composition while preserving face identity.
+      input.id_weight = 0.55;     // default 1.0 — 0.55 = face stays, composition free
+      input.start_step = 8;       // default 4 — apply identity later, prompt sets composition first
       input.true_cfg = 1.0;       // default 1.0 — keep
     }
   }
