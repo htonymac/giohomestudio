@@ -1593,6 +1593,86 @@ function ChildrenPlannerInner() {
     }
   }
 
+  // ── Child-safe Scene Edit Op — Phase B toolbar ──────────────────────
+  // Wires to /api/hybrid/scene-edit using op:"polish" + polishMode = our op name.
+  // Adds childContext so server-side knows it's child-mode.
+  async function handleChildSceneOp(
+    sceneId: string,
+    currentText: string,
+    op: "add_action" | "emotional" | "establish" | "qc" | "funny" | "playful" | "adventure",
+  ) {
+    if (!currentText?.trim()) { setLastAction("Scene has no description to edit"); return; }
+    setPolishingScene(sceneId);
+    try {
+      const sceneNum = parseInt(sceneId.replace("child_sc", ""), 10);
+      const sceneObj = childScenes.find(s => s.scene === sceneNum);
+      const isPolishOp = ["add_action", "emotional", "funny", "playful", "adventure"].includes(op);
+      const body = isPolishOp
+        ? {
+            op: "polish",
+            polishMode: op,
+            scene: { id: sceneId, title: sceneObj?.title || "", description: currentText },
+            childContext: { ageGroup, safetyLevel },
+          }
+        : op === "establish"
+        ? { op: "establish", scene: { id: sceneId, title: sceneObj?.title || "", description: currentText } }
+        : { op: "polish", polishMode: "default", scene: { id: sceneId, title: sceneObj?.title || "", description: currentText } };
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      if (newText && data.ok !== false) {
+        setChildScenes(prev => prev.map(s => s.scene === sceneNum ? { ...s, visualDescription: newText } : s));
+        setLastAction(`Scene ${sceneId}: ${op} applied (child-safe)`);
+      } else if (data.error) {
+        setLastAction(`${op} failed: ${data.error.slice(0, 200)}`);
+      } else {
+        setLastAction(`${op}: no response`);
+      }
+    } catch (err) {
+      console.error(`[handleChildSceneOp] ${op} error:`, err);
+      setLastAction(`Scene ${op} failed`);
+    } finally {
+      setPolishingScene(null);
+    }
+  }
+
+  // ── Adult-Word Check / Filter — Phase B ─────────────────────────────
+  // Calls /api/children/word-filter to scan scene text for inappropriate/adult words
+  // and suggest gentle replacements. customBlocked = user's per-project blocklist.
+  async function handleAdultWordCheck(sceneId: string, currentText: string, customBlocked: string[] = []) {
+    if (!currentText?.trim()) return;
+    setPolishingScene(sceneId);
+    try {
+      const res = await fetch("/api/children/word-filter", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneText: currentText, customBlockedWords: customBlocked }),
+      });
+      const data = await res.json();
+      if (data.flaggedWords && data.flaggedWords.length > 0) {
+        const summary = data.flaggedWords.slice(0, 5).map((f: { word: string; replacement: string }) => `${f.word}→${f.replacement}`).join(", ");
+        setLastAction(`⚠ ${data.flaggedWords.length} flagged: ${summary}${data.flaggedWords.length > 5 ? "…" : ""}`);
+        if (data.cleanedText) {
+          const sceneNum = parseInt(sceneId.replace("child_sc", ""), 10);
+          setChildScenes(prev => prev.map(s => s.scene === sceneNum ? { ...s, visualDescription: data.cleanedText } : s));
+        }
+      } else if (data.error) {
+        setLastAction(`Word filter failed: ${data.error.slice(0, 200)}`);
+      } else {
+        setLastAction("✓ No flagged words found");
+      }
+    } catch (err) {
+      console.error("[handleAdultWordCheck] error:", err);
+      setLastAction("Word filter failed");
+    } finally {
+      setPolishingScene(null);
+    }
+  }
+
   // ── Per-scene AI SFX — extract SFX cues from scene description ──────────
   async function generateSceneSfx(sceneId: string, description: string) {
     setGeneratingSceneSfx(prev => new Set(prev).add(sceneId));
@@ -6099,8 +6179,17 @@ function ChildrenPlannerInner() {
                           disabled={polishingScene === sceneId}
                           data-testid={`polish-btn-${sceneId}`}
                           style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #a855f770", background: polishingScene === sceneId ? "#a855f715" : "transparent", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>
-                          {polishingScene === sceneId ? "Editing..." : "AI Editor"}
+                          {polishingScene === sceneId ? "Editing..." : "✨ Polish"}
                         </button>
+                        {/* Phase B: child-safe scene editor buttons */}
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "funny")} disabled={polishingScene === sceneId} title="Make this scene funnier" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>😄 Funny</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "playful")} disabled={polishingScene === sceneId} title="More playful energy" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #f472b670", background: "#f472b610", color: "#f472b6", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🎈 Playful</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "adventure")} disabled={polishingScene === sceneId} title="Gentle safe adventure" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #06b6d470", background: "#06b6d410", color: "#06b6d4", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🗡 Adventure</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "emotional")} disabled={polishingScene === sceneId} title="Warm emotional moment" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #ec489970", background: "#ec489910", color: "#ec4899", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>💗 Emotion</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "add_action")} disabled={polishingScene === sceneId} title="Add gentle action" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fb923c70", background: "#fb923c10", color: "#fb923c", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>➕ Action</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "establish")} disabled={polishingScene === sceneId} title="Establish location" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🌅 Establish</button>
+                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "qc")} disabled={polishingScene === sceneId} title="Run QC check" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #22c55e70", background: "#22c55e10", color: "#22c55e", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>✅ QC</button>
+                        <button onClick={() => handleAdultWordCheck(sceneId, scene.visualDescription)} disabled={polishingScene === sceneId} title="Scan for adult/scary words" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #ef444470", background: "#ef444410", color: "#ef4444", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🛡 Word Check</button>
                         {/* Make Video — POST /api/hybrid/scene-video */}
                         <button
                           onClick={() => makeSceneVideo(scene)}

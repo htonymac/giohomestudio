@@ -1947,6 +1947,44 @@ function MoviePlannerInner() {
     }
   }
 
+  // ── Scene Edit Op — Hybrid-style toolbar (add_action, intense, emotional, etc.) ──
+  // Wires Movie planner to /api/hybrid/scene-edit using op:"polish" + polishMode = our op name.
+  async function handleSceneOp(sceneId: string, currentText: string, op: "add_action" | "intense" | "reduce_action" | "emotional" | "establish" | "qc") {
+    if (!currentText?.trim()) { setLastAction("Scene has no description to edit"); return; }
+    setPolishingScene(sceneId);
+    try {
+      const sceneNum = parseInt(sceneId.replace("SC", ""), 10);
+      const sceneObj = scenes.find(s => s.scene === sceneNum);
+      // establish/qc don't have a polishMode — route them differently when API supports
+      const isPolishOp = ["add_action", "intense", "reduce_action", "emotional"].includes(op);
+      const body = isPolishOp
+        ? { op: "polish", polishMode: op, scene: { id: sceneId, title: sceneObj?.title || "", description: currentText } }
+        : op === "establish"
+        ? { op: "establish", scene: { id: sceneId, title: sceneObj?.title || "", description: currentText } }
+        : { op: "polish", polishMode: "default", scene: { id: sceneId, title: sceneObj?.title || "", description: currentText } };
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      if (newText && data.ok !== false) {
+        updateScene(sceneNum, { visualDescription: newText });
+        setLastAction(`Scene ${sceneId}: ${op} applied`);
+      } else if (data.error) {
+        setLastAction(`${op} failed: ${data.error.slice(0, 200)}`);
+      } else {
+        setLastAction(`${op}: no response`);
+      }
+    } catch (err) {
+      console.error(`[handleSceneOp movie] ${op} error:`, err);
+      setLastAction(`Scene ${op} failed`);
+    } finally {
+      setPolishingScene(null);
+    }
+  }
+
   // ── AI Supervisor — checks scene/audio readiness before assembly ──
   async function runAiSupervisor() {
     setAiSupervisorRunning(true);
@@ -4449,7 +4487,53 @@ function MoviePlannerInner() {
                     disabled={polishingScene === sceneId}
                     data-testid={`polish-btn-${sceneId}`}
                     style={{ flex: 1, fontSize: 9, padding: "6px 10px", borderRadius: 6, border: `1px solid #a855f730`, background: polishingScene === sceneId ? "#a855f708" : `#a855f706`, color: polishingScene === sceneId ? muted : "#a855f7", cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
-                    {polishingScene === sceneId ? "Polishing..." : "Polish"}
+                    {polishingScene === sceneId ? "Polishing..." : "✨ Polish"}
+                  </button>
+                </div>
+
+                {/* Hybrid-style scene editor row — Phase A: Movie Planner toolbar */}
+                <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "add_action")}
+                    disabled={polishingScene === sceneId}
+                    title="Add action / motion to this scene"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid ${gold}40`, background: `${gold}08`, color: gold, cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    ➕ Action
+                  </button>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "intense")}
+                    disabled={polishingScene === sceneId}
+                    title="Make this scene more intense / dramatic"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid #ef444440`, background: `#ef444408`, color: "#ef4444", cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    🔥 Intense
+                  </button>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "reduce_action")}
+                    disabled={polishingScene === sceneId}
+                    title="Tone down action — calmer scene"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid ${accent}40`, background: `${accent}08`, color: accent, cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    ❄ Calm
+                  </button>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "emotional")}
+                    disabled={polishingScene === sceneId}
+                    title="Add emotional weight"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid #ec489940`, background: `#ec489908`, color: "#ec4899", cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    💗 Emotion
+                  </button>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "establish")}
+                    disabled={polishingScene === sceneId}
+                    title="Establish setting / wide shot"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid ${gold}40`, background: `${gold}08`, color: gold, cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    🌅 Establish
+                  </button>
+                  <button
+                    onClick={() => handleSceneOp(sceneId, scene.visualDescription || scene.goal, "qc")}
+                    disabled={polishingScene === sceneId}
+                    title="Run QC check on scene clarity"
+                    style={{ flex: 1, minWidth: 70, fontSize: 9, padding: "5px 8px", borderRadius: 6, border: `1px solid #22c55e40`, background: `#22c55e08`, color: "#22c55e", cursor: polishingScene === sceneId ? "not-allowed" : "pointer", fontWeight: 600 }}>
+                    ✅ QC
                   </button>
                 </div>
 

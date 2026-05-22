@@ -17,7 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { callLLM } from "@/lib/llm";
 
 type Op = "polish" | "break" | "expand" | "batch_polish" | "establish" | "establish_all";
-type PolishMode = "default" | "add_action" | "intense" | "reduce_action" | "emotional" | "custom";
+type PolishMode = "default" | "add_action" | "intense" | "reduce_action" | "emotional" | "custom" | "funny" | "playful" | "adventure";
 type Provider = "auto" | "ollama" | "openai" | "claude";
 
 interface SceneIn {
@@ -125,6 +125,12 @@ function polishIntent(mode: PolishMode): string {
       return "REDUCE the action. Slow it down. Replace some action verbs with reflection, observation, internal thought. Make the scene quieter and more contemplative.";
     case "emotional":
       return "MAKE IT MORE EMOTIONAL. Emphasize what the characters FEEL. Surface the internal weight of the moment — fear, grief, longing, joy. Bring the emotion to the surface.";
+    case "funny":
+      return "MAKE IT FUNNIER — gentle silly humor appropriate for children. Add a small surprising laugh, a playful mistake, or a soft joke. Keep it kind, no sarcasm, no scary or mean humor.";
+    case "playful":
+      return "ADD PLAYFUL ENERGY — light bouncy rhythm, small games, characters being silly together. Joyful, safe, suitable for young children.";
+    case "adventure":
+      return "ADD GENTLE ADVENTURE — a small safe discovery, a tiny challenge, characters exploring with curiosity. Excitement that is age-appropriate, never scary or dangerous.";
     case "custom":
       return "Apply the user's custom instruction exactly as given.";
     case "default":
