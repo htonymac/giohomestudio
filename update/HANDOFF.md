@@ -1,9 +1,26 @@
-# GHS HANDOFF — Session 19 (Children Vocabulary + PuLID Tuning + Scene Composition Plan)
+# GHS HANDOFF — Session 19 (Major Quality Pass — Phase A+B Toolbars, Scene Composition, LLM Cascade)
 
 **Last updated:** 2026-05-21
-**Build:** TSC clean — 0 new errors (only pre-existing test error in tests/sound-browser-check.spec.ts)
-**Git:** All pushed to `main`. HEAD = `f39328a`.
+**Build:** TSC clean — 0 new errors
+**Git:** All pushed to `main`. HEAD = `4e52c02`.
 **Port:** 3200 | **DB:** giohomestudio_db (PostgreSQL + Prisma)
+
+## ✅ EXECUTED THIS PUSH (after handoff was last written)
+
+| Commit | What |
+|---|---|
+| `642c4a4` | LLM cascade: drop forceModel on fallback + Ollama timeout 90s→300s |
+| `07318e1` | **F1+F2+F3 scene composition** — id_weight 0.75→0.55, location-first prompt order, anti-portrait directives |
+| `76f1de1` | Story-expand: length enforcement (forces full word count even with strict child rules) + rich `scenes[]` array with video_prompt + voiceover + dialogue + sfx_music per scene (ChatGPT-style structured output) |
+| `4e52c02` | **Phase A+B toolbars** — Movie planner gets 6 new scene editor buttons (Action/Intense/Calm/Emotion/Establish/QC). Children planner gets 8 child-safe buttons (Polish/Funny/Playful/Adventure/Emotion/Action/Establish/QC/Word Check). NEW `/api/children/word-filter` endpoint with 80+ adult-word→gentle-replacement map. |
+
+**Browser-verified:**
+- Children planner story expansion works (Playwright test passes, 10 scenes returned)
+- Word-filter: "Peter killed the scary monster with his sword, blood everywhere" → "Peter stopped the silly creature with his wand, paint everywhere"
+- Funny mode: "Tim and Ann sit quietly..." → rich story with cat joke ending
+
+**Still needs Henry visual check:**
+- Scene composition: regen SC01 of Bryan story, expect Brooklyn neighborhood not 3-person row
 
 ---
 
