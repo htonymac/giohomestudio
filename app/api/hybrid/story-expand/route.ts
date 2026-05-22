@@ -243,6 +243,23 @@ export async function POST(req: NextRequest) {
     let childRules = "";
     // Poem / rhyme format — applied AFTER per-age rules below
     const wantsPoem = body.storyType === "rhyming_poem" || /\b(poem|poetry|rhyme|rhyming|verse|song|musical)\b/i.test(body.storyInput || "");
+
+    // LENGTH ENFORCEMENT — fires for children stories where strict sentence-length rules
+    // (3-7 word sentences max) would otherwise produce 300-word stories regardless of the
+    // 5-min, 20-min, 40-min target. Tells the LLM to use MORE scenes/stanzas to compensate.
+    const lengthEnforcement = body.childContext?.ageGroup
+      ? `\n\n━━ LENGTH ENFORCEMENT — CRITICAL ━━
+The vocabulary rules above LIMIT each sentence to be short. But the TOTAL story length MUST
+still reach approximately ${targetWordCount} words (the user requested a ${durMin}-minute story).
+To hit the target with short sentences, you MUST write MANY MORE scenes/stanzas. Do NOT
+stop early. Keep adding scenes and beats until you reach the word target.
+- For a ${durMin}-minute story: target ~${Math.round(durMin * 6)} scenes/beats minimum
+- Each scene is a separate moment — new location OR new action OR new feeling
+- If poem: ~${Math.round(durMin * 8)} four-line stanzas minimum
+- LLM tendency: "I wrote a complete kid story in 200 words" — REJECTED.
+- Required: fill the full ${targetWordCount}-word budget, even if it means more repetition,
+  more scenes, more characters, more events. Length is non-negotiable.`
+      : "";
     if (body.childContext?.ageGroup) {
       const ag = body.childContext.ageGroup;
       const safety = body.childContext.safetyLevel || "high";
@@ -310,7 +327,7 @@ export async function POST(req: NextRequest) {
 
     const controlBlock = (controlLines.length > 0
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
-      : "") + childRules + poemRules;
+      : "") + childRules + poemRules + lengthEnforcement;
 
     // ── Name pool injection ───────────────────────────────────────────────
     const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;
@@ -380,8 +397,32 @@ Return ONLY this JSON — no explanation, no markdown fences:
   "moodSuggestions": ["2-4 mood keywords for visual direction"],
   "actionPeaks": ["2-3 key high-intensity or emotionally charged moments by name"],
   "narrationHeavyAreas": ["scenes where narration carries the story"],
+  "scenes": [
+    {
+      "scene_number": 1,
+      "title": "Short evocative scene title (e.g. 'Opening City View')",
+      "video_prompt": "RICH cinematic description for the image/video model. Include: setting, characters present with names, action, mood, lighting, camera framing. 2-4 sentences. Example: 'Doctor Gloom Pop standing inside a floating glass cockpit, wearing a silly dark coat and goggles, laughing dramatically, pressing colorful buttons, gray energy spreading across the city.'",
+      "voiceover": "Narrator line for this scene — short, story-driving. Empty string if scene has dialogue instead.",
+      "dialogue": [
+        { "speaker": "Character name (must match characterList)", "line": "What they say in quotes" }
+      ],
+      "sfx_music": "Audio direction. E.g. 'Heroic drums, lightning zap, wind whoosh.' or 'Soft piano, children laughing.'",
+      "location": "Where this scene happens",
+      "mood": "1-2 word mood (joyful, tense, heroic, sad, hopeful)",
+      "duration_seconds": "estimated scene length in seconds, integer"
+    }
+  ],
   "fullScript": "The complete narration — approximately ${targetWordCount} words. Scene by scene. Every beat covered. Written as a narrator speaks. Complete all scenes — do not stop or summarize early. If near the token limit, finish the current scene cleanly then write '[END]'."
-}`;
+}
+
+━━ SCENES ARRAY — REQUIRED RICH OUTPUT ━━
+You MUST produce a "scenes" array with one entry per scene. Match the example
+storyboard structure: each scene has video_prompt (rich cinematic description),
+voiceover OR dialogue array, and sfx_music (audio direction). This is how the
+downstream image/video/audio pipeline consumes your output. Empty "dialogue":[]
+when scene is narration-only; empty "voiceover":"" when scene is dialogue-driven.
+
+Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.`;
 
     const eraLock = buildFullLock(body.storyEra || "", body.storyCulture || "", body.genre || "");
     const eraSystemContext = eraLock.sceneContext
