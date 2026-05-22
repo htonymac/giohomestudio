@@ -466,8 +466,19 @@ export async function POST(req: NextRequest) {
     // If the chosen model returns a 404/422/"model not found" error, we mark it broken,
     // pick the best healthy model in the same family, and retry once.
     // Routes that call generateImage() without this wrapper still work unchanged (backward compat).
-    const willFaceLock = hasPhotoImportChar || referenceImageUrls.length > 0;
-    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
+    // F4 (2026-05-22): drop PuLID for multi-character scenes. PuLID only locks ONE
+    // face, but it ALSO carries the portrait's composition (standing pose, plain bg)
+    // into every scene. For 2+ characters, the trade-off doesn't make sense:
+    //   - PuLID locks one face, fakes the others anyway
+    //   - The portrait composition dominates → scenes look like character lineups
+    // For multi-char scenes, drop PuLID entirely. Use text-only character descriptions
+    // (rich identity block already in prompt). Accept face drift on group shots in
+    // exchange for proper scene composition.
+    //
+    // Single-character scenes still use PuLID — that's where it actually works.
+    const isMultiChar = resolvedCharacters.length > 1;
+    const willFaceLock = (hasPhotoImportChar || referenceImageUrls.length > 0) && !isMultiChar;
+    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${isMultiChar ? " (PuLID dropped — multi-char scene)" : ""} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
     let result = await generateImage({
       modelId: modelId || undefined,
       prompt: structuredPrompt,
@@ -476,9 +487,8 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
-      referenceImageUrl: referenceImageUrls[0],
-      // Identity lock for any character that has a portrait URL.
-      // image-provider.ts auto-uploads local /api/media/ portraits to FAL CDN before PuLID call.
+      referenceImageUrl: willFaceLock ? referenceImageUrls[0] : undefined,
+      // F4: skip identity lock for multi-character scenes — composition wins over face precision
       useIdentityLock: willFaceLock,
     });
 
@@ -500,8 +510,8 @@ export async function POST(req: NextRequest) {
             height: 720,
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
-            referenceImageUrl: referenceImageUrls[0],
-            useIdentityLock: hasPhotoImportChar || referenceImageUrls.length > 0,
+            referenceImageUrl: willFaceLock ? referenceImageUrls[0] : undefined,
+            useIdentityLock: willFaceLock,
           });
           if (!result.success && result.model) {
             markBroken(result.model.id, result.error ?? "fallback also failed");

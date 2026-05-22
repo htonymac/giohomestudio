@@ -12,26 +12,34 @@ import { segmindGenerateImage } from "../gateways/segmind";
 import { falGenerateImage, downloadFalMedia, uploadImageToFal } from "../gateways/fal";
 import { kieGenerateImage } from "../gateways/kie";
 
-// Cache: local /api/media/ URL → FAL CDN public URL (persists for process lifetime)
+// Cache: "local /api/media/ URL @ file mtime" → FAL CDN public URL
+// Phase D fix (2026-05-22): cache key was URL-only. When user regenerates a portrait
+// at the same path, the local URL stays identical but the disk content changes →
+// cache returned the OLD CDN URL → scenes used the OLD portrait. The "substitution
+// doesn't switch" bug. Including mtime in the cache key forces a fresh upload when
+// the underlying file changes.
 const _portraitCdnCache = new Map<string, string>();
 
 async function resolvePublicPortraitUrl(url: string): Promise<string | null> {
   if (!url) return null;
   if (url.startsWith("http")) return url;
   if (!url.startsWith("/api/media/")) return null;
-  const cached = _portraitCdnCache.get(url);
-  if (cached) return cached;
   try {
     const relative = url.replace("/api/media/", "");
     const storageRoot = path.resolve(process.env.STORAGE_BASE_PATH ?? "./storage");
     const filePath = path.resolve(storageRoot, relative);
     if (!fs.existsSync(filePath)) return null;
+    // Include mtime in cache key so regenerated portraits invalidate the cache
+    const stat = fs.statSync(filePath);
+    const cacheKey = `${url}@${stat.mtimeMs}@${stat.size}`;
+    const cached = _portraitCdnCache.get(cacheKey);
+    if (cached) return cached;
     const buffer = fs.readFileSync(filePath);
     const ext = path.extname(filePath).toLowerCase();
     const mimeType = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
     const cdnUrl = await uploadImageToFal(buffer, mimeType);
-    _portraitCdnCache.set(url, cdnUrl);
-    console.log(`[ImageProvider] Portrait → FAL CDN: ${relative} → ${cdnUrl}`);
+    _portraitCdnCache.set(cacheKey, cdnUrl);
+    console.log(`[ImageProvider] Portrait → FAL CDN: ${relative} (mtime=${stat.mtimeMs}) → ${cdnUrl}`);
     return cdnUrl;
   } catch (e) {
     console.warn(`[ImageProvider] Portrait upload failed: ${e}`);
