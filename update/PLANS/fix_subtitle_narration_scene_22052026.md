@@ -101,6 +101,31 @@
 - Use latest chat history when user message is added (use functional setState)
 - **Risk: low** — additive
 
+### FIX 9 — STOP "POSING FOR A PICTURE" — actors must ACT
+Henry's screenshots show 3-4 actors standing in correct workshop setting but **POSED for a model photo**, not acting in the scene. The bug is two-layered:
+
+a) **Scene description verb pollution.** Story-expand and scene-plan write scenes like *"Malik stands with a warm smile next to Andre"*. The verb "stands" is a POSE not an ACTION. Even with my action-extractor injecting "active scene moment" directive, the literal "stands" in the description dominates the model.
+
+b) **The default fallback in `extractSceneAction()`** says "characters in active scene moment" but doesn't EXPLICITLY block portrait/lineup composition.
+
+**Fix:**
+1. **In `src/lib/scene/action-extractor.ts`** — strengthen default fallback:
+   - Add: "characters MID-ACTION, captured in motion or mid-gesture, NOT standing still, NOT posing for camera, NOT facing camera in a row, candid documentary-style framing, in the middle of doing something"
+
+2. **In `app/api/hybrid/scene-image/route.ts`** — strip pose verbs from scene text BEFORE building prompt:
+   - Replace "stands with X smile" → "is mid-action, X smile on face"
+   - Replace "stands next to" → "moves alongside"
+   - Replace "sits" → "is seated working on"
+   - Replace "poses" → "is engaged in"
+   - Add to negative: "posed photo, model pose, fashion pose, looking at camera, facing camera, lineup, standing still, portrait composition"
+
+3. **In `app/api/hybrid/story-expand/route.ts`** — instruct LLM to write scenes in ACTION verbs:
+   - Update scene schema instruction: *"video_prompt MUST start with what characters are DOING (action verb in present continuous), not what they look like. 'Malik welds a wing onto the machine while Andre holds it steady' NOT 'Malik stands smiling next to Andre'."*
+
+**Risk: medium** — could break extractSceneAction's other branches if regex collides. Test all 12+ keyword branches still match.
+
+**Acceptance:** Beat 7 / Beat 8 should show ONE character mid-action (welding, lifting, drawing) with others ACTIVELY doing something else — NOT a 3-person front-facing lineup.
+
 ---
 
 ## ORDER OF EXECUTION (cheapest → riskiest)
@@ -110,11 +135,12 @@
 3. **FIX 3** Audio-plan length proportional — 15 min
 4. **FIX 8** Chat timeout — 10 min
 5. **FIX 5** Persist subtitleConfig + musicVolume deps — 15 min
-6. **FIX 2** Subtitle cap → SRT — 45 min
-7. **FIX 4** Children length validation + retry — 30 min
-8. **FIX 7** Scene composition further hardening — 30 min
+6. **FIX 9** Stop posing — pose-verb strip + action-extractor default + story-expand schema — 30 min
+7. **FIX 2** Subtitle cap → SRT — 45 min
+8. **FIX 4** Children length validation + retry — 30 min
+9. **FIX 7** Scene composition further hardening — 30 min
 
-Total: ~3 hours focused work.
+Total: ~3.5 hours focused work.
 
 ---
 
