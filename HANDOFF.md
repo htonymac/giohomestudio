@@ -1736,3 +1736,71 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ?? tests/children-1-no-textarea.png
   ?? tests/children-2-story-filled.png
   ```
+
+## 2026-05-23 05:42 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `996b5fc fix(assembly): narrator endTime + totalDuration correction + caption layout`
+- working tree:
+  ```
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ```
+
+## 2026-05-23 05:47 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `996b5fc fix(assembly): narrator endTime + totalDuration correction + caption layout`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 05:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `996b5fc fix(assembly): narrator endTime + totalDuration correction + caption layout`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 06:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `de1c0df docs(handoff): Session 20 — export fix committed, all triggers confirmed done`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
