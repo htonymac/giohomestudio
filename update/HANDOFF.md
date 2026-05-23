@@ -1,3 +1,64 @@
+# GHS HANDOFF — Session 20 (Export Fix + All Prior Triggers Confirmed Done)
+
+**Last updated:** 2026-05-22
+**Build:** TSC clean — 0 new errors
+**Git:** All pushed to `main`. HEAD = `996b5fc`.
+**Port:** 3200 | **DB:** giohomestudio_db (PostgreSQL + Prisma)
+
+---
+
+## ✅ COMPLETED THIS SESSION (Session 20)
+
+### Export timing + caption layout — `996b5fc`
+| File | Fix |
+|---|---|
+| `app/api/assembly/execute/route.ts` | Pre-flight now updates narrator `endTime` to `realDur` when current value is shorter |
+| `app/api/assembly/execute/route.ts` | `totalDuration = max(realDur, clientTotal, lastSegEnd)` — video covers all content |
+| `app/api/assembly/execute/route.ts` | Caption Y: `h*0.88` → `h-th-54` — multiline captions stay inside frame |
+| `app/api/assembly/execute/route.ts` | wrapText 45→40, word-chunk split at 20 words per caption entry |
+
+### All open triggers from last session — CONFIRMED DONE (prior sessions)
+| Trigger | Status | Commit |
+|---|---|---|
+| `go F1 F2 F3` (PuLID id_weight + prompt reorder + anti-portrait) | ✅ Done | `07318e1` |
+| `go F4` (drop PuLID for multi-char scenes) | ✅ Done | `b677585` |
+| `go phase A` (Movie Planner toolbar) | ✅ Done | `4e52c02` |
+| `go phase B` (Children Planner toolbar + word filter) | ✅ Done | `4e52c02` |
+| `investigate substitution` (Phase D — portrait cache stale) | ✅ Done | `b677585` |
+
+---
+
+## ⚠ STILL NEEDS HENRY VISUAL CHECK
+
+Before calling any of these bugs "fixed":
+- Scene composition: regen SC01 of Bryan story → expect real Brooklyn neighborhood, NOT 3-person row
+- Phase D substitution: regen a portrait, then regen the scene → should use NEW portrait
+- Multi-char scenes (F4): should show scene location/action, NOT portrait-style row
+
+Browser cache note — if "fix didn't work":
+```powershell
+Remove-Item -Recurse -Force .next
+npm run dev
+# Then Ctrl+Shift+R + start a NEW project (stale data persists in hybrid_saved_states DB)
+```
+
+---
+
+## 🔥 PENDING WORK — Next priorities
+
+### A. Backlog (no trigger yet)
+- C6 pacing engine: `pacingPlan`, `pacingAudioUrl`, `pacingVideoUrl` not persisted to DB — lost on page refresh
+- Prisma migrations: `npx prisma migrate dev` pending
+- Establishing Shot & Scene Opener: spec at `update/LANDSCAPE SHOT/ESTABLISHING_SHOT_SPEC.md`
+- SFX semantic category: 60 categories, Ollama maps action→category, royalty-free
+- Subtitle style tokens: always Arial; `subtitleConfig.mode` ignored
+- character-build LLM prompt over-diversifies same-ethnicity siblings (has "DIFFERENT from existing" pressure)
+
+### B. Task #8 (Phase 3) — Continuity supervisor + image library UI
+No plan written yet. Trigger when ready.
+
+---
+
 # GHS HANDOFF — Session 19 (Major Quality Pass — Phase A+B Toolbars, Scene Composition, LLM Cascade)
 
 **Last updated:** 2026-05-21
