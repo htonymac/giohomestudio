@@ -5711,6 +5711,47 @@ function ChildrenPlannerInner() {
 
             {textContent && (
               <div>
+                {/* FIX 1 (2026-05-22): scene-edit toolbar lives HERE in Script tab, NOT Scene Board */}
+                {childScenes.length > 0 && (
+                  <div style={{ marginBottom: 18, padding: 14, borderRadius: 10, background: `${childAccent}06`, border: `1px solid ${childAccent}25` }}>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Refine Scenes</p>
+                    <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Edit each scene&apos;s visual description and apply child-safe AI rewrites. Image prompts read this — changes here flow to Scene Board on next regen.</p>
+                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, maxHeight: 520, overflowY: "auto" }}>
+                      {childScenes.map(s => {
+                        const sceneId = `child_sc${s.scene}`;
+                        return (
+                          <div key={sceneId} style={{ padding: 10, borderRadius: 8, background: "#0d0817", border: `1px solid ${border}` }}>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: childAccent, marginBottom: 4 }}>SC{String(s.scene).padStart(2, "0")} — {s.title || "Untitled"}</p>
+                            <textarea
+                              value={s.visualDescription || ""}
+                              onChange={e => setChildScenes(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, visualDescription: e.target.value } : sc))}
+                              rows={3}
+                              style={{ width: "100%", background: "transparent", border: `1px solid ${border}`, borderRadius: 6, color: "#ccc", fontSize: 10, padding: 6, lineHeight: 1.4, resize: "vertical", outline: "none", marginBottom: 6 }}
+                            />
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
+                              <button onClick={() => handlePolishScene(sceneId, s.visualDescription, "polish")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #a855f770", background: "transparent", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>✨ Polish</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "funny")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>😄 Funny</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "playful")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #f472b670", background: "#f472b610", color: "#f472b6", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🎈 Playful</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "adventure")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #06b6d470", background: "#06b6d410", color: "#06b6d4", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🗡 Adventure</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "emotional")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #ec489970", background: "#ec489910", color: "#ec4899", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>💗 Emotion</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "add_action")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fb923c70", background: "#fb923c10", color: "#fb923c", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>➕ Action</button>
+                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "establish")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🌅 Establish</button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Script-level batch ops — apply to whole script, NOT per-scene */}
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${border}` }}>
+                      <button onClick={() => {
+                        const allText = scriptSegments.map(s => s.text).join(" ");
+                        handleAdultWordCheck("script-global", allText);
+                      }} disabled={polishingScene === "script-global"} title="Scan full script for adult/scary words"
+                        style={{ padding: "7px 12px", borderRadius: 7, border: "1px solid #ef444470", background: "#ef444410", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🛡 Scan Script for Adult Words</button>
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
                   <p style={{ fontSize: 12, color: muted }}>
                     {scriptSegments.length > 0
@@ -6181,15 +6222,9 @@ function ChildrenPlannerInner() {
                           style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #a855f770", background: polishingScene === sceneId ? "#a855f715" : "transparent", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>
                           {polishingScene === sceneId ? "Editing..." : "✨ Polish"}
                         </button>
-                        {/* Phase B: child-safe scene editor buttons */}
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "funny")} disabled={polishingScene === sceneId} title="Make this scene funnier" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>😄 Funny</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "playful")} disabled={polishingScene === sceneId} title="More playful energy" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #f472b670", background: "#f472b610", color: "#f472b6", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🎈 Playful</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "adventure")} disabled={polishingScene === sceneId} title="Gentle safe adventure" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #06b6d470", background: "#06b6d410", color: "#06b6d4", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🗡 Adventure</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "emotional")} disabled={polishingScene === sceneId} title="Warm emotional moment" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #ec489970", background: "#ec489910", color: "#ec4899", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>💗 Emotion</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "add_action")} disabled={polishingScene === sceneId} title="Add gentle action" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fb923c70", background: "#fb923c10", color: "#fb923c", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>➕ Action</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "establish")} disabled={polishingScene === sceneId} title="Establish location" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🌅 Establish</button>
-                        <button onClick={() => handleChildSceneOp(sceneId, scene.visualDescription, "qc")} disabled={polishingScene === sceneId} title="Run QC check" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #22c55e70", background: "#22c55e10", color: "#22c55e", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>✅ QC</button>
-                        <button onClick={() => handleAdultWordCheck(sceneId, scene.visualDescription)} disabled={polishingScene === sceneId} title="Scan for adult/scary words" style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #ef444470", background: "#ef444410", color: "#ef4444", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🛡 Word Check</button>
+                        {/* Phase B editor buttons MOVED to Script & Story Plan tab (FIX 1, 2026-05-22)
+                            Per Henry: Scene Board should only have visual/regen/preview controls.
+                            Story-level ops (Funny/Playful/QC/Word Check) live in the Script tab. */}
                         {/* Make Video — POST /api/hybrid/scene-video */}
                         <button
                           onClick={() => makeSceneVideo(scene)}

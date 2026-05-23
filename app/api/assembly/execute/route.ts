@@ -492,8 +492,12 @@ export async function POST(req: NextRequest) {
           }
 
           const subEntries = buildSubEntries(narrationWithText);
-          // Cap at 60 entries — beyond that the drawtext chain gets too long for FFmpeg
-          const capped = subEntries.slice(0, 60);
+          // FIX 7 (2026-05-22): raised cap 60→300. Long videos (children's 40-min stories)
+          // had subtitles cut off mid-video. drawtext chain with 300 entries is still
+          // under FFmpeg filter graph length limits (each entry ~150 chars × 300 ≈ 45KB,
+          // safely under FFmpeg's ~200KB practical limit). If chain still chokes, fall
+          // back to chunked rendering (write 100 at a time to a passthrough output).
+          const capped = subEntries.slice(0, 300);
 
           if (capped.length > 0) {
             // Resolve font file — drawtext on Windows silently fails without an explicit fontfile.

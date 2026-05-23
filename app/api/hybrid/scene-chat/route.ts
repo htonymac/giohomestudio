@@ -94,13 +94,22 @@ async function runWithFallback(
   system: string,
   chain: Array<"ollama" | "openai" | "claude">
 ): Promise<{ ok: true; text: string; provider: string } | { ok: false; error: string }> {
+  // FIX 8 (2026-05-22): per-provider timeout. Without this, an unresponsive Ollama
+  // (e.g. model still loading) caused every chat message to wait full default
+  // timeout before falling through. Now each provider gets a fixed cap.
+  const PROVIDER_TIMEOUT_MS: Record<string, number> = {
+    ollama: 12000, // 12s — fast fail when local is sluggish
+    openai: 30000,
+    claude: 30000,
+  };
   const errors: string[] = [];
   for (const provider of chain) {
     try {
       const result = await callLLM(prompt, system, {
         forceProvider: provider,
-        role: provider === "claude" ? "fast" : "assistant", // claude=haiku via fast
+        role: provider === "claude" ? "fast" : "assistant",
         maxTokens: 800,
+        timeoutMs: PROVIDER_TIMEOUT_MS[provider] ?? 30000,
       });
       if (result.ok && result.text?.trim()) {
         return { ok: true, text: result.text, provider: result.provider || provider };

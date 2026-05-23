@@ -13,7 +13,7 @@ import { generateImage } from "@/lib/generation/selectors/image-provider";
 import { getStylePreset } from "@/lib/style-presets";
 import { sanitizeStyleCollisions, getStyleCollisionNegative } from "@/lib/style/sanitizer";
 import { getLateAnchor } from "@/lib/style/late-anchor";
-import { extractSceneAction } from "@/lib/scene/action-extractor";
+import { extractSceneAction, stripPoseLanguage } from "@/lib/scene/action-extractor";
 import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getModelById } from "@/lib/generation/model-registry";
 import { buildFullLock, toStaticFrame } from "@/lib/era-culture-lock";
@@ -192,7 +192,10 @@ export async function POST(req: NextRequest) {
     // the action extractor. This way "her voice was animated" never reaches the model
     // when style=realistic.
     const styleId = (projectStyle || "3d-cinematic") as string;
-    const cleanSceneText = sanitizeStyleCollisions(sanitizeNarrativeJargon(sceneText || ""), styleId);
+    // FIX 9 (2026-05-22): strip pose language ("stands with a smile", "next to") BEFORE
+    // sanitization. These were forcing the model into character-lineup compositions
+    // even though the environment description was correct.
+    const cleanSceneText = sanitizeStyleCollisions(sanitizeNarrativeJargon(stripPoseLanguage(sceneText || "")), styleId);
     const sceneActionDirective = extractSceneAction(cleanSceneText);
 
     // ── ERA + CULTURE LOCK — computed once, used in prompt AND negative ──
@@ -384,7 +387,7 @@ export async function POST(req: NextRequest) {
     // standing in a row, plain backdrop). Skip for cartoon/storybook where simpler
     // compositions are sometimes correct.
     const antiPortraitNegative = isRealisticFamily
-      ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row"
+      ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row, models posing for camera, fashion shoot composition, all characters facing camera, group photo composition, static standing still, hands at sides motionless"
       : "";
 
     // Nudity / shirtless negative — fires unless the scene explicitly calls for it (beach,

@@ -251,16 +251,37 @@ async function planScenesInline(
     const suggestions = llmResult.ok ? parseAudioSuggestions(llmResult.text) : parseAudioSuggestions("");
 
     // Build narration if requested
+    // FIX 3 (2026-05-22): narration length proportional to scene duration.
+    // Was hardcoded "1-2 sentences" with maxTokens 120 → all scenes had tiny narration
+    // regardless of scene length. Now scales with scene description length AND
+    // any explicit duration hint on the scene object.
     let narration = "";
     if (generateNarration) {
-      const narrationPrompt = [
-        "Write a short cinematic narrator line (1-2 sentences) for this scene.",
-        `Story context: ${(storyContext || "").slice(0, 400)}`,
-        `Scene: ${scene.title}. ${scene.description}`,
-        "Respond with ONLY the narration text, no quotes, no labels.",
-      ].join("\n");
-      const nr = await callLLM(narrationPrompt, "You are a film narrator.", { role: "fast", maxTokens: 120, temperature: 0.7 });
-      narration = nr.ok ? nr.text.trim() : "";
+      // Preserve existing narrationScript if already richer than what we'd generate
+      const existing = (scene as { narrationScript?: string }).narrationScript || "";
+      const descLen = (scene.description || "").length;
+      const sceneDurSec = (scene as { duration?: number; motionDuration?: number }).duration
+        ?? (scene as { motionDuration?: number }).motionDuration
+        ?? Math.max(8, Math.round(descLen / 30));
+      // ~140 wpm narrator pace. Tokens ≈ words * 1.35.
+      const targetWords = Math.max(20, Math.round(sceneDurSec * 2.3));
+      const maxTokens = Math.min(1200, Math.max(120, Math.round(targetWords * 1.5)));
+      const sentenceCount = Math.max(2, Math.round(sceneDurSec / 5));
+
+      if (existing && existing.split(/\s+/).length >= targetWords * 0.8) {
+        // Existing narrationScript is already long enough — keep it
+        narration = existing;
+      } else {
+        const narrationPrompt = [
+          `Write a cinematic narrator passage of approximately ${targetWords} words (${sentenceCount} sentences) for this scene.`,
+          `The scene is ~${sceneDurSec} seconds long. Match that duration when read at natural narrator pace.`,
+          `Story context: ${(storyContext || "").slice(0, 400)}`,
+          `Scene: ${scene.title}. ${scene.description}`,
+          "Respond with ONLY the narration text, no quotes, no labels. Do NOT stop early.",
+        ].join("\n");
+        const nr = await callLLM(narrationPrompt, "You are a film narrator. Write the full requested length.", { role: "fast", maxTokens, temperature: 0.7 });
+        narration = nr.ok ? nr.text.trim() : "";
+      }
     }
 
     // Map DB-style suggestions → frontend AudioPlan format.

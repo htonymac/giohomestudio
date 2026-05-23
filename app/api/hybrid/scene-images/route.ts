@@ -44,7 +44,8 @@ export async function GET(req: NextRequest) {
         }
         return {
           filename,
-          url: `/storage/scenes/${projectId}/${sceneId}/${filename}`,
+          // FIX 6 (2026-05-22): return /api/media/ URL not /storage/ so previews + assembly work
+          url: `/api/media/scenes/${projectId}/${sceneId}/${filename}`,
           sizeKb,
           timestamp,
         };

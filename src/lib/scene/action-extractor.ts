@@ -69,5 +69,28 @@ export function extractSceneAction(text: string): string {
     return "two or more characters in conversation, facing each other, engaged expressions, natural body language, neutral medium shot";
 
   // ── Default: preserve scene drama ──
-  return "characters in active scene moment, purposeful body language expressing scene mood, dynamic composition";
+  // FIX 9 (2026-05-22): default fallback now explicitly blocks portrait/lineup composition.
+  // Henry's complaint: scenes were showing actors POSING for a photo (3-in-a-row, facing camera)
+  // instead of ACTING. This default is what fires when no specific action keyword matches.
+  return "characters MID-ACTION, captured in motion or mid-gesture, candid documentary-style framing, NOT standing still, NOT posing for camera, NOT facing camera in a row, NOT a character lineup, NOT a photo shoot, NOT a fashion pose, each character actively doing something different, dynamic asymmetric composition with depth";
+}
+
+// FIX 9 (2026-05-22): strip pose verbs from raw scene text BEFORE prompt build.
+// Story-expand and scene-plan often produce "Malik stands with a warm smile next to Andre" —
+// literal "stands" + "next to" = lineup composition. Replace with action verbs.
+export function stripPoseLanguage(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\bstands?\s+with\s+a?\s*(\w+)\s+smile/gi, "is mid-action with a $1 expression")
+    .replace(/\bstands?\s+next\s+to\b/gi, "is working alongside")
+    .replace(/\bstands?\s+beside\b/gi, "works beside")
+    .replace(/\bstanding\s+next\s+to\b/gi, "working alongside")
+    .replace(/\bstanding\s+beside\b/gi, "working beside")
+    .replace(/\bstands?\s+confidently\b/gi, "moves confidently")
+    .replace(/\bposes?\s+for\b/gi, "is engaged with")
+    .replace(/\bposing\b/gi, "actively gesturing")
+    .replace(/\bsits?\s+quietly\b/gi, "is seated, working on")
+    .replace(/\bstands?\s+together\b/gi, "are mid-action together")
+    .replace(/\bsmiling\s+at\s+the\s+camera\b/gi, "smiling at each other")
+    .replace(/\blooking\s+at\s+the\s+camera\b/gi, "looking at the scene action");
 }

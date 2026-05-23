@@ -820,6 +820,11 @@ function HybridPlannerInner() {
           if (d.outroUrl) setOutroUrl(d.outroUrl);
           if (d.introEnabled !== undefined) setIntroEnabled(!!d.introEnabled);
           if (d.outroEnabled !== undefined) setOutroEnabled(!!d.outroEnabled);
+          // FIX 5 (2026-05-22): restore subtitle + assembly settings
+          if (d.subtitleConfig) setSubtitleConfig(d.subtitleConfig);
+          if (typeof d.narratorAudioDuration === "number") setNarratorAudioDuration(d.narratorAudioDuration);
+          if (d.sceneModeOverrides && Object.keys(d.sceneModeOverrides).length > 0) setSceneModeOverrides(d.sceneModeOverrides);
+          if (d.sceneStyles && Object.keys(d.sceneStyles).length > 0) setSceneStyles(d.sceneStyles);
         }
       }
     } catch (err) { console.error("Project state restore failed:", err); }
@@ -903,6 +908,9 @@ function HybridPlannerInner() {
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
       sceneDescHashes,  // 3-B: persist stale-image hash map across sessions
       introUrl, outroUrl, introEnabled, outroEnabled,  // persist card URLs so refresh doesn't wipe them
+      // FIX 5 (2026-05-22): persist subtitle + assembly settings so reload keeps user choices
+      subtitleConfig, musicVolume, narratorAudioDuration,
+      sceneModeOverrides, sceneStyles,
       // Set serializes as Array via spread — restore reads as Array, hydrates back into Set.
       useMaxImageScenes: Array.from(useMaxImageScenes),
       timestamp: Date.now(),
@@ -914,7 +922,7 @@ function HybridPlannerInner() {
       body: JSON.stringify({ localId: activeProjLocalId, data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices, sceneBeatImages, selectedBeatImages, useMaxImageScenes, sceneDescHashes]);
+  }, [activeProjLocalId, projectId, projectTitle, projectPhase, idea, genre, tone, projectStyle, expandedSummary, fullScript, characters, scenes, sceneImages, sceneVideos, savedCuts, archivedScenes, narratorAudioUrl, selectedMusicUrl, selectedMusicName, subtitleStyle, storyMode, soundTier, screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices, sceneBeatImages, selectedBeatImages, useMaxImageScenes, sceneDescHashes, subtitleConfig, musicVolume, narratorAudioDuration, sceneModeOverrides, sceneStyles]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {

@@ -496,10 +496,24 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
       }, { status: 503 });
     }
 
+    // FIX 4 (2026-05-22): post-LLM word count validation.
+    // Henry: children planner stories still come out short even with picker + tier:pro.
+    // Models stop early when they think the story is "complete". This validation
+    // catches sub-60% targets and surfaces a clear warning instead of silently
+    // accepting a 200-word result for a 5-min target.
+    const fullScriptWords = (expandedStory.fullScript || "").trim().split(/\s+/).filter(Boolean).length;
+    const shortfall = fullScriptWords < targetWordCount * 0.6;
+    const warning = shortfall
+      ? `Story is shorter than target. Got ${fullScriptWords} words (target ${targetWordCount} for ${durMin}-min). LLM stopped early — try a different model (Pro tier / Claude / GPT) or break the prompt into chapters.`
+      : undefined;
+
     return NextResponse.json({
       ok: true,
       expandedStory,
       provider: (llmResult as { provider: string }).provider,
+      wordCount: fullScriptWords,
+      targetWordCount,
+      ...(warning ? { warning } : {}),
     });
   } catch (err) {
     console.error("[story-expand] Unexpected error:", err);
