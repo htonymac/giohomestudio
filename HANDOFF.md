@@ -809,3 +809,828 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ?? storage/scenes/
   ?? storage/test_narration_mix.mp3
   ```
+
+## 2026-05-19 21:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2312034 fix(bear-head): remove scene-text animal detection — only explicit species triggers animal mode`
+- working tree:
+  ```
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 22:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `83a965d fix(face-lock): remove modelId bypass — PuLID now activates whenever portrait exists`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-19 22:38 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `26de934 fix(subtitle): preserve line breaks + surface burn-in failures to user`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 01:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c6b658 fix(scene-image): pass character age from Character tab — fixes age drift across scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 01:11 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c6b658 fix(scene-image): pass character age from Character tab — fixes age drift across scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 01:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c6b658 fix(scene-image): pass character age from Character tab — fixes age drift across scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 02:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c6b658 fix(scene-image): pass character age from Character tab — fixes age drift across scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 02:14 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c6b658 fix(scene-image): pass character age from Character tab — fixes age drift across scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 02:20 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `829ea62 fix(character-extract): require skinTone + age, inject ethnicity into visualDescription`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 02:42 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `829ea62 fix(character-extract): require skinTone + age, inject ethnicity into visualDescription`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 03:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b65cce5 diag(face-lock): surface PuLID status to UI per scene so silent failures are visible`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 03:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b65cce5 diag(face-lock): surface PuLID status to UI per scene so silent failures are visible`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 03:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1774db4 fix(ai-read): never let portrait-reading AI override story-extracted ethnicity/age`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-05-20 04:18 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1774db4 fix(ai-read): never let portrait-reading AI override story-extracted ethnicity/age`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-20 06:11 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1774db4 fix(ai-read): never let portrait-reading AI override story-extracted ethnicity/age`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ?? tests/find-marcus-cole.mjs
+  ```
+
+## 2026-05-20 06:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `daae5db fix(assembly): intro/outro preview shows <img> for PNG cards, not <video>`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ?? tests/find-marcus-cole.mjs
+  ```
+
+## 2026-05-20 06:21 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `221c608 fix(subtitle): escape colon in Windows fontfile path — drawtext was failing silently`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ?? tests/find-marcus-cole.mjs
+  ```
+
+## 2026-05-20 06:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `64df85d fix(character-extract): pipe ethnicity from extraction → React state → portrait prompt`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ?? tests/find-marcus-cole.mjs
+  ```
+
+## 2026-05-20 06:37 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `64df85d fix(character-extract): pipe ethnicity from extraction → React state → portrait prompt`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/diagnose-ethnicity-bug-ethnicity-bug-diag-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ?? tests/find-marcus-cole.mjs
+  ```
+
+## 2026-05-20 06:50 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `863b493 fix(character-extract): walk entire expandedStory object for ethnicity inference`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 08:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `863b493 fix(character-extract): walk entire expandedStory object for ethnicity inference`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 15:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:34 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:40 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:40 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:43 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3c488b8 docs(handoff): Session 18 comprehensive handoff — 13 commits, full ethnicity pipeline`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 18:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5f0abe0 fix(ollama): raise default timeout 15s → 90s for local model latency`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-20 22:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5f0abe0 fix(ollama): raise default timeout 15s → 90s for local model latency`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-21 01:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5f0abe0 fix(ollama): raise default timeout 15s → 90s for local model latency`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? test-results/verify-ethnicity-e2e-ethnicity-e2e-chromium/
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ```
+
+## 2026-05-21 01:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `87af189 test(ethnicity): Playwright test proves UI mapping works given correct server data`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 01:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `87af189 test(ethnicity): Playwright test proves UI mapping works given correct server data`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 01:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2a5701e fix(character-extract): Option B — story-wide dominant ethnicity override`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 03:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2a5701e fix(character-extract): Option B — story-wide dominant ethnicity override`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 03:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2a5701e fix(character-extract): Option B — story-wide dominant ethnicity override`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 03:24 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8f5e3f0 fix(scene-image): match Scene Board characters by displayName too, not just characterId`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 04:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `bf4f88a fix(scene-image): block shirtless defaults — characters get clothing override even when PuLID-locked`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 05:04 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `73f66b5 fix(children-planner): age-appropriate vocabulary + music providerKey + karaoke narration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 05:08 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `08255ba fix(portrait): stop shirtless defaults at portrait gen — PuLID locks portrait state`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 05:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d53a2f3 fix(pulid): lower id_weight + delay start_step so scene prompts can override portrait state`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 05:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `96db101 fix(scene-prompt): cast description skips empty/contaminated fields`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 05:28 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d4ba8a3 fix(children-planner): match hybrid story-expand call — Story Length picker + tier:pro`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 15:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d4ba8a3 fix(children-planner): match hybrid story-expand call — Story Length picker + tier:pro`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 17:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6ba628e docs(plans): approved plan — port Hybrid scene editor to Movie + Children planners`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 17:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6ba628e docs(plans): approved plan — port Hybrid scene editor to Movie + Children planners`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 17:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f39328a docs(plans): scene composition fix plan — PuLID locking full portrait composition, not just face`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 22:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f3073bb docs(handoff): Session 19 — children vocabulary + PuLID tuning + 2 approved plans waiting`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-21 23:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f3073bb docs(handoff): Session 19 — children vocabulary + PuLID tuning + 2 approved plans waiting`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ?? tests/ethnicity-bug-log.txt
+  ?? tests/ethnicity-bug-shot.png
+  ?? tests/ethnicity-step1-story-tab.png
+  ```
+
+## 2026-05-22 04:47 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d767ff7 docs(handoff): add Session 19 push log — F1+F2+F3, story-expand rich scenes, Phase A+B toolbars`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
+
+## 2026-05-22 18:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `94417ac docs(handoff): finished — F4 + Phase D landed, all 3 child-safe ops verified live`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
+
+## 2026-05-23 00:34 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `74f57ee docs(plans): fix plan for Henry's 8 issues — subtitle, narration, scene-board, toolbar placement`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
+
+## 2026-05-23 01:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7ecd210 docs(plans): add FIX 9 — characters POSING not ACTING in scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
+
+## 2026-05-23 01:21 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7820ea0 fix(planners): 7 fixes from Henry's frustration log — toolbar, URL, audio, chat, persist, pose, subtitle cap, length`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
+
+## 2026-05-23 01:30 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7820ea0 fix(planners): 7 fixes from Henry's frustration log — toolbar, URL, audio, chat, persist, pose, subtitle cap, length`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/diagnose-ethnicity-bug.spec.ts
+  ```
