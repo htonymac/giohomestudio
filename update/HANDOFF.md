@@ -5,6 +5,19 @@
 **Git:** All pushed to `main`. HEAD = `4e52c02`.
 **Port:** 3200 | **DB:** giohomestudio_db (PostgreSQL + Prisma)
 
+## ✅ 2026-05-22 — Export timing + caption layout fix (uncommitted — stage + commit before next work)
+
+| File | Fix |
+|---|---|
+| `app/api/assembly/execute/route.ts` | Pre-flight now updates narrator `endTime` + `totalDuration = max(realDur, clientTotal, lastSegEnd)` |
+| `app/api/assembly/execute/route.ts` | Caption Y: `h*0.88` → `h-th-54` (prevents multiline overflow below frame) |
+| `app/api/assembly/execute/route.ts` | wrapText 45→40 chars; buildSubEntries word-chunk split at 20 words per caption |
+
+**Root cause of "video ends before voiceover":**
+When `effectiveNarrDurMs=0` on client (audio element recovery failed), `totalDuration = sceneBaseDuration` (~55s) and narrator `endTime = narratorFallbackSec` (~40s). Pre-flight ffprobe was only updating `totalDuration`, not `endTime`. Assembly-builder then applied `atrim=duration=40` — 3-min narrator trimmed to 40s.
+
+---
+
 ## ✅ EXECUTED THIS PUSH (after handoff was last written)
 
 | Commit | What |

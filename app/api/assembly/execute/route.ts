@@ -262,30 +262,50 @@ export async function POST(req: NextRequest) {
       .map(s => ({ ...s, sourceUrl: resolveMediaPath(s.sourceUrl) }))
       .filter(s => s.sourceUrl && fs.existsSync(s.sourceUrl));
 
-    // ── Pre-flight: correct totalDuration via ffprobe on narration files ──────
-    // page.tsx sends totalDuration = sum(motionDuration) ≈ 30s when React
-    // narratorAudioDuration state reset to 0 after a hard page refresh.
-    // That makes prepare_music loop music to only 30s while narration is 3min.
-    // Fix: probe the actual narration audio BEFORE building the plan.
+    // ── Pre-flight: correct totalDuration + narrator endTime via ffprobe ────────
+    // When React narratorAudioDuration state is lost (page refresh), page.tsx sends:
+    //   totalDuration = sceneBaseDuration (~50s)
+    //   narrator entry endTime = narratorFallbackSec (~40s)
+    // Both values are too short if the actual narrator is e.g. 3min.
+    // The assembly-builder then applies atrim=duration=40 — narrator gets cut.
+    // Fix: probe the actual narrator file BEFORE building the plan, then correct BOTH
+    // totalDuration AND narrator endTime so atrim never truncates real audio.
     let fullAssembly: AssemblyJSON = { ...finalAssembly, sfx: patchedSfx };
     {
       const ffprobePath = env.ffmpegPath.replace(/ffmpeg(\.exe)?$/i, "ffprobe$1");
-      const longestNarr = patchedNarration.reduce((best: typeof patchedNarration[0] | null, n) =>
-        n.audioUrl && (!best || (n.endTime || 0) > (best.endTime || 0)) ? n : best,
-        null
-      );
-      if (longestNarr?.audioUrl && fs.existsSync(longestNarr.audioUrl)) {
+      // Pick the main narrator entry (startTime=0 OR longest endTime)
+      const mainNarr = patchedNarration.find(n => n.startTime === 0)
+        ?? patchedNarration.reduce((best: typeof patchedNarration[0] | null, n) =>
+          n.audioUrl && (!best || (n.endTime || 0) > (best.endTime || 0)) ? n : best,
+          null
+        );
+      if (mainNarr?.audioUrl && fs.existsSync(mainNarr.audioUrl)) {
         try {
           const { stdout } = await execFileAsync(ffprobePath,
-            ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", longestNarr.audioUrl],
+            ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", mainNarr.audioUrl],
             { timeout: 8000 }
           );
           const realDur = parseFloat(stdout.trim());
-          if (realDur > 0 && realDur > fullAssembly.totalDuration) {
-            console.log(`[assembly] totalDuration corrected ${fullAssembly.totalDuration.toFixed(1)}s → ${realDur.toFixed(1)}s (ffprobe narration)`);
-            fullAssembly = { ...fullAssembly, totalDuration: realDur };
+          if (realDur > 0) {
+            // Fix narrator endTime if the client sent a fallback-computed value shorter than real audio.
+            // This prevents assembly-builder's atrim from truncating the narrator track.
+            const correctedNarration = fullAssembly.narration.map(n =>
+              n.startTime === 0 && (n.endTime ?? 0) < realDur ? { ...n, endTime: realDur } : n
+            );
+            // totalDuration = max(actual narrator, client-declared, last segment end).
+            // Including lastSegEnd ensures intro+outro cards don't get clipped.
+            const lastSegEnd = fullAssembly.segments.reduce(
+              (max, s) => Math.max(max, s.endTime ?? (s.startTime + (s.duration ?? 5))),
+              0
+            );
+            const correctedTotal = Math.max(realDur, fullAssembly.totalDuration, lastSegEnd);
+            const narrChanged = correctedNarration.some((n, i) => n.endTime !== fullAssembly.narration[i]?.endTime);
+            if (correctedTotal !== fullAssembly.totalDuration || narrChanged) {
+              console.log(`[assembly] Pre-flight corrected: totalDuration ${fullAssembly.totalDuration.toFixed(1)}s → ${correctedTotal.toFixed(1)}s, narrator endTime → ${realDur.toFixed(1)}s`);
+              fullAssembly = { ...fullAssembly, totalDuration: correctedTotal, narration: correctedNarration };
+            }
           }
-        } catch { /* ffprobe unavailable — keep declared totalDuration */ }
+        } catch { /* ffprobe unavailable — keep declared values */ }
       }
     }
 
@@ -427,6 +447,9 @@ export async function POST(req: NextRequest) {
           function buildSubEntries(entries: typeof narrationWithText): SubEntry[] {
             const result: SubEntry[] = [];
             const MIN_DUR = 1.5;
+            // FIX (2026-05-22): cap at 20 words per caption entry so long sentences
+            // are split into multiple shorter entries instead of one wide single line.
+            const MAX_CAPTION_WORDS = 20;
             for (const entry of entries) {
               const text = entry.text!.trim();
               const entryStart = entry.startTime || 0;
@@ -434,12 +457,24 @@ export async function POST(req: NextRequest) {
               // Guard against legacy 99999 fallback — cap at a sane window
               const entryEnd = rawEnd > 9000 ? entryStart + 300 : Math.max(rawEnd, entryStart + 1);
               const totalDur = entryEnd - entryStart;
-              // Split on sentence-ending punctuation; fall back to 200-char chunks if no punctuation
+              // Split on sentence-ending punctuation; fall back to full text if no punctuation
               const raw = text.match(/[^.!?]+[.!?]*/g) || [text];
-              const sentences = raw.map(s => s.trim()).filter(Boolean);
+              // Further split any sentence >MAX_CAPTION_WORDS into word-count chunks
+              const sentences: string[] = [];
+              for (const chunk of raw) {
+                const s = chunk.trim();
+                if (!s) continue;
+                const ws = s.split(/\s+/).filter(Boolean);
+                if (ws.length <= MAX_CAPTION_WORDS) {
+                  sentences.push(s);
+                } else {
+                  for (let wi = 0; wi < ws.length; wi += MAX_CAPTION_WORDS) {
+                    sentences.push(ws.slice(wi, wi + MAX_CAPTION_WORDS).join(" "));
+                  }
+                }
+              }
               if (sentences.length === 0) continue;
-              // Word-count proportion — speech speed is roughly proportional to word count,
-              // not character count (short words vs long words read at similar pace).
+              // Word-count proportion — speech speed is roughly proportional to word count
               const wordCounts = sentences.map(s => Math.max(s.split(/\s+/).filter(Boolean).length, 1));
               const totalWords = wordCounts.reduce((a, b) => a + b, 0);
               let cursor = entryStart;
@@ -472,8 +507,8 @@ export async function POST(req: NextRequest) {
               .replace(new RegExp(NL, "g"), "\\n");
           }
 
-          // Wrap text at ~45 chars so it fits in standard aspect ratios
-          function wrapText(t: string, maxLen = 45): string {
+          // Wrap text at ~40 chars — conservative enough for bold/wide fonts at 1920px
+          function wrapText(t: string, maxLen = 40): string {
             if (t.length <= maxLen) return t;
             const words = t.split(" ");
             const lines: string[] = [];
@@ -559,10 +594,12 @@ export async function POST(req: NextRequest) {
                 defaultDrawStyle = styleParams[globalStyle] || styleParams.classic;
               }
 
-              // Y position from SubtitleConfig position setting
+              // Y position from SubtitleConfig position setting.
+              // Bottom: pin the BOTTOM of the text block to the safe area (54px = 5% of 1080).
+              // h*0.88 would place the TOP there — multi-line captions then overflow below the frame.
               const subY = subCfg?.position === "top" ? "h*0.06"
                 : subCfg?.position === "center" ? "(h-th)/2"
-                : "h*0.88"; // bottom (default)
+                : "h-th-54"; // bottom: bottom edge of text block = h - 54px safe margin
 
               // Helper: find segment active at a given midpoint time for per-segment style override
               const sortedSegments = [...(fullAssembly.segments || [])].sort(

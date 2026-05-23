@@ -1,5 +1,26 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-22 — Export Timing + Caption Layout Fix
+
+**What:** Fixed 4 export bugs in `/api/assembly/execute/route.ts`.
+
+1. **Narrator audio truncated** — Pre-flight ffprobe corrected `totalDuration` when `effectiveNarrDurMs=0` on client, but NOT the narrator entry's `endTime`. Assembly-builder then applied `atrim=duration=narratorFallbackSec` (~40s) cutting a 3-min narrator to 40s. Fix: pre-flight now also updates narrator `endTime` to `realDur` when the current value is shorter.
+
+2. **Video ends before voiceover finishes** — `totalDuration` sent from client was `sceneBaseDuration` (~55s) when narrator duration state was lost. Pre-flight now sets `totalDuration = max(realDur, clientTotal, lastSegmentEnd)` ensuring the video covers all content.
+
+3. **Caption layout overflow** — Bottom caption Y was `h*0.88`, placing the TOP of the text at 88% height. Multi-line captions (2-3 lines) extended below the 1080px frame. Fixed to `h-th-54`: bottom edge of text block = frame height − 54px safe margin.
+
+4. **Long captions as single wide line** — `buildSubEntries` only split on sentence-ending punctuation. Long sentences (>20 words) became one wide caption. Added word-chunk splitting at 20-word boundary. Also reduced `wrapText` wrap width from 45→40 chars.
+
+**Impact:** Full voiceover now plays in exported video. Captions stay inside the safe area and display as short readable chunks.
+
+**Risk:** Low. No schema changes, no new TSC errors. Caption count may increase for long stories (more entries, each ~2-3s).
+
+**Files:**
+- `app/api/assembly/execute/route.ts` — pre-flight block, buildSubEntries, wrapText maxLen, subY
+
+---
+
 ## 2026-05-16 — Session 12: Establishing Shot Image Gen + Assembly Wire-in + Modal Scroll-Lock + Voice Cast Bible
 
 **Branch:** `feat/ghs-finishline`

@@ -1634,3 +1634,105 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ?? tests/children-verify-report.txt
   ?? tests/diagnose-ethnicity-bug.spec.ts
   ```
+
+## 2026-05-23 03:01 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ```
+
+## 2026-05-23 03:14 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 04:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 04:24 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M test-results/.last-run.json
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-23 05:35 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M test-results/.last-run.json
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-23 05:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `abb5a8f backup: checkpoint before linux migration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/assembly/execute/route.ts
+   M test-results/.last-run.json
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
