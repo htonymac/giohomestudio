@@ -36,4 +36,4 @@ export function _resetStorageForTest(): void {
 }
 
 export { STORAGE_PREFIXES, buildKey } from "./StorageProvider";
-export type { StorageProvider, PutOptions, SignOptions } from "./StorageProvider";
+export type { StorageProvider, PutOptions, SignOptions, StoragePrefix } from "./StorageProvider";

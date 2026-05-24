@@ -4553,28 +4553,80 @@ function HybridPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assembly: assemblyJSON, skipApprovalCheck: true }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        setUiError(`Assembly failed: ${data.error || `HTTP ${res.status}`}`);
-        setLastAction(`Assembly error: ${data.error || `HTTP ${res.status}`}`);
+      // FIX (2026-05-24): route now returns NDJSON stream (heartbeats + final {result, status})
+      // to defeat CF Free-plan 100s edge timeout on long assemblies. Parse the stream.
+      let data: Record<string, unknown> = {};
+      let httpStatus: number = res.status;
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("ndjson")) {
+        if (!res.body) { setUiError("Assembly: no response stream"); return; }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += decoder.decode(value, { stream: true });
+          const lines = buf.split("\n");
+          buf = lines.pop() ?? "";
+          for (const line of lines) {
+            const t = line.trim();
+            if (!t) continue;
+            try {
+              const obj = JSON.parse(t) as Record<string, unknown>;
+              if (obj.heartbeat) {
+                // Keep UI alive — update last-action line so user sees progress
+                setLastAction(`Assembly running… (${Math.round(((obj.ts as number) - Date.now()) / -1000)}s)`);
+                continue;
+              }
+              if (obj.result) {
+                data = obj.result as Record<string, unknown>;
+                if (typeof obj.status === "number") httpStatus = obj.status;
+              }
+            } catch { /* malformed line — skip */ }
+          }
+        }
+        // Drain trailing buf in case the last line wasn't newline-terminated
+        const tail = buf.trim();
+        if (tail) {
+          try {
+            const obj = JSON.parse(tail) as Record<string, unknown>;
+            if (obj.result) {
+              data = obj.result as Record<string, unknown>;
+              if (typeof obj.status === "number") httpStatus = obj.status;
+            }
+          } catch { /* skip */ }
+        }
+      } else {
+        // Legacy / error path — server returned a single JSON (e.g. 400 validation)
+        try { data = await res.json() as Record<string, unknown>; } catch { data = { error: `HTTP ${res.status}` }; }
+      }
+      if (httpStatus >= 400 || data.error) {
+        const errMsg = String(data.error ?? `HTTP ${httpStatus}`);
+        setUiError(`Assembly failed: ${errMsg}`);
+        setLastAction(`Assembly error: ${errMsg}`);
         return;
       }
-      if (data.warning) setUiError(data.warning);
+      const warningStr = typeof data.warning === "string" ? data.warning : null;
+      if (warningStr) setUiError(warningStr);
       // Surface subtitle status — silent failures used to leave the user wondering why no captions appeared
-      if (data.subtitleStatus?.requested && !data.subtitleStatus?.succeeded) {
-        const why = data.subtitleStatus.reason || "unknown reason";
+      const subStatus = data.subtitleStatus as { requested?: boolean; succeeded?: boolean; reason?: string } | undefined;
+      if (subStatus?.requested && !subStatus?.succeeded) {
+        const why = subStatus.reason || "unknown reason";
         setUiError(`Subtitles requested but not burned in: ${why}`);
-        console.warn("[subtitle] burn-in failed:", data.subtitleStatus);
+        console.warn("[subtitle] burn-in failed:", subStatus);
       }
-      if (data.outputUrl) {
-        setAssembledVideoUrl(data.outputUrl);
+      const outputUrl = typeof data.outputUrl === "string" ? data.outputUrl : null;
+      const finalDur = typeof data.duration === "number" ? data.duration : 0;
+      if (outputUrl) {
+        setAssembledVideoUrl(outputUrl);
         setAssemblyComplete(true);
-        setLastAction(`Assembly complete — ${data.duration ? Math.round(data.duration) + "s video ready" : "video ready"}`);
+        setLastAction(`Assembly complete — ${finalDur ? Math.round(finalDur) + "s video ready" : "video ready"}`);
         // Save video URL into the named cut so it persists when user returns
         if (assemblyName.trim()) {
           setSavedCuts(prev => {
             const idx = prev.findIndex(c => c.name === assemblyName);
-            const updated = { name: assemblyName, sceneIds: [...selectedSceneIds], order: [...assemblyOrder], videoUrl: data.outputUrl, assembledAt: Date.now() };
+            const updated = { name: assemblyName, sceneIds: [...selectedSceneIds], order: [...assemblyOrder], videoUrl: outputUrl, assembledAt: Date.now() };
             if (idx >= 0) { const a = [...prev]; a[idx] = updated; return a; }
             return [...prev, updated];
           });
@@ -4584,7 +4636,7 @@ function HybridPlannerInner() {
           setLastAction("Ears check — probing audio in assembled video…");
           const earRes = await fetch("/api/hybrid/check-audio", {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ videoUrl: data.outputUrl }),
+            body: JSON.stringify({ videoUrl: outputUrl }),
           });
           const earData = await earRes.json();
           const durStr = earData.duration ? ` (${Math.round(earData.duration)}s)` : "";
@@ -4613,7 +4665,7 @@ function HybridPlannerInner() {
         // Asset library + Review save is handled server-side in /api/assembly/execute (saveVideoAsset + ContentItem IN_REVIEW)
       } else {
         setAssemblyComplete(true);
-        const apiErrMsg = data.error ? `: ${data.error}` : "";
+        const apiErrMsg = data.error ? `: ${String(data.error)}` : "";
         setUiError(`Assembly API returned no video URL${apiErrMsg}. Check server logs.`);
         setLastAction(`Assembly returned no video${apiErrMsg}`);
       }

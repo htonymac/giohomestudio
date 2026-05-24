@@ -174,24 +174,32 @@ async function preprocessSegments(
   return resolved;
 }
 
-export async function POST(req: NextRequest) {
+// FIX (2026-05-24): Cloudflare Free Plan has a 100s edge HTTP timeout. Long
+// assemblies (8+ min for 30 scenes) caused the client to receive an HTML 524
+// page → "Unexpected token '<', '<!DOCTYPE'" client-side error, even though
+// the server FINISHED the video correctly in the background.
+//
+// Fix: wrap the route in an NDJSON streaming response. The handler emits a
+// `{"heartbeat":true}\n` line every 25s while processing. CF treats any bytes
+// as connection activity and resets its idle timer. Final response is one more
+// NDJSON line: `{"result": <full json object as before>}\n`. Client parses
+// last non-heartbeat line as the result. No timeout, no false errors.
+async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: boolean }, send: (obj: object) => void): Promise<{ status: number; data: object }> {
   try {
-    const body: { assembly: AssemblyJSON; skipApprovalCheck?: boolean } = await req.json();
     let assembly = body.assembly;
 
     if (!assembly?.segments?.length) {
-      return NextResponse.json({ error: "Assembly JSON has no segments" }, { status: 400 });
+      return { status: 400, data: { error: "Assembly JSON has no segments" } };
     }
 
     // ── Gate: Rights and approval checks ──
     if (!body.skipApprovalCheck) {
       if (assembly.soundLicenses.some(l => l.license === "cc_by" && !l.attribution)) {
-        return NextResponse.json(
-          { error: "CC BY sounds require attribution text before export" },
-          { status: 400 }
-        );
+        return { status: 400, data: { error: "CC BY sounds require attribution text before export" } };
       }
     }
+
+    void send; // available for future per-phase progress events
 
     // ── Normalize segment durations if old data has duration:5 fallbacks ──
     // If sum of all segment durations is < 50% of totalDuration, the planner used
@@ -216,7 +224,7 @@ export async function POST(req: NextRequest) {
     );
 
     if (segmentVideoMap.size === 0) {
-      return NextResponse.json({ error: "No valid media segments after preprocessing. All images/videos unavailable." }, { status: 400 });
+      return { status: 400, data: { error: "No valid media segments after preprocessing. All images/videos unavailable." } };
     }
 
     // ── Patch assembly segments with resolved local paths ──
@@ -313,7 +321,7 @@ export async function POST(req: NextRequest) {
     const steps = buildAssemblyPlan(fullAssembly, outputDir);
 
     if (steps.length === 0) {
-      return NextResponse.json({ error: "No FFmpeg steps generated from assembly" }, { status: 400 });
+      return { status: 400, data: { error: "No FFmpeg steps generated from assembly" } };
     }
 
     console.log(`[assembly] FFmpeg plan: ${steps.map(s => s.id).join(" → ")}`);
@@ -855,30 +863,78 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: outputExists,
-      outputUrl: assetUrl,
-      outputPath: finalOutputPath,
-      thumbnailUrl,
-      duration: finalDuration,
-      steps: results,
-      cost,
-      subtitleStatus,
-      assembly: {
-        projectId: assembly.projectId,
-        version: assembly.version,
-        tier: assembly.plannerTier,
-        segments: patchedSegments.length,
-        narration: finalAssembly.narration.length,
-        music: finalAssembly.music.length,
-        sfx: fullAssembly.sfx.length,
+    return {
+      status: 200,
+      data: {
+        success: outputExists,
+        outputUrl: assetUrl,
+        outputPath: finalOutputPath,
+        thumbnailUrl,
+        duration: finalDuration,
+        steps: results,
+        cost,
+        subtitleStatus,
+        assembly: {
+          projectId: assembly.projectId,
+          version: assembly.version,
+          tier: assembly.plannerTier,
+          segments: patchedSegments.length,
+          narration: finalAssembly.narration.length,
+          music: finalAssembly.music.length,
+          sfx: fullAssembly.sfx.length,
+        },
       },
-    });
+    };
   } catch (err) {
     console.error("Assembly execute error:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Assembly execution failed" },
-      { status: 500 }
-    );
+    return {
+      status: 500,
+      data: { error: err instanceof Error ? err.message : "Assembly execution failed" },
+    };
   }
+}
+
+// ── POST entry point — wraps runAssembly in an NDJSON streaming response so ──
+// ── CF Free-plan 100s edge timeout never fires on long assemblies. ──
+export async function POST(req: NextRequest) {
+  let body: { assembly: AssemblyJSON; skipApprovalCheck?: boolean };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      let done = false;
+      const write = (obj: object) => {
+        try { controller.enqueue(enc.encode(JSON.stringify(obj) + "\n")); } catch { /* stream may be closed */ }
+      };
+      // Heartbeat every 25s — CF Free-plan idle timeout is 100s
+      const heartbeat = setInterval(() => {
+        if (!done) write({ heartbeat: true, ts: Date.now() });
+      }, 25000);
+      // Initial frame so client sees activity immediately
+      write({ heartbeat: true, ts: Date.now(), phase: "started" });
+      try {
+        const result = await runAssembly(body, write);
+        write({ result: result.data, status: result.status });
+      } catch (err) {
+        write({ result: { error: err instanceof Error ? err.message : String(err) }, status: 500 });
+      } finally {
+        done = true;
+        clearInterval(heartbeat);
+        try { controller.close(); } catch { /* already closed */ }
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "application/x-ndjson",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }
