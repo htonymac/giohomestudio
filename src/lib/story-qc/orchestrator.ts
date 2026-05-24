@@ -1,9 +1,26 @@
-// Orchestrator — replaces the fragmented per-mode supervisors with one brain.
+// Orchestrator — v2 alternative supervisor pipeline.
 //
-// Wave 4 Phase A scaffolding (2026-05-23).
-// Henry's flagged issue: "30+ supervisor LLM chaos" — the 8 per-mode supervisors race + timeout.
-// Fix: ONE orchestrator picks which of the 23 supervisors to run, sequences by dep,
-// runs in parallel within tier, aggregates reports, persists to StorySupervisorReport.
+// Wave 4 Phase A (2026-05-23) — IMPORTANT CONTEXT:
+// The existing `/api/story/supervise` (calls runFullStoryQCPipeline from
+// src/lib/story-supervisors/, 4549 LOC across 23 supervisor implementations) is the
+// CURRENT production supervisor pipeline. It IS wired into the hybrid planner.
+//
+// This new /api/story-qc/run is a v2 alternative with cleaner contracts:
+//   - typed SupervisorInput / SupervisorReport / OrchestratorPlan / OrchestratorResult
+//   - topological dep ordering with cascade-skip on blocking dep failure
+//   - per-tier timeout (FIX 8 — 12s/25s/60s for fast/smart/premium)
+//   - plan-only mode for cost/coverage preview
+//   - persists to StorySupervisorReport Prisma model
+//
+// NOT YET WIRED into any planner. To migrate Hybrid → use this:
+//   - hybrid-planner page.tsx line ~1534 currently calls `/api/story/supervise`
+//   - swap to `/api/story-qc/run` after we wrap the existing supervisor implementations
+//     as registry entries (TODO: replace placeholder prompts with calls to runStoryScreening,
+//     generateCastBible, runCultureCheck, etc. from src/lib/story-supervisors/)
+//
+// Until that wrapping is done, this orchestrator runs ITS OWN simple supervisor prompts
+// (defined in registry.ts) which are placeholder — DO NOT use in production. Use
+// /api/story/supervise for real supervisor work.
 
 import { prisma } from "@/lib/prisma";
 import { callLLM, type LLMRole } from "@/lib/llm";
