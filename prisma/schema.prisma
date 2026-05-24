@@ -194,6 +194,14 @@ model ContentItem {
   notes             String?
   destinationPageId String?
   destinationPage   DestinationPage? @relation(fields: [destinationPageId], references: [id])
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction fields (all nullable for backward compat)
+  // Populated only when storage migrates from local FS → R2 (Phase 5 + Phase 10 cutover).
+  ownerId           String?  // User.id — Phase 4 owner-check; nullable until back-fill.
+  r2Key             String?  // object key in R2 bucket (e.g. "generated/video/<cuid>.mp4")
+  previewKey        String?  // separate R2 key for low-res preview / thumbnail
+  sizeBytes         BigInt?  // file size for tier-cap enforcement (Phase 7)
+  visibility        String?  @default("private")   // "private" | "public" | "unlisted"
+  storageProvider   String?  @default("local")     // "local" | "r2"
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   approvedAt        DateTime?
@@ -208,6 +216,8 @@ model ContentItem {
   jobs              Job[]
   reviewActions     ReviewAction[]
 
+  @@index([ownerId])
+  @@index([r2Key])
   @@map("content_items")
 }
 
@@ -584,7 +594,14 @@ model AdAsset {
   metadata    Json       @default("{}")
   createdAt   DateTime   @default(now())
   project     AdProject  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction fields
+  ownerId         String?
+  r2Key           String?
+  previewKey      String?
+  visibility      String?  @default("private")
+  storageProvider String?  @default("local")
 
+  @@index([ownerId])
   @@map("ad_assets")
 }
 
@@ -740,7 +757,14 @@ model SoundAsset {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
   usages            ProjectSoundUsage[]
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction
+  ownerId           String?
+  r2Key             String?
+  sizeBytes         BigInt?
+  visibility        String?  @default("private")
+  storageProvider   String?  @default("local")
 
+  @@index([ownerId])
   @@map("sound_assets")
 }
 
@@ -813,7 +837,15 @@ model AssemblyRecord {
   finalOutputUrl      String?
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction
+  ownerId             String?
+  r2Key               String?   // R2 key of finalOutputUrl when STORAGE_PROVIDER=r2
+  previewKey          String?   // R2 key of thumbnailUrl / preview MP4
+  sizeBytes           BigInt?
+  visibility          String?  @default("private")
+  storageProvider     String?  @default("local")
 
+  @@index([ownerId])
   @@map("assembly_records")
 }
 
@@ -1139,8 +1171,15 @@ model MotionSegment {
   falCost               Decimal?        @db.Decimal(10, 4)
   generationTimeSeconds Int?
   createdAt             DateTime        @default(now())
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction
+  ownerId               String?
+  r2Key                 String?   // R2 key for clipUrl
+  sizeBytes             BigInt?
+  visibility            String?  @default("private")
+  storageProvider       String?  @default("local")
 
   @@index([sceneId, segmentNumber])
+  @@index([ownerId])
   @@map("motion_segments")
 }
 
@@ -1174,8 +1213,19 @@ model KaraokeRecording {
   mixedOutputUrl    String?
   exportedFiles     Json?    // [{ format, url, createdAt }]
   createdAt         DateTime @default(now())
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction
+  // Karaoke spec §19 requires AES-256-at-rest + 30-day purge — visibility default 'private' enforced
+  ownerId           String?
+  r2Key             String?   // R2 key for fileUrl (the source recording)
+  mixedR2Key        String?   // R2 key for mixedOutputUrl
+  sizeBytes         BigInt?
+  visibility        String?  @default("private")
+  storageProvider   String?  @default("local")
+  purgeAt           DateTime? // canvas §19 "Maximum 30 days, auto purge after completion"
 
   @@index([userId])
+  @@index([ownerId])
+  @@index([purgeAt])
   @@map("karaoke_recordings")
 }
 
@@ -1194,9 +1244,16 @@ model MusicGeneration {
   genre           String?
   mood            String?
   createdAt       DateTime @default(now())
+  // Wave 3 Phase 2 (2026-05-23): R2 storage abstraction
+  ownerId         String?  // duplicate of userId for cross-model uniformity
+  r2Key           String?  // R2 key for audioUrl
+  sizeBytes       BigInt?
+  visibility      String?  @default("private")
+  storageProvider String?  @default("local")
 
   @@index([userId])
   @@index([providerKey])
+  @@index([ownerId])
   @@map("music_generations")
 }
 
