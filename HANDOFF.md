@@ -1,3 +1,71 @@
+# GHS Handoff — 2026-05-23 (Linux migration LIVE + 9-fix plan complete)
+
+## Where we stopped
+Session focus: Linux migration finished tonight + Henry directed deep-read of all 112 update/ docs to fix months of solo-work blockers. Spawned 5 parallel Explore agents, recorded 7 audit memory files for future sessions. Then ran Wave 0 LITE + Wave 2 (9-fix plan).
+
+## What landed today (2026-05-23)
+
+### Infra (Wave 0 LITE)
+- GHS LIVE on Contabo VPS 30 (`/home/ghs/giohomestudio`) — systemd `ghs.service` port 3200
+- Domain `andiostudio.com` LIVE via Cloudflare Tunnel — apex + www, both HTTP/2 200
+- Cloudflare R2 bucket `andio-assets` created + round-trip tested (PUT/GET/LIST/DELETE all green)
+- Server IP hidden behind CF edge — no direct exposure
+- `KIE_AI_API_KEY` confirmed on server `.env`
+- Git tag `windows-final-2026-05-23` set on `84a06bb` as rollback safety
+
+### Code (Wave 2 — 9-fix plan complete)
+Commit `dcd5676` closed the final 2 of 9 fixes:
+
+- **FIX 2** — Subtitle cap REMOVED. `app/api/assembly/execute/route.ts`: writes SRT file with full subEntries (no cap), tries `-vf subtitles=path.srt:force_style='...'` filter (libass — available on Linux), falls back to drawtext-300 chain if libass unavailable. force_style derived from `SubtitleConfig`. Color #rrggbb → libass &Hbbggrr. Children's 40+ min stories will now show subtitles throughout.
+- **FIX 7** — PuLID single-char rich-location drop. `app/api/hybrid/scene-image/route.ts`: drops face-lock for single-char scenes when (a) NOT closeup framing AND (b) location text > 20 chars + scene text > 80 chars (or location+mood+timeOfDay all set). Closeup framings preserved. Reduces "character lineup posed for camera" output when scene has detailed location.
+
+### Memory files written (~/.claude/projects/C--Users-USER/memory/)
+For all future GHS sessions to boot informed:
+- `project_ghs_production_launch_plan_05232026.md` — 🎯 master 5-wave plan, 76-101h total
+- `project_ghs_serious_issues_record.md` — 🔥 Henry's 4 flagged blockers with root cause + fix targets
+- `project_ghs_planners_hybrid_movie_children.md` — Hybrid 95% / Movie 0% / Children 15% audit
+- `project_ghs_music_karaoke_video.md` — Karaoke 11/18 canvas steps built
+- `project_ghs_motion_scene_audio.md` — Motion/Scene/Audio + 9-fix plan
+- `project_ghs_auto_commercial_freemode.md` — Free Mode 60% + 8 critical bugs FM-01..FM-08
+- `project_ghs_story_character_legal_ops.md` — Full 23-supervisor list (Story QC)
+- `persona_ghs.md` UPDATED with new boot sequence reading these files first
+
+## Not yet verified by Henry
+
+- **Browser smoke test on andiostudio.com** — FIX 2 SRT subtitles burned into final MP4. Generate a 40+ min children story → assemble → confirm subtitles appear throughout entire MP4. Server log should show `[assembly] Subtitle SRT/libass burn-in OK` (NOT drawtext fallback).
+- **FIX 7 effect** — generate a scene with rich location (e.g. "Brooklyn welding workshop at dusk, neon signs, oil drums, hammer noise") + single character. Server log should show `(PuLID dropped — single char + rich location; FIX 7)`. Generated image should show ENVIRONMENT-first composition, character integrated in scene mid-action, not posed.
+
+## Blockers
+
+- `python3.11` install on server requires admin sudo (one-line apt). Until done, Karaoke Tier 2-4 (basic-pitch / demucs / RVC) cannot install. Wave 1 (karaoke complete) blocked on this single apt.
+- `Mubert PAT` — Henry must sign up at mubert.com/business. Music Provider Layer falls back to Stock for >47s instrumental without it. Functional but lower quality.
+- `systemctl restart ghs.service` requires admin sudo password — needed to pick up `NEXT_PUBLIC_APP_URL=https://andiostudio.com` in `.env` (non-blocking, site serves correctly without).
+
+## Next exact steps
+
+When Henry returns, in order:
+1. SSH into Linux, `sudo apt install python3.11 python3.11-venv python3-pip` (one paste, ~30s)
+2. SSH `sudo systemctl restart ghs.service` to pick up env
+3. Trigger `karaoke go` → Terry executes Wave 1 (Tier 1-4 pip install + 7 missing canvas steps for Karaoke). Pattern B preferred (`sudo -iu ghs -i`, `cd /home/ghs/giohomestudio`, `claude`, `connect andio`).
+4. OR trigger `wire supervisors` → Terry executes Wave 4 (build `/api/story-qc/*` for 23 designed supervisors). This is the bigger LLM-chaos fix.
+5. OR trigger `storage go` → Terry executes Wave 3 (R2 storage abstraction phases 1, 2, 4, 5, 7, 9, 10). Phase 3 done. Phase 6 removed. Phase 8 deferred.
+
+Full plan in `~/.claude/projects/C--Users-USER/memory/project_ghs_production_launch_plan_05232026.md`.
+
+## Files touched (this session, code only)
+- `app/api/assembly/execute/route.ts` (FIX 2)
+- `app/api/hybrid/scene-image/route.ts` (FIX 7)
+- `update/CHANGELOG.md` (entry)
+- `update/HANDOFF.md` (this file)
+
+## Files read but NOT modified
+- All 112 docs in `update/` folder (deep-read via 5 parallel Explore agents)
+- All 13 karaoke API route source files
+- 30+ planner page samples + provider modules
+- Prisma schema for StoryQC* models
+
+---
+
 # GHS Handoff — 2026-05-17 (Hybrid subtitle + QC + Parse Script)
 
 ## Where we stopped
@@ -1791,6 +1859,499 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
 ## 2026-05-23 06:00 UTC — auto-checkpoint (dirty)
 - branch: `main`
 - HEAD: `de1c0df docs(handoff): Session 20 — export fix committed, all triggers confirmed done`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ```
+
+## 2026-05-23 18:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:46 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:47 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:48 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 18:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:18 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:43 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 19:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 21:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 21:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 22:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 22:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 22:28 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:05 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:31 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-23 23:57 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 00:12 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 00:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
 - working tree:
   ```
    M HANDOFF.md
