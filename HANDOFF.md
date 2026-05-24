@@ -53,10 +53,56 @@ When Henry returns, in order:
 Full plan in `~/.claude/projects/C--Users-USER/memory/project_ghs_production_launch_plan_05232026.md`.
 
 ## Files touched (this session, code only)
-- `app/api/assembly/execute/route.ts` (FIX 2)
-- `app/api/hybrid/scene-image/route.ts` (FIX 7)
-- `update/CHANGELOG.md` (entry)
+**FIX 2 + FIX 7 (Wave 2 finishing):**
+- `app/api/assembly/execute/route.ts` — FIX 2 SRT/libass unlimited subtitles + drawtext fallback
+- `app/api/hybrid/scene-image/route.ts` — FIX 7 PuLID single-char rich-location drop
+
+**Wave 3 Phase 1 (Storage abstraction):**
+- `src/lib/storage/StorageProvider.ts` (interface + canonical prefixes)
+- `src/lib/storage/LocalFsProvider.ts` (default — wraps fs.writeFileSync)
+- `src/lib/storage/R2Provider.ts` (lazy-required AWS SDK)
+- `src/lib/storage/index.ts` (getStorage() factory)
+
+**Wave 3 Phase 2 (Prisma schema):**
+- `prisma/schema.prisma` — 7 asset models get `ownerId / r2Key / sizeBytes / visibility / storageProvider`. KaraokeRecording also `mixedR2Key + purgeAt` per canvas §19. Server DB synced via `prisma db push --accept-data-loss`, no data lost.
+
+**Wave 3 Phase 4 (Signed URLs + owner check + rate-limit):**
+- `src/lib/rate-limit.ts` (token bucket, in-memory, RateLimitError 429)
+- `src/lib/asset-permission.ts` (canRead/canWrite/canDelete + PermissionDeniedError 403)
+- `app/api/asset/sign-get/route.ts` (GET ?assetId=X&quality=preview|full)
+- `app/api/asset/sign-put/route.ts` (POST creates ContentItem PENDING, returns signed PUT URL, tier file-size cap 413, anonymous 401)
+- `app/api/asset/[id]/confirm-upload/route.ts` (POST verifies storage.exists, flips PENDING→IN_REVIEW)
+
+**Wave 4 Phase A (Supervisor orchestrator v2 — see WARNING below):**
+- `src/lib/story-qc/types.ts` (typed contracts)
+- `src/lib/story-qc/registry.ts` (23 placeholder supervisor definitions)
+- `src/lib/story-qc/orchestrator.ts` (buildPlan + runOrchestrator with topo-sort + per-tier timeout + cascade-skip)
+- `app/api/story-qc/run/route.ts` (POST runs orchestrator, GET lists 23, planOnly mode)
+
+**Memory + docs:**
+- 7 new audit memory files (master launch plan, serious-issues, per-area audits)
+- `persona_ghs.md` (refreshed boot sequence)
+- `MEMORY.md` (index updated with 🔑 🎯 🔥 markers)
+- `error_log.md` (FIX 2 + FIX 7 entries)
+- `update/CHANGELOG.md` (Wave 3+4 entries)
 - `update/HANDOFF.md` (this file)
+- AWS SDK installed on server (`@aws-sdk/client-s3@3.1053.0` + `@aws-sdk/s3-request-presigner@3.1053.0`); PC install blocked on Node 22 cert issue, R2Provider lazy-requires so PC TSC still passes.
+
+## ⚠ ORCHESTRATOR WARNING — DO NOT use /api/story-qc/run for production
+The REAL 23-supervisor pipeline already exists at `/api/story/supervise` (calls
+`runFullStoryQCPipeline` from `src/lib/story-supervisors/`, 4549 LOC, 23 working
+implementations). Hybrid planner already wires it at `page.tsx` line ~1534. Agent-5
+audit was incomplete — corrected in `project_ghs_story_character_legal_ops.md`.
+
+`/api/story-qc/run` runs PLACEHOLDER prompts — it's a v2 ALTERNATIVE with cleaner
+contracts + plan-only mode + per-tier timeout, NOT yet wired into any planner.
+
+Henry's "30+ supervisor LLM chaos" = TUNE the existing 23 supervisors. Targets:
+1. Add per-supervisor timeout in `runFullStoryQCPipeline`
+2. Parallelize within dep-group (story_screening + culture_country can run together)
+3. Cache by (storyHash, supervisorName)
+4. Accept `requested?: string[]` param so callers skip irrelevant supervisors
+5. Surface per-supervisor cost + latency in StorySupervisorReport
 
 ## Files read but NOT modified
 - All 112 docs in `update/` folder (deep-read via 5 parallel Explore agents)
@@ -2352,6 +2398,40 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
 ## 2026-05-24 00:19 UTC — auto-checkpoint (dirty)
 - branch: `main`
 - HEAD: `84a06bb checkpoint: HANDOFF before linux migration 2026-05-23T0603Z`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 01:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1f17fd8 docs(handoff,changelog): 2026-05-23 Linux migration + 9-fix plan complete`
+- working tree:
+  ```
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ```
+
+## 2026-05-24 01:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1ba0205 docs(changelog): Wave 3+4 scaffolding shipped autonomously 2026-05-23`
 - working tree:
   ```
    M HANDOFF.md
