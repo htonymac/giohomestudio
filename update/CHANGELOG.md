@@ -1,5 +1,38 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-23 (late) — Wave 3+4 scaffolding shipped autonomously
+
+After Henry said "continue to the finishing line dont wait my go":
+
+**Wave 3 Phase 1+2 — Storage abstraction (commit 5a06c89):**
+- `src/lib/storage/` — StorageProvider interface + LocalFsProvider (default, current behavior) + R2Provider (lazy `@aws-sdk/client-s3`, throws if creds missing — install before flipping STORAGE_PROVIDER=r2) + `getStorage()` factory
+- Prisma fields added to 6 asset models: ContentItem / AdAsset / SoundAsset / AssemblyRecord / MotionSegment / MusicGeneration / KaraokeRecording — all get `ownerId / r2Key / sizeBytes / visibility / storageProvider` + indexes. KaraokeRecording also gets `mixedR2Key + purgeAt` (Karaoke canvas §19 30-day biometric data purge requirement). Server DB synced via `prisma db push --accept-data-loss` — no data lost, only nullable additive columns.
+- Phase 3 (R2 round-trip) already done earlier (bucket `andio-assets` live). Phase 4 (signed URL endpoints) NEXT. Phase 5 (refactor 30+ writeFileSync sites) BIGGER LIFT. Phase 6 REMOVED per "no comfy". Phase 8 DEFERRED.
+
+**Wave 4 Phase A — 23-supervisor orchestrator brain (commit 0a3e528):**
+- THE root-cause fix for Henry's "30+ supervisor LLM chaos" complaint
+- `src/lib/story-qc/types.ts` — typed contracts (SupervisorInput/Report/Plan/Result)
+- `src/lib/story-qc/registry.ts` — all 23 supervisors with `requires/blocking/tier/dependsOn/buildPrompt/parse` metadata. Standard JSON envelope: `{passed, score, blockingIssues, warnings, suggestedFixes, revisedData}`
+- `src/lib/story-qc/orchestrator.ts` — `buildPlan()` picks eligible supervisors based on inputs + topo-sorts by dep + estimates cost. `runOrchestrator()` runs sequentially with per-tier timeout (FIX 8: fast=12s, smart=25s, premium=60s), cascade-skips downstream when blocking dep fails, persists to `StorySupervisorReport` Prisma model
+- `app/api/story-qc/run` route — POST runs orchestrator. GET diagnostic lists all 23. `planOnly: true` previews without LLM calls (verified live).
+- **LIVE on https://andiostudio.com/api/story-qc/run** — tested with sample Nigerian welder story, planner correctly picks 19 of 23, skips 4 with reasons, estimates $0.039.
+
+**Wave 0 LITE — Linux side housekeeping:**
+- Git tag `windows-final-2026-05-23` on commit `84a06bb` for rollback safety
+- 7 audit memory files written for future GHS sessions (master launch plan + serious issues record + per-area audits)
+
+**Server tally now at HEAD `0a3e528`:** code synced, Prisma client regenerated, DB columns added, story-qc endpoint live.
+
+**STILL BLOCKED ON ADMIN SUDO:**
+- `apt install python3.11 python3.11-venv python3-pip` — for Karaoke Wave 1 (Tier 2-4 installs need 3.11)
+- `systemctl restart ghs.service` — non-blocking; site serves correctly without
+
+**STILL BLOCKED ON HENRY EXTERNAL:**
+- `MUBERT_PAT` from mubert.com/business
+- 40-min children story browser test to verify FIX 2 SRT path fires (vs drawtext fallback)
+
+---
+
 ## 2026-05-23 — Linux Migration + Subtitle/Scene Composition Fixes
 
 **Infra (Linux migration, Wave 0):**
