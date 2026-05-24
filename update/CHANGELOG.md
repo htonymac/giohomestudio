@@ -1,5 +1,27 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-23 — Linux Migration + Subtitle/Scene Composition Fixes
+
+**Infra (Linux migration, Wave 0):**
+- GHS now LIVE on Contabo VPS 30, systemd `ghs.service` on port 3200
+- Domain `andiostudio.com` LIVE via Cloudflare Tunnel (apex + www, both 200 OK)
+- Cloudflare R2 bucket `andio-assets` created + round-trip tested (PUT/GET/LIST/DELETE green)
+- Server IP hidden behind CF edge (no direct exposure)
+- Git tag `windows-final-2026-05-23` set on commit `84a06bb` as rollback safety
+- New persona file `persona_ghs.md` updated; 7 new audit memory files written for future sessions
+
+**Code fixes (Wave 2, 2 remaining items from 9-fix plan completed):**
+
+5. **FIX 2 — Subtitle cap removed via SRT/libass with drawtext fallback** — `app/api/assembly/execute/route.ts`. Was: drawtext-only, cap 300, long videos (40min children stories) lost subtitles mid-video. Now: writes SRT file with FULL entries (unlimited), tries `subtitles=path.srt:force_style='...'` filter first (libass — available on Linux), falls through to existing drawtext-300 chain if libass unavailable. force_style derived from `SubtitleConfig` (font name/size/color/bg opacity/position → libass alignment+margin). Color conversion #rrggbb → libass &Hbbggrr. Both styled and burned-in subtitles preserved.
+
+6. **FIX 7 — PuLID single-char rich-location drop** — `app/api/hybrid/scene-image/route.ts`. Was: F4 dropped PuLID only for multi-char scenes. Single-char scenes still suffered portrait-pose composition even when location was richly described. Now: ALSO drops PuLID for single-char scenes when (a) NOT a closeup framing AND (b) rich location signal (location text > 20 chars + scene text > 80 chars, OR location+mood+timeOfDay all present). Closeup framings preserved face lock (intentional portrait). Log line shows drop reason for diagnosis.
+
+**Impact:** Subtitle rendering unbroken on long videos. Picture/action repetition reduced — scenes with detailed location compose freely without portrait override.
+
+**Tag:** Linux migration HEAD = `84a06bb` (windows-final-2026-05-23). Server runs same HEAD plus pulled FIX 2 + FIX 7 commits.
+
+---
+
 ## 2026-05-22 — Export Timing + Caption Layout Fix
 
 **What:** Fixed 4 export bugs in `/api/assembly/execute/route.ts`.

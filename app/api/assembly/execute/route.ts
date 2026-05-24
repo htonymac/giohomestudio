@@ -527,14 +527,13 @@ export async function POST(req: NextRequest) {
           }
 
           const subEntries = buildSubEntries(narrationWithText);
-          // FIX 7 (2026-05-22): raised cap 60→300. Long videos (children's 40-min stories)
-          // had subtitles cut off mid-video. drawtext chain with 300 entries is still
-          // under FFmpeg filter graph length limits (each entry ~150 chars × 300 ≈ 45KB,
-          // safely under FFmpeg's ~200KB practical limit). If chain still chokes, fall
-          // back to chunked rendering (write 100 at a time to a passthrough output).
+          // FIX 2 (2026-05-23): SRT-first via libass, unlimited entries; drawtext fallback
+          // remains for FFmpeg builds without libass (Windows minimal builds). On Linux
+          // server (where libass IS available) this removes the 300-entry cap entirely,
+          // fixing children's 40+ min stories losing subtitles mid-video.
           const capped = subEntries.slice(0, 300);
 
-          if (capped.length > 0) {
+          if (capped.length > 0 || subEntries.length > 0) {
             // Resolve font file — drawtext on Windows silently fails without an explicit fontfile.
             // env.fontDir = C:\Windows\Fonts on Windows, /usr/share/fonts on Linux.
             const subCfg = assembly.exportSettings?.subtitleConfig;
@@ -626,32 +625,114 @@ export async function POST(req: NextRequest) {
               }).join(",");
 
               subtitleStatus.attempted = true;
-              subtitleStatus.entries = capped.length;
+              subtitleStatus.entries = subEntries.length;
               subtitleStatus.fontUsed = fontFilePath || "none";
               const finalMergeStep = steps.find(s => s.id === "final_merge");
               const unsub = finalMergeStep?.outputPath || "";
               if (unsub && fs.existsSync(unsub)) {
                 const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
+
+                // FIX 2 (2026-05-23): SRT path FIRST — unlimited entries via libass.
+                // Helper: seconds → SRT timestamp "HH:MM:SS,mmm"
+                const srtTime = (s: number) => {
+                  const ms = Math.max(0, Math.round(s * 1000));
+                  const hh = String(Math.floor(ms / 3600000)).padStart(2, "0");
+                  const mm = String(Math.floor((ms % 3600000) / 60000)).padStart(2, "0");
+                  const ss = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
+                  const mmm = String(ms % 1000).padStart(3, "0");
+                  return `${hh}:${mm}:${ss},${mmm}`;
+                };
+                // Helper: #rrggbb → libass &Hbbggrr (BGR, no alpha)
+                const hexToBgr = (hex: string) => {
+                  const h = (hex || "#ffffff").replace("#", "");
+                  if (h.length !== 6) return "FFFFFF";
+                  return (h.slice(4, 6) + h.slice(2, 4) + h.slice(0, 2)).toUpperCase();
+                };
+                // SRT content from FULL subEntries (no cap)
+                const srtContent = subEntries.map((e, i) =>
+                  `${i + 1}\n${srtTime(e.start)} --> ${srtTime(e.end)}\n${e.text}\n`
+                ).join("\n");
+                const srtPath = unsub.replace(".mp4", ".srt");
+                // libass force_style (Alignment 2 = bottom-center; MarginV in pixels from bottom)
+                const fontSize = Math.min(80, Math.max(18, subCfg?.fontSize ?? 32));
+                const primaryBgr = subCfg ? hexToBgr(subCfg.textColor || "#ffffff") : "FFFFFF";
+                const bgOp = Math.min(1, Math.max(0, subCfg?.bgOpacity ?? 0.75));
+                // libass alpha: 00 = opaque, FF = transparent. Convert UI opacity (0..1) → alpha hex
+                const bgAlpha = Math.round((1 - bgOp) * 255).toString(16).padStart(2, "0").toUpperCase();
+                const marginV = subCfg?.position === "top" ? Math.round(1080 * 0.06)
+                  : subCfg?.position === "center" ? Math.round(1080 * 0.45)
+                  : 54;
+                const alignment = subCfg?.position === "top" ? 8 : subCfg?.position === "center" ? 5 : 2;
+                const fontName = subCfg?.fontFamily === "serif" ? "Georgia"
+                  : subCfg?.fontFamily === "mono" ? "Courier New"
+                  : subCfg?.fontFamily === "display" ? "Impact"
+                  : "Arial";
+                const forceStyle = [
+                  `FontName=${fontName}`,
+                  `FontSize=${fontSize}`,
+                  `PrimaryColour=&H00${primaryBgr}`,
+                  `BackColour=&H${bgAlpha}000000`,
+                  `BorderStyle=${subCfg?.bgBox === false ? 1 : 3}`,
+                  `Outline=2`,
+                  `Shadow=2`,
+                  `Alignment=${alignment}`,
+                  `MarginV=${marginV}`,
+                ].join(",");
+                // FFmpeg subtitles= filter: escape backslashes + colons in path; force_style uses single quotes
+                const srtEsc = srtPath.replace(/\\/g, "/").replace(/:/g, "\\:");
+                const srtFilter = `subtitles='${srtEsc}':force_style='${forceStyle}'`;
+
+                let srtOk = false;
                 try {
+                  fs.writeFileSync(srtPath, srtContent, "utf-8");
                   await execFileAsync(env.ffmpegPath, [
                     "-i", unsub,
-                    "-vf", drawChain,
+                    "-vf", srtFilter,
                     "-c:a", "copy",
                     "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
                     "-movflags", "+faststart",
                     "-y", subbedPath,
-                  ], { timeout: 300000 });
+                  ], { timeout: 600000 });
                   if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
                     subtitledOutputPath = subbedPath;
                     subtitleStatus.succeeded = true;
-                    console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length} entries, style=${globalStyle}) → ${path.basename(subbedPath)}`);
-                  } else {
-                    subtitleStatus.reason = "subtitled file produced but empty or missing";
+                    subtitleStatus.entries = subEntries.length;
+                    srtOk = true;
+                    console.log(`[assembly] Subtitle SRT/libass burn-in OK (${subEntries.length} entries, style=${globalStyle}, unlimited) → ${path.basename(subbedPath)}`);
                   }
-                } catch (dtErr) {
-                  subtitleStatus.reason = `drawtext failed: ${dtErr instanceof Error ? dtErr.message.slice(0, 1200) : String(dtErr)}`;
-                  console.error("[subtitle] drawtext FAILED:", dtErr instanceof Error ? dtErr.message.slice(0, 400) : dtErr);
-                  console.error("[subtitle] chain sample:", drawChain.slice(0, 300));
+                } catch (srtErr) {
+                  const msg = srtErr instanceof Error ? srtErr.message : String(srtErr);
+                  if (/no such filter|libass|unknown.+subtitles/i.test(msg)) {
+                    console.warn("[subtitle] libass unavailable — falling back to drawtext (cap 300):", msg.slice(0, 200));
+                  } else {
+                    console.warn("[subtitle] SRT path errored — falling back to drawtext:", msg.slice(0, 200));
+                  }
+                }
+
+                // Drawtext FALLBACK — runs only if SRT path failed/produced no file
+                if (!srtOk) {
+                  try {
+                    await execFileAsync(env.ffmpegPath, [
+                      "-i", unsub,
+                      "-vf", drawChain,
+                      "-c:a", "copy",
+                      "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+                      "-movflags", "+faststart",
+                      "-y", subbedPath,
+                    ], { timeout: 300000 });
+                    if (fs.existsSync(subbedPath) && fs.statSync(subbedPath).size > 0) {
+                      subtitledOutputPath = subbedPath;
+                      subtitleStatus.succeeded = true;
+                      subtitleStatus.entries = capped.length;
+                      console.log(`[assembly] Subtitle drawtext burn-in OK (${capped.length}/${subEntries.length} entries, style=${globalStyle}, drawtext fallback) → ${path.basename(subbedPath)}`);
+                    } else {
+                      subtitleStatus.reason = "subtitled file produced but empty or missing";
+                    }
+                  } catch (dtErr) {
+                    subtitleStatus.reason = `drawtext failed: ${dtErr instanceof Error ? dtErr.message.slice(0, 1200) : String(dtErr)}`;
+                    console.error("[subtitle] drawtext FAILED:", dtErr instanceof Error ? dtErr.message.slice(0, 400) : dtErr);
+                    console.error("[subtitle] chain sample:", drawChain.slice(0, 300));
+                  }
                 }
               } else {
                 subtitleStatus.reason = `final_merge output not found at ${unsub}`;

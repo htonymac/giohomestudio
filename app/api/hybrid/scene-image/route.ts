@@ -478,10 +478,25 @@ export async function POST(req: NextRequest) {
     // (rich identity block already in prompt). Accept face drift on group shots in
     // exchange for proper scene composition.
     //
-    // Single-character scenes still use PuLID — that's where it actually works.
+    // FIX 7 (2026-05-23): ALSO drop PuLID for SINGLE-char scenes when location text
+    // is rich enough to compose without face anchor. PuLID drags portrait composition
+    // (standing pose, neutral background) into scenes that have detailed location.
+    // Closeup/portrait framings still keep PuLID — those WANT the face anchor.
     const isMultiChar = resolvedCharacters.length > 1;
-    const willFaceLock = (hasPhotoImportChar || referenceImageUrls.length > 0) && !isMultiChar;
-    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${isMultiChar ? " (PuLID dropped — multi-char scene)" : ""} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
+    const isCloseup = /\b(close\s*up|portrait\s+shot|headshot|head\s+shot|face\s+shot|tight\s+shot)\b/i.test(cameraFraming || "");
+    const richLocation = !isCloseup && (
+      (!!location && location.length > 20 && cleanSceneText.length > 80)
+      || (!!location && !!mood && !!timeOfDay)
+    );
+    const willFaceLock = (hasPhotoImportChar || referenceImageUrls.length > 0)
+      && !isMultiChar
+      && !richLocation;
+    const dropReason = isMultiChar
+      ? " (PuLID dropped — multi-char scene)"
+      : richLocation
+      ? " (PuLID dropped — single char + rich location; FIX 7)"
+      : "";
+    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${dropReason} closeup=${isCloseup} locLen=${(location || "").length} sceneLen=${cleanSceneText.length} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
     let result = await generateImage({
       modelId: modelId || undefined,
       prompt: structuredPrompt,
