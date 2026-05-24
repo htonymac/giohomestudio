@@ -1,5 +1,23 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-24 — CRITICAL FIX: Next.js 16 allowedDevOrigins (buttons restored)
+
+Henry reported "NO BUTTON ARE FIRING YET" on andiostudio.com. Diagnostic showed React 0/33 buttons had onClick handlers — page SSR-rendered but never hydrated.
+
+**Root cause:** Next.js 16 added `allowedDevOrigins` security feature. Without listing `andiostudio.com`, cross-origin requests (CF Tunnel → localhost:3200) to `/_next/webpack-hmr` and the React client bundle get silently blocked. Result: SSR HTML works, React never mounts, zero interactivity.
+
+**Fix (commit 5f7124c):** added to `next.config.ts`:
+```ts
+allowedDevOrigins: ["andiostudio.com", "www.andiostudio.com"]
+```
+Also added `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` to `serverExternalPackages` to keep them out of client bundle.
+
+**Verified:** After dev server restart, 31/34 buttons have onClick handlers (3 remaining are styled non-buttons). Real users can now interact with the site again.
+
+**Lesson:** Next.js dev mode behind any reverse proxy (CF Tunnel, ngrok, nginx) MUST list the public hostname(s) in `allowedDevOrigins`. Production mode (`next build && next start`) doesn't enforce this — but we're running `npm run dev` per the systemd unit. Switching to production mode (Wave 0 A2 task #17) would also have masked this issue, but the right fix is BOTH: add origins AND switch to production.
+
+---
+
 ## 2026-05-23 (late) — Wave 3+4 scaffolding shipped autonomously
 
 After Henry said "continue to the finishing line dont wait my go":
