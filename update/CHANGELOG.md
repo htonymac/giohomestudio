@@ -1,5 +1,27 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-24 — Piper TTS + 67-track licensed music catalog LIVE on andiostudio.com
+
+**Piper TTS (6 voices, all verified working via API):**
+- Binary at `/home/ghs/piper/piper/piper` (8.4MB + espeak-ng deps bundled)
+- 6 voices in `/home/ghs/piper/voices/` totaling ~380MB: en_US-lessac-medium (default), en_US-amy-medium, en_US-ryan-medium, en_US-arctic-medium, en_GB-alan-medium, en_GB-alba-medium
+- Server `.env` set: `PIPER_BIN=/home/ghs/piper/piper/piper`, `PIPER_VOICES_DIR=/home/ghs/piper/voices`
+- Verified end-to-end via `POST /api/hybrid/narrate-piper` — all 6 voices produce real `.wav` files (e.g. `narration_1779594136508.wav`, 3.6s for a 12-word sentence)
+
+**Music catalog (67 tracks total, 50 commercial-safe):**
+- 17 PC-bundled stock tracks (mp3) moved PC→server via scp+tar — marked `UNVERIFIED` in manifest. Safe for personal/free-tier; BLOCKED from commercial flows pending source verification per LEGAL/SOUND_LICENSING.md §2.1.
+- **50 Kevin MacLeod CC BY 4.0 tracks** downloaded from incompetech.com to `storage/music/stock/freepd/` (352MB total). Each track gets auto-attribution string `"Music by Kevin MacLeod (incompetech.com) — Licensed under Creative Commons: By Attribution 4.0 License"` per Wave 0 license enforcement.
+
+**New API route:** `GET /api/music/stock` (commit 7f7bb75) — returns catalog with per-track license/attribution/commercialUseAllowed/blocked/verificationStatus. Query params:
+- `?commercial=true` → filters to 50 commercial-safe tracks
+- `?mood=epic` → filters by mood/genre/description match
+
+This enables frontend to enforce per-tier per-track rules: free users see all, paying-monetised users only see `commercialUseAllowed=true` tracks with attribution baked into export.
+
+**Still blocked:** Karaoke Tier 1-4 audio stack (faster-whisper / librosa / demucs / basic-pitch / RVC) needs `sudo apt install python3.11 python3.11-venv python3-pip` (admin sudo, one paste). Without that, Karaoke canvas Steps 2/4/11 remain on placeholder.
+
+---
+
 ## 2026-05-24 — CRITICAL FIX: Next.js 16 allowedDevOrigins (buttons restored)
 
 Henry reported "NO BUTTON ARE FIRING YET" on andiostudio.com. Diagnostic showed React 0/33 buttons had onClick handlers — page SSR-rendered but never hydrated.
