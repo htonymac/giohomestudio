@@ -1,5 +1,21 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-24 — Assembly streaming response: killed CF 100s timeout false errors
+
+`/api/assembly/execute` now returns NDJSON streaming response with heartbeats every 25s. Previously the route returned a single JSON after 2-8 min of work; Cloudflare Free Plan has a HARDCODED 100s edge HTTP timeout that fired on long assemblies, causing the client to receive a 524 HTML error page → "Assembly failed: Unexpected token '<', '<!DOCTYPE'..." even though the server FINISHED the video correctly in background. User never saw the completed videos unless they refreshed the Asset Library.
+
+Live verification (server localhost): empty body POST returns 2 NDJSON lines:
+```
+{"heartbeat":true,"ts":...,"phase":"started"}
+{"result":{"error":"Assembly JSON has no segments"},"status":400}
+```
+
+Real long assemblies will emit many heartbeats between start and result, keeping CF idle timer reset. Client at hybrid-planner page.tsx line 4551 now reads NDJSON line-by-line, updates "Assembly running… (Xs)" label on each heartbeat, parses final result line. Backward compatible — falls back to res.json() if Content-Type is application/json (for 400 validation responses).
+
+Commit c4ed465. Works for any video length on any CF plan — no upgrade required.
+
+---
+
 ## 2026-05-24 — Piper TTS + 67-track licensed music catalog LIVE on andiostudio.com
 
 **Piper TTS (6 voices, all verified working via API):**
