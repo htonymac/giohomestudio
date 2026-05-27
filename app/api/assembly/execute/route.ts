@@ -640,16 +640,7 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
               if (unsub && fs.existsSync(unsub)) {
                 const subbedPath = unsub.replace(".mp4", "_subtitled.mp4");
 
-                // FIX 2 (2026-05-23): SRT path FIRST — unlimited entries via libass.
-                // Helper: seconds → SRT timestamp "HH:MM:SS,mmm"
-                const srtTime = (s: number) => {
-                  const ms = Math.max(0, Math.round(s * 1000));
-                  const hh = String(Math.floor(ms / 3600000)).padStart(2, "0");
-                  const mm = String(Math.floor((ms % 3600000) / 60000)).padStart(2, "0");
-                  const ss = String(Math.floor((ms % 60000) / 1000)).padStart(2, "0");
-                  const mmm = String(ms % 1000).padStart(3, "0");
-                  return `${hh}:${mm}:${ss},${mmm}`;
-                };
+                // FIX 2 (2026-05-23): libass path FIRST — unlimited entries.
                 // Helper: #rrggbb → libass &Hbbggrr (BGR, no alpha)
                 const hexToBgr = (hex: string) => {
                   const h = (hex || "#ffffff").replace("#", "");
@@ -657,15 +648,16 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   return (h.slice(4, 6) + h.slice(2, 4) + h.slice(0, 2)).toUpperCase();
                 };
                 // SRT content from FULL subEntries (no cap)
-                const srtContent = subEntries.map((e, i) =>
-                  `${i + 1}\n${srtTime(e.start)} --> ${srtTime(e.end)}\n${e.text}\n`
-                ).join("\n");
-                const srtPath = unsub.replace(".mp4", ".srt");
-                // libass force_style (Alignment 2 = bottom-center; MarginV in pixels from bottom)
+                // ── SUBTITLE SIZE FIX 2026-05-27 ──────────────────────────────────
+                // Was: SRT + force_style. ffmpeg's SRT→ASS conversion defaults the script
+                // canvas to PlayResY=288, so libass scaled FontSize up ~3.75x onto the 1080
+                // frame (FontSize=32 rendered ~120px → "subtitles too big" on real renders).
+                // Fix: emit a real .ass with explicit PlayResX/Y=1920x1080 so FontSize = REAL
+                // pixels at output resolution. All clips are normalized to 1920x1080 upstream.
                 const fontSize = Math.min(80, Math.max(18, subCfg?.fontSize ?? 32));
                 const primaryBgr = subCfg ? hexToBgr(subCfg.textColor || "#ffffff") : "FFFFFF";
                 const bgOp = Math.min(1, Math.max(0, subCfg?.bgOpacity ?? 0.75));
-                // libass alpha: 00 = opaque, FF = transparent. Convert UI opacity (0..1) → alpha hex
+                // ASS alpha: 00 = opaque, FF = transparent. Convert UI opacity (0..1) → alpha hex
                 const bgAlpha = Math.round((1 - bgOp) * 255).toString(16).padStart(2, "0").toUpperCase();
                 const marginV = subCfg?.position === "top" ? Math.round(1080 * 0.06)
                   : subCfg?.position === "center" ? Math.round(1080 * 0.45)
@@ -675,20 +667,40 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   : subCfg?.fontFamily === "mono" ? "Courier New"
                   : subCfg?.fontFamily === "display" ? "Impact"
                   : "Arial";
-                const forceStyle = [
-                  `FontName=${fontName}`,
-                  `FontSize=${fontSize}`,
-                  `PrimaryColour=&H00${primaryBgr}`,
-                  `BackColour=&H${bgAlpha}000000`,
-                  `BorderStyle=${subCfg?.bgBox === false ? 1 : 3}`,
-                  `Outline=2`,
-                  `Shadow=2`,
-                  `Alignment=${alignment}`,
-                  `MarginV=${marginV}`,
-                ].join(",");
-                // FFmpeg subtitles= filter: escape backslashes + colons in path; force_style uses single quotes
+                const borderStyle = subCfg?.bgBox === false ? 1 : 3;
+                // ASS timestamp: H:MM:SS.cc
+                const assTime = (sec: number): string => {
+                  const hh = Math.floor(sec / 3600);
+                  const mm = Math.floor((sec % 3600) / 60);
+                  const whole = Math.floor(sec % 60);
+                  const cs = Math.floor(((sec % 60) - whole) * 100);
+                  return `${hh}:${String(mm).padStart(2, "0")}:${String(whole).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
+                };
+                const assStyleLine = `Style: Default,${fontName},${fontSize},&H00${primaryBgr},&H000000FF,&H00000000,&H${bgAlpha}000000,0,0,0,0,100,100,0,0,${borderStyle},2,2,${alignment},40,40,${marginV},1`;
+                // NOTE: keep var names srtPath/srtContent/srtFilter — downstream write + filter
+                // reference them. Content is now ASS; path uses .ass extension.
+                const srtContent = [
+                  "[Script Info]",
+                  "ScriptType: v4.00+",
+                  "PlayResX: 1920",
+                  "PlayResY: 1080",
+                  "WrapStyle: 0",
+                  "ScaledBorderAndShadow: yes",
+                  "",
+                  "[V4+ Styles]",
+                  "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+                  assStyleLine,
+                  "",
+                  "[Events]",
+                  "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+                  ...subEntries.map(e => `Dialogue: 0,${assTime(e.start)},${assTime(e.end)},Default,,0,0,0,,${(e.text || "").replace(/\r?\n/g, "\\N")}`),
+                  "",
+                ].join("\n");
+                const srtPath = unsub.replace(".mp4", ".ass");
+                // FFmpeg subtitles= filter: escape backslashes + colons in path. Style is baked
+                // into the .ass header so no force_style override is needed.
                 const srtEsc = srtPath.replace(/\\/g, "/").replace(/:/g, "\\:");
-                const srtFilter = `subtitles='${srtEsc}':force_style='${forceStyle}'`;
+                const srtFilter = `subtitles='${srtEsc}'`;
 
                 let srtOk = false;
                 try {
