@@ -10,6 +10,21 @@ import { runOrchestrator, buildPlan } from "@/lib/story-qc/orchestrator";
 import type { SupervisorInput, SupervisorName } from "@/lib/story-qc/types";
 
 export async function POST(req: NextRequest) {
+  // ── QUARANTINED 2026-05-27 ───────────────────────────────────────────
+  // This Wave-4 orchestrator is a placeholder/v2 shadow of the REAL, wired
+  // story-QC pipeline at POST /api/story/supervise (runFullStoryQCPipeline).
+  // It runs placeholder prompts and is NOT used by any planner. Guarded off
+  // to prevent accidental wiring. Code below is intact (no deletion) and can
+  // be re-enabled by setting STORY_QC_V2_ENABLED=1. Use /api/story/supervise.
+  if (process.env.STORY_QC_V2_ENABLED !== "1") {
+    return NextResponse.json(
+      {
+        error: "quarantined",
+        message: "story-qc/run is a deprecated v2 placeholder. Use /api/story/supervise (the live 23-supervisor pipeline). Set STORY_QC_V2_ENABLED=1 to override.",
+      },
+      { status: 410 },
+    );
+  }
   try {
     const body = await req.json() as {
       projectId?: string;
