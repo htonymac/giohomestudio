@@ -1,5 +1,13 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-27 — Asset delete button FIXED (deleted assets no longer reappear) — `edc44f0`
+
+Henry: "fix delete button so I can delete nonsense assets." Bug: `DELETE /api/assets` only removed the JSON index entry, but `GET /api/assets` re-seeds assets from the `storage/` dirs on every request (scene videos sync every call) — so the file stayed on disk and the asset **reappeared** on the next list. Fix: DELETE now **moves the underlying file (+thumbnail) into `storage/.trash/`** — out of the scanned dirs so it can't re-seed, but recoverable (MOVE not hard-delete, given the 204-asset Codex scare). Path-guarded: only ever touches files inside the storage root. Verified end-to-end on dev **and live server**: delete → `moved-to-trash`, gone from list, does not reappear. `storage/.trash/` gitignored.
+
+**Follow-up (Phase 3 R2 cutover):** when `STORAGE_PROVIDER=r2`, this filesystem move won't purge R2 objects — the delete must route through `StorageProvider.delete(key)`. Wire that with the cutover (this is R2-cleaner layer c).
+
+---
+
 ## 2026-05-27 — Subtitles "too big" FIXED (libass PlayResY) — commit `5796eaf`
 
 Henry: hybrid assembled videos showed captions dominating the frame (confirmed real render, not mock). Root cause: the subtitle path wrote an **SRT** + `force_style`; ffmpeg's SRT→ASS conversion defaults the canvas to **PlayResY=288**, so libass scaled `FontSize=32` onto the 1080 frame ≈ **120px**. Fixed by emitting a real **`.ass`** with explicit `PlayResX:1920 / PlayResY:1080` → `FontSize` now = real output pixels (32 → ~32px). Style (color/box/alignment/margin/font) preserved; removed the now-unused `srtTime` helper. Built green, deployed via systemd. **Pending: visual confirm on a real hybrid render (images + story + intro + outro, no video).**

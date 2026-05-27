@@ -4,6 +4,15 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-27 — ✅ FIXED: Asset delete button "doesn't work" (deleted assets reappear)
+
+**Symptom (Henry):** deleting a nonsense asset in Asset Library didn't stick.
+**Root cause:** `DELETE /api/assets` (route.ts) only filtered the asset out of `config/asset-library.json`. But `GET /api/assets` AUTO-SEEDS assets by scanning `storage/` dirs every request (scene videos re-sync on every call; stock/sfx/gen/merged on first-empty). Since the file remained on disk, the next list re-added it → looked like delete failed.
+**Fix:** `DELETE` now moves the asset's `filePath` (+`thumbnailPath`) into `storage/.trash/` — out of the scanned dirs so it can't re-seed. MOVE not hard-delete (recoverable). Guarded: only touches paths inside `env.storagePath`. Returns `{ ok, fileAction }`. Commit `edc44f0`, verified dev + live.
+**Prevention:** any "delete" of an auto-seeded asset MUST remove the file from the scanned dir, not just the index. When R2 cutover lands, route deletes through `StorageProvider.delete(key)` (filesystem move won't purge R2).
+
+---
+
 ## 2026-05-27 — ✅ FIXED (deployed `5796eaf`, pending real-render eyeball): Hybrid subtitles render TOO BIG
 
 **Reported by Henry 2026-05-27** (last video checked on hybrid, confirmed REAL render not mock). Burned-in caption text oversized, dominated the frame.
