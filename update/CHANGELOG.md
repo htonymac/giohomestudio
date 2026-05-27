@@ -1,5 +1,13 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-27 — Dashboard mobile fixes (double top bar + overflow) — `a42dfac`
+
+Henry's phone screenshot of andiostudio.com/dashboard showed two issues the shell drawer didn't cover: (1) **two stacked top bars** — the dashboard page rendered its own `<TopBar>` on top of AppShell's global one; (2) **content cut off the right edge** — the hero (`1.2fr 1fr`) + stat grids (`repeat(4,1fr)`) are fixed desktop columns that don't collapse on phones. Fix: removed the page-level duplicate TopBar; added `gh-grid-hero/2/4` classes that collapse those grids to 1/2 columns under `@media(max-width:768px)` (inline grid-template overridden via `!important`, desktop untouched). Verified 390px (1 header, no overflow, grids stacked) + 1440px (single bar — dup removed — grids unchanged). Live.
+
+Note: other planner pages may need the same `gh-grid-*` treatment if they overflow on phone — apply per-page as they come up.
+
+---
+
 ## 2026-05-27 — Asset delete button FIXED (deleted assets no longer reappear) — `edc44f0`
 
 Henry: "fix delete button so I can delete nonsense assets." Bug: `DELETE /api/assets` only removed the JSON index entry, but `GET /api/assets` re-seeds assets from the `storage/` dirs on every request (scene videos sync every call) — so the file stayed on disk and the asset **reappeared** on the next list. Fix: DELETE now **moves the underlying file (+thumbnail) into `storage/.trash/`** — out of the scanned dirs so it can't re-seed, but recoverable (MOVE not hard-delete, given the 204-asset Codex scare). Path-guarded: only ever touches files inside the storage root. Verified end-to-end on dev **and live server**: delete → `moved-to-trash`, gone from list, does not reappear. `storage/.trash/` gitignored.
