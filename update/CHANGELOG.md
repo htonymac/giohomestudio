@@ -14,7 +14,9 @@ Driven to completion after the mobile shell. All on the live server, no root nee
 
 4. **R2 cleaner — DEFERRED to Phase 3 (R2 cutover), deliberately.** `STORAGE_PROVIDER` is still `local`, so the andio-assets bucket isn't in active use. Blanket prefix-expiry lifecycle rules on an unused bucket would risk deleting real assets later (and we JUST recovered 204 Codex-deleted assets — extra caution). The correct, safe cleaner is DB-aware (knows confirmed vs abandoned) and must be built alongside the R2 cutover with the delete-button→R2 purge. Documented in RISKS; not bolted on prematurely.
 
-Still needs Henry (one root unlock): systemd auto-restart for the prod process + `python3.11`/apt for karaoke Tiers 2–4. Sudoers line in HANDOFF.
+**Systemd takeover DONE (Henry ran `/home/ghs/setup_systemd.sh` w/ his sudo pw):** `ghs.service` ExecStart fixed dev→start, now active+enabled = **auto-restart on crash + boot-persistent** (MainPID 4130927). Installed `/etc/sudoers.d/ghs-systemctl` → admin manages this service passwordless (verified). **Deploys are now fully passwordless. Phase 1 stabilization 100% complete.**
+
+Still needs Henry (later, not urgent): `python3.11`/apt for karaoke Tiers 2–4 only.
 
 ---
 

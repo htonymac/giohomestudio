@@ -11,22 +11,27 @@
 6. **story-qc/run placebo quarantined** (`6b38a18`) — 410 unless `STORY_QC_V2_ENABLED=1`; real pipeline = `/api/story/supervise`.
 7. **R2 cleaner DEFERRED to Phase 3 cutover** (deliberate) — STORAGE_PROVIDER still `local`, bucket unused; blanket prefix-expiry would risk real assets. Build DB-aware janitor + delete→R2 purge WITH cutover.
 
+## ✅ SYSTEMD TAKEOVER DONE 2026-05-27 (Henry ran /home/ghs/setup_systemd.sh)
+- `ghs.service` ExecStart fixed `npm run dev` → `npm run start`; now **active + enabled** (auto-restart on crash via `Restart=on-failure`, starts on boot). MainPID 4130927.
+- Granted `/etc/sudoers.d/ghs-systemctl`: **admin runs `systemctl {daemon-reload,restart,start,stop,enable,disable,is-active,is-enabled} ghs.service` with NO password** (verified `sudo -n systemctl is-active` → active, no prompt). Deploys are now fully passwordless.
+
 ## 🖥 SERVER STATE (for PC-loss recovery — repo is the source of truth)
-- Live: andiostudio.com → CF Tunnel → server :3200, **production `next start`** (manual, NOT systemd — `ghs.service` dead, needs root). Process = `next-server` as `ghs`.
-- Restart prod: `ssh hmk` → `sudo -n -u ghs bash -c "cd /home/ghs/giohomestudio && pkill -f 'next start -p 3200'; setsid bash -c 'npm run start > /tmp/ghs_prod.log 2>&1' </dev/null &"`
-- Deploy: PC edit → commit → push → on server (as ghs) `git pull --ff-only` → `pnpm build` (detached; ~4-6min) → restart prod.
-- `.env` defaults set last session: `VIDEO_PROVIDER=mock_video`, `DEFAULT_IMAGE_MODEL=segmind_flux` ($0.0004).
-- ghs user = NOPASSWD (I can do anything as ghs); `systemctl`/`apt` = needs Henry root.
+- Live: andiostudio.com → CF Tunnel → server :3200, **systemd `ghs.service`** (production `npm run start`, user `ghs`, auto-restart + boot-persistent).
+- **Restart prod (passwordless):** `ssh hmk "sudo systemctl restart ghs.service"`
+- **Deploy:** PC edit → commit → push → `ssh hmk "sudo -n -u ghs bash -c 'cd /home/ghs/giohomestudio && git pull --ff-only && pnpm build'"` (~4-6min) → `ssh hmk "sudo systemctl restart ghs.service"`.
+- `.env` defaults: `VIDEO_PROVIDER=mock_video`, `DEFAULT_IMAGE_MODEL=segmind_flux` ($0.0004).
+- ghs user = NOPASSWD; `systemctl ghs.service` = NOPASSWD for admin (new 2026-05-27); other root (`apt`, other units) still needs Henry.
+- Karaoke Tier-1 venv `/home/ghs/giohomestudio/.venv` · pg backups `/home/ghs/backups/` (daily 03:30) · setup script `/home/ghs/setup_systemd.sh`.
 
 ## 🟠 OPEN BUG LOGGED (Henry 2026-05-27)
 - **Hybrid assembled-video subtitles render TOO BIG** — drawtext `fontsize` is fixed px, not scaled to frame height. Fix target: `app/api/assembly/execute/route.ts`. Phase 2 backend. Full note in PROBLEM_AND_FIX.md + uncomplete.md.
 
-## 🔴 STILL NEEDS HENRY (root unlock — one time)
-- Live prod is a manual `next start` (no systemd auto-restart) because `systemctl` needs root. Same root unlock gates karaoke `python3.11`/apt (decision D3). Provide sudo password OR sudoers line:
-  `admin ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart ghs.service, /usr/bin/systemctl start ghs.service`
+## 🔴 STILL NEEDS HENRY (root, when ready — NOT urgent)
+- **Karaoke Tiers 2–4 only:** `python3.11` + apt (basic-pitch / demucs+torch / RVC). Core karaoke runs on Tier 1 (installed). Defer until karaoke pipeline build (Phase 4).
 
 ## ▶ NEXT PER MASTER_PLAN (update/PLANS/MASTER_PLAN_05262026.md)
-Phase 1 remainder (autonomous, no root): R2 cleaner (lifecycle + janitor) · pg_dump backup cron · quarantine dead `story-qc/` placebo. Then Phase 2 backend bugs (incl. subtitle-too-big). Then Phase 3 root-cause (token resolution / supervisor routing = the substitution fix). **Karaoke engine install = Phase 4** (after 1–3); Tier-1 (faster-whisper/librosa) doable now as ghs user w/o root.
+**Phase 1 stabilization = 100% COMPLETE** (prod build ✅ · 204 assets ✅ · Tier-1 engines ✅ · pg_dump cron ✅ · story-qc quarantine ✅ · systemd auto-restart ✅; R2 cleaner deferred to Phase 3 by design).
+**NEXT = Phase 2 backend bugs**, starting with **subtitle-too-big** (scale drawtext fontsize to frame height in `app/api/assembly/execute/route.ts`), then chat-timeout / narration-length / persistence. Then **Phase 3 root-cause** (token resolution / supervisor routing = the substitution / wrong-character fix). Karaoke pipeline (9 missing steps) = Phase 4B.
 
 ---
 
