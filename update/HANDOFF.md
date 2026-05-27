@@ -6,6 +6,17 @@
 1. **Mobile-responsive drawer shell — SHIPPED + LIVE.** Phone was unusable (218px sidebar crushed content). New `app/components/AppShell.tsx` + mobile-only `@media(max-width:768px)` CSS in `globals.css` → sidebar becomes hamburger drawer on ≤768px. **Desktop pixel-identical (verified 1440px before/after), tsc clean, hamburger display:none on PC.** Commit `68788e9`, deployed to server (build `mQRPM--uqPAQipYBYFc1_`), live-verified phone+PC. Screenshots in `tests/_mobile/`.
 2. **Restored 204 Codex-deleted storage assets** (`git checkout -- storage/`) — character portraits + commercial images recovered, uncommitted-deletion cleared.
 3. Production process restarted cleanly (new PID owns :3200); hmksync :3060 untouched.
+4. **Karaoke Tier 1 engines installed** (no root) — venv `/home/ghs/giohomestudio/.venv` (`--without-pip` + get-pip workaround since server lacks ensurepip/apt-pip). faster-whisper 1.2.1 + librosa 0.11.0 + soundfile 0.13.1, imports verified. Unblocks karaoke Steps 3/5/7 *engine availability* (pipeline wiring = Phase 4B, not built).
+5. **pg_dump backup cron LIVE** — `/home/ghs/backups/pg_backup.sh` (last-7, runtime DATABASE_URL, strips `?schema=`), `ghs` crontab `30 3 * * *`, verified 139K dump. Log `/home/ghs/backups/backup.log`.
+6. **story-qc/run placebo quarantined** (`6b38a18`) — 410 unless `STORY_QC_V2_ENABLED=1`; real pipeline = `/api/story/supervise`.
+7. **R2 cleaner DEFERRED to Phase 3 cutover** (deliberate) — STORAGE_PROVIDER still `local`, bucket unused; blanket prefix-expiry would risk real assets. Build DB-aware janitor + delete→R2 purge WITH cutover.
+
+## 🖥 SERVER STATE (for PC-loss recovery — repo is the source of truth)
+- Live: andiostudio.com → CF Tunnel → server :3200, **production `next start`** (manual, NOT systemd — `ghs.service` dead, needs root). Process = `next-server` as `ghs`.
+- Restart prod: `ssh hmk` → `sudo -n -u ghs bash -c "cd /home/ghs/giohomestudio && pkill -f 'next start -p 3200'; setsid bash -c 'npm run start > /tmp/ghs_prod.log 2>&1' </dev/null &"`
+- Deploy: PC edit → commit → push → on server (as ghs) `git pull --ff-only` → `pnpm build` (detached; ~4-6min) → restart prod.
+- `.env` defaults set last session: `VIDEO_PROVIDER=mock_video`, `DEFAULT_IMAGE_MODEL=segmind_flux` ($0.0004).
+- ghs user = NOPASSWD (I can do anything as ghs); `systemctl`/`apt` = needs Henry root.
 
 ## 🟠 OPEN BUG LOGGED (Henry 2026-05-27)
 - **Hybrid assembled-video subtitles render TOO BIG** — drawtext `fontsize` is fixed px, not scaled to frame height. Fix target: `app/api/assembly/execute/route.ts`. Phase 2 backend. Full note in PROBLEM_AND_FIX.md + uncomplete.md.

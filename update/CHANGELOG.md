@@ -1,5 +1,23 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-27 — Phase 1 stabilization batch (autonomous, no-root)
+
+Driven to completion after the mobile shell. All on the live server, no root needed (acted as `ghs` user, NOPASSWD).
+
+1. **Karaoke Tier 1 audio engines INSTALLED.** Server had Python 3.10 but no `ensurepip`/pip and no venv (and `python3-venv`/`apt` needs root). Worked around root entirely: `python3 -m venv .venv --without-pip` → bootstrap pip via `get-pip.py` → installed into `/home/ghs/giohomestudio/.venv`. **faster-whisper 1.2.1, librosa 0.11.0, soundfile 0.13.1** + deps (ctranslate2, numba, scipy, onnxruntime…). Verified: `import faster_whisper, librosa, soundfile` → IMPORTS_OK. This revives karaoke Step 3 (audio analysis / BPM-key-beats) + Step 5 (lyrics extraction) + Step 7 (flow profiling) engine availability. Pipeline wiring of those steps is still Phase 4B (not built yet).
+   - venv: `/home/ghs/giohomestudio/.venv` · interpreter `.venv/bin/python`
+   - NOT yet installed (need root / later tiers): basic-pitch (T2), demucs+torch (T3), RVC (T4), python3.11.
+
+2. **Local Postgres backup cron LIVE** (the local-DB safety net for the "stay on Postgres, not Supabase" decision). Script `/home/ghs/backups/pg_backup.sh` — `pg_dump -Fc` of `giohomestudio`, keeps last 7, derives DATABASE_URL from `.env` at runtime (no secret baked in; strips Prisma `?schema=` query). Verified one-shot dump (139K). Cron: `30 3 * * *` (daily 03:30) in `ghs` user crontab. Log: `/home/ghs/backups/backup.log`.
+
+3. **Dead `story-qc/run` placebo QUARANTINED** (commit `6b38a18`). The Wave-4 v2 orchestrator (placeholder prompts) now returns 410 unless `STORY_QC_V2_ENABLED=1`. Real pipeline remains `/api/story/supervise`. No code deleted — env-reversible.
+
+4. **R2 cleaner — DEFERRED to Phase 3 (R2 cutover), deliberately.** `STORAGE_PROVIDER` is still `local`, so the andio-assets bucket isn't in active use. Blanket prefix-expiry lifecycle rules on an unused bucket would risk deleting real assets later (and we JUST recovered 204 Codex-deleted assets — extra caution). The correct, safe cleaner is DB-aware (knows confirmed vs abandoned) and must be built alongside the R2 cutover with the delete-button→R2 purge. Documented in RISKS; not bolted on prematurely.
+
+Still needs Henry (one root unlock): systemd auto-restart for the prod process + `python3.11`/apt for karaoke Tiers 2–4. Sudoers line in HANDOFF.
+
+---
+
 ## 2026-05-27 — Mobile-responsive drawer shell (phone-friendly, desktop untouched)
 
 Site was desktop-only: the always-visible 218px sidebar crushed page content into an unusable sliver on phones ("too big, nothing to operate"). Viewport meta was fine — the layout simply had zero mobile breakpoints.
