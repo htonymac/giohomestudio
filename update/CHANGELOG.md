@@ -1,5 +1,11 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-27 — Subtitles "too big" FIXED (libass PlayResY) — commit `5796eaf`
+
+Henry: hybrid assembled videos showed captions dominating the frame (confirmed real render, not mock). Root cause: the subtitle path wrote an **SRT** + `force_style`; ffmpeg's SRT→ASS conversion defaults the canvas to **PlayResY=288**, so libass scaled `FontSize=32` onto the 1080 frame ≈ **120px**. Fixed by emitting a real **`.ass`** with explicit `PlayResX:1920 / PlayResY:1080` → `FontSize` now = real output pixels (32 → ~32px). Style (color/box/alignment/margin/font) preserved; removed the now-unused `srtTime` helper. Built green, deployed via systemd. **Pending: visual confirm on a real hybrid render (images + story + intro + outro, no video).**
+
+---
+
 ## 2026-05-27 — Phase 1 stabilization batch (autonomous, no-root)
 
 Driven to completion after the mobile shell. All on the live server, no root needed (acted as `ghs` user, NOPASSWD).

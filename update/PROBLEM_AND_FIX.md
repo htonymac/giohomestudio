@@ -4,9 +4,15 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
-## 2026-05-27 — 🟠 OPEN: Hybrid assembled-video subtitles render TOO BIG on screen
+## 2026-05-27 — ✅ FIXED (deployed `5796eaf`, pending real-render eyeball): Hybrid subtitles render TOO BIG
 
-**Reported by Henry 2026-05-27** (last video checked on hybrid). The burned-in caption text is oversized relative to the frame — dominates the picture.
+**Reported by Henry 2026-05-27** (last video checked on hybrid, confirmed REAL render not mock). Burned-in caption text oversized, dominated the frame.
+
+**ROOT CAUSE:** the libass path wrote an **SRT** + `force_style`. ffmpeg's SRT→ASS conversion defaults the script canvas to **PlayResY=288**, so libass scaled `FontSize=32` up to the 1080 output frame → ~32×(1080/288) ≈ **120px** captions. (Output is always normalized to 1920×1080, so the size was purely the canvas-scaling bug.)
+
+**FIX:** emit a proper **`.ass`** with explicit `PlayResX:1920 / PlayResY:1080` header so `FontSize` = real output pixels (FontSize=32 → 32px ≈ 3% of height). Style preserved (color/box/alignment/margin/font). `app/api/assembly/execute/route.ts`, commit `5796eaf`, built green + deployed via systemd. **Still owed: visual confirm on a real hybrid render (images+story+intro+outro, no video).**
+
+(original detail below)
 
 **Where to look (NOT yet fixed — Phase 2 backend):**
 - `app/api/assembly/execute/route.ts` — FFmpeg `drawtext` caption rendering. The `fontsize` is a fixed value, not scaled to output resolution/frame. Earlier session set caption Y = `h-th-54` and `wrapText` 45→40 / 20-word chunks (commit `996b5fc`) but did NOT touch `fontsize`.
