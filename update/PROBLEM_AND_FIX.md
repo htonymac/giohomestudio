@@ -19,7 +19,7 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 **ROOT CAUSE:** the libass path wrote an **SRT** + `force_style`. ffmpeg's SRT→ASS conversion defaults the script canvas to **PlayResY=288**, so libass scaled `FontSize=32` up to the 1080 output frame → ~32×(1080/288) ≈ **120px** captions. (Output is always normalized to 1920×1080, so the size was purely the canvas-scaling bug.)
 
-**FIX:** emit a proper **`.ass`** with explicit `PlayResX:1920 / PlayResY:1080` header so `FontSize` = real output pixels (FontSize=32 → 32px ≈ 3% of height). Style preserved (color/box/alignment/margin/font). `app/api/assembly/execute/route.ts`, commit `5796eaf`, built green + deployed via systemd. **Still owed: visual confirm on a real hybrid render (images+story+intro+outro, no video).**
+**FIX:** emit a proper **`.ass`** with explicit `PlayResX:1920 / PlayResY:1080` header so `FontSize` = real output pixels (FontSize=32 → 32px ≈ 3% of height). Style preserved (color/box/alignment/margin/font). `app/api/assembly/execute/route.ts`, commit `5796eaf`, built green + deployed via systemd. **✅ VERIFIED 2026-05-27 on a REAL assembled 1080 video** (intro+3 image scenes+outro+Piper narration via `/api/assembly/execute` → `_subtitled.mp4`): caption renders normal size at bottom-center, not oversized. Frame proof `tests/_mobile/render_f5.png`.
 
 (original detail below)
 
