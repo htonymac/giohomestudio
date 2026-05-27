@@ -266,10 +266,39 @@ export async function DELETE(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
 
   const assets = loadAssets();
-  const filtered = assets.filter(a => a.id !== id);
-  if (filtered.length === assets.length) {
+  const target = assets.find(a => a.id === id);
+  if (!target) {
     return NextResponse.json({ error: "Asset not found" }, { status: 404 });
   }
+
+  // ── DELETE FIX 2026-05-27 ────────────────────────────────────────────────
+  // Previously this only dropped the JSON entry. But GET() re-seeds assets from
+  // the storage/ dirs on every request (scene videos especially), so the file
+  // stayed on disk and the "deleted" asset REAPPEARED on the next list — the
+  // delete button looked broken. Now we move the underlying file OUT of the
+  // scanned dirs into storage/.trash/ so the delete sticks. We MOVE (not hard
+  // delete) so an accidental delete is recoverable, and we only ever touch
+  // files INSIDE the storage root (never anything outside it).
+  function trashIfInsideStorage(p: string | undefined, prefix = ""): string | null {
+    if (!p) return null;
+    try {
+      const abs = path.resolve(p);
+      const root = path.resolve(env.storagePath);
+      if (!abs.startsWith(root + path.sep)) return "outside-storage-skipped";
+      if (!fs.existsSync(abs)) return "already-gone";
+      const trashDir = path.resolve(root, ".trash");
+      fs.mkdirSync(trashDir, { recursive: true });
+      fs.renameSync(abs, path.join(trashDir, `${Date.now()}_${prefix}${path.basename(abs)}`));
+      return "moved-to-trash";
+    } catch (e) {
+      return `error: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+
+  const fileAction = trashIfInsideStorage(target.filePath);
+  trashIfInsideStorage(target.thumbnailPath, "thumb_");
+
+  const filtered = assets.filter(a => a.id !== id);
   saveAssets(filtered);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, fileAction });
 }

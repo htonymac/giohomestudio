@@ -90,3 +90,6 @@ Thumbs.db
 *.tsbuildinfo
 next-env.d.ts
 storage/llm-settings.json
+
+# asset delete trash (recoverable, not tracked)
+storage/.trash/
