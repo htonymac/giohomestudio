@@ -1,5 +1,20 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-27 — Mobile-responsive drawer shell (phone-friendly, desktop untouched)
+
+Site was desktop-only: the always-visible 218px sidebar crushed page content into an unusable sliver on phones ("too big, nothing to operate"). Viewport meta was fine — the layout simply had zero mobile breakpoints.
+
+Fix (additive, 4 files, fully reversible):
+- New `app/components/AppShell.tsx` client wrapper — holds drawer state; on ≤768px the sidebar becomes an off-canvas slide-in drawer (hamburger ☰ + dim backdrop, auto-closes on route change).
+- `app/layout.tsx` — delegates the shell to `<AppShell>`; **desktop DOM is identical** to before.
+- `app/globals.css` — append-only block under `@media (max-width:768px)` + two `display:none` defaults (hamburger/backdrop). **Zero existing selectors modified.**
+
+Guarantee verified, not just claimed: PC @1440px is **pixel-identical** to baseline (screenshots `tests/_mobile/before_pc_*` vs `after_pc_*`), hamburger `display:none` on desktop, `tsc --noEmit` exit 0, no horizontal overflow at 390px or 1440px. Commit `68788e9`.
+
+Known follow-up (Phase 2, optional): dashboard's 4-across stat-card row is snug on phone — can stack to 2-across with the same mobile-only method.
+
+---
+
 ## 2026-05-24 — Assembly streaming response: killed CF 100s timeout false errors
 
 `/api/assembly/execute` now returns NDJSON streaming response with heartbeats every 25s. Previously the route returned a single JSON after 2-8 min of work; Cloudflare Free Plan has a HARDCODED 100s edge HTTP timeout that fired on long assemblies, causing the client to receive a 524 HTML error page → "Assembly failed: Unexpected token '<', '<!DOCTYPE'..." even though the server FINISHED the video correctly in background. User never saw the completed videos unless they refreshed the Asset Library.

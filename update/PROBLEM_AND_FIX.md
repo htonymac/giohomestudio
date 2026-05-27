@@ -4,6 +4,28 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-27 — 🟠 OPEN: Hybrid assembled-video subtitles render TOO BIG on screen
+
+**Reported by Henry 2026-05-27** (last video checked on hybrid). The burned-in caption text is oversized relative to the frame — dominates the picture.
+
+**Where to look (NOT yet fixed — Phase 2 backend):**
+- `app/api/assembly/execute/route.ts` — FFmpeg `drawtext` caption rendering. The `fontsize` is a fixed value, not scaled to output resolution/frame. Earlier session set caption Y = `h-th-54` and `wrapText` 45→40 / 20-word chunks (commit `996b5fc`) but did NOT touch `fontsize`.
+- Likely fix: make `fontsize` proportional to output height (e.g. `~h/22`–`h/26`) instead of a fixed px, and/or expose it via `subtitleConfig` style tokens (currently always Arial 22px white — see HANDOFF "subtitle style tokens" backlog item).
+- PROTECTED: do not touch `amix=duration=longest`, `-stream_loop -1`, `atrim` ordering. Subtitle fontsize is independent of those.
+
+**Status:** documented, scheduled under Phase 2 (backend bug pass). Verify FINAL exported video, not preview (per feedback_pipeline_debug).
+
+---
+
+## 2026-05-27 — Phone: site unusable (sidebar crushed content) — FIXED
+
+**Symptom:** On phone, andiostudio.com was "too big, nothing to operate."
+**Root cause:** desktop-only shell — always-visible 218px sidebar + fixed desktop padding, zero mobile breakpoints (viewport meta was present and fine).
+**Fix:** new `AppShell` client wrapper + mobile-only `@media(max-width:768px)` CSS turns the sidebar into a hamburger drawer; desktop render unchanged. Commit `68788e9`.
+**Prevention:** any new full-screen dashboard shell needs a mobile breakpoint from day one. Use `@media(max-width:768px)` (additive) to avoid touching the desktop path. Screenshot BOTH 390px and 1440px to prove desktop is unaffected.
+
+---
+
 ## 2026-05-08 — PHASE-C7-HYBRID-PLANNER: useProjectSettings wired into hybrid-planner
 
 **File touched:** `app/dashboard/hybrid-planner/page.tsx`

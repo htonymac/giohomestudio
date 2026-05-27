@@ -1,3 +1,24 @@
+# GHS HANDOFF — Session 2026-05-27 (Mobile shell LIVE + recovery + stabilization status)
+
+**Last updated:** 2026-05-27 · **HEAD:** `68788e9` (pushed) · **Live:** andiostudio.com (server :3200, production `next start`, Next 16.2.1)
+
+## ✅ DONE THIS SESSION
+1. **Mobile-responsive drawer shell — SHIPPED + LIVE.** Phone was unusable (218px sidebar crushed content). New `app/components/AppShell.tsx` + mobile-only `@media(max-width:768px)` CSS in `globals.css` → sidebar becomes hamburger drawer on ≤768px. **Desktop pixel-identical (verified 1440px before/after), tsc clean, hamburger display:none on PC.** Commit `68788e9`, deployed to server (build `mQRPM--uqPAQipYBYFc1_`), live-verified phone+PC. Screenshots in `tests/_mobile/`.
+2. **Restored 204 Codex-deleted storage assets** (`git checkout -- storage/`) — character portraits + commercial images recovered, uncommitted-deletion cleared.
+3. Production process restarted cleanly (new PID owns :3200); hmksync :3060 untouched.
+
+## 🟠 OPEN BUG LOGGED (Henry 2026-05-27)
+- **Hybrid assembled-video subtitles render TOO BIG** — drawtext `fontsize` is fixed px, not scaled to frame height. Fix target: `app/api/assembly/execute/route.ts`. Phase 2 backend. Full note in PROBLEM_AND_FIX.md + uncomplete.md.
+
+## 🔴 STILL NEEDS HENRY (root unlock — one time)
+- Live prod is a manual `next start` (no systemd auto-restart) because `systemctl` needs root. Same root unlock gates karaoke `python3.11`/apt (decision D3). Provide sudo password OR sudoers line:
+  `admin ALL=(root) NOPASSWD: /usr/bin/systemctl daemon-reload, /usr/bin/systemctl restart ghs.service, /usr/bin/systemctl start ghs.service`
+
+## ▶ NEXT PER MASTER_PLAN (update/PLANS/MASTER_PLAN_05262026.md)
+Phase 1 remainder (autonomous, no root): R2 cleaner (lifecycle + janitor) · pg_dump backup cron · quarantine dead `story-qc/` placebo. Then Phase 2 backend bugs (incl. subtitle-too-big). Then Phase 3 root-cause (token resolution / supervisor routing = the substitution fix). **Karaoke engine install = Phase 4** (after 1–3); Tier-1 (faster-whisper/librosa) doable now as ghs user w/o root.
+
+---
+
 # GHS HANDOFF — Session 20 (Export Fix + All Prior Triggers Confirmed Done)
 
 **Last updated:** 2026-05-22

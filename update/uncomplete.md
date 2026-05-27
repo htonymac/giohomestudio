@@ -4891,3 +4891,6 @@ Total: 50+ documents across all folders
 ### BUG-16c: Image-only assembly falls back to gradient instead of using imageUrl — DONE (2026-04-30)
 - [x] `assembleScenes()`: resolves imageUrl from `sceneImages[s.sceneId]` (authoritative runtime store)
 - [x] Passes `imageUrl` and `mode: "image"` fields in scene payload when imageUrl present and no videoUrl
+
+## 2026-05-27 — Subtitle too big in hybrid assembled video (OPEN, Phase 2)
+Burned-in captions render oversized vs frame. Fix: scale drawtext fontsize to output height in app/api/assembly/execute/route.ts (currently fixed px). Logged in PROBLEM_AND_FIX.md 2026-05-27.
