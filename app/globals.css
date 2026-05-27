@@ -395,3 +395,77 @@ audio { height: 32px; border-radius: 8px; }
 
 /* ── Link hover — suppress old underline animation on nav links ───── */
 a.nav-item::after { display: none !important; }
+
+/* ══════════════════════════════════════════════════════════════════
+   MOBILE SHELL (≤768px) — additive, desktop render is UNTOUCHED.
+   Nothing in this block exists at desktop width: the hamburger and
+   backdrop are display:none by default, and every other rule lives
+   inside the media query. The shell class names (gh-shell,
+   gh-sidebar-wrap, gh-topbar, gh-footer) carry NO desktop styles.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Hidden on desktop by default — the media query reveals them on phones. */
+.gh-hamburger { display: none; }
+.gh-nav-backdrop { display: none; }
+
+@media (max-width: 768px) {
+  /* Sidebar becomes an off-canvas slide-in drawer */
+  .gh-sidebar-wrap {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 65;
+    transform: translateX(-100%);
+    transition: transform .25s cubic-bezier(.22,.61,.36,1);
+    box-shadow: 0 0 40px rgba(0,0,0,.6);
+  }
+  .gh-sidebar-wrap.open { transform: translateX(0); }
+
+  /* Dimmed backdrop behind the open drawer */
+  .gh-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    background: rgba(0,0,0,.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .25s;
+  }
+  .gh-nav-backdrop.open { opacity: 1; pointer-events: auto; }
+
+  /* Floating hamburger toggle (top-left) */
+  .gh-hamburger {
+    display: flex;
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 70;
+    width: 38px;
+    height: 38px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    background: #151518;
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .gh-hamburger span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    border-radius: 2px;
+    background: #fff;
+  }
+
+  /* Shift the top bar clear of the hamburger + tighten padding */
+  .gh-topbar { padding-left: 56px !important; padding-right: 12px !important; }
+
+  /* Tighten page + footer padding so content gets the full width */
+  main { padding: 16px 14px 40px !important; }
+  .gh-footer { padding-left: 14px !important; padding-right: 14px !important; }
+}
