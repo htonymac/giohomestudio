@@ -60,6 +60,14 @@ function resolveVideoProvider(requestOverride?: string, quality?: string): IVide
   }
   const chosen = requestOverride ?? env.video.provider;
 
+  // Global mock switch — VIDEO_PROVIDER=mock_video (or "mock") forces the mock
+  // provider everywhere, zero API spend. Used during stabilization per Henry's
+  // "video = mock" rule. Reversible: change VIDEO_PROVIDER back to a real provider.
+  if (chosen === "mock_video" || chosen === "mock") {
+    console.log("[Pipeline] Video provider: mock_video (forced via VIDEO_PROVIDER)");
+    return mockVideoProvider;
+  }
+
   // Explicit provider requests
   if (chosen === "kling" && env.kling.accessKey && env.kling.secretKey) {
     console.log("[Pipeline] Video provider: kling");

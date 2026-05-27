@@ -64,7 +64,7 @@ export async function segmindGenerateImage(req: SegmindImageRequest): Promise<Se
         timeout,
       });
 
-      const ct = res.headers["content-type"] ?? "image/png";
+      const ct = String(res.headers["content-type"] ?? "image/png");
       return { success: true, data: Buffer.from(res.data), contentType: ct };
     } catch (err) {
       if (attempt < maxRetries && axios.isAxiosError(err) && (!err.response || err.response.status >= 500)) {
@@ -101,7 +101,7 @@ export async function segmindGenerateVideo(req: SegmindVideoRequest): Promise<Se
       timeout,
     });
 
-    const ct = res.headers["content-type"] ?? "video/mp4";
+    const ct = String(res.headers["content-type"] ?? "video/mp4");
     return { success: true, data: Buffer.from(res.data), contentType: ct };
   } catch (err) {
     const msg = axios.isAxiosError(err) && err.response

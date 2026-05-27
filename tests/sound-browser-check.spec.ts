@@ -15,7 +15,7 @@ async function createNewProject(page: Page): Promise<string> {
   }
 
   // Type a project name
-  const nameInput = page.locator("input").filter({ hasAttr: "placeholder" }).first();
+  const nameInput = page.locator("input[placeholder]").first();
   if (await nameInput.isVisible({ timeout: 3000 })) {
     await nameInput.fill(`BrowserTest_${Date.now()}`);
     await page.keyboard.press("Enter");
