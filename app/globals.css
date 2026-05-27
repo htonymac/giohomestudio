@@ -468,4 +468,10 @@ a.nav-item::after { display: none !important; }
   /* Tighten page + footer padding so content gets the full width */
   main { padding: 16px 14px 40px !important; }
   .gh-footer { padding-left: 14px !important; padding-right: 14px !important; }
+
+  /* Collapse fixed desktop grids so page content stops overflowing off-screen.
+     Classes added to dashboard grids; !important overrides their inline grid-template. */
+  .gh-grid-hero { grid-template-columns: 1fr !important; }
+  .gh-grid-2 { grid-template-columns: 1fr !important; }
+  .gh-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
 }

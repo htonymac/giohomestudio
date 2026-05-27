@@ -16,7 +16,7 @@ import LegalConsentModal from "../components/LegalConsentModal";
 import Footer from "../components/Footer";
 
 // Chrome
-import { TopBar } from "../components/chrome/TopBar";
+// TopBar is now provided globally by AppShell — the page-level one was a duplicate.
 
 // Shared display components (batch 2)
 import { HeroTitle } from "../components/hero/HeroTitle";
@@ -150,12 +150,9 @@ export default function DashboardPage() {
         minWidth: 0,
       }}
     >
-      {/* ── TopBar ───────────────────────────────────────── d-1 */}
-      <TopBar className="animate-rise d-1" />
-
       {/* ── Hero: HeroTitle + ComposeCard ─────────────── d-2 */}
       <section
-        className="animate-rise d-2"
+        className="animate-rise d-2 gh-grid-hero"
         style={{
           display: "grid",
           gridTemplateColumns: "1.2fr 1fr",
@@ -175,7 +172,7 @@ export default function DashboardPage() {
 
       {/* ── Stats row ─────────────────────────────────── d-3 */}
       <div
-        className="animate-rise d-3"
+        className="animate-rise d-3 gh-grid-4"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4,1fr)",
@@ -246,7 +243,7 @@ export default function DashboardPage() {
 
       {/* ── Two-col: Quick Start + Recent Projects ──────── d-6 */}
       <div
-        className="animate-rise d-6"
+        className="animate-rise d-6 gh-grid-2"
         style={{
           display: "grid",
           gridTemplateColumns: "1fr 1fr",
@@ -326,7 +323,7 @@ export default function DashboardPage() {
 
       {/* ── Tool tiles row ───────────────────────────────── d-7 */}
       <div
-        className="animate-rise d-7"
+        className="animate-rise d-7 gh-grid-4"
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(4,1fr)",
