@@ -65,13 +65,17 @@ export const SELECTABLE_MODELS = [
 /** Resolve the Ollama model name for a given role from saved settings. */
 function getOllamaModel(role: LLMRole): string {
   const s = loadLLMSettings();
+  // Defaults baselined to "llama3.1:8b" (a common single-model install) instead of
+  // qwen2.5:14b / mistral / phi3 which are frequently NOT pulled → 404. callOllama's
+  // tag-probe substitutes whatever IS installed if these aren't present. Settings
+  // (OLLAMA_MODEL_*) still override per-role when Henry pulls larger models. (2026-05-28)
   switch (role) {
-    case "supervisor": return s.OLLAMA_MODEL_SUPERVISOR ?? "qwen2.5:14b";
-    case "quality":    return s.OLLAMA_MODEL_QUALITY    ?? "qwen2.5:14b";
-    case "creative":   return s.OLLAMA_MODEL_CREATIVE   ?? "mistral:latest";
-    case "assistant":  return s.OLLAMA_MODEL_ASSISTANT  ?? "llama3:latest";
+    case "supervisor": return s.OLLAMA_MODEL_SUPERVISOR ?? "llama3.1:8b";
+    case "quality":    return s.OLLAMA_MODEL_QUALITY    ?? "llama3.1:8b";
+    case "creative":   return s.OLLAMA_MODEL_CREATIVE   ?? "llama3.1:8b";
+    case "assistant":  return s.OLLAMA_MODEL_ASSISTANT  ?? "llama3.1:8b";
     case "fast":
-    default:           return s.OLLAMA_MODEL_FAST       ?? "phi3:latest";
+    default:           return s.OLLAMA_MODEL_FAST       ?? "llama3.1:8b";
   }
 }
 
@@ -193,15 +197,32 @@ async function callOllama(
 ): Promise<LLMResult> {
   const settings = loadLLMSettings();
   const ollamaBase = settings.OLLAMA_BASE_URL || "http://localhost:11434";
-  const model = getOllamaModel(role);
+  let model = getOllamaModel(role);
 
-  // Fast reachability probe — 1.5s max. If Ollama isn't running, fail immediately
+  // Fast reachability probe — 2s max. If Ollama isn't running, fail immediately
   // so the router can move on to the next provider without a long delay.
+  // FIX 2026-05-28: also use the tag list to pick an AVAILABLE model. The role
+  // defaults (qwen2.5:14b / mistral / phi3) are often NOT pulled on a given host
+  // (server had only llama3.1:8b) → /api/chat returned "Ollama HTTP 404" and the
+  // free tier 503'd (children planner dead). Now: if the configured model isn't
+  // installed, fall back to the first available model instead of 404ing.
   try {
-    await fetch(`${ollamaBase}/api/tags`, {
+    const tagRes = await fetch(`${ollamaBase}/api/tags`, {
       method: "GET",
-      signal: AbortSignal.timeout(1500),
+      signal: AbortSignal.timeout(2000),
     });
+    if (tagRes.ok) {
+      const tags = await tagRes.json().catch(() => null) as { models?: Array<{ name?: string; model?: string }> } | null;
+      const available = (tags?.models || []).map(m => m.name || m.model || "").filter(Boolean);
+      if (available.length > 0 && !available.includes(model)) {
+        // Prefer a same-family match (e.g. any "llama*"), else the first installed model.
+        const base = model.split(":")[0];
+        const famMatch = available.find(a => a.split(":")[0] === base) || available.find(a => a.startsWith(base));
+        const chosen = famMatch || available[0];
+        console.warn(`[ollama] model "${model}" not installed; using available "${chosen}" (have: ${available.join(", ")})`);
+        model = chosen;
+      }
+    }
   } catch {
     return { ok: false, error: "Ollama: not reachable (not running locally)" };
   }

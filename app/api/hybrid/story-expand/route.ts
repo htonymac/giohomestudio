@@ -493,13 +493,26 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
     if (tier === "pro" && !forceProvider)   { forceModel = forceModel || "claude-sonnet-4-6"; }
 
     // Use user-selected provider or auto (Claude → GPT → Grok → Ollama)
-    const llmResult = await callLLM(userPrompt, systemPrompt, {
+    let llmResult = await callLLM(userPrompt, systemPrompt, {
       role: tier === "pro" ? "quality" as const : "fast" as const,
       temperature: 0.7,
       maxTokens,
       forceProvider: forceProvider as "claude" | "openai" | "gpt" | "grok" | "ollama" | undefined,
       forceModel,
     });
+
+    // FREE-TIER FALLBACK 2026-05-28: free tier force-routes to local Ollama. If Ollama is
+    // down or has no usable model, retry on cloud (auto: Claude→GPT) instead of 503ing.
+    // Without this the children planner died with "Ollama HTTP 404 — check your API key".
+    if (!llmResult.ok && forceProvider === "ollama" && !body.provider) {
+      console.warn(`[story-expand] Ollama failed (${llmResult.error}) — falling back to cloud (fast).`);
+      llmResult = await callLLM(userPrompt, systemPrompt, {
+        role: "fast" as const,
+        temperature: 0.7,
+        maxTokens,
+        // no forceProvider → auto cloud chain
+      });
+    }
 
     let expandedStory: ExpandedStory;
 
