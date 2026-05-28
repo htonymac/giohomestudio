@@ -308,7 +308,7 @@ export function buildFullLock(storyEra: string, storyCulture: string, artStyle =
   // culture is actually African. (Bug C skin/setting fix, 2026-05-27)
   const isAfricanCulture = /nigeria|yoruba|igbo|hausa|nollywood|africa|west\s*african/i.test(storyCulture || "");
   const eraPositiveText = eraEntry
-    ? (isAfricanCulture ? eraEntry.positive : eraEntry.positive.replace(/\s*For African settings:.*$/is, "").trim())
+    ? (isAfricanCulture ? eraEntry.positive : eraEntry.positive.replace(/\s*For African settings:[\s\S]*$/i, "").trim())
     : "";
 
   const eraPositive = eraEntry
