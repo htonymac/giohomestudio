@@ -7,11 +7,10 @@ This is the single place to look for "what's left." Update it as items close. Ea
 
 ## 🔴 Blocked on Henry (needs an input only he can give)
 
-### 1. Karaoke MAIN full end-to-end on FREE engines — ✅ VERIFIED GREEN 2026-05-28
-- **DONE:** full e2e passes on free engines (`scripts/karaoke_e2e_test.mjs`, using an existing narration WAV as the voice fixture): analyze (Whisper+librosa) → flow-profile → beat-recommend → production-brief → generate-music (**stock**, free) → save-mix → assemble (mixed mp3) → export (downloadable mp3). LLM steps fall back to OpenAI (Anthropic credits depleted). PROBLEM_AND_FIX #46/#48/#49.
-- **Optional (quality only):** a REAL sung/hummed/rapped voice clip from Henry to confirm analysis handles actual singing (the test used clean TTS narration). Drop a 10–30s mp3/wav anywhere + tell me the path, or record in the Creator.
-- **Minor follow-up:** `analyze` returns `tempo: undefined` — check `scripts/karaoke_analyze.py` output keys (production-brief defaults to 90 BPM, non-blocking).
-- **⚠️ Henry action:** top up **Anthropic API credits** — depleted. Everything falls back to OpenAI GPT-4o-mini now (works, lower quality than Claude).
+### 1. Karaoke MAIN full end-to-end on FREE engines — ✅ DONE + CLOSED 2026-05-28
+- Full e2e passes on free engines (`scripts/karaoke_e2e_test.mjs`, Piper-generated voice WAV fixture — Henry confirmed Piper/any TTS voice is fine, no real recording needed): analyze (Whisper+librosa) → flow-profile → beat-recommend → production-brief → generate-music (**stock**, free) → save-mix → assemble (mixed mp3) → export (downloadable mp3). LLM steps fall back to OpenAI. PROBLEM_AND_FIX #46/#48/#49. **No Henry input required.**
+- **Minor follow-up (non-blocking):** `analyze` returns `tempo: undefined` — check `scripts/karaoke_analyze.py` output keys (production-brief defaults to 90 BPM).
+- **⚠️ Henry action (whenever):** top up **Anthropic API credits** — depleted. Everything falls back to OpenAI GPT-4o-mini now (works, lower quality than Claude).
 
 ### 2. Phase 3 — cross-scene character face-lock (PuLID)
 - **State:** Wrong-character/swap bug is largely resolved (chars render correctly per description). Residual = (a) phantom extra people in multi-char scenes, (b) same character not identical across scenes.
@@ -29,8 +28,8 @@ This is the single place to look for "what's left." Update it as items close. Ea
 ### 4. Hybrid render browser e2e (eyeball)
 - Component-verified already (18/18 segs, gray-drop, narrator). An eyeball pass of a full real render (narration audible + images visible + intro/outro on screen) via AUT + a multi-minute render. Best done when AUT is watching.
 
-### 5. Phantom extra people (multi-character scenes)
-- Independent of PuLID/R2. A scene with N named characters sometimes renders N+1 people. Candidate fix: tighten the scene prompt with an explicit person-count constraint + "no extra/duplicate people" negative, scoped to scenes with a known small cast. Needs care not to remove intended background crowd.
+### 5. Phantom extra people (multi-character scenes) — ✅ DONE 2026-05-28
+- Added PERSON-COUNT LOCK + extra-people negative to `scene-image` (scoped to 1–4 known cast, skipped for crowd scenes). PROBLEM_AND_FIX #50. Verified by viewing a regenerated 2-char scene: exactly 2 correct distinct mains, no phantom co-protagonist.
 
 ---
 
