@@ -5,7 +5,7 @@
 // Uses Claude Haiku 4.5
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { callLLM } from "@/lib/llm";
 
 // §11 intervention levels — user picks level FIRST
 export type InterventionLevel =
@@ -109,8 +109,6 @@ function subActionDescription(subAction: SubAction): string {
   return map[subAction] ?? "";
 }
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
 export async function POST(req: NextRequest) {
   try {
     const body: PolishRequest = await req.json();
@@ -190,28 +188,27 @@ Return exactly 5 options as JSON:
 
 IMPORTANT: Option 1 must be the exact original text unchanged. Options 2-5 must follow the ${level} intervention level. Return ONLY the JSON.`;
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 2048,
-      messages: [{ role: "user", content: userPrompt }],
-      system: systemPrompt,
-    });
-
-    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    // Resilient LLM call: auto-fallback Claude → OpenAI → Grok → Ollama (was direct
+    // Anthropic, which 500'd when credits ran out). (2026-05-28)
+    const llm = await callLLM(userPrompt, systemPrompt, { role: "fast", maxTokens: 2048, temperature: 0.5 });
+    if (!llm.ok) {
+      return NextResponse.json({ error: `Lyrics-polish LLM unavailable: ${llm.error}` }, { status: 503 });
+    }
+    const raw = llm.text;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Claude returned no JSON", raw }, { status: 500 });
+      return NextResponse.json({ error: "LLM returned no JSON", raw }, { status: 500 });
     }
 
     let parsed: { options: LyricOption[] };
     try {
       parsed = JSON.parse(jsonMatch[0]);
     } catch {
-      return NextResponse.json({ error: "Failed to parse Claude JSON response", raw }, { status: 500 });
+      return NextResponse.json({ error: "Failed to parse LLM JSON response", raw }, { status: 500 });
     }
 
     if (!parsed.options || !Array.isArray(parsed.options)) {
-      return NextResponse.json({ error: "Malformed response from Claude", parsed }, { status: 500 });
+      return NextResponse.json({ error: "Malformed response from LLM", parsed }, { status: 500 });
     }
 
     // §11 safety net: enforce Option 1 = original line regardless of what Claude returned

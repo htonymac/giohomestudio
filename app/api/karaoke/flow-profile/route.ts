@@ -5,10 +5,8 @@
 // Saves to KaraokeRecording.flowProfile
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { callLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export interface FlowProfile {
   voiceType: "singing" | "chanting" | "spoken_rhythm" | "humming" | "mixed";
@@ -90,17 +88,17 @@ Return JSON:
   "cadenceLabel": "human-readable description e.g. 'Mid-tempo singing with strong hooks' or 'Rhythmic spoken chant with tight cadence'"
 }`;
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 512,
-      messages: [{ role: "user", content: userPrompt }],
-      system: systemPrompt,
-    });
-
-    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    // Resilient LLM call: auto-fallback Claude → OpenAI → Grok → Ollama. Was a direct
+    // Anthropic call that 500'd when Anthropic credits ran out, blocking the whole karaoke
+    // pipeline at this step. callLLM falls back to OpenAI so flow profiling still works. (2026-05-28)
+    const result = await callLLM(userPrompt, systemPrompt, { role: "fast", maxTokens: 512, temperature: 0.4 });
+    if (!result.ok) {
+      return NextResponse.json({ error: `Flow-profiling LLM unavailable: ${result.error}` }, { status: 503 });
+    }
+    const raw = result.text;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Claude returned no JSON", raw }, { status: 500 });
+      return NextResponse.json({ error: "LLM returned no JSON", raw }, { status: 500 });
     }
 
     let profile: FlowProfile;

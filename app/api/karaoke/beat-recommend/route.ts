@@ -4,10 +4,8 @@
 // Returns { recommendations: [{beatFamily, reasoning, tempoFit, energyFit}] }
 
 import { NextRequest, NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import { callLLM } from "@/lib/llm";
 import { prisma } from "@/lib/prisma";
-
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // Canvas §10 — 11 beat families
 const BEAT_FAMILIES = [
@@ -118,17 +116,16 @@ Return JSON:
   ]
 }`;
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 768,
-      messages: [{ role: "user", content: userPrompt }],
-      system: systemPrompt,
-    });
-
-    const raw = response.content[0].type === "text" ? response.content[0].text : "";
+    // Resilient LLM call: auto-fallback Claude → OpenAI → Grok → Ollama (was direct
+    // Anthropic, which 500'd when credits ran out). (2026-05-28)
+    const llm = await callLLM(userPrompt, systemPrompt, { role: "fast", maxTokens: 768, temperature: 0.4 });
+    if (!llm.ok) {
+      return NextResponse.json({ error: `Beat-recommend LLM unavailable: ${llm.error}` }, { status: 503 });
+    }
+    const raw = llm.text;
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      return NextResponse.json({ error: "Claude returned no JSON", raw }, { status: 500 });
+      return NextResponse.json({ error: "LLM returned no JSON", raw }, { status: 500 });
     }
 
     let result: { recommendations: BeatRecommendation[] };
