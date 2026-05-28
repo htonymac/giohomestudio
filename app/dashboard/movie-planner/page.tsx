@@ -2327,7 +2327,7 @@ function MoviePlannerInner() {
       {activeTab === "overview" && (
         <div>
           {/* Stats grid — 5 columns */}
-          <div style={{ ...cardStyle, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+          <div style={{ ...cardStyle, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: accent }}>{totalScenes}</p>
               <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Total Scenes</p>
@@ -2351,7 +2351,7 @@ function MoviePlannerInner() {
           </div>
 
           {/* Progress + Resume side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
             <div style={cardStyle}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Production Progress</p>
               <ProgressBar label="Story" value={storyProgress} color={accent} />
@@ -2418,7 +2418,7 @@ function MoviePlannerInner() {
           )}
 
           {/* Quick Links */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
             <button onClick={() => setActiveTab("scenes")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${blue}20` }}>
               <Icon.Film style={{ width: 24, height: 24, color: blue, marginBottom: 6 }} />
               <p style={{ fontSize: 11, color: blue, fontWeight: 600, marginTop: 6 }}>Scene Board</p>
@@ -2488,7 +2488,7 @@ function MoviePlannerInner() {
               <span style={{ fontSize: 11, color: muted }}>{showModelSettings ? "Hide" : "Show"}</span>
             </div>
             {showModelSettings && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
                 {/* 1. Story LLM */}
                 <div>
                   <p style={{ ...labelStyle }}>Story LLM</p>
@@ -2597,7 +2597,7 @@ function MoviePlannerInner() {
                 style={{ ...inputStyle, resize: "vertical" }} />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginBottom: 16 }}>
               <div>
                 <label style={{ ...labelStyle, fontSize: 9 }}>Duration</label>
                 <DurationPicker
@@ -2633,7 +2633,7 @@ function MoviePlannerInner() {
             <AITierSelector value={aiTier} onChange={setAiTier} compact />
 
             {/* Era & Culture Lock */}
-            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div>
                 <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
                 <input
@@ -2711,7 +2711,7 @@ function MoviePlannerInner() {
                 </div>
               </div>
               {showProductionPlan && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                   <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
                     <p style={{ ...labelStyle, marginBottom: 4 }}>Music Mood</p>
                     <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.musicMood}</p>
@@ -2871,7 +2871,7 @@ function MoviePlannerInner() {
             </div>
 
             {/* Tone + Setting side by side */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 24 }}>
               <div>
                 <label style={labelStyle}>Tone / Mood</label>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -3269,7 +3269,7 @@ function MoviePlannerInner() {
                 <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
                   AI will treat your scenes as one continuous action. Enable this when your story has unbroken physical action (chase, fall, fight, explosion chain).
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 14 }}>
                   <div>
                     <label style={labelStyle}>Total Duration (seconds)</label>
                     <input type="number" min={5} max={120} value={cmTotalDuration}
@@ -3555,7 +3555,7 @@ function MoviePlannerInner() {
                       {expandedSceneId === sceneId && (
                         <div style={{ marginTop: 10 }}>
                           {/* Editable fields */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginBottom: 10 }}>
                             <div>
                               <p style={{ ...labelStyle, fontSize: 9 }}>Visual Description</p>
                               <textarea value={scene.visualDescription} onChange={e => updateScene(scene.scene, { visualDescription: e.target.value })}
@@ -4433,7 +4433,7 @@ function MoviePlannerInner() {
                 </div>
 
                 {/* Audio inputs */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, marginBottom: 10 }}>
                   <div style={{ background: s2, borderRadius: 8, padding: "8px 10px" }}>
                     <p style={{ fontSize: 8, color: gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>Narration</p>
                     <input value={scene.dialogue} onChange={e => updateScene(scene.scene, { dialogue: e.target.value })}
@@ -4848,7 +4848,7 @@ function MoviePlannerInner() {
           {/* AI Intro / Outro */}
           <div style={{ ...cardStyle, marginBottom: 12, padding: 14 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>AI Intro / Outro</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div>
                 {introUrl
                   ? <div style={{ position: "relative" }}>
@@ -4897,7 +4897,7 @@ function MoviePlannerInner() {
           {/* Credits + Narration↔Subtitle match */}
           <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Movie Credits</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, marginBottom: 10 }}>
               <div>
                 <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Written by</label>
                 <input value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Screenplay author"
