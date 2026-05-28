@@ -428,17 +428,36 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
         const hasNarr = fs.existsSync(narrationWav);
         const hasMus = fs.existsSync(musicWav);
         const hasSfx = fs.existsSync(sfxWav);
-        const duckLevel = fullAssembly.duckingRules?.musicDuckLevel ?? 0.08;
         // totalDuration was already corrected by pre-flight ffprobe above
         const totalDur = fullAssembly.totalDuration || 60;
         const finalOut = step.outputPath;
+
+        // PERF 2026-05-28: probe concat_raw length. If the video already covers the target
+        // duration (the normal case — segment durations are computed from the narration
+        // clock, so they sum to ~totalDur), COPY the video stream instead of re-encoding it.
+        // The old code ALWAYS `-stream_loop`-ed + re-encoded the full video (libx264), which
+        // was the dominant cost on long videos. Only loop+re-encode when the video is
+        // materially shorter than the audio (short clips under a long narration).
+        let concatDur = 0;
+        try {
+          const ffprobePath2 = env.ffmpegPath.replace(/ffmpeg(\.exe)?$/i, "ffprobe$1");
+          const { stdout } = await execFileAsync(ffprobePath2,
+            ["-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", concatRaw],
+            { timeout: 8000 });
+          concatDur = parseFloat(stdout.trim()) || 0;
+        } catch { /* probe failed — assume we must loop */ }
+        const needsLoop = concatDur < totalDur - 2;            // >2s short → loop+re-encode
+        const loopIn = needsLoop ? ["-stream_loop", "-1"] : [];
+        const tArg = needsLoop ? ["-t", String(totalDur)] : []; // only trim when looping
+        const vCodec = needsLoop
+          ? ["-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p"]
+          : ["-c:v", "copy"];                                  // copy = no re-encode (fast)
+
         let cmd: string[];
-        // Always stream_loop the concat video to fill totalDuration — safety net for short clips.
-        // Re-encode (libx264 veryfast) is required when using -stream_loop.
         if (!hasNarr && !hasMus && !hasSfx) {
-          cmd = [env.ffmpegPath, "-stream_loop", "-1", "-i", concatRaw, "-t", String(totalDur), "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-an", "-movflags", "+faststart", "-y", finalOut];
+          cmd = [env.ffmpegPath, ...loopIn, "-i", concatRaw, ...tArg, ...vCodec, "-an", "-movflags", "+faststart", "-y", finalOut];
         } else {
-          const inputs: string[] = ["-stream_loop", "-1", "-i", concatRaw];
+          const inputs: string[] = [...loopIn, "-i", concatRaw];
           const filters: string[] = [];
           const audioSrcs: string[] = [];
           let idx = 1;
@@ -446,9 +465,9 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
           if (hasMus)  { inputs.push("-i", musicWav);     filters.push(`[${idx}:a]volume=0.4[mus]`); audioSrcs.push("[mus]");  idx++; }
           if (hasSfx)  { inputs.push("-i", sfxWav);       filters.push(`[${idx}:a]volume=0.6[sfx]`);          audioSrcs.push("[sfx]");  idx++; }
           const mixFilter = filters.join(";") + ";" + audioSrcs.join("") + `amix=inputs=${audioSrcs.length}:duration=longest:normalize=0[fa]`;
-          cmd = [env.ffmpegPath, ...inputs, "-t", String(totalDur), "-filter_complex", mixFilter, "-map", "0:v", "-map", "[fa]", "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-y", finalOut];
+          cmd = [env.ffmpegPath, ...inputs, ...tArg, "-filter_complex", mixFilter, "-map", "0:v", "-map", "[fa]", ...vCodec, "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", "-y", finalOut];
         }
-        console.log(`[assembly] final_merge — video+narr=${hasNarr} music=${hasMus} sfx=${hasSfx} dur=${totalDur}s`);
+        console.log(`[assembly] final_merge — narr=${hasNarr} music=${hasMus} sfx=${hasSfx} dur=${totalDur}s concat=${concatDur.toFixed(1)}s loop=${needsLoop} vcopy=${!needsLoop}`);
         try {
           const startMs = Date.now();
           await execFileAsync(cmd[0], cmd.slice(1), { timeout: 180000, maxBuffer: 50 * 1024 * 1024 });
