@@ -106,7 +106,7 @@ async function solidPlaceholderClip(clipPath: string, duration: number): Promise
 async function preprocessOneSegment(
   seg: AssemblySegment,
   outputDir: string
-): Promise<{ id: string; clipPath: string } | null> {
+): Promise<{ id: string; clipPath: string; placeholder?: boolean } | null> {
   const rawUrl = seg.sourceUrl || "";
   const url = rawUrl.replace(/^img:/, "");
 
@@ -116,7 +116,7 @@ async function preprocessOneSegment(
     const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
     if (await solidPlaceholderClip(clipPath, duration)) {
       console.log(`[assembly] ${seg.sceneId}: gradient → solid bg clip (${duration}s)`);
-      return { id: seg.id, clipPath };
+      return { id: seg.id, clipPath, placeholder: true };
     }
     console.log(`[assembly] ${seg.sceneId}: skipped (gradient/empty, ffmpeg color failed)`);
     return null;
@@ -157,9 +157,11 @@ async function preprocessOneSegment(
   }
 
   if (!fs.existsSync(localImagePath)) {
-    // Missing image (e.g. generation was down) → solid placeholder so the scene still shows.
+    // Missing image (stale/dead URL, or generation was down) → solid placeholder so the
+    // scene still shows. Tagged placeholder:true so preprocessSegments can DROP it if the
+    // same scene has a real image elsewhere (kills gray-flash pollution from dead URLs).
     console.warn(`[assembly] ${seg.sceneId}: image not found — using solid placeholder: ${localImagePath}`);
-    if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath };
+    if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath, placeholder: true };
     return null;
   }
 
@@ -170,7 +172,7 @@ async function preprocessOneSegment(
   }
   // Image present but conversion produced an empty/invalid clip → solid placeholder.
   console.warn(`[assembly] ${seg.sceneId}: image→video failed — using solid placeholder clip`);
-  if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath };
+  if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath, placeholder: true };
   return null;
 }
 
@@ -210,9 +212,28 @@ async function preprocessSegments(
   // 4 concurrent ffmpeg jobs: fast enough (70 imgs ≈ 30-40s) without saturating CPU.
   const FFMPEG_CONCURRENCY = 4;
   const results = await mapPool(segments, FFMPEG_CONCURRENCY, seg => preprocessOneSegment(seg, outputDir));
+
+  // Which scenes ended up with at least one REAL (non-placeholder) clip?
+  // results[i] is parallel to segments[i] (mapPool preserves order).
+  const scenesWithReal = new Set<string>();
+  results.forEach((r, i) => {
+    if (r && !r.placeholder && segments[i].sceneId) scenesWithReal.add(segments[i].sceneId!);
+  });
+
+  // DEAD-URL FIX 2026-05-28: drop a gray placeholder when its scene already has a real
+  // image (stale/dead candidate URLs from old sessions were leaking gray flashes into the
+  // video). Keep placeholders for single-image scenes / fully-missing scenes (timeline
+  // stays aligned) and for intro/outro cards (no sceneId).
   const resolved = new Map<string, string>();
-  for (const r of results) {
-    if (r) resolved.set(r.id, r.clipPath);
+  let droppedPlaceholders = 0;
+  results.forEach((r, i) => {
+    if (!r) return;
+    const sid = segments[i].sceneId;
+    if (r.placeholder && sid && scenesWithReal.has(sid)) { droppedPlaceholders++; return; }
+    resolved.set(r.id, r.clipPath);
+  });
+  if (droppedPlaceholders > 0) {
+    console.log(`[assembly] dropped ${droppedPlaceholders} redundant gray placeholder(s) (scene had a real image)`);
   }
   return resolved;
 }
