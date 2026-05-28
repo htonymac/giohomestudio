@@ -349,15 +349,18 @@ export async function POST(req: NextRequest) {
     // scenes where background people are intended, and for animal scenes.
     const sceneHasCrowd = /\b(crowd|crowded|market|marketplace|party|audience|gathering|stadium|festival|wedding|concert|protest|rally|classroom|class|team|villagers|townspeople|guests|spectators|congregation|queue|busy street|group of|many people|onlookers|mob)\b/i.test(sceneText || "");
     let personCountActive = false;
+    let personCountDirective = "";
     if (resolvedCharacters.length >= 1 && resolvedCharacters.length <= 4 && !sceneHasCrowd && !explicitAnimal) {
       personCountActive = true;
       const n = resolvedCharacters.length;
       const names = resolvedCharacters.map(c => c.name).join(", ");
-      promptParts.push(
-        n === 1
-          ? `EXACTLY ONE person in the entire frame (${names}) — solo shot, no other people, no second person, no bystanders, no background figures.`
-          : `EXACTLY ${n} people in the entire frame (${names}) — no additional people, no extra figures, no bystanders, no duplicated or cloned faces, no background crowd.`
-      );
+      personCountDirective = n === 1
+        ? `EXACTLY ONE person in the entire frame: ${names}. A solo shot — no other people anywhere, no second person, no bystanders, no background figures.`
+        : `EXACTLY ${n} people total in the entire frame and no more: ${names}. Each of these ${n} is a visually DISTINCT individual — do NOT duplicate, repeat, mirror or clone any of them, do NOT add a similar-looking extra person, no additional people, no bystanders, no background crowd.`;
+      // Push it here (mid-prompt) AND repeat near the end (late anchor) — image models weight
+      // both early and late tokens, and a single mid-prompt mention was being ignored when two
+      // characters looked similar (model duplicated the archetype → phantom 3rd person).
+      promptParts.push(personCountDirective);
     }
 
     // ── SCENE DESCRIPTION + ACTION DIRECTIVE ──
@@ -377,6 +380,11 @@ export async function POST(req: NextRequest) {
     }
 
     // (Settings moved EARLY by F2 — no late-position duplicate needed.)
+
+    // ── LATE-POSITION PERSON-COUNT REPEAT — strong final reminder of exact headcount ──
+    if (personCountActive && personCountDirective) {
+      promptParts.push(personCountDirective);
+    }
 
     // ── STYLE QUALITY SUFFIX ──
     promptParts.push(stylePreset.suffix);
