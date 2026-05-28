@@ -8,7 +8,8 @@
 3. **Gray-flash placeholders dropped** — dead/stale image URLs no longer leak gray frames into the video. Verified (`scripts/dead_url_test.mjs`). #44.
 4. **Children planner free-tier LLM fixed** — was 503/hanging (Ollama default models not installed → 404; then >5min CPU inference). `src/lib/llm.ts` auto-picks an installed Ollama model + defaults to `llama3.1:8b`; `story-expand` caps Ollama at 45s + cloud fallback + provider-aware continuations. ABC format verified live ("A is for Apple…", 16 patterns) — `scripts/abc_format_test.mjs`. #45.
 - All built (each BUILD_ID regenerated) + service restarted + HTTP 200. Note: server is GPU-less → free tier effectively runs on cloud Haiku (Ollama too slow); fine + cheap.
-- **STILL OPEN on the list (FIXNEWCHIDHYBRIDANDMORE05272026.MD):** browser e2e of a real hybrid render (eyeball narration+images+cards); children 20-min LENGTH honoring (rules in place, continuations now provider-aware — needs a long-target spot check); Phase 3 substitution (phantom extra people; PuLID cross-scene face-lock needs R2 public URLs); karaoke MAIN local pipeline end-to-end; orphan `md-only-backup-2026-05-27` branch.
+5. **Children LENGTH verified** — 5-min target → 864 words (≈750 target), no stub, no length warning (`scripts/length_fill_test.mjs`). Continuation fill loop confirmed working on cloud fallback. Henry's "make all story short" complaint resolved.
+- **STILL OPEN on the list (FIXNEWCHIDHYBRIDANDMORE05272026.MD):** browser e2e of a real hybrid render (eyeball narration+images+cards on screen); Phase 3 substitution (phantom extra people; PuLID cross-scene face-lock needs R2 public URLs — infra-gated); karaoke MAIN local pipeline end-to-end; orphan `md-only-backup-2026-05-27` branch.
 
 ---
 
