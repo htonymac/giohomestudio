@@ -610,3 +610,13 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 **Root cause:** `app/dashboard/hybrid-planner/page.tsx` assembly builder dropped the narrator track entirely when `storyMode === "mixed" && hasPerLineClips` (`skipNarratorDueToActors`), out of a (mistaken) fear of "all voices at once". But the narrator file is generated from narration-type text ONLY (`generateNarrationPiper` → `allScenesNarration`, which excludes dialogue per BUG-16a). Narrator (narration passages) and actor clips (dialogue lines) are COMPLEMENTARY, not overlapping — so dropping the narrator just deleted all narration from mixed videos.
 **Fix:** Removed the `skipNarratorDueToActors` gate. Narrator now plays in both narration-only AND mixed mode (only excluded in actors-only). Actor per-line clips still layer on top for dialogue.
 **Prevention:** Before muting/dropping an audio track to avoid "overlap", confirm the two tracks actually cover the same text. Here they never did.
+
+---
+
+## 44. Gray-flash placeholders from stale/dead image URLs (2026-05-28)
+
+**Problem:** Assembled video had gray frames interspersed with real images ("image display was bad"). The assembly-tab image grid showed broken thumbnails (#1–#9 in SC04) — dead candidate URLs from prior sessions that the client still ticked + sent to assembly.
+**Root cause:** `preprocessOneSegment` (in `app/api/assembly/execute/route.ts`) turns any missing image into a solid dark placeholder clip to keep the timeline aligned. Good for a genuinely image-less scene, bad when a scene has OTHER real images — the dead URL became a gray flash between good frames.
+**Fix:** Tag placeholder clips (`placeholder: true`). In `preprocessSegments`, after the bounded-pool run, compute `scenesWithReal` (sceneIds that got ≥1 real clip) and DROP any placeholder whose sceneId is in that set. Single-image scenes, fully-missing scenes, and intro/outro (no sceneId) keep their placeholder so timing/visibility is preserved.
+**Verification:** `scripts/dead_url_test.mjs` — scene SCDUP (1 real + 1 dead URL) → gray dropped; scene SCLONE (only dead URL) → gray kept → 2 segments assembled. Regression: 18-real-image assembly still 18/18 (no false drops).
+**Prevention:** A timeline-alignment placeholder is a per-scene fallback, not a per-image one. Only emit it when the scene would otherwise be blank.
