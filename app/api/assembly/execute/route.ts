@@ -54,6 +54,10 @@ async function imageToVideoClip(imagePath: string, duration: number, outputPath:
       "-t", String(duration),
       "-vf", NORMALIZE_FILTER,
       "-c:v", "libx264",
+      // ultrafast: these are INTERMEDIATE clips that get re-encoded at final_merge anyway,
+      // so encode quality here is irrelevant — only speed matters. default "medium" preset
+      // made 70 image encodes the assembly bottleneck. (2026-05-28 perf)
+      "-preset", "ultrafast",
       "-pix_fmt", "yuv420p",
       "-r", "30",
       "-an",
@@ -73,6 +77,7 @@ async function transcodeVideoClip(videoPath: string, duration: number, outputPat
       "-t", String(duration),
       "-vf", NORMALIZE_FILTER,
       "-c:v", "libx264",
+      "-preset", "ultrafast", // intermediate clip — re-encoded at final_merge (2026-05-28 perf)
       "-pix_fmt", "yuv420p",
       "-r", "30",
       "-an",
@@ -94,7 +99,7 @@ async function solidPlaceholderClip(clipPath: string, duration: number): Promise
     await execFileAsync(env.ffmpegPath, [
       "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
       "-t", String(duration),
-      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
+      "-c:v", "libx264", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
     ], { timeout: 30000 });
     return fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000;
   } catch {
@@ -209,8 +214,10 @@ async function preprocessSegments(
   segments: AssemblySegment[],
   outputDir: string
 ): Promise<Map<string, string>> {
-  // 4 concurrent ffmpeg jobs: fast enough (70 imgs ≈ 30-40s) without saturating CPU.
-  const FFMPEG_CONCURRENCY = 4;
+  // Concurrent ffmpeg jobs. Server is 8-core/23GB → use 7, leaving 1 core for Next/system.
+  // (Was 4 — under-utilized the box; combined with -preset ultrafast on clips this cuts
+  // preprocess time for a 70-image Gen-Max story from minutes to ~10-15s. 2026-05-28 perf)
+  const FFMPEG_CONCURRENCY = 7;
   const results = await mapPool(segments, FFMPEG_CONCURRENCY, seg => preprocessOneSegment(seg, outputDir));
 
   // Which scenes ended up with at least one REAL (non-placeholder) clip?

@@ -21,9 +21,9 @@ This is the single place to look for "what's left." Update it as items close. Ea
 
 ## 🟢 Solo (no input needed — agent can do anytime)
 
-### 3. Orphan branch `md-only-backup-2026-05-27`
-- Markdown-only snapshot of the repo (*.md, *.MD), excluding all code + secrets. Henry: "dont push .md" → keep it LOCAL (markdown is already safe on `origin/main` via tracked docs).
-- **Status:** see bottom of this file (done/pending).
+### 3. Orphan branch `md-only-backup-2026-05-27` — ✅ DONE 2026-05-28
+- Created via git plumbing (temp index, never touched working tree/HEAD): **331 tracked .md files, 0 non-markdown**, no code/secrets. Kept **LOCAL** (not pushed, per "dont push .md"). Restore/inspect: `git ls-tree -r --name-only md-only-backup-2026-05-27`.
+- NOTE: a few **untracked** markdown docs were NOT in the backup (ls-files = tracked only): `update/PLANS/MASTER_PLAN_05262026.md`, `update/onboarding_ghs_linux_05232026.md`, `FIXNEWCHIDHYBRIDANDMORE05272026.MD` (the last is intentionally local). Henry: decide if MASTER_PLAN + onboarding should be tracked on main (review for secrets first per [[feedback_git_secret_scan]]), then re-run the branch build to include them.
 
 ### 4. Hybrid render browser e2e (eyeball)
 - Component-verified already (18/18 segs, gray-drop, narrator). An eyeball pass of a full real render (narration audible + images visible + intro/outro on screen) via AUT + a multi-minute render. Best done when AUT is watching.
