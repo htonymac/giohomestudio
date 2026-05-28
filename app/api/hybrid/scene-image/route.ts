@@ -280,7 +280,7 @@ export async function POST(req: NextRequest) {
         const AGE_VISUAL: Record<string, string> = {
           child:       "6-10 year old child — small body, young face, child height and proportions. NOT a teen or adult.",
           teen:        "13-17 year old teenager — adolescent face, teenage build. NOT a young child or adult.",
-          young_adult: "20-28 year old young adult — youthful adult face and body.",
+          young_adult: "early-to-mid 20s young adult — smooth youthful skin, full dark hair, clean-shaven or light stubble at most, NO grey or white hair, NO deep wrinkles. NOT middle-aged, NOT 40s, NOT 50s.",
           adult:       "35-50 year old adult — fully mature face, adult proportions.",
           elder:       "65+ year old elder — white or grey hair, wrinkled face, aged posture. NOT young.",
         };
@@ -293,7 +293,9 @@ export async function POST(req: NextRequest) {
 
         // Build anti-stereotype negative for this character based on what they actually look like
         if (c.imageUrl || desc) {
-          const antiAge = (c.age === "young_adult" || c.age === "adult")
+          const antiAge = c.age === "young_adult"
+            ? `old ${c.name}, elderly ${c.name}, middle-aged ${c.name}, 40 year old ${c.name}, 50 year old ${c.name}, grey-haired ${c.name}, grey-bearded ${c.name}, wrinkled ${c.name}, aging ${c.name}`
+            : c.age === "adult"
             ? `old ${c.name}, elderly ${c.name}, aged ${c.name}`
             : c.age === "child" ? `adult ${c.name}, tall ${c.name}` : "";
           const descLower = desc.toLowerCase();
@@ -423,7 +425,17 @@ export async function POST(req: NextRequest) {
     const extraPeopleNegative = personCountActive
       ? ", extra person, extra people, additional people, more people than described, duplicate character, cloned face, identical twins, repeated person, background crowd, bystanders, photobomber, extra figures in background, group of strangers"
       : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + getStyleCollisionNegative(styleId) + eraNegative;
+
+    // Film-crew negative — the prompt's "cinematic / camera framing / scene shot / still
+    // frame" language was making the model render a LITERAL film camera + cameraman in the
+    // scene (Henry's workshop render had a camera operator between the two characters).
+    // Suppress film-set equipment unless the scene is actually about filming. (2026-05-28)
+    const sceneIsFilmmaking = /\b(film(ing|maker)?|movie set|on set|film set|camera crew|cinematographer|director(ing)?|shoot(ing)? a (movie|film|video|scene)|recording a video|video shoot|photo ?shoot|behind the scenes)\b/i.test(sceneText || "");
+    const filmCrewNegative = sceneIsFilmmaking
+      ? ""
+      : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame";
+
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

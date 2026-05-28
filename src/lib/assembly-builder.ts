@@ -61,13 +61,45 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
       .filter(n => n.audioUrl && !seenUrls.has(n.audioUrl) && seenUrls.add(n.audioUrl))
       .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
 
+    // ── NARRATOR DUCKING under actor dialogue (Henry 2026-05-28) ──────────────
+    // The narrator is one full-length track at t=0; actor/character voice clips are short
+    // and placed at scene times. Previously they were mixed at equal volume → narrator and
+    // actor talked over each other. Now: while an actor speaks, the narrator ducks to near-
+    // silence (effectively "stops"), then returns. Timing is UNCHANGED — we only modulate
+    // the narrator's volume over its existing timeline.
+    // Narrator = the entry flagged isNarrator, else the longest-duration entry starting at ~0.
+    let narratorIdx = entries.findIndex(n => (n as { isNarrator?: boolean }).isNarrator === true);
+    if (narratorIdx < 0) {
+      let bestDur = 0;
+      entries.forEach((n, i) => {
+        const dur = (n.endTime || 0) - (n.startTime || 0);
+        if ((n.startTime || 0) <= 0.5 && dur > bestDur) { bestDur = dur; narratorIdx = i; }
+      });
+    }
+    // Actor windows = every NON-narrator entry's [start, end], padded 0.25s each side for smoothness.
+    const actorWindows: Array<[number, number]> = [];
+    entries.forEach((n, i) => {
+      if (i === narratorIdx) return;
+      const start = Math.max(0, (n.startTime || 0) - 0.25);
+      const dur = n.endTime > (n.startTime || 0) ? n.endTime - (n.startTime || 0) : 8;
+      actorWindows.push([start, (n.startTime || 0) + dur + 0.25]);
+    });
+    const NARRATOR_DUCK_VOL = 0.06; // near-silent while an actor speaks (effectively "stops")
+
     entries.forEach((n, i) => {
       narrationInputs.push("-i", n.audioUrl!);
       const delayMs = Math.round((n.startTime || 0) * 1000);
       const clipDuration = n.endTime > (n.startTime || 0) ? n.endTime - (n.startTime || 0) : 0;
       const trimFilter = clipDuration > 0 ? `,atrim=duration=${clipDuration.toFixed(3)}` : "";
       const delayFilter = delayMs > 0 ? `,adelay=${delayMs}:all=1` : "";
-      filterParts.push(`[${i}:a]aresample=44100${trimFilter}${delayFilter},volume=${n.volume}[n${i}]`);
+      // Narrator-only: duck to near-silence during every actor window (narrator has no
+      // adelay so its local time == global timeline, so `between(t,...)` aligns with actors).
+      let duckFilter = "";
+      if (i === narratorIdx && actorWindows.length > 0) {
+        const expr = actorWindows.map(([s, e]) => `between(t,${s.toFixed(2)},${e.toFixed(2)})`).join("+");
+        duckFilter = `,volume=${NARRATOR_DUCK_VOL}:enable='${expr}'`;
+      }
+      filterParts.push(`[${i}:a]aresample=44100${trimFilter}${delayFilter},volume=${n.volume}${duckFilter}[n${i}]`);
     });
 
     if (narrationInputs.length > 0) {
