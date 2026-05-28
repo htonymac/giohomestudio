@@ -1053,6 +1053,7 @@ function ChildrenPlannerInner() {
           language: "English",
           languageLevel: effectiveAgeGroup === "toddler" || effectiveAgeGroup === "preschool" ? "simple_english" : "normal_english",
           storyType,
+          contentType: contentParam || undefined, // abc/3letter/counting/poem/storybook — drives format in story-expand
           targetDuration: parsedDurationSec,
           targetDurationLabel,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,

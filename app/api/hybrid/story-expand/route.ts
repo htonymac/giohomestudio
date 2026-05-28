@@ -28,6 +28,7 @@ interface StoryExpandRequest {
   country?: string;
   languageLevel?: string; // e.g. "normal_english", "simple_english", "nigerian_english"
   storyType?: string;     // e.g. "short_story", "feature", "reel"
+  contentType?: string;   // children content format: abc | 3letter | counting | poem | storybook | story
   emotionalIntensity?: string; // e.g. "normal", "high", "low"
   customNames?: string[]; // user-imported custom names (injected as approved pool)
   // Children-mode context — strict vocabulary + reading-level overrides when set.
@@ -325,9 +326,39 @@ stop early. Keep adding scenes and beats until you reach the word target.
    To find her friend who walked the same."`;
     }
 
+    // ── Children content-format overlay (Bug A 2026-05-27) ───────────────
+    // The children planner sets the format via URL ?content= (abc / 3letter /
+    // counting / poem / storybook). Previously contentType never reached this
+    // route, so EVERY format produced a generic story ("John took his friend to
+    // learn abc"). Branch the prompt so each format does its real job. Defaults
+    // to narrative (storybook/story) — unchanged behavior.
+    let contentFormatRules = "";
+    const ctype = (body.contentType || "").toLowerCase();
+    if (ctype === "abc" || ctype === "alphabet" || ctype === "abc_song") {
+      contentFormatRules = `\n\n━━ ALPHABET / ABC FORMAT — STRICT (this is NOT a story) ━━
+- Produce an ALPHABET teaching piece, NOT a narrative. Do NOT write a story like "X took his friend to learn abc".
+- Cover the letters requested (or the full A→Z if none given), IN ORDER. ONE letter per scene.
+- For EACH letter use the pattern: "<LETTER> is for <Word>." then ONE short cheerful sentence about that word.
+  e.g. "A is for Apple. A red apple is sweet and crunchy!"  /  "B is for Ball. The ball bounces up high!"
+- Each scene's visualDescription MUST clearly depict that letter's object (apple, ball, cat ...).
+- Keep words concrete, common, age-appropriate. End with a short "Now you know your ABCs!" line.`;
+    } else if (ctype === "3letter" || ctype === "spelling" || ctype === "cvc" || ctype === "words") {
+      contentFormatRules = `\n\n━━ SPELLING / 3-LETTER WORD FORMAT — STRICT (NOT a story) ━━
+- Teach simple words by SPELLING them — not a narrative.
+- Use the words provided; if none, use simple CVC words (cat, sat, ram, jam, ran, dog, sun, hat).
+- For each word: show it, spell it letter-by-letter, then use it once: "CAT — c, a, t — cat. The cat takes a nap."
+- ONE word per scene; visualDescription depicts that word's object.`;
+    } else if (ctype === "counting" || ctype === "numbers" || ctype === "count") {
+      contentFormatRules = `\n\n━━ COUNTING / NUMBERS FORMAT — STRICT (NOT a story) ━━
+- Teach counting — not a narrative. Count 1→N (1→10 for toddler/preschool, up to 1→20 for older).
+- For each number: "<N> — <N>!" with exactly that many objects, e.g. "Three — one, two, three little ducks!"
+- ONE number per scene; visualDescription shows EXACTLY that many objects. Invite the child to count along.`;
+    }
+    // poem handled by poemRules; storybook/story/unknown → narrative (default, unchanged)
+
     const controlBlock = (controlLines.length > 0
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
-      : "") + childRules + poemRules + lengthEnforcement;
+      : "") + childRules + poemRules + contentFormatRules + lengthEnforcement;
 
     // ── Name pool injection ───────────────────────────────────────────────
     const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;
@@ -424,7 +455,7 @@ when scene is narration-only; empty "voiceover":"" when scene is dialogue-driven
 
 Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.`;
 
-    const eraLock = buildFullLock(body.storyEra || "", body.storyCulture || "", body.genre || "");
+    const eraLock = buildFullLock(body.storyEra || "", body.storyCulture || "", ""); // 3rd arg is artStyle, NOT genre — passing genre here was a miswire (2026-05-27)
     const eraSystemContext = eraLock.sceneContext
       ? ` ${eraLock.sceneContext} The story MUST stay within the bounds of this era and culture throughout — characters must use only technology, clothing, language, and environments that existed in this time period and place.`
       : "";
@@ -435,11 +466,12 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
       "Do NOT default characters to bears, cartoon animals, or anthropomorphic creatures. " +
       "Human characters must have human anatomy, human skin tones, and human faces. " +
       "Only introduce animal characters when the story idea explicitly calls for them." +
-      eraSystemContext;
+      eraSystemContext +
+      ` LENGTH MANDATE: when a target length is given, the fullScript MUST reach approximately ${targetWordCount} words (the user asked for a ${durMin}-minute piece). Models often stop early thinking the story is "complete" — DO NOT. Keep adding scenes, events, dialogue and description until the word budget is met. A short script for a long request is a FAILURE.`;
 
     // Reasoning phase (~500 tokens) + full script + JSON overhead
     // thinking tags are stripped before parsing, but still count toward generation budget
-    const maxTokens = Math.max(6000, Math.min(24000, targetWordCount * 2 + 1000));
+    const maxTokens = Math.max(8000, Math.min(32000, targetWordCount * 2 + 2000));
 
     // Parse "provider:model" format e.g. "claude:claude-opus-4-6", "ollama:qwen2.5:7b", or plain "claude"
     let forceProvider: string | undefined;

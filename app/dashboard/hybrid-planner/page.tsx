@@ -247,6 +247,17 @@ function HybridPlannerInner() {
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-sonnet-4-6"); // "auto" | "claude:model" | "openai:model" | "grok:model" | "ollama"
   const [lastUsedAiProvider, setLastUsedAiProvider] = useState<string>("");
   const [storyRegion, setStoryRegion] = useState<string>(""); // continent/region for name injection
+  // Map the culture/region DROPDOWN (storyRegion) → a culture word era-culture-lock understands,
+  // so picking e.g. "American" actually locks that look. Previously the dropdown was NEVER passed
+  // to the image culture-lock (only free-text storyCulture was), so selections did nothing and the
+  // art style leaked in as ethnicity → the inversion. 2026-05-27 Bug C fix.
+  const REGION_TO_CULTURE: Record<string, string> = {
+    africa: "african", american: "american", north_america: "american",
+    asia: "asian", europe: "european", french_culture: "french",
+    spanish_culture: "spanish", latin_america: "latin", middle_east: "arabic",
+    bollywood: "bollywood", hollywood: "hollywood",
+    oceania: "", mythology: "", indigenous: "", fantasy: "",
+  };
   const [expanding, setExpanding] = useState(false);
   const [expandedSummary, setExpandedSummary] = useState("");
   const [fullScript, setFullScript] = useState(""); // complete narration script at target duration
@@ -1147,7 +1158,7 @@ function HybridPlannerInner() {
           genre: genre || undefined,
           tone: tone || undefined,
           storyEra: storyEra || undefined,
-          storyCulture: storyCulture || undefined,
+          storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
           language: effectiveLanguage,
           audience: audienceType,
           costPreference,
@@ -1317,7 +1328,7 @@ function HybridPlannerInner() {
         genre: genre || undefined,
         tone: tone || undefined,
         storyEra: storyEra || undefined,
-        storyCulture: storyCulture || undefined,
+        storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
         costPreference,
         targetDuration,
         projectId: projectId || undefined,
@@ -2111,7 +2122,7 @@ function HybridPlannerInner() {
           transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
           seed: genSeed !== null ? genSeed : undefined,
           storyEra: storyEra || undefined,
-          storyCulture: storyCulture || undefined,
+          storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
         }),
       });
       const data = await res.json();
@@ -2261,7 +2272,7 @@ function HybridPlannerInner() {
             transparentBg: transparentBg && effectiveImageModelId.includes("ideogram_v3"),
             seed: seeds[i],
             storyEra: storyEra || undefined,
-            storyCulture: storyCulture || undefined,
+            storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
           }),
         });
         const data = await res.json();
@@ -2406,7 +2417,7 @@ function HybridPlannerInner() {
             modelId: effectiveImageModelId,
             seed: Math.floor(Math.random() * 1e9),
             storyEra: storyEra || undefined,
-            storyCulture: storyCulture || undefined,
+            storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
           }),
         });
         if (!res.ok) {
@@ -5706,7 +5717,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           projectStyle: effectiveProjectStyle,
           seed: genSeed !== null ? genSeed : undefined,
           storyEra: storyEra || undefined,
-          storyCulture: storyCulture || undefined,
+          storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
         }),
       });
       const data = await res.json();
@@ -9256,6 +9267,8 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 const CULTURE_OPTIONS = [
                   { id: "africa",         label: "Africa",             emoji: "🌍" },
                   { id: "american",       label: "American",           emoji: "🇺🇸" },
+                  { id: "hollywood",      label: "Hollywood / USA",    emoji: "🎬" },
+                  { id: "bollywood",      label: "Bollywood / India",  emoji: "🇮🇳" },
                   { id: "asia",           label: "Asia",               emoji: "🌏" },
                   { id: "europe",         label: "Europe",             emoji: "🇪🇺" },
                   { id: "french_culture", label: "French",             emoji: "🇫🇷" },

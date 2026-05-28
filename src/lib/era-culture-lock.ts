@@ -191,6 +191,15 @@ const CULTURE_MAP: Record<string, string> = {
   arabic: "Arab Middle Eastern culture appropriate to the era. Islamic architecture, Arabic calligraphy, desert or urban Arab setting.",
   // Latin American
   latin: "Latin American culture appropriate to the era. Spanish colonial or contemporary Latin American setting.",
+  // Western / American (added 2026-05-27 — were MISSING, causing culture selections to resolve to "")
+  american: "Contemporary American (USA) culture. North American urban or suburban setting, modern Western fashion and architecture, American English. Default to a light-to-medium Western appearance unless the story or characters specify another background.",
+  usa: "Contemporary American (USA) culture. North American setting, modern Western fashion, American English. Light-to-medium Western appearance unless otherwise specified.",
+  white: "Western Caucasian appearance in a contemporary Western (American or European) setting with modern fashion, unless the story specifies another background.",
+  hollywood: "Hollywood / American cinema culture. Contemporary Western USA aesthetic, film-set glamour, modern American fashion and locations.",
+  // South & East Asian
+  bollywood: "Bollywood Indian culture. Hindi-cinema aesthetic — South Asian (Indian) people, vibrant colors, sarees, kurtas and lehengas, gold jewelry, expressive song-and-dance energy, Indian urban or village setting.",
+  indian: "Indian South Asian culture appropriate to the era. Authentic Indian setting, clothing (sarees, kurtas), and customs.",
+  asian: "East or South-East Asian culture appropriate to the era — authentic setting, architecture, and fashion; do NOT default to a Western look.",
 };
 
 // ─── YEAR PARSING ─────────────────────────────────────────────────────────────
@@ -247,15 +256,18 @@ function getEraEntry(year: number): EraEntry {
 // ─── CULTURE RESOLUTION ───────────────────────────────────────────────────────
 
 function resolveCulture(storyCulture: string, artStyle: string): string {
-  const input = (storyCulture || artStyle || "").toLowerCase();
+  // CULTURE (ethnicity + setting) must come ONLY from the explicit culture/region.
+  // The art style ("nollywood", "realistic", "3d-cinematic" ...) is a RENDER look,
+  // NOT an ethnicity. Using artStyle here was the INVERSION bug (fixed 2026-05-27):
+  // a "nollywood" art style made every scene African regardless of the selected
+  // culture, and an empty culture left no lock → the model defaulted to white.
+  void artStyle; // intentionally ignored for ethnicity resolution
+  const input = (storyCulture || "").toLowerCase().trim();
+  if (!input) return "";
 
   for (const [key, desc] of Object.entries(CULTURE_MAP)) {
     if (input.includes(key)) return desc;
   }
-
-  // Fallback from art style
-  if (input.includes("nollywood")) return CULTURE_MAP["nollywood"];
-  if (input.includes("realistic") || input.includes("3d-cinematic")) return "";
 
   return "";
 }
