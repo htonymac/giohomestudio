@@ -9,7 +9,7 @@ This is the single place to look for "what's left." Update it as items close. Ea
 
 ### 1. Karaoke MAIN full end-to-end on FREE engines — ✅ DONE + CLOSED 2026-05-28
 - Full e2e passes on free engines (`scripts/karaoke_e2e_test.mjs`, Piper-generated voice WAV fixture — Henry confirmed Piper/any TTS voice is fine, no real recording needed): analyze (Whisper+librosa) → flow-profile → beat-recommend → production-brief → generate-music (**stock**, free) → save-mix → assemble (mixed mp3) → export (downloadable mp3). LLM steps fall back to OpenAI. PROBLEM_AND_FIX #46/#48/#49. **No Henry input required.**
-- **Minor follow-up (non-blocking):** `analyze` returns `tempo: undefined` — check `scripts/karaoke_analyze.py` output keys (production-brief defaults to 90 BPM).
+- **Minor follow-up — RESOLVED (no bug):** tempo IS detected (`karaoke_analyze.py` → `tempo_bpm`) and consumers read it correctly; the e2e test just printed the wrong field name.
 - **⚠️ Henry action (whenever):** top up **Anthropic API credits** — depleted. Everything falls back to OpenAI GPT-4o-mini now (works, lower quality than Claude).
 
 ### 2. Phase 3 — cross-scene character face-lock (PuLID)
