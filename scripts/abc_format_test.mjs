@@ -11,6 +11,7 @@ const body = {
 };
 const res = await fetch("http://localhost:3200/api/hybrid/story-expand", {
   method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  signal: AbortSignal.timeout(150000),
 });
 const d = await res.json();
 const script = (d.fullScript || d.summary || "").toString();

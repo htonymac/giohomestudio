@@ -493,19 +493,24 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
     if (tier === "pro" && !forceProvider)   { forceModel = forceModel || "claude-sonnet-4-6"; }
 
     // Use user-selected provider or auto (Claude → GPT → Grok → Ollama)
+    // Free tier force-routes to local Ollama with a SHORT timeout: on a GPU-less host
+    // llama3.1:8b takes >5min to generate a story (unusable), so cap the attempt and
+    // fall back to cloud below. A GPU host that answers within the cap keeps using Ollama.
     let llmResult = await callLLM(userPrompt, systemPrompt, {
       role: tier === "pro" ? "quality" as const : "fast" as const,
       temperature: 0.7,
       maxTokens,
       forceProvider: forceProvider as "claude" | "openai" | "gpt" | "grok" | "ollama" | undefined,
       forceModel,
+      ...(forceProvider === "ollama" ? { timeoutMs: 45000 } : {}),
     });
 
-    // FREE-TIER FALLBACK 2026-05-28: free tier force-routes to local Ollama. If Ollama is
-    // down or has no usable model, retry on cloud (auto: Claude→GPT) instead of 503ing.
-    // Without this the children planner died with "Ollama HTTP 404 — check your API key".
+    // FREE-TIER FALLBACK 2026-05-28: if the forced local Ollama attempt failed OR timed
+    // out (down / no usable model / too slow on CPU), retry on cloud (auto Claude→GPT)
+    // instead of 503ing. Without this the children planner died ("Ollama HTTP 404 — check
+    // your API key") or hung for minutes on CPU inference.
     if (!llmResult.ok && forceProvider === "ollama" && !body.provider) {
-      console.warn(`[story-expand] Ollama failed (${llmResult.error}) — falling back to cloud (fast).`);
+      console.warn(`[story-expand] Ollama unusable (${llmResult.error}) — falling back to cloud (fast).`);
       llmResult = await callLLM(userPrompt, systemPrompt, {
         role: "fast" as const,
         temperature: 0.7,
@@ -513,6 +518,13 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
         // no forceProvider → auto cloud chain
       });
     }
+
+    // If we fell back off Ollama to cloud, continuation passes must NOT force Ollama
+    // again (would hang on CPU). Use whatever provider actually answered.
+    const succeededProvider = (llmResult as { provider?: string }).provider || "";
+    const fellBackToCloud = forceProvider === "ollama" && !succeededProvider.startsWith("ollama");
+    const contForceProvider = fellBackToCloud ? undefined : forceProvider;
+    const contForceModel = fellBackToCloud ? undefined : forceModel;
 
     let expandedStory: ExpandedStory;
 
@@ -574,8 +586,9 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
         role: tier === "pro" ? ("quality" as const) : ("fast" as const),
         temperature: 0.7,
         maxTokens,
-        forceProvider: forceProvider as "claude" | "openai" | "gpt" | "grok" | "ollama" | undefined,
-        forceModel,
+        forceProvider: contForceProvider as "claude" | "openai" | "gpt" | "grok" | "ollama" | undefined,
+        forceModel: contForceModel,
+        ...(contForceProvider === "ollama" ? { timeoutMs: 45000 } : {}),
       });
       if (!cont.ok || !cont.text?.trim()) break;                 // failed pass → keep what we have
       const addition = cont.text.trim();
