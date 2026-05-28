@@ -59,7 +59,7 @@ async function imageToVideoClip(imagePath: string, duration: number, outputPath:
       "-an",
       "-y", outputPath,
     ], { timeout: 60000 });
-    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0;
+    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 2000; // >2KB — reject empty/48-byte clips that pass a bare >0 check and corrupt concat
   } catch {
     return false;
   }
@@ -79,7 +79,7 @@ async function transcodeVideoClip(videoPath: string, duration: number, outputPat
       "-y", outputPath,
     ];
     await execFileAsync(env.ffmpegPath, args, { timeout: 120000 });
-    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0;
+    return fs.existsSync(outputPath) && fs.statSync(outputPath).size > 2000; // >2KB — reject empty/48-byte clips that pass a bare >0 check and corrupt concat
   } catch {
     return false;
   }
@@ -95,7 +95,7 @@ async function preprocessOneSegment(
 
   if (!url || url.startsWith("bg:") || url.startsWith("linear-gradient")) {
     // No image yet — generate solid dark background clip so this scene isn't silently dropped
-    const duration = seg.duration || 5;
+    const duration = Math.max(Number(seg.duration) || 5, 1); // min 1s — a ~0 duration made ffmpeg emit empty 48-byte clips that corrupted the concat (2026-05-28)
     const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
     try {
       await execFileAsync(env.ffmpegPath, [
@@ -103,7 +103,7 @@ async function preprocessOneSegment(
         "-t", String(duration),
         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
       ], { timeout: 30000 });
-      if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 0) {
+      if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000) {
         console.log(`[assembly] ${seg.sceneId}: gradient → solid bg clip (${duration}s)`);
         return { id: seg.id, clipPath };
       }
@@ -112,7 +112,7 @@ async function preprocessOneSegment(
     return null;
   }
 
-  const duration = seg.duration || 5;
+  const duration = Math.max(Number(seg.duration) || 5, 1); // min 1s — a ~0 duration made ffmpeg emit empty 48-byte clips that corrupted the concat (2026-05-28)
   const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
   const isVideo = !rawUrl.startsWith("img:") && (url.endsWith(".mp4") || url.endsWith(".webm") || url.endsWith(".mov"));
 
@@ -156,7 +156,20 @@ async function preprocessOneSegment(
     console.log(`[assembly] ${seg.sceneId}: image→video OK (${duration}s)`);
     return { id: seg.id, clipPath };
   }
-  console.log(`[assembly] ${seg.sceneId}: image→video FAILED`);
+  // Image→video failed (missing/corrupt image — e.g. generation was down). Fall back to a
+  // VALID solid-color placeholder clip so the scene still appears and the timeline + narration
+  // timing stay intact — better than dropping the segment (which corrupted/shifted the video). 2026-05-28
+  console.warn(`[assembly] ${seg.sceneId}: image→video failed — using solid placeholder clip`);
+  try {
+    await execFileAsync(env.ffmpegPath, [
+      "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
+      "-t", String(duration),
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
+    ], { timeout: 30000 });
+    if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000) {
+      return { id: seg.id, clipPath };
+    }
+  } catch { /* placeholder also failed — skip cleanly */ }
   return null;
 }
 
