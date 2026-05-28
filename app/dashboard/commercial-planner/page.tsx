@@ -1079,7 +1079,7 @@ function CommercialPlannerInner() {
 
         <div style={card}>
           <span style={lbl}>Visual Style</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {VISUAL_STYLES_AD.map(v => (
               <div key={v.id} onClick={() => { setBrandVisualStyle(v.id as typeof brandVisualStyle); patchProjectSettings({ visualStyle: v.id }).catch(() => {}); }}
                 style={{ padding: 12, borderRadius: 10, border: `1px solid ${effectiveProjectStyle === v.id ? orange : border}`, background: effectiveProjectStyle === v.id ? `${orange}15` : s2, cursor: "pointer" }}>
@@ -1108,7 +1108,7 @@ function CommercialPlannerInner() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
           <div style={card}>
             <span style={lbl}>Ad Format</span>
             <select style={inp} value={brief.format} onChange={e => setBrief(prev => ({ ...prev, format: e.target.value as BriefData["format"] }))}>
@@ -1180,7 +1180,7 @@ function CommercialPlannerInner() {
           ))}
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16, marginBottom: 20 }}>
           <div style={card}>
             <div style={lbl}>Production Progress</div>
             {[
@@ -1249,7 +1249,7 @@ function CommercialPlannerInner() {
           <ButtonPrimary size="sm" onClick={saveProject}>Save</ButtonPrimary>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
           <div style={card}>
             <div style={lbl}>Brand & Product</div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Brand Name</span><input style={inp} value={brief.brandName} onChange={e => setBrief(p => ({ ...p, brandName: e.target.value }))} placeholder="e.g. FreshBrew Coffee" /></div>
@@ -1359,7 +1359,7 @@ function CommercialPlannerInner() {
 
           <div style={card}>
             <div style={lbl}>Campaign Objective</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div><span style={lbl}>Objective</span><select style={inp} value={brief.objective} onChange={e => setBrief(p => ({ ...p, objective: e.target.value as BriefData["objective"] }))}>{OBJECTIVES.map(o => <option key={o}>{o}</option>)}</select></div>
               <div><span style={lbl}>Brand Tone</span><select style={inp} value={brief.brandTone} onChange={e => setBrief(p => ({ ...p, brandTone: e.target.value as BriefData["brandTone"] }))}>{BRAND_TONES.map(t => <option key={t}>{t}</option>)}</select></div>
               <div><span style={lbl}>Budget Level</span><select style={inp} value={brief.budget} onChange={e => setBrief(p => ({ ...p, budget: e.target.value as BriefData["budget"] }))}>{BUDGETS.map(b => <option key={b}>{b}</option>)}</select></div>
@@ -1371,7 +1371,7 @@ function CommercialPlannerInner() {
 
           <div style={card}>
             <div style={lbl}>Format & Platform</div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div><span style={lbl}>Format</span><select style={inp} value={brief.format} onChange={e => setBrief(p => ({ ...p, format: e.target.value as BriefData["format"] }))}>{FORMATS.map(f => <option key={f}>{f}</option>)}</select></div>
               <div><span style={lbl}>Platform</span><select style={inp} value={brief.platform} onChange={e => setBrief(p => ({ ...p, platform: e.target.value }))}>{PLATFORMS.map(pl => <option key={pl}>{pl}</option>)}</select></div>
               <div><span style={lbl}>Aspect Ratio</span><select style={inp} value={brief.aspectRatio} onChange={e => setBrief(p => ({ ...p, aspectRatio: e.target.value as BriefData["aspectRatio"] }))}>{ASPECT_RATIOS.map(a => <option key={a}>{a}</option>)}</select></div>
@@ -1792,7 +1792,7 @@ function CommercialPlannerInner() {
 
               {isExpanded && (
                 <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
                     <div><span style={lbl}>Scene Title</span><input style={inp} value={sc.title} onChange={e => updateScene(sc.sceneId, { title: e.target.value })} /></div>
                     <div><span style={lbl}>Section</span><select style={inp} value={sc.sceneSection} onChange={e => updateScene(sc.sceneId, { sceneSection: e.target.value as CommercialScene["sceneSection"] })}>{SCENE_SECTIONS.map(s => <option key={s}>{s}</option>)}</select></div>
                     <div>
@@ -2105,7 +2105,7 @@ function CommercialPlannerInner() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
           <div style={card}>
             <div style={lbl}>Background Music</div>
             <div style={{ marginBottom: 10 }}><span style={lbl}>Music Style</span><select style={inp} value={musicChoice} onChange={e => setMusicChoice(e.target.value)}>{MUSIC_CHOICES.map(m => <option key={m}>{m}</option>)}</select></div>
