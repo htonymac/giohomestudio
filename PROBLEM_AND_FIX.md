@@ -644,3 +644,16 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 **Verification (`scripts/karaoke_main_free_test.mjs`, live):** flow-complete Mode A recording + no providerKey → `provider: "stock"`, `/api/media/music/stock/upbeat_pop.mp3`, HTTP 200.
 **Prevention:** "Have the API key" ≠ "should use the paid provider." Paid providers must be gated behind an explicit user/tier choice, with free as the default — not the reverse.
 **Still open:** full karaoke e2e on free engines (upload → analyze[whisper+librosa] → flow → brief → stock music → mix → assemble → export) needs an audio fixture run. Foundation verified ready: PYTHON_BIN→venv, faster_whisper/librosa/soundfile import OK, stock library present.
+
+---
+
+## 47. Assembly too slow (2026-05-28)
+
+**Problem:** Henry: "assemble is too slow." The #42 concurrency fix made it SAFE (no more 0-byte clips) but slower — bounded to 4 ffmpeg on an 8-core box, and the per-clip encode + final merge were doing unnecessary work.
+**Root causes (3) + fixes — all in `app/api/assembly/execute/route.ts`:**
+1. **Intermediate clips encoded at libx264 default "medium" preset.** 50–70 image→video encodes dominated. They get re-encoded at final_merge (or are throwaway), so quality is irrelevant → switched `imageToVideoClip` / `transcodeVideoClip` / `solidPlaceholderClip` to **`-preset ultrafast`**.
+2. **Concurrency capped at 4 on an 8-core/23GB box** → raised `FFMPEG_CONCURRENCY` to **7** (leave 1 core for Next/system).
+3. **final_merge ALWAYS `-stream_loop`-ed + re-encoded the full video** (libx264) even when the concat already covered the target duration. Now: ffprobe the concat; if it's within 2s of `totalDuration`, **`-c:v copy`** (no re-encode) and skip the loop. Only loop+re-encode when the video is materially shorter than the audio.
+**Verification:** 18-segment / 63s assembly: **42s → 20s**. Audio path (5 imgs + music): 6s, output probed = `h264,video` + `aac,audio` ✓. (`scripts/verify_assembly_concurrency.mjs`, `scripts/audio_merge_test.mjs`.)
+**Note:** with subtitles ON, the subtitle burn-in remains one necessary full re-encode (veryfast) — that's now the single re-encode pass instead of two. With subtitles OFF, the final video is ultrafast-quality (copy of intermediate clips) — a deliberate speed/quality trade Henry asked for.
+**Prevention:** intermediate media that gets re-encoded downstream should use the fastest encode preset; match worker-pool size to core count; never re-encode a stream you can copy (probe duration before forcing `-stream_loop`).
