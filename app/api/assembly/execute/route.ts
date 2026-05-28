@@ -85,6 +85,23 @@ async function transcodeVideoClip(videoPath: string, duration: number, outputPat
   }
 }
 
+// ── Helper: build a VALID solid-color placeholder clip ──
+// Used whenever a scene's image is missing or its conversion produced an empty clip
+// (e.g. image generation was down). Keeps the scene visible + the timeline/narration
+// aligned instead of dropping the segment (which corrupted/shifted the video). 2026-05-28
+async function solidPlaceholderClip(clipPath: string, duration: number): Promise<boolean> {
+  try {
+    await execFileAsync(env.ffmpegPath, [
+      "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
+      "-t", String(duration),
+      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
+    ], { timeout: 30000 });
+    return fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000;
+  } catch {
+    return false;
+  }
+}
+
 // ── Preprocess one segment (extracted for parallel execution) ──
 async function preprocessOneSegment(
   seg: AssemblySegment,
@@ -97,17 +114,10 @@ async function preprocessOneSegment(
     // No image yet — generate solid dark background clip so this scene isn't silently dropped
     const duration = Math.max(Number(seg.duration) || 5, 1); // min 1s — a ~0 duration made ffmpeg emit empty 48-byte clips that corrupted the concat (2026-05-28)
     const clipPath = path.join(outputDir, `clip_${seg.id}.mp4`);
-    try {
-      await execFileAsync(env.ffmpegPath, [
-        "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
-        "-t", String(duration),
-        "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
-      ], { timeout: 30000 });
-      if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000) {
-        console.log(`[assembly] ${seg.sceneId}: gradient → solid bg clip (${duration}s)`);
-        return { id: seg.id, clipPath };
-      }
-    } catch { /* fallback failed — skip */ }
+    if (await solidPlaceholderClip(clipPath, duration)) {
+      console.log(`[assembly] ${seg.sceneId}: gradient → solid bg clip (${duration}s)`);
+      return { id: seg.id, clipPath };
+    }
     console.log(`[assembly] ${seg.sceneId}: skipped (gradient/empty, ffmpeg color failed)`);
     return null;
   }
@@ -147,7 +157,9 @@ async function preprocessOneSegment(
   }
 
   if (!fs.existsSync(localImagePath)) {
-    console.log(`[assembly] ${seg.sceneId}: image not found: ${localImagePath}`);
+    // Missing image (e.g. generation was down) → solid placeholder so the scene still shows.
+    console.warn(`[assembly] ${seg.sceneId}: image not found — using solid placeholder: ${localImagePath}`);
+    if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath };
     return null;
   }
 
@@ -156,20 +168,9 @@ async function preprocessOneSegment(
     console.log(`[assembly] ${seg.sceneId}: image→video OK (${duration}s)`);
     return { id: seg.id, clipPath };
   }
-  // Image→video failed (missing/corrupt image — e.g. generation was down). Fall back to a
-  // VALID solid-color placeholder clip so the scene still appears and the timeline + narration
-  // timing stay intact — better than dropping the segment (which corrupted/shifted the video). 2026-05-28
+  // Image present but conversion produced an empty/invalid clip → solid placeholder.
   console.warn(`[assembly] ${seg.sceneId}: image→video failed — using solid placeholder clip`);
-  try {
-    await execFileAsync(env.ffmpegPath, [
-      "-f", "lavfi", "-i", "color=c=#0a0d14:size=1920x1080:rate=30",
-      "-t", String(duration),
-      "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an", "-y", clipPath,
-    ], { timeout: 30000 });
-    if (fs.existsSync(clipPath) && fs.statSync(clipPath).size > 2000) {
-      return { id: seg.id, clipPath };
-    }
-  } catch { /* placeholder also failed — skip cleanly */ }
+  if (await solidPlaceholderClip(clipPath, duration)) return { id: seg.id, clipPath };
   return null;
 }
 
