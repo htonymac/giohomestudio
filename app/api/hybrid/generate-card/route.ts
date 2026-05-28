@@ -21,6 +21,7 @@ interface CardRequest {
   tone?: string;
   cast?: Array<{ name: string; species?: string; roleType: string }>;
   style?: "cinematic" | "minimal" | "bold" | "nollywood";
+  studio?: string;   // studio name shown on intro/outro cards (default "Andio Studio")
 }
 
 // ── Escape XML special chars for SVG text ──
@@ -36,6 +37,7 @@ function buildIntroSVG(req: CardRequest): string {
   const title = x((req.title || "UNTITLED").toUpperCase());
   const genre = x([req.genre, req.tone].filter(Boolean).join(" · "));
   const style = req.style || "cinematic";
+  const studioName = x((req.studio || "Andio Studio").toUpperCase());
 
   const configs = {
     cinematic: {
@@ -96,13 +98,13 @@ function buildIntroSVG(req: CardRequest): string {
   <line x1="580" y1="460" x2="1340" y2="460" stroke="${c.lineColor}" stroke-width="1"/>
   <line x1="580" y1="650" x2="1340" y2="650" stroke="${c.lineColor}" stroke-width="1"/>
 
-  <!-- GIO HOME AI STUDIO -->
+  <!-- Studio name (from req.studio, default Andio Studio) -->
   <text x="960" y="430"
     text-anchor="middle"
     font-family="'Arial','Helvetica',sans-serif"
     font-size="26"
     fill="${c.studioColor}"
-    letter-spacing="10">GIO HOME AI STUDIO</text>
+    letter-spacing="10">${studioName}</text>
 
   <!-- presents -->
   <text x="960" y="505"
@@ -138,6 +140,7 @@ function buildOutroSVG(req: CardRequest): string {
   const cast = (req.cast || []).slice(0, 12);
   const style = req.style || "cinematic";
   const year = new Date().getFullYear();
+  const studioName = x((req.studio || "Andio Studio").toUpperCase());
 
   const colors = {
     cinematic: { bg: "#000000", studio: "rgba(255,255,255,0.5)", title: "#ffffff", label: "rgba(255,255,255,0.45)", value: "#ffffff", castLine: "rgba(255,255,255,0.7)", dots: "rgba(255,255,255,0.25)", footer: "rgba(255,255,255,0.3)" },
@@ -164,7 +167,7 @@ function buildOutroSVG(req: CardRequest): string {
     y += 20;
   };
 
-  addText("GIO HOME AI STUDIO", 22, col.studio, "normal", 8, 36);
+  addText(studioName,22, col.studio, "normal", 8, 36);
   addText("presents", 18, col.studio, "normal", 3, smallH);
   addSpacer(16);
   addLine(col.dots);
@@ -197,9 +200,9 @@ function buildOutroSVG(req: CardRequest): string {
   }
 
   addText("AI Characters &amp; Assets created by", 16, col.label, "normal", 2, 28);
-  addText("GIO HOME AI STUDIO", 20, col.studio, "normal", 6, 36);
+  addText(studioName,20, col.studio, "normal", 6, 36);
   addSpacer(12);
-  addText(`© ${year} ${author ? x(author) + " / " : ""}GIO HOME AI STUDIO`, 14, col.footer, "normal", 1, 28);
+  addText(`© ${year} ${author ? x(author) + " / " : ""}${studioName}`, 14, col.footer, "normal", 1, 28);
   addText("All rights reserved.", 13, col.footer, "normal", 1, 30);
 
   // If credits overflow, scale viewBox so they all fit
