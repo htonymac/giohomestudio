@@ -1335,8 +1335,8 @@ export default function MusicVideoPlannerPage() {
 
       {/* Overview tab */}
       {activeTab === "overview" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, gridColumn: "1/-1" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10, gridColumn: "1/-1" }}>
             {[
               { label: "Song", value: songTitle || "None", color: "#00d4ff" },
               { label: "Mode", value: videoMode || "Not set", color: "#ec4899" },
@@ -1382,7 +1382,7 @@ export default function MusicVideoPlannerPage() {
               <span style={{ fontSize: 11, color: "#5a7080" }}>{showModelSettings ? "Hide" : "Show"}</span>
             </div>
             {showModelSettings && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
                 <div>
                   <p style={{ ...labelStyle }}>Story LLM</p>
                   {(["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-7", "gpt-4o-mini", "gpt-4o"] as const).map(m => (
@@ -1816,7 +1816,7 @@ export default function MusicVideoPlannerPage() {
           <div style={{ marginBottom: 20, padding: "14px 16px", borderRadius: 12, background: "#080b10", border: "1px solid #7c5cfc30" }}>
             <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#7c5cfc", marginBottom: 8 }}>GHS Sound Tier</p>
             <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Select audio quality tier for music video narration and sound.</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               {GHS_SOUND_TIERS.map(tier => (
                 <button key={tier.id} onClick={() => setGhsSoundTierId(tier.id)}
                   style={{ display: "flex", flexDirection: "column" as const, gap: 4, padding: "12px 14px", borderRadius: 12, border: `2px solid ${ghsSoundTierId === tier.id ? "#7c5cfc" : border}`, background: ghsSoundTierId === tier.id ? "rgba(124,92,252,0.12)" : "transparent", cursor: "pointer", textAlign: "left" as const }}>
@@ -1845,7 +1845,7 @@ export default function MusicVideoPlannerPage() {
 
           <div style={{ marginBottom: 20 }}>
             <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Narration Intro / Outro</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div>
                 <p style={{ fontSize: 10, color: "#5a7080", marginBottom: 4 }}>Intro voiceover</p>
                 <input placeholder="e.g. 'Presenting the official video for...'" style={{ ...inputStyle, fontSize: 12, padding: "10px 12px" }} />
@@ -2109,7 +2109,7 @@ export default function MusicVideoPlannerPage() {
         <div style={cardStyle}>
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>What kind of music video?</h2>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginBottom: 24 }}>
             {VIDEO_MODES.map(m => (
               <button key={m.id} onClick={() => setVideoMode(m.id)}
                 style={{ padding: "14px 16px", borderRadius: 12, border: `1px solid ${videoMode === m.id ? ds.color.lilac : border}`, background: videoMode === m.id ? `${ds.color.lilac}08` : "transparent", cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 10 }}>
@@ -2155,7 +2155,7 @@ export default function MusicVideoPlannerPage() {
           {/* Narration intro/outro */}
           <div style={{ marginBottom: 20 }}>
             <label style={labelStyle}>Narration Intro / Outro (optional)</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
               <div>
                 <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Intro voiceover</p>
                 <input placeholder="e.g. 'Presenting the official video for...'" style={{ ...inputStyle, fontSize: 12, padding: "10px 12px" }} />
@@ -2176,7 +2176,7 @@ export default function MusicVideoPlannerPage() {
           {videoMode === "commercial" && (
             <div style={{ marginBottom: 20, padding: 16, borderRadius: 14, background: "rgba(255,107,53,0.04)", border: "1px solid rgba(255,107,53,0.15)" }}>
               <p style={{ ...labelStyle, color: "#ff6b35" }}>Commercial Promo Controls</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginBottom: 10 }}>
                 <div>
                   <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>CTA Text</p>
                   <input placeholder="e.g. 'Order Now', 'Visit Us'" style={{ ...inputStyle, fontSize: 12, padding: "10px 12px" }} />
@@ -2186,7 +2186,7 @@ export default function MusicVideoPlannerPage() {
                   <input placeholder="+234 800 000 0000" style={{ ...inputStyle, fontSize: 12, padding: "10px 12px" }} />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginBottom: 10 }}>
                 <div>
                   <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Website (optional)</p>
                   <input placeholder="www.yourbrand.com" style={{ ...inputStyle, fontSize: 12, padding: "10px 12px" }} />
@@ -2215,7 +2215,7 @@ export default function MusicVideoPlannerPage() {
               <p style={{ ...labelStyle, marginBottom: 0 }}>AI Quality</p>
               <span title="Free = Local LLM (no cost) · Standard = Claude Haiku (low cost) · Pro = Claude Sonnet (billed)" style={{ fontSize: 12, color: "#505070", cursor: "default" }}>ⓘ</span>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6 }}>
               {([
                 { badge: "FREE", label: "GHS Free",     color: "#22c55e", provider: "ollama",                          desc: "Local · No cost" },
                 { badge: "STD",  label: "GHS Standard", color: "#3b82f6", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low cost" },
@@ -2249,7 +2249,7 @@ export default function MusicVideoPlannerPage() {
           <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Song Analysis</h2>
 
           {/* Core stats grid */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 16 }}>
             {[
               { label: "Energy", value: analysis.energy },
               { label: "Mood", value: analysis.mood },
@@ -2265,7 +2265,7 @@ export default function MusicVideoPlannerPage() {
 
           {/* Extended stats */}
           {(analysis.bpm || analysis.danceability || analysis.cameraStyle || analysis.recommendedModel) && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 16 }}>
               {analysis.bpm && (
                 <div style={{ background: "#080b10", borderRadius: 10, padding: 14 }}>
                   <p style={{ fontSize: 9, color: "#ec4899", fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>BPM</p>
@@ -2954,7 +2954,7 @@ export default function MusicVideoPlannerPage() {
           <div style={{ marginBottom: 20 }}>
             <p style={labelStyle}>Video AI Model</p>
             <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 8 }}>Music Video & Dance</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 10 }}>
               {[
                 { id: "seedance", label: "SeeDance 2.0", cost: "2 credits/scene", badge: "Dance" },
                 { id: "kling25-turbo", label: "Kling 2.5 Turbo", cost: "3 credits/scene" },
@@ -2969,7 +2969,7 @@ export default function MusicVideoPlannerPage() {
               ))}
             </div>
             <p style={{ fontSize: 10, color: "#3d5060", marginBottom: 6 }}>Budget & Animation</p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6 }}>
               {[
                 { id: "wan25", label: "Wan 2.5", cost: "1 credit/scene", badge: "Cheapest" },
                 { id: "kling2", label: "Kling 2.1", cost: "1 credit/scene", badge: "Best price" },
@@ -3018,7 +3018,7 @@ export default function MusicVideoPlannerPage() {
                 <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
                   AI treats your storyboard as one continuous performance — ideal for dance sequences, live concert visuals, and unbroken action.
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 14 }}>
                   <div>
                     <p style={{ fontSize: 9, color: muted, marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Total Duration (s)</p>
                     <input type="number" min={5} max={120} value={cmTotalDuration}
@@ -3156,7 +3156,7 @@ export default function MusicVideoPlannerPage() {
             {/* AI Intro / Outro */}
             <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, border: `1px solid ${border}`, background: "rgba(255,255,255,0.02)" }}>
               <p style={{ fontSize: 10, color: muted, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>AI Intro / Outro</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
                 <div>
                   {introUrl
                     ? <div style={{ position: "relative" }}>

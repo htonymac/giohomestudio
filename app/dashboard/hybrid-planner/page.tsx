@@ -6604,7 +6604,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           </div>
 
           {/* Project Status Bar */}
-          <div style={{ ...cardStyle, display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 12 }}>
+          <div style={{ ...cardStyle, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
             <div style={{ textAlign: "center" }}>
               <p style={{ fontSize: 28, fontWeight: 800, color: accent }}>{totalScenes}</p>
               <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Total Scenes</p>
@@ -6628,7 +6628,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           </div>
 
           {/* Progress + Resume side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
             {/* Progress */}
             <div style={cardStyle}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Production Progress</p>
@@ -6687,7 +6687,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           )}
 
           {/* Quick Links */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
             <button onClick={() => setActiveTab("scenes")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${blue}20` }}>
               <Icon.Film style={{ width: 24, height: 24 }} />
               <p style={{ fontSize: 11, color: blue, fontWeight: 600, marginTop: 6 }}>Scene Board</p>
@@ -6713,7 +6713,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
 
           {/* Cost Summary */}
           {scenes.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
               <div style={{ ...cardStyle, textAlign: "center", borderColor: `${accent}20` }}>
                 <p style={{ fontSize: 9, color: accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Hybrid Cost</p>
                 <p style={{ fontSize: 32, fontWeight: 800, color: accent }}>{hybridCredits}</p>
@@ -6757,7 +6757,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
                   AI will treat your scenes as one continuous action. Enable this when your story has unbroken physical action (chase, fall, fight, explosion chain).
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 14 }}>
                   <div>
                     <label style={{ ...labelStyle, fontSize: 9 }}>Total Duration (seconds)</label>
                     <input
@@ -6883,7 +6883,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </div>
 
             {/* Scene settings row */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 12 }}>
               <div>
                 <label style={{ ...labelStyle, fontSize: 9 }}>Location (optional)</label>
                 <input value={newSceneLocation} onChange={e => setNewSceneLocation(e.target.value)}
@@ -8546,7 +8546,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: red, fontSize: 11, cursor: "pointer" }}><Icon.X style={{ width: 12, height: 12 }} /></button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 10 }}>
                 {[["Species", inlinePreview.species], ["Build", inlinePreview.bodyBuild], ["Colours", inlinePreview.colorDescription],
                   ["Face", inlinePreview.faceFeatures], ["Clothing", inlinePreview.clothingDetails], ["Distinctive", inlinePreview.distinctiveFeatures]]
                   .filter(([, v]) => v && v !== "not specified").map(([label, value]) => (
@@ -8982,7 +8982,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             </div>
                           );
                         })()}
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
                           {/* Species / Type */}
                           <div>
                             <label style={{ ...labelStyle, fontSize: 9 }}>Character Type / Species</label>
@@ -9134,7 +9134,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 style={{ ...inputStyle, resize: "vertical" }} />
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 16 }}>
               {/* ── Duration — preset + custom min/sec ── */}
               <div>
                 <label style={{ ...labelStyle, fontSize: 9 }}>Duration</label>
@@ -9212,7 +9212,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <button title="Free = Local LLM · Standard = Claude Haiku · Pro = Claude Sonnet · GPT models require OPENAI_API_KEY"
                     style={{ background: "none", border: "none", color: "#5a5a7a", fontSize: 11, cursor: "pointer", padding: 0, lineHeight: 1 }}>ⓘ</button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 4, marginBottom: 4 }}>
                   {([
                     { badge: "QWEN",   color: "#22c55e", provider: "ollama:qwen2.5:7b",               desc: "Local · Free" },
                     { badge: "HAIKU",  color: "#7dd3fc", provider: "claude:claude-haiku-4-5-20251001", desc: "Fast · Low $" },
@@ -9233,7 +9233,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   })}
                 </div>
                 {/* GPT row */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 4 }}>
                   {([
                     { badge: "4o MINI", color: "#f59e0b", provider: "openai:gpt-4o-mini", desc: "GPT Fast" },
                     { badge: "GPT-4o",  color: "#fb923c", provider: "openai:gpt-4o",      desc: "GPT Best" },
@@ -9330,7 +9330,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 6,
                 });
                 return (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6 }}>
                     {/* Culture dropdown */}
                     <div style={{ position: "relative" as const }}>
                       <label style={{ ...labelStyle, fontSize: 9, marginBottom: 4, display: "block" }}>Culture</label>
@@ -9486,7 +9486,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   — pins all images to the correct time period &amp; culture
                 </span>
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
                 <div>
                   <label style={{ ...labelStyle, fontSize: 9 }}>Story Era / Year</label>
                   <input
@@ -9516,7 +9516,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             {/* ── Story QC Intake Settings ── */}
             <div style={{ marginTop: 10, borderTop: `1px solid ${border}`, paddingTop: 10 }}>
               <p style={{ fontSize: 9, color: accent, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Story QC Settings</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 6 }}>
                 <div>
                   <label style={{ ...labelStyle, fontSize: 8 }}>Story Type</label>
                   <select value={storyType} onChange={e => setStoryType(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
@@ -9560,7 +9560,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   </select>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6 }}>
                 <div>
                   <label style={{ ...labelStyle, fontSize: 8 }}>Language Level</label>
                   <select value={storyLanguageLevel} onChange={e => setStoryLanguageLevel(e.target.value)} style={{ ...inputStyle, fontSize: 10, padding: "6px 8px" }}>
@@ -10254,7 +10254,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Sound Tier</p>
                   <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>GHS Sound = Piper TTS (free). GHS Plus/Pro = Karaoke pipeline. GHS Premium = Kie Suno V5 (KIE_AI_API_KEY). Set tier in Sound tab for full control.</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 6, marginBottom: 12 }}>
                     {([
                       { id: "ghs-sound",   label: "GHS Sound",   color: accent },
                       { id: "ghs-plus",    label: "GHS Plus",    color: gold },
@@ -10726,7 +10726,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     </div>
                   </div>
                   {/* Profile details */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
                     {[
                       ["Species", inlinePreview.species],
                       ["Build", inlinePreview.bodyBuild],
@@ -10980,7 +10980,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <p style={{ fontSize: 9, color: muted, marginBottom: 12 }}>
               Selects narration provider and music generator. GHS Sound = free local. GHS Plus = Karaoke pipeline. GHS Pro = Karaoke + FAL music (FAL_KEY). GHS Premium = Kie Suno V5 (KIE_AI_API_KEY).
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 12 }}>
               {([
                 { id: "ghs-sound",   label: "GHS Sound",   sub: "Piper · Free",         color: accent },
                 { id: "ghs-plus",    label: "GHS Plus",    sub: "Karaoke · Built-in",   color: gold },
@@ -11321,7 +11321,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
 
                 {/* Audio plan */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8, marginBottom: 10 }}>
                   <div style={{ background: s2, borderRadius: 8, padding: "8px 10px" }}>
                     <p style={{ fontSize: 8, color: gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>Narration</p>
                     <p style={{ fontSize: 10, color: "#fff" }}>{scene.audioPlan?.narrationIntensity}</p>
@@ -11904,7 +11904,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             {/* A. Audio for Video */}
             <div style={{ ...cardStyle, marginBottom: 16 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Audio for Video</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                 {/* Narration */}
                 <div>
                   <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Narration</p>
@@ -11990,7 +11990,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             <div style={{ ...cardStyle, marginBottom: 16 }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Intro &amp; Outro</p>
               <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>AI generates a cinematic title card. Prepended/appended to your video.</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                 {/* Intro */}
                 <div>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Intro</p>
@@ -12421,7 +12421,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 {openPipelineStep === 8 && (
                   <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}` }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Subtitle Style</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 14 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 14 }}>
                       {([
                         { key: "classic", icon: "CL", label: "Classic" },
                         { key: "cinema",  icon: "CI", label: "Cinema" },
@@ -13118,7 +13118,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
           <p style={{ fontSize: 12, color: muted, marginBottom: 20 }}>Advisory insights to improve your project. AI searches for viral angles, trending topics, and audience attention patterns.</p>
 
           {/* Trend categories */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 16 }}>
             {[
               { title: "Viral Angles", desc: "What content formats are getting the most engagement right now", icon: "1", color: "#ef4444" },
               { title: "Audience Attention", desc: "Where audience focus is strongest — hooks, pacing, emotional beats", icon: "2", color: accent },
