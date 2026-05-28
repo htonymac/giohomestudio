@@ -4192,17 +4192,16 @@ function HybridPlannerInner() {
       // NEW: prefer per-line clips (scriptSegments[].audioUrl) over old per-character files
       const hasPerLineClips = scriptSegments.some(s => s.type === "dialogue" && s.audioUrl);
 
-      // 1. Narrator audio — only in narration-only or mixed mode
-      // RULE: In mixed mode the narrator file is a CONTINUOUS recording of all narration text.
-      // If per-line actor clips also exist, playing the narrator file concurrently causes
-      // all voices to talk at once. Fix: skip narrator entirely when per-line clips are present
-      // (actors-only + mixed-with-dialogue). Narrator only plays cleanly in narration-only mode
-      // OR mixed mode with no per-line clips yet.
+      // 1. Narrator audio — plays in narration-only AND mixed mode.
+      // FIX 2026-05-28 (Henry: "actor voice heard, narration style ignored"):
+      // The narrator was previously DROPPED in mixed mode whenever per-line actor clips
+      // existed — out of fear of "all voices at once". But the narrator file is built from
+      // narration-type text ONLY (generateNarrationPiper → allScenesNarration, which
+      // EXCLUDES dialogue per BUG-16a). So narrator (narration passages) and actor clips
+      // (dialogue lines) are COMPLEMENTARY, not overlapping. Dropping the narrator meant
+      // mixed videos lost ALL narration and played only character dialogue. Keep it.
       if (narratorAudioUrl && storyMode !== "actors-only") {
-        const skipNarratorDueToActors = storyMode === "mixed" && hasPerLineClips;
-        if (!skipNarratorDueToActors) {
-          narrationList.push({ audioUrl: narratorAudioUrl, startTime: 0, volume: 1.0 });
-        }
+        narrationList.push({ audioUrl: narratorAudioUrl, startTime: 0, volume: 1.0 });
       }
 
       // Build scene start map — used for per-line timing
