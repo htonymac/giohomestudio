@@ -7,10 +7,11 @@ This is the single place to look for "what's left." Update it as items close. Ea
 
 ## 🔴 Blocked on Henry (needs an input only he can give)
 
-### 1. Karaoke MAIN full end-to-end on FREE engines
-- **State:** Foundation verified ready — `PYTHON_BIN` → venv, `faster_whisper`/`librosa`/`soundfile` import OK, stock music library present (`storage/music/stock/*.mp3`), `generate-music` now defaults to free stock (premium gated, #46 verified).
-- **Blocked on:** a real **voice recording fixture** (a short sung/spoken WAV/MP3). Henry to drop one (e.g. into `storage/karaoke/` or via the Creator upload).
-- **Exact next step when unblocked:** run upload → `analyze` (whisper+librosa) → `flow-profile` → `polish-lyrics` → `beat-recommend` → `production-brief` → `generate-music` (stock) → `save-mix` → `assemble` → `export`. Confirm each step returns 200 and the flow-lock opens. Watch `analyze` (first whisper run may be slow / model download).
+### 1. Karaoke MAIN full end-to-end on FREE engines — ✅ VERIFIED GREEN 2026-05-28
+- **DONE:** full e2e passes on free engines (`scripts/karaoke_e2e_test.mjs`, using an existing narration WAV as the voice fixture): analyze (Whisper+librosa) → flow-profile → beat-recommend → production-brief → generate-music (**stock**, free) → save-mix → assemble (mixed mp3) → export (downloadable mp3). LLM steps fall back to OpenAI (Anthropic credits depleted). PROBLEM_AND_FIX #46/#48/#49.
+- **Optional (quality only):** a REAL sung/hummed/rapped voice clip from Henry to confirm analysis handles actual singing (the test used clean TTS narration). Drop a 10–30s mp3/wav anywhere + tell me the path, or record in the Creator.
+- **Minor follow-up:** `analyze` returns `tempo: undefined` — check `scripts/karaoke_analyze.py` output keys (production-brief defaults to 90 BPM, non-blocking).
+- **⚠️ Henry action:** top up **Anthropic API credits** — depleted. Everything falls back to OpenAI GPT-4o-mini now (works, lower quality than Claude).
 
 ### 2. Phase 3 — cross-scene character face-lock (PuLID)
 - **State:** Wrong-character/swap bug is largely resolved (chars render correctly per description). Residual = (a) phantom extra people in multi-char scenes, (b) same character not identical across scenes.

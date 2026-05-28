@@ -657,3 +657,23 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 **Verification:** 18-segment / 63s assembly: **42s → 20s**. Audio path (5 imgs + music): 6s, output probed = `h264,video` + `aac,audio` ✓. (`scripts/verify_assembly_concurrency.mjs`, `scripts/audio_merge_test.mjs`.)
 **Note:** with subtitles ON, the subtitle burn-in remains one necessary full re-encode (veryfast) — that's now the single re-encode pass instead of two. With subtitles OFF, the final video is ultrafast-quality (copy of intermediate clips) — a deliberate speed/quality trade Henry asked for.
 **Prevention:** intermediate media that gets re-encoded downstream should use the fastest encode preset; match worker-pool size to core count; never re-encode a stream you can copy (probe duration before forcing `-stream_loop`).
+
+---
+
+## 48. Karaoke pipeline blocked at flow-profile — Anthropic credits depleted + no LLM fallback (2026-05-28)
+
+**Problem:** Karaoke MAIN e2e died at `flow-profile` with HTTP 500: "Your credit balance is too low to access the Anthropic API." Everything downstream (beat/brief/music/assemble/export) was flow-locked.
+**Root cause (two):** (1) Henry's **Anthropic API credits are depleted** (also why children story-expand fell back to `openai/gpt-4o-mini`). (2) The four karaoke LLM steps — `flow-profile`, `beat-recommend`, `production-brief`, `polish-lyrics` — each called the Anthropic SDK **directly** (`new Anthropic(); client.messages.create(...)`) with NO fallback, so they 500'd instead of using the working OpenAI key.
+**Fix:** All four now use the resilient `callLLM(prompt, system, { role:"fast", maxTokens })` which auto-chains Claude → OpenAI → Grok → Ollama. With Anthropic dry they fall through to OpenAI.
+**Verification:** karaoke e2e (`scripts/karaoke_e2e_test.mjs`) — flow-profile/beat/brief all HTTP 200 after the fix.
+**Prevention:** NEVER call a single LLM provider directly on a user-facing path. Always route through `callLLM` (fallback chain). A depleted provider must degrade, not 500. **Henry action:** top up Anthropic credits for best quality (fallback GPT-4o-mini is lower quality than Claude).
+
+---
+
+## 49. Karaoke assemble couldn't resolve stock-music URL (2026-05-28)
+
+**Problem:** After #46/#48, karaoke e2e reached `assemble` then 500'd: "Cannot resolve path from URL: /api/media/music/stock/upbeat.mp3".
+**Root cause:** `resolveFilePath()` in `app/api/karaoke/assemble/route.ts` only matched `/api/media/karaoke/(.+)` — the free stock backing track is served from `/api/media/music/stock/*.mp3`, which didn't match → threw.
+**Fix:** generalized `resolveFilePath` to map any `/api/media/<rel>` → `storagePath/<rel>` (plus `/storage/` + absolute-path handling), and simplified the music-path block to use it with a stock-location fallback.
+**Verification:** karaoke e2e — `assemble` HTTP 200 → mixed mp3; `export` HTTP 200 → downloadable mp3. **FULL MAIN PIPELINE GREEN on free engines** (Whisper+librosa + stock music + FFmpeg, LLM via OpenAI fallback). No premium AI.
+**Minor follow-up (non-blocking):** `analyze` returns `tempo: undefined` — `karaoke_analyze.py` may not surface tempo at the top level (production-brief defaults to 90 BPM). Worth checking the script's output keys later.
