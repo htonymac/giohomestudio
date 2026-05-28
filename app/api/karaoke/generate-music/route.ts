@@ -76,8 +76,6 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Mode E — instrumental beat match ─────────────────────────────────────
-    const isInstrumental = karaokeMode === "E";
     const brief = productionBrief!;
     const tempo = typeof brief.tempo === "number" ? brief.tempo : 90;
     const genre = typeof brief.genre === "string" ? brief.genre : "Afrobeats";
@@ -87,26 +85,22 @@ export async function POST(req: NextRequest) {
 
     const promptText = `${instructions} Genre: ${genre}. BPM: ${tempo}. Mood: ${mood}. Beat family: ${brief.selectedBeatFamily || "Afro Light Groove"}. Key: ${brief.key || "C major"}. Structure: ${brief.structure || "Verse → Chorus → Outro"}.`;
 
+    // ── PROVIDER SELECTION — MAIN is FREE, premium is opt-in (canvas + Henry 2026-05-28) ──
+    // Henry: "main karaoke has no AI help — Suno/Kie/Mubert are PREMIUM. I want main to work
+    // [on free engines] before thinking premium." Previously this AUTO-escalated to Kie /
+    // Stable Audio / Mubert whenever the API key was present — so the main pipeline silently
+    // ran on (paid) premium. Now: the MAIN pipeline always uses free Stock. Premium providers
+    // (kie / stable_audio / mubert) are used ONLY when the UI explicitly passes providerKey
+    // (i.e. the user picked a paid tier).
     let providerKey: MusicProviderKey;
-    let hasLyrics = false;
-
     if (providerKeyOverride && ["stock", "stable_audio", "kie", "mubert"].includes(providerKeyOverride)) {
-      // Explicit tier override from UI
-      providerKey = providerKeyOverride as MusicProviderKey;
-      hasLyrics = providerKey === "kie";
-    } else if (isInstrumental) {
-      // Mode E — instrumental only
-      hasLyrics = false;
-      if (durationSec <= 47) {
-        providerKey = process.env.FAL_KEY ? "stable_audio" : "stock";
-      } else {
-        providerKey = process.env.MUBERT_PAT ? "mubert" : "stock";
-      }
+      providerKey = providerKeyOverride as MusicProviderKey;   // explicit tier from UI
     } else {
-      // Mode A / C / D — lyrical
-      hasLyrics = true;
-      providerKey = process.env.KIE_AI_API_KEY ? "kie" : "stock";
+      providerKey = "stock";                                   // MAIN = free, always
     }
+    // Lyrical only when the premium lyrical provider (Kie/Suno) is explicitly chosen;
+    // instrumental mode (E) and free stock are instrumental.
+    const hasLyrics = providerKey === "kie";
 
     const input = {
       prompt: promptText.slice(0, 500),
