@@ -13,6 +13,7 @@
 //   return <><GateModal />{...rest}</>;
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ds } from "../../lib/designSystem";
 import ButtonPrimary from "./ui/ButtonPrimary";
 
@@ -61,8 +62,14 @@ function GateModalUI({ open, onConfirm, onCancel }: GateModalProps) {
   }, [open]);
 
   if (!open) return null;
+  if (typeof document === "undefined") return null;
 
-  return (
+  // Portal to <body> so the fixed-position overlay is centered in the VIEWPORT.
+  // Rendering inline put it inside `main`/page elements that use CSS transforms
+  // (animate-rise / stagger) — a transformed ancestor becomes the containing
+  // block for position:fixed, which pushed the modal off-screen ("it used to
+  // hide"). Portaling to body escapes that so it always centers. (2026-05-28)
+  return createPortal(
     <>
       {/* Backdrop — darker so the page behind doesn't compete for attention */}
       <div
@@ -221,7 +228,8 @@ function GateModalUI({ open, onConfirm, onCancel }: GateModalProps) {
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
