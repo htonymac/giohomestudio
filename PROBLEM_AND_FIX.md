@@ -620,3 +620,16 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 **Fix:** Tag placeholder clips (`placeholder: true`). In `preprocessSegments`, after the bounded-pool run, compute `scenesWithReal` (sceneIds that got ≥1 real clip) and DROP any placeholder whose sceneId is in that set. Single-image scenes, fully-missing scenes, and intro/outro (no sceneId) keep their placeholder so timing/visibility is preserved.
 **Verification:** `scripts/dead_url_test.mjs` — scene SCDUP (1 real + 1 dead URL) → gray dropped; scene SCLONE (only dead URL) → gray kept → 2 segments assembled. Regression: 18-real-image assembly still 18/18 (no false drops).
 **Prevention:** A timeline-alignment placeholder is a per-scene fallback, not a per-image one. Only emit it when the scene would otherwise be blank.
+
+---
+
+## 45. Children planner "broken backend" — free-tier LLM 503/hang, not the format rules (2026-05-28)
+
+**Problem:** Children planner produced generic stories instead of the requested format (ABC → "John took his friend to learn ABC" instead of "A is for Apple"), and long requests came out short. Looked like the contentType format rules + length mandate were broken/miswired.
+**Root cause:** The format rules (`app/api/hybrid/story-expand/route.ts` `contentFormatRules`) and length-mandate loop were CORRECT and in place — but they never ran. Free tier force-routes to local Ollama (`forceProvider="ollama"`). `getOllamaModel` defaulted to `qwen2.5:14b`/`mistral`/`phi3`, none of which were pulled (server had only `llama3.1:8b`) → `/api/chat` returned **HTTP 404** → 503 "Story AI unavailable. Check your API key." After baselining the default to an installed model, Ollama did REAL CPU inference on a GPU-less VPS → >5 min → request hung. Either way the LLM died before producing anything, so the planner fell back to whatever stale/empty content it had.
+**Fix (`src/lib/llm.ts` + `story-expand/route.ts`):**
+1. `callOllama` tag-probes `/api/tags` and **substitutes an available model** when the configured one isn't installed (same-family match preferred, else first available).
+2. `getOllamaModel` defaults baselined to `llama3.1:8b` (settings `OLLAMA_MODEL_*` still override).
+3. Free-tier Ollama attempt capped at **45s** `timeoutMs`; on failure/timeout, **falls back to cloud** (auto Claude→GPT) instead of 503ing. Continuation passes follow whichever provider answered (no Ollama re-hang).
+**Verification (`scripts/abc_format_test.mjs`, live):** `contentType=abc` → "A is for Apple… B is for Ball… C is for Cat…", 16 "X is for Y" patterns, 8 letters, 369 words, HTTP 200 in ~60s.
+**Prevention:** When a feature "looks broken", verify the dependency it calls actually responds before assuming the feature logic is wrong. A 503 from the LLM masquerades as a content bug. Never force a single LLM provider with no fallback on a user-facing path.

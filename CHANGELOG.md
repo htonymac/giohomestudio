@@ -9,6 +9,8 @@
    - Verified live via `scripts/verify_assembly_concurrency.mjs`: 18/18 segments assembled, 0 zero-byte clips, 2.68MB output.
 2. **Mixed-mode narration restored** (`app/dashboard/hybrid-planner/page.tsx`)
    - Removed the `skipNarratorDueToActors` gate that dropped the narrator whenever per-line actor clips existed. Mixed videos were playing ONLY actor dialogue and losing all narration. Narrator (narration-only text) + actor clips (dialogue) are complementary.
+3. **Gray-flash placeholders dropped** (`app/api/assembly/execute/route.ts`) — dead/stale candidate image URLs no longer leak gray frames; a scene's placeholder is dropped if it has a real image. PROBLEM_AND_FIX #44.
+4. **Children planner free-tier LLM fixed** (`src/lib/llm.ts`, `app/api/hybrid/story-expand/route.ts`) — was 503/hanging (Ollama default models not installed → 404; then >5min CPU inference). Now: Ollama auto-picks an installed model, defaults baselined to `llama3.1:8b`, free tier caps Ollama at 45s and falls back to cloud. ABC format verified live ("A is for Apple…"). PROBLEM_AND_FIX #45.
 
 ### Why / Risk
 - Root causes of Henry's 2026-05-28 render report ("image not assembled, actor voice heard / narration ignored, intro+outro didn't display"). Both deployed to andiostudio.com (HEAD a5baf44). Low risk: concurrency cap only changes scheduling; narrator change is additive (more audio, not less).

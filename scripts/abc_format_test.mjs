@@ -14,7 +14,10 @@ const res = await fetch("http://localhost:3200/api/hybrid/story-expand", {
   signal: AbortSignal.timeout(150000),
 });
 const d = await res.json();
-const script = (d.fullScript || d.summary || "").toString();
+const es = d.expandedStory || d;
+// Pull all teaching text: fullScript + scene prompts/narration + actionPeaks.
+const sceneText = (es.scenes || []).map(s => [s.title, s.video_prompt, s.narration, s.narration_text, s.dialogue].filter(Boolean).join(" ")).join(" ");
+const script = [es.fullScript, es.summary, (es.actionPeaks || []).join(" "), sceneText].filter(Boolean).join(" ").toString();
 const words = script.split(/\s+/).filter(Boolean).length;
 // Heuristics: alphabet format mentions many "X is for" / "A for" patterns
 const forMatches = (script.match(/\b[A-Z]\b\s+(is\s+)?for\b/gi) || []).length;

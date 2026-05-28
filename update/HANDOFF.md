@@ -1,12 +1,14 @@
 # GHS HANDOFF — Session 2026-05-28 (Assembly fixes) / 2026-05-27 (Mobile shell)
 
-**Last updated:** 2026-05-28 · **HEAD:** `a5baf44` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+**Last updated:** 2026-05-28 · **HEAD:** `71c86d0` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
 
-## ✅ DONE 2026-05-28 (assembly render bugs from Henry's live report)
-1. **Images / intro / outro now assemble** — `app/api/assembly/execute/route.ts` got a bounded `mapPool` (4 concurrent ffmpeg). Unbounded `Promise.all` over 50–70 segments was killing ffmpeg under load → 0-byte clips dropped from concat. Verified live: 18/18 segments, 0 zero-byte clips (`scripts/verify_assembly_concurrency.mjs`). See PROBLEM_AND_FIX #42.
-2. **Mixed-mode narrator restored** — `app/dashboard/hybrid-planner/page.tsx` no longer drops the narrator when actor clips exist. Mixed videos were playing only dialogue, losing all narration. See PROBLEM_AND_FIX #43.
-- Both built (BUILD_ID `-gTi8aeO5...`) + service restarted + hybrid page HTTP 200.
-- **NEXT (still open from Henry's report):** verify the above end-to-end in browser with a real story (narration audible + images visible + intro/outro on screen). Children-planner format + length, Phase 3 substitution (phantom extra people / PuLID face-lock needs R2 public URLs), karaoke MAIN local pipeline remain on the list (FIXNEWCHIDHYBRIDANDMORE05272026.MD).
+## ✅ DONE 2026-05-28 (Henry's live render report — ALL fixed + verified)
+1. **Images / intro / outro now assemble** — `app/api/assembly/execute/route.ts` got a bounded `mapPool` (4 concurrent ffmpeg). Unbounded `Promise.all` over 50–70 segments was killing ffmpeg under load → 0-byte clips dropped from concat. Verified live: 18/18 segments, 0 zero-byte clips (`scripts/verify_assembly_concurrency.mjs`). PROBLEM_AND_FIX #42.
+2. **Mixed-mode narrator restored** — `app/dashboard/hybrid-planner/page.tsx` no longer drops the narrator when actor clips exist (was playing only dialogue, losing all narration). #43.
+3. **Gray-flash placeholders dropped** — dead/stale image URLs no longer leak gray frames into the video. Verified (`scripts/dead_url_test.mjs`). #44.
+4. **Children planner free-tier LLM fixed** — was 503/hanging (Ollama default models not installed → 404; then >5min CPU inference). `src/lib/llm.ts` auto-picks an installed Ollama model + defaults to `llama3.1:8b`; `story-expand` caps Ollama at 45s + cloud fallback + provider-aware continuations. ABC format verified live ("A is for Apple…", 16 patterns) — `scripts/abc_format_test.mjs`. #45.
+- All built (each BUILD_ID regenerated) + service restarted + HTTP 200. Note: server is GPU-less → free tier effectively runs on cloud Haiku (Ollama too slow); fine + cheap.
+- **STILL OPEN on the list (FIXNEWCHIDHYBRIDANDMORE05272026.MD):** browser e2e of a real hybrid render (eyeball narration+images+cards); children 20-min LENGTH honoring (rules in place, continuations now provider-aware — needs a long-target spot check); Phase 3 substitution (phantom extra people; PuLID cross-scene face-lock needs R2 public URLs); karaoke MAIN local pipeline end-to-end; orphan `md-only-backup-2026-05-27` branch.
 
 ---
 
