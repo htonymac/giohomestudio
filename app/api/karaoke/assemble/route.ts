@@ -57,9 +57,15 @@ function runFFmpegMix(
 }
 
 function resolveFilePath(fileUrl: string): string {
-  const match = fileUrl.match(/\/api\/media\/karaoke\/(.+)/);
-  if (!match) throw new Error(`Cannot resolve path from URL: ${fileUrl}`);
-  return path.join(env.storagePath, "karaoke", match[1]);
+  // General /api/media/<rel> → storagePath/<rel>. Was karaoke-only, which broke stock
+  // music served from /api/media/music/stock/*.mp3 ("Cannot resolve path"). 2026-05-28
+  const m = fileUrl.match(/\/api\/media\/(.+)/);
+  if (m) return path.join(env.storagePath, m[1]);
+  if (fileUrl.startsWith("/storage/") || fileUrl.startsWith("storage/")) {
+    return path.join(env.storagePath, fileUrl.replace(/^\/?storage\//, ""));
+  }
+  if (path.isAbsolute(fileUrl)) return fileUrl;
+  throw new Error(`Cannot resolve path from URL: ${fileUrl}`);
 }
 
 export async function POST(req: NextRequest) {
@@ -91,24 +97,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Voice file not found: ${voicePath}` }, { status: 404 });
     }
 
-    // Resolve music path
-    let musicPath: string;
+    // Resolve music path (handles /api/media/music/stock/*.mp3, /storage/*, abs paths)
     const musicUrl = recording.generatedMusicUrl;
-
-    if (musicUrl.startsWith("/api/media/")) {
-      musicPath = resolveFilePath(musicUrl.replace("/api/media/karaoke/", "").startsWith("/")
-        ? musicUrl
-        : musicUrl);
-    } else if (musicUrl.startsWith("/storage/") || musicUrl.startsWith("storage/")) {
-      musicPath = path.join(env.storagePath, "..", musicUrl.replace(/^\//, ""));
-    } else if (fs.existsSync(musicUrl)) {
-      musicPath = musicUrl;
-    } else {
-      // Stock music — look in storage/music
-      const stockFilename = path.basename(musicUrl);
-      musicPath = path.join(env.storagePath, "music", stockFilename);
-      if (!fs.existsSync(musicPath)) {
-        musicPath = path.join(process.cwd(), "storage", "music", stockFilename);
+    let musicPath: string;
+    try {
+      musicPath = fs.existsSync(musicUrl) ? musicUrl : resolveFilePath(musicUrl);
+    } catch {
+      musicPath = path.join(env.storagePath, "music", path.basename(musicUrl));
+    }
+    if (!fs.existsSync(musicPath)) {
+      // Fallback: search common stock locations by basename
+      const base = path.basename(musicUrl);
+      for (const cand of [
+        path.join(env.storagePath, "music", base),
+        path.join(env.storagePath, "music", "stock", base),
+      ]) {
+        if (fs.existsSync(cand)) { musicPath = cand; break; }
       }
     }
 
