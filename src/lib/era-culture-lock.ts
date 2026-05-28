@@ -301,8 +301,17 @@ export function buildFullLock(storyEra: string, storyCulture: string, artStyle =
   const eraEntry = year !== null ? getEraEntry(year) : null;
   const cultureDesc = resolveCulture(storyCulture, artStyle);
 
+  // Each era descriptor bakes in a "For African settings: …Lagos…Afrobeats…" flavor clause.
+  // Emitted for ALL cultures, it biased every scene toward Afrocentric imagery — e.g. an
+  // "American" selection still rendered Black people. Strip that clause unless the selected
+  // culture is actually African. (Bug C skin/setting fix, 2026-05-27)
+  const isAfricanCulture = /nigeria|yoruba|igbo|hausa|nollywood|africa|west\s*african/i.test(storyCulture || "");
+  const eraPositiveText = eraEntry
+    ? (isAfricanCulture ? eraEntry.positive : eraEntry.positive.replace(/\s*For African settings:.*$/is, "").trim())
+    : "";
+
   const eraPositive = eraEntry
-    ? `[ERA LOCK — ${eraEntry.label}]: ${eraEntry.positive}`
+    ? `[ERA LOCK — ${eraEntry.label}]: ${eraPositiveText}`
     : "";
 
   const eraNegative = eraEntry
@@ -323,7 +332,7 @@ export function buildFullLock(storyEra: string, storyCulture: string, artStyle =
   // For LLM scene-plan / story-expand context
   const sceneContext = [
     eraEntry
-      ? `ERA CONTEXT: This story is set in ${eraEntry.label}. Every scene description MUST reflect the visual reality of that era. ${eraEntry.positive} Do NOT include any element that did not exist in that era (forbidden: ${eraEntry.negative}).`
+      ? `ERA CONTEXT: This story is set in ${eraEntry.label}. Every scene description MUST reflect the visual reality of that era. ${eraPositiveText} Do NOT include any element that did not exist in that era (forbidden: ${eraEntry.negative}).`
       : "",
     cultureDesc
       ? `CULTURE CONTEXT: ${cultureDesc}`
