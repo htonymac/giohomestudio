@@ -4099,7 +4099,7 @@ function HybridPlannerInner() {
       const cardPayload = {
         title: projectTitle,
         author: screenplayAuthor,
-        studio: "GioHomeStudio",
+        studio: "Andio Studio",
         ideaFrom,
         genre,
         tone,
@@ -12002,7 +12002,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   <button onClick={async () => {
                     setGeneratingIntro(true);
                     try {
-                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: characters.slice(0, 10).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })) }) });
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "intro", title: projectTitle, author: screenplayAuthor, studio: "Andio Studio", ideaFrom, genre, tone, style: introOutroStyle, cast: characters.slice(0, 10).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })) }) });
                       const d = await r.json();
                       if (d.ok && d.imageUrl) setIntroUrl(d.imageUrl); else setLastAction("Intro generation failed");
                     } catch { setLastAction("Intro error"); } finally { setGeneratingIntro(false); }
@@ -12023,7 +12023,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     setGeneratingOutro(true);
                     try {
                       const castList = characters.filter(c => c.voiceId).map(c => ({ name: c.displayName, species: c.species, roleType: c.roleType })).slice(0, 8);
-                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", title: projectTitle, author: screenplayAuthor, studio: "GioHomeStudio", ideaFrom, genre, tone, style: introOutroStyle, cast: castList }) });
+                      const r = await fetch("/api/hybrid/generate-card", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "outro", title: projectTitle, author: screenplayAuthor, studio: "Andio Studio", ideaFrom, genre, tone, style: introOutroStyle, cast: castList }) });
                       const d = await r.json();
                       if (d.ok && d.imageUrl) setOutroUrl(d.imageUrl); else setLastAction("Outro generation failed");
                     } catch { setLastAction("Outro error"); } finally { setGeneratingOutro(false); }
@@ -12135,7 +12135,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           style={{ ...inputStyle, flex: 1, maxWidth: 260, fontSize: 12 }}
                         />
                       </div>
-                      <p style={{ fontSize: 9, color: muted }}>Studio: <span style={{ color: accent }}>GioHomeStudio</span> (used automatically in intro/outro)</p>
+                      <p style={{ fontSize: 9, color: muted }}>Studio: <span style={{ color: accent }}>Andio Studio</span> (used automatically in intro/outro)</p>
                     </div>
 
                     {/* Buttons */}
