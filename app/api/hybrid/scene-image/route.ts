@@ -340,6 +340,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // ── PERSON-COUNT LOCK (2026-05-28) — stop phantom extra / duplicate people ──
+    // The model frequently adds people not in the scene (a 2-character scene rendering 3
+    // people). When we have a known small cast AND the scene isn't a crowd scene, pin the
+    // exact count + add an extra-people negative below. Skipped for crowd/market/party/class
+    // scenes where background people are intended, and for animal scenes.
+    const sceneHasCrowd = /\b(crowd|crowded|market|marketplace|party|audience|gathering|stadium|festival|wedding|concert|protest|rally|classroom|class|team|villagers|townspeople|guests|spectators|congregation|queue|busy street|group of|many people|onlookers|mob)\b/i.test(sceneText || "");
+    let personCountActive = false;
+    if (resolvedCharacters.length >= 1 && resolvedCharacters.length <= 4 && !sceneHasCrowd && !explicitAnimal) {
+      personCountActive = true;
+      const n = resolvedCharacters.length;
+      const names = resolvedCharacters.map(c => c.name).join(", ");
+      promptParts.push(
+        n === 1
+          ? `EXACTLY ONE person in the entire frame (${names}) — solo shot, no other people, no second person, no bystanders, no background figures.`
+          : `EXACTLY ${n} people in the entire frame (${names}) — no additional people, no extra figures, no bystanders, no duplicated or cloned faces, no background crowd.`
+      );
+    }
+
     // ── SCENE DESCRIPTION + ACTION DIRECTIVE ──
     // staticSceneText = cleanSceneText converted to a still-frame description (action verbs removed)
     // PROTECTED: action directive must stay — it prevents "calm standing" images for tense scenes.
@@ -400,7 +418,12 @@ export async function POST(req: NextRequest) {
     // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
     const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
     const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + getStyleCollisionNegative(styleId) + eraNegative;
+    // Extra-people negative — pairs with the PERSON-COUNT LOCK above. Only when we pinned a
+    // known small cast (skipped for crowd scenes), so intended background crowds aren't removed.
+    const extraPeopleNegative = personCountActive
+      ? ", extra person, extra people, additional people, more people than described, duplicate character, cloned face, identical twins, repeated person, background crowd, bystanders, photobomber, extra figures in background, group of strangers"
+      : "";
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {
