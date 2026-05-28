@@ -633,3 +633,14 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 3. Free-tier Ollama attempt capped at **45s** `timeoutMs`; on failure/timeout, **falls back to cloud** (auto Claude→GPT) instead of 503ing. Continuation passes follow whichever provider answered (no Ollama re-hang).
 **Verification (`scripts/abc_format_test.mjs`, live):** `contentType=abc` → "A is for Apple… B is for Ball… C is for Cat…", 16 "X is for Y" patterns, 8 letters, 369 words, HTTP 200 in ~60s.
 **Prevention:** When a feature "looks broken", verify the dependency it calls actually responds before assuming the feature logic is wrong. A 503 from the LLM masquerades as a content bug. Never force a single LLM provider with no fallback on a user-facing path.
+
+---
+
+## 46. Karaoke MAIN pipeline ran on PREMIUM by default (2026-05-28)
+
+**Problem:** Henry: "main karaoke has no AI help — Suno/Kie/Mubert are PREMIUM. I want main to work [on free engines] before thinking premium." The main pipeline was silently using paid providers.
+**Root cause:** `app/api/karaoke/generate-music/route.ts` AUTO-escalated to premium whenever the API key existed: Mode A/C/D → `process.env.KIE_AI_API_KEY ? "kie" : "stock"`; Mode E → `FAL_KEY ? "stable_audio" : "stock"` / `MUBERT_PAT ? "mubert" : "stock"`. Since `KIE_AI_API_KEY` is now set in prod, every main request hit premium Kie/Suno. Stock (free) was only a fallback when keys were absent — backwards.
+**Fix:** Provider selection now: if the UI passes an explicit `providerKey` (paid tier the user chose) use it; **otherwise always `stock`** (free). Premium providers are never auto-selected from env-key presence. Removed the now-unused `isInstrumental` local.
+**Verification (`scripts/karaoke_main_free_test.mjs`, live):** flow-complete Mode A recording + no providerKey → `provider: "stock"`, `/api/media/music/stock/upbeat_pop.mp3`, HTTP 200.
+**Prevention:** "Have the API key" ≠ "should use the paid provider." Paid providers must be gated behind an explicit user/tier choice, with free as the default — not the reverse.
+**Still open:** full karaoke e2e on free engines (upload → analyze[whisper+librosa] → flow → brief → stock music → mix → assemble → export) needs an audio fixture run. Foundation verified ready: PYTHON_BIN→venv, faster_whisper/librosa/soundfile import OK, stock library present.
