@@ -2613,7 +2613,7 @@ function ChildrenPlannerInner() {
         {/* Age Group */}
         <div style={{ ...cardStyle, marginBottom: 12 }}>
           <span style={labelStyle}>Age Group</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {AGE_GROUPS.map(ag => (
               <div key={ag.id} onClick={() => setAgeGroup(ag.id as "toddler" | "preschool" | "early" | "older")}
                 style={{ padding: 14, borderRadius: 10, border: `1px solid ${ageGroup === ag.id ? childAccent : border}`, background: ageGroup === ag.id ? `${childAccent}15` : s2, cursor: "pointer" }}>
@@ -2632,7 +2632,7 @@ function ChildrenPlannerInner() {
         {/* Story Length */}
         <div style={{ ...cardStyle, marginBottom: 12 }}>
           <span style={labelStyle}>Story Length</span>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6 }}>
             {[
               { min: 2,  label: "2 min",   note: "Tiny" },
               { min: 5,  label: "5 min",   note: "Short" },
@@ -2654,7 +2654,7 @@ function ChildrenPlannerInner() {
         {/* Learning Mode */}
         <div style={{ ...cardStyle, marginBottom: 12 }}>
           <span style={labelStyle}>Learning Mode</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {LEARNING_MODES.map(mode => (
               <div key={mode.id} onClick={() => setLearningMode(mode.id as typeof learningMode)}
                 style={{ padding: 12, borderRadius: 10, border: `1px solid ${learningMode === mode.id ? childAccent : border}`, background: learningMode === mode.id ? `${childAccent}15` : s2, cursor: "pointer", display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -2670,7 +2670,7 @@ function ChildrenPlannerInner() {
         {/* Production System */}
         <div style={{ ...cardStyle, marginBottom: 12 }}>
           <span style={labelStyle}>Production System</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             {[
               { id: "hybrid", label: "Hybrid Story", desc: "Images + narration + music. Best for read-along. Recommended." },
               { id: "movie", label: "Full Video", desc: "AI video per scene. More immersive but higher cost." },
@@ -2689,7 +2689,7 @@ function ChildrenPlannerInner() {
         {/* Safety Level */}
         <div style={{ ...cardStyle, marginBottom: 12 }}>
           <span style={labelStyle}>Safety Level</span>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
             {([
               { id: "maximum", label: "Maximum", desc: "Toddlers & babies. Zero risk tolerance.", color: childSafe },
               { id: "high", label: "High", desc: "Pre-school to early school. Recommended default.", color: childAccent },
@@ -2745,7 +2745,7 @@ function ChildrenPlannerInner() {
             <span style={{ fontSize: 11, color: muted }}>{showModelSettings ? "Hide" : "Show"}</span>
           </div>
           {showModelSettings && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
               {/* 1. Story LLM */}
               <div>
                 <p style={{ fontSize: 10, fontWeight: 700, color: muted, marginBottom: 6, letterSpacing: 1, textTransform: "uppercase" as const }}>Story LLM</p>
@@ -3057,7 +3057,7 @@ function ChildrenPlannerInner() {
 
             {/* Movie Mode extra options */}
             {productionSystem === "movie" && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, paddingTop: 4 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, paddingTop: 4 }}>
                 {/* Genre */}
                 <div>
                   <p style={labelStyle}>Genre</p>
@@ -3121,7 +3121,7 @@ function ChildrenPlannerInner() {
           </div>
 
           {/* Progress + Next Steps side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
             {/* Progress Bars */}
             <div style={cardStyle}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Production Progress</p>
@@ -3174,7 +3174,7 @@ function ChildrenPlannerInner() {
                 <p style={{ margin: 0, fontSize: 11, color: muted }}>Examples of what your children videos can look like</p>
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               {[
                 { img: "/api/media/demo/child_abc.png",       label: "ABC Learning",    color: C4 },
                 { img: "/api/media/demo/child_colors.png",    label: "Color World",     color: C2 },
@@ -3214,7 +3214,7 @@ function ChildrenPlannerInner() {
               <Icon.Film style={{ width: 18, height: 18, color: C2, flexShrink: 0 }} />
               <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C2 }}>Demo Videos</p>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               {[
                 { src: "/api/media/demo/child_abc_scene.mp4",      label: "ABC Video",    color: C4 },
                 { src: "/api/media/demo/child_colors_scene.mp4",   label: "Colors Video", color: C2 },
@@ -3233,7 +3233,7 @@ function ChildrenPlannerInner() {
           </div>
 
           {/* Quick Links — 4 columns */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
             {[
               { label: designComplete ? "Design Set" : "Set Design", color: C3, action: () => setActiveTab("design"), href: null },
               { label: "Open Editor", color: childSafe, action: null, href: "/dashboard/collaborative-editor?from=children-planner" },
@@ -3429,7 +3429,7 @@ function ChildrenPlannerInner() {
                   </button>
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 10 }}>
                 {([["Species", inlinePreview.species], ["Build", inlinePreview.bodyBuild], ["Colours", inlinePreview.colorDescription], ["Face", inlinePreview.faceFeatures], ["Clothing", inlinePreview.clothingDetails], ["Distinctive", inlinePreview.distinctiveFeatures]] as [string, string | undefined][])
                   .filter(([, v]) => v && v !== "not specified").map(([label, value]) => (
                   <div key={label} style={{ padding: "6px 8px", borderRadius: 6, background: "#ffffff05" }}>
@@ -3610,7 +3610,7 @@ function ChildrenPlannerInner() {
                     {isEditing && (
                       <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${ds.color.lilac}20` }}>
                         <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, marginBottom: 10 }}>Visual Identity — fill in what makes this character unique</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
                           <div>
                             <label style={{ ...labelStyle, fontSize: 9 }}>Character Type / Species</label>
                             <input value={char.species || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, species: e.target.value } : c))}
@@ -3852,7 +3852,7 @@ function ChildrenPlannerInner() {
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
 
           {/* Era & Culture Lock */}
-          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
             <div>
               <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
               <input
@@ -4136,7 +4136,7 @@ function ChildrenPlannerInner() {
 
           {/* Visual style */}
           <p style={labelStyle}>Visual Style</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 20 }}>
             {VISUAL_STYLES.map(v => {
               const isActive = effectiveProjectStyle === v.id;
               const [c1, c2] = v.colors.split(",").map(s => s.trim());
@@ -4155,7 +4155,7 @@ function ChildrenPlannerInner() {
 
           {/* Music */}
           <p style={labelStyle}>Background Music</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6, marginBottom: 20 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 6, marginBottom: 20 }}>
             {MUSIC_CHOICES.map(m => (
               <button key={m.id} onClick={() => { setMusicChoice(m.id); setLastAction(`Music: ${m.label}`); }}
                 style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${musicChoice === m.id ? childAccent : border}`, background: musicChoice === m.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center" }}>
@@ -4347,7 +4347,7 @@ function ChildrenPlannerInner() {
                 </div>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 14 }}>
                 <div>
                   <p style={labelStyle}>Font Size: {fontSize}px</p>
                   <input type="range" min={24} max={48} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
@@ -4430,7 +4430,7 @@ function ChildrenPlannerInner() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 16 }}>
             {[
               { label: "Content Interpretation", check: "Text matches intended learning goal" },
               { label: "Age Appropriateness", check: `Content suitable for ${ageParam || "target"} age group` },
@@ -4890,7 +4890,7 @@ function ChildrenPlannerInner() {
               {/* Audio panel — always visible in Assembly, with quick-generate buttons */}
               <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${childAccent}30`, padding: 14 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: childAccent, marginBottom: 10 }}>Audio for Video</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8, marginBottom: 12 }}>
                   {/* Narration */}
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -5071,7 +5071,7 @@ function ChildrenPlannerInner() {
               <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Intro & Outro</p>
                 <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>AI generates a cinematic title card. Prepended/appended to your video.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
                   {/* Intro */}
                   <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -5168,7 +5168,7 @@ function ChildrenPlannerInner() {
               {/* Credits — Written by / Made by / Idea from */}
               <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Story Credits</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
                   <div>
                     <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Written by</label>
                     <input value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Your name"
@@ -5433,7 +5433,7 @@ function ChildrenPlannerInner() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 16 }}>
             {[
               { label: "Visuals are child-safe", check: "No inappropriate imagery, characters look child-friendly" },
               { label: "Narration is clear", check: "Pronunciation is clear, pace is appropriate for children" },
@@ -5846,7 +5846,7 @@ function ChildrenPlannerInner() {
                 <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>
                   AI will treat your scenes as one continuous action. Enable this when your story has unbroken physical action (chase, fall, fight, explosion chain).
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10, marginBottom: 14 }}>
                   <div>
                     <label style={{ ...labelStyle, fontSize: 9 }}>Total Duration (seconds)</label>
                     <input type="number" min={5} max={120} value={cmTotalDuration}
