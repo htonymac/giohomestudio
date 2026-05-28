@@ -591,3 +591,22 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 4. Updated Suggested Fixes UI: header row now has "Fix All" button; each suggestion row has an individual "Fix" button. Both buttons are disabled when no scenes exist or fix is in progress.
 **Files:** `app/dashboard/hybrid-planner/page.tsx`.
 **Prevention:** Any AI output that suggests actions must have a clickable "Apply" path. A list of suggestions with no way to act on them is a dead-end UX.
+
+---
+
+## 42. Images / intro / outro not assembled — 0-byte clips from ffmpeg overload (2026-05-28)
+
+**Problem:** Hybrid assembled video showed almost no scene images; intro and outro cards did not display; image display was "bad". Henry's live render (`ghs_hybrid_default_1779995437083`): only `clip_seg_0` (intro) + `clip_seg_1` were valid; segs 2–11 were 6873-byte solid placeholders; segs 12–69 were **0 bytes**.
+**Root cause:** `preprocessSegments()` in `app/api/assembly/execute/route.ts` fired one ffmpeg per segment SIMULTANEOUSLY via an unbounded `Promise.all`. A Gen-Max hybrid story expands to 50–70 image segments. 70 concurrent ffmpeg processes saturated the 4-core VPS; most hit the 60s per-clip timeout and were KILLED mid-write → 0-byte output files → rejected by the `>2000` size check → dropped from the concat list. The outro is a high-numbered segment, so it died too → "outro didn't display".
+**Fix:** Added a bounded-concurrency `mapPool(items, limit, fn)` worker pool; `preprocessSegments` now runs **4** ffmpeg jobs at a time instead of all at once. 70 images ≈ 30–40s without CPU saturation, so every clip (incl. solid placeholders) finishes.
+**Verification:** `scripts/verify_assembly_concurrency.mjs` — 18-segment assembly (intro + 16 real images + outro) → 18/18 assembled, **0 zero-byte clips**, final mp4 2.68MB.
+**Prevention:** NEVER fan out N external-process (ffmpeg/whisper/etc.) jobs with unbounded `Promise.all` on the VPS. Cap concurrency to ~core-count. A 0-byte output file is the signature of a killed/timed-out child process — size checks must reject it AND a serial fallback must regenerate it.
+
+---
+
+## 43. Mixed mode plays only actor voices — narrator silently dropped (2026-05-28)
+
+**Problem:** In a "mixed" hybrid story, the assembled video played only character/actor dialogue voices; all narration was missing (Henry: "actor voice was heard, narration style ignored").
+**Root cause:** `app/dashboard/hybrid-planner/page.tsx` assembly builder dropped the narrator track entirely when `storyMode === "mixed" && hasPerLineClips` (`skipNarratorDueToActors`), out of a (mistaken) fear of "all voices at once". But the narrator file is generated from narration-type text ONLY (`generateNarrationPiper` → `allScenesNarration`, which excludes dialogue per BUG-16a). Narrator (narration passages) and actor clips (dialogue lines) are COMPLEMENTARY, not overlapping — so dropping the narrator just deleted all narration from mixed videos.
+**Fix:** Removed the `skipNarratorDueToActors` gate. Narrator now plays in both narration-only AND mixed mode (only excluded in actors-only). Actor per-line clips still layer on top for dialogue.
+**Prevention:** Before muting/dropping an audio track to avoid "overlap", confirm the two tracks actually cover the same text. Here they never did.

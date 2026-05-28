@@ -1,5 +1,23 @@
 # GHS Changelog
 
+## 2026-05-28 — Assembly: bounded ffmpeg concurrency + mixed-mode narrator restored
+
+### What
+1. **Images / intro / outro now assemble reliably** (`app/api/assembly/execute/route.ts`)
+   - Added `mapPool()` bounded worker pool; `preprocessSegments` now runs **4** ffmpeg jobs at a time instead of an unbounded `Promise.all`.
+   - Was: 50–70 simultaneous ffmpeg on the 4-core VPS → most killed at the 60s timeout → 0-byte clips dropped from concat (Henry's render had segs 12–69 all 0 bytes). Now every clip finishes.
+   - Verified live via `scripts/verify_assembly_concurrency.mjs`: 18/18 segments assembled, 0 zero-byte clips, 2.68MB output.
+2. **Mixed-mode narration restored** (`app/dashboard/hybrid-planner/page.tsx`)
+   - Removed the `skipNarratorDueToActors` gate that dropped the narrator whenever per-line actor clips existed. Mixed videos were playing ONLY actor dialogue and losing all narration. Narrator (narration-only text) + actor clips (dialogue) are complementary.
+
+### Why / Risk
+- Root causes of Henry's 2026-05-28 render report ("image not assembled, actor voice heard / narration ignored, intro+outro didn't display"). Both deployed to andiostudio.com (HEAD a5baf44). Low risk: concurrency cap only changes scheduling; narrator change is additive (more audio, not less).
+
+### Impact
+- See PROBLEM_AND_FIX.md #42 (0-byte clips) and #43 (mixed narrator).
+
+---
+
 ## 2026-05-17 — Hybrid Planner: subtitle, QC fix, Parse Script, pre-flight UX
 
 ### What

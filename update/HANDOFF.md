@@ -1,6 +1,17 @@
-# GHS HANDOFF — Session 2026-05-27 (Mobile shell LIVE + recovery + stabilization status)
+# GHS HANDOFF — Session 2026-05-28 (Assembly fixes) / 2026-05-27 (Mobile shell)
 
-**Last updated:** 2026-05-27 · **HEAD:** `68788e9` (pushed) · **Live:** andiostudio.com (server :3200, production `next start`, Next 16.2.1)
+**Last updated:** 2026-05-28 · **HEAD:** `a5baf44` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+
+## ✅ DONE 2026-05-28 (assembly render bugs from Henry's live report)
+1. **Images / intro / outro now assemble** — `app/api/assembly/execute/route.ts` got a bounded `mapPool` (4 concurrent ffmpeg). Unbounded `Promise.all` over 50–70 segments was killing ffmpeg under load → 0-byte clips dropped from concat. Verified live: 18/18 segments, 0 zero-byte clips (`scripts/verify_assembly_concurrency.mjs`). See PROBLEM_AND_FIX #42.
+2. **Mixed-mode narrator restored** — `app/dashboard/hybrid-planner/page.tsx` no longer drops the narrator when actor clips exist. Mixed videos were playing only dialogue, losing all narration. See PROBLEM_AND_FIX #43.
+- Both built (BUILD_ID `-gTi8aeO5...`) + service restarted + hybrid page HTTP 200.
+- **NEXT (still open from Henry's report):** verify the above end-to-end in browser with a real story (narration audible + images visible + intro/outro on screen). Children-planner format + length, Phase 3 substitution (phantom extra people / PuLID face-lock needs R2 public URLs), karaoke MAIN local pipeline remain on the list (FIXNEWCHIDHYBRIDANDMORE05272026.MD).
+
+---
+
+## (prev) Session 2026-05-27 — Mobile shell LIVE + recovery
+**HEAD:** `68788e9` · **Live:** andiostudio.com (server :3200, production `next start`, Next 16.2.1)
 
 ## ✅ DONE THIS SESSION
 1. **Mobile-responsive drawer shell — SHIPPED + LIVE.** Phone was unusable (218px sidebar crushed content). New `app/components/AppShell.tsx` + mobile-only `@media(max-width:768px)` CSS in `globals.css` → sidebar becomes hamburger drawer on ≤768px. **Desktop pixel-identical (verified 1440px before/after), tsc clean, hamburger display:none on PC.** Commit `68788e9`, deployed to server (build `mQRPM--uqPAQipYBYFc1_`), live-verified phone+PC. Screenshots in `tests/_mobile/`.
