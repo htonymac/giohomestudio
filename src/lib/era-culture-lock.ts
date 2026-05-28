@@ -192,10 +192,11 @@ const CULTURE_MAP: Record<string, string> = {
   // Latin American
   latin: "Latin American culture appropriate to the era. Spanish colonial or contemporary Latin American setting.",
   // Western / American (added 2026-05-27 — were MISSING, causing culture selections to resolve to "")
-  american: "Contemporary American (USA) culture. The people are predominantly White / Caucasian Americans with light/fair skin unless the story or characters specify another background. North American urban or suburban setting, modern Western fashion and architecture, American English.",
-  usa: "Contemporary American (USA) culture. Predominantly White / Caucasian people with light/fair skin unless otherwise specified. North American setting, modern Western fashion, American English.",
+  american: "Contemporary American (USA) SETTING — modern Western fashion, architecture and American English. America is multi-racial: people may be White, Black, Latino, Asian or any background. Follow each character's stated ethnicity/skin tone; do NOT force a single race.",
+  usa: "Contemporary American (USA) SETTING — modern Western fashion and American English. Multi-racial population; follow each character's stated ethnicity/skin tone, do NOT force a single race.",
   white: "White / Caucasian people with light, fair skin in a contemporary Western (American or European) setting with modern fashion, unless the story specifies another background.",
-  hollywood: "Hollywood / American cinema culture. Predominantly White / Caucasian Western cast with light skin, film-set glamour, contemporary American fashion and locations.",
+  black: "Black people with dark or brown skin (e.g. African-American or Black diaspora) in a contemporary setting unless the story specifies another era/region.",
+  hollywood: "Hollywood / American cinema SETTING — film-set glamour, contemporary American fashion and locations. Cast may be ANY race; follow the character details, do NOT force a single race.",
   // South & East Asian
   bollywood: "Bollywood Indian culture. The people are South Asian (Indian) with brown skin. Hindi-cinema aesthetic — vibrant colors, sarees, kurtas and lehengas, gold jewelry, expressive song-and-dance energy, Indian urban or village setting.",
   indian: "Indian South Asian culture appropriate to the era. The people are South Asian (Indian) with brown skin. Authentic Indian setting, clothing (sarees, kurtas), and customs.",
