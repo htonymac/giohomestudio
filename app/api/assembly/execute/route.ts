@@ -174,13 +174,42 @@ async function preprocessOneSegment(
   return null;
 }
 
-// ── Preprocess segments in parallel — all downloads + transcodes run concurrently ──
-// P1-B 2026-05-14: was sequential for-loop (30-60s for 8 images). Now Promise.all (~5s).
+// ── Bounded-concurrency mapper ──────────────────────────────────────────────
+// CRITICAL FIX 2026-05-28: an unbounded Promise.all over the segment list spawned
+// one ffmpeg per segment SIMULTANEOUSLY. A Gen-Max hybrid story expands to 50-70
+// image segments; 70 concurrent ffmpeg processes saturated the 4-core VPS, so most
+// conversions hit their 60s timeout and were KILLED mid-write — leaving 0-byte
+// clips. Those got dropped from the concat → "images not assembled / outro didn't
+// display / image display bad" (Henry's render: segs 12-69 were all 0 bytes).
+// A small worker pool keeps CPU sane so every clip (incl. placeholders) finishes.
+async function mapPool<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await fn(items[i], i);
+    }
+  }
+  const n = Math.max(1, Math.min(limit, items.length));
+  await Promise.all(Array.from({ length: n }, () => worker()));
+  return results;
+}
+
+// ── Preprocess segments with bounded concurrency ──
+// P1-B 2026-05-14: was sequential for-loop (30-60s for 8 images) → Promise.all.
+// 2026-05-28: Promise.all over 70 segments killed ffmpeg under load → bounded pool.
 async function preprocessSegments(
   segments: AssemblySegment[],
   outputDir: string
 ): Promise<Map<string, string>> {
-  const results = await Promise.all(segments.map(seg => preprocessOneSegment(seg, outputDir)));
+  // 4 concurrent ffmpeg jobs: fast enough (70 imgs ≈ 30-40s) without saturating CPU.
+  const FFMPEG_CONCURRENCY = 4;
+  const results = await mapPool(segments, FFMPEG_CONCURRENCY, seg => preprocessOneSegment(seg, outputDir));
   const resolved = new Map<string, string>();
   for (const r of results) {
     if (r) resolved.set(r.id, r.clipPath);
