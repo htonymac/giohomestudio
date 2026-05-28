@@ -533,10 +533,51 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
     // Models stop early when they think the story is "complete". This validation
     // catches sub-60% targets and surfaces a clear warning instead of silently
     // accepting a 200-word result for a 5-min target.
-    const fullScriptWords = (expandedStory.fullScript || "").trim().split(/\s+/).filter(Boolean).length;
+    // ── Iterative length fill (Bug B real fix 2026-05-27) ─────────────────────
+    // A single LLM pass stops once the model thinks the story is "complete"
+    // (~600 words even for a 20-min request). For long requests we run up to TWO
+    // CONTINUATION passes: each asks the model to keep writing from where it left
+    // off until the word budget is ~met, then we append the new text to fullScript
+    // (which drives narration + video length downstream).
+    //
+    // Guards (fail-safe — never blocks or worsens the response):
+    //   • only runs for long asks (target ≥ 400 words ≈ 3 min+)
+    //   • max 2 passes; stops early once 85% of target is reached
+    //   • a failed pass, or one that adds < 40 words, just keeps the shorter story
+    let fullScriptWords = (expandedStory.fullScript || "").trim().split(/\s+/).filter(Boolean).length;
+    let lengthPasses = 0;
+    const wantsLongFill = targetWordCount >= 400;
+    while (wantsLongFill && lengthPasses < 2 && fullScriptWords < targetWordCount * 0.85) {
+      lengthPasses++;
+      const wordsStillNeeded = Math.max(150, targetWordCount - fullScriptWords);
+      const tail = (expandedStory.fullScript || "").split(/\s+/).slice(-120).join(" "); // last ~120 words for continuity
+      const continuePrompt =
+        `Continue the following children's ${ctype || "story"} script. It is too short: the target is about ` +
+        `${targetWordCount} words and it currently has ${fullScriptWords}. Write roughly ${wordsStillNeeded} MORE ` +
+        `words in the SAME style, voice, format, characters and reading level, picking up exactly where it stops. ` +
+        `Do NOT repeat earlier lines, do NOT restart, do NOT add a title or preamble — return ONLY the additional ` +
+        `script text.\n\n…${tail}`;
+      const cont = await callLLM(continuePrompt, systemPrompt, {
+        role: tier === "pro" ? ("quality" as const) : ("fast" as const),
+        temperature: 0.7,
+        maxTokens,
+        forceProvider: forceProvider as "claude" | "openai" | "gpt" | "grok" | "ollama" | undefined,
+        forceModel,
+      });
+      if (!cont.ok || !cont.text?.trim()) break;                 // failed pass → keep what we have
+      const addition = cont.text.trim();
+      const addedWords = addition.split(/\s+/).filter(Boolean).length;
+      if (addedWords < 40) break;                                // model had nothing more → stop looping
+      expandedStory.fullScript = `${expandedStory.fullScript || ""} ${addition}`.trim();
+      fullScriptWords += addedWords;
+    }
+
+    // FIX 4 (2026-05-22): post-LLM word count validation — warn if STILL short
+    // after the continuation passes above, so the caller sees it instead of a
+    // silently-tiny script.
     const shortfall = fullScriptWords < targetWordCount * 0.6;
     const warning = shortfall
-      ? `Story is shorter than target. Got ${fullScriptWords} words (target ${targetWordCount} for ${durMin}-min). LLM stopped early — try a different model (Pro tier / Claude / GPT) or break the prompt into chapters.`
+      ? `Story is shorter than target. Got ${fullScriptWords} words (target ${targetWordCount} for ${durMin}-min) after ${lengthPasses} continuation pass(es). Try Pro tier / a different model.`
       : undefined;
 
     return NextResponse.json({
