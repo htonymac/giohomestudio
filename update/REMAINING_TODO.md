@@ -10,8 +10,16 @@
 - Every Claude call now auto-falls-back to OpenAI GPT-4o-mini (works, lower quality). Top up whenever for Claude-quality output. Not blocking anything.
 
 ### B. Phase 3 — cross-scene character face-lock (PuLID)
-- Same character should look identical in scene 1 vs scene 5. Needs PuLID face-lock, which needs **PUBLIC image URLs** for the reference portraits → gated on the **R2 storage cutover** (STORAGE_PROVIDER still `local`).
-- **Exact next step when Henry green-lights R2:** flip cutover → portraits get public URLs → wire `scene-image` to feed reference portrait to PuLID → gen a multi-scene cast, confirm identity holds across scenes.
+- **R2 is NOT needed** (correction 2026-05-29): andiostudio.com already serves `/api/media/` publicly (verified HTTP 200), and `scene-image` now feeds FAL PuLID the **absolute public URL** (`env.appUrl`). Public-URL part = DONE.
+- **REAL blocker: FAL is OUT OF MONEY** — live check returned `403 "User is locked. Exhausted balance."` PuLID is a FAL model, so face-lock can't run until Henry **tops up FAL at fal.ai/dashboard/billing**.
+- **Exact next step after FAL top-up:** gen a single-char scene (closeup framing → willFaceLock=true) with a portrait → confirm PuLID runs (model id `fal_flux_pulid`) → gen the same character across 2-3 scenes → confirm the face holds.
+
+### C. Provider credit / status — LIVE snapshot 2026-05-29 (re-run `scripts/credit_report.mjs`, ~$0.005/run)
+- **Segmind:** ✅ working — **6.91 credits** remaining.
+- **ElevenLabs:** ✅ working for TTS (36 voices). Balance not readable — the key lacks the `user_read` permission; enable it on the key and the report will show characters-left.
+- **Kling:** ✅ key valid (direct API). No prepaid "balance" number via API — quota shows in the Kling console.
+- **FAL:** ❌ **LOCKED — exhausted balance ($0).** Blocks PuLID face-lock + all FAL video/image models. Top up to restore.
+- **Anthropic:** depleted (auto-falls back to OpenAI). **OpenAI:** working (the active fallback). **Kie:** key set.
 
 ---
 
