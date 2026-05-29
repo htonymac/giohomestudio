@@ -4,6 +4,55 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-29 — ✅ FIXED (deployed `efaee13`, awaits Henry visual reverify): Narrator/actor audio overlap + Subtitle window overlap
+
+**STATUS UPDATE:** Fix shipped + live. Two commits:
+- `8f1fd62` — `src/lib/assembly-builder.ts` exports `computeNarratorWindows()` helper with Fallback B (longest entry overall when no entry starts at ≤0.5s — the path that was broken). `app/api/assembly/execute/route.ts` `buildSubEntries()` now consumes the helper, skips narrator cursor past actor windows, clips narrator end at next actor window start, drops sub-0.5s entries. Diagnostic `[duck]` + `[subtitle-coord]` logs added.
+- `efaee13` — `scripts/verify_coord_unit.mjs` proves 3/3 cases pass including the split-per-scene narrator case.
+
+**Verify on next render:** Henry triggers a fresh hybrid render (`Make Video` on any project with narrator + actor segments). Expect:
+- Narrator silent during actor dialogue, returns when actor stops.
+- Subtitles sequential — no D-over-A overlap.
+- Server logs (`journalctl -u ghs.service`): `[duck] narratorIdx=N actorWindows=K entries=M` should show `narratorIdx >= 0` AND `actorWindows > 0`. If either is 0/-1, planner is sending entries in an unexpected shape — surface and fix planner side.
+
+**Original report below** ↓
+
+## 2026-05-29 — Original report (PAIR): Narrator/actor audio overlap + Subtitle window overlap
+
+**Symptom (Henry, e2e on `ghs_hybrid_default_1780008307352`):**
+1. Narrator audible at FULL volume during actor dialogue — no ducking. "Heard the actor voice the same timing with the narration."
+2. Subtitle entries overlap visually: "D come on top of A even before C goes" — multiple captions on screen simultaneously.
+
+**Diagnosis (paired root cause — narrator/actor coordination missing in both audio AND subtitle paths):**
+
+- **Audio path** — `src/lib/assembly-builder.ts` commit `9d8ccba` (2026-05-28) added duck logic that lowers narrator volume to `NARRATOR_DUCK_VOL=0.06` during actor windows. It DID run for this render (`buildAssemblyPlan` is called at `app/api/assembly/execute/route.ts:392`). But the duck didn't activate. Suspects:
+  - `narratorIdx` fallback only picks an entry whose `startTime ≤ 0.5` — fails if the narrator entry is split into per-scene chunks each starting at scene time.
+  - Actor entries arrive on a SEPARATE narration[] array (or different track) → `actorWindows` empty → no duck filter emitted.
+  - Need fresh test render + dev-server logs to confirm which.
+
+- **Subtitle path** — `app/api/assembly/execute/route.ts:540` `narrationWithText = fullAssembly.narration.filter(n => n.text && n.text.trim())` includes BOTH narrator AND actor entries. `buildSubEntries()` (L545–588) walks each entry independently, emitting sentences across that entry's `startTime..endTime`. Narrator entry's sentences (spanning whole video) overlap actor entry's sentences (5-10s windows). All emitted as separate `drawtext=...:enable='between(t,S,E)'` filters. FFmpeg renders ALL active windows → multiple captions stacked.
+
+**Same root cause, two surfaces.** Both need `narratorIdx` + `actorWindows` computed ONCE and applied to both audio mix AND subtitle emission. Currently the duck logic lives only in assembly-builder.ts; subtitle path has none.
+
+**Proposed fix (NOT YET APPLIED — awaits Henry GO):**
+1. Lift `narratorIdx` + `actorWindows` computation to a shared helper (or compute in route.ts and pass to both).
+2. In `buildSubEntries()`: when emitting NARRATOR sentences, skip cursor past any actor window it falls into, AND clip sentence `end` at the next actor window `start`. Drop tiny <0.5s windows.
+3. Audio diagnostic: add console.log of `narratorIdx`, `actorWindows.length`, `entries.map(n=>({s,e,isN:n.isNarrator}))` in assembly-builder. Re-run e2e to confirm whether duck didn't apply because of detection vs missing-actor-entries.
+4. After diagnosis, fix narrator detection (require `isNarrator` flag set by hybrid-planner OR raise the start-time threshold + add longest-duration tiebreak).
+
+**Why this matters:** the #51 ducking fix shipped 2026-05-28 worked on Henry's verification test then but NOT on today's render → likely a narrator-detection edge case in real hybrid stories vs the verification fixture.
+
+**Files to touch (when GO):**
+- `src/lib/assembly-builder.ts` (narratorIdx detection robustness + diagnostic log + export narratorIdx/actorWindows so callers can reuse)
+- `app/api/assembly/execute/route.ts` (subtitle path uses lifted narratorIdx/actorWindows; skip narrator sentences during actor windows)
+
+**Triggers logged for Henry:**
+- `go fix subtitle overlap` — apply subtitle-path fix only (low risk, isolated to drawtext entries)
+- `go diagnose audio duck` — add logs + re-render test, surface the failure mode
+- `go fix both` — apply subtitle fix + audio diagnostic + a fresh render in one shot
+
+---
+
 ## 2026-05-27 — ✅ FIXED: Asset delete button "doesn't work" (deleted assets reappear)
 
 **Symptom (Henry):** deleting a nonsense asset in Asset Library didn't stick.

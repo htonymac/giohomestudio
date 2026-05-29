@@ -1,5 +1,15 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-29 — Narrator/actor coordination on audio AND subtitle paths — `8f1fd62` + `efaee13`
+
+Henry's e2e on `ghs_hybrid_default_1780008307352` exposed two paired regressions: narrator played at full volume during actor dialogue (no ducking) AND subtitle entries overlapped on screen ("D come on top of A even before C goes"). Same coordination gap on two surfaces. The 2026-05-28 duck fix lived only in `src/lib/assembly-builder.ts`, and its `narratorIdx` fallback only matched entries starting at `<=0.5s` — when the narrator is split into per-scene chunks (none start at 0), detection returns -1 → no duck emitted. Subtitle path had no equivalent windowing at all.
+
+Fix: extract `computeNarratorWindows()` helper to `assembly-builder.ts` with a NEW Fallback B (longest entry overall) for the split-narrator case, export it, and consume it from BOTH paths — the audio mix in `buildAssemblyPlan` and `buildSubEntries()` in `app/api/assembly/execute/route.ts`. Subtitle clipping now skips the cursor past actor windows and clips sentence end at the next actor start; sub-0.5s entries dropped. Diagnostic `[duck]` and `[subtitle-coord]` logs added so journalctl shows narratorIdx + actorWindows count on every render.
+
+`scripts/verify_coord_unit.mjs` proves the math: 3/3 unit cases pass including the broken split-per-scene narrator case. Deployed live via systemd restart. Henry to reverify on next hybrid render — `[duck] narratorIdx>=0 actorWindows>0` confirms activation.
+
+---
+
 ## 2026-05-29 — Housekeeping sweep — `529269f`
 
 Closed three solo backlog items in one pass. (1) **Orphan `md-only-backup-2026-05-27` branch** retired: tagged commit `f74e6d9` as `backup/md-2026-05-27` (recoverable) then deleted the branch ref. (2) **Two untracked planning docs** secret-scanned (env var NAMES only, no values) and committed: `update/PLANS/MASTER_PLAN_05262026.md` + `update/onboarding_ghs_linux_05232026.md`. (3) **Karaoke free-engine e2e re-verified** on server — `scripts/karaoke_e2e_test.mjs` ran all 8 steps HTTP 200 in ~62s, stock music provider (zero paid spend), assembled mp3 (1.32 MB) + export mp3 (1.39 MB) on disk. One quality note: `analyze` returns `tempo: undefined` (librosa BPM not surfacing) — pipeline downstream unaffected, logged as low-pri.
