@@ -457,6 +457,16 @@ export async function POST(req: NextRequest) {
       const cleaned = url.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "");
       return `/api/media/${cleaned}`;
     }
+    // FACE-LOCK PUBLIC URL (2026-05-28): FAL PuLID FETCHES the reference portrait over HTTP,
+    // so it needs an ABSOLUTE public URL — a relative /api/media/... path is unreachable from
+    // FAL's servers. NEXT_PUBLIC_APP_URL = https://andiostudio.com (public via CF tunnel, already
+    // serves /api/media/ with HTTP 200). This is why R2 is NOT required for face-lock.
+    function toPublicUrl(u: string): string {
+      if (!u) return u;
+      if (u.startsWith("http://") || u.startsWith("https://")) return u;
+      const base = (env.appUrl || "").replace(/\/$/, "");
+      return u.startsWith("/") ? `${base}${u}` : `${base}/${u}`;
+    }
     const referenceImageUrls: string[] = [];
     for (const c of resolvedCharacters) {
       if (c.imageUrl) referenceImageUrls.push(normalizeRef(c.imageUrl));
@@ -553,7 +563,7 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
       outputPath,
-      referenceImageUrl: willFaceLock ? referenceImageUrls[0] : undefined,
+      referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
       // F4: skip identity lock for multi-character scenes — composition wins over face precision
       useIdentityLock: willFaceLock,
     });
@@ -576,7 +586,7 @@ export async function POST(req: NextRequest) {
             height: 720,
             seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
             outputPath,
-            referenceImageUrl: willFaceLock ? referenceImageUrls[0] : undefined,
+            referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
             useIdentityLock: willFaceLock,
           });
           if (!result.success && result.model) {
