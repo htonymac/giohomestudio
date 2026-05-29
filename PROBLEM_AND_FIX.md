@@ -712,3 +712,14 @@ Added `actorVoicesEnabled` (default on, persisted). When off, all character dial
 - (c) Environment came right once the `location` param was passed (the real planner flow passes it; the first test omitted it). **Verified — correct workshop with the model plane on the bench.**
 - (d) Strengthened the person-count lock (#50): early + late placement + a distinctness directive ("each is visually DISTINCT, do not duplicate/clone"). The egregious duplicate co-protagonist is gone; only a faint distant background worker can remain (acceptable ambiance, not a duplicate).
 **Prevention:** style words like "cinematic/camera/shot" leak as literal content — negate the equipment. Age locks must enumerate what NOT to render. Always pass `location` for environment fidelity.
+
+---
+
+## 53. Semantic drift — "plane wings" rendered an ANGEL with wings (2026-05-28)
+
+**Problem:** A realistic story scene about a completed model **plane** ("its wings catch the light", "masterpiece") rendered an **angel with wings** in the final video. Henry: fix the SYSTEM so future stories don't drift like this, not this one story.
+**Root cause:** Diffusion models carry a strong divine/fantasy prior for ambiguous words — "wings", "soar", "flight", "masterpiece glows with light", "light" → angel / halo / ethereal glow. No guard stopped non-fantasy stories from rendering literal fantasy imagery.
+**Fix (systemic):** New shared `getAntiFantasyNegative(contextText)` in `src/lib/style/sanitizer.ts`. It scans the scene text + character descriptions + culture for genuine fantasy/supernatural signals (angel, fairy, dragon, magic, ghost, mythical, divine, …). If NONE present (i.e. realistic/contemporary), it appends a negative blocking: angel/fairy/feathered wings ON A PERSON, winged human, halo, fairy, dragon, mythical/fantasy creature, magical/ethereal/divine glow, surreal/dreamlike, floating/levitating. Aircraft/vehicle wings are unaffected (positive prompt names the object). Wired into `scene-image` (hybrid + children) and `establishing-shot/generate`. Returns "" for real fantasy/ghost stories so they still work.
+**Verification:** regenerated the exact drift scene (`scripts/plane_not_angel_test.mjs`, "completed model airplane, wings catching the light") + viewed the PNG → a real wooden model **airplane** on the bench (fuselage, wings, propeller, landing gear). No angel/halo/glow.
+**Prevention:** non-fantasy is the default — always negate fantasy beings/wings/halos/divine-glow unless the story explicitly signals fantasy. Ambiguous nouns ("wings", "spirit", "light") must not be left to the model's strongest prior.
+**Known residual (model adherence):** single-character scenes can still gain an unrequested extra person on the cheap free model (segmind pruna); count-lock helps but isn't bulletproof — a stronger paid model obeys better.
