@@ -4,7 +4,7 @@
 // strips img: prefix, then runs the standard FFmpeg concat pipeline.
 
 import { NextRequest, NextResponse } from "next/server";
-import { buildAssemblyPlan, estimateAssemblyCost } from "@/lib/assembly-builder";
+import { buildAssemblyPlan, estimateAssemblyCost, computeNarratorWindows } from "@/lib/assembly-builder";
 import type { AssemblyJSON, AssemblySegment } from "@/lib/assembly-schema";
 import { audit } from "@/lib/audit";
 import { env } from "@/config/env";
@@ -548,7 +548,26 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
             // FIX (2026-05-22): cap at 20 words per caption entry so long sentences
             // are split into multiple shorter entries instead of one wide single line.
             const MAX_CAPTION_WORDS = 20;
-            for (const entry of entries) {
+            // ── NARRATOR/ACTOR COORDINATION (Henry 2026-05-29) ────────────────
+            // Without this, narrator subtitle entries (spanning whole video) and actor
+            // subtitle entries (5-10s scene windows) emit overlapping `between(t,S,E)`
+            // drawtext filters → "D appears on A even before C goes". Same shared helper
+            // the audio duck uses, applied to subtitle timeline.
+            const { narratorIdx, actorWindows } = computeNarratorWindows(entries);
+            console.log(`[subtitle-coord] narratorIdx=${narratorIdx} actorWindows=${actorWindows.length} entries=${entries.length}`);
+            const actorWindowAt = (t: number): [number, number] | null => {
+              for (const w of actorWindows) if (t >= w[0] && t < w[1]) return w;
+              return null;
+            };
+            const nextActorStartAfter = (t: number, before: number): number | null => {
+              let best: number | null = null;
+              for (const [s] of actorWindows) {
+                if (s > t && s < before && (best === null || s < best)) best = s;
+              }
+              return best;
+            };
+            for (let entryIdx = 0; entryIdx < entries.length; entryIdx++) {
+              const entry = entries[entryIdx];
               const text = entry.text!.trim();
               const entryStart = entry.startTime || 0;
               const rawEnd = entry.endTime || 0;
@@ -575,12 +594,29 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
               // Word-count proportion — speech speed is roughly proportional to word count
               const wordCounts = sentences.map(s => Math.max(s.split(/\s+/).filter(Boolean).length, 1));
               const totalWords = wordCounts.reduce((a, b) => a + b, 0);
+              const isNarrator = entryIdx === narratorIdx;
               let cursor = entryStart;
               for (let i = 0; i < sentences.length; i++) {
                 if (cursor >= entryEnd) break;
+                // Narrator only: skip cursor past any actor window it falls inside
+                if (isNarrator) {
+                  const win = actorWindowAt(cursor);
+                  if (win) {
+                    cursor = win[1];
+                    if (cursor >= entryEnd) break;
+                  }
+                }
                 const dur = Math.max((wordCounts[i] / totalWords) * totalDur, MIN_DUR);
-                const end = Math.min(cursor + dur, entryEnd);
-                result.push({ start: cursor, end, text: sentences[i] });
+                let end = Math.min(cursor + dur, entryEnd);
+                // Narrator only: clip end at next actor window start so caption doesn't bleed
+                if (isNarrator) {
+                  const nextActor = nextActorStartAfter(cursor, end);
+                  if (nextActor !== null) end = nextActor;
+                }
+                // Drop sub-0.5s windows (would flash imperceptibly)
+                if (end - cursor >= 0.5) {
+                  result.push({ start: cursor, end, text: sentences[i] });
+                }
                 cursor = end;
               }
             }

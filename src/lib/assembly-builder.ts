@@ -25,6 +25,52 @@ export interface FFmpegStep {
   dependsOn?: string[];
 }
 
+// ── Shared narrator/actor coordination (audio duck + subtitle clip) ─────────────
+// Both the audio mix path (this file) and the subtitle emission path
+// (app/api/assembly/execute/route.ts) need to know which entry is the narrator
+// and which time windows the actors occupy. Single source of truth lives here.
+export interface NarratorWindows {
+  narratorIdx: number;                      // -1 if not identifiable
+  actorWindows: Array<[number, number]>;    // global [start, end] in seconds, padded
+}
+
+export function computeNarratorWindows<
+  T extends { startTime?: number; endTime?: number; isNarrator?: boolean }
+>(entries: T[], opts?: { padding?: number; fallbackDuration?: number }): NarratorWindows {
+  const pad = opts?.padding ?? 0.25;
+  const fbDur = opts?.fallbackDuration ?? 8;
+
+  // Preferred: explicit isNarrator flag set by the planner
+  let narratorIdx = entries.findIndex(n => n.isNarrator === true);
+  // Fallback A: longest entry that starts at ~0 (single full-length narrator track)
+  if (narratorIdx < 0) {
+    let bestDur = 0;
+    entries.forEach((n, i) => {
+      const dur = (n.endTime || 0) - (n.startTime || 0);
+      if ((n.startTime || 0) <= 0.5 && dur > bestDur) { bestDur = dur; narratorIdx = i; }
+    });
+  }
+  // Fallback B: longest entry overall — covers split-per-scene narrator where no chunk
+  // starts at <=0.5s. Without this, narratorIdx stays -1 → no duck filter emitted.
+  if (narratorIdx < 0) {
+    let bestDur = 0;
+    entries.forEach((n, i) => {
+      const dur = (n.endTime || 0) - (n.startTime || 0);
+      if (dur > bestDur) { bestDur = dur; narratorIdx = i; }
+    });
+  }
+
+  const actorWindows: Array<[number, number]> = [];
+  entries.forEach((n, i) => {
+    if (i === narratorIdx || narratorIdx < 0) return;
+    const start = Math.max(0, (n.startTime || 0) - pad);
+    const dur = (n.endTime || 0) > (n.startTime || 0) ? (n.endTime || 0) - (n.startTime || 0) : fbDur;
+    actorWindows.push([start, (n.startTime || 0) + dur + pad]);
+  });
+
+  return { narratorIdx, actorWindows };
+}
+
 // Build the full FFmpeg execution plan from Assembly JSON
 export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FFmpegStep[] {
   const steps: FFmpegStep[] = [];
@@ -61,29 +107,15 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
       .filter(n => n.audioUrl && !seenUrls.has(n.audioUrl) && seenUrls.add(n.audioUrl))
       .sort((a, b) => (a.startTime || 0) - (b.startTime || 0));
 
-    // ── NARRATOR DUCKING under actor dialogue (Henry 2026-05-28) ──────────────
+    // ── NARRATOR DUCKING under actor dialogue (Henry 2026-05-28, hardened 2026-05-29) ──
     // The narrator is one full-length track at t=0; actor/character voice clips are short
-    // and placed at scene times. Previously they were mixed at equal volume → narrator and
-    // actor talked over each other. Now: while an actor speaks, the narrator ducks to near-
-    // silence (effectively "stops"), then returns. Timing is UNCHANGED — we only modulate
-    // the narrator's volume over its existing timeline.
-    // Narrator = the entry flagged isNarrator, else the longest-duration entry starting at ~0.
-    let narratorIdx = entries.findIndex(n => (n as { isNarrator?: boolean }).isNarrator === true);
-    if (narratorIdx < 0) {
-      let bestDur = 0;
-      entries.forEach((n, i) => {
-        const dur = (n.endTime || 0) - (n.startTime || 0);
-        if ((n.startTime || 0) <= 0.5 && dur > bestDur) { bestDur = dur; narratorIdx = i; }
-      });
-    }
-    // Actor windows = every NON-narrator entry's [start, end], padded 0.25s each side for smoothness.
-    const actorWindows: Array<[number, number]> = [];
-    entries.forEach((n, i) => {
-      if (i === narratorIdx) return;
-      const start = Math.max(0, (n.startTime || 0) - 0.25);
-      const dur = n.endTime > (n.startTime || 0) ? n.endTime - (n.startTime || 0) : 8;
-      actorWindows.push([start, (n.startTime || 0) + dur + 0.25]);
-    });
+    // and placed at scene times. While an actor speaks, the narrator ducks to near-silence
+    // (effectively "stops"), then returns. Timing is UNCHANGED — we only modulate the
+    // narrator's volume over its existing timeline. Helper is exported so the subtitle path
+    // can clip narrator captions against the same actor windows.
+    const { narratorIdx, actorWindows } = computeNarratorWindows(entries);
+    console.log(`[duck] narratorIdx=${narratorIdx} actorWindows=${actorWindows.length} entries=${entries.length}`,
+      entries.slice(0, 8).map(n => ({ s: (n.startTime || 0).toFixed(2), e: (n.endTime || 0).toFixed(2), isN: (n as { isNarrator?: boolean }).isNarrator === true })));
     const NARRATOR_DUCK_VOL = 0.06; // near-silent while an actor speaks (effectively "stops")
 
     entries.forEach((n, i) => {
