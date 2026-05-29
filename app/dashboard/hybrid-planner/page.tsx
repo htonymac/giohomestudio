@@ -619,6 +619,9 @@ function HybridPlannerInner() {
   }
   type StoryMode = "narration-only" | "actors-only" | "mixed";
   const [storyMode, setStoryMode] = useState<StoryMode>("mixed");
+  // Actor/character voices on-off — user can deactivate actor voices anytime (Sound + Assembly).
+  // When false, character dialogue clips are excluded from the assembly (narrator only). 2026-05-28
+  const [actorVoicesEnabled, setActorVoicesEnabled] = useState(true);
   const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("piper");
   // GHS Sound Tier — drives both narration provider and music provider selection
   const [soundTier, setSoundTier] = useState<"ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium">("ghs-sound");
@@ -811,6 +814,7 @@ function HybridPlannerInner() {
           if (d.selectedVideoModelId) setSelectedVideoModelId(d.selectedVideoModelId);
           if (d.subtitleStyle) setSubtitleStyle(d.subtitleStyle);
           if (d.storyMode) setStoryMode(d.storyMode as "narration-only" | "actors-only" | "mixed");
+          if (d.actorVoicesEnabled !== undefined) setActorVoicesEnabled(!!d.actorVoicesEnabled);
           if (d.soundTier && ["ghs-sound", "ghs-plus", "ghs-pro", "ghs-premium"].includes(d.soundTier)) {
             setSoundTier(d.soundTier as "ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium");
           }
@@ -914,7 +918,7 @@ function HybridPlannerInner() {
       narratorAudioUrl, selectedMusicUrl, selectedMusicName,
       selectedVideoModelId,
       sceneVideoVersions, sceneIntelligence,
-      subtitleStyle, storyMode, soundTier,
+      subtitleStyle, storyMode, soundTier, actorVoicesEnabled,
       screenplay, screenplayAuthor, scriptSegments, characterAudioUrls, characterPiperVoices,
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — persist across refresh
       sceneDescHashes,  // 3-B: persist stale-image hash map across sessions
@@ -3962,7 +3966,7 @@ function HybridPlannerInner() {
       const hasPerLineAudio = scriptSegments.some(s => s.type === "dialogue" && s.audioUrl);
       const hasCharVoices = Object.keys(characterAudioUrls).length > 0;
       const hasDialogue = scriptSegments.some(s => s.type === "dialogue") || storyMode === "mixed" || storyMode === "actors-only";
-      if (!hasPerLineAudio && !hasCharVoices && characters.length > 0 && hasDialogue) {
+      if (!hasPerLineAudio && !hasCharVoices && characters.length > 0 && hasDialogue && actorVoicesEnabled) {
         setLastAction("Auto-running: generating per-line character voices before assembly…");
         await generatePerLineVoices();
         await new Promise(r => setTimeout(r, 400));
@@ -4213,7 +4217,9 @@ function HybridPlannerInner() {
         elapsedForChar += s.motionDuration || estimateTextDuration(narText || s.narrationScript || "") || 5;
       }
 
-      if (storyMode !== "narration-only") {
+      // actorVoicesEnabled gate (2026-05-28): user can deactivate actor/character voices in
+      // the Sound or Assembly tab. When off, skip all character dialogue clips → narrator only.
+      if (storyMode !== "narration-only" && actorVoicesEnabled) {
         if (hasPerLineClips) {
           // Per-line system: place each clip at its scene's start + position within that scene
           const textTimings = buildTimings(scriptSegments, narratorPiperSpeed);
@@ -10248,6 +10254,19 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </div>
               )}
 
+              {/* Actor voice on/off — deactivate character voices anytime (also in Assembly tab) */}
+              {storyMode !== "narration-only" && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 14 }}>
+                  <span style={{ fontSize: 11, color: "#fff", fontWeight: 600 }}>🎭 Actor / character voices {actorVoicesEnabled ? "ON" : "OFF (narrator only)"}</span>
+                  <button onClick={() => setActorVoicesEnabled(v => !v)}
+                    style={{ padding: "4px 14px", borderRadius: 20, border: `1px solid ${actorVoicesEnabled ? blue : border}`,
+                      background: actorVoicesEnabled ? `${blue}22` : "transparent",
+                      color: actorVoicesEnabled ? blue : muted, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
+                    {actorVoicesEnabled ? "Deactivate actor voices" : "Activate actor voices"}
+                  </button>
+                </div>
+              )}
+
               {/* Narrator voice / provider selector — only shown after Parse Script has run */}
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
@@ -12467,6 +12486,18 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         </button>
                       ))}
                     </div>
+
+                    {/* Actor / character voices on-off (mirrors the Sound tab control) */}
+                    {storyMode !== "narration-only" && (
+                      <div onClick={() => setActorVoicesEnabled(v => !v)} style={{ marginTop: 10, padding: "10px 12px", borderRadius: 10, background: actorVoicesEnabled ? `${blue}08` : s2, border: `1px solid ${actorVoicesEnabled ? blue : border}`, cursor: "pointer" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ fontSize: 13 }}>🎭</span>
+                          <p style={{ fontSize: 11, fontWeight: 700, color: actorVoicesEnabled ? blue : muted, margin: 0 }}>Actor / Character Voices</p>
+                          <span style={{ marginLeft: "auto", fontSize: 10, color: actorVoicesEnabled ? blue : muted }}>{actorVoicesEnabled ? "ON" : "OFF"}</span>
+                        </div>
+                        <p style={{ fontSize: 9, color: muted, marginTop: 4 }}>{actorVoicesEnabled ? "Character dialogue voiced by actors; narrator ducks while they speak." : "Off — narrator only, no actor voices."}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
