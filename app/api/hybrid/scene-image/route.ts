@@ -554,14 +554,31 @@ export async function POST(req: NextRequest) {
       : richLocation
       ? " (PuLID dropped — single char + rich location; FIX 7)"
       : "";
-    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${dropReason} closeup=${isCloseup} locLen=${(location || "").length} sceneLen=${cleanSceneText.length} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
+    // ── FREE cross-scene character consistency — NO paid face-lock API (2026-05-28) ──
+    // Henry: don't rely on paid APIs. Instead of PuLID/InstantID, derive a STABLE per-character
+    // seed from the primary character's id/name. Same character → same seed every scene, which
+    // (with the already-locked canonical visualDescription + style) keeps appearance consistent
+    // across scenes using ONLY the base image model — no extra API, no spend. FAL PuLID stays
+    // available as the PREMIUM exact-face-lock upgrade for when FAL is funded (willFaceLock path).
+    function stableSeedFrom(s: string): number {
+      let h = 2166136261;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return Math.abs(h | 0) % 2147483647;
+    }
+    const primaryChar = resolvedCharacters[0];
+    const effectiveSeed: number | undefined =
+      (seed !== undefined && seed !== null)
+        ? Number(seed)
+        : (primaryChar ? stableSeedFrom(primaryChar.characterId || primaryChar.id || primaryChar.name) : undefined);
+
+    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${dropReason} closeup=${isCloseup} locLen=${(location || "").length} sceneLen=${cleanSceneText.length} seed=${effectiveSeed ?? "random"} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
     let result = await generateImage({
       modelId: modelId || undefined,
       prompt: structuredPrompt,
       negativePrompt: negativePrompt,
       width: 1280,
       height: 720,
-      seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
+      seed: effectiveSeed,
       outputPath,
       referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
       // F4: skip identity lock for multi-character scenes — composition wins over face precision
@@ -584,7 +601,7 @@ export async function POST(req: NextRequest) {
             negativePrompt: negativePrompt,
             width: 1280,
             height: 720,
-            seed: seed !== undefined && seed !== null ? Number(seed) : undefined,
+            seed: effectiveSeed,
             outputPath,
             referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
             useIdentityLock: willFaceLock,
