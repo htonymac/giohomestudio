@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
 import { getStylePreset } from "@/lib/style-presets";
-import { sanitizeStyleCollisions, getStyleCollisionNegative } from "@/lib/style/sanitizer";
+import { sanitizeStyleCollisions, getStyleCollisionNegative, getAntiFantasyNegative } from "@/lib/style/sanitizer";
 import { getLateAnchor } from "@/lib/style/late-anchor";
 import { extractSceneAction, stripPoseLanguage } from "@/lib/scene/action-extractor";
 import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
@@ -443,7 +443,12 @@ export async function POST(req: NextRequest) {
       ? ""
       : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame";
 
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + getStyleCollisionNegative(styleId) + eraNegative;
+    // Anti-fantasy guard — block angel/fairy wings, halos, divine glow, mythical beings in
+    // non-fantasy stories so ambiguous words ("plane wings", "soar", "masterpiece glows")
+    // don't drift into literal fantasy imagery. Context = scene + character descs + culture.
+    const fantasyContext = `${sceneText || ""} ${storyCulture || ""} ${resolvedCharacters.map(c => c.visualDescription || "").join(" ")}`;
+    const antiFantasyNegative = getAntiFantasyNegative(fantasyContext);
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

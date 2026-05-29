@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
+import { getAntiFantasyNegative } from "@/lib/style/sanitizer";
 
 // Establishing shot types — mirrors hybrid-planner EstablishingShot interface
 export interface EstablishingShot {
@@ -54,9 +55,11 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(", ");
 
-    // Negative prompt — common for establishing/wide shots
+    // Negative prompt — common for establishing/wide shots + anti-fantasy guard so ambiguous
+    // words don't render angels/fairy wings/divine glow in non-fantasy shots (2026-05-28).
     const negativePrompt =
-      "close-up face, portrait, people in foreground, text, watermark, blurry, low quality, duplicate";
+      "close-up face, portrait, people in foreground, text, watermark, blurry, low quality, duplicate"
+      + getAntiFantasyNegative(`${shot.prompt || ""} ${shot.location || ""}`);
 
     // Use wide aspect ratio (1280×720) for establishing shots
     const result = await generateImage({
