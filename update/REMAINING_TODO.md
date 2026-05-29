@@ -1,42 +1,61 @@
 # GHS — Remaining TODO (open backlog)
 
-**Created 2026-05-28** after closing Henry's render report (PROBLEM_AND_FIX #42–#46, all live on andiostudio.com, HEAD `2b1da63`+).
-This is the single place to look for "what's left." Update it as items close. Each item says **who it's blocked on** and the **exact next step**, so any session can pick it up cold.
+**Single place for "what's left."** Updated 2026-05-28. Each item says who it's blocked on + the exact next step so any session can pick it up cold. All fixes below are LIVE on andiostudio.com.
 
 ---
 
-## 🔴 Blocked on Henry (needs an input only he can give)
+## 🔴 Needs Henry (input only he can give)
 
-### 1. Karaoke MAIN full end-to-end on FREE engines — ✅ DONE + CLOSED 2026-05-28
-- Full e2e passes on free engines (`scripts/karaoke_e2e_test.mjs`, Piper-generated voice WAV fixture — Henry confirmed Piper/any TTS voice is fine, no real recording needed): analyze (Whisper+librosa) → flow-profile → beat-recommend → production-brief → generate-music (**stock**, free) → save-mix → assemble (mixed mp3) → export (downloadable mp3). LLM steps fall back to OpenAI. PROBLEM_AND_FIX #46/#48/#49. **No Henry input required.**
-- **Minor follow-up — RESOLVED (no bug):** tempo IS detected (`karaoke_analyze.py` → `tempo_bpm`) and consumers read it correctly; the e2e test just printed the wrong field name.
-- **⚠️ Henry action (whenever):** top up **Anthropic API credits** — depleted. Everything falls back to OpenAI GPT-4o-mini now (works, lower quality than Claude).
+### A. Anthropic API credits — DEPLETED
+- Every Claude call now auto-falls-back to OpenAI GPT-4o-mini (works, lower quality). Top up whenever for Claude-quality output. Not blocking anything.
 
-### 2. Phase 3 — cross-scene character face-lock (PuLID)
-- **State:** Wrong-character/swap bug is largely resolved (chars render correctly per description). Residual = (a) phantom extra people in multi-char scenes, (b) same character not identical across scenes.
-- **Blocked on:** PuLID face-lock needs **PUBLIC image URLs** for the reference portraits. Local `/api/media/...` paths can't feed PuLID → gated on the **R2 storage cutover** (STORAGE_PROVIDER still `local`; see HANDOFF "R2 cleaner DEFERRED to Phase 3 cutover").
-- **Exact next step when unblocked:** flip R2 cutover → portraits get public URLs → wire `scene-image` to pass reference image to PuLID/face-lock → gen a multi-scene cast and confirm identity holds scene 1 vs scene 5.
+### B. Phase 3 — cross-scene character face-lock (PuLID)
+- Same character should look identical in scene 1 vs scene 5. Needs PuLID face-lock, which needs **PUBLIC image URLs** for the reference portraits → gated on the **R2 storage cutover** (STORAGE_PROVIDER still `local`).
+- **Exact next step when Henry green-lights R2:** flip cutover → portraits get public URLs → wire `scene-image` to feed reference portrait to PuLID → gen a multi-scene cast, confirm identity holds across scenes.
 
 ---
 
-## 🟢 Solo (no input needed — agent can do anytime)
+## 🟢 Solo (agent can do anytime — no input needed)
 
-### 3. Orphan branch `md-only-backup-2026-05-27` — ✅ DONE 2026-05-28
-- Created via git plumbing (temp index, never touched working tree/HEAD): **331 tracked .md files, 0 non-markdown**, no code/secrets. Kept **LOCAL** (not pushed, per "dont push .md"). Restore/inspect: `git ls-tree -r --name-only md-only-backup-2026-05-27`.
-- NOTE: a few **untracked** markdown docs were NOT in the backup (ls-files = tracked only): `update/PLANS/MASTER_PLAN_05262026.md`, `update/onboarding_ghs_linux_05232026.md`, `FIXNEWCHIDHYBRIDANDMORE05272026.MD` (the last is intentionally local). Henry: decide if MASTER_PLAN + onboarding should be tracked on main (review for secrets first per [[feedback_git_secret_scan]]), then re-run the branch build to include them.
+### C. Hybrid render browser e2e (human eyeball)
+- Everything is component + API verified (assembly 18/18, audio probe, narrator ducking, gray-drop, person-count, anti-fantasy, perf). What's left is one full real render watched end-to-end via AUT (narration audible + ducking + images correct + intro/outro on screen). Best with AUT watching.
 
-### 4. Hybrid render browser e2e (eyeball)
-- Component-verified already (18/18 segs, gray-drop, narrator). An eyeball pass of a full real render (narration audible + images visible + intro/outro on screen) via AUT + a multi-minute render. Best done when AUT is watching.
-
-### 5. Phantom extra people (multi-character scenes) — ✅ DONE 2026-05-28
-- Added PERSON-COUNT LOCK + extra-people negative to `scene-image` (scoped to 1–4 known cast, skipped for crowd scenes). PROBLEM_AND_FIX #50. Verified by viewing a regenerated 2-char scene: exactly 2 correct distinct mains, no phantom co-protagonist.
+### D. Untracked markdown docs (housekeeping)
+- `update/PLANS/MASTER_PLAN_05262026.md` + `update/onboarding_ghs_linux_05232026.md` are untracked (not in the md-backup branch). Decide if they belong on main (scan for secrets first), then commit. Minor.
 
 ---
 
-## ✅ Closed 2026-05-28 (for context — do not redo)
-- #42 assembly ffmpeg concurrency (images/intro/outro) — bounded pool, verified 18/18.
+## ⚠️ Known residuals — model-adherence limits (NOT clean-fixable on the free image model)
+On the current free model (segmind pruna), prompt engineering reduces but can't fully eliminate:
+- Single-character scenes can still gain an unrequested extra person.
+- A phone occasionally appears in a hand despite the negative.
+- Faint distant background figures in busy scenes.
+**These improve materially with a stronger paid image model (FAL FLUX-dev/pro) when credits/payment return.** Tracked here so they're not chased as prompt bugs.
+
+---
+
+## 🟡 Bigger product tracks (not started — from project_ghs_production_launch_plan)
+Not part of the recent fix sprint; surface only if Henry prioritizes them:
+- R2 storage cutover + DB-aware cleaner (also unblocks B above).
+- Legal/T&C UI enforcement; payment + credits (Paddle).
+- Supervisor/QC API routes (designed in Prisma, no routes yet).
+- Other planners parity: Movie / Music-Video / Commercial / Auto Creator / Free Mode bugs.
+
+---
+
+## ✅ Closed 2026-05-28 (verified + live — do not redo)
+- #42 assembly ffmpeg concurrency (images/intro/outro) — 18/18, 0 zero-byte.
 - #43 mixed-mode narrator restored.
-- #44 gray-flash placeholder drop — verified.
-- #45 children free-tier LLM (ABC format + length) — verified live.
-- #46 karaoke MAIN = free stock (premium gated) — verified live.
-- Regression scripts: `scripts/verify_assembly_concurrency.mjs`, `dead_url_test.mjs`, `abc_format_test.mjs`, `length_fill_test.mjs`, `karaoke_main_free_test.mjs`.
+- #44 gray-flash placeholder drop.
+- #45 children free-tier LLM (ABC format + length).
+- #46 karaoke MAIN = free stock (premium gated).
+- #47 assembly perf — 42s→20s (ultrafast clips + concurrency 7 + final_merge copy).
+- #48 karaoke LLM steps fall back Claude→OpenAI (Anthropic-depletion resilience).
+- #49 karaoke assemble resolves stock-music URL → **full karaoke e2e GREEN**.
+- #50 phantom extra people — person-count lock (verified image).
+- #51 narrator ducks under actor dialogue (timing unchanged) — verified mix.
+- #2  actor-voice ON/OFF toggle (Sound + Assembly tabs).
+- #52 scene-image: cameraman gone, young-adult age lock, environment via `location`.
+- #53 anti-fantasy guard — "plane wings" renders an aircraft, not an angel (verified).
+- Orphan `md-only-backup-2026-05-27` branch (local).
+- Regression scripts in `scripts/`: verify_assembly_concurrency, dead_url_test, abc_format_test, length_fill_test, karaoke_main_free_test, karaoke_e2e_test, phantom_people_test, workshop_scene_test, ducking_test, plane_not_angel_test, audio_merge_test.
