@@ -31,8 +31,14 @@ Build features to work on **free/local** first (seed-locking, Piper, Ollama, sto
 ### C. Hybrid render browser e2e (human eyeball)
 - Everything is component + API verified (assembly 18/18, audio probe, narrator ducking, gray-drop, person-count, anti-fantasy, perf). What's left is one full real render watched end-to-end via AUT (narration audible + ducking + images correct + intro/outro on screen). Best with AUT watching.
 
-### D. Untracked markdown docs (housekeeping)
-- `update/PLANS/MASTER_PLAN_05262026.md` + `update/onboarding_ghs_linux_05232026.md` are untracked (not in the md-backup branch). Decide if they belong on main (scan for secrets first), then commit. Minor.
+### D. Untracked markdown docs (housekeeping) — ✅ DONE 2026-05-29
+- Both committed `529269f` to main after secret-scan (env var names only, no values).
+
+### E. Orphan `md-only-backup-2026-05-27` branch — ✅ DONE 2026-05-29
+- Tagged commit `f74e6d9` as `backup/md-2026-05-27` then deleted branch. Restore: `git branch X backup/md-2026-05-27`.
+
+### F. Karaoke full e2e on free engines — ✅ RE-VERIFIED 2026-05-29
+- Re-ran `scripts/karaoke_e2e_test.mjs` on server. All 8 steps HTTP 200 in ~62s. Stock music provider, no paid API spend. Assembled mp3 1.32 MB + export mp3 1.39 MB written to disk. (One quality note: analyze step returns `tempo: undefined` — librosa BPM detection not returning, but flow-profile+beat-recommend still work fine. Low-pri.)
 
 ---
 

@@ -1,5 +1,13 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-05-29 — Housekeeping sweep — `529269f`
+
+Closed three solo backlog items in one pass. (1) **Orphan `md-only-backup-2026-05-27` branch** retired: tagged commit `f74e6d9` as `backup/md-2026-05-27` (recoverable) then deleted the branch ref. (2) **Two untracked planning docs** secret-scanned (env var NAMES only, no values) and committed: `update/PLANS/MASTER_PLAN_05262026.md` + `update/onboarding_ghs_linux_05232026.md`. (3) **Karaoke free-engine e2e re-verified** on server — `scripts/karaoke_e2e_test.mjs` ran all 8 steps HTTP 200 in ~62s, stock music provider (zero paid spend), assembled mp3 (1.32 MB) + export mp3 (1.39 MB) on disk. One quality note: `analyze` returns `tempo: undefined` (librosa BPM not surfacing) — pipeline downstream unaffected, logged as low-pri.
+
+Subtitle "TOO BIG" bug on the open list = **already fixed** in `5796eaf` (2026-05-27, ASS PlayResX/Y=1920x1080); HANDOFF entry was stale. No work needed.
+
+---
+
 ## 2026-05-27 — Dashboard mobile fixes (double top bar + overflow) — `a42dfac`
 
 Henry's phone screenshot of andiostudio.com/dashboard showed two issues the shell drawer didn't cover: (1) **two stacked top bars** — the dashboard page rendered its own `<TopBar>` on top of AppShell's global one; (2) **content cut off the right edge** — the hero (`1.2fr 1fr`) + stat grids (`repeat(4,1fr)`) are fixed desktop columns that don't collapse on phones. Fix: removed the page-level duplicate TopBar; added `gh-grid-hero/2/4` classes that collapse those grids to 1/2 columns under `@media(max-width:768px)` (inline grid-template overridden via `!important`, desktop untouched). Verified 390px (1 header, no overflow, grids stacked) + 1440px (single bar — dup removed — grids unchanged). Live.
