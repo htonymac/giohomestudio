@@ -687,3 +687,28 @@ C:\Users\USER\AppData\Local\Programs\Python\Python313\Lib\site-packages\librosa\
 **Fix:** Added a PERSON-COUNT LOCK directive ("EXACTLY N people in the entire frame (names) — no additional people, no bystanders, no duplicated/cloned faces…") + a matching `extraPeopleNegative`. Scoped to a known small cast (1–4 resolved characters), skipped for crowd/market/party/class scenes (`sceneHasCrowd` regex) and animal scenes so intended background crowds aren't removed.
 **Verification:** regenerated the Marcus+Lena park scene (`scripts/phantom_people_test.mjs`) and viewed the PNG — exactly 2 distinct correct mains, no phantom co-protagonist (only faint distant street pedestrians = realistic ambiance, not the bug).
 **Prevention:** when a known cast size exists, state the exact count in the prompt AND negate extras; never assume the model infers "only these N people" from descriptions alone.
+
+---
+
+## 51. Narrator + actor voices talk over each other (2026-05-28)
+
+**Problem:** In mixed mode the narrator and actor/character voices played at the same volume at overlapping times → cacophony. Henry: "if narration is going it needs to stop for action once actor voice is involved" (without breaking timing).
+**Root cause:** `src/lib/assembly-builder.ts` `mix_narration` mixed every narration entry (narrator + actor clips) at equal volume with no ducking.
+**Fix:** Identify the narrator entry (flagged `isNarrator`, else the longest track starting at ~0). Compute the actor windows (every other entry's [start,end] padded 0.25s). Apply a `volume=0.06:enable='between(t,s1,e1)+…'` filter ONLY to the narrator track so it ducks to near-silence (effectively "stops") while an actor speaks, then returns. Narrator has no adelay so its local time == global timeline → windows align. **Timing is unchanged** — only the narrator's volume is modulated.
+**Verification:** `scripts/ducking_test.mjs` — narrator(t=0,21s) + actor(t=5,8s) → `mix_narration: completed`, output has video+audio. Filter syntax valid.
+
+## (feature) Actor/character voice on-off toggle (#2, 2026-05-28)
+
+Added `actorVoicesEnabled` (default on, persisted). When off, all character dialogue clips are excluded from the assembly → narrator only. Toggle shown in BOTH the Sound tab (next to the story-mode pills) and the Assembly tab (under Intro/Outro). Gated in the assembly build + the auto-generate-per-line-voices step. `app/dashboard/hybrid-planner/page.tsx`.
+
+---
+
+## 52. Scene image: cameraman in frame + wrong age + wrong environment (2026-05-28)
+
+**Problem (Henry's workshop render):** (a) a film cameraman/camera appeared between the characters; (b) Malik (narrated early-20s) rendered as ~late-40s; (c) the image showed a downtown street instead of the narrated workshop; (d) a phantom duplicate person.
+**Root cause + fix (`app/api/hybrid/scene-image/route.ts`):**
+- (a) The prompt's "cinematic / camera framing / scene shot / still frame" language made the model render a literal film camera + operator → added `filmCrewNegative` (film camera, cameraman, camera crew, boom mic, tripod, …) unless the scene is actually about filming. **Verified gone.**
+- (b) `young_adult` AGE_VISUAL rewritten to forbid grey hair / wrinkles / 40s-50s, and the anti-age negative for young_adult now lists "middle-aged/40/50/grey-bearded/wrinkled ${name}". **Verified — renders early-mid 20s.**
+- (c) Environment came right once the `location` param was passed (the real planner flow passes it; the first test omitted it). **Verified — correct workshop with the model plane on the bench.**
+- (d) Strengthened the person-count lock (#50): early + late placement + a distinctness directive ("each is visually DISTINCT, do not duplicate/clone"). The egregious duplicate co-protagonist is gone; only a faint distant background worker can remain (acceptable ambiance, not a duplicate).
+**Prevention:** style words like "cinematic/camera/shot" leak as literal content — negate the equipment. Age locks must enumerate what NOT to render. Always pass `location` for environment fidelity.
