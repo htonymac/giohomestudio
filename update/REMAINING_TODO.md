@@ -9,10 +9,13 @@
 ### A. Anthropic API credits — DEPLETED
 - Every Claude call now auto-falls-back to OpenAI GPT-4o-mini (works, lower quality). Top up whenever for Claude-quality output. Not blocking anything.
 
-### B. Phase 3 — cross-scene character face-lock (PuLID)
-- **R2 is NOT needed** (correction 2026-05-29): andiostudio.com already serves `/api/media/` publicly (verified HTTP 200), and `scene-image` now feeds FAL PuLID the **absolute public URL** (`env.appUrl`). Public-URL part = DONE.
-- **REAL blocker: FAL is OUT OF MONEY** — live check returned `403 "User is locked. Exhausted balance."` PuLID is a FAL model, so face-lock can't run until Henry **tops up FAL at fal.ai/dashboard/billing**.
-- **Exact next step after FAL top-up:** gen a single-char scene (closeup framing → willFaceLock=true) with a portrait → confirm PuLID runs (model id `fal_flux_pulid`) → gen the same character across 2-3 scenes → confirm the face holds.
+### B. Phase 3 — cross-scene character face-lock
+- **FREE version DONE (no paid API):** `scene-image` derives a **stable per-character seed** (hash of character id/name) so the same character renders consistently across scenes using only the base image model — no PuLID/InstantID, no spend. Plus the canonical visualDescription + style stay locked. This is the everyday face-consistency.
+- **PREMIUM exact-lock (later, when funded):** FAL PuLID for pixel-exact face match. Already wired — `scene-image` feeds it the absolute public URL (`env.appUrl`; **R2 NOT needed**, andiostudio.com serves `/api/media/` publicly). Blocked only by **FAL being out of money** (live: `403 exhausted balance`). When Henry funds FAL: gen a single-char closeup with a portrait → confirm `fal_flux_pulid` runs → same character across scenes holds exactly.
+- Verify the FREE seed consistency when Henry next renders (no extra cost — it's the seed on the images he already makes).
+
+### Principle going forward (Henry 2026-05-29): NO lazy paid-API reliance
+Build features to work on **free/local** first (seed-locking, Piper, Ollama, stock music, stock fallback); a paid API (FAL, ElevenLabs balance, Anthropic) is a **premium upgrade for later**, never the only path. Don't treat "API exhausted" as a wall — have a free fallback.
 
 ### C. Provider credit / status — LIVE snapshot 2026-05-29 (re-run `scripts/credit_report.mjs`, ~$0.005/run)
 - **Segmind:** ✅ working — **6.91 credits** remaining.
