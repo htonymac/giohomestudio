@@ -2478,6 +2478,12 @@ function ChildrenPlannerInner() {
             if (d.activeTab)        setActiveTab(d.activeTab);
             if (d.storyEra)         setStoryEra(d.storyEra);
             if (d.storyCulture)     setStoryCulture(d.storyCulture);
+            // C6 PACING SAVE/LOAD (Henry 2026-05-30): restore the pacing engine outputs
+            // so a refresh / re-open keeps the user's plan + narration + assembled video.
+            if (d.pacingPlan)       setPacingPlan(d.pacingPlan);
+            if (d.pacingAudioUrl)   setPacingAudioUrl(d.pacingAudioUrl);
+            if (d.pacingVideoUrl)   setPacingVideoUrl(d.pacingVideoUrl);
+            if (d.pacingTimingMap)  setPacingTimingMap(d.pacingTimingMap);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -2505,6 +2511,8 @@ function ChildrenPlannerInner() {
       scriptSegments, screenplay, selectedMusicUrl, selectedMusicName,
       soundTier, modelSettings, activeTab,
       characters,
+      // C6 PACING SAVE (Henry 2026-05-30): persist pacing engine outputs so they survive refresh.
+      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
@@ -2518,7 +2526,8 @@ function ChildrenPlannerInner() {
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       sceneBeatImages, selectedBeatImages, useMaxImageScenes,
       scriptSegments, screenplay,
-      selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters]);
+      selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters,
+      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
