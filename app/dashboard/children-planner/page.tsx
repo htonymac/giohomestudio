@@ -309,6 +309,11 @@ function ChildrenPlannerInner() {
   // ── Feature state: makeSceneVideo ──
   interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string; characters?: string[]; variantUrls?: string[] }
   const [childScenes, setChildScenes] = useState<ChildScene[]>([]);
+  // ── AI Audio Plan (Henry 2026-05-30, task #12): per-scene audioPlan state +
+  // runChildrenAudioPlan() mirror hybrid's Step 7. Holds narration script + music mood + SFX list per scene.
+  interface ChildAudioPlan { narrationScript?: string; musicMood?: string; sfxList?: string[]; ambienceList?: string[] }
+  const [audioPlans, setAudioPlans] = useState<Record<number, ChildAudioPlan>>({});
+  const [runningAudioPlan, setRunningAudioPlan] = useState(false);
   const [sceneVideos, setSceneVideos] = useState<Record<string, string>>({});
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
   const [generatingSceneVideos, setGeneratingSceneVideos] = useState<Set<string>>(new Set());
@@ -2279,6 +2284,59 @@ function ChildrenPlannerInner() {
     setNarrationGenerating(false);
   }
 
+  // ── AI Audio Plan for children (Henry 2026-05-30, task #12) ──
+  // Mirror hybrid's aiPrepareAssembly: send all scenes + characters + story context to
+  // /api/hybrid/audio-plan, receive per-scene plan (narration script + music mood + SFX
+  // list + ambience list). Stash in audioPlans state keyed by scene number.
+  async function runChildrenAudioPlan() {
+    if (childScenes.length === 0) { setLastAction("Build scenes first (Scene Board tab)"); return; }
+    setRunningAudioPlan(true);
+    setLastAction("AI is planning audio for each scene...");
+    try {
+      const storyContext = [
+        "Story:",
+        textContent || expandedContent || "",
+        "",
+        "Scenes:",
+        ...childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}: ${s.title}. ${s.visualDescription}`),
+      ].join("\n");
+      const scenesPayload = childScenes.map(s => ({
+        sceneId: `child_sc${String(s.scene).padStart(2, "0")}`,
+        title: s.title,
+        description: s.visualDescription,
+      }));
+      const res = await fetch("/api/hybrid/audio-plan", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          scenes: scenesPayload,
+          characters,
+          storyContext,
+          generateNarration: true,
+          childContext: { ageGroup, safetyLevel },
+        }),
+      });
+      const data = await res.json();
+      const plansByScene: Record<number, ChildAudioPlan> = {};
+      childScenes.forEach((s, idx) => {
+        const plan = data.audioPlans?.[idx];
+        const narration = plan?.narrationScript || data.narrationScripts?.[idx] || "";
+        plansByScene[s.scene] = {
+          narrationScript: narration,
+          musicMood: plan?.musicMood,
+          sfxList: plan?.sfxList || [],
+          ambienceList: plan?.ambienceList || [],
+        };
+      });
+      setAudioPlans(plansByScene);
+      setLastAction(`AI audio plan ready — ${Object.keys(plansByScene).length} scenes planned`);
+    } catch (err) {
+      console.error("[children] audio plan failed:", err);
+      setLastAction("Audio plan failed — try again or assemble without it");
+    } finally {
+      setRunningAudioPlan(false);
+    }
+  }
+
   // ── Music-only generation ──
   async function generateChildrenMusic() {
     setMusicGenerating(true);
@@ -2484,6 +2542,7 @@ function ChildrenPlannerInner() {
             if (d.pacingAudioUrl)   setPacingAudioUrl(d.pacingAudioUrl);
             if (d.pacingVideoUrl)   setPacingVideoUrl(d.pacingVideoUrl);
             if (d.pacingTimingMap)  setPacingTimingMap(d.pacingTimingMap);
+            if (d.audioPlans && Object.keys(d.audioPlans).length > 0) setAudioPlans(d.audioPlans);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -2513,6 +2572,8 @@ function ChildrenPlannerInner() {
       characters,
       // C6 PACING SAVE (Henry 2026-05-30): persist pacing engine outputs so they survive refresh.
       pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap,
+      // AI Audio Plan results (Henry 2026-05-30 task #12) so they survive refresh.
+      audioPlans,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
@@ -2527,7 +2588,7 @@ function ChildrenPlannerInner() {
       sceneBeatImages, selectedBeatImages, useMaxImageScenes,
       scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters,
-      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap]);
+      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap, audioPlans]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -5656,6 +5717,43 @@ function ChildrenPlannerInner() {
               <div style={{ marginTop: 10 }}>
                 <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Narrator audio:</p>
                 <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 32 }} />
+              </div>
+            )}
+          </div>
+
+          {/* ── AI Audio Plan (Henry 2026-05-30 task #12 — mirror hybrid Step 7) ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40` }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4 }}>AI Audio Plan</p>
+            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>
+              AI reads every scene and writes a narration script, picks a music mood, and suggests SFX + ambience.
+              Makes the final video sound alive without manual entry per scene.
+            </p>
+            <button onClick={runChildrenAudioPlan} disabled={runningAudioPlan || childScenes.length === 0}
+              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: runningAudioPlan ? "#2a2040" : childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: (runningAudioPlan || childScenes.length === 0) ? "not-allowed" : "pointer", opacity: childScenes.length === 0 ? 0.5 : 1 }}>
+              {runningAudioPlan ? "AI planning audio..." : Object.keys(audioPlans).length > 0 ? "Re-run AI Audio Plan" : "Run AI Audio Plan"}
+            </button>
+            {childScenes.length === 0 && (
+              <p style={{ fontSize: 10, color: muted, marginTop: 8 }}>Build scenes first (Scene Board tab).</p>
+            )}
+            {Object.keys(audioPlans).length > 0 && !runningAudioPlan && (
+              <div style={{ marginTop: 12 }}>
+                <p style={{ fontSize: 11, color: childSafe, marginBottom: 8 }}>
+                  ✓ {Object.keys(audioPlans).length} scene{Object.keys(audioPlans).length === 1 ? "" : "s"} planned
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+                  {childScenes.slice(0, 8).map(s => {
+                    const plan = audioPlans[s.scene];
+                    if (!plan) return null;
+                    return (
+                      <div key={s.scene} style={{ padding: "8px 10px", borderRadius: 7, background: "rgba(255,255,255,0.03)", border: `1px solid ${ds.color.line}` }}>
+                        <p style={{ fontSize: 10, color: "#fff", fontWeight: 700, margin: 0 }}>SC{String(s.scene).padStart(2, "0")} · {s.title.slice(0, 40)}</p>
+                        {plan.musicMood && <p style={{ fontSize: 9, color: muted, margin: "3px 0 0" }}>Music: {plan.musicMood}</p>}
+                        {plan.sfxList && plan.sfxList.length > 0 && <p style={{ fontSize: 9, color: muted, margin: "2px 0 0" }}>SFX: {plan.sfxList.slice(0, 4).join(", ")}</p>}
+                        {plan.narrationScript && <p style={{ fontSize: 9, color: childSafe, margin: "3px 0 0", fontStyle: "italic" }}>&quot;{plan.narrationScript.slice(0, 100)}{plan.narrationScript.length > 100 ? "..." : ""}&quot;</p>}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
