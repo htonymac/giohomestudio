@@ -14,6 +14,24 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`46ae279`): GENESIS BEAR — humans rendered with bear heads (anti-priming diffusion fix)
+
+**Symptom (Henry, longstanding):** humans rendered with bear heads across hybrid + movie planners. "Most of the movie has 1-2 people with bear head." Sessions 17-18 added heavy bear-negatives but bug recurred.
+
+**Root cause (diffusion anti-pattern):** the POSITIVE image prompt mentioned "bear" / "animal" 5+ times via "NOT a bear, NOT any animal" / "No bear heads, no animal heads" / "NOT replace any character's head with an animal head." The negative prompt had 12+ bear-words (grizzly, brown, polar, ears, hat, mask, costume, headwear...). Diffusion models like FLUX/Segmind embed concepts regardless of "NOT" semantics — the model literally heard "bear bear bear bear bear" and produced bears. This is a textbook anti-pattern in prompt engineering for text-to-image.
+
+**Fix (3 surgical edits in `scene-image/route.ts`):**
+1. Species-by-name line: `"is a human (...NOT an animal, NOT a bear, NOT any animal)"` → `"is a fully human person (human face, human body, realistic human anatomy)"`
+2. Multi-character header: `"Do NOT replace any character's head with an animal head"` → `"Each character has a fully human face and head with realistic human features"`
+3. Late-position guard: `"...No bear heads, no animal heads, no fur, no snouts, no paws..."` → `"Every character is a fully human person with realistic human face, human anatomy, human skin, human hands, and human proportions"`
+4. Bear-negative tightened from 12+ comma-separated bear-words to 8 affirmative non-human concepts: `"animal head on human body, furry creature, snout, paws, animal face, anthropomorphic creature, non-human face, creature head"`.
+
+Zero "bear" tokens in POSITIVE prompt for human characters; single tight negative phrase. Explicit-animal path (when story explicitly tags `species:"bear"`) is preserved unchanged. Deployed.
+
+**Verify:** Henry to run a fresh render with all-human story. Expect dramatically fewer (ideally zero) bear-head defaults. Note: free Segmind model still has its own training biases, so residual cases possible — final 100% fix needs paid FLUX-dev/pro per [[REMAINING_TODO model residuals]].
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`a40b53a`): Children subtitles stuck 5 sec + style ignored
 
 **Symptom (Henry):** "subtitle always still for 5 sec - style + pace doesn't work" in children renders. The Subtitle Styler UI controls (fontSize, textColor, bgBox, bgOpacity, position) had no visible effect on the final video; captions sat on screen for the full 5-second scene block.
