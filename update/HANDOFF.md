@@ -4,6 +4,26 @@
 
 ## 🎯 ACTIVE DIRECTIVE (Henry 2026-05-30)
 > "drive this to the finishing line — children needs a lot of amend — mirror hybrid with recent children update to fix child — record the bugs and prepare them — remember to save as my pc shut down any time"
+>
+> Continued sweep: `fire on`, `fire on for 3 hours`, `2 hours on`, `fire on ur call`.
+
+## 📊 SESSION SCORECARD (2026-05-30)
+- **29 tasks closed** in one session
+- **12-bug burst** (Henry's morning list, all closed)
+- **17 of 24 FAL provider sites** migrated to new `src/lib/providers/fal.ts` adapter
+- **2 audit docs** authored: `CHILDREN_HYBRID_PARITY_AUDIT_05302026.md`, `FAL_ADAPTER_MIGRATION_MAP_05302026.md`
+- **Auto-narration consistency** rolled across all 5 planners
+- **DB R2 offsite backup** live (daily 03:30 cron pushes to `r2://andio-assets/db-backups/`)
+- **Children-hybrid parity** ≥97%
+
+**Remaining sweep-able backlog: empty.**
+Remaining items each need dedicated focus or external input:
+- FAL gateway-layer migration (`src/lib/generation/gateways/fal.ts`) — 474 LOC axios + onProgress + custom URLs; dedicated session per FAL map.
+- Children → `/api/assembly/execute` migration — single remaining children-hybrid parity gap; high-risk single change.
+- Outro mid-video bug — needs Henry info (duplicate vs ordering?)
+- FAL credit top-up — unlocks PuLID exact face-lock + kills model residuals
+- Anthropic credit top-up — restores Claude quality
+- Phase 3+ tracks (R2 cutover, Paddle, Legal UI, SFX category system)
 
 Recording bug burst FIRST (state preservation), then executing A→G→H in priority order. After each fix → handoff entry → P&F entry → one-sentence Henry → stop.
 
