@@ -29,8 +29,10 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 18. **FAL TTS sweep** — `9b110a9`. Migrated 3 more kokoro callers (tts/route.ts american+global, avatar/create, hybrid/narrate-piper). 6 of 24 FAL sites now on adapter. Task #25 closed.
 19. **FAL bg-remove sweep** — `c3ba31b`. New `falBgRemove(model, body)` supporting birefnet / bria-rmbg / birefnet-video / video-bg-remove. Migrated ad-editor/bg-remove + image/bg-remove + video/bg-remove. 9 of 24 FAL sites on adapter. Task #27 closed.
 20. **FAL music/sfx/portraits sweep** — `7d07bd3`. Added `falFluxDevSync` + `falMinimaxMusic` + `falStableAudio`. Migrated music/generate-scene, sfx/generate, character-voices/auto-portraits. 12 of 24 FAL sites on adapter. Task #28 closed.
+21. **FAL ad-editor + image/enhance sweep** — `223da47`. Added `falFluxImg2Img` + `falGeminiTts` + `falLayerizeText` + `falClarityUpscaler`. Migrated ad-editor/ai-edit (img2img), ad-editor/gemini-tts, ad-editor/layerize-text, image/enhance. 16 of 24 FAL sites on adapter. Task #29 closed.
 
-## ✅ 20 TASKS CLOSED THIS SESSION
+## ✅ 21 TASKS CLOSED THIS SESSION
+Remaining FAL sites: avatar/lip-sync (queue + poll, needs falQueue usage) + src/lib/generation/gateways/fal.ts (parked, needs dedicated session — see FAL_ADAPTER_MIGRATION_MAP).
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
