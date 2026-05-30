@@ -4,6 +4,34 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`6793682`): Children scene-card buttons appeared not to fire
+
+**Symptom (Henry screenshot SC01-SC03):** 7 buttons (Polish/Funny/Playful/Adventure/Emotion/Action/Establish) appeared to do nothing when clicked. Polish worked, the other 6 didn't visibly fire.
+
+**Root cause:** `handleChildSceneOp` (children-planner/page.tsx:1600) updated only `visualDescription` in local state — never regenerated the scene image. The visible card image stayed stale. `handlePolishScene` (different handler, called by the Polish button) DID auto-regen, which is why only Polish "worked".
+
+**Fix:** mirror handlePolishScene's pattern — capture `updatedScene` from the `setChildScenes` callback, then call `await generateSceneBoardImage({ ...updatedScene, visualDescription: newText })`. User now sees the image refresh after every click. Deployed live.
+
+---
+
+## 2026-05-30 — 🟠 OPEN: Children template selection still requires manual input
+
+**Symptom (Henry screenshot):** Children planner — Toddlers age group. User has selected:
+1. Content type card: **Colours & Shapes**
+2. Suggested topic: **Red, Blue, Yellow** (auto-pre-filled the "Selected" preview)
+3. Curriculum template (one of: First 50 Words / Learn All Colours / Count to 5 / My Daily Routine)
+
+After all 3 selections, the planner SHOULD be ready to generate (everything needed is locked in). Currently it still requires/expects manual user input.
+
+**Henry directive:**
+- Remove the input requirement when template+topic+curriculum are all selected — go straight to generate
+- Add MORE templates in every section (more content types, more suggested topics per type, more curriculum templates)
+- Apply same pattern across the planner — selecting templates = no typing needed
+
+**Investigation target:** `app/dashboard/children-planner/page.tsx` template-selection state + the "Generate" gate condition that blocks proceed; also the template catalog arrays (need expansion).
+
+---
+
 ## 2026-05-30 — 🟠 OPEN BUG BURST (Henry — children parity sweep + hybrid finish line)
 
 Recording in batch because Henry's PC may shut down anytime. All entries are PENDING DIAGNOSIS/FIX. Priority order = highest user-impact first.

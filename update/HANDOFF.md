@@ -7,8 +7,11 @@
 
 Recording bug burst FIRST (state preservation), then executing A→G→H in priority order. After each fix → handoff entry → P&F entry → one-sentence Henry → stop.
 
+## ✅ FIXED THIS SESSION 2026-05-30
+1. **A.** Children scene-card buttons appeared not to fire — `6793682`. handleChildSceneOp now auto-regens image after text update (mirror handlePolishScene). Task #9 closed.
+
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
-1. **A.** Children scene-card buttons fire opposite / not at all (Polish/Funny/Playful/Adventure/Emotion/Action/Establish per Henry screenshot) — task #9
+1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
 2. **C.** Children LLM model picker not available — task #11
 3. **B.** Children narration doesn't work — task #10
 4. **E.** Children subtitle stuck 5s (style + pace ignored) — task #14
