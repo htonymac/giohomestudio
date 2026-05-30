@@ -14,6 +14,16 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`4ba3959`): Token Resolution Engine not wired into scene-image (MASTER_PLAN Phase 3)
+
+**Symptom (root cause for character substitution drift):** typed character tokens like `[CH01]` in story-expanded scene text were passed LITERALLY to the image model when the planner hadn't already enumerated them in `characterIds[]`. The model either rendered the literal bracket text or defaulted to a generic placeholder ("characters collapse to bear" was a downstream symptom of this — BUG-02).
+
+**Discovery:** `resolveCharacterTokens` already existed at `src/lib/character-resolver.ts:99` (the persona doc said "Token Resolution Engine 5% built" — actually it's fully implemented). The actual gap was that the BACKBONE image route (`/api/hybrid/scene-image`) never imported or called it. Three other routes already did (`/api/character/resolve`, `/api/generation/image`, `/api/video/generate`).
+
+**Fix:** wire `resolveCharacterTokens(sceneText, characterIds)` BEFORE `sanitizeStyleCollisions` / `extractSceneAction` in scene-image. Soft-fail to raw `sceneText` on any error so it never blocks gen. Result `enrichedPrompt` feeds the sanitize pipeline; surfaced `referenceImages` get appended to `referenceImageUrls` (deduped). Net effect: a scene like `"[CH01] meets her sister at the market"` where the planner sent only [CH01] now resolves the sister's typed token, attaches her portrait reference image, and substitutes her visualDescription in-prompt. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`e961c8d`): Children "audio planner is zero" — missing AI Audio Plan panel
 
 **Symptom (Henry):** "audio planner is zero in general" in children planner. Hybrid had a centralized Step 7 "AI Audio Plan" that batches all scenes through `/api/hybrid/audio-plan` and stores per-scene narration script + music mood + SFX list + ambience list. Children had no equivalent surface — narration/music/SFX were only available per-scene via the Pre-Flight or inline auto-trigger.

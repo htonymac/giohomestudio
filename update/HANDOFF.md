@@ -17,6 +17,7 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 7. **H4.** Legacy kids/dramatic/social subtitle presets — `d32b602`. Same shape as highlight fix; now visibly distinct. Task #19 closed.
 8. **H3.** C6 pacing save/load — `89b62f9`. Persist pacingPlan / pacingAudioUrl / pacingVideoUrl / pacingTimingMap. Task #18 closed.
 9. **D.** Children AI Audio Plan panel — `e961c8d`. Mirror hybrid Step 7. Per-scene narration + music mood + SFX + ambience. Persisted. Task #12 closed.
+10. **H1.** Token Resolution Engine wired into scene-image — `4ba3959`. The Phase 3 root cause for substitution drift. Helper existed at character-resolver.ts:99; scene-image never imported it. Now substitutes [CH0X] tokens + attaches reference images before image gen. Task #16 closed.
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
