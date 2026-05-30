@@ -188,3 +188,30 @@ export function falKokoroTts(req: FalKokoroTtsRequest): Promise<FalResult<FalKok
 export function falAccountStatus(): Promise<FalResult<unknown>> {
   return falCall<unknown>("/v1/me", undefined, { base: "rest" });
 }
+
+// ── Background removal helpers ──────────────────────────────────────────────
+// The 3 bg-remove routes (ad-editor/bg-remove, image/bg-remove, video/bg-remove)
+// previously hit fal endpoints directly with a single POST and read the image URL
+// out of the response — no queue polling. Preserving that pattern via the queue
+// base URL so behavior is identical to the pre-adapter code.
+
+export interface FalBgRemoveResponse {
+  image?: { url: string; content_type?: string };
+  video?: { url: string; content_type?: string };
+}
+
+export type FalBgRemoveModel = "birefnet" | "bria-rmbg" | "birefnet-video" | "video-bg-remove";
+
+const BG_REMOVE_PATH: Record<FalBgRemoveModel, string> = {
+  "birefnet":         "/fal-ai/birefnet",
+  "bria-rmbg":        "/fal-ai/bria-rmbg",
+  "birefnet-video":   "/fal-ai/birefnet/video",
+  "video-bg-remove":  "/fal-ai/video-background-removal",
+};
+
+export function falBgRemove(
+  model: FalBgRemoveModel,
+  body: { image_url?: string; video_url?: string },
+): Promise<FalResult<FalBgRemoveResponse>> {
+  return falCall<FalBgRemoveResponse>(BG_REMOVE_PATH[model], body, { base: "queue", timeoutMs: 90_000 });
+}

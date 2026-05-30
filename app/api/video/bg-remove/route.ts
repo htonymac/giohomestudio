@@ -28,30 +28,19 @@ export async function POST(req: NextRequest) {
     fs.mkdirSync(outDir, { recursive: true });
 
     // ── fal.ai video background removal (BiRefNet video / VEED pipeline) ──
-    const falRes = await fetch("https://queue.fal.run/fal-ai/birefnet/video", {
-      method: "POST",
-      headers: {
-        Authorization: `Key ${FAL_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        video_url: `data:${mime};base64,${base64}`,
-        ...(newBg ? { background_color: newBg } : {}),
-      }),
-    });
+    // Migrated to providers/fal adapter (Henry 2026-05-30 task #27).
+    const { falBgRemove } = await import("@/lib/providers/fal");
+    const primary = await falBgRemove("birefnet-video", {
+      video_url: `data:${mime};base64,${base64}`,
+      ...(newBg ? { background_color: newBg } as unknown as Record<string, unknown> : {}),
+    } as { video_url: string });
 
-    if (!falRes.ok) {
-      const err = await falRes.text();
-      // Fallback model ID
-      const fallRes = await fetch("https://queue.fal.run/fal-ai/video-background-removal", {
-        method: "POST",
-        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ video_url: `data:${mime};base64,${base64}` }),
-      });
-      if (!fallRes.ok) {
-        return NextResponse.json({ error: `fal.ai video bg removal failed: ${err.slice(0, 200)}` }, { status: 502 });
+    if (!primary.ok) {
+      const fall = await falBgRemove("video-bg-remove", { video_url: `data:${mime};base64,${base64}` });
+      if (!fall.ok) {
+        return NextResponse.json({ error: `fal.ai video bg removal failed: ${primary.error.slice(0, 200)}` }, { status: 502 });
       }
-      const data = await fallRes.json();
+      const data = fall.data as { video?: { url?: string }; output_url?: string };
       const videoUrl = data.video?.url ?? data.output_url;
       if (!videoUrl) return NextResponse.json({ error: "No output URL from fal.ai" }, { status: 502 });
       const vidRes = await fetch(videoUrl);
@@ -61,7 +50,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ outputUrl: `/api/media/${relPath}`, provider: "fal.ai video bg removal" });
     }
 
-    const data = await falRes.json();
+    const data = primary.data as { video?: { url?: string }; output_url?: string; url?: string };
     const videoUrl = data.video?.url ?? data.output_url ?? data.url;
     if (!videoUrl) return NextResponse.json({ error: "No output URL from fal.ai BiRefNet video" }, { status: 502 });
 

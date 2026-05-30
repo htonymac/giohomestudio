@@ -23,21 +23,13 @@ export async function POST(req: NextRequest) {
     const FAL_KEY = process.env.FAL_API_KEY;
 
     // ── Provider 1: Bria RMBG 2.0 via fal.ai (Phase 1) ──
+    // Migrated to providers/fal adapter (Henry 2026-05-30 task #27).
     if (FAL_KEY) {
+      const { falBgRemove } = await import("@/lib/providers/fal");
       try {
-        const falRes = await fetch("https://queue.fal.run/fal-ai/bria-rmbg", {
-          method: "POST",
-          headers: {
-            Authorization: `Key ${FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            image_url: `data:${mime};base64,${base64}`,
-          }),
-        });
-
-        if (falRes.ok) {
-          const data = await falRes.json();
+        const r = await falBgRemove("bria-rmbg", { image_url: `data:${mime};base64,${base64}` });
+        if (r.ok) {
+          const data = r.data as { image?: { url?: string }; output_url?: string; url?: string };
           const imgUrl = data.image?.url ?? data.output_url ?? data.url;
           if (imgUrl) {
             const imgRes = await fetch(imgUrl);
@@ -53,17 +45,9 @@ export async function POST(req: NextRequest) {
 
       // ── Fallback: BiRefNet via fal.ai ──
       try {
-        const falRes = await fetch("https://queue.fal.run/fal-ai/birefnet", {
-          method: "POST",
-          headers: {
-            Authorization: `Key ${FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ image_url: `data:${mime};base64,${base64}` }),
-        });
-        if (falRes.ok) {
-          const data = await falRes.json();
-          const imgUrl = data.image?.url;
+        const r = await falBgRemove("birefnet", { image_url: `data:${mime};base64,${base64}` });
+        if (r.ok) {
+          const imgUrl = r.data.image?.url;
           if (imgUrl) {
             const imgRes = await fetch(imgUrl);
             const outPath = path.join(outDir, `birefnet_nobg_${Date.now()}.png`);

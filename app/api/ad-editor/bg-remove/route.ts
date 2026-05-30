@@ -34,18 +34,14 @@ export async function POST(req: NextRequest) {
   const base64 = buf.toString("base64");
   const mime = file.type || "image/jpeg";
 
-  // Try fal.ai
-  const FAL_KEY = process.env.FAL_API_KEY;
+  // Try fal.ai — migrated to providers/fal adapter (Henry 2026-05-30 task #27)
+  const FAL_KEY = process.env.FAL_API_KEY || process.env.FAL_KEY;
   if (FAL_KEY) {
     try {
-      const res = await fetch("https://queue.fal.run/fal-ai/birefnet", {
-        method: "POST",
-        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ image_url: `data:${mime};base64,${base64}` }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const imgUrl = data.image?.url;
+      const { falBgRemove } = await import("@/lib/providers/fal");
+      const r = await falBgRemove("birefnet", { image_url: `data:${mime};base64,${base64}` });
+      if (r.ok) {
+        const imgUrl = r.data.image?.url;
         if (imgUrl) {
           const imgRes = await fetch(imgUrl);
           const outPath = path.join(outDir, `nobg_${Date.now()}.png`);
