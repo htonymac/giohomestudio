@@ -19,6 +19,9 @@ import { callLLM } from "@/lib/llm";
 type Op = "polish" | "break" | "expand" | "batch_polish" | "establish" | "establish_all";
 type PolishMode = "default" | "add_action" | "intense" | "reduce_action" | "emotional" | "custom" | "funny" | "playful" | "adventure";
 type Provider = "auto" | "ollama" | "openai" | "claude";
+// Henry 2026-05-30 task #17: 5-level mode picker per ESTABLISHING_SHOT_SPEC §4.
+// Used by runEstablishAll to inject mode-specific aggressiveness into the LLM prompt.
+type EstablishingMode = "off" | "minimal" | "auto" | "cinematic" | "epic";
 
 interface SceneIn {
   sceneId?: string;
@@ -57,6 +60,8 @@ interface SceneEditRequest {
   customInstruction?: string;
   // Provider chain control (defaults to "auto")
   provider?: Provider;
+  // For establish + establish_all — mode level (default "auto")
+  establishingMode?: EstablishingMode;
 }
 
 /**
@@ -352,17 +357,37 @@ async function runEstablish(
   };
 }
 
+// Mode-specific aggressiveness lines for the supervisor prompt.
+// Spec §4 mode levels: off / minimal / auto / cinematic / epic.
+function modeGuidance(mode: EstablishingMode): string {
+  switch (mode) {
+    case "off":      return "Mode: OFF. Return needed=false for every scene. No establishing shots at all.";
+    case "minimal":  return "Mode: MINIMAL. Only add for scene 1 (opening, mandatory) and when location or time of day clearly changes. Default to needed=false otherwise.";
+    case "cinematic":return "Mode: CINEMATIC. Be aggressive — add for opening, location changes, mood shifts, pre-action scenes, and beauty shots when the location is striking. Lean toward 5-7s durations.";
+    case "epic":     return "Mode: EPIC. Every major scene gets a long dramatic opener — opening, location, transition, mood, pre-action all qualify. Durations 6-8s. Skip only on tight back-to-back same-room scenes.";
+    case "auto":
+    default:         return "Mode: AUTO. Use the full ruleset judgmentally — add when it adds cinematic value, skip when it would slow the story.";
+  }
+}
+
 // Analyze ALL scenes in order — decide which ones need establishing shots.
 // Returns one result per scene (needed true/false + shot data).
 async function runEstablishAll(
   scenes: SceneIn[],
   storyText: string,
-  provider: Provider
+  provider: Provider,
+  mode: EstablishingMode = "auto"
 ): Promise<Array<{ sceneId: string; needed: boolean; shot: EstablishingShot | null }>> {
+  // Mode OFF short-circuits — no LLM call needed.
+  if (mode === "off") {
+    return scenes.map((s, i) => ({ sceneId: s.sceneId || String(i), needed: false, shot: null }));
+  }
   const system = [
     "You are a cinematic scene supervisor for a storytelling video tool.",
     "Analyze ALL scenes in order. For each, decide if it needs a CINEMATIC ESTABLISHING SHOT before its main action.",
     "An establishing shot is a wide/aerial/exterior view showing location, scale, time of day, and mood BEFORE main action.",
+    "",
+    modeGuidance(mode),
     "",
     "ADD when: story begins (always first scene), location changes, time changes, strong mood shift, war/fight/chase/romance/tragedy coming, entering important place, new geography needed.",
     "DO NOT ADD when: same room as previous scene, fast action already mid-flow, location already known from recent scene, adds unnecessary length.",
@@ -461,10 +486,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.op === "establish_all") {
+      const establishingMode: EstablishingMode = body.establishingMode || "auto";
       if (!body.scenes || body.scenes.length === 0) {
         return NextResponse.json({ ok: false, error: "Missing scenes" }, { status: 400 });
       }
-      const results = await runEstablishAll(body.scenes, body.storyText || "", provider);
+      const results = await runEstablishAll(body.scenes, body.storyText || "", provider, establishingMode);
       return NextResponse.json({ ok: true, results });
     }
 

@@ -461,6 +461,10 @@ function HybridPlannerInner() {
   const [establishingShots, setEstablishingShots] = useState<Record<string, EstablishingShot>>({});
   const [establishingSceneId, setEstablishingSceneId] = useState<string | null>(null);
   const [establishingAll, setEstablishingAll] = useState(false);
+  // Henry 2026-05-30 task #17: 5-level mode picker per ESTABLISHING_SHOT_SPEC §4.
+  // Off=skip · Minimal=opening + loc/time change only · Auto=full ruleset · Cinematic=aggressive · Epic=every major scene.
+  type EstablishingMode = "off" | "minimal" | "auto" | "cinematic" | "epic";
+  const [establishingMode, setEstablishingMode] = useState<EstablishingMode>("auto");
   const [storyBreakingSceneId, setStoryBreakingSceneId] = useState<string | null>(null);
   const [storyExpandingScenes, setStoryExpandingScenes] = useState(false);
   const [structuring, setStructuring] = useState(false);
@@ -2988,6 +2992,7 @@ function HybridPlannerInner() {
           provider: effectiveLlmProvider,
           scenes: scenes.map(s => ({ sceneId: s.sceneId, title: s.title, description: s.description, location: s.location, timeOfDay: s.timeOfDay, mood: s.mood })),
           storyText: expandedSummary || idea,
+          establishingMode, // Henry 2026-05-30 task #17
         }),
       });
       const data = await res.json();
@@ -9719,6 +9724,28 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         {establishingAll ? "Analyzing…" : "📷 Establish All"}
                       </button>
                     </div>
+                  </div>
+                  {/* ── Establishing Shot Mode Picker (Henry 2026-05-30 task #17) ── */}
+                  <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" as const, alignItems: "center" }}>
+                    <span style={{ fontSize: 9, color: muted, fontWeight: 700, marginRight: 4 }}>Mode:</span>
+                    {(["off", "minimal", "auto", "cinematic", "epic"] as const).map(m => (
+                      <button key={m}
+                        onClick={() => setEstablishingMode(m)}
+                        title={
+                          m === "off" ? "No establishing shots at all" :
+                          m === "minimal" ? "Opening + location/time changes only" :
+                          m === "auto" ? "AI decides — full ruleset" :
+                          m === "cinematic" ? "Aggressive: opening, location, mood, pre-action, beauty" :
+                          "Every major scene gets a long dramatic opener"
+                        }
+                        style={{ padding: "3px 9px", borderRadius: 6,
+                          border: `1px solid ${establishingMode === m ? "#fbbf24" : "#3d5060"}`,
+                          background: establishingMode === m ? "#fbbf2415" : "transparent",
+                          color: establishingMode === m ? "#fbbf24" : muted,
+                          fontSize: 8, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" as const }}>
+                        {m}
+                      </button>
+                    ))}
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {scenes.map(s => {
