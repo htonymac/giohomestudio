@@ -72,18 +72,15 @@ export async function POST(req: NextRequest) {
   if (plan.editType === "generate" || !imageBase64) {
     if (FAL_KEY) {
       try {
-        const res = await fetch("https://queue.fal.run/fal-ai/flux/schnell", {
-          method: "POST",
-          headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: plan.enhancedPrompt,
-            image_size: mode === "banner" ? { width: 1920, height: 640 } : { width: 1080, height: 1080 },
-            num_inference_steps: 4,
-          }),
+        // Migrated to providers/fal adapter (Henry 2026-05-30 task #24).
+        const { falFluxSchnell } = await import("@/lib/providers/fal");
+        const r = await falFluxSchnell({
+          prompt: plan.enhancedPrompt,
+          imageSize: mode === "banner" ? { width: 1920, height: 640 } : { width: 1080, height: 1080 },
+          numInferenceSteps: 4,
         });
-        if (res.ok) {
-          const data = await res.json();
-          const imgUrl = data.images?.[0]?.url;
+        if (r.ok) {
+          const imgUrl = r.data.images?.[0]?.url;
           if (imgUrl) {
             const imgRes = await fetch(imgUrl);
             const outPath = path.join(outDir, `gen_${Date.now()}.png`);

@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { falKokoroTts } from "@/lib/providers/fal";
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,29 +24,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "FAL_KEY not configured" }, { status: 503 });
     }
 
-    const falRes = await fetch("https://fal.run/fal-ai/kokoro/american-english", {
-      method: "POST",
-      headers: {
-        "Authorization": `Key ${process.env.FAL_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        prompt: text,
-        voice: voiceId || "af_sky",
-        speed: speed || 1.0,
-      }),
+    // Migrated to providers/fal adapter (Henry 2026-05-30 task #24).
+    const falRes = await falKokoroTts({
+      prompt: text,
+      voice: voiceId || "af_sky",
+      speed: speed || 1.0,
+      variant: "american-english",
     });
 
     if (!falRes.ok) {
-      const errBody = await falRes.text();
-      console.error(`FAL Narrator ${falRes.status}:`, errBody.slice(0, 300));
+      console.error(`FAL Narrator ${falRes.status}:`, falRes.error.slice(0, 300));
       return NextResponse.json(
-        { error: `FAL Narrator ${falRes.status}: ${errBody.slice(0, 200)}` },
+        { error: `FAL Narrator ${falRes.status}: ${falRes.error.slice(0, 200)}` },
         { status: falRes.status >= 500 ? 502 : falRes.status }
       );
     }
 
-    const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+    const falData = (falRes.raw as { audio_url?: string; audio?: { url?: string } }) || {};
     const remoteUrl = falData.audio_url || falData.audio?.url;
 
     if (!remoteUrl) {

@@ -62,20 +62,19 @@ function getLocalUsage(): UsageStat[] {
 async function checkFal(): Promise<{ configured: boolean; reachable: boolean; balance: string | null; error?: string }> {
   const key = process.env.FAL_KEY;
   if (!key) return { configured: false, reachable: false, balance: null };
-  try {
-    const res = await fetch("https://rest.fal.ai/v1/me", {
-      headers: { "Authorization": `Key ${key}` },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return { configured: true, reachable: true, balance: data.credits ? `$${data.credits}` : "Connected" };
-    }
-    // FAL doesn't expose balance via API — just verify key works
-    return { configured: true, reachable: res.status !== 401, balance: null, error: res.status === 401 ? "Invalid key" : undefined };
-  } catch {
-    return { configured: true, reachable: false, balance: null, error: "Unreachable" };
+  // Migrated to providers/fal adapter (Henry 2026-05-30 task #24).
+  const { falAccountStatus } = await import("@/lib/providers/fal");
+  const r = await falAccountStatus();
+  if (r.ok) {
+    const data = r.data as { credits?: number } | null;
+    return { configured: true, reachable: true, balance: data?.credits ? `$${data.credits}` : "Connected" };
   }
+  return {
+    configured: true,
+    reachable: r.status !== 401 && r.status !== 0,
+    balance: null,
+    error: r.status === 401 ? "Invalid key" : r.error.slice(0, 100),
+  };
 }
 
 async function checkKling(): Promise<{ configured: boolean; reachable: boolean; balance: string | null; error?: string }> {
