@@ -2501,6 +2501,24 @@ function ChildrenPlannerInner() {
     }
   }, [characterIdParam, savedChars]);
 
+  // ── AUTO-EXPAND from children-video template selection (Henry 2026-05-30) ──
+  // User selected content type + topic + curriculum on /dashboard/children-video, clicked
+  // "Open Planner" → landed here with topicPrompt in URL. Their selection IS their input,
+  // so kick off story expansion automatically. No "click Generate again" friction.
+  const autoExpandedRef = useRef(false);
+  useEffect(() => {
+    if (autoExpandedRef.current) return;
+    if (!topicPromptParam || !topicPromptParam.trim()) return;
+    // Only auto-fire if textContent is still the URL-seeded value (user hasn't edited it)
+    if (textContent.trim() !== topicPromptParam.trim()) return;
+    // Don't trample an already-expanded project (e.g., user reopened mid-session)
+    if (expandedContent || childScenes.length > 0 || expanding) return;
+    autoExpandedRef.current = true;
+    setActiveTab("content");
+    expandStory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicPromptParam, textContent, expandedContent, childScenes.length, expanding]);
+
   // Save to asset library after both reviews
   async function handleFinalRender() {
     setSaving(true);

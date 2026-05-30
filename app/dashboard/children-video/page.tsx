@@ -79,6 +79,11 @@ const CONTENT_BY_AGE: Record<string, ContentTypeItem[]> = {
     { id: "animals-nature", label: "Animals & Nature", icon: "", desc: "Animal names, sounds, simple habitats", curriculum: "EYFS Understanding World" },
     { id: "my-world", label: "My World", icon: "", desc: "Family, body parts, food, daily routines, happy/sad", curriculum: "EYFS Personal Development" },
     { id: "music-movement", label: "Music & Movement", icon: "", desc: "Action songs, clapping rhythms, dance-along", curriculum: "EYFS Expressive Arts" },
+    // ── Henry 2026-05-30: more templates per section ──
+    { id: "bedtime-soothing", label: "Bedtime Stories", icon: "", desc: "Gentle stories, lullabies, going-to-sleep routines", curriculum: "EYFS Personal Development" },
+    { id: "first-words", label: "My First Words", icon: "", desc: "Hello, mama, dada, more, please — first 50 words", curriculum: "EYFS Communication" },
+    { id: "potty-bath", label: "Potty & Bath Time", icon: "", desc: "Routines around washing, potty, brushing teeth", curriculum: "EYFS Personal Development" },
+    { id: "feelings-faces", label: "Feelings & Faces", icon: "", desc: "Happy, sad, angry, surprised — name and show emotions", curriculum: "EYFS Personal Development" },
   ],
   preschool: [
     { id: "phonics", label: "Phonics & Reading", icon: "", desc: "Letter-sound matching, CVC blending (cat/sat/pin), sight words, rhyming", curriculum: "EYFS Literacy, Common Core RF.K" },
@@ -125,6 +130,12 @@ const CURRICULUM_BY_AGE: Record<string, Array<{ id: string; label: string; episo
     { id: "colours-5", label: "Learn All Colours", episodes: 5, desc: "Primary then secondary colours with objects" },
     { id: "counting-5", label: "Count to 5", episodes: 5, desc: "Numbers 1-5 with physical objects" },
     { id: "routines-7", label: "My Daily Routine", episodes: 7, desc: "Wake up, eat, play, bath, sleep — builds independence" },
+    // ── Henry 2026-05-30: more templates per section ──
+    { id: "abc-26", label: "A-to-Z in 26 Days", episodes: 26, desc: "One letter per episode with object + animal + action" },
+    { id: "shapes-6", label: "Shape Story Time", episodes: 6, desc: "Circle, square, triangle, rectangle, star, heart" },
+    { id: "action-songs-10", label: "Action Songs Album", episodes: 10, desc: "Wheels on the bus, head shoulders, if you're happy, more" },
+    { id: "animal-sounds-12", label: "Animal Sounds Around World", episodes: 12, desc: "Farm, jungle, ocean, savanna, polar, pets" },
+    { id: "feelings-faces-8", label: "Feelings Toolkit", episodes: 8, desc: "Name and act out 8 core feelings with stories" },
   ],
   preschool: [
     { id: "read30", label: "Learn to Read in 30 Days", episodes: 30, desc: "Letters → sounds → CVC words → sentences" },
