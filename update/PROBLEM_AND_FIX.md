@@ -14,6 +14,16 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`0b57265`): Children narration "doesn't work" — empty in final video
+
+**Symptom (Henry):** "narration do not work" in children planner videos. Final renders silent or missing narrator track.
+
+**Root cause:** the main children assembly flow only included `narratorAudioUrl` in the assembly payload if the user had previously clicked "Generate Narration" on the Voice Layers panel. If they skipped that step (most users do — it's not obviously required), `narrationList = []` was sent → final video had zero narration. The pre-flight check (line 1798) had auto-narration but the main Assembly button did not.
+
+**Fix:** in the assemble flow, if `narratorAudioUrl` is empty AND `textContent` exists, auto-call `/api/tts` with the user's effectiveNarrationProvider + speed BEFORE building `narrationList`. Resolved URL is also saved to state so a subsequent re-assemble reuses the same audio. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`7109fda`): Children LLM model + video/image model selections dropped from /children-video
 
 **Symptom (Henry):** "llm model is not avalable with llm planner" — after picking LLM tier + video model + image model on `/dashboard/children-video`, those selections didn't carry into the planner. User saw no active model and had to re-pick.

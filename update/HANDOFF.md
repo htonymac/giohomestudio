@@ -11,6 +11,7 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 1. **A.** Children scene-card buttons appeared not to fire — `6793682`. handleChildSceneOp now auto-regens image after text update (mirror handlePolishScene). Task #9 closed.
 2. **(NEW)** Children template selection still required manual input — `1d571d1`. Auto-fire expansion on URL-param arrival + expanded toddler catalog (+4 content types, +5 curriculum templates). Task #20 closed.
 3. **C.** Children LLM model + video/image model URL params not threaded — `7109fda`. Read tier/videoModel/imageModel URL params, seed state. Task #11 closed.
+4. **B.** Children narration missing from final video — `0b57265`. Auto-generate via TTS in assembly path when narratorAudioUrl is empty. Task #10 closed.
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
