@@ -14,6 +14,14 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`e961c8d`): Children "audio planner is zero" — missing AI Audio Plan panel
+
+**Symptom (Henry):** "audio planner is zero in general" in children planner. Hybrid had a centralized Step 7 "AI Audio Plan" that batches all scenes through `/api/hybrid/audio-plan` and stores per-scene narration script + music mood + SFX list + ambience list. Children had no equivalent surface — narration/music/SFX were only available per-scene via the Pre-Flight or inline auto-trigger.
+
+**Fix:** added `audioPlans` state + `runChildrenAudioPlan()` function + UI card in the Sound tab. Card shows a prominent purple "Run AI Audio Plan" button; when complete, displays per-scene chips (music mood, first 4 SFX, narration preview). Includes child-safe context (`ageGroup`, `safetyLevel`) so the LLM keeps it age-appropriate. Persisted via saved-state so plans survive refresh. Mirrors hybrid's Step 7. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`89b62f9`): C6 pacing engine outputs not persisted to DB
 
 **Symptom:** building a pacing plan + generating narration + assembling a pacing video all worked in-session, but a refresh or re-open of the project lost all 4 fields → user had to rebuild from scratch.
