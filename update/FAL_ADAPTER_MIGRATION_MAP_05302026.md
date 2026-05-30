@@ -45,10 +45,20 @@ is one file instead of 20+.
 - `app/api/avatar/lip-sync/route.ts` (queue + status + result polling) → migrate using `falQueue<T>`
 - `app/api/video/generate/route.ts` (FAL paths, internal to generation gateway) → upstream gateway migration
 
-### Gateway-layer migration (largest single payoff)
+### Gateway-layer migration (largest single payoff — DEDICATED SESSION REQUIRED)
 - `src/lib/generation/gateways/fal.ts` — this is the actual chokepoint for all the
   routes that route through `generateImage()` (scene-image, video-gen, etc.). Migrating
   it to use the adapter consolidates ~10 indirect call paths in one edit.
+- **2026-05-30 investigation finding:** the gateway is 474 LOC using `axios` (not fetch),
+  with custom `status_url` / `response_url` returned from the submit response (must be
+  honored — constructing them from endpoint breaks Kling 1.6, Wan 2.5, etc.), plus an
+  `onProgress` callback for queue-position + in-progress percent reporting.
+- Adapter would need: (a) axios-compat surface or full fetch rewrite of the gateway,
+  (b) `onProgress` parameter on `falQueue<T>`, (c) ability to use response-supplied
+  status/result URLs instead of constructing them.
+- Recommendation: skip from "sweep" sessions; trigger `go fal gateway focused` for a
+  dedicated session that adds the adapter extensions + does the gateway rewrite +
+  e2e tests scene-image, video/generate, lip-sync paths before merging. Estimated 2 h.
 
 ## Trigger phrases for future sessions
 - `go fal migrate gateway` — migrate `src/lib/generation/gateways/fal.ts` (highest blast radius)
