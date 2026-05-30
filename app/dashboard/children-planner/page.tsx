@@ -220,6 +220,18 @@ function ChildrenPlannerInner() {
   const topicPromptParam = searchParams.get("topicPrompt") ?? "";
   const charactersParam = searchParams.get("characters") ?? "";
   const characterIdParam = searchParams.get("characterId") ?? "";
+  // Henry 2026-05-30: thread children-video's tier + model choices into the planner so
+  // template-page selections actually flow in instead of being silently dropped.
+  const tierParam = searchParams.get("tier") ?? "";
+  const videoModelParam = searchParams.get("videoModel") ?? "";
+  const imageModelParam = searchParams.get("imageModel") ?? "";
+  const URL_TIER_TO_PROVIDER: Record<string, string> = {
+    standard: "claude:claude-haiku-4-5-20251001",
+    pro:      "claude:claude-sonnet-4-6",
+    premium:  "claude:claude-opus-4-7",
+    free:     "ollama",
+  };
+  const initialStoryAiProvider = URL_TIER_TO_PROVIDER[tierParam] ?? "claude:claude-haiku-4-5-20251001";
 
   // ── State ──
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
@@ -249,11 +261,11 @@ function ChildrenPlannerInner() {
   const [narrationSettings, setNarrationSettings] = useState<Partial<NarrationSettings>>({ mode: "children" });
 
   // ── Story AI provider ──
-  const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
+  const [storyAiProvider, setStoryAiProvider] = useState(initialStoryAiProvider);
 
   // ── AID model picker ──
-  const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [selectedVideoModelId, setSelectedVideoModelId] = useState(videoModelParam || "segmind_pruna_video");
+  const [selectedImageModelId, setSelectedImageModelId] = useState(imageModelParam || "fal_flux_schnell");
   const [genSeed, setGenSeed] = useState<number | null>(null);
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");
