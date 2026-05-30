@@ -2732,6 +2732,10 @@ function ChildrenPlannerInner() {
   // can then modify with the small "Intensify / Playful / Educational / Adventure / …" buttons
   // before clicking Expand. User A and User B picking same template get different ideas.
   const autoExpandedRef = useRef(false);
+  // Henry 2026-05-30: tracks which scenes have already been auto-opted into Max Image
+  // mode this session. Prevents the picker render from infinitely re-adding to
+  // useMaxImageScenes after the user clicks Max OFF.
+  const autoOptedMaxRef = useRef<Set<string>>(new Set());
   const [prefillingPrompt, setPrefillingPrompt] = useState(false);
   useEffect(() => {
     if (autoExpandedRef.current) return;
@@ -5215,9 +5219,13 @@ Rules:
                             const variants = (s.variantUrls && s.variantUrls.length > 1) ? s.variantUrls : [];
                             const beats = genMaxBeats.length > 1 ? genMaxBeats : variants;
                             if (beats.length <= 1) return null;
-                            // Auto-opt this scene into multi-image mode the first time the picker renders
-                            // with images available — saves the user a click.
-                            if (!useMaxImageScenes.has(sceneId)) {
+                            // Auto-opt this scene into multi-image mode the FIRST time we render
+                            // its picker — saves the user a click. Henry 2026-05-30: previously
+                            // we re-added on every render which created an infinite loop and
+                            // defeated the user's Max OFF click. Now tracked in autoOptedMaxRef
+                            // so we only auto-opt once per page load per scene.
+                            if (!useMaxImageScenes.has(sceneId) && !autoOptedMaxRef.current.has(sceneId)) {
+                              autoOptedMaxRef.current.add(sceneId);
                               setTimeout(() => setUseMaxImageScenes(prev => new Set(prev).add(sceneId)), 0);
                             }
                             return (

@@ -121,8 +121,13 @@ export async function POST(req: NextRequest) {
     } catch { /* Piper failed */ }
 
     // Try 2a: FAL Standard Narrator — fal-ai/kokoro american-english (smaller, fast)
-    // Triggers when provider="fal-narrator" OR when Piper fails and provider is "auto"
-    const useFalNarrator = effectiveProvider === "fal-narrator" || effectiveProvider === "fal";
+    // Henry 2026-05-30 "BIB" fix: previously triggered only on provider="fal-narrator"
+    // or "fal". When user picked "piper" and piper failed (binary/model missing on the
+    // server), this block was SKIPPED → request fell straight through to ElevenLabs /
+    // SAPI / silent-placeholder, producing the "BIB" beep narration users heard. Now
+    // also trigger for provider="piper" since reaching this line with "piper" means
+    // the piper attempt above already failed — FAL is a sensible fallback.
+    const useFalNarrator = effectiveProvider === "fal-narrator" || effectiveProvider === "fal" || effectiveProvider === "piper";
     if (useFalNarrator && process.env.FAL_KEY) {
       try {
         // Migrated to providers/fal adapter (Henry 2026-05-30 task #25)
