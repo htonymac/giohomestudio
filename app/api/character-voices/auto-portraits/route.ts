@@ -41,27 +41,20 @@ export async function POST(req: NextRequest) {
     const prompt = `character portrait, ${genderHint}${desc}, looking at camera, clean neutral background, photorealistic, high quality, sharp focus`;
 
     try {
-      const falRes = await fetch("https://fal.run/fal-ai/flux/dev", {
-        method: "POST",
-        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, image_size: { width: 512, height: 768 }, num_inference_steps: 28, guidance_scale: 3.5 }),
-      });
-
+      // Migrated to providers/fal adapter (Henry 2026-05-30 task #28).
+      const { falFluxDevSync, falFluxSchnell } = await import("@/lib/providers/fal");
       let imgUrl: string | undefined;
 
-      if (falRes.ok) {
-        const d = await falRes.json() as { images?: { url: string }[] };
-        imgUrl = d.images?.[0]?.url;
+      const devR = await falFluxDevSync({
+        prompt, imageSize: { width: 512, height: 768 }, numInferenceSteps: 28, guidanceScale: 3.5,
+      });
+      if (devR.ok) {
+        imgUrl = devR.data.images?.[0]?.url;
       } else {
-        const schnellRes = await fetch("https://fal.run/fal-ai/flux/schnell", {
-          method: "POST",
-          headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt, image_size: { width: 512, height: 768 }, num_inference_steps: 4 }),
+        const schR = await falFluxSchnell({
+          prompt, imageSize: { width: 512, height: 768 }, numInferenceSteps: 4,
         });
-        if (schnellRes.ok) {
-          const d = await schnellRes.json() as { images?: { url: string }[] };
-          imgUrl = d.images?.[0]?.url;
-        }
+        if (schR.ok) imgUrl = schR.data.images?.[0]?.url;
       }
 
       if (!imgUrl) { results.push({ id: char.id, name: char.name, status: "error", error: "No image from FAL" }); continue; }

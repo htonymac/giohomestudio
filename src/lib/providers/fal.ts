@@ -215,3 +215,56 @@ export function falBgRemove(
 ): Promise<FalResult<FalBgRemoveResponse>> {
   return falCall<FalBgRemoveResponse>(BG_REMOVE_PATH[model], body, { base: "queue", timeoutMs: 90_000 });
 }
+
+// ── FLUX dev (sync variant) — auto-portraits route hits fal.run not queue.fal.run.
+export function falFluxDevSync(req: FalImageRequest): Promise<FalResult<FalImageResponse>> {
+  return falCall<FalImageResponse>("/fal-ai/flux/dev", {
+    prompt: req.prompt,
+    negative_prompt: req.negativePrompt,
+    image_size: req.imageSize ?? "landscape_16_9",
+    num_inference_steps: req.numInferenceSteps ?? 28,
+    guidance_scale: req.guidanceScale ?? 3.5,
+    seed: req.seed,
+  }, { timeoutMs: 90_000 });
+}
+
+// ── Music: MiniMax Music v2 — used by /api/music/generate-scene.
+export interface FalMinimaxMusicRequest {
+  prompt: string;
+  lyricsPrompt?: string;
+  sampleRate?: number;
+  bitrate?: number;
+  format?: "mp3" | "wav";
+}
+export interface FalMinimaxMusicResponse {
+  audio?: { url: string; content_type?: string };
+}
+export function falMinimaxMusic(req: FalMinimaxMusicRequest): Promise<FalResult<FalMinimaxMusicResponse>> {
+  return falCall<FalMinimaxMusicResponse>("/fal-ai/minimax-music/v2", {
+    prompt: req.prompt.slice(0, 300),
+    lyrics_prompt: req.lyricsPrompt,
+    audio_setting: {
+      sample_rate: req.sampleRate ?? 44100,
+      bitrate: req.bitrate ?? 128000,
+      format: req.format ?? "mp3",
+    },
+  }, { timeoutMs: 120_000 });
+}
+
+// ── SFX: Stable Audio — used by /api/sfx/generate.
+export interface FalStableAudioRequest {
+  prompt: string;
+  secondsTotal?: number;  // up to ~45s per FAL docs; SFX usually ≤10s
+  steps?: number;
+}
+export interface FalStableAudioResponse {
+  audio_file?: { url: string; content_type?: string };
+  url?: string;
+}
+export function falStableAudio(req: FalStableAudioRequest): Promise<FalResult<FalStableAudioResponse>> {
+  return falCall<FalStableAudioResponse>("/fal-ai/stable-audio", {
+    prompt: req.prompt,
+    seconds_total: req.secondsTotal ?? 10,
+    steps: req.steps ?? 100,
+  }, { timeoutMs: 45_000 });
+}

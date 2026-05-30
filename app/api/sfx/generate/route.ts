@@ -127,27 +127,15 @@ export async function POST(req: NextRequest) {
   const falKey = process.env.FAL_KEY;
   if (falKey && effectiveProvider !== "elevenlabs") {
     try {
-      // Use fal-ai/stable-audio for SFX — supports descriptive prompts up to 45s
-      const falRes = await fetch("https://fal.run/fal-ai/stable-audio", {
-        method: "POST",
-        headers: {
-          "Authorization": `Key ${falKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: description,
-          seconds_total: Math.min(10, 10), // 10s max for SFX, stable-audio handles it well
-          steps: 100,
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
+      // Migrated to providers/fal adapter (Henry 2026-05-30 task #28).
+      const { falStableAudio } = await import("@/lib/providers/fal");
+      const falRes = await falStableAudio({ prompt: description, secondsTotal: 10, steps: 100 });
 
       if (!falRes.ok) {
-        const errBody = await falRes.text();
-        console.warn(`[SFX] FAL stable-audio ${falRes.status}:`, errBody.slice(0, 200));
+        console.warn(`[SFX] FAL stable-audio ${falRes.status}:`, falRes.error.slice(0, 200));
         // Fall through to ElevenLabs
       } else {
-        const falData = await falRes.json() as { audio_file?: { url?: string }; url?: string };
+        const falData = falRes.data;
         const remoteUrl = falData.audio_file?.url || falData.url;
 
         if (remoteUrl) {

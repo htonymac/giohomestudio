@@ -49,22 +49,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "FAL_API_KEY not set" }, { status: 503 });
     }
 
-    const res = await fetch("https://fal.run/fal-ai/minimax-music/v2", {
-      method: "POST",
-      headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt: prompt.slice(0, 300),
-        lyrics_prompt: mapping.lyrics,
-        audio_setting: { sample_rate: 44100, bitrate: 128000, format: "mp3" },
-      }),
-    });
-
-    if (!res.ok) {
-      return NextResponse.json({ error: `MiniMax returned ${res.status}` }, { status: 502 });
+    // Migrated to providers/fal adapter (Henry 2026-05-30 task #28).
+    const { falMinimaxMusic } = await import("@/lib/providers/fal");
+    const r = await falMinimaxMusic({ prompt, lyricsPrompt: mapping.lyrics });
+    if (!r.ok) {
+      return NextResponse.json({ error: `MiniMax returned ${r.status}` }, { status: 502 });
     }
 
-    const data = await res.json();
-    const audioUrl = data.audio?.url;
+    const audioUrl = r.data.audio?.url;
     if (!audioUrl) {
       return NextResponse.json({ error: "No audio returned" }, { status: 502 });
     }
