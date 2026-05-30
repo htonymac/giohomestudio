@@ -1969,7 +1969,34 @@ function ChildrenPlannerInner() {
       }
 
       const assembleProjectId = urlProjectId || `children_${contentParam || "story"}_${topicParam || "default"}`;
-      const narrationList = narratorAudioUrl ? [{ startTime: 0, audioUrl: narratorAudioUrl, volume: 1.0 }] : [];
+
+      // ── AUTO-GENERATE NARRATION IF MISSING (Henry 2026-05-30) ──
+      // Before this, assembling without manually clicking "Generate Narration" first
+      // produced a silent video — user reported "narration do not work". Now we auto-fire
+      // TTS in the assembly path so narration is always present.
+      let resolvedNarratorAudioUrl = narratorAudioUrl;
+      if (!resolvedNarratorAudioUrl) {
+        const storyForTTS = (narrationText || textContent || readAlongText || "").trim();
+        if (storyForTTS.length > 10) {
+          try {
+            setLastAction(`Auto-generating narration (${effectiveNarrationProvider})...`);
+            const ttsRes = await fetch("/api/tts", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
+            });
+            if (ttsRes.ok) {
+              const ttsData = await ttsRes.json() as { audioUrl?: string };
+              if (ttsData.audioUrl) {
+                resolvedNarratorAudioUrl = ttsData.audioUrl;
+                setNarratorAudioUrl(ttsData.audioUrl);
+              }
+            }
+          } catch (autoTtsErr) {
+            console.warn("[children-planner] auto-narration failed:", autoTtsErr);
+          }
+        }
+      }
+      const narrationList = resolvedNarratorAudioUrl ? [{ startTime: 0, audioUrl: resolvedNarratorAudioUrl, volume: 1.0 }] : [];
       // Collect SFX: AI-generated SFX + any saved freesound picks
       const sfxList: Array<{ sourceUrl: string; startTime: number; volume: number }> = [];
       if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
