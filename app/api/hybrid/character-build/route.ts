@@ -88,13 +88,17 @@ function buildCharacterPrompt(
     artStyle === "comic"        ? "comic book illustration style (bold ink, graphic novel)" :
     "3D animated film style (Pixar/DreamWorks quality)";
 
-  // Build a "taken" block so the AI makes every character visually distinct
+  // Build a "taken" block so the AI knows which characters already exist.
+  // Henry 2026-05-30: was "make DIFFERENT from all of these" — that wording pushed the
+  // LLM toward stereotype-contrast (if existing char is "tall lean", new char defaults
+  // to "short stocky") instead of grounding in the story. Now we just show the existing
+  // cast for awareness and ask the LLM to ground "${name}" in the story text.
   const takenBlock = existingCharacters && existingCharacters.length > 0
-    ? `\nALREADY BUILT CHARACTERS — make "${name}" look clearly DIFFERENT from all of these:\n${
+    ? `\nEXISTING CAST (for reference — do NOT copy traits, but do NOT force stylistic contrast either):\n${
         existingCharacters.map(c =>
           `- ${c.name}: species=${c.species || "unknown"}, colour=${c.colorDescription || "unknown"}, gender=${c.gender || "unknown"}`
         ).join("\n")
-      }\nDo NOT reuse the same species as any character listed above unless the story explicitly requires it.\n`
+      }\nBuild "${name}" from what the STORY TEXT says about them — physical details, role, age, ethnicity, wardrobe. Each character is who the story says they are; visual distinctness comes from grounded story detail, not artificial contrast against the existing cast.\n`
     : "";
 
   // BUG-02 Fix C: detect if character is human from story context or explicit roleHint
@@ -141,7 +145,7 @@ Return ONLY valid JSON (no markdown, no explanation):
   "ageRange": "child | teen | young_adult | adult | elder",
   "species": ${speciesOptions},
   "bodyBuild": "detailed body shape description",
-  "colorDescription": "fur/skin/body colour — be specific and DIFFERENT from existing characters",
+  "colorDescription": "fur/skin/body colour — be specific and grounded in the story text (not artificially contrasted with other characters)",
   "faceFeatures": "face, eyes, nose, ears, any glasses or facial features",
   "clothingDetails": "every item of clothing they wear",
   "accessories": "bags, weapons, props, jewellery — or 'none'",
