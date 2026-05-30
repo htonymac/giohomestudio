@@ -25,8 +25,9 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 14. **DB offsite.** Daily pg_dump pushed to R2 — `26953df` + server-side pg_backup.sh append. Soft-fail. Last 14 R2 dumps retained. Task #22 closed. Survives server loss.
 15. **DB migration audit.** `prisma migrate status` clean — "Database schema is up to date!" with 7 migrations recognised. No drift. Task #23 closed.
 16. **Children establishing insertion in assembly** — `0046a6b`. Mirrors hybrid `withEstablishing` step; rendered shots now reach the final video instead of dying in state. Closes the silent gap revealed after #21.
+17. **FAL provider adapter scaffold + 3 migrations** — `f4104fd`. `src/lib/providers/fal.ts` with `falCall<T>` / `falQueue<T>` / `falFluxSchnell` / `falFluxDev` / `falKokoroTts` / `falAccountStatus`. Migrated account/status + tts/fal-narrator + ad-editor/ai-edit. Map at `update/FAL_ADAPTER_MIGRATION_MAP_05302026.md` lists remaining 17 sites with trigger phrases. Task #24 closed.
 
-## ✅ 16 TASKS CLOSED THIS SESSION
+## ✅ 17 TASKS CLOSED THIS SESSION
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
