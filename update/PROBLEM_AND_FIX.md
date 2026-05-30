@@ -14,6 +14,16 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`0046a6b`): Children establishing shots stored but never reached the rendered video
+
+**Symptom (gap revealed after task #21):** the Establishing Shots panel planned shots, the Render button generated images, the audit doc claimed parity — but the rendered videos didn't actually include the cinematic openers. The shots lived in state only.
+
+**Root cause:** `assembleVideo()` built `assemblyScenes` from `scenesToAssemble` and sent that to `/api/video/assemble`, but never consulted `establishingShotsChild`.
+
+**Fix:** mirror hybrid's `withEstablishing` insertion step. After the main scene loop, if any `establishingShotsChild[sceneId].imageUrl` exists, prepend an `img:` segment before its parent scene with a fresh sequential scene number (so `/api/video/assemble` temp-file naming doesn't collide). Final videos now interleave `[establishing wide] → [main scene]` per scene that got planned + rendered.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`26953df` + server cron): Postgres backups were local-only
 
 **Symptom:** the daily 03:30 `pg_backup.sh` cron wrote dumps to `/home/ghs/backups/` only. Server loss = backup loss. R2 credentials were already in `.env` but unused for DB.

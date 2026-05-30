@@ -24,8 +24,9 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 13. **G+.** Children Establishing Shot mirror — `4e4a82b`. Full panel + 5-mode picker + per-scene chips + image render + persistence. Task #21 closed. Children parity now ~95%.
 14. **DB offsite.** Daily pg_dump pushed to R2 — `26953df` + server-side pg_backup.sh append. Soft-fail. Last 14 R2 dumps retained. Task #22 closed. Survives server loss.
 15. **DB migration audit.** `prisma migrate status` clean — "Database schema is up to date!" with 7 migrations recognised. No drift. Task #23 closed.
+16. **Children establishing insertion in assembly** — `0046a6b`. Mirrors hybrid `withEstablishing` step; rendered shots now reach the final video instead of dying in state. Closes the silent gap revealed after #21.
 
-## ✅ 15 TASKS CLOSED THIS SESSION
+## ✅ 16 TASKS CLOSED THIS SESSION
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
