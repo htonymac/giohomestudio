@@ -1242,7 +1242,18 @@ function KaraokeMusicPlannerInner() {
                     <button
                       data-testid="run-music-gen-btn"
                       onClick={runMusicGeneration}
-                      disabled={steps[10]?.status === "running"}
+                      // Henry 2026-05-30 persona LOW #11: button styled as locked but didn't
+                      // actually disable interaction — clicking fired runMusicGeneration which
+                      // bounced server-side. Now disabled when flow-locked too.
+                      disabled={steps[10]?.status === "running" || isFlowLocked()}
+                      title={isFlowLocked()
+                        ? `Pending: ${[
+                            steps[3]?.status !== "done"  && "Step 3 (analyze)",
+                            steps[5]?.status !== "done"  && "Step 5 (lyrics)",
+                            steps[7]?.status !== "done"  && "Step 7 (flow profile)",
+                            steps[9]?.status !== "done"  && "Step 9 (production brief)",
+                          ].filter(Boolean).join(", ")}`
+                        : "Generate music for this karaoke take"}
                       style={{
                         padding: "9px 22px",
                         borderRadius: 7,
@@ -1255,7 +1266,8 @@ function KaraokeMusicPlannerInner() {
                         color: isFlowLocked() ? "#ff7a45" : "#fff",
                         fontWeight: 700,
                         fontSize: 13,
-                        cursor: steps[10]?.status === "running" ? "not-allowed" : "pointer",
+                        cursor: (steps[10]?.status === "running" || isFlowLocked()) ? "not-allowed" : "pointer",
+                        opacity: isFlowLocked() ? 0.6 : 1,
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
