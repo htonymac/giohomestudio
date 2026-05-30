@@ -1971,7 +1971,15 @@ function MoviePlannerInner() {
       const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
       if (newText && data.ok !== false) {
         updateScene(sceneNum, { visualDescription: newText });
-        setLastAction(`Scene ${sceneId}: ${op} applied`);
+        setLastAction(`Scene ${sceneId}: ${op} applied — regenerating image...`);
+        // Henry 2026-05-30 task #34: mirror the children fix (#9). handleSceneOp
+        // previously updated text only; user saw no visible change because the
+        // scene image stayed stale. Now auto-regen the image after text update.
+        // Skip for the "qc" op which doesn't change the visual.
+        if (op !== "qc" && sceneObj) {
+          await makeSceneImage({ ...sceneObj, visualDescription: newText });
+        }
+        setLastAction(`Scene ${sceneId}: ${op} applied${op !== "qc" ? " — image refreshed" : ""}`);
       } else if (data.error) {
         setLastAction(`${op} failed: ${data.error.slice(0, 200)}`);
       } else {
