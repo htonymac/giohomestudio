@@ -50,6 +50,18 @@ Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity ga
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`56e32f2`): Children Enter Content — AI prefill on land + 10 small Modify buttons
+
+**Symptom (Henry screenshot):** after picking templates on /children-video, user lands on children-planner with the textarea showing the raw `topicPrompt` URL param. Two users picking the same template get identical text. The empty space next to Expand with AI / Build Story with AI buttons was unused — Henry wanted small modify buttons there (like the hybrid scene-card toolbar) so users could reshape the story idea (more intense / playful / fun / educational / adventure / magical / cozy / diverse / musical / heartwarming) BEFORE clicking Expand.
+
+**Fix:**
+1. **AI prefill on land** — earlier autoExpand effect (commit `1d571d1`) auto-fired full `expandStory()` which was too aggressive. Replaced with new `prefillPrompt()` that calls `/api/hybrid/scene-edit polish` with `polishMode:"custom"` + a custom instruction wrapping the user's selections (age group, learning mode, safety level, content type, topic) + a **random seed** (0–99999). Result is a unique 2-3 sentence story idea — User A and User B picking the same template now get different specific scenarios with different names and twists.
+2. **10 Modify buttons** rendered inline with Expand/Build at fontSize 9 / padding 5×9 / color-coded per intent. 5 buttons (Intensify / Playful / Fun / Adventure / Heartwarming) map to existing polishMode values; 5 (Educational / Magical / Cozy / Diverse / Musical) use `polishMode:"custom"` with child-safe instructions. New `modifyPrompt(kind)` handler. Disabled while any modify or prefill is in flight. Spinner "✨ AI suggesting…" while prefill runs.
+
+Style matches hybrid scene-card toolbar (Henry's IMG #18 reference) — small, color-coded, emoji-prefixed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`4ba3959`): Token Resolution Engine not wired into scene-image (MASTER_PLAN Phase 3)
 
 **Symptom (root cause for character substitution drift):** typed character tokens like `[CH01]` in story-expanded scene text were passed LITERALLY to the image model when the planner hadn't already enumerated them in `characterIds[]`. The model either rendered the literal bracket text or defaulted to a generic placeholder ("characters collapse to bear" was a downstream symptom of this — BUG-02).

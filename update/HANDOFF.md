@@ -58,8 +58,9 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 27. **Movie planner auto-narration in assembly** — `10e3b17`. Mirror of children #10. Pre-assembly batch fill for any scene with dialogue text but no existing audio URL. Sequential generateSceneNarration pass + local mutable copy to avoid the React state race. Task #35 closed.
 28. **Commercial planner auto-narration in assembly** — `b80ee32`. Same pattern, third planner closed. Auto-runs generateAllNarration when any scene has voiceoverScript but no voNarrationUrls entry; commercials no longer ship silent. Task #36 closed.
 29. **Auto-creator auto-narration before Build Video** — `0168cb4`. Fourth planner to receive the pattern. Pre-build TTS pass if `draft.voice_script` exists but `narrationAudioUrl` is null; soft-fails so Build still proceeds if TTS errors. Task #37 closed.
+30. **Children AI prefill + 10 Modify buttons** — `56e32f2`. Replaces the earlier auto-expand-on-land (too aggressive). Now generates a UNIQUE 2-3 sentence story idea via /api/hybrid/scene-edit polish + random seed so identical templates produce different specific scenarios. Plus 10 small inline modify buttons (Intensify / Playful / Fun / Educational / Adventure / Magical / Cozy / Diverse / Musical / Heartwarming) styled like hybrid scene-card toolbar. Task #38 closed.
 
-## ✅ 29 TASKS CLOSED THIS SESSION
+## ✅ 30 TASKS CLOSED THIS SESSION
 **Auto-narration pattern now consistent across all 5 planners** — children + movie + music-video (already had it) + commercial + auto-creator. No planner ships silent video when the user has narration text but skipped the manual Generate Narration click.
 Remaining FAL site: `src/lib/generation/gateways/fal.ts` (axios + custom URLs + onProgress — parked for dedicated session per FAL_ADAPTER_MIGRATION_MAP). All sweep-able routes consolidated. Supervisor/QC pipeline already wired end-to-end at `/api/story/supervise`.
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
