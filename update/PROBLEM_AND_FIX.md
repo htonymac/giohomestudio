@@ -14,6 +14,14 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`6d84b8d`): Establishing Shot system missing the 5-level mode picker
+
+**Symptom:** the establishing shot pipeline was binary — "Establish All" ran the LLM on every scene with no way to dial down or up. Spec §4 calls for 5 mode levels (Off / Minimal / Auto / Cinematic / Epic) but the user-facing surface was missing.
+
+**Fix:** `EstablishingMode` type added on both sides. `runEstablishAll` accepts it; OFF short-circuits without an LLM call; other modes inject mode-specific guidance lines into the supervisor system prompt. Hybrid-planner renders 5 picker buttons under the Establish-All row with hover tooltips per spec. Default "auto" so existing flows are unchanged. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`4ba3959`): Token Resolution Engine not wired into scene-image (MASTER_PLAN Phase 3)
 
 **Symptom (root cause for character substitution drift):** typed character tokens like `[CH01]` in story-expanded scene text were passed LITERALLY to the image model when the planner hadn't already enumerated them in `characterIds[]`. The model either rendered the literal bracket text or defaulted to a generic placeholder ("characters collapse to bear" was a downstream symptom of this — BUG-02).

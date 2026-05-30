@@ -20,8 +20,10 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 10. **H1.** Token Resolution Engine wired into scene-image — `4ba3959`. The Phase 3 root cause for substitution drift. Helper existed at character-resolver.ts:99; scene-image never imported it. Now substitutes [CH0X] tokens + attaches reference images before image gen. Task #16 closed.
 11. **G.** Children ↔ hybrid parity audit — `6e3ba9a`. Doc `update/CHILDREN_HYBRID_PARITY_AUDIT_05302026.md`. Children now ~85% parity after the 10 fixes. Remaining 2 gaps documented with cost + triggers: assembly-endpoint migration + establishing-shot UI. Task #15 closed.
 
-## 🟡 Remaining open
-- **#17** Establishing Shot mode picker (Off/Minimal/Auto/Cinematic/Epic) + mode-aware LLM prompt + children mirror — core API exists. Trigger: `go establishing mode`. ~1.5h.
+12. **H2.** Establishing Shot 5-mode picker (Off/Minimal/Auto/Cinematic/Epic) — `6d84b8d`. API + UI shipped. Task #17 closed.
+
+## ✅ ALL 12 TASKS CLOSED THIS SESSION
+All bug-burst priorities + hybrid-finish-line items completed. Audit doc shows children at ~85% parity. The 2 documented remaining parity gaps (assembly-endpoint migration + children establishing-shot mirror) are scope-deferred per their respective triggers.
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
