@@ -27,8 +27,9 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 16. **Children establishing insertion in assembly** — `0046a6b`. Mirrors hybrid `withEstablishing` step; rendered shots now reach the final video instead of dying in state. Closes the silent gap revealed after #21.
 17. **FAL provider adapter scaffold + 3 migrations** — `f4104fd`. `src/lib/providers/fal.ts` with `falCall<T>` / `falQueue<T>` / `falFluxSchnell` / `falFluxDev` / `falKokoroTts` / `falAccountStatus`. Migrated account/status + tts/fal-narrator + ad-editor/ai-edit. Map at `update/FAL_ADAPTER_MIGRATION_MAP_05302026.md` lists remaining 17 sites with trigger phrases. Task #24 closed.
 18. **FAL TTS sweep** — `9b110a9`. Migrated 3 more kokoro callers (tts/route.ts american+global, avatar/create, hybrid/narrate-piper). 6 of 24 FAL sites now on adapter. Task #25 closed.
+19. **FAL bg-remove sweep** — `c3ba31b`. New `falBgRemove(model, body)` supporting birefnet / bria-rmbg / birefnet-video / video-bg-remove. Migrated ad-editor/bg-remove + image/bg-remove + video/bg-remove. 9 of 24 FAL sites on adapter. Task #27 closed.
 
-## ✅ 18 TASKS CLOSED THIS SESSION
+## ✅ 19 TASKS CLOSED THIS SESSION
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
