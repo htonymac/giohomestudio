@@ -14,6 +14,12 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`4e4a82b`): Children-planner missing Establishing Shot UI
+
+Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity gaps in `update/CHILDREN_HYBRID_PARITY_AUDIT_05302026.md`. Children Scene Board tab now has the amber-accent Establishing Shots card: 5-mode picker (off/minimal/auto/cinematic/epic), Establish All button, per-scene chip list with prompt preview + Render button + image thumbnails. Reuses existing API surface (`/api/hybrid/scene-edit op:"establish_all"` + `/api/hybrid/establishing-shot/generate`). Persisted via saved-state. After this, only the assembly-endpoint migration remains as a documented parity gap.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`6d84b8d`): Establishing Shot system missing the 5-level mode picker
 
 **Symptom:** the establishing shot pipeline was binary — "Establish All" ran the LLM on every scene with no way to dial down or up. Spec §4 calls for 5 mode levels (Off / Minimal / Auto / Cinematic / Epic) but the user-facing surface was missing.

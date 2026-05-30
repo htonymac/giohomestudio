@@ -21,9 +21,10 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 11. **G.** Children ↔ hybrid parity audit — `6e3ba9a`. Doc `update/CHILDREN_HYBRID_PARITY_AUDIT_05302026.md`. Children now ~85% parity after the 10 fixes. Remaining 2 gaps documented with cost + triggers: assembly-endpoint migration + establishing-shot UI. Task #15 closed.
 
 12. **H2.** Establishing Shot 5-mode picker (Off/Minimal/Auto/Cinematic/Epic) — `6d84b8d`. API + UI shipped. Task #17 closed.
+13. **G+.** Children Establishing Shot mirror — `4e4a82b`. Full panel + 5-mode picker + per-scene chips + image render + persistence. Task #21 closed. Children parity now ~95%.
 
-## ✅ ALL 12 TASKS CLOSED THIS SESSION
-All bug-burst priorities + hybrid-finish-line items completed. Audit doc shows children at ~85% parity. The 2 documented remaining parity gaps (assembly-endpoint migration + children establishing-shot mirror) are scope-deferred per their respective triggers.
+## ✅ 13 TASKS CLOSED THIS SESSION
+All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
