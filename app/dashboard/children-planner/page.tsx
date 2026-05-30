@@ -1981,6 +1981,29 @@ function ChildrenPlannerInner() {
       }
       if (assemblyScenes.length === 0) { setLastAction("No video or images available. Generate scene content first."); setAssembling(false); return; }
 
+      // ── INSERT ESTABLISHING SHOTS BEFORE THEIR SCENES (Henry 2026-05-30 task #21) ──
+      // Mirror hybrid's withEstablishing logic. Each scene that has a rendered establishing
+      // shot imageUrl gets a short image segment inserted ahead of it, preserving order.
+      if (Object.keys(establishingShotsChild).length > 0) {
+        const withEst: Segment[] = [];
+        let estCounter = segCounter;
+        for (const seg of assemblyScenes) {
+          const sceneId = `child_sc${String(seg.parentScene).padStart(2, "0")}`;
+          const shot = establishingShotsChild[sceneId];
+          if (shot?.imageUrl) {
+            withEst.push({
+              scene: ++estCounter,
+              videoUrl: `img:${shot.imageUrl}`,
+              parentScene: seg.parentScene,
+            });
+          }
+          withEst.push({ ...seg, scene: ++estCounter });
+        }
+        assemblyScenes.length = 0;
+        assemblyScenes.push(...withEst);
+        segCounter = estCounter;
+      }
+
       for (const s of assemblyScenes) {
         progress[s.scene] = "processing";
         setAssemblyProgress({ ...progress });
