@@ -14,6 +14,16 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`89b62f9`): C6 pacing engine outputs not persisted to DB
+
+**Symptom:** building a pacing plan + generating narration + assembling a pacing video all worked in-session, but a refresh or re-open of the project lost all 4 fields → user had to rebuild from scratch.
+
+**Root cause:** the children-planner saved-state effect (`/api/hybrid/saved-state` POST) wrote 25+ fields but never included `pacingPlan` / `pacingAudioUrl` / `pacingVideoUrl` / `pacingTimingMap`. Restore likewise didn't read them. Pure gap in the persistence loop.
+
+**Fix:** added all 4 pacing fields to the POST data object, the restoreState rehydration block, and the useEffect dep array so debounced save fires on any pacing change. No behavioral change in the pacing pipeline itself. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`d32b602`): Legacy `kids` / `dramatic` / `social` subtitle modes had no presets
 
 **Symptom:** picking Children Song/Kids, Dramatic Movie, or Social Media Caption from the Subtitle Styler showed no visible difference vs default — same gap pattern as the `highlight` mode fix two days earlier. No preset entry in `SUBTITLE_PRESETS` → ASS formatter fell through to default rendering.
