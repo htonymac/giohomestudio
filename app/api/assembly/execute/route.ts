@@ -797,6 +797,12 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   // Legacy `highlight` mode — bouncing-ball karaoke. Spoken word jumps to
                   // highlightColor for its time window, others stay in textColor.
                   highlight:      { fontName: "Arial", fontSize: 48, outlineHex: "#000000", outlineWidth: 3, borderStyle: 3, bold: 1, perWord: "highlight_current" },
+                  // Henry 2026-05-30: legacy `kids` / `dramatic` / `social` finally get presets.
+                  // Were falling through to default formatter → no perWord effect, same shape as
+                  // the highlight bug earlier this week.
+                  kids:           { fontName: "Arial Black", fontSize: 54, primaryHex: "#ffffff", outlineHex: "#7c3aed", outlineWidth: 4, shadowDepth: 3, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "bubble" },
+                  dramatic:       { fontName: "Georgia", fontSize: 46, primaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 2, shadowDepth: 4, borderStyle: 3, bold: 0, bgOpacity: 0.85, perWord: "glow_line" },
+                  social:         { fontName: "Impact", fontSize: 56, primaryHex: "#ffffff", outlineHex: "#00d4ff", outlineWidth: 5, shadowDepth: 6, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "dance" },
                   dance_word:     { fontName: "Arial Black", fontSize: 56, primaryHex: "#ffffff", outlineHex: "#fbbf24", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "dance" },
                   rainbow:        { fontName: "Arial Black", fontSize: 52, primaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 3, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "rainbow" },
                   bubble_pop:     { fontName: "Arial Black", fontSize: 50, primaryHex: "#ffffff", outlineHex: "#7c3aed", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "bubble" },
