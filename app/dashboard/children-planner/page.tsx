@@ -314,6 +314,22 @@ function ChildrenPlannerInner() {
   interface ChildAudioPlan { narrationScript?: string; musicMood?: string; sfxList?: string[]; ambienceList?: string[] }
   const [audioPlans, setAudioPlans] = useState<Record<number, ChildAudioPlan>>({});
   const [runningAudioPlan, setRunningAudioPlan] = useState(false);
+  // ── Establishing Shots (Henry 2026-05-30 task #21 — mirror hybrid task #17) ──
+  interface ChildEstablishingShot {
+    type: "opening" | "location" | "transition" | "mood" | "pre_action" | "exterior_building" | "aerial" | "beauty";
+    prompt: string;
+    durationSeconds: number;
+    cameraMovement?: string;
+    mood?: string;
+    purpose?: string;
+    location?: string;
+    timeOfDay?: string;
+    imageUrl?: string;
+  }
+  type ChildEstablishingMode = "off" | "minimal" | "auto" | "cinematic" | "epic";
+  const [establishingShotsChild, setEstablishingShotsChild] = useState<Record<string, ChildEstablishingShot>>({});
+  const [establishingAllChild, setEstablishingAllChild] = useState(false);
+  const [establishingModeChild, setEstablishingModeChild] = useState<ChildEstablishingMode>("auto");
   const [sceneVideos, setSceneVideos] = useState<Record<string, string>>({});
   const [sceneImages, setSceneImages] = useState<Record<string, string>>({});
   const [generatingSceneVideos, setGeneratingSceneVideos] = useState<Set<string>>(new Set());
@@ -2337,6 +2353,77 @@ function ChildrenPlannerInner() {
     }
   }
 
+  // ── Establishing Shot batch planner for children (Henry 2026-05-30 task #21) ──
+  // Mirror hybrid's addAllEstablishingShots. Uses /api/hybrid/scene-edit op:"establish_all"
+  // with mode-aware aggressiveness. Result stored in establishingShotsChild keyed by sceneId.
+  async function runChildrenEstablishAll() {
+    if (establishingAllChild || childScenes.length === 0) return;
+    if (establishingModeChild === "off") {
+      setEstablishingShotsChild({});
+      setLastAction("Establishing shots OFF — cleared");
+      return;
+    }
+    setEstablishingAllChild(true);
+    setLastAction(`Planning establishing shots (mode: ${establishingModeChild})…`);
+    try {
+      const scenesPayload = childScenes.map(s => ({
+        sceneId: `child_sc${String(s.scene).padStart(2, "0")}`,
+        title: s.title,
+        description: s.visualDescription,
+        location: "",
+        timeOfDay: "",
+        mood: "",
+      }));
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "establish_all",
+          provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+          scenes: scenesPayload,
+          storyText: textContent || expandedContent || "",
+          establishingMode: establishingModeChild,
+        }),
+      });
+      const data = await res.json();
+      if (data.ok && Array.isArray(data.results)) {
+        const next: Record<string, ChildEstablishingShot> = {};
+        let count = 0;
+        for (const r of data.results as Array<{ sceneId: string; needed: boolean; shot: ChildEstablishingShot | null }>) {
+          if (r.needed && r.shot) { next[r.sceneId] = r.shot; count++; }
+        }
+        setEstablishingShotsChild(next);
+        setLastAction(`${count} establishing shot${count === 1 ? "" : "s"} planned across ${childScenes.length} scene${childScenes.length === 1 ? "" : "s"}`);
+      } else {
+        setLastAction(`Establishing shots failed: ${data.error || "unknown"}`);
+      }
+    } catch (err) {
+      setLastAction(`Establishing shots failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setEstablishingAllChild(false);
+    }
+  }
+
+  // Generate the wide image for a single planned establishing shot.
+  async function genChildEstablishingShotImage(sceneId: string) {
+    const shot = establishingShotsChild[sceneId];
+    if (!shot) { setLastAction("No establishing shot planned for this scene"); return; }
+    try {
+      const res = await fetch("/api/hybrid/establishing-shot/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sceneId, shot }),
+      });
+      const data = await res.json();
+      if (data.imageUrl) {
+        setEstablishingShotsChild(prev => ({ ...prev, [sceneId]: { ...shot, imageUrl: data.imageUrl } }));
+        setLastAction("Establishing shot image generated");
+      } else if (data.error) {
+        setLastAction(`Establishing shot image failed: ${data.error}`);
+      }
+    } catch (err) {
+      setLastAction(`Establishing shot image error: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
   // ── Music-only generation ──
   async function generateChildrenMusic() {
     setMusicGenerating(true);
@@ -2543,6 +2630,8 @@ function ChildrenPlannerInner() {
             if (d.pacingVideoUrl)   setPacingVideoUrl(d.pacingVideoUrl);
             if (d.pacingTimingMap)  setPacingTimingMap(d.pacingTimingMap);
             if (d.audioPlans && Object.keys(d.audioPlans).length > 0) setAudioPlans(d.audioPlans);
+            if (d.establishingShotsChild && Object.keys(d.establishingShotsChild).length > 0) setEstablishingShotsChild(d.establishingShotsChild);
+            if (d.establishingModeChild) setEstablishingModeChild(d.establishingModeChild);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -2574,6 +2663,8 @@ function ChildrenPlannerInner() {
       pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap,
       // AI Audio Plan results (Henry 2026-05-30 task #12) so they survive refresh.
       audioPlans,
+      // Establishing shot plan + mode (Henry 2026-05-30 task #21) so they survive refresh.
+      establishingShotsChild, establishingModeChild,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
@@ -2588,7 +2679,8 @@ function ChildrenPlannerInner() {
       sceneBeatImages, selectedBeatImages, useMaxImageScenes,
       scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters,
-      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap, audioPlans]);
+      pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap, audioPlans,
+      establishingShotsChild, establishingModeChild]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -6002,6 +6094,59 @@ function ChildrenPlannerInner() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* ── ESTABLISHING SHOTS PANEL (Henry 2026-05-30 task #21) ── */}
+          <div style={{ ...cardStyle, marginBottom: 16, borderColor: "#fbbf2440" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 13, fontWeight: 700, color: "#fbbf24", margin: 0 }}>📷 Establishing Shots</p>
+                <p style={{ fontSize: 10, color: muted, margin: "3px 0 0" }}>AI inserts a cinematic wide shot before scenes that need cinematic breathing space.</p>
+              </div>
+              <button onClick={runChildrenEstablishAll} disabled={establishingAllChild || childScenes.length === 0}
+                style={{ padding: "6px 12px", borderRadius: 8, border: "none",
+                  background: (establishingAllChild || childScenes.length === 0) ? "#2a2040" : "linear-gradient(135deg, #fbbf24, #d97706)",
+                  color: "#000", fontSize: 10, fontWeight: 700, cursor: (establishingAllChild || childScenes.length === 0) ? "not-allowed" : "pointer" }}>
+                {establishingAllChild ? "Planning…" : Object.keys(establishingShotsChild).length > 0 ? "Re-plan" : "Establish All"}
+              </button>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, alignItems: "center" }}>
+              <span style={{ fontSize: 9, color: muted, fontWeight: 700, marginRight: 4 }}>Mode:</span>
+              {(["off", "minimal", "auto", "cinematic", "epic"] as const).map(m => (
+                <button key={m} onClick={() => setEstablishingModeChild(m)}
+                  title={
+                    m === "off" ? "No establishing shots at all" :
+                    m === "minimal" ? "Opening + location/time changes only" :
+                    m === "auto" ? "AI decides — full ruleset" :
+                    m === "cinematic" ? "Aggressive: opening, location, mood, pre-action, beauty" :
+                    "Every major scene gets a long dramatic opener"
+                  }
+                  style={{ padding: "3px 9px", borderRadius: 6,
+                    border: `1px solid ${establishingModeChild === m ? "#fbbf24" : "#3d5060"}`,
+                    background: establishingModeChild === m ? "#fbbf2415" : "transparent",
+                    color: establishingModeChild === m ? "#fbbf24" : muted,
+                    fontSize: 8, fontWeight: 700, cursor: "pointer", textTransform: "capitalize" as const }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+            {Object.keys(establishingShotsChild).length > 0 && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflowY: "auto" }}>
+                {Object.entries(establishingShotsChild).map(([sceneId, shot]) => (
+                  <div key={sceneId} style={{ padding: "8px 10px", borderRadius: 7, background: "rgba(251,191,36,0.05)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "#fbbf24", fontWeight: 700 }}>{sceneId.toUpperCase()} · {shot.type}</span>
+                      <button onClick={() => genChildEstablishingShotImage(sceneId)}
+                        style={{ padding: "2px 8px", borderRadius: 5, border: "1px solid #fbbf2470", background: "transparent", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: "pointer" }}>
+                        {shot.imageUrl ? "Regen" : "Render"}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: 9, color: muted, margin: 0 }}>{shot.prompt.slice(0, 140)}{shot.prompt.length > 140 ? "…" : ""}</p>
+                    {shot.imageUrl && <img src={shot.imageUrl} alt={sceneId} style={{ marginTop: 6, width: "100%", maxHeight: 80, objectFit: "cover" as const, borderRadius: 5 }} />}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* ── CONTINUOUS MOTION TOGGLE ──────────────────────────────────── */}
