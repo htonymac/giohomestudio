@@ -1,6 +1,28 @@
-# GHS HANDOFF — Session 2026-05-29 (Narrator/actor coord + 8 subtitle modes + highlight fix)
+# GHS HANDOFF — Session 2026-05-30 (Children parity sweep + Hybrid finish line)
 
-**Last updated:** 2026-05-29 · **HEAD:** `27d6c36` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+**Last updated:** 2026-05-30 · **HEAD:** `b4f774f` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+
+## 🎯 ACTIVE DIRECTIVE (Henry 2026-05-30)
+> "drive this to the finishing line — children needs a lot of amend — mirror hybrid with recent children update to fix child — record the bugs and prepare them — remember to save as my pc shut down any time"
+
+Recording bug burst FIRST (state preservation), then executing A→G→H in priority order. After each fix → handoff entry → P&F entry → one-sentence Henry → stop.
+
+## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
+1. **A.** Children scene-card buttons fire opposite / not at all (Polish/Funny/Playful/Adventure/Emotion/Action/Establish per Henry screenshot) — task #9
+2. **C.** Children LLM model picker not available — task #11
+3. **B.** Children narration doesn't work — task #10
+4. **E.** Children subtitle stuck 5s (style + pace ignored) — task #14
+5. **F.** GENESIS BUG — humans with bear heads (across hybrid + movie) — task #13
+6. **D.** Children Audio Planner is zero — task #12
+7. **G.** Hybrid → Children full parity sweep — task #15
+8. **H4.** 3 legacy subtitle modes (kids/dramatic/social) — task #19 (cheap, 30 min)
+9. **H3.** C6 pacing save/load — task #18
+10. **H1.** Token Resolution Engine — task #16 (the BIG Phase 3 root cause)
+11. **H2.** Establishing Shot system — task #17
+
+Full bug detail + investigation pointers logged in `update/PROBLEM_AND_FIX.md` under 2026-05-30 entry.
+
+---
 
 ## ✅ DONE 2026-05-29 (this session — all pushed + live)
 

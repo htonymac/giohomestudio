@@ -4,6 +4,42 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — 🟠 OPEN BUG BURST (Henry — children parity sweep + hybrid finish line)
+
+Recording in batch because Henry's PC may shut down anytime. All entries are PENDING DIAGNOSIS/FIX. Priority order = highest user-impact first.
+
+### A. CHILDREN PLANNER — scene-card buttons fire opposite or not at all 🔴
+Screenshot: SC01 "Mia's Bright World" / SC02 "Meeting Sam the Ant" / SC03 "Leo the Airplane's Arrival". Each card has 7 buttons: Polish · Funny · Playful · Adventure · Emotion · Action · Establish. Henry says they don't fire (or fire opposite intent). High impact — children planner unusable as designed. **Investigation target:** `app/dashboard/children-planner/page.tsx` button onClick handlers; compare to hybrid's scene-card buttons.
+
+### B. CHILDREN PLANNER — narration doesn't work 🔴
+Generated stories don't produce playable narration. Verify voice provider call, audio persistence, scene.narration field hookup. Compare to hybrid pipeline.
+
+### C. CHILDREN PLANNER — LLM model not available in picker 🔴
+Model dropdown shows no model OR unselectable state. Compare to hybrid LLM picker.
+
+### D. CHILDREN PLANNER — Audio Planner tab is ZERO 🔴
+Audio tab not built / not wired. Mirror hybrid audio tab (narration tier + music tier + SFX intelligence).
+
+### E. CHILDREN PLANNER — subtitle style + pace don't take effect (stuck 5s) 🟠
+Subtitle window appears, but style and pacing aren't applied — every subtitle stuck 5 sec instead of speech-paced. Likely children doesn't thread `subtitleConfig` through to `/api/assembly/execute` the way hybrid does (`effectiveSubtitleConfig` pattern at hybrid-planner:705).
+
+### F. GENESIS BUG — humans rendered with bear heads in MANY scenes 🔴
+Affects hybrid AND movie planners. "Most of the movie has 1-2 people with bear head." Earlier Sessions 17+18 patched only-explicit-`species: "bear"` triggers bear mode — but Henry still sees this. **Need to grep ALL upstream prompt-construction sites for residual "bear" tokens entering the image prompt unintentionally** (character name? story expansion verb? stale character cache? bear in negative leaking to positive? hasNegativeMask bug?).
+
+### G. CHILDREN ↔ HYBRID PARITY SWEEP 🟡
+After A-F, mirror hybrid's recent updates (narrator/actor coord + 8 subtitle modes + highlight bouncing-ball + all Session 17-20 fixes) into children-planner. Final consistency pass.
+
+### Hybrid finishing 5% (Henry: "drive to finishing line")
+- H1. **Token Resolution Engine** (Phase 3 root cause, ~3-4h) — gates substitution stability
+- H2. **Establishing Shot system** (spec at `update/LANDSCAPE SHOT/`, 0% built, ~3-4h)
+- H3. **C6 pacing engine save/load** (~1h)
+- H4. **3 legacy subtitle modes (kids/dramatic/social) preset gaps** (~30 min — same shape as highlight fix `27d6c36`)
+- H5. **Outro mid-video bug** — needs Henry info (duplicate vs ordering?)
+
+**Tasks #9-#19 in TaskList track each item.** Execution order: A → C → B → E → F → D → G → H4 → H3 → H1 → H2 → H5.
+
+---
+
 ## 2026-05-29 — ✅ FIXED (`27d6c36`): Highlight mode highlighted full line instead of only spoken word
 
 **Symptom (Henry, on andiostudio.com after 8-mode rollout):** Word-by-Word Highlight mode rendered the whole sentence in highlight color, not the bouncing-ball per-word effect. "alight only spoken word."
