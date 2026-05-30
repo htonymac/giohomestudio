@@ -14,6 +14,16 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`7109fda`): Children LLM model + video/image model selections dropped from /children-video
+
+**Symptom (Henry):** "llm model is not avalable with llm planner" — after picking LLM tier + video model + image model on `/dashboard/children-video`, those selections didn't carry into the planner. User saw no active model and had to re-pick.
+
+**Root cause:** `/children-video` sent `tier`, `videoModel`, `imageModel` URL params on the "Open Planner" link, but `children-planner/page.tsx` never read them. The Story AI Intelligence picker (with 7 options: Ollama / Haiku / Sonnet / Opus / GPT-4o-mini / GPT-4o / o1-mini) defaulted to Haiku every time.
+
+**Fix:** read 3 URL params in children-planner, seed `storyAiProvider` / `selectedVideoModelId` / `selectedImageModelId` initial state from them. Added `URL_TIER_TO_PROVIDER` map so `tier=standard|pro|premium|free` maps to the correct provider value. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`1d571d1`): Children template selection still required manual input + thin catalog
 
 **Fix:** new useEffect in `children-planner/page.tsx` guards a one-shot auto-expand via `autoExpandedRef`. When user lands from `/children-video` with a `topicPrompt` URL param + unchanged textContent + no existing expansion, `expandStory()` fires automatically. No "click Generate again" friction. Also expanded toddler catalog: +4 content types (Bedtime / First Words / Potty & Bath / Feelings) and +5 curriculum templates (A-to-Z 26 / Shape Story / Action Songs / Animal Sounds / Feelings Toolkit). Deployed live. Other age groups (preschool/early/older) already rich — expand on request.
