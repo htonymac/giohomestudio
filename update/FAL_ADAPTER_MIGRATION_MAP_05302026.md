@@ -9,15 +9,34 @@ is one file instead of 20+.
   `falFluxSchnell`, `falFluxDev`, `falKokoroTts`, `falAccountStatus`. Soft-fails to
   a uniform `FalResult<T>` instead of throwing.
 
-## Migrated in this commit (3 — proof of pattern)
-| Route | Old path | New helper |
-|---|---|---|
-| `app/api/account/status/route.ts` | `https://rest.fal.ai/v1/me` | `falAccountStatus()` |
-| `app/api/tts/fal-narrator/route.ts` | `https://fal.run/fal-ai/kokoro/american-english` | `falKokoroTts({ variant: "american-english" })` |
-| `app/api/ad-editor/ai-edit/route.ts` (gen path) | `https://queue.fal.run/fal-ai/flux/schnell` | `falFluxSchnell()` |
+## STATUS UPDATE 2026-05-30 (end of session)
 
-## Still on direct-fetch (migrate incrementally)
-17+ sites — listed in the order recommended for migration.
+**17 of 24 sites now on the adapter.** Every sweep-able route consolidated. Only
+the generation/gateways/fal.ts gateway-layer remains, parked for a dedicated
+session per the caveat at the bottom of this doc.
+
+| Route | Helper | Commit |
+|---|---|---|
+| `account/status` | `falAccountStatus()` | `f4104fd` |
+| `tts/fal-narrator` | `falKokoroTts({ variant: "american-english" })` | `f4104fd` |
+| `ad-editor/ai-edit` (gen) | `falFluxSchnell()` | `f4104fd` |
+| `tts/route.ts` (american) | `falKokoroTts({ variant: "american-english" })` | `9b110a9` |
+| `tts/route.ts` (global) | `falKokoroTts({ variant: "global" })` | `9b110a9` |
+| `avatar/create` | `falKokoroTts(...)` | `9b110a9` |
+| `hybrid/narrate-piper` | `falKokoroTts(...)` | `9b110a9` |
+| `ad-editor/bg-remove` | `falBgRemove("birefnet")` | `c3ba31b` |
+| `image/bg-remove` (bria + birefnet) | `falBgRemove(...)` | `c3ba31b` |
+| `video/bg-remove` (birefnet-video + video-bg-remove) | `falBgRemove(...)` | `c3ba31b` |
+| `music/generate-scene` | `falMinimaxMusic(...)` | `7d07bd3` |
+| `sfx/generate` | `falStableAudio(...)` | `7d07bd3` |
+| `character-voices/auto-portraits` | `falFluxDevSync` + `falFluxSchnell` | `7d07bd3` |
+| `ad-editor/ai-edit` (img2img) | `falFluxImg2Img(...)` | `223da47` |
+| `ad-editor/gemini-tts` | `falGeminiTts(...)` | `223da47` |
+| `ad-editor/layerize-text` | `falLayerizeText(...)` | `223da47` |
+| `image/enhance` | `falClarityUpscaler(...)` | `223da47` |
+| `avatar/lip-sync` (queue+poll) | local `falQueue()` now wraps adapter `falQueue<T>` | `d9ad289` |
+
+## Still on direct-fetch (1 site remains)
 
 ### Image gen
 - `app/api/character-voices/auto-portraits/route.ts` (FLUX schnell + dev) → use `falFluxSchnell` / `falFluxDev`
