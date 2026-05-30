@@ -791,9 +791,12 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   primaryHex?: string; secondaryHex?: string; outlineHex?: string;
                   outlineWidth?: number; shadowDepth?: number;
                   borderStyle?: 1 | 3; bold?: 0 | 1; bgOpacity?: number;
-                  perWord?: "dance" | "rainbow" | "bubble" | "yellow_sweep" | "glow_line" | "single_word" | "typewriter_line" | "none";
+                  perWord?: "dance" | "rainbow" | "bubble" | "yellow_sweep" | "glow_line" | "single_word" | "typewriter_line" | "highlight_current" | "none";
                 }
                 const SUBTITLE_PRESETS: Record<string, SubtitlePreset> = {
+                  // Legacy `highlight` mode — bouncing-ball karaoke. Spoken word jumps to
+                  // highlightColor for its time window, others stay in textColor.
+                  highlight:      { fontName: "Arial", fontSize: 48, outlineHex: "#000000", outlineWidth: 3, borderStyle: 3, bold: 1, perWord: "highlight_current" },
                   dance_word:     { fontName: "Arial Black", fontSize: 56, primaryHex: "#ffffff", outlineHex: "#fbbf24", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "dance" },
                   rainbow:        { fontName: "Arial Black", fontSize: 52, primaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 3, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "rainbow" },
                   bubble_pop:     { fontName: "Arial Black", fontSize: 50, primaryHex: "#ffffff", outlineHex: "#7c3aed", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "bubble" },
@@ -879,6 +882,22 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                       const perWordCs = Math.max(10, Math.floor((durMs / words.length) / 10));
                       const inner = words.map(w => `{\\kf${perWordCs}}${w}`).join(" ");
                       return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(100,100)}${inner}`];
+                    }
+                    case "highlight_current": {
+                      // Bouncing-ball karaoke: each word jumps to user's highlightColor only
+                      // during its own time window, returns to textColor before/after.
+                      // Henry 2026-05-29: "highlight only spoken word" — was highlighting full line.
+                      // Times in ms RELATIVE TO Dialogue line start.
+                      const wordMs = durMs / words.length;
+                      const baseBgr = hexToBgr(subCfg?.textColor ?? "#ffffff");
+                      const hiBgr = hexToBgr(subCfg?.highlightColor ?? "#fde047");
+                      const inner = words.map((w, i) => {
+                        const ms0 = Math.round(i * wordMs);
+                        const ms1 = Math.round((i + 1) * wordMs);
+                        // 40 ms ramp in, 40 ms ramp out — feels snappy without visible flicker
+                        return `{\\1c&H00${baseBgr}&\\t(${ms0},${ms0 + 40},\\1c&H00${hiBgr}&)\\t(${Math.max(ms0 + 40, ms1 - 40)},${ms1},\\1c&H00${baseBgr}&)}${w}`;
+                      }).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(80,80)}${inner}`];
                     }
                     case "glow_line": {
                       // whole-line glow with fad (outline color in style already gives the neon look)
