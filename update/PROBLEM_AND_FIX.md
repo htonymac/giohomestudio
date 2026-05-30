@@ -50,6 +50,20 @@ Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity ga
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`b4d8092` + `49f353d`): "BIB" narration → real Piper speech. Max ON button stuck.
+
+**Symptom (Henry retest):** narration in children videos was a beep ("BIB"), Max ON button stopped responding to user clicks even though the badge updated.
+
+**Root cause 1 — narration BIB:** /api/tts hard-coded the Piper voice path to `/home/ghs/giohomestudio/piper/en_US-lessac-medium.onnx`. Server inspection showed binary+models actually at `/home/ghs/piper/voices/*.onnx`. `fs.existsSync` returned false → piper attempt SKIPPED. Fall-through then ALSO skipped FAL (its condition only fired on explicit provider="fal-narrator", not "piper" fallback) → straight to silent-placeholder branch = the BIB beep.
+
+**Fix 1:** (a) `b4d8092` — `/api/tts` now resolves Piper voice via `PIPER_VOICES_DIR` env first, then a candidate list (`{storage}/../piper/`, `{homedir}/piper/voices/`, `{homedir}/piper/`, `/usr/local/share/piper/voices/`). Default piperPath fixed too — `{homedir}/piper/piper/piper`. (b) `49f353d` — `useFalNarrator` condition now also matches `provider="piper"` so when piper still fails, FAL takes over instead of dropping straight to placeholder. **Live-verified on server:** `engine="piper"`, 2.9 s real speech, 128 KB WAV @ 352 kbps.
+
+**Root cause 2 — Max ON button stuck:** my earlier picker code (commit `4e4a82b` area) unconditionally re-added each sceneId to `useMaxImageScenes` on every render via `setTimeout`. User's Max OFF click was immediately overridden on next render → button stuck ON.
+
+**Fix 2:** `49f353d` — track auto-opted scenes in `autoOptedMaxRef` (`useRef<Set<string>>`). Each scene auto-opted exactly ONCE per page load; subsequent user clicks stick.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`02c6f07`): Narration silent + subtitle style ignored — **real root cause was server-side**
 
 **Symptom:** Henry retested after the earlier `0b57265` (children auto-narration) + `a40b53a` (subtitle staging) fixes. Final children videos still shipped silent OR with the wrong (unstyled) subtitle. Verbatim: "NARRATION BIP NOT TALKING. SUBTITLE STYLE IS NOT CHANGING".
