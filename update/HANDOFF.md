@@ -12,6 +12,7 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 2. **(NEW)** Children template selection still required manual input — `1d571d1`. Auto-fire expansion on URL-param arrival + expanded toddler catalog (+4 content types, +5 curriculum templates). Task #20 closed.
 3. **C.** Children LLM model + video/image model URL params not threaded — `7109fda`. Read tier/videoModel/imageModel URL params, seed state. Task #11 closed.
 4. **B.** Children narration missing from final video — `0b57265`. Auto-generate via TTS in assembly path when narratorAudioUrl is empty. Task #10 closed.
+5. **E.** Children subtitles stuck 5 sec + style ignored — `a40b53a`. /api/video/assemble caption now respects subtitleConfig + staggers 5-word chunks at 1.6s with fade. Task #14 closed. Full per-sentence libass timing deferred to children → /api/assembly/execute migration (#15).
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.

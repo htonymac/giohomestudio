@@ -14,6 +14,18 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`a40b53a`): Children subtitles stuck 5 sec + style ignored
+
+**Symptom (Henry):** "subtitle always still for 5 sec - style + pace doesn't work" in children renders. The Subtitle Styler UI controls (fontSize, textColor, bgBox, bgOpacity, position) had no visible effect on the final video; captions sat on screen for the full 5-second scene block.
+
+**Root cause:** `/api/video/assemble` (used by children flow — different endpoint from hybrid's `/api/assembly/execute`) burned captions with hardcoded `drawtext=text='...':fontsize=28:fontcolor=white...` and no time-gating, so the entire caption stayed on for the whole video segment regardless of subtitleConfig.
+
+**Fix:** in Step 5c drawtext call, read `subtitleConfig` from the body and apply fontSize (18-80) + textColor as `0xRRGGBB` + bgBox/bgOpacity → `:box=1:boxcolor=black@op:boxborderw=10` + position. Then split the caption into 5-word chunks, stagger them 1.6 sec apart with 0.25 sec fade in + fade out per chunk via `enable='between(t,S,E)'` + alpha ramp. User now sees the caption move with the spoken pace. Falls back to legacy single-block style if no chunks.
+
+**Architectural followup (not yet done):** the proper fix is to migrate children-planner from `/api/video/assemble` to `/api/assembly/execute` so it gets the full per-sentence libass timing tied to narrator audio that hybrid uses. Tracked as task #15 (children → hybrid parity sweep).
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`0b57265`): Children narration "doesn't work" — empty in final video
 
 **Symptom (Henry):** "narration do not work" in children planner videos. Final renders silent or missing narrator track.
