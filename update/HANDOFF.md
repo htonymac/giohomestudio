@@ -32,8 +32,9 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 21. **FAL ad-editor + image/enhance sweep** — `223da47`. Added `falFluxImg2Img` + `falGeminiTts` + `falLayerizeText` + `falClarityUpscaler`. Migrated ad-editor/ai-edit (img2img), ad-editor/gemini-tts, ad-editor/layerize-text, image/enhance. 16 of 24 FAL sites on adapter. Task #29 closed.
 22. **FAL avatar/lip-sync** — `d9ad289`. Local falQueue() now wraps adapter falQueue<T>. 17 of 24 sites on adapter. Task #30 closed.
 23. **Audit: supervisor/QC status vs MASTER_PLAN** — finding: 22 supervisors at `src/lib/story-supervisors/*` already implemented + indexed + orchestrated by `runFullStoryQCPipeline` + 6 API routes live (`/api/story/{supervise,build-cast-bible,demarcate-scenes,final-gatekeeper,generate-contract,tools/*}`) + full Prisma schema (StoryQCProject/Contract/Draft/CastMember/ScenePlan/SupervisorReport). MASTER_PLAN's "0/23 supervisor API routes built" claim was wildly out of date. Task #31 closed.
+24. **character-build prompt: kill DIFFERENT-from-existing stereotype-contrast** — `a23627e`. Persona doc MED #8. Reworded takenBlock + colorDescription hint so the LLM grounds new characters in story text instead of artificially contrasting against existing cast (which was pulling toward stereotype: tall→short, lean→stocky, etc.). Task #32 closed.
 
-## ✅ 23 TASKS CLOSED THIS SESSION
+## ✅ 24 TASKS CLOSED THIS SESSION
 Remaining FAL site: `src/lib/generation/gateways/fal.ts` (axios + custom URLs + onProgress — parked for dedicated session per FAL_ADAPTER_MIGRATION_MAP). All sweep-able routes consolidated. Supervisor/QC pipeline already wired end-to-end at `/api/story/supervise`.
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
