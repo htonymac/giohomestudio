@@ -42,24 +42,15 @@ export async function POST(req: NextRequest) {
   const pitchClose = pitch !== "medium" ? "</pitch>" : "";
   const fullText = `${speedTag}${pitchTag}${text}${pitchClose}${speedClose}`;
 
-  const falRes = await fetch("https://fal.run/fal-ai/gemini-3.1-flash-tts", {
-    method: "POST",
-    headers: {
-      "Authorization": `Key ${FAL_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      text: fullText,
-      voice_name: voice,
-    }),
-  });
+  // Migrated to providers/fal adapter (Henry 2026-05-30 task #29).
+  const { falGeminiTts } = await import("@/lib/providers/fal");
+  const falRes = await falGeminiTts({ text: fullText, voiceName: voice });
 
   if (!falRes.ok) {
-    const errText = await falRes.text();
-    return NextResponse.json({ error: `FAL error: ${errText.slice(0, 200)}` }, { status: 502 });
+    return NextResponse.json({ error: `FAL error: ${falRes.error.slice(0, 200)}` }, { status: 502 });
   }
 
-  const falData = await falRes.json();
+  const falData = falRes.data;
   const audioUrl: string = falData.audio?.url || falData.audio_url || "";
   if (!audioUrl) {
     return NextResponse.json({ error: "No audio URL in response", raw: falData }, { status: 500 });

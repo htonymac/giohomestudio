@@ -268,3 +268,53 @@ export function falStableAudio(req: FalStableAudioRequest): Promise<FalResult<Fa
     steps: req.steps ?? 100,
   }, { timeoutMs: 45_000 });
 }
+
+// ── FLUX img2img (queue) — used by /api/ad-editor/ai-edit edit path
+export interface FalFluxImg2ImgRequest {
+  prompt: string;
+  imageUrl: string;     // data URL or http URL
+  strength?: number;    // 0..1
+  numInferenceSteps?: number;
+}
+export function falFluxImg2Img(req: FalFluxImg2ImgRequest): Promise<FalResult<FalImageResponse>> {
+  return falCall<FalImageResponse>("/fal-ai/flux/dev/image-to-image", {
+    prompt: req.prompt,
+    image_url: req.imageUrl,
+    strength: req.strength ?? 0.65,
+    num_inference_steps: req.numInferenceSteps ?? 28,
+  }, { base: "queue", timeoutMs: 120_000 });
+}
+
+// ── Gemini Flash TTS (used by /api/ad-editor/gemini-tts)
+export interface FalGeminiTtsRequest { text: string; voiceName?: string }
+export interface FalGeminiTtsResponse { audio?: { url?: string; duration?: number }; audio_url?: string; duration?: number }
+export function falGeminiTts(req: FalGeminiTtsRequest): Promise<FalResult<FalGeminiTtsResponse>> {
+  return falCall<FalGeminiTtsResponse>("/fal-ai/gemini-3.1-flash-tts", {
+    text: req.text,
+    voice_name: req.voiceName ?? "alloy",
+  });
+}
+
+// ── Ideogram v3 layerize-text (used by /api/ad-editor/layerize-text)
+export function falLayerizeText<T = unknown>(body: Record<string, unknown>): Promise<FalResult<T>> {
+  return falCall<T>("/fal-ai/ideogram/v3/layerize-text", body, { base: "queue", timeoutMs: 90_000 });
+}
+
+// ── Clarity Upscaler (used by /api/image/enhance)
+export interface FalClarityUpscalerRequest {
+  imageUrl: string;
+  prompt?: string;
+  scale?: number;
+  creativity?: number;
+  resemblance?: number;
+}
+export interface FalClarityUpscalerResponse { image?: { url?: string } }
+export function falClarityUpscaler(req: FalClarityUpscalerRequest): Promise<FalResult<FalClarityUpscalerResponse>> {
+  return falCall<FalClarityUpscalerResponse>("/fal-ai/clarity-upscaler", {
+    image_url: req.imageUrl,
+    prompt: req.prompt,
+    scale: req.scale ?? 1,
+    creativity: req.creativity ?? 0.2,
+    resemblance: req.resemblance ?? 0.9,
+  }, { base: "queue", timeoutMs: 120_000 });
+}

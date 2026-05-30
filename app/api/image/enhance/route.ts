@@ -25,30 +25,22 @@ export async function POST(req: NextRequest) {
   const FAL_KEY = process.env.FAL_API_KEY;
   const SEGMIND_KEY = process.env.SEGMIND_API_KEY;
 
-  // ── fal.ai clarity upscaler ──
+  // ── fal.ai clarity upscaler ── migrated to providers/fal adapter (Henry 2026-05-30 task #29)
   if (FAL_KEY) {
     try {
-      const endpoint = mode === "upscale"
-        ? "https://queue.fal.run/fal-ai/clarity-upscaler"
-        : "https://queue.fal.run/fal-ai/clarity-upscaler";
-
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image_url: `data:${mime};base64,${base64}`,
-          prompt: mode === "cleanup"
-            ? "clean, sharp, professional photo, remove noise, fix lighting"
-            : "enhance, sharpen, improve lighting, professional quality, high detail",
-          scale: mode === "upscale" ? 2 : 1,
-          creativity: 0.2,
-          resemblance: 0.9,
-        }),
+      const { falClarityUpscaler } = await import("@/lib/providers/fal");
+      const r = await falClarityUpscaler({
+        imageUrl: `data:${mime};base64,${base64}`,
+        prompt: mode === "cleanup"
+          ? "clean, sharp, professional photo, remove noise, fix lighting"
+          : "enhance, sharpen, improve lighting, professional quality, high detail",
+        scale: mode === "upscale" ? 2 : 1,
+        creativity: 0.2,
+        resemblance: 0.9,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        const imgUrl = data.image?.url;
+      if (r.ok) {
+        const imgUrl = r.data.image?.url;
         if (imgUrl) {
           const imgRes = await fetch(imgUrl);
           const outPath = path.join(outDir, `enhanced_${Date.now()}.png`);

@@ -37,22 +37,16 @@ export async function POST(req: NextRequest) {
   };
 
   try {
-    const res = await fetch("https://queue.fal.run/fal-ai/ideogram/v3/layerize-text", {
-      method: "POST",
-      headers: {
-        Authorization: `Key ${FAL_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(falInput),
-    });
+    // Migrated to providers/fal adapter (Henry 2026-05-30 task #29).
+    const { falLayerizeText } = await import("@/lib/providers/fal");
+    const r = await falLayerizeText<{ background_url?: string; image?: { url?: string }; text_containers?: unknown[]; overlay_html?: string; seed?: number }>(falInput);
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "unknown");
-      console.error("[layerize-text] FAL error:", res.status, errText);
-      return NextResponse.json({ error: `FAL request failed: ${res.status}` }, { status: 500 });
+    if (!r.ok) {
+      console.error("[layerize-text] FAL error:", r.status, r.error);
+      return NextResponse.json({ error: `FAL request failed: ${r.status}` }, { status: 500 });
     }
 
-    const data = await res.json();
+    const data = r.data;
 
     return NextResponse.json({
       ok: true,

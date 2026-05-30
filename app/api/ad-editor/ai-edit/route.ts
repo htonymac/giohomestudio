@@ -119,19 +119,11 @@ export async function POST(req: NextRequest) {
   if (FAL_KEY) {
     try {
       const dataUrl = `data:${imageMime ?? "image/png"};base64,${imageBase64}`;
-      const res = await fetch("https://queue.fal.run/fal-ai/flux/dev/image-to-image", {
-        method: "POST",
-        headers: { Authorization: `Key ${FAL_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: plan.enhancedPrompt,
-          image_url: dataUrl,
-          strength: 0.65,
-          num_inference_steps: 28,
-        }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const imgUrl = data.images?.[0]?.url;
+      // Migrated to providers/fal adapter (Henry 2026-05-30 task #29).
+      const { falFluxImg2Img } = await import("@/lib/providers/fal");
+      const r = await falFluxImg2Img({ prompt: plan.enhancedPrompt, imageUrl: dataUrl, strength: 0.65, numInferenceSteps: 28 });
+      if (r.ok) {
+        const imgUrl = r.data.images?.[0]?.url;
         if (imgUrl) {
           const imgRes = await fetch(imgUrl);
           const outPath = path.join(outDir, `edit_${Date.now()}.png`);
