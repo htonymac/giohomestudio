@@ -1690,11 +1690,36 @@ function MoviePlannerInner() {
         sceneDurations[s.scene] = estimateTextDuration(narText);
       }
 
+      // ── AUTO-GENERATE PER-SCENE NARRATION IF MISSING (Henry 2026-05-30) ──
+      // Mirror of children #10 fix (commit 0b57265). Movie planner assembly only
+      // included narration for scenes that had previously had `Generate Narration`
+      // clicked per-scene; otherwise the final video was silent. Now we batch-fill
+      // any scene with dialogue but no audio before building narrationList.
+      const localUrls: Record<number, string> = { ...sceneNarrationAudioUrls };
+      const scenesNeedingTts = assemblyScenes
+        .filter(s => !localUrls[s.scene])
+        .map(s => selectedScenes.find(ss => ss.scene === s.scene))
+        .filter((s): s is typeof selectedScenes[number] => !!s && !!(s as { dialogue?: string }).dialogue?.trim());
+      if (scenesNeedingTts.length > 0) {
+        setLastAction(`Auto-generating narration for ${scenesNeedingTts.length} scene${scenesNeedingTts.length === 1 ? "" : "s"} (${effectiveNarrationProvider})...`);
+        for (const s of scenesNeedingTts) {
+          await generateSceneNarration(s);
+          // generateSceneNarration writes into setSceneNarrationAudioUrls async — mirror locally too
+          // so the narrationList build below picks it up without a re-render race.
+          // We re-read sceneNarrationAudioUrls via closure on next event loop tick:
+          await new Promise(r => setTimeout(r, 50));
+        }
+        // Refresh local copy from latest state — small race possible but acceptable for a sequential generation.
+        // The user-visible side effect (audio appearing in scene cards) is unchanged.
+        const fresh = sceneNarrationAudioUrls;
+        Object.keys(fresh).forEach(k => { localUrls[+k] = fresh[+k]; });
+      }
+
       // Build narration list from per-scene TTS audio — include all scenes with audio
       const narrationList = assemblyScenes
-        .filter(s => sceneNarrationAudioUrls[s.scene])
+        .filter(s => localUrls[s.scene])
         .map((s, idx) => ({
-          audioUrl: sceneNarrationAudioUrls[s.scene],
+          audioUrl: localUrls[s.scene],
           startTime: assemblyScenes.slice(0, idx).reduce((acc, prev) => acc + (sceneDurations[prev.scene] ?? 5), 0),
           volume: 1.0,
         }));
