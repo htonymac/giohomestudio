@@ -50,6 +50,14 @@ Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity ga
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`f7525e3`): Two issues — broken scene thumbnails + modify buttons not firing
+
+**Symptom 1 (Henry screenshot):** scene-card "PICK WHICH IMAGES TO INCLUDE" boxes showing broken image icons with B1, B2 alt text. **Root cause:** scene-image route returned `imageUrl: result.imagePath ? localImageUrl : result.imageUrl`. When the generator (FAL, Segmind, etc.) returned only a CDN URL (`fal.media/...`) without writing locally, the CDN URL got stored in state. FAL CDN expires in ~3 hours → every thumbnail breaks on next reload. **Fix:** after `result.success`, if `result.imagePath` is missing but `result.imageUrl` is set, download the CDN URL to `outputPath` (the scoped `/storage/scenes/{projectId}/{sceneId}/img_X.png`) and set `result.imagePath = outputPath`. The existing response line then always returns the persistent `/api/media/...` URL.
+
+**Symptom 2 (Henry):** "the button are not workin" — children Enter Content modify buttons (Intensify / Playful / Educational / Adventure / Magical / Cozy / Diverse / Musical / Heartwarming) shipped in `56e32f2` clicked but textContent didn't change. **Root cause:** runPolish in scene-edit threw `"Polish parse failed"` whenever the LLM returned raw text instead of strict `{title, description}` JSON — common on long custom instructions. The 500 status carried `ok:false` so the client never updated textContent. **Fix:** when extractJSON returns null, strip any ```` ```json ```` fences and use the raw cleaned text as the description instead of throwing. Worst case the description is slightly less polished; user still gets a result. Applies to every polish caller: children prefill + modify buttons, hybrid scene-card toolbar, movie scene-card toolbar.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`56e32f2`): Children Enter Content — AI prefill on land + 10 small Modify buttons
 
 **Symptom (Henry screenshot):** after picking templates on /children-video, user lands on children-planner with the textarea showing the raw `topicPrompt` URL param. Two users picking the same template get identical text. The empty space next to Expand with AI / Build Story with AI buttons was unused — Henry wanted small modify buttons there (like the hybrid scene-card toolbar) so users could reshape the story idea (more intense / playful / fun / educational / adventure / magical / cozy / diverse / musical / heartwarming) BEFORE clicking Expand.
