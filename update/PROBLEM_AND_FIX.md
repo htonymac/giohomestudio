@@ -4,6 +4,18 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-29 — ✅ FIXED (`27d6c36`): Highlight mode highlighted full line instead of only spoken word
+
+**Symptom (Henry, on andiostudio.com after 8-mode rollout):** Word-by-Word Highlight mode rendered the whole sentence in highlight color, not the bouncing-ball per-word effect. "alight only spoken word."
+
+**Root cause:** legacy `highlight` mode had NO entry in the new `SUBTITLE_PRESETS` map (`app/api/assembly/execute/route.ts`). Fell through to the default formatter which emits one full-line Dialogue with the static style — no per-word override tags. The new 8 modes (rainbow, dance, etc.) had presets, but the 5 legacy modes did not.
+
+**Fix:** add `highlight` preset with new perWord case `highlight_current`. Per-word ASS animation transforms primary color from `textColor` → `highlightColor` for each word's time window (40 ms ramp in/out), then back to `textColor`. Uses `subCfg.textColor` + `subCfg.highlightColor` directly so the user's color picker controls both. Deployed live + restarted.
+
+**Follow-up (analogous):** legacy `kids` / `dramatic` / `social` modes likely have the SAME gap — no preset, fall through to default. Each needs a preset matched to its design intent (kids = colorful bubble, dramatic = cinematic letterbox, social = TikTok glow+bounce). Estimated ~10 min each.
+
+---
+
 ## 2026-05-29 — ✅ FIXED (deployed `efaee13`, awaits Henry visual reverify): Narrator/actor audio overlap + Subtitle window overlap
 
 **STATUS UPDATE:** Fix shipped + live. Two commits:
