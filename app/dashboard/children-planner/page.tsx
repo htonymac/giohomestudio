@@ -2725,23 +2725,122 @@ function ChildrenPlannerInner() {
     }
   }, [characterIdParam, savedChars]);
 
-  // ── AUTO-EXPAND from children-video template selection (Henry 2026-05-30) ──
-  // User selected content type + topic + curriculum on /dashboard/children-video, clicked
-  // "Open Planner" → landed here with topicPrompt in URL. Their selection IS their input,
-  // so kick off story expansion automatically. No "click Generate again" friction.
+  // ── AI PREFILL on land (Henry 2026-05-30 task #38, replaces earlier auto-expand) ──
+  // Previously this auto-fired expandStory() — too aggressive (full expansion before user
+  // could review the story idea). Now: on land with URL params, fire prefillPrompt() which
+  // generates a UNIQUE story idea (2-3 sentences) tailored to the user's selections. User
+  // can then modify with the small "Intensify / Playful / Educational / Adventure / …" buttons
+  // before clicking Expand. User A and User B picking same template get different ideas.
   const autoExpandedRef = useRef(false);
+  const [prefillingPrompt, setPrefillingPrompt] = useState(false);
   useEffect(() => {
     if (autoExpandedRef.current) return;
     if (!topicPromptParam || !topicPromptParam.trim()) return;
-    // Only auto-fire if textContent is still the URL-seeded value (user hasn't edited it)
     if (textContent.trim() !== topicPromptParam.trim()) return;
-    // Don't trample an already-expanded project (e.g., user reopened mid-session)
     if (expandedContent || childScenes.length > 0 || expanding) return;
     autoExpandedRef.current = true;
     setActiveTab("content");
-    expandStory();
+    prefillPrompt();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicPromptParam, textContent, expandedContent, childScenes.length, expanding]);
+
+  // Generate a UNIQUE child-safe story idea tailored to user selections (age, learning mode,
+  // safety, content type, topic) using the existing /api/hybrid/scene-edit polish endpoint
+  // with a custom instruction. Random seed appended so two identical-template users still
+  // get different stories. Result replaces textContent.
+  async function prefillPrompt() {
+    const seedRoll = Math.floor(Math.random() * 100000);
+    const base = topicPromptParam || textContent || "child story";
+    const ctx = [
+      ageGroup ? `Age group: ${ageGroup}` : "",
+      learningMode ? `Learning mode: ${learningMode}` : "",
+      safetyLevel ? `Safety level: ${safetyLevel}` : "",
+      contentParam ? `Content type: ${contentParam}` : "",
+      topicParam ? `Topic: ${topicParam}` : "",
+    ].filter(Boolean).join(" · ");
+    const customInstruction = `Generate a UNIQUE, fresh 2-3 sentence child-safe STORY IDEA (not the full story) that a parent or teacher could then expand into a video.
+
+CONTEXT: ${ctx}
+SEED: ${seedRoll}
+
+Rules:
+- Give it specific names, a specific setting, and a specific small twist or hook.
+- Make it different from common examples — surprise the user with a fresh angle.
+- Match the age + safety level — toddlers: simple + gentle; pre-school: playful; early school: small adventure; older: more depth.
+- Keep it positive, kind, age-appropriate. No scary or mature themes.
+- 2-3 sentences only. The user will modify and expand it themselves.`;
+    setPrefillingPrompt(true);
+    setLastAction("AI is suggesting a unique story idea...");
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "polish",
+          polishMode: "custom",
+          customInstruction,
+          provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+          scene: { id: "prefill", title: "Story idea", description: base },
+        }),
+      });
+      const data = await res.json();
+      const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      if (newText && data.ok !== false) {
+        setTextContent(newText);
+        setLastAction("Story idea ready — modify with the buttons or click Expand");
+      }
+    } catch (err) {
+      console.error("[prefillPrompt children] error:", err);
+    } finally {
+      setPrefillingPrompt(false);
+    }
+  }
+
+  // ── MODIFY PROMPT buttons (Henry 2026-05-30 task #38) ─────────────────────
+  // Small per-intent buttons next to Expand/Build that rewrite the current textContent.
+  // 5 use built-in polishMode values (intense / playful / funny / adventure / emotional);
+  // 5 use polishMode="custom" with a child-safe instruction.
+  const [modifyingPrompt, setModifyingPrompt] = useState<string | null>(null);
+  type ModifyKind = "intense" | "playful" | "funny" | "adventure" | "emotional"
+                  | "educational" | "magical" | "cozy" | "diverse" | "musical";
+  async function modifyPrompt(kind: ModifyKind) {
+    if (!textContent.trim()) { setLastAction("Type or generate a story idea first"); return; }
+    setModifyingPrompt(kind);
+    const customInstructions: Record<string, string> = {
+      educational: "Rewrite to be more educational — add small concepts, learning moments, or age-appropriate facts. Stay child-safe.",
+      magical:     "Add a touch of wonder and magic — sparkle, surprise, gentle enchantment. Stay child-safe and grounded.",
+      cozy:        "Make it cozy, warm, and comforting — soft moments, bedtime feel, family or friendship warmth.",
+      diverse:     "Add diversity to the characters / setting / perspectives — different cultures, abilities, family shapes. Stay natural and child-safe.",
+      musical:     "Add music, songs, rhyme, or rhythm — make it sing-along friendly. Stay child-safe.",
+    };
+    const polishMode = (["intense", "playful", "funny", "adventure", "emotional"] as ModifyKind[]).includes(kind) ? kind : "custom";
+    const customInstruction = polishMode === "custom" ? customInstructions[kind] : undefined;
+    try {
+      const res = await fetch("/api/hybrid/scene-edit", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          op: "polish",
+          polishMode,
+          customInstruction,
+          provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+          scene: { id: "prompt-modify", title: "Story idea", description: textContent },
+          childContext: { ageGroup, safetyLevel },
+        }),
+      });
+      const data = await res.json();
+      const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      if (newText && data.ok !== false) {
+        setTextContent(newText);
+        setLastAction(`Story idea: ${kind} applied`);
+      } else if (data.error) {
+        setLastAction(`${kind} failed: ${data.error.slice(0, 200)}`);
+      }
+    } catch (err) {
+      console.error(`[modifyPrompt children] ${kind} error:`, err);
+      setLastAction(`${kind} failed`);
+    } finally {
+      setModifyingPrompt(null);
+    }
+  }
 
   // Save to asset library after both reviews
   async function handleFinalRender() {
@@ -4132,7 +4231,7 @@ function ChildrenPlannerInner() {
             </p>
           )}
 
-          {/* AI Content Expansion */}
+          {/* AI Content Expansion + small Modify buttons (Henry 2026-05-30 task #38) */}
           <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
             <button
               onClick={expandContent}
@@ -4146,6 +4245,45 @@ function ChildrenPlannerInner() {
               style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childSafe}`, background: expanding ? `${childSafe}10` : `${childSafe}20`, color: (expanding || !textContent.trim()) ? muted : childSafe, fontSize: 12, fontWeight: 700, cursor: (expanding || !textContent.trim()) ? "not-allowed" : "pointer" }}>
               {expanding ? "Building..." : "Build Story with AI"}
             </button>
+            {/* Modify-with-AI: small per-intent buttons (mirror hybrid scene-card toolbar style) */}
+            {([
+              { kind: "intense"     as const, label: "🔥 Intensify",        col: "#ef4444" },
+              { kind: "playful"     as const, label: "🎈 Make Playful",     col: "#f472b6" },
+              { kind: "funny"       as const, label: "😄 Make Fun",         col: "#fbbf24" },
+              { kind: "educational" as const, label: "📚 Educational",      col: "#06b6d4" },
+              { kind: "adventure"   as const, label: "🗺 Adventure",        col: "#10b981" },
+              { kind: "magical"     as const, label: "✨ Magical",          col: "#a78bfa" },
+              { kind: "cozy"        as const, label: "🤗 Cozy",             col: "#fb923c" },
+              { kind: "diverse"     as const, label: "🌍 Diverse",          col: "#34d399" },
+              { kind: "musical"     as const, label: "🎵 Musical",          col: "#c084fc" },
+              { kind: "emotional"   as const, label: "💝 Heartwarming",     col: "#ec4899" },
+            ]).map(({ kind, label, col }) => {
+              const busy = modifyingPrompt === kind;
+              const disabled = !textContent.trim() || modifyingPrompt !== null || prefillingPrompt;
+              return (
+                <button
+                  key={kind}
+                  onClick={() => modifyPrompt(kind)}
+                  disabled={disabled}
+                  title={`Rewrite the story idea — ${label.replace(/^\S+\s/, "").toLowerCase()}`}
+                  style={{
+                    padding: "5px 9px", borderRadius: 6,
+                    border: `1px solid ${col}55`,
+                    background: busy ? `${col}25` : `${col}12`,
+                    color: disabled ? muted : col,
+                    fontSize: 9, fontWeight: 700,
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    opacity: disabled ? 0.55 : 1,
+                  }}>
+                  {busy ? "…" : label}
+                </button>
+              );
+            })}
+            {prefillingPrompt && (
+              <span style={{ fontSize: 9, color: childAccent, fontWeight: 700, padding: "5px 9px" }}>
+                ✨ AI suggesting a unique story idea…
+              </span>
+            )}
             {expandedContent && (
               <button
                 onClick={extractChildCharacters}
