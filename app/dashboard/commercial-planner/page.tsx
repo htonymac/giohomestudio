@@ -907,6 +907,17 @@ function CommercialPlannerInner() {
       else if (imageUrl) assemblyScenes.push({ scene: s.scene, videoUrl: `img:${imageUrl}` });
     }
     if (assemblyScenes.length === 0) { setLastAction("No scenes have video or images yet"); setAssembling(false); return; }
+    // ── AUTO-GENERATE PER-SCENE VOICEOVER IF MISSING (Henry 2026-05-30) ──
+    // Mirror of children #10 + movie #35. If any selected scene has a voiceoverScript
+    // but no voNarrationUrls entry, auto-run generateAllNarration before assembly so
+    // the final commercial has the voice track instead of silence.
+    const missingVo = selectedScenes.filter(s => s.voiceoverScript && !voNarrationUrls[s.sceneId]).length;
+    if (missingVo > 0) {
+      setLastAction(`Auto-generating ${missingVo} voiceover${missingVo === 1 ? "" : "s"} before assembly…`);
+      await generateAllNarration();
+      // Yield so setVoNarrationUrls writes land before we read them below.
+      await new Promise(r => setTimeout(r, 200));
+    }
     try {
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
