@@ -81,19 +81,22 @@ Open with a strong hook. End with a clear call-to-action or memorable closing.`;
 // ── TTS ──────────────────────────────────────────────────────────────────────
 
 async function generateVoice(text: string, voiceId: string): Promise<string> {
-  // Prefer FAL Kokoro — returns a public CDN URL so lip-sync can reach it without local upload
+  // Prefer FAL Kokoro — returns a public CDN URL so lip-sync can reach it without local upload.
+  // Migrated to providers/fal adapter (Henry 2026-05-30 task #25).
   const falKey = process.env.FAL_KEY || process.env.FAL_API_KEY;
   if (falKey) {
     try {
-      const falRes = await fetch("https://fal.run/fal-ai/kokoro/american-english", {
-        method: "POST",
-        headers: { Authorization: `Key ${falKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text, voice: voiceId && voiceId !== "default" ? voiceId : "af_sky", speed: 1.0 }),
+      const { falKokoroTts } = await import("@/lib/providers/fal");
+      const falRes = await falKokoroTts({
+        prompt: text,
+        voice: voiceId && voiceId !== "default" ? voiceId : "af_sky",
+        speed: 1.0,
+        variant: "american-english",
       });
       if (falRes.ok) {
-        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falData = (falRes.raw as { audio_url?: string; audio?: { url?: string } }) || {};
         const audioUrl = falData.audio_url ?? falData.audio?.url;
-        if (audioUrl) return audioUrl; // public CDN URL — resolveToPublicUrl will pass it through
+        if (audioUrl) return audioUrl;
       }
     } catch { /* fall through to local TTS */ }
   }

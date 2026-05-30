@@ -120,32 +120,26 @@ export async function POST(req: NextRequest) {
       }
     } catch { /* Piper failed */ }
 
-    // Try 2a: FAL Standard Narrator — fal-ai/kokoro-82m (smaller, fast)
+    // Try 2a: FAL Standard Narrator — fal-ai/kokoro american-english (smaller, fast)
     // Triggers when provider="fal-narrator" OR when Piper fails and provider is "auto"
     const useFalNarrator = effectiveProvider === "fal-narrator" || effectiveProvider === "fal";
     if (useFalNarrator && process.env.FAL_KEY) {
       try {
-        // FAL Standard uses kokoro-82m (smaller, faster model)
-        const falRes = await fetch("https://fal.run/fal-ai/kokoro/american-english", {
-          method: "POST",
-          headers: {
-            "Authorization": `Key ${process.env.FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt: speakText,
-            voice: voiceId || "af_sky",
-            speed: speed || 1.0,
-          }),
+        // Migrated to providers/fal adapter (Henry 2026-05-30 task #25)
+        const { falKokoroTts } = await import("@/lib/providers/fal");
+        const falRes = await falKokoroTts({
+          prompt: speakText,
+          voice: voiceId || "af_sky",
+          speed: speed || 1.0,
+          variant: "american-english",
         });
 
         if (!falRes.ok) {
-          const falBody = await falRes.text();
-          console.error(`FAL Standard Narrator TTS failed ${falRes.status}:`, falBody.slice(0, 200));
-          throw new Error(`FAL Standard Narrator ${falRes.status}: ${falBody.slice(0, 200)}`);
+          console.error(`FAL Standard Narrator TTS failed ${falRes.status}:`, falRes.error.slice(0, 200));
+          throw new Error(`FAL Standard Narrator ${falRes.status}: ${falRes.error.slice(0, 200)}`);
         }
 
-        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falData = (falRes.raw as { audio_url?: string; audio?: { url?: string } }) || {};
         const falAudioUrl = falData.audio_url || falData.audio?.url;
         if (falAudioUrl) {
           const falAudioRes = await fetch(falAudioUrl);
@@ -171,27 +165,21 @@ export async function POST(req: NextRequest) {
     const useFalNarratorPro = effectiveProvider === "fal-narrator-gemini";
     if (useFalNarratorPro && process.env.FAL_KEY) {
       try {
-        // FAL Pro uses full kokoro model (no size suffix = full model)
-        const falRes = await fetch("https://fal.run/fal-ai/kokoro", {
-          method: "POST",
-          headers: {
-            "Authorization": `Key ${process.env.FAL_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            prompt: speakText,
-            voice: voiceId || "af_sky",
-            speed: speed || 1.0,
-          }),
+        // Migrated to providers/fal adapter (Henry 2026-05-30 task #25)
+        const { falKokoroTts } = await import("@/lib/providers/fal");
+        const falRes = await falKokoroTts({
+          prompt: speakText,
+          voice: voiceId || "af_sky",
+          speed: speed || 1.0,
+          variant: "global",
         });
 
         if (!falRes.ok) {
-          const falBody = await falRes.text();
-          console.error(`FAL Pro Narrator TTS failed ${falRes.status}:`, falBody.slice(0, 200));
-          throw new Error(`FAL Pro Narrator ${falRes.status}: ${falBody.slice(0, 200)}`);
+          console.error(`FAL Pro Narrator TTS failed ${falRes.status}:`, falRes.error.slice(0, 200));
+          throw new Error(`FAL Pro Narrator ${falRes.status}: ${falRes.error.slice(0, 200)}`);
         }
 
-        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falData = (falRes.raw as { audio_url?: string; audio?: { url?: string } }) || {};
         const falAudioUrl = falData.audio_url || falData.audio?.url;
         if (falAudioUrl) {
           const falAudioRes = await fetch(falAudioUrl);

@@ -335,19 +335,18 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ ok: false, error: "FAL_KEY not configured. Add it to .env to use GHS Plus narration." }, { status: 200 });
       }
       try {
-        const falEndpoint = voiceProvider === "fal-narrator-gemini"
-          ? "https://fal.run/fal-ai/kokoro"
-          : "https://fal.run/fal-ai/kokoro/american-english";
-        const falRes = await fetch(falEndpoint, {
-          method: "POST",
-          headers: { "Authorization": `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: sanitizeForTTS(text.trim()), voice: voiceId || "af_sky", speed: speed || 1.0 }),
+        // Migrated to providers/fal adapter (Henry 2026-05-30 task #25).
+        const { falKokoroTts } = await import("@/lib/providers/fal");
+        const falRes = await falKokoroTts({
+          prompt: sanitizeForTTS(text.trim()),
+          voice: voiceId || "af_sky",
+          speed: speed || 1.0,
+          variant: voiceProvider === "fal-narrator-gemini" ? "global" : "american-english",
         });
         if (!falRes.ok) {
-          const errBody = await falRes.text();
-          throw new Error(`FAL ${falRes.status}: ${errBody.slice(0, 200)}`);
+          throw new Error(`FAL ${falRes.status}: ${falRes.error.slice(0, 200)}`);
         }
-        const falData = await falRes.json() as { audio_url?: string; audio?: { url?: string } };
+        const falData = (falRes.raw as { audio_url?: string; audio?: { url?: string } }) || {};
         const falAudioUrl = falData.audio_url || falData.audio?.url;
         if (!falAudioUrl) throw new Error("FAL returned no audio URL");
 
