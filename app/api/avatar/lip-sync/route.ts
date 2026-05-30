@@ -138,62 +138,28 @@ async function resolveToPublicUrl(url: string, mediaType: "image" | "audio"): Pr
   return url; // fallback — return as-is
 }
 
+// Migrated to providers/fal adapter (Henry 2026-05-30 task #30).
+// Thin wrapper around falQueue from src/lib/providers/fal that preserves the
+// original "return URL or throw" surface this route depends on.
 async function falQueue(endpoint: string, body: Record<string, unknown>): Promise<string> {
-  const key = FAL_KEY();
-  if (!key) throw new Error("FAL_KEY not configured");
-
-  const res = await fetch(`https://queue.fal.run/${endpoint}`, {
-    method: "POST",
-    headers: { Authorization: `Key ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`FAL submit ${res.status}: ${txt.slice(0, 200)}`);
+  const { falQueue: adapterFalQueue } = await import("@/lib/providers/fal");
+  // Adapter signature uses endpoint with leading slash; preserve original signature here.
+  const epWithSlash = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+  const r = await adapterFalQueue<{
+    video?: { url?: string };
+    output?: { video?: { url?: string } };
+    url?: string;
+    detail?: { msg?: string }[];
+  }>(epWithSlash, body, { timeoutMs: 5 * 60 * 1000 });
+  if (!r.ok) throw new Error(r.error);
+  const result = r.data;
+  const url = result.video?.url ?? result.output?.video?.url ?? result.url;
+  if (url) return url;
+  if (result.detail && Array.isArray(result.detail)) {
+    const errMsg = result.detail.map(d => d.msg ?? "unknown").join("; ");
+    throw new Error(`FAL model error: ${errMsg}`);
   }
-
-  const data = await res.json();
-  const reqId: string = data.request_id;
-
-  if (!reqId) {
-    const url = data.video?.url ?? data.output?.video?.url ?? data.url;
-    if (url) return url;
-    throw new Error(`FAL no request_id. Keys: ${Object.keys(data).join(", ")}`);
-  }
-
-  // Poll up to 5 minutes (60 × 5s)
-  for (let i = 0; i < 60; i++) {
-    await new Promise(r => setTimeout(r, 5000));
-
-    const statusRes = await fetch(`https://queue.fal.run/${endpoint}/requests/${reqId}/status`, {
-      headers: { Authorization: `Key ${key}` },
-    });
-    if (!statusRes.ok) continue;
-
-    const statusData = await statusRes.json();
-    if (statusData.status === "COMPLETED") {
-      const resultRes = await fetch(`https://queue.fal.run/${endpoint}/requests/${reqId}`, {
-        headers: { Authorization: `Key ${key}` },
-      });
-      if (!resultRes.ok) throw new Error("FAL result fetch failed");
-      const result = await resultRes.json();
-      const url = result.video?.url ?? result.output?.video?.url ?? result.url;
-      if (url) return url;
-      // FAL returns error details in `detail` array even on COMPLETED status
-      if (result.detail && Array.isArray(result.detail)) {
-        const errMsg = (result.detail as { msg?: string }[]).map(d => d.msg ?? "unknown").join("; ");
-        throw new Error(`FAL model error: ${errMsg}`);
-      }
-      throw new Error(`FAL completed but no video URL. Keys: ${Object.keys(result).join(", ")}`);
-    }
-
-    if (statusData.status === "FAILED") {
-      throw new Error(`FAL job failed: ${statusData.error || "unknown reason"}`);
-    }
-  }
-
-  throw new Error("FAL lip-sync timed out after 5 minutes");
+  throw new Error(`FAL completed but no video URL. Keys: ${Object.keys(result).join(", ")}`);
 }
 
 async function saveVideo(videoUrl: string, prefix: string): Promise<string> {
