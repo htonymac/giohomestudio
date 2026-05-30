@@ -93,10 +93,20 @@ export async function POST(req: NextRequest) {
     if (effectiveProvider === "elevenlabs" || effectiveProvider === "pro" || effectiveProvider === "fal-narrator" || effectiveProvider === "fal-narrator-gemini") {
       // Jump straight to requested provider — handled below
     } else try {
-      const piperPath = process.env.PIPER_BIN || path.join(os.homedir(), "piper", "piper");
-      const piperModel = path.join(env.storagePath, "..", "piper", "en_US-lessac-medium.onnx");
+      // Henry 2026-05-30: route previously hard-coded ONE model path. Linux server has
+      // models at /home/ghs/piper/voices/ but the legacy path was /home/ghs/giohomestudio/piper/.
+      // Now: try PIPER_BIN + PIPER_VOICES_DIR env first, then a candidate list. First hit wins.
+      const piperPath = process.env.PIPER_BIN || path.join(os.homedir(), "piper", "piper", "piper");
+      const modelCandidates = [
+        process.env.PIPER_VOICES_DIR ? path.join(process.env.PIPER_VOICES_DIR, "en_US-lessac-medium.onnx") : "",
+        path.join(env.storagePath, "..", "piper", "en_US-lessac-medium.onnx"),
+        path.join(os.homedir(), "piper", "voices", "en_US-lessac-medium.onnx"),
+        path.join(os.homedir(), "piper", "en_US-lessac-medium.onnx"),
+        "/usr/local/share/piper/voices/en_US-lessac-medium.onnx",
+      ].filter(Boolean);
+      const piperModel = modelCandidates.find(p => fs.existsSync(p)) || "";
 
-      if (fs.existsSync(piperPath) && fs.existsSync(piperModel)) {
+      if (fs.existsSync(piperPath) && piperModel) {
         await new Promise<void>((resolve, reject) => {
           const proc = spawn(piperPath, [
             "--model", piperModel,
