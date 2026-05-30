@@ -50,6 +50,22 @@ Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity ga
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`02c6f07`): Narration silent + subtitle style ignored — **real root cause was server-side**
+
+**Symptom:** Henry retested after the earlier `0b57265` (children auto-narration) + `a40b53a` (subtitle staging) fixes. Final children videos still shipped silent OR with the wrong (unstyled) subtitle. Verbatim: "NARRATION BIP NOT TALKING. SUBTITLE STYLE IS NOT CHANGING".
+
+**Root cause (BOTH in `/api/video/assemble/route.ts`):**
+
+1. **Narration dropped when no music** — SEQUENTIAL FALLBACK path required `body.narrationUrl` (singular). Children sends `narrationList` (plural). Only the FAST PATH at line 609 honoured narrationList, but FAST PATH itself required music to be present. So any children render without music = silent narration, regardless of how aggressively the planner auto-generated narrationList.
+
+2. **Subtitle never rendered for children** — caption-burn at line 769 only ran `if (body.caption)`. Children sends per-scene text in `scenes[i].text` but no top-level `body.caption` — so the entire caption block was skipped → my earlier `a40b53a` styling fix lived inside dead code for children renders.
+
+**Fix:** define `fallbackNarrUrl = body.narrationUrl || singleNarrItem?.audioUrl` and route SEQUENTIAL FALLBACK off that. Plus, just before the caption block, if `body.caption` is empty AND `subtitleEnabled` is on AND scenes have `.text`, derive `body.caption` by concatenating the scene texts (stripping the "Title: " prefix children adds). The earlier styling fix then runs normally.
+
+These are the real root causes — both lived in the assemble route, not in the planner. Both earlier client-side fixes still help (auto-narration ensures narrationList is populated; subtitleConfig still flows through) but neither was sufficient alone.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`f7525e3`): Two issues — broken scene thumbnails + modify buttons not firing
 
 **Symptom 1 (Henry screenshot):** scene-card "PICK WHICH IMAGES TO INCLUDE" boxes showing broken image icons with B1, B2 alt text. **Root cause:** scene-image route returned `imageUrl: result.imagePath ? localImageUrl : result.imageUrl`. When the generator (FAL, Segmind, etc.) returned only a CDN URL (`fal.media/...`) without writing locally, the CDN URL got stored in state. FAL CDN expires in ~3 hours → every thumbnail breaks on next reload. **Fix:** after `result.success`, if `result.imagePath` is missing but `result.imageUrl` is set, download the CDN URL to `outputPath` (the scoped `/storage/scenes/{projectId}/{sceneId}/img_X.png`) and set `result.imagePath = outputPath`. The existing response line then always returns the persistent `/api/media/...` URL.
