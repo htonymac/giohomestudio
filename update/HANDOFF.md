@@ -36,8 +36,10 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 25. **Karaoke flow-lock button polish** — `bf5cdc7`. Persona LOW #11. Generate Music button styled as locked but functionally enabled — clicking fired runMusicGeneration even when flow-locked. Now disabled = (running OR isFlowLocked); title attr lists exact pending steps. Task #33 closed.
 26. **Movie planner scene-op auto-regen** — `3f9abb9`. Persona HIGH #4. Movie planner Phase A toolbar (6 ops) was already wired but text-only — same bug pattern as children #9. handleSceneOp now captures updated scene + awaits makeSceneImage with the new description (skipping QC op). Task #34 closed.
 27. **Movie planner auto-narration in assembly** — `10e3b17`. Mirror of children #10. Pre-assembly batch fill for any scene with dialogue text but no existing audio URL. Sequential generateSceneNarration pass + local mutable copy to avoid the React state race. Task #35 closed.
+28. **Commercial planner auto-narration in assembly** — `b80ee32`. Same pattern, third planner closed. Auto-runs generateAllNarration when any scene has voiceoverScript but no voNarrationUrls entry; commercials no longer ship silent. Task #36 closed.
 
-## ✅ 27 TASKS CLOSED THIS SESSION
+## ✅ 28 TASKS CLOSED THIS SESSION
+**Auto-narration pattern now consistent across children + movie + commercial planners.** Music-video planner already had it (line 1004-1018).
 Remaining FAL site: `src/lib/generation/gateways/fal.ts` (axios + custom URLs + onProgress — parked for dedicated session per FAL_ADAPTER_MIGRATION_MAP). All sweep-able routes consolidated. Supervisor/QC pipeline already wired end-to-end at `/api/story/supervise`.
 All bug-burst priorities + hybrid-finish-line items + 1 of 2 documented parity gaps completed. Only the assembly-endpoint migration (children → `/api/assembly/execute`) remains. Trigger: `go children assembly migration` (~3-4h).
 
