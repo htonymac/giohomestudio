@@ -331,13 +331,16 @@ export async function POST(req: NextRequest) {
           if (isAnimal) {
             speciesByName.push(`${c.name} is a ${ovs} (${ovs} face, ${ovs} body, ${ovs} anatomy — NOT human)`);
           } else {
-            speciesByName.push(`${c.name} is a human (human face, human body, human skin — NOT an animal, NOT a bear, NOT any animal)`);
+            // GENESIS BEAR FIX (Henry 2026-05-30): positive prompt MUST NOT mention "bear"
+            // or "animal" — diffusion models prime on positive-side concept mentions even
+            // when negated. Stick to affirming "human" only.
+            speciesByName.push(`${c.name} is a fully human person (human face, human body, realistic human anatomy)`);
           }
         }
         promptParts.push(
           `${resolvedCharacters.length} separate human characters, each with their own face and body. ` +
           speciesByName.join(". ") + ". " +
-          "Do NOT replace any character's head with an animal head. Each person has a fully human face."
+          "Each character has a fully human face and head with realistic human features."
         );
       }
     }
@@ -373,9 +376,12 @@ export async function POST(req: NextRequest) {
     // Applied whenever NO explicit animal signal from scene or character species.
     // Late-position injection overrides early style-prefix bias from the model.
     if (!explicitAnimal) {
+      // GENESIS BEAR FIX (Henry 2026-05-30): purge "bear/animal/fur/snout/paws" from
+      // POSITIVE prompt — diffusion models prime on what's mentioned regardless of NO/NOT.
+      // Use affirmative-only phrasing here; negatives go in the negative prompt only.
       promptParts.push(
-        "ALL characters are human beings with human faces and human bodies. " +
-        "No bear heads, no animal heads, no fur, no snouts, no paws. Every person has a normal human face."
+        "Every character is a fully human person with realistic human face, human anatomy, " +
+        "human skin, human hands, and human proportions."
       );
     }
 
@@ -399,10 +405,14 @@ export async function POST(req: NextRequest) {
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
 
-    // bear-guard: hard negative — always block bear/animal features on human characters
+    // bear-guard: hard negative — always block bear/animal features on human characters.
+    // GENESIS BEAR FIX (Henry 2026-05-30): trimmed from 12+ bear-words to a tighter phrase.
+    // Heavy negative repetition was paradoxically priming the model (a known diffusion
+    // anti-pattern). Combined with positive-side bear/animal mention removal above, this
+    // should kill the recurring bear-head defaults on human characters.
     const bearNegative = explicitAnimal
       ? ""
-      : ", bear, bears, bear face, bear head, bear body, bear anatomy, grizzly bear, brown bear, polar bear, bear ears, bear hat, bear mask, bear costume, bear headwear, panda ears, animal ears, cat ears, animal head on human body, furry creature, snout, paws, animal face, anthropomorphic animal, non-human face, creature head, monster head, animal in background, animal standing nearby";
+      : ", animal head on human body, furry creature, snout, paws, animal face, anthropomorphic creature, non-human face, creature head";
     // Hybrid-feature guard — always block species merging
     const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body, animal head replacing human head";
 
