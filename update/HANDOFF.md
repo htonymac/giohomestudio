@@ -1,6 +1,40 @@
-# GHS HANDOFF — Session 2026-05-28 (Assembly fixes) / 2026-05-27 (Mobile shell)
+# GHS HANDOFF — Session 2026-05-29 (Narrator/actor coord + 8 subtitle modes + highlight fix)
 
-**Last updated:** 2026-05-28 · **HEAD:** `71c86d0` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+**Last updated:** 2026-05-29 · **HEAD:** `27d6c36` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+
+## ✅ DONE 2026-05-29 (this session — all pushed + live)
+
+1. **Hybrid e2e via debug Chrome on ghs_hybrid_default_1780008307352** — Henry watched + listened. Narration audible + substitution stable confirmed. Revealed 2 regressions ↓
+2. **#6 + #7 paired regression — narrator/actor coordination** — `8f1fd62`. Extracted `computeNarratorWindows()` helper in `src/lib/assembly-builder.ts` with Fallback B (longest entry overall) for split-per-scene narrator. `app/api/assembly/execute/route.ts buildSubEntries()` now skips narrator cursor past actor windows + clips end at next actor start. Diagnostic `[duck]` + `[subtitle-coord]` logs. Unit test `scripts/verify_coord_unit.mjs` — 3/3 pass (`efaee13`).
+3. **Duck depth 0.06 → 0.02** — `7894e03`. Henry: 0.06 still audible during actor. Now whisper-faint, effectively "stops".
+4. **8 NEW FB/YT-style subtitle modes** — `7894e03`. `SUBTITLE_PRESETS` map in assembly route drives ASS Style + per-word override tags. New modes (kids 4 + social 4): Dance Word, Rainbow Cycle, Bubble Pop, Big Friendly, MrBeast Single, Yellow Sweep, Glow Pop, Typewriter. UI cards in `app/components/SubtitleStyler.tsx`. Diagnostic `[subtitle-preset]` log.
+5. **Highlight mode (legacy) bouncing-ball karaoke fix** — `27d6c36`. Henry: "alight only spoken word" — was highlighting full line. Added `highlight` preset with new perWord case `highlight_current`: each word stays in textColor, jumps to highlightColor only during its 40-ms ramp window, returns after. Uses subCfg colors directly.
+6. **Housekeeping** — `529269f` (untracked planning docs), `8838716` (CHANGELOG/REMAINING_TODO), `b6a2e1b` (verify_narrator_actor_coord.mjs scaffold), `280b841` (PROBLEM_AND_FIX status). Orphan `md-only-backup-2026-05-27` branch tagged as `backup/md-2026-05-27` + deleted. Karaoke free-engine e2e re-verified (8/8 GREEN, ~62s, $0). DB audit performed — pre-launch healthy at current scale (max 47 rows), risks logged.
+
+## 🟢 STILL OPEN (next agent picks up here)
+
+**Henry-verified on this session:** rainbow ✅ · typewriter ✅ · dance ✅ · highlight FIXED (re-verify needed) · duck depth 0.02 LIVE (re-verify needed).
+
+**Next quick wins (Henry chose: `hand off after each fix`):**
+- Fix legacy `kids` mode (currently no preset → fall-through, bug analogous to highlight pre-fix) — ~10 min
+- Fix legacy `dramatic` mode — ~10 min
+- Fix legacy `social` mode — ~10 min
+
+**Pre-launch infra (Henry-blocked or GO-gated):**
+- DB R2 offsite backup (server-only pg_dump → push to R2) — ~30 min
+- DB migration drift audit (`prisma migrate status`) — ~20 min
+- FAL provider adapter (then ElevenLabs/Segmind/Kling) — ~3-4h
+- R2 storage cutover + DB-aware cleaner — Phase 3
+- Legal/T&C UI enforcement, Paddle credits, Supervisor/QC API routes
+
+## 📋 PROTOCOL UPDATE (Henry directive 2026-05-29)
+After **each** fix → write a handoff entry. Update this file (top section) with: what changed, commit SHA, status (deploy/awaits-verify), and next.
+
+---
+
+## (prev) Session 2026-05-28 (Assembly fixes) / 2026-05-27 (Mobile shell)
+
+**Previous HEAD:** `71c86d0` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
 
 ## ✅ DONE 2026-05-28 (Henry's live render report — ALL fixed + verified)
 1. **Images / intro / outro now assemble** — `app/api/assembly/execute/route.ts` got a bounded `mapPool` (4 concurrent ffmpeg). Unbounded `Promise.all` over 50–70 segments was killing ffmpeg under load → 0-byte clips dropped from concat. Verified live: 18/18 segments, 0 zero-byte clips (`scripts/verify_assembly_concurrency.mjs`). PROBLEM_AND_FIX #42.
