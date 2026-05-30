@@ -14,6 +14,19 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`d32b602`): Legacy `kids` / `dramatic` / `social` subtitle modes had no presets
+
+**Symptom:** picking Children Song/Kids, Dramatic Movie, or Social Media Caption from the Subtitle Styler showed no visible difference vs default — same gap pattern as the `highlight` mode fix two days earlier. No preset entry in `SUBTITLE_PRESETS` → ASS formatter fell through to default rendering.
+
+**Fix:** added 3 presets in `app/api/assembly/execute/route.ts`:
+- `kids`: Arial Black 54px white + purple outline + bubble pop per-word
+- `dramatic`: Georgia 46px white + black box bg 0.85 + line-level glow fade
+- `social`: Impact 56px white + cyan glow outline + dance scale per-word
+
+All three render visibly distinct from each other and from existing modes. Deployed.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`46ae279`): GENESIS BEAR — humans rendered with bear heads (anti-priming diffusion fix)
 
 **Symptom (Henry, longstanding):** humans rendered with bear heads across hybrid + movie planners. "Most of the movie has 1-2 people with bear head." Sessions 17-18 added heavy bear-negatives but bug recurred.

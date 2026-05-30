@@ -14,6 +14,7 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 4. **B.** Children narration missing from final video — `0b57265`. Auto-generate via TTS in assembly path when narratorAudioUrl is empty. Task #10 closed.
 5. **E.** Children subtitles stuck 5 sec + style ignored — `a40b53a`. /api/video/assemble caption now respects subtitleConfig + staggers 5-word chunks at 1.6s with fade. Task #14 closed. Full per-sentence libass timing deferred to children → /api/assembly/execute migration (#15).
 6. **F.** GENESIS BEAR bug — `46ae279`. Anti-priming fix: removed "bear/animal/fur/snout/paws" from POSITIVE prompts in scene-image (3 sites). Tightened negative from 12+ bear-words to 8 affirmative non-human concepts. Diffusion models prime on positive concept mentions even when wrapped in NOT. Task #13 closed.
+7. **H4.** Legacy kids/dramatic/social subtitle presets — `d32b602`. Same shape as highlight fix; now visibly distinct. Task #19 closed.
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
