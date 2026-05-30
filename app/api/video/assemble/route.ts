@@ -691,9 +691,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── SEQUENTIAL FALLBACK: single narrationUrl (no music) ──
-    if (!canCombine && !multiNarrItems.length && body.narrationUrl) {
-      const narrationPath = await resolveOrDownload(body.narrationUrl, tempDir, "narr_single");
+    // ── SEQUENTIAL FALLBACK: single narration (no music) ──
+    // Henry 2026-05-30: previously required body.narrationUrl. Children planner sends
+    // narrationList (plural), not narrationUrl, so when no music was selected the
+    // narration was silently dropped → final video silent. Now accept either.
+    const fallbackNarrUrl = body.narrationUrl || singleNarrItem?.audioUrl;
+    if (!canCombine && !multiNarrItems.length && fallbackNarrUrl) {
+      const narrationPath = await resolveOrDownload(fallbackNarrUrl, tempDir, "narr_single");
       if (narrationPath) {
         const narrationOutput = path.join(tempDir, "with_narration.mp4");
         const nVol = body.narrationVolume ?? 1.0;
@@ -763,6 +767,21 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Step 5c: Burn caption text via drawtext (with fade-in, word-wrapped) ──
+    // Henry 2026-05-30 (followup): children sends per-scene text in scenes[i].text but no
+    // top-level body.caption, so this block never fired → subtitle styles ignored entirely.
+    // Now: if body.caption is empty but scenes have .text fields AND subtitleEnabled is on,
+    // derive caption by concatenating the scene texts. Strips "Title: " prefix children
+    // adds so caption is the spoken/visible content only.
+    if (!body.caption && subtitleEnabled && Array.isArray(body.scenes)) {
+      const sceneTexts = body.scenes
+        .map(s => (s as { text?: string }).text)
+        .filter((t): t is string => typeof t === "string" && t.trim().length > 0);
+      if (sceneTexts.length > 0) {
+        body.caption = sceneTexts
+          .map(t => t.replace(/^[^:]{1,80}:\s*/, ""))
+          .join(" ");
+      }
+    }
     if (body.caption) {
       const captionOutput = path.join(tempDir, "with_caption.mp4");
       const yPos = body.captionPosition === "top" ? "40" : body.captionPosition === "center" ? "(h-text_h)/2" : "h-text_h-60";
