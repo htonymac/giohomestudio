@@ -780,20 +780,53 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                 // frame (FontSize=32 rendered ~120px → "subtitles too big" on real renders).
                 // Fix: emit a real .ass with explicit PlayResX/Y=1920x1080 so FontSize = REAL
                 // pixels at output resolution. All clips are normalized to 1920x1080 upstream.
-                const fontSize = Math.min(80, Math.max(18, subCfg?.fontSize ?? 32));
-                const primaryBgr = subCfg ? hexToBgr(subCfg.textColor || "#ffffff") : "FFFFFF";
-                const bgOp = Math.min(1, Math.max(0, subCfg?.bgOpacity ?? 0.75));
+                //
+                // ── 8 PER-WORD STYLE PRESETS (Henry 2026-05-29) ───────────────────
+                // FB/YT-inspired modes wired through to ASS. Each preset overrides ASS
+                // style fields AND optionally emits per-word override tags (\fscx, \1c,
+                // \kf, \alpha\t, \fad) inside Dialogue Text. mrbeast_single explodes ONE
+                // Dialogue per word for the single-large-word effect.
+                interface SubtitlePreset {
+                  fontName?: string; fontSize?: number;
+                  primaryHex?: string; secondaryHex?: string; outlineHex?: string;
+                  outlineWidth?: number; shadowDepth?: number;
+                  borderStyle?: 1 | 3; bold?: 0 | 1; bgOpacity?: number;
+                  perWord?: "dance" | "rainbow" | "bubble" | "yellow_sweep" | "glow_line" | "single_word" | "typewriter_line" | "none";
+                }
+                const SUBTITLE_PRESETS: Record<string, SubtitlePreset> = {
+                  dance_word:     { fontName: "Arial Black", fontSize: 56, primaryHex: "#ffffff", outlineHex: "#fbbf24", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "dance" },
+                  rainbow:        { fontName: "Arial Black", fontSize: 52, primaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 3, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "rainbow" },
+                  bubble_pop:     { fontName: "Arial Black", fontSize: 50, primaryHex: "#ffffff", outlineHex: "#7c3aed", outlineWidth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "bubble" },
+                  big_friendly:   { fontName: "Arial Black", fontSize: 58, primaryHex: "#ffffff", outlineHex: "#fbbf24", outlineWidth: 8, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "none" },
+                  mrbeast_single: { fontName: "Impact",      fontSize: 96, primaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 8, shadowDepth: 4, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "single_word" },
+                  yellow_sweep:   { fontName: "Arial",       fontSize: 48, primaryHex: "#fde047", secondaryHex: "#ffffff", outlineHex: "#000000", outlineWidth: 3, borderStyle: 3, bold: 1, perWord: "yellow_sweep" },
+                  glow_pop:       { fontName: "Impact",      fontSize: 54, primaryHex: "#ffffff", outlineHex: "#22d3ee", outlineWidth: 4, shadowDepth: 6, borderStyle: 1, bold: 1, bgOpacity: 0, perWord: "glow_line" },
+                  typewriter:     { fontName: "Courier New", fontSize: 44, primaryHex: "#fef3c7", outlineHex: "#451a03", outlineWidth: 2, borderStyle: 1, bold: 0, bgOpacity: 0, perWord: "typewriter_line" },
+                };
+                const preset: SubtitlePreset = (subCfg?.mode && SUBTITLE_PRESETS[subCfg.mode]) || {};
+
+                const fontSize = Math.min(96, Math.max(18, preset.fontSize ?? subCfg?.fontSize ?? 32));
+                const primaryHex = preset.primaryHex ?? subCfg?.textColor ?? "#ffffff";
+                const primaryBgr = hexToBgr(primaryHex);
+                const secondaryBgr = preset.secondaryHex
+                  ? hexToBgr(preset.secondaryHex)
+                  : (subCfg?.highlightColor ? hexToBgr(subCfg.highlightColor) : "0000FF");
+                const outlineBgr = preset.outlineHex ? hexToBgr(preset.outlineHex) : "000000";
+                const outlineWidth = preset.outlineWidth ?? 2;
+                const shadowDepth = preset.shadowDepth ?? 2;
+                const bold = preset.bold ?? 0;
+                const bgOp = Math.min(1, Math.max(0, preset.bgOpacity ?? subCfg?.bgOpacity ?? 0.75));
                 // ASS alpha: 00 = opaque, FF = transparent. Convert UI opacity (0..1) → alpha hex
                 const bgAlpha = Math.round((1 - bgOp) * 255).toString(16).padStart(2, "0").toUpperCase();
                 const marginV = subCfg?.position === "top" ? Math.round(1080 * 0.06)
                   : subCfg?.position === "center" ? Math.round(1080 * 0.45)
                   : 54;
                 const alignment = subCfg?.position === "top" ? 8 : subCfg?.position === "center" ? 5 : 2;
-                const fontName = subCfg?.fontFamily === "serif" ? "Georgia"
+                const fontName = preset.fontName ?? (subCfg?.fontFamily === "serif" ? "Georgia"
                   : subCfg?.fontFamily === "mono" ? "Courier New"
                   : subCfg?.fontFamily === "display" ? "Impact"
-                  : "Arial";
-                const borderStyle = subCfg?.bgBox === false ? 1 : 3;
+                  : "Arial");
+                const borderStyle = preset.borderStyle ?? (subCfg?.bgBox === false ? 1 : 3);
                 // ASS timestamp: H:MM:SS.cc
                 const assTime = (sec: number): string => {
                   const hh = Math.floor(sec / 3600);
@@ -802,7 +835,67 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   const cs = Math.floor(((sec % 60) - whole) * 100);
                   return `${hh}:${String(mm).padStart(2, "0")}:${String(whole).padStart(2, "0")}.${String(cs).padStart(2, "0")}`;
                 };
-                const assStyleLine = `Style: Default,${fontName},${fontSize},&H00${primaryBgr},&H000000FF,&H00000000,&H${bgAlpha}000000,0,0,0,0,100,100,0,0,${borderStyle},2,2,${alignment},40,40,${marginV},1`;
+                const assStyleLine = `Style: Default,${fontName},${fontSize},&H00${primaryBgr},&H00${secondaryBgr},&H00${outlineBgr},&H${bgAlpha}000000,${bold},0,0,0,100,100,0,0,${borderStyle},${outlineWidth},${shadowDepth},${alignment},40,40,${marginV},1`;
+
+                // Per-mode Dialogue formatter — returns array because mrbeast_single explodes into N lines.
+                // Rainbow color palette (BGR for libass)
+                const RAINBOW_BGR = ["0000FF", "0080FF", "00FFFF", "00FF00", "FF8000", "FF00FF", "FFFF00"];
+                function formatDialogueLines(e: { start: number; end: number; text: string }): string[] {
+                  const text = (e.text || "").trim();
+                  if (!text) return [];
+                  const startTs = assTime(e.start);
+                  const endTs = assTime(e.end);
+                  const durSec = Math.max(0.3, e.end - e.start);
+                  const durMs = durSec * 1000;
+                  const words = text.split(/\s+/).filter(Boolean);
+                  if (words.length === 0) return [];
+
+                  switch (preset.perWord) {
+                    case "single_word": {
+                      // ONE word per Dialogue, evenly distributed across the entry window
+                      const wordDur = durSec / words.length;
+                      return words.map((w, i) => {
+                        const ws = e.start + i * wordDur;
+                        const we = ws + wordDur;
+                        return `Dialogue: 0,${assTime(ws)},${assTime(we)},Default,,0,0,0,,{\\fad(60,60)}${w}`;
+                      });
+                    }
+                    case "rainbow": {
+                      const inner = words.map((w, i) => `{\\1c&H00${RAINBOW_BGR[i % RAINBOW_BGR.length]}&}${w}`).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(120,120)}${inner}`];
+                    }
+                    case "dance": {
+                      // each word: starts 80%, scales to 135%, settles 100%
+                      const inner = words.map(w => `{\\fscx80\\fscy80\\t(0,120,\\fscx135\\fscy135)\\t(120,260,\\fscx100\\fscy100)}${w}`).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(80,80)}${inner}`];
+                    }
+                    case "bubble": {
+                      // pop-in: starts tiny, expands and settles
+                      const inner = words.map(w => `{\\fscx20\\fscy20\\t(0,160,\\fscx115\\fscy115)\\t(160,280,\\fscx100\\fscy100)}${w}`).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(120,200)}${inner}`];
+                    }
+                    case "yellow_sweep": {
+                      // ASS \kf: karaoke fill that sweeps the secondary→primary color across word
+                      const perWordCs = Math.max(10, Math.floor((durMs / words.length) / 10));
+                      const inner = words.map(w => `{\\kf${perWordCs}}${w}`).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(100,100)}${inner}`];
+                    }
+                    case "glow_line": {
+                      // whole-line glow with fad (outline color in style already gives the neon look)
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(180,180)}${text.replace(/\r?\n/g, "\\N")}`];
+                    }
+                    case "typewriter_line": {
+                      // per-word stagger fade-in (poor man's typewriter — full chars too expensive in tags)
+                      const stagger = Math.min(80, Math.floor(durMs / Math.max(words.length * 4, 1)));
+                      const inner = words.map((w, i) => `{\\alpha&HFF&\\t(${i * stagger},${i * stagger + 60},\\alpha&H00&)}${w}`).join(" ");
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,${inner}`];
+                    }
+                    case "none":
+                    default:
+                      return [`Dialogue: 0,${startTs},${endTs},Default,,0,0,0,,{\\fad(100,100)}${text.replace(/\r?\n/g, "\\N")}`];
+                  }
+                }
+
                 // NOTE: keep var names srtPath/srtContent/srtFilter — downstream write + filter
                 // reference them. Content is now ASS; path uses .ass extension.
                 const srtContent = [
@@ -819,9 +912,10 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
                   "",
                   "[Events]",
                   "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
-                  ...subEntries.map(e => `Dialogue: 0,${assTime(e.start)},${assTime(e.end)},Default,,0,0,0,,${(e.text || "").replace(/\r?\n/g, "\\N")}`),
+                  ...subEntries.flatMap(formatDialogueLines),
                   "",
                 ].join("\n");
+                console.log(`[subtitle-preset] mode=${subCfg?.mode ?? "none"} preset=${Object.keys(preset).length > 0 ? "applied" : "default"} font=${fontName} size=${fontSize} perWord=${preset.perWord ?? "n/a"}`);
                 const srtPath = unsub.replace(".mp4", ".ass");
                 // FFmpeg subtitles= filter: escape backslashes + colons in path. Style is baked
                 // into the .ass header so no force_style override is needed.

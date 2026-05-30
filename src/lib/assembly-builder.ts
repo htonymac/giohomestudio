@@ -116,7 +116,7 @@ export function buildAssemblyPlan(assembly: AssemblyJSON, outputDir: string): FF
     const { narratorIdx, actorWindows } = computeNarratorWindows(entries);
     console.log(`[duck] narratorIdx=${narratorIdx} actorWindows=${actorWindows.length} entries=${entries.length}`,
       entries.slice(0, 8).map(n => ({ s: (n.startTime || 0).toFixed(2), e: (n.endTime || 0).toFixed(2), isN: (n as { isNarrator?: boolean }).isNarrator === true })));
-    const NARRATOR_DUCK_VOL = 0.06; // near-silent while an actor speaks (effectively "stops")
+    const NARRATOR_DUCK_VOL = 0.02; // whisper-faint while actor speaks (Henry 2026-05-29: was 0.06, still audible)
 
     entries.forEach((n, i) => {
       narrationInputs.push("-i", n.audioUrl!);

@@ -4,12 +4,16 @@ import { useState } from "react";
 
 // ── Shared SubtitleConfig type ────────────────────────────────────────────────
 // Exported so children-planner, movie-planner, and assemble route can share it.
+// Modes added 2026-05-29 (Henry): 8 FB/YT-style per-word animated modes.
 export interface SubtitleConfig {
-  mode: "dialogue" | "highlight" | "kids" | "dramatic" | "social" | "none";
+  mode: "dialogue" | "highlight" | "kids" | "dramatic" | "social"
+      | "dance_word" | "rainbow" | "bubble_pop" | "big_friendly"
+      | "mrbeast_single" | "yellow_sweep" | "glow_pop" | "typewriter"
+      | "none";
   fontFamily: "sans" | "serif" | "mono" | "display";
   fontSize: number;       // 24-80px
   textColor: string;      // hex
-  highlightColor: string; // hex — used in highlight/kids modes
+  highlightColor: string; // hex — used in highlight/kids/dance_word/yellow_sweep modes
   bgBox: boolean;
   bgOpacity: number;      // 0-1
   position: "bottom" | "center" | "top";
@@ -34,11 +38,20 @@ const MODES: Array<{
   desc: string;
   preview: { bg: string; text: string; accent: string };
 }> = [
-  { id: "dialogue",  label: "Normal Dialogue",         desc: "Clean semi-transparent bar",     preview: { bg: "rgba(0,0,0,0.75)", text: "#fff",    accent: "#fff" } },
-  { id: "highlight", label: "Word-by-Word Highlight",  desc: "Yellow highlight as words appear",preview: { bg: "rgba(0,0,0,0.8)",  text: "#fff",    accent: "#f59e0b" } },
-  { id: "kids",      label: "Children Song / Kids",    desc: "Colorful bubbly captions",        preview: { bg: "rgba(124,58,237,0.85)", text: "#fff", accent: "#34d399" } },
-  { id: "dramatic",  label: "Dramatic Movie",          desc: "Cinema letterbox, spaced letters",preview: { bg: "rgba(0,0,0,0.88)", text: "#fff",    accent: "#e5e5e5" } },
-  { id: "social",    label: "Social Media Caption",    desc: "Bold with glow — TikTok / Reels", preview: { bg: "rgba(0,0,0,0.65)", text: "#fff",    accent: "#00d4ff" } },
+  { id: "dialogue",       label: "Normal Dialogue",         desc: "Clean semi-transparent bar",        preview: { bg: "rgba(0,0,0,0.75)", text: "#fff",    accent: "#fff" } },
+  { id: "highlight",      label: "Word-by-Word Highlight",  desc: "Yellow highlight as words appear",  preview: { bg: "rgba(0,0,0,0.8)",  text: "#fff",    accent: "#f59e0b" } },
+  { id: "kids",           label: "Children Song / Kids",    desc: "Colorful bubbly captions",          preview: { bg: "rgba(124,58,237,0.85)", text: "#fff", accent: "#34d399" } },
+  { id: "dramatic",       label: "Dramatic Movie",          desc: "Cinema letterbox, spaced letters",  preview: { bg: "rgba(0,0,0,0.88)", text: "#fff",    accent: "#e5e5e5" } },
+  { id: "social",         label: "Social Media Caption",    desc: "Bold with glow — TikTok / Reels",   preview: { bg: "rgba(0,0,0,0.65)", text: "#fff",    accent: "#00d4ff" } },
+  // ── Henry 2026-05-29: 8 FB/YT-inspired per-word animated modes ──────────────
+  { id: "dance_word",     label: "Dance Word 💃 (kids)",     desc: "Each word bounces + scales when spoken", preview: { bg: "rgba(20,30,80,0.85)", text: "#fff",    accent: "#fbbf24" } },
+  { id: "rainbow",        label: "Rainbow Cycle 🌈 (kids)",  desc: "Each word a different color, looped",     preview: { bg: "rgba(20,30,80,0.85)", text: "#f87171", accent: "#34d399" } },
+  { id: "bubble_pop",     label: "Bubble Pop 🫧 (kids)",     desc: "Words scale-pop in, fade out",            preview: { bg: "rgba(124,58,237,0.7)", text: "#fff",   accent: "#fbcfe8" } },
+  { id: "big_friendly",   label: "Big Friendly 🐻 (kids)",   desc: "Huge rounded font, thick yellow outline", preview: { bg: "transparent",      text: "#fff",    accent: "#fbbf24" } },
+  { id: "mrbeast_single", label: "MrBeast Single 💥",        desc: "One WORD at a time, huge, thick outline", preview: { bg: "rgba(0,0,0,0.6)",  text: "#fff",    accent: "#fff" } },
+  { id: "yellow_sweep",   label: "Yellow Sweep ✨",          desc: "Yellow bar sweeps each word as spoken",   preview: { bg: "rgba(0,0,0,0.8)",  text: "#fff",    accent: "#fde047" } },
+  { id: "glow_pop",       label: "Glow Pop 🎨 (TikTok)",     desc: "Neon glow outline, pop in/out",           preview: { bg: "rgba(0,0,0,0.5)",  text: "#fff",    accent: "#22d3ee" } },
+  { id: "typewriter",     label: "Typewriter ⌨ (vintage)",   desc: "Character-by-character cream text",       preview: { bg: "rgba(40,30,20,0.85)", text: "#fef3c7", accent: "#fef3c7" } },
 ];
 
 const FONTS: Array<{ id: SubtitleConfig["fontFamily"]; label: string; css: string }> = [
