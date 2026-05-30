@@ -14,6 +14,18 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-30 — ✅ FIXED (`26953df` + server cron): Postgres backups were local-only
+
+**Symptom:** the daily 03:30 `pg_backup.sh` cron wrote dumps to `/home/ghs/backups/` only. Server loss = backup loss. R2 credentials were already in `.env` but unused for DB.
+
+**Fix:** new `scripts/backup_pg_to_r2.mjs` reads `R2_*` env vars, finds newest local `giohomestudio_*.dump`, uploads it to `r2://<R2_BUCKET>/db-backups/`, and (per `MAX_R2_DUMPS=14` default) prunes older R2 objects so the bucket doesn't grow unbounded. Uses the `@aws-sdk/client-s3` already in the project's package.json — no new dep, no new system package required. End-to-end verified on server: fresh 148K dump uploaded to R2 in 374 ms.
+
+Server-side: `pg_backup.sh` appended with a soft-fail `node backup_pg_to_r2.mjs` invocation after the local dump succeeds, with status logged to `backup.log`. Soft-fail design = if R2 has a transient error, the local backup is unaffected.
+
+Daily 03:30 cron now produces local + offsite copies. Survives server loss.
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`4e4a82b`): Children-planner missing Establishing Shot UI
 
 Mirror of hybrid task #17 into children. Closes one of the 2 remaining parity gaps in `update/CHILDREN_HYBRID_PARITY_AUDIT_05302026.md`. Children Scene Board tab now has the amber-accent Establishing Shots card: 5-mode picker (off/minimal/auto/cinematic/epic), Establish All button, per-scene chip list with prompt preview + Render button + image thumbnails. Reuses existing API surface (`/api/hybrid/scene-edit op:"establish_all"` + `/api/hybrid/establishing-shot/generate`). Persisted via saved-state. After this, only the assembly-endpoint migration remains as a documented parity gap.
