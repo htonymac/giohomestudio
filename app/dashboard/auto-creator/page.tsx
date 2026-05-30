@@ -1925,12 +1925,35 @@ export default function AIContentCreatorPage() {
                   return;
                 }
 
+                // ── AUTO-GENERATE NARRATION IF MISSING (Henry 2026-05-30) ──
+                // Mirror children #10 + movie #35 + commercial #36. User often clicks
+                // Build Video without first clicking Generate AI Narration, shipping a
+                // silent auto-creator video. If voice_script exists but narrationAudioUrl
+                // is empty, run TTS once before assembly.
+                let effectiveNarrationUrl = narrationAudioUrl;
+                if (!effectiveNarrationUrl && draft.voice_script?.trim()) {
+                  try {
+                    setErrorMsg(null);
+                    const ttsRes = await fetch("/api/tts", {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ text: draft.voice_script, voice: "default", speed: 1.0 }),
+                    });
+                    if (ttsRes.ok) {
+                      const tts = await ttsRes.json();
+                      if (tts.audioUrl) {
+                        effectiveNarrationUrl = tts.audioUrl;
+                        setNarrationAudioUrl(tts.audioUrl);
+                      }
+                    }
+                  } catch { /* soft-fail — assembly still proceeds without narration */ }
+                }
+
                 // Step 2: Call assemble API with JSON (not FormData)
                 const assemblyPayload = {
                   title: draft.title,
                   scenes: uploadedScenes,
                   musicUrl: musicUrl || undefined,
-                  narrationUrl: narrationAudioUrl || undefined,
+                  narrationUrl: effectiveNarrationUrl || undefined,
                   musicVolume: 0.3,
                   narrationVolume: 0.8,
                   sfx: sfxList.map(s => ({
