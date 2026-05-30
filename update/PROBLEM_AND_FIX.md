@@ -14,7 +14,13 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
-## 2026-05-30 — 🟠 OPEN: Children template selection still requires manual input
+## 2026-05-30 — ✅ FIXED (`1d571d1`): Children template selection still required manual input + thin catalog
+
+**Fix:** new useEffect in `children-planner/page.tsx` guards a one-shot auto-expand via `autoExpandedRef`. When user lands from `/children-video` with a `topicPrompt` URL param + unchanged textContent + no existing expansion, `expandStory()` fires automatically. No "click Generate again" friction. Also expanded toddler catalog: +4 content types (Bedtime / First Words / Potty & Bath / Feelings) and +5 curriculum templates (A-to-Z 26 / Shape Story / Action Songs / Animal Sounds / Feelings Toolkit). Deployed live. Other age groups (preschool/early/older) already rich — expand on request.
+
+---
+
+## 2026-05-30 — 🟠 ORIGINAL: Children template selection still requires manual input
 
 **Symptom (Henry screenshot):** Children planner — Toddlers age group. User has selected:
 1. Content type card: **Colours & Shapes**

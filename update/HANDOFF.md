@@ -9,6 +9,7 @@ Recording bug burst FIRST (state preservation), then executing A→G→H in prio
 
 ## ✅ FIXED THIS SESSION 2026-05-30
 1. **A.** Children scene-card buttons appeared not to fire — `6793682`. handleChildSceneOp now auto-regens image after text update (mirror handlePolishScene). Task #9 closed.
+2. **(NEW)** Children template selection still required manual input — `1d571d1`. Auto-fire expansion on URL-param arrival + expanded toddler catalog (+4 content types, +5 curriculum templates). Task #20 closed.
 
 ## 🟠 OPEN BUG BURST 2026-05-30 (PRIORITY ORDER)
 1a. **(NEW)** Children template selection still requires manual input — task #20. After content type + topic + curriculum selected, Generate should fire without typing. Also: ADD MORE templates per section.
