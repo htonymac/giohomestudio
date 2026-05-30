@@ -790,7 +790,31 @@ export async function POST(req: NextRequest) {
       try {
         await execFileAsync(ffmpeg, [
           "-i", finalPath,
-          "-vf", `drawtext=text='${escapedText}':fontsize=28:fontcolor=white:borderw=2:bordercolor=black:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`,
+          "-vf", (() => {
+            // Henry 2026-05-30: respect subtitleConfig + stagger across video so
+            // subtitles don't sit stuck 5 sec at hardcoded fontsize=28 white.
+            const subCfg = body.subtitleConfig;
+            const fs = subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(80, subCfg.fontSize) : 36;
+            const txCol = subCfg?.textColor && /^#[0-9a-fA-F]{6}$/.test(subCfg.textColor) ? `0x${subCfg.textColor.slice(1)}` : "white";
+            const bgOn = subCfg?.bgBox ?? false;
+            const bgOp2 = Math.min(1, Math.max(0, subCfg?.bgOpacity ?? 0.6));
+            const bgP = bgOn ? `:box=1:boxcolor=black@${bgOp2.toFixed(2)}:boxborderw=10` : "";
+            const allWds = body.caption!.split(/\s+/).filter(Boolean);
+            const CHUNK = 5;
+            const grp: string[] = [];
+            for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
+            const SEC = 1.6;
+            const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
+            const parts = grp.map((g, idx) => {
+              const s0 = idx * SEC;
+              const s1 = s0 + SEC + 0.4;
+              const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
+              const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
+              return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=2:bordercolor=black${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
+            });
+            return parts.length > 0 ? parts.join(",") :
+              `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=2:bordercolor=black${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
+          })(),
           "-c:a", "copy", "-y", captionOutput,
         ], { timeout: 120000 });
         finalPath = captionOutput;
