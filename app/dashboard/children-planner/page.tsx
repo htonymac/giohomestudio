@@ -1626,8 +1626,20 @@ function ChildrenPlannerInner() {
       const data = await res.json();
       const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
       if (newText && data.ok !== false) {
-        setChildScenes(prev => prev.map(s => s.scene === sceneNum ? { ...s, visualDescription: newText } : s));
-        setLastAction(`Scene ${sceneId}: ${op} applied (child-safe)`);
+        // Capture the post-update scene so we can auto-regen its image (mirror handlePolishScene 2026-05-30)
+        let updatedScene: ChildScene | undefined;
+        setChildScenes(prev => {
+          const next = prev.map(s => s.scene === sceneNum ? { ...s, visualDescription: newText } : s);
+          updatedScene = next.find(s => s.scene === sceneNum);
+          return next;
+        });
+        setLastAction(`Scene ${sceneId}: ${op} applied — regenerating image...`);
+        // Henry 2026-05-30: child-safe ops were updating text only; image stayed stale
+        // → user thought buttons "didn't fire". Now mirror hybrid's Polish auto-regen.
+        if (updatedScene) {
+          await generateSceneBoardImage({ ...updatedScene, visualDescription: newText });
+        }
+        setLastAction(`Scene ${sceneId}: ${op} applied — image refreshed`);
       } else if (data.error) {
         setLastAction(`${op} failed: ${data.error.slice(0, 200)}`);
       } else {
