@@ -655,6 +655,27 @@ export async function POST(req: NextRequest) {
       }, { status: 502 });
     }
 
+    // ── CDN→LOCAL DOWNLOAD GUARANTEE (Henry 2026-05-30 "images not displaying" bug) ──
+    // Some image providers return a CDN URL (e.g. FAL fal.media) without saving locally.
+    // FAL CDN URLs expire in ~3h → broken thumbnails on every reload. Without this guard
+    // the response can return a CDN URL or even the raw server path (Windows or Linux
+    // local) that the browser can't fetch. After this download, result.imagePath is
+    // always set → line 734 always returns the /api/media/... localImageUrl.
+    if (!result.imagePath && result.imageUrl) {
+      try {
+        const dl = await fetch(result.imageUrl);
+        if (dl.ok) {
+          const buf = Buffer.from(await dl.arrayBuffer());
+          fs.writeFileSync(outputPath, buf);
+          result.imagePath = outputPath;
+        } else {
+          console.warn(`[scene-image] CDN download failed (HTTP ${dl.status}) — leaving result.imageUrl as-is; thumbnail may break when CDN expires`);
+        }
+      } catch (dlErr) {
+        console.warn("[scene-image] CDN download exception — leaving result.imageUrl as-is:", dlErr instanceof Error ? dlErr.message : dlErr);
+      }
+    }
+
     // Also look up full model entry to pass family info downstream (non-blocking)
     const usedModel = result.model ? getModelById(result.model.id) : null;
     void usedModel; // referenced for future use (E.2 UI badge)

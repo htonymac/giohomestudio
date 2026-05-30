@@ -168,7 +168,17 @@ async function runPolish(scene: SceneIn, mode: PolishMode, provider: Provider, c
   const result = await callWithFallback(prompt, system, provider, 600);
   if (!result.ok) throw new Error(result.error);
   const parsed = extractJSON(result.text) as { title?: string; description?: string } | null;
-  if (!parsed) throw new Error("Polish parse failed");
+  // Henry 2026-05-30: previously threw "Polish parse failed" → 500 → client modify buttons
+  // appeared broken. LLMs sometimes return raw text instead of JSON, especially on long
+  // custom instructions. If JSON parse fails, use the raw text as the description.
+  if (!parsed) {
+    const cleaned = (result.text || "").replace(/```(?:json)?\s*|\s*```/g, "").trim();
+    return {
+      title: scene.title || "",
+      description: cleaned || scene.description || "",
+      provider: result.provider,
+    };
+  }
   return {
     title: parsed.title || scene.title || "",
     description: parsed.description || scene.description || "",
