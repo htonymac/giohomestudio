@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { resolveCharacterTokens } from "@/lib/character-resolver";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
 import { getStylePreset } from "@/lib/style-presets";
 import { sanitizeStyleCollisions, getStyleCollisionNegative, getAntiFantasyNegative } from "@/lib/style/sanitizer";
@@ -192,10 +193,26 @@ export async function POST(req: NextRequest) {
     // the action extractor. This way "her voice was animated" never reaches the model
     // when style=realistic.
     const styleId = (projectStyle || "3d-cinematic") as string;
+    // ── TOKEN RESOLUTION (Henry 2026-05-30, task #16) ─────────────────────────
+    // Phase 3 root cause: typed character tokens like [CH01] in story-expanded text
+    // were being passed LITERALLY to the image model when not in characterIds[]. The
+    // model rendered the bracket text or made a generic placeholder character. Fix:
+    // call resolveCharacterTokens BEFORE any sanitization. It walks bare and bracketed
+    // tokens, swaps in the character's visualDescription, and surfaces extra reference
+    // images we may have missed. Soft-fails to raw sceneText so this never blocks gen.
+    let preResolvedSceneText: string = sceneText || "";
+    let extraReferenceImages: string[] = [];
+    try {
+      const resolved = await resolveCharacterTokens(sceneText || "", characterIds);
+      if (resolved?.enrichedPrompt) preResolvedSceneText = resolved.enrichedPrompt;
+      if (Array.isArray(resolved?.referenceImages)) extraReferenceImages = resolved.referenceImages.filter(Boolean);
+    } catch (tokenErr) {
+      console.warn("[scene-image] token resolution soft-failed:", tokenErr instanceof Error ? tokenErr.message : tokenErr);
+    }
     // FIX 9 (2026-05-22): strip pose language ("stands with a smile", "next to") BEFORE
     // sanitization. These were forcing the model into character-lineup compositions
     // even though the environment description was correct.
-    const cleanSceneText = sanitizeStyleCollisions(sanitizeNarrativeJargon(stripPoseLanguage(sceneText || "")), styleId);
+    const cleanSceneText = sanitizeStyleCollisions(sanitizeNarrativeJargon(stripPoseLanguage(preResolvedSceneText)), styleId);
     const sceneActionDirective = extractSceneAction(cleanSceneText);
 
     // ── ERA + CULTURE LOCK — computed once, used in prompt AND negative ──
@@ -492,6 +509,13 @@ export async function POST(req: NextRequest) {
     if (productImages && Array.isArray(productImages)) {
       for (const pUrl of productImages as string[]) {
         if (pUrl) referenceImageUrls.push(normalizeRef(pUrl));
+      }
+    }
+    // Append references surfaced by resolveCharacterTokens for tokens that weren't
+    // already in characterIds[] (Henry 2026-05-30 task #16 — token resolution).
+    for (const refUrl of extraReferenceImages) {
+      if (refUrl && !referenceImageUrls.includes(refUrl)) {
+        referenceImageUrls.push(normalizeRef(refUrl));
       }
     }
 
