@@ -786,6 +786,32 @@ export async function POST(req: NextRequest) {
       const captionOutput = path.join(tempDir, "with_caption.mp4");
       const yPos = body.captionPosition === "top" ? "40" : body.captionPosition === "center" ? "(h-text_h)/2" : "h-text_h-60";
 
+      // ── MODE-SPECIFIC PRESETS for drawtext path (Henry 2026-05-30) ──
+      // Backport of /api/assembly/execute's SUBTITLE_PRESETS into /api/video/assemble's
+      // drawtext rendering. Children/movie/commercial users picking Dance Word / Rainbow /
+      // Kids / MrBeast etc previously saw NO visible difference — drawtext only used the
+      // subCfg.fontSize/textColor/bgBox fields, mode field was dropped. Per-word animation
+      // can't all be expressed in drawtext (libass is richer) but font / size / color /
+      // outline can. So each mode gets a distinct visible look.
+      const subModeCfg = body.subtitleConfig;
+      const subMode = subModeCfg?.mode as string | undefined;
+      // [fontSizeOverride, fontcolorHex, outlineHex, outlineWidth, hasBoxOverride, boxAlpha, fontNameOverride]
+      const MODE_PRESETS: Record<string, { size?: number; color?: string; outline?: string; bord?: number; box?: boolean; boxAlpha?: number; font?: string }> = {
+        dance_word:     { size: 56, color: "#ffffff", outline: "#fbbf24", bord: 4, box: false,                font: "Arial Black" },
+        rainbow:        { size: 52, color: "#f87171", outline: "#000000", bord: 3, box: false,                font: "Arial Black" },
+        bubble_pop:     { size: 50, color: "#ffffff", outline: "#7c3aed", bord: 4, box: false,                font: "Arial Black" },
+        big_friendly:   { size: 58, color: "#ffffff", outline: "#fbbf24", bord: 8, box: false,                font: "Arial Black" },
+        mrbeast_single: { size: 96, color: "#ffffff", outline: "#000000", bord: 8, box: false,                font: "Impact" },
+        yellow_sweep:   { size: 48, color: "#fde047", outline: "#000000", bord: 3, box: true,  boxAlpha: 0.75, font: "Arial" },
+        glow_pop:       { size: 54, color: "#ffffff", outline: "#22d3ee", bord: 4, box: false,                font: "Impact" },
+        typewriter:     { size: 44, color: "#fef3c7", outline: "#451a03", bord: 2, box: false,                font: "Courier New" },
+        highlight:      { size: 48, color: "#fde047", outline: "#000000", bord: 3, box: true,  boxAlpha: 0.75, font: "Arial" },
+        kids:           { size: 54, color: "#ffffff", outline: "#7c3aed", bord: 4, box: false,                font: "Arial Black" },
+        dramatic:       { size: 46, color: "#ffffff", outline: "#000000", bord: 2, box: true,  boxAlpha: 0.85, font: "Georgia" },
+        social:         { size: 56, color: "#ffffff", outline: "#00d4ff", bord: 5, box: false,                font: "Impact" },
+      };
+      const preset = subMode ? MODE_PRESETS[subMode] : undefined;
+
       // Word wrap caption: max 50 chars per line, max 3 lines
       const capWords = body.caption.split(/\s+/);
       const capLines: string[] = [];
@@ -810,29 +836,35 @@ export async function POST(req: NextRequest) {
         await execFileAsync(ffmpeg, [
           "-i", finalPath,
           "-vf", (() => {
-            // Henry 2026-05-30: respect subtitleConfig + stagger across video so
-            // subtitles don't sit stuck 5 sec at hardcoded fontsize=28 white.
+            // Henry 2026-05-30: respect subtitleConfig + stagger across video so subtitles
+            // don't sit stuck 5 sec at hardcoded fontsize=28 white. Plus mode preset wins
+            // over subCfg when the user picked a named mode (Dance Word / Kids / etc.) so
+            // the choice is visibly distinct, not silently dropped.
             const subCfg = body.subtitleConfig;
-            const fs = subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(80, subCfg.fontSize) : 36;
-            const txCol = subCfg?.textColor && /^#[0-9a-fA-F]{6}$/.test(subCfg.textColor) ? `0x${subCfg.textColor.slice(1)}` : "white";
-            const bgOn = subCfg?.bgBox ?? false;
-            const bgOp2 = Math.min(1, Math.max(0, subCfg?.bgOpacity ?? 0.6));
+            const hexToFfmpeg = (hex?: string) => hex && /^#[0-9a-fA-F]{6}$/.test(hex) ? `0x${hex.slice(1)}` : "white";
+            const fs = preset?.size ?? (subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(96, subCfg.fontSize) : 36);
+            const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
+            const borderCol = preset?.outline ? hexToFfmpeg(preset.outline) : "black";
+            const borderW = preset?.bord ?? 2;
+            const bgOn = preset?.box ?? subCfg?.bgBox ?? false;
+            const bgOp2 = Math.min(1, Math.max(0, preset?.boxAlpha ?? subCfg?.bgOpacity ?? 0.6));
             const bgP = bgOn ? `:box=1:boxcolor=black@${bgOp2.toFixed(2)}:boxborderw=10` : "";
             const allWds = body.caption!.split(/\s+/).filter(Boolean);
-            const CHUNK = 5;
+            // mrbeast_single = 1 word per chunk for maximum impact; otherwise 5 words.
+            const CHUNK = preset && subMode === "mrbeast_single" ? 1 : 5;
             const grp: string[] = [];
             for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
-            const SEC = 1.6;
+            const SEC = preset && subMode === "mrbeast_single" ? 0.6 : 1.6;
             const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
             const parts = grp.map((g, idx) => {
               const s0 = idx * SEC;
               const s1 = s0 + SEC + 0.4;
               const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
               const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
-              return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=2:bordercolor=black${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
+              return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
             });
             return parts.length > 0 ? parts.join(",") :
-              `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=2:bordercolor=black${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
+              `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
           })(),
           "-c:a", "copy", "-y", captionOutput,
         ], { timeout: 120000 });
