@@ -4288,6 +4288,29 @@ Rules:
                 ✨ AI suggesting a unique story idea…
               </span>
             )}
+            {/* Small inline LLM picker — Henry 2026-05-31: shows the ACTUAL model name
+                (Claude Haiku/Sonnet/Opus, GPT-4o, Ollama, etc.) so user knows what's
+                generating their prefill + modify edits. Owner override of the GHS
+                Standard/Plus/Pro branding rule for this surface. */}
+            <select
+              value={storyAiProvider}
+              onChange={e => setStoryAiProvider(e.target.value)}
+              title="Active LLM for prefill + modify buttons"
+              style={{
+                padding: "5px 8px", borderRadius: 6,
+                border: `1px solid ${childAccent}55`,
+                background: "#151518", color: childAccent,
+                fontSize: 9, fontWeight: 700,
+                cursor: "pointer", outline: "none",
+              }}>
+              <option value="ollama"                              style={{ background: "#151518" }}>🧠 Ollama (local, free)</option>
+              <option value="claude:claude-haiku-4-5-20251001"    style={{ background: "#151518" }}>⚡ Claude Haiku 4.5</option>
+              <option value="claude:claude-sonnet-4-6"            style={{ background: "#151518" }}>✨ Claude Sonnet 4.6 (rec)</option>
+              <option value="claude:claude-opus-4-7"              style={{ background: "#151518" }}>🌟 Claude Opus 4.7</option>
+              <option value="openai:gpt-4o-mini"                  style={{ background: "#151518" }}>🔸 GPT-4o Mini</option>
+              <option value="openai:gpt-4o"                       style={{ background: "#151518" }}>🔶 GPT-4o</option>
+              <option value="openai:o1-mini"                      style={{ background: "#151518" }}>🧩 o1-mini (reasoning)</option>
+            </select>
             {expandedContent && (
               <button
                 onClick={extractChildCharacters}
