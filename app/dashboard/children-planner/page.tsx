@@ -2384,6 +2384,24 @@ function ChildrenPlannerInner() {
     // over the short textContent (prefill idea). Was producing 30s TTS when user clicked
     // Generate Narration before Build Story with AI. Plus raised char cap 3000→30000.
     let text = (narrationText?.trim() || textContent?.trim() || readAlongText?.trim()) || "";
+
+    // Henry 2026-05-31 (BIB fix #2): saved-state inspection for project
+    // ghs_children_1780261594139 showed textContent=""/scriptSegments=[] but
+    // audioPlans[1..10] each contained a rich per-scene narrationScript. User had
+    // generated AI Audio Plans (Step 7-style) but not full Build Story. generateNarration
+    // ignored audioPlans → text empty → 1-sec BIB. Fix: concatenate audioPlans.narrationScript
+    // before giving up.
+    if (text.length < 100 && audioPlans && Object.keys(audioPlans).length > 0) {
+      const planScripts = Object.keys(audioPlans)
+        .map(k => Number(k))
+        .filter(n => !isNaN(n))
+        .sort((a, b) => a - b)
+        .map(n => audioPlans[n]?.narrationScript || "")
+        .filter(Boolean)
+        .join(" ")
+        .trim();
+      if (planScripts.length > text.length) text = planScripts;
+    }
     if (!text) { setUiError("Write your story first before generating narration."); return; }
 
     // Henry 2026-05-31 (#52 sequel): on a NEW project — user clicks "Generate Narration"
