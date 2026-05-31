@@ -2865,11 +2865,17 @@ function ChildrenPlannerInner() {
   }, [childScenes, assemblySelectedIds.length]);
 
   // ── BACKFILL empty visualDescription from narration (Henry 2026-05-31) ──
-  // Saved projects (and scene-plan responses for short summaries) can leave
-  // childScenes[i].visualDescription = "". Image gen then has only the title to chew on
-  // ("I is for Ice Cream") and renders a generic group of kids instead of the actual
-  // object. Backfill from scriptSegments or textContent sentences so the prompt is
-  // grounded in the spoken words for that scene.
+  // INFINITE-LOOP FIX (Henry 2026-05-31): the old version called
+  //   setChildScenes(prev => prev.map(...))
+  // which ALWAYS returned a new array reference even when every scene's content
+  // was unchanged (e.g. lines.length=0 short-returned, but earlier shape did map
+  // anyway). React treated the new array as a state change → re-render → effect
+  // re-runs → infinite loop → 3-sec click freeze on every page.
+  //
+  // Fix: compute the new array first; bail out BEFORE calling setChildScenes
+  // unless at least one scene's visualDescription actually changed. Plus a ref
+  // tracking the last-backfilled-from key (childScenes identity + segments
+  // length) prevents re-firing for the same input.
   useEffect(() => {
     if (isRestoringRef.current) return;
     if (childScenes.length === 0) return;
@@ -2880,13 +2886,18 @@ function ChildrenPlannerInner() {
       : (textContent || "").split(/(?<=[.!?])\s+/)).map(l => l.trim()).filter(Boolean);
     if (lines.length === 0) return;
     const perScene = Math.max(1, Math.ceil(lines.length / childScenes.length));
-    setChildScenes(prev => prev.map((s, i) => {
+    let changed = false;
+    const next = childScenes.map((s, i) => {
       if (s.visualDescription && s.visualDescription.trim().length >= 6) return s;
       const start = i * perScene;
       const end = Math.min(lines.length, start + perScene);
       const filled = lines.slice(start, end).join(" ");
-      return filled ? { ...s, visualDescription: filled } : s;
-    }));
+      if (!filled) return s;
+      changed = true;
+      return { ...s, visualDescription: filled };
+    });
+    if (!changed) return;
+    setChildScenes(next);
   }, [childScenes, scriptSegments, textContent]);
 
   // ── Save project state — DB only, debounced via useEffect deps ──
