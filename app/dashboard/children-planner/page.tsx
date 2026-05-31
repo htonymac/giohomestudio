@@ -2026,14 +2026,55 @@ function ChildrenPlannerInner() {
       // produced a silent video — user reported "narration do not work". Now we auto-fire
       // TTS in the assembly path so narration is always present.
       let resolvedNarratorAudioUrl = narratorAudioUrl;
+      // Henry 2026-05-31: if narrationText is missing or visibly too short for the picker
+      // duration (300s ≈ 650 words ≈ 3000 chars), auto-call story-expand FIRST so the TTS
+      // gets the full duration-scaled fullScript instead of the prefill idea (~80 words).
+      // Was the root cause of "5-min target → 30s narration" after the earlier fix.
+      let usableNarrationText = (narrationText || "").trim();
+      const expectedCharFloor = Math.max(800, storyLengthMin * 60 * 130 / 60 * 4); // ~4 chars/word
+      if (usableNarrationText.length < expectedCharFloor && (textContent || "").trim().length > 0) {
+        try {
+          setLastAction(`Story not expanded yet — auto-expanding for ${storyLengthMin}-min narration...`);
+          const seedInput = textContent.trim();
+          const exp = await fetch("/api/hybrid/story-expand", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              storyInput: seedInput,
+              genre: "children",
+              tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
+              audience: AGE_AUDIENCE[ageGroup] || "children",
+              language: "English",
+              languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
+              storyType: "story_book",
+              targetDuration: storyLengthMin * 60,
+              targetDurationLabel: `${storyLengthMin} min`,
+              tier: "pro",
+              provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+              childContext: { ageGroup, learningMode, safetyLevel, visualStyle: projectStyle },
+            }),
+            signal: AbortSignal.timeout(180000),
+          });
+          if (exp.ok) {
+            const expJson = await exp.json() as { expandedStory?: { fullScript?: string; summary?: string }; wordCount?: number };
+            const fullScript = expJson?.expandedStory?.fullScript || "";
+            if (fullScript && fullScript.length > usableNarrationText.length) {
+              usableNarrationText = fullScript;
+              setNarrationText(fullScript);
+              setExpandedContent(expJson?.expandedStory?.summary || fullScript);
+            }
+          }
+        } catch (autoExpErr) {
+          console.warn("[children-planner] auto-expand before narration failed:", autoExpErr);
+        }
+      }
       if (!resolvedNarratorAudioUrl) {
-        const storyForTTS = (narrationText || textContent || readAlongText || "").trim();
+        const storyForTTS = (usableNarrationText || narrationText || textContent || readAlongText || "").trim();
         if (storyForTTS.length > 10) {
           try {
             // Henry 2026-05-31: raised char cap from 3000 → 30000 (was capping at ~2 min
             // of speech regardless of story length, so 5-min/10-min stories cut early).
             // Piper handles long text fine; 30k chars ≈ 20 min spoken at default rate.
-            setLastAction(`Auto-generating narration (${effectiveNarrationProvider}, ${storyForTTS.length} chars)...`);
+            setLastAction(`Auto-generating narration (${effectiveNarrationProvider}, ${storyForTTS.length} chars ≈ ${Math.round(storyForTTS.length / 4 / 130)} min)...`);
             const ttsRes = await fetch("/api/tts", {
               method: "POST", headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
