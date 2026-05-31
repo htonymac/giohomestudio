@@ -1161,7 +1161,13 @@ function ChildrenPlannerInner() {
       }
 
       const styleLabel = VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label || effectiveProjectStyle;
-      const storyWithStyle = `${summary || storyInput}\n\nVisual style: ${styleLabel}`;
+      // Henry 2026-05-30: scene-plan was getting only the SUMMARY (1-line blurb), so it
+      // invented META scene titles like "Introducing the Letter P" / "The Dancing Pig"
+      // disconnected from the actual narration. Image gen then built prompts from those
+      // meta titles → generic jagos pictures. Hybrid passes the FULL SCRIPT (line ~1326
+      // of hybrid-planner) — mirror that here so scene titles & visualDescriptions are
+      // grounded in the real story words ("watch the pig dance", "let's clap for PIG").
+      const storyWithStyle = `${fullScript || summary || storyInput}\n\nVisual style: ${styleLabel}`;
       const charIdentityMap = new Map(characters.map(ci => [ci.characterId, ci]));
       const sceneRes = await fetch("/api/hybrid/scene-plan", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -2107,9 +2113,6 @@ function ChildrenPlannerInner() {
       if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
       // Attach scene text so assembly route can render subtitles
       const totalNarDuration = narrationText ? estimateTextDuration(narrationText) : 0;
-      // Map by parentScene so beat segments still resolve their PARENT title for subtitles.
-      const sceneByNum = new Map<number, ChildScene>();
-      for (const s of scenesToAssemble) sceneByNum.set(s.scene, s);
       // Per-segment duration: divide narrator total by total SEGMENT count.
       // A 4-beat scene now contributes 4 segments with unique scene numbers, so it gets
       // 4× the screen time of a 1-image scene (proportional to its content).
@@ -2117,13 +2120,37 @@ function ChildrenPlannerInner() {
         ? Math.max(2, totalNarDuration / assemblyScenes.length)
         : 5;
       // Strip the parentScene helper field before sending — /api/video/assemble doesn't
-      // know about it. Subtitle text is built from parent here.
-      const scenesWithText = assemblyScenes.map(({ parentScene, ...rest }) => {
-        const parent = sceneByNum.get(parentScene);
+      // know about it.
+      //
+      // Henry 2026-05-30 (subtitle-per-scene fix): the old code passed
+      //   scene.text = `${parent.title}: ${parent.visualDescription}`
+      // which baked META text ("Introducing the Letter P: A big letter P shows...")
+      // into per-scene subtitle PNGs. Assembly route burns slideText per scene from
+      // scene.text — so the META leaked onto every scene as subtitle even though
+      // body.caption had the real narration.
+      //
+      // Fix: split the actual full narration across the segments by sentence-count
+      // so each segment carries the words spoken DURING its time slot. Hybrid does
+      // this naturally because narration is generated per-scene; children narrates
+      // the whole story in one pass so we slice it client-side.
+      const _narrationForSegs = (usableNarrationText || narrationText || expandedContent || "").trim();
+      const _sentences = _narrationForSegs
+        ? _narrationForSegs.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean)
+        : [];
+      const _segCount = Math.max(1, assemblyScenes.length);
+      const _perSeg = _sentences.length > 0 ? Math.max(1, Math.ceil(_sentences.length / _segCount)) : 0;
+      const _segText = (i: number): string => {
+        if (_sentences.length === 0) return "";
+        const start = i * _perSeg;
+        const end = Math.min(_sentences.length, start + _perSeg);
+        return _sentences.slice(start, end).join(" ");
+      };
+      const scenesWithText = assemblyScenes.map(({ parentScene: _drop, ...rest }, i) => {
         return {
           ...rest,
           duration: perSegmentDuration,
-          text: parent?.title ? `${parent.title}: ${parent.visualDescription || ""}` : "",
+          // Real spoken words for this segment — never the meta title.
+          text: _segText(i),
         };
       });
       // Henry 2026-05-31: subtitle was picking the scene TITLE ("Clap Your Hands":
