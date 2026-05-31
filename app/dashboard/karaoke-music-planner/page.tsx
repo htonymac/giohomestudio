@@ -256,6 +256,20 @@ function KaraokeMusicPlannerInner() {
         setRecording(rec);
         if (rec.mode) setActiveMode(rec.mode as KaraokeMode);
 
+        // Henry 2026-05-31: switching recordings was leaving stale per-recording state
+        // visible — beatRecs / brief / lyric lines / music / mix / exports / selected
+        // beat family all stayed from the PREVIOUS project. Reset them ALL up front,
+        // then re-hydrate only the fields the new recording actually has below.
+        setFlowProfile(null);
+        setBeatRecs([]);
+        setSelectedBeatFamily("");
+        setProductionBrief(null);
+        setBriefInstructions("");
+        setGeneratedMusicUrl(null);
+        setMixedOutputUrl(null);
+        setLyricLines([]);
+        setExportUrls([]);
+
         // Hydrate steps from existing DB data
         const newSteps: Record<number, StepState> = {};
         STEP_DEFS.forEach((s) => {
