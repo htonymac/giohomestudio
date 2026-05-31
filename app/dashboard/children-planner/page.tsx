@@ -2755,24 +2755,40 @@ function ChildrenPlannerInner() {
   async function prefillPrompt() {
     const seedRoll = Math.floor(Math.random() * 100000);
     const base = topicPromptParam || textContent || "child story";
+    // Henry 2026-05-31: respect duration URL param + use names from saved library
+    // instead of inventing fantasy names. ~2.5 words/sec = ~150 wpm typical kid narration.
+    const durationStr = searchParams.get("duration") || "60";
+    const durationSec = parseInt(durationStr.replace(/[^0-9]/g, "")) || 60;
+    const targetWords = Math.max(40, Math.round(durationSec * 2.5));
+    const targetSentences = Math.max(3, Math.round(targetWords / 18));
+    const libraryNames = savedChars.length > 0
+      ? savedChars.map(c => c.name).slice(0, 10).join(", ")
+      : "";
     const ctx = [
       ageGroup ? `Age group: ${ageGroup}` : "",
       learningMode ? `Learning mode: ${learningMode}` : "",
       safetyLevel ? `Safety level: ${safetyLevel}` : "",
       contentParam ? `Content type: ${contentParam}` : "",
       topicParam ? `Topic: ${topicParam}` : "",
+      `Target duration: ${durationSec} seconds`,
     ].filter(Boolean).join(" · ");
-    const customInstruction = `Generate a UNIQUE, fresh 2-3 sentence child-safe STORY IDEA (not the full story) that a parent or teacher could then expand into a video.
+    const namesGuidance = libraryNames
+      ? `AVAILABLE CHARACTER NAMES (use these first, do NOT invent new fantasy names): ${libraryNames}.
+If you need more characters than listed, pick from these simple common names: Joe, Mary, Tom, Sarah, Ade, Kemi, Tola, Pip, Sam, Lily, Ben, Mia.`
+      : `Use SIMPLE common names ONLY (Joe, Mary, Tom, Sarah, Ade, Kemi, Tola, Pip, Sam, Lily, Ben, Mia). Do NOT invent fantasy names like "Annie Ant", "Sparkle Pip", "Twinkle Star".`;
+    const customInstruction = `Generate a UNIQUE child-safe story idea that fills a ${durationSec}-second video. Target length: about ${targetWords} words across roughly ${targetSentences} sentences. NOT 2-3 sentences — fill the duration properly.
 
 CONTEXT: ${ctx}
 SEED: ${seedRoll}
 
+${namesGuidance}
+
 Rules:
-- Give it specific names, a specific setting, and a specific small twist or hook.
-- Make it different from common examples — surprise the user with a fresh angle.
-- Match the age + safety level — toddlers: simple + gentle; pre-school: playful; early school: small adventure; older: more depth.
+- Give the story a clear beginning, middle, end that fills the full ${durationSec} seconds.
+- Use specific real-feeling setting + small twist/hook so the user gets a fresh, usable starting point.
+- Match age + safety level — toddlers: simple + gentle; pre-school: playful; early school: small adventure; older: more depth.
 - Keep it positive, kind, age-appropriate. No scary or mature themes.
-- 2-3 sentences only. The user will modify and expand it themselves.`;
+- Length MUST match the duration. Don't shortcut to 2-3 sentences.`;
     setPrefillingPrompt(true);
     setLastAction("AI is suggesting a unique story idea...");
     try {
@@ -2809,21 +2825,42 @@ Rules:
   async function modifyPrompt(kind: ModifyKind) {
     if (!textContent.trim()) { setLastAction("Type or generate a story idea first"); return; }
     setModifyingPrompt(kind);
+    // Henry 2026-05-31: extract proper nouns + key actions from current text so the
+    // LLM CANNOT replace "Joe goes to school" with "John jumps off the road" — it must
+    // keep every name and the same beat order. Worst frustration this week.
+    const keepNames = Array.from(new Set((textContent.match(/\b[A-Z][a-z]{2,15}\b/g) || []))).slice(0, 8);
+    const preserve = keepNames.length > 0
+      ? `\n\nABSOLUTE RULE: KEEP every one of these names exactly as-is, do NOT rename or remove any of them, do NOT introduce new characters: ${keepNames.join(", ")}. KEEP the same order of events. ONLY enhance the prose around the same story.`
+      : `\n\nABSOLUTE RULE: KEEP every character name and every event in the same order. ONLY enhance the prose around the same story. Do not introduce new characters or change the outcome.`;
     const customInstructions: Record<string, string> = {
-      educational: "Rewrite to be more educational — add small concepts, learning moments, or age-appropriate facts. Stay child-safe.",
-      magical:     "Add a touch of wonder and magic — sparkle, surprise, gentle enchantment. Stay child-safe and grounded.",
-      cozy:        "Make it cozy, warm, and comforting — soft moments, bedtime feel, family or friendship warmth.",
-      diverse:     "Add diversity to the characters / setting / perspectives — different cultures, abilities, family shapes. Stay natural and child-safe.",
-      musical:     "Add music, songs, rhyme, or rhythm — make it sing-along friendly. Stay child-safe.",
+      educational: `Rewrite the story below to be MORE EDUCATIONAL — add small concepts, learning moments, or age-appropriate facts ALONGSIDE the existing events. Stay child-safe.${preserve}`,
+      magical:     `Add a touch of wonder and magic to the story below — sparkle, surprise, gentle enchantment ALONGSIDE the existing events. Stay child-safe and grounded.${preserve}`,
+      cozy:        `Make the story below MORE COZY, warm, and comforting — soft moments, bedtime feel, family or friendship warmth.${preserve}`,
+      diverse:     `Add diversity to the story below — different cultures, abilities, family shapes — without removing existing characters. Stay natural and child-safe.${preserve}`,
+      musical:     `Add music, songs, rhyme, or rhythm to the story below — make it sing-along friendly.${preserve}`,
     };
     const polishMode = (["intense", "playful", "funny", "adventure", "emotional"] as ModifyKind[]).includes(kind) ? kind : "custom";
-    const customInstruction = polishMode === "custom" ? customInstructions[kind] : undefined;
+    // For the 5 built-in polishModes (intense/playful/funny/adventure/emotional) we also
+    // want the preserve-names rule — pass it via customInstruction even when mode is built-in,
+    // because the scene-edit endpoint uses polishIntent(mode) for built-in modes which doesn't
+    // include name preservation strongly enough.
+    const customInstruction = polishMode === "custom"
+      ? customInstructions[kind]
+      : `${kind === "intense" ? "MAKE IT MORE INTENSE. Raise the stakes. Sharpen the tension. Tighten sentences. Use stronger verbs, harsher consequences, urgent stakes." :
+          kind === "playful" ? "ADD PLAYFUL ENERGY — light bouncy rhythm, small games, characters being silly together. Joyful, safe, suitable for young children." :
+          kind === "funny" ? "MAKE IT FUNNIER — gentle silly humor appropriate for children. Add a small surprising laugh, a playful mistake, or a soft joke. Keep it kind, no sarcasm, no scary or mean humor." :
+          kind === "adventure" ? "ADD GENTLE ADVENTURE — a small safe discovery, a tiny challenge, characters exploring with curiosity. Excitement that is age-appropriate, never scary or dangerous." :
+          "MAKE IT MORE EMOTIONAL. Emphasize what the characters FEEL. Surface the internal weight of the moment — fear, grief, longing, joy. Bring the emotion to the surface."
+        }${preserve}`;
+    // Pass via polishMode="custom" so the scene-edit goal honors our preserve-rule
+    // instead of falling back to polishIntent(mode) which doesn't include it.
+    const effectivePolishMode = "custom";
     try {
       const res = await fetch("/api/hybrid/scene-edit", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           op: "polish",
-          polishMode,
+          polishMode: effectivePolishMode,
           customInstruction,
           provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
           scene: { id: "prompt-modify", title: "Story idea", description: textContent },

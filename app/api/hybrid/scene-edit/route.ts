@@ -168,16 +168,21 @@ async function runPolish(scene: SceneIn, mode: PolishMode, provider: Provider, c
   const result = await callWithFallback(prompt, system, provider, 600);
   if (!result.ok) throw new Error(result.error);
   const parsed = extractJSON(result.text) as { title?: string; description?: string } | null;
-  // Henry 2026-05-30: previously threw "Polish parse failed" → 500 → client modify buttons
-  // appeared broken. LLMs sometimes return raw text instead of JSON, especially on long
-  // custom instructions. If JSON parse fails, use the raw text as the description.
+  // Henry 2026-05-31: when JSON parse fails, ONLY accept the raw text if it shares at
+  // least one proper noun with the input. Earlier raw-text fallback (f7525e3) caused
+  // the LLM's meta-commentary to replace the user's story → "Joe goes to school"
+  // became "takes Joe away and John jumps off the road" nonsense. Now: keep original
+  // unchanged if no name overlap, so the user sees a no-op instead of garbage.
   if (!parsed) {
     const cleaned = (result.text || "").replace(/```(?:json)?\s*|\s*```/g, "").trim();
-    return {
-      title: scene.title || "",
-      description: cleaned || scene.description || "",
-      provider: result.provider,
-    };
+    const inputNouns = new Set((scene.description?.match(/\b[A-Z][a-z]{2,15}\b/g) || []).map(n => n.toLowerCase()));
+    const cleanedNouns = new Set((cleaned.match(/\b[A-Z][a-z]{2,15}\b/g) || []).map(n => n.toLowerCase()));
+    const overlap = [...inputNouns].filter(n => cleanedNouns.has(n)).length;
+    if (inputNouns.size > 0 && overlap === 0 && cleaned.length > 30) {
+      console.warn(`[scene-edit polish] raw-text fallback REJECTED — no proper-noun overlap (input: ${[...inputNouns].join(",")}, cleaned head: "${cleaned.slice(0,80)}"). Returning original to avoid nonsense replacement.`);
+      return { title: scene.title || "", description: scene.description || "", provider: result.provider };
+    }
+    return { title: scene.title || "", description: cleaned || scene.description || "", provider: result.provider };
   }
   return {
     title: parsed.title || scene.title || "",
