@@ -2726,7 +2726,17 @@ function ChildrenPlannerInner() {
             if (d.savedChars?.length > 0)   setSavedChars(d.savedChars);
             if (d.selectedCharIds?.length > 0) setSelectedCharIds(d.selectedCharIds);
             if (d.characters?.length > 0)   setCharacters(d.characters);
-            if (d.childScenes?.length > 0)  setChildScenes(d.childScenes);
+            if (d.childScenes?.length > 0) {
+              setChildScenes(d.childScenes);
+              // Henry 2026-05-31: auto-select all scenes for assembly on reopen — mirrors
+              // the planScenes paths (L1208/L1372). Without this, after closing/reopening
+              // a saved project the Assemble button stayed grey'd out ("Select scenes
+              // above to assemble") because assemblySelectedIds wasn't restored. If the
+              // user persisted a deselected subset, that wins (next line restores it).
+              setAssemblySelectedIds(d.childScenes.map((_: ChildScene, i: number) => `child_sc${String(i + 1).padStart(2, "0")}`));
+            }
+            if (Array.isArray(d.assemblySelectedIds) && d.assemblySelectedIds.length > 0) setAssemblySelectedIds(d.assemblySelectedIds);
+            if (d.assemblyMediaPrefs && Object.keys(d.assemblyMediaPrefs).length > 0) setAssemblyMediaPrefs(d.assemblyMediaPrefs);
             if (d.sceneImages && Object.keys(d.sceneImages).length > 0) setSceneImages(d.sceneImages);
             if (d.sceneVideos && Object.keys(d.sceneVideos).length > 0) setSceneVideos(d.sceneVideos);
             // Restore Gen Max beats so they survive a page refresh.
@@ -2785,6 +2795,9 @@ function ChildrenPlannerInner() {
       audioPlans,
       // Establishing shot plan + mode (Henry 2026-05-30 task #21) so they survive refresh.
       establishingShotsChild, establishingModeChild,
+      // Assembly selection (Henry 2026-05-31 children-planner assemble fix): persist which
+      // scenes the user picked + their per-scene media preference, so reopen doesn't reset.
+      assemblySelectedIds, assemblyMediaPrefs,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
@@ -2800,7 +2813,8 @@ function ChildrenPlannerInner() {
       scriptSegments, screenplay,
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters,
       pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap, audioPlans,
-      establishingShotsChild, establishingModeChild]);
+      establishingShotsChild, establishingModeChild,
+      assemblySelectedIds, assemblyMediaPrefs]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
