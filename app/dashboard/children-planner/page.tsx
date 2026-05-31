@@ -2116,6 +2116,11 @@ function ChildrenPlannerInner() {
           text: parent?.title ? `${parent.title}: ${parent.visualDescription || ""}` : "",
         };
       });
+      // Henry 2026-05-31: subtitle was picking the scene TITLE ("Clap Your Hands":
+      // visualDescription) instead of the SPOKEN narration. Now send body.caption =
+      // narration text (or expandedContent fallback) so subtitle matches what's spoken,
+      // not the scene topic. /api/video/assemble's chunked drawtext path consumes this.
+      const captionForSubs = (usableNarrationText || narrationText || expandedContent || "").trim() || undefined;
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2128,6 +2133,7 @@ function ChildrenPlannerInner() {
           sfx: sfxList.length > 0 ? sfxList : undefined,
           aspectRatio: "16:9",
           subtitleConfig: effectiveSubtitleConfig,
+          caption: captionForSubs,
           introUrl: introUrl || undefined,
           outroUrl: outroUrl || undefined,
         }),
@@ -2830,6 +2836,13 @@ function ChildrenPlannerInner() {
       ? `AVAILABLE CHARACTER NAMES (use these first, do NOT invent new fantasy names): ${libraryNames}.
 If you need more characters than listed, pick from these simple common names: Joe, Mary, Tom, Sarah, Ade, Kemi, Tola, Pip, Sam, Lily, Ben, Mia.`
       : `Use SIMPLE common names ONLY (Joe, Mary, Tom, Sarah, Ade, Kemi, Tola, Pip, Sam, Lily, Ben, Mia). Do NOT invent fantasy names like "Annie Ant", "Sparkle Pip", "Twinkle Star".`;
+    // Henry 2026-05-31: drop "adult" vocabulary. Toddlers need WORDS A 3-YEAR-OLD KNOWS.
+    // No "embark / delightful / detective / symmetry / curiosity" etc.
+    const ageVocab =
+      ageGroup === "toddler"   ? "Vocabulary: only words a 2-3 year old knows (run, jump, big, small, happy, mama, papa, friend). Use SHORT 4-8 word sentences. Repeat key words for memory. NO adult words like 'embark', 'delightful', 'detective', 'symmetry', 'curiosity', 'magnificent'." :
+      ageGroup === "preschool" ? "Vocabulary: words a 3-5 year old knows. Sentences max 10 words. Simple, playful, kind. No complex adult words." :
+      ageGroup === "early"     ? "Vocabulary: 5-8 year old reading level. Sentences max 12 words. Light adventure, gentle." :
+                                 "Vocabulary: 8-12 year old reading level. Can use slightly richer words but still accessible.";
     const customInstruction = `Generate a UNIQUE child-safe story idea that fills a ${durationSec}-second video. Target length: about ${targetWords} words across roughly ${targetSentences} sentences. NOT 2-3 sentences — fill the duration properly.
 
 CONTEXT: ${ctx}
@@ -2837,12 +2850,15 @@ SEED: ${seedRoll}
 
 ${namesGuidance}
 
+${ageVocab}
+
 Rules:
-- Give the story a clear beginning, middle, end that fills the full ${durationSec} seconds.
-- Use specific real-feeling setting + small twist/hook so the user gets a fresh, usable starting point.
-- Match age + safety level — toddlers: simple + gentle; pre-school: playful; early school: small adventure; older: more depth.
+- Tell a real STORY about the characters DOING THINGS (running, finding, sharing, helping). Not a list of facts or definitions.
+- Give clear beginning → middle → end that fills ${durationSec} seconds.
+- Use specific everyday setting (park, kitchen, garden, classroom, beach) + small surprise/discovery.
 - Keep it positive, kind, age-appropriate. No scary or mature themes.
-- Length MUST match the duration. Don't shortcut to 2-3 sentences.`;
+- Length MUST match the duration. Don't shortcut.
+- Return ONLY the story description — no headers, no JSON wrapper, no quotes around it, no "title:" prefix.`;
     setPrefillingPrompt(true);
     setLastAction("AI is suggesting a unique story idea...");
     try {
@@ -2857,7 +2873,14 @@ Rules:
         }),
       });
       const data = await res.json();
-      const newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      let newText = data.scene?.description || data.newDescription || data.polishedText || data.text;
+      // Henry 2026-05-31: defense-in-depth — if the LLM somehow leaks raw JSON wrapper
+      // through, extract the description field client-side instead of showing braces.
+      if (typeof newText === "string" && newText.trim().startsWith("{")) {
+        const m = newText.match(/"description"\s*:\s*"((?:[^"\\]|\\.)+)"/);
+        if (m) newText = m[1].replace(/\\"/g, '"').replace(/\\n/g, "\n");
+        else newText = newText.replace(/^[\s{[]+|["\s}\]]+$/g, "").trim();
+      }
       if (newText && data.ok !== false) {
         setTextContent(newText);
         setLastAction("Story idea ready — modify with the buttons or click Expand");

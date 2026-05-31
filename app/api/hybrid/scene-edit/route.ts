@@ -167,19 +167,34 @@ async function runPolish(scene: SceneIn, mode: PolishMode, provider: Provider, c
 
   const result = await callWithFallback(prompt, system, provider, 600);
   if (!result.ok) throw new Error(result.error);
-  const parsed = extractJSON(result.text) as { title?: string; description?: string } | null;
-  // Henry 2026-05-31: when JSON parse fails, ONLY accept the raw text if it shares at
-  // least one proper noun with the input. Earlier raw-text fallback (f7525e3) caused
-  // the LLM's meta-commentary to replace the user's story → "Joe goes to school"
-  // became "takes Joe away and John jumps off the road" nonsense. Now: keep original
-  // unchanged if no name overlap, so the user sees a no-op instead of garbage.
+  let parsed = extractJSON(result.text) as { title?: string; description?: string } | null;
+  // Henry 2026-05-31: when extractJSON fails AND the raw text looks like JSON (starts
+  // with { and contains "description":...), parse it manually with a non-strict regex.
+  // Prevents the raw `{ "title": ..., "description": ... }` wrapper from leaking into
+  // the user's textarea (Henry saw exactly this).
+  if (!parsed) {
+    const txt = (result.text || "").trim();
+    if (txt.startsWith("{") && /"description"\s*:/.test(txt)) {
+      // Extract description value with a lenient regex that handles escaped quotes.
+      const m = txt.match(/"description"\s*:\s*"((?:[^"\\]|\\.)+)"/);
+      const tm = txt.match(/"title"\s*:\s*"((?:[^"\\]|\\.)+)"/);
+      if (m) parsed = { title: tm?.[1]?.replace(/\\"/g, '"'), description: m[1].replace(/\\"/g, '"').replace(/\\n/g, "\n") };
+    }
+  }
+  // If still no parse and raw text looks like JSON wrapper, REJECT it — never leak
+  // braces into user's textarea. Otherwise validate noun overlap with input before
+  // accepting the raw text as new description.
   if (!parsed) {
     const cleaned = (result.text || "").replace(/```(?:json)?\s*|\s*```/g, "").trim();
+    if (cleaned.startsWith("{") || cleaned.startsWith("[")) {
+      console.warn(`[scene-edit polish] raw text starts with JSON brace but couldn't parse — keep original to avoid leaking braces. head: "${cleaned.slice(0,80)}"`);
+      return { title: scene.title || "", description: scene.description || "", provider: result.provider };
+    }
     const inputNouns = new Set((scene.description?.match(/\b[A-Z][a-z]{2,15}\b/g) || []).map(n => n.toLowerCase()));
     const cleanedNouns = new Set((cleaned.match(/\b[A-Z][a-z]{2,15}\b/g) || []).map(n => n.toLowerCase()));
     const overlap = [...inputNouns].filter(n => cleanedNouns.has(n)).length;
     if (inputNouns.size > 0 && overlap === 0 && cleaned.length > 30) {
-      console.warn(`[scene-edit polish] raw-text fallback REJECTED — no proper-noun overlap (input: ${[...inputNouns].join(",")}, cleaned head: "${cleaned.slice(0,80)}"). Returning original to avoid nonsense replacement.`);
+      console.warn(`[scene-edit polish] raw-text fallback REJECTED — no proper-noun overlap (input: ${[...inputNouns].join(",")}, cleaned head: "${cleaned.slice(0,80)}").`);
       return { title: scene.title || "", description: scene.description || "", provider: result.provider };
     }
     return { title: scene.title || "", description: cleaned || scene.description || "", provider: result.provider };
