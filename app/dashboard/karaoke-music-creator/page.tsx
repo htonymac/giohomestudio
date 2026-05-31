@@ -808,7 +808,7 @@ export default function KaraokeMusicCreatorPage() {
           </p>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: "#55555a", lineHeight: 1.5 }}>
             Analysis → Flow Profiling → Beat Recommendation → Production Brief → Music Generation → Mix → Export.
-            Steps 2, 4, 11 (Demucs / Basic Pitch / RVC) are marked post-Linux — everything else runs now.
+            Steps 2, 4, 11 (Demucs / Basic Pitch / RVC) need server installs — everything else runs now.
           </p>
         </div>
       </div>

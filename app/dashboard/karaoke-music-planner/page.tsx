@@ -859,9 +859,9 @@ function KaraokeMusicPlannerInner() {
                       color: "#ffb347",
                     }}
                   >
-                    {stepDef.num === 2 && "Demucs install pending — waiting for Linux deploy"}
-                    {stepDef.num === 4 && "Basic Pitch install pending — waiting for Linux deploy"}
-                    {stepDef.num === 11 && "RVC install pending — waiting for Linux deploy"}
+                    {stepDef.num === 2 && "Demucs install pending — server install scheduled (Python 3.10 + PyTorch)"}
+                    {stepDef.num === 4 && "Basic Pitch install pending — server install scheduled (TensorFlow)"}
+                    {stepDef.num === 11 && "RVC install pending — server install scheduled (GPU recommended)"}
                   </div>
                 )}
 

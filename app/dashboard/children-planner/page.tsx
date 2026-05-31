@@ -2428,6 +2428,21 @@ function ChildrenPlannerInner() {
       }
     }
 
+    // Henry 2026-05-31 (BIB fix sequel): also accept scriptSegments as a text source.
+    // The Script Status header showed "9 narrator + 0 character lines parsed" even when
+    // narrationText was empty — the segments held the actual lines. Without this, TTS got
+    // 0 chars → Piper produced a 1-sec silent/beep WAV ("BIB"). Concatenate segments first.
+    if (text.length < 100 && Array.isArray(scriptSegments) && scriptSegments.length > 0) {
+      const joined = scriptSegments.map(s => s.text).filter(Boolean).join(" ").trim();
+      if (joined.length > text.length) text = joined;
+    }
+    // Final guard: never send sub-100-char text — produces unusable 1-sec output.
+    // If we got here and STILL have nothing, tell user to write a real story first.
+    if (text.replace(/\s+/g, "").length < 80) {
+      setUiError(`Narration text is too short (${text.length} chars) — write or expand the story first. TTS skipped to avoid 1-second beep output.`);
+      return;
+    }
+
     setNarrationGenerating(true);
     setUiError("");
     try {
