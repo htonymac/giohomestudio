@@ -111,7 +111,7 @@ const STEP_DEFS: StepDef[] = [
   { num: 7, title: "Flow Profiling", subtitle: "Classify voice type · Detect phrase gaps · Hook candidates" },
   { num: 8, title: "Beat Recommendation", subtitle: "Top 3 beat families from 11 options based on your flow" },
   { num: 9, title: "Production Brief", subtitle: "AI builds structured music instructions from all analysis" },
-  { num: 10, title: "Music Generation", subtitle: "Kie.ai / Stable Audio / Mubert / Stock — follows your brief" },
+  { num: 10, title: "Music Generation", subtitle: "Without Kie key: Stable Audio (FAL, ≤47s instrumental) or Stock Library (free local mp3) — pipeline still completes. Kie unlocks lyrical Suno-style music." },
   { num: 11, title: "Voice Enhancement", subtitle: "RVC — professional vocal quality polish", postLinux: true },
   { num: 12, title: "Audio Mixing", subtitle: "Voice + music blend controls — Web Audio API" },
   { num: 13, title: "Review Interface", subtitle: "Waveform + lyrics overlay + lyric-time markers" },
@@ -123,6 +123,23 @@ const STEP_DEFS: StepDef[] = [
 ];
 
 // ── Utility helpers ────────────────────────────────────────────────────────────
+
+// Henry 2026-05-31: read a Response that MIGHT return non-JSON (HTML 5xx, gateway timeout
+// page) and produce a clear error instead of letting JSON.parse explode with
+// "Unexpected token 'I', 'Internal S'..." — that error message is opaque to users.
+async function safeKaraokeJson<T = unknown>(res: Response, step: string): Promise<{ ok: boolean; data?: T; error?: string }> {
+  const text = await res.text();
+  if (!text.trim()) return { ok: false, error: `${step}: empty response (HTTP ${res.status})` };
+  try {
+    const data = JSON.parse(text) as T & { error?: string };
+    if (res.ok && !data.error) return { ok: true, data };
+    return { ok: false, error: data.error || `${step}: HTTP ${res.status}`, data };
+  } catch {
+    // Non-JSON body — surface HTTP code + first sentence of body so user knows what happened.
+    const snippet = text.replace(/<[^>]+>/g, "").trim().slice(0, 160);
+    return { ok: false, error: `${step}: HTTP ${res.status} (server returned non-JSON: ${snippet || "no body"})` };
+  }
+}
 
 function statusBadge(status: StepStatus, postLinux?: boolean): { label: string; color: string; bg: string } {
   if (postLinux || status === "post_linux") {
@@ -391,11 +408,11 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setFlowProfile(data.flowProfile);
-      setStepStatus(7, "done", data.flowProfile);
-      showToast(`Flow: ${data.flowProfile.voiceType} — ${data.flowProfile.cadenceLabel}`);
+      const parsed = await safeKaraokeJson<{ flowProfile: FlowProfile }>(res, "Flow Profiling");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setFlowProfile(parsed.data.flowProfile);
+      setStepStatus(7, "done", parsed.data.flowProfile as unknown as Record<string, unknown>);
+      showToast(`Flow: ${parsed.data.flowProfile.voiceType} — ${parsed.data.flowProfile.cadenceLabel}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Flow profile failed";
       setStepStatus(7, "error", undefined, msg);
@@ -418,14 +435,14 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId, mode: activeMode }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setBeatRecs(data.recommendations || []);
-      if (data.recommendations?.length > 0) {
-        setSelectedBeatFamily(data.recommendations[0].beatFamily);
+      const parsed = await safeKaraokeJson<{ recommendations?: BeatRec[] }>(res, "Beat Recommendation");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setBeatRecs(parsed.data.recommendations || []);
+      if (parsed.data.recommendations && parsed.data.recommendations.length > 0) {
+        setSelectedBeatFamily(parsed.data.recommendations[0].beatFamily);
       }
       setStepStatus(8, "done");
-      showToast(`Top beat: ${data.recommendations?.[0]?.beatFamily || "Afro Light Groove"}`);
+      showToast(`Top beat: ${parsed.data.recommendations?.[0]?.beatFamily || "Afro Light Groove"}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Beat recommendation failed";
       setStepStatus(8, "error", undefined, msg);
