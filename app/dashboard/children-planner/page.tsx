@@ -4402,6 +4402,23 @@ Rules:
                 ✨ AI suggesting a unique story idea…
               </span>
             )}
+            {/* Henry 2026-05-31: manual re-suggest button so if auto-prefill didn't fire
+                (project re-open, race condition, etc.) user can force a fresh idea. */}
+            <button
+              onClick={() => prefillPrompt()}
+              disabled={prefillingPrompt || modifyingPrompt !== null}
+              title="Generate a fresh unique story idea from the current selections + a new random seed"
+              style={{
+                padding: "5px 9px", borderRadius: 6,
+                border: `1px solid ${childSafe}55`,
+                background: prefillingPrompt ? `${childSafe}25` : `${childSafe}12`,
+                color: (prefillingPrompt || modifyingPrompt !== null) ? muted : childSafe,
+                fontSize: 9, fontWeight: 700,
+                cursor: (prefillingPrompt || modifyingPrompt !== null) ? "not-allowed" : "pointer",
+                opacity: (prefillingPrompt || modifyingPrompt !== null) ? 0.55 : 1,
+              }}>
+              {prefillingPrompt ? "…" : "✨ Re-suggest"}
+            </button>
             {/* Small inline LLM picker — Henry 2026-05-31: shows the ACTUAL model name
                 (Claude Haiku/Sonnet/Opus, GPT-4o, Ollama, etc.) so user knows what's
                 generating their prefill + modify edits. Owner override of the GHS
