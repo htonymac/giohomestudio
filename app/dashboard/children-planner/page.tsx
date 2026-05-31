@@ -1840,8 +1840,11 @@ function ChildrenPlannerInner() {
       if (selectedScenes.length > 0 && missingMedia.length === 0) fixed.push(`${selectedScenes.length} scene(s) ready.`);
 
       // ── 2. Narration check + auto-generate (always re-runs) ──
-      const storyForTTS = (narrationText || readAlongText || textContent || "").trim();
-      if (storyForTTS.length > 10) {
+      // Henry 2026-05-31: shared resolveNarrationText helper. Used to silently
+      // produce BIB on new projects whose only text was the URL-param topic
+      // prompt (~30 chars). Now expands first if too short.
+      const { text: storyForTTS } = await resolveNarrationText();
+      if (storyForTTS.replace(/\s+/g, "").length >= 80) {
         try {
           // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
           const autoProvider = effectiveNarrationProvider || "piper";
@@ -1849,7 +1852,7 @@ function ChildrenPlannerInner() {
           const ttsRes = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: autoProvider, speed: 0.9 }),
+            body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, speed: 0.9 }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json() as { audioUrl?: string };
@@ -2378,19 +2381,28 @@ function ChildrenPlannerInner() {
     setAssemblingPacingVideo(false);
   }
 
-  // ── Narration-only TTS generation ──
-  async function generateNarration() {
-    // Henry 2026-05-31: prefer the FULL expanded narrationText (from story-expand fullScript)
-    // over the short textContent (prefill idea). Was producing 30s TTS when user clicked
-    // Generate Narration before Build Story with AI. Plus raised char cap 3000→30000.
+  // ── SHARED narration-text resolver (Henry 2026-05-31, BIB audit deep) ──
+  // The BIB hunt found 3 different narration-firing paths in this file, each
+  // doing its own (narrationText || textContent || readAlongText) check. Only
+  // generateNarration had the full chain (+ scriptSegments + audioPlans fallback).
+  // Pre-flight auto-narrate (L1843) and the per-scene Generate button (L5662)
+  // were tiny-text → BIB-WAV producers on NEW projects whose textContent is
+  // just the short topic prompt ("Word Magic BAG") → 1-second BIB output.
+  //
+  // CRITICAL DISTINCTION Henry surfaced 2026-05-31:
+  //   "AAA Untitled Children Project work with sound … new project dont work
+  //    with sound just bib"
+  // The default project has fully-expanded narrationText already saved. New
+  // projects start with only the URL-param prompt (~30-80 chars). Without an
+  // expand step BEFORE TTS, every new project produces BIB.
+  //
+  // This sync helper IS the source of truth — every TTS caller uses it.
+  function getNarrationSourceText(): string {
     let text = (narrationText?.trim() || textContent?.trim() || readAlongText?.trim()) || "";
-
-    // Henry 2026-05-31 (BIB fix #2): saved-state inspection for project
-    // ghs_children_1780261594139 showed textContent=""/scriptSegments=[] but
-    // audioPlans[1..10] each contained a rich per-scene narrationScript. User had
-    // generated AI Audio Plans (Step 7-style) but not full Build Story. generateNarration
-    // ignored audioPlans → text empty → 1-sec BIB. Fix: concatenate audioPlans.narrationScript
-    // before giving up.
+    if (text.length < 100 && Array.isArray(scriptSegments) && scriptSegments.length > 0) {
+      const joined = scriptSegments.map(s => s.text).filter(Boolean).join(" ").trim();
+      if (joined.length > text.length) text = joined;
+    }
     if (text.length < 100 && audioPlans && Object.keys(audioPlans).length > 0) {
       const planScripts = Object.keys(audioPlans)
         .map(k => Number(k))
@@ -2402,62 +2414,70 @@ function ChildrenPlannerInner() {
         .trim();
       if (planScripts.length > text.length) text = planScripts;
     }
-    if (!text) { setUiError("Write your story first before generating narration."); return; }
+    return text;
+  }
 
-    // Henry 2026-05-31 (#52 sequel): on a NEW project — user clicks "Generate Narration"
-    // directly without running "Build Story with AI" first. textContent is the short
-    // prefill idea (~80 chars), TTS plays for ~10s then stops — Henry's "talk talk once
-    // before and stop talking on new but talk on old". Mirror the assembleMovie auto-expand
-    // path: if text is visibly shorter than the picker duration warrants, expand FIRST so
-    // the narrator covers the full target.
-    const expectedCharFloor = Math.max(800, storyLengthMin * 60 * 130 / 60 * 4); // ≈ targetDuration × 4 chars/word
-    if (text.length < expectedCharFloor && (textContent || "").trim().length > 0) {
-      try {
-        setLastAction(`Expanding story to fill ${storyLengthMin}-min narration target...`);
-        const exp = await fetch("/api/hybrid/story-expand", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storyInput: textContent.trim(),
-            genre: "children",
-            tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
-            audience: AGE_AUDIENCE[ageGroup] || "children",
-            language: "English",
-            languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
-            storyType: "story_book",
-            targetDuration: storyLengthMin * 60,
-            targetDurationLabel: `${storyLengthMin} min`,
-            tier: "pro",
-            provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
-            childContext: { ageGroup, learningMode, safetyLevel, visualStyle: projectStyle },
-          }),
-          signal: AbortSignal.timeout(180000),
-        });
-        if (exp.ok) {
-          const expJson = await exp.json() as { expandedStory?: { fullScript?: string; summary?: string } };
-          const fullScript = expJson?.expandedStory?.fullScript || "";
-          if (fullScript && fullScript.length > text.length) {
-            text = fullScript;
-            setNarrationText(fullScript);
-            setExpandedContent(expJson?.expandedStory?.summary || fullScript);
+  // ── ASYNC narration resolver — gets text + auto-expands if still short ──
+  // Used by all 3 narration-firing paths. seedForExpand lets callers nudge it
+  // with whatever short text they DO have (textContent typically). Returns the
+  // final text + an `expanded` flag for telemetry. NEVER returns sub-80 chars
+  // unless absolutely nothing can be expanded — preventing BIB at the source.
+  async function resolveNarrationText(opts: { minLen?: number } = {}): Promise<{ text: string; expanded: boolean }> {
+    const minLen = opts.minLen ?? Math.max(800, storyLengthMin * 60 * 130 / 60 * 4);
+    let text = getNarrationSourceText();
+    let expanded = false;
+    if (text.length < minLen) {
+      const seed = (textContent || text || "").trim();
+      if (seed.length > 0) {
+        try {
+          setLastAction(`Expanding story to fill ${storyLengthMin}-min narration target...`);
+          const exp = await fetch("/api/hybrid/story-expand", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              storyInput: seed,
+              genre: "children",
+              tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
+              audience: AGE_AUDIENCE[ageGroup] || "children",
+              language: "English",
+              languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
+              storyType: "story_book",
+              targetDuration: storyLengthMin * 60,
+              targetDurationLabel: `${storyLengthMin} min`,
+              tier: "pro",
+              provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+              childContext: { ageGroup, learningMode, safetyLevel, visualStyle: projectStyle },
+            }),
+            signal: AbortSignal.timeout(180000),
+          });
+          if (exp.ok) {
+            const expJson = await exp.json() as { expandedStory?: { fullScript?: string; summary?: string } };
+            const fullScript = expJson?.expandedStory?.fullScript || "";
+            if (fullScript && fullScript.length > text.length) {
+              text = fullScript;
+              expanded = true;
+              setNarrationText(fullScript);
+              setExpandedContent(expJson?.expandedStory?.summary || fullScript);
+            }
           }
+        } catch (autoExpErr) {
+          console.warn("[resolveNarrationText] expand failed:", autoExpErr);
         }
-      } catch (autoExpErr) {
-        console.warn("[generateNarration] pre-expand failed:", autoExpErr);
       }
     }
+    return { text, expanded };
+  }
 
-    // Henry 2026-05-31 (BIB fix sequel): also accept scriptSegments as a text source.
-    // The Script Status header showed "9 narrator + 0 character lines parsed" even when
-    // narrationText was empty — the segments held the actual lines. Without this, TTS got
-    // 0 chars → Piper produced a 1-sec silent/beep WAV ("BIB"). Concatenate segments first.
-    if (text.length < 100 && Array.isArray(scriptSegments) && scriptSegments.length > 0) {
-      const joined = scriptSegments.map(s => s.text).filter(Boolean).join(" ").trim();
-      if (joined.length > text.length) text = joined;
-    }
-    // Final guard: never send sub-100-char text — produces unusable 1-sec output.
-    // If we got here and STILL have nothing, tell user to write a real story first.
+  // ── Narration-only TTS generation ──
+  async function generateNarration() {
+    // Henry 2026-05-31 BIB AUDIT (deep): use the shared resolveNarrationText helper
+    // so this function does EXACTLY what the pre-flight auto-narrate and per-scene
+    // Generate button do — no divergence. The helper handles: source fallback chain
+    // (narrationText → textContent → readAlongText → scriptSegments → audioPlans
+    // concatenation), and auto-expansion via /api/hybrid/story-expand when the
+    // result is below the picker duration's character floor.
+    const { text } = await resolveNarrationText();
     if (text.replace(/\s+/g, "").length < 80) {
-      setUiError(`Narration text is too short (${text.length} chars) — write or expand the story first. TTS skipped to avoid 1-second beep output.`);
+      setUiError(`Narration text is too short (${text.length} chars) after expand — write or pick a story first. TTS skipped to avoid 1-second beep output.`);
       return;
     }
 
@@ -2737,7 +2757,10 @@ function ChildrenPlannerInner() {
   }
 
   // ── Persistent project storage key — from URL ?projectId= (no localStorage) ──
-  const urlProjectId = searchParams.get("projectId");
+  // Henry 2026-05-31: also accept `continue=<id>` URL param so the "Continue this
+  // series" link from /children-video resolves to its target project instead of
+  // silently falling through to ghs_children_default.
+  const urlProjectId = searchParams.get("projectId") || searchParams.get("continue");
 
   // ── Phase C.2: Project settings hook — reads from DB, patches asynchronously ──
   const {
@@ -5659,12 +5682,14 @@ Rules:
                       <p style={{ fontSize: 9, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, flex: 1 }}>Narration</p>
                       <button
                         onClick={async () => {
-                          const text = (narrationText || readAlongText || textContent || "").trim();
-                          if (!text) { setUiError("Write story content first"); return; }
+                          // Henry 2026-05-31 BIB audit: use shared resolver with auto-expand
+                          // so new projects (textContent = short URL prompt only) get the
+                          // full expanded script before TTS. Was producing 1-sec BIB WAVs.
+                          const { text } = await resolveNarrationText();
+                          if (text.replace(/\s+/g, "").length < 80) { setUiError("Story is too short — write more content or click ✨ Re-suggest first."); return; }
                           setLastAction("Generating narration...");
                           try {
-                            // BUG-09 fix: use narrationProvider state instead of hardcoded "piper"
-                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 3000), provider: effectiveNarrationProvider || "piper", speed: 0.9 }) });
+                            const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 30000), provider: effectiveNarrationProvider || "piper", speed: 0.9 }) });
                             const d = await r.json() as { audioUrl?: string };
                             if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
                             else setLastAction("Narration generation failed");
