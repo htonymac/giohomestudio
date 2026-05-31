@@ -1097,12 +1097,19 @@ function ChildrenPlannerInner() {
           childContext: { ageGroup: effectiveAgeGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
         }),
       });
-      const expandData = await safeJson<{ expandedStory?: { summary?: string }; summary?: string }>(expandRes, "story-expand");
+      const expandData = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string }; summary?: string; fullScript?: string; wordCount?: number; warning?: string }>(expandRes, "story-expand");
+      // Henry 2026-05-31: narration was getting the 1-paragraph SUMMARY (blurb), not the
+      // duration-scaled FULL SCRIPT. Result: 5-min target → 30-second TTS. fullScript is
+      // the complete narrator-spoken text (~targetWordCount words). Use it if present;
+      // summary is the fallback only when fullScript is absent (older planner responses).
+      const fullScript = expandData.expandedStory?.fullScript || expandData.fullScript || "";
       const summary = expandData.expandedStory?.summary || expandData.summary || "";
-      if (summary) {
-        setExpandedContent(summary);
-        setNarrationText(summary);
-        setLastAction("Story expanded");
+      const narrationSource = fullScript || summary || "";
+      if (narrationSource) {
+        setExpandedContent(summary || fullScript);  // expandedContent shown in UI (summary preferred for short preview)
+        setNarrationText(narrationSource);            // narrationText drives TTS — needs full script for full audio
+        const w = expandData.wordCount;
+        setLastAction(`Story expanded${w ? ` (${w} words ≈ ${Math.round(w / 150)} min narration)` : ""}${expandData.warning ? ` — ⚠ ${expandData.warning}` : ""}`);
       }
 
       const charRes = await fetch("/api/hybrid/character-extract", {
@@ -2023,10 +2030,13 @@ function ChildrenPlannerInner() {
         const storyForTTS = (narrationText || textContent || readAlongText || "").trim();
         if (storyForTTS.length > 10) {
           try {
-            setLastAction(`Auto-generating narration (${effectiveNarrationProvider})...`);
+            // Henry 2026-05-31: raised char cap from 3000 → 30000 (was capping at ~2 min
+            // of speech regardless of story length, so 5-min/10-min stories cut early).
+            // Piper handles long text fine; 30k chars ≈ 20 min spoken at default rate.
+            setLastAction(`Auto-generating narration (${effectiveNarrationProvider}, ${storyForTTS.length} chars)...`);
             const ttsRes = await fetch("/api/tts", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: storyForTTS.slice(0, 3000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
+              body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
             });
             if (ttsRes.ok) {
               const ttsData = await ttsRes.json() as { audioUrl?: string };
@@ -2286,7 +2296,10 @@ function ChildrenPlannerInner() {
 
   // ── Narration-only TTS generation ──
   async function generateNarration() {
-    const text = textContent?.trim() || narrationText?.trim();
+    // Henry 2026-05-31: prefer the FULL expanded narrationText (from story-expand fullScript)
+    // over the short textContent (prefill idea). Was producing 30s TTS when user clicked
+    // Generate Narration before Build Story with AI. Plus raised char cap 3000→30000.
+    const text = (narrationText?.trim() || textContent?.trim() || readAlongText?.trim());
     if (!text) { setUiError("Write your story first before generating narration."); return; }
     setNarrationGenerating(true);
     setUiError("");
@@ -2295,7 +2308,7 @@ function ChildrenPlannerInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          text: text.slice(0, 3000),
+          text: text.slice(0, 30000),
           provider: effectiveNarrationProvider,
           engine: effectiveNarrationProvider,
           speed: narrationSpeed,
