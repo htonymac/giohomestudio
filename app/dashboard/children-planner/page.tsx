@@ -5219,15 +5219,9 @@ Rules:
                             const variants = (s.variantUrls && s.variantUrls.length > 1) ? s.variantUrls : [];
                             const beats = genMaxBeats.length > 1 ? genMaxBeats : variants;
                             if (beats.length <= 1) return null;
-                            // Auto-opt this scene into multi-image mode the FIRST time we render
-                            // its picker — saves the user a click. Henry 2026-05-30: previously
-                            // we re-added on every render which created an infinite loop and
-                            // defeated the user's Max OFF click. Now tracked in autoOptedMaxRef
-                            // so we only auto-opt once per page load per scene.
-                            if (!useMaxImageScenes.has(sceneId) && !autoOptedMaxRef.current.has(sceneId)) {
-                              autoOptedMaxRef.current.add(sceneId);
-                              setTimeout(() => setUseMaxImageScenes(prev => new Set(prev).add(sceneId)), 0);
-                            }
+                            // Henry 2026-05-30: removed the auto-opt-in entirely per Henry's
+                            // "MAX ON WAS WORKING BEFORE U LAST 2 FIX AND STOP FIX THAT".
+                            // User clicks Max ON explicitly when they want multi-image mode.
                             return (
                             <div style={{ marginTop: 4, marginBottom: 6, padding: "8px 10px", background: "#ff95000a", border: "1px solid #ff950025", borderRadius: 6 }}>
                               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>

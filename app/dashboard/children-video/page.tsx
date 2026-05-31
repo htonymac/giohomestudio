@@ -851,8 +851,13 @@ export default function ChildrenVideoPage() {
               </div>
             </div>
 
-            {/* ── Next button ── */}
-            <a href={`/dashboard/children-planner?branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(selectedTopic?.topic || "")}&topicPrompt=${encodeURIComponent(selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}`}
+            {/* ── Next button ──
+                Henry 2026-05-30: previously omitted projectId → planner fell back to the
+                shared "ghs_children_default" project for EVERY user → Henry's selections
+                landed on top of someone else's work. Now we mint a fresh ID per page render
+                so each navigation = a new project. Multi-tab: tab A and tab B render at
+                different timestamps → independent projects. */}
+            <a href={`/dashboard/children-planner?projectId=child_${Date.now()}_${Math.random().toString(36).slice(2,6)}&branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(selectedTopic?.topic || "")}&topicPrompt=${encodeURIComponent(selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}`}
               style={{ textDecoration: "none" }}>
               <button disabled={!contentType || !ageGroup}
                 style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (contentType && ageGroup) ? childAccent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (contentType && ageGroup) ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
