@@ -150,12 +150,23 @@ export async function POST(req: NextRequest) {
       console.warn("[karaoke/generate-music] MusicGeneration log failed (non-fatal):", logErr);
     }
 
+    // Henry 2026-05-31: surface genre-match quality so UI can warn the user when their
+    // requested genre (e.g. afrobeats) could not be matched and we fell back to a
+    // generic track. modelName suffix is appended by the stock adapter.
+    const matchedExactly = !String(musicResult.modelName || "").includes("/fallback") &&
+                           !String(musicResult.modelName || "").includes("/approximate");
+    const genreWarning = !matchedExactly && providerKey === "stock"
+      ? `Stock library has no ${genre} track — picked a generic fallback. For real ${genre} music, switch provider to Stable Audio (FAL, ~$0.02/clip) or add KIE_AI_API_KEY for vocal Suno-style tracks.`
+      : undefined;
+
     return NextResponse.json({
       recordingId,
       generatedMusicUrl,
       provider: providerKey,
+      modelName: musicResult.modelName || providerKey,
       mode: karaokeMode,
       durationSeconds: musicResult.durationSeconds || durationSec,
+      ...(genreWarning ? { warning: genreWarning, matchQuality: "fallback" } : { matchQuality: "exact" }),
     });
   } catch (err) {
     console.error("[karaoke/generate-music] error:", err);

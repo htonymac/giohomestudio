@@ -50,29 +50,45 @@ function findFile(stockDir: string, candidates: string[]): string | null {
   return found[Math.floor(Math.random() * found.length)];
 }
 
-function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string): string | null {
+// Henry 2026-05-31: track WHY a file was picked so the UI can warn the user
+// when their requested genre (e.g. "afrobeats") could not be matched and we
+// fell back to a generic track. "voice is afro, sound is default" frustration.
+export type PickResult = { path: string; matchQuality: "exact" | "approximate" | "fallback" };
+
+function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string): PickResult | null {
   const searchText = `${prompt} ${genre ?? ""} ${mood ?? ""}`.toLowerCase();
 
-  // Check keyword map
+  // Check keyword map — EXACT only if the requested keyword file exists by EXACT name.
   for (const { keywords, files } of KEYWORD_MAP) {
-    if (keywords.some(k => searchText.includes(k))) {
-      const found = findFile(stockDir, files);
-      if (found) return found;
+    const matchedKeyword = keywords.find(k => searchText.includes(k));
+    if (matchedKeyword) {
+      // Look for a filename that contains the matched keyword — that's "exact".
+      const exactFiles = files.filter(f => f.toLowerCase().includes(matchedKeyword));
+      const exact = findFile(stockDir, exactFiles);
+      if (exact) return { path: exact, matchQuality: "exact" };
+      // Found a different file from the same keyword group — "approximate".
+      const approx = findFile(stockDir, files);
+      if (approx) return { path: approx, matchQuality: "approximate" };
     }
   }
 
-  // Try fallbacks
-  const found = findFile(stockDir, FALLBACK_FILES);
-  if (found) return found;
-
-  // Last resort: any .mp3 in the directory
-  if (!fs.existsSync(stockDir)) return null;
-  const all = fs.readdirSync(stockDir).filter(f => f.endsWith(".mp3"));
-  if (all.length > 0) {
-    return path.join(stockDir, all[Math.floor(Math.random() * all.length)]);
+  // Sweep BOTH the top-level stockDir AND the freepd/ folder so the library is
+  // ~250+ tracks instead of just 14. Random pick from all mp3s as last-resort
+  // fallback so users at least get variety.
+  const allCandidates: string[] = [];
+  if (fs.existsSync(stockDir)) {
+    for (const f of fs.readdirSync(stockDir)) {
+      if (f.endsWith(".mp3")) allCandidates.push(path.join(stockDir, f));
+    }
+    const freepdDir = path.join(stockDir, "freepd");
+    if (fs.existsSync(freepdDir)) {
+      for (const f of fs.readdirSync(freepdDir)) {
+        if (f.endsWith(".mp3")) allCandidates.push(path.join(freepdDir, f));
+      }
+    }
   }
-
-  return null;
+  if (allCandidates.length === 0) return null;
+  return { path: allCandidates[Math.floor(Math.random() * allCandidates.length)], matchQuality: "fallback" };
 }
 
 class StockAdapter implements MusicProviderAdapter {
@@ -90,19 +106,25 @@ class StockAdapter implements MusicProviderAdapter {
 
   async generate(input: MusicGenerateInput): Promise<MusicGenerateOutput> {
     const stockDir = getStockDir();
-    const trackPath = pickTrack(stockDir, input.prompt, input.genre, input.mood);
+    const picked = pickTrack(stockDir, input.prompt, input.genre, input.mood);
 
-    if (trackPath) {
-      // Convert absolute disk path → served URL
-      const filename = path.basename(trackPath);
-      const audioUrl = `/api/media/music/stock/${filename}`;
+    if (picked) {
+      // Resolve to a SERVED URL relative to /api/media/music/stock/ (handles freepd/ too).
+      const rel = path.relative(stockDir, picked.path).replace(/\\/g, "/");
+      const audioUrl = `/api/media/music/stock/${rel}`;
+      // Surface match quality so the route can warn the user when their requested
+      // genre (afrobeats etc) could not be matched and we returned a generic track.
+      // Henry 2026-05-31: "voice afro, sound default" frustration root cause.
+      const qualitySuffix = picked.matchQuality === "exact" ? ""
+        : picked.matchQuality === "approximate" ? "/approximate"
+        : "/fallback-generic";
 
       return {
         audioUrl,
         durationSeconds: input.durationSeconds,
         costUsd: 0,
         providerKey: "stock",
-        modelName: "stock_library",
+        modelName: `stock_library${qualitySuffix}`,
       };
     }
 
