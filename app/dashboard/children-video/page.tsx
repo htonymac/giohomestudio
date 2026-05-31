@@ -169,38 +169,41 @@ const TOPIC_SUGGESTIONS: Record<string, Record<string, Array<{ topic: string; pr
   // ── TODDLERS (2-3) ──
   toddler: {
     "letters-sounds": [
-      // Henry 2026-05-31: expanded library. Consolidates the old separate A/B/C topics
-      // into multi-letter combos + adds Word Magic (B+A+G = BAG), more song variants,
-      // deeper single-letter stories, and a vowels intro.
-      // ── 3-letter combo stories (one story covers 3 letters together) ──
-      { topic: "A · B · C Friends", prompt: "Joe, Mia, and Sam play in the park. Joe finds an Apple — A is for Apple. Mia kicks a Ball — B is for Ball. Sam pets a Cat — C is for Cat. They sing A, B, C together." },
-      { topic: "D · E · F Day", prompt: "It is morning. A Duck swims — D is for Duck. A girl eats an Egg — E is for Egg. A Fish jumps — F is for Fish. D, E, F!" },
-      { topic: "G · H · I Garden", prompt: "In a sunny garden, a Goat chews grass — G is for Goat. A boy wears a Hat — H is for Hat. The kids play in an Igloo of pillows — I is for Igloo. G, H, I!" },
-      { topic: "J · K · L Together", prompt: "At breakfast, Joe spreads Jam — J is for Jam. Mia flies a Kite — K is for Kite. Sam waves at a Lion in a book — L is for Lion. J, K, L!" },
-      { topic: "M · N · O Morning", prompt: "Mama drinks Milk — M is for Milk. The Nest in the tree has eggs — N is for Nest. A baby holds an Orange — O is for Orange. M, N, O!" },
-      { topic: "P · Q · R Park", prompt: "Pip the Puppy plays — P is for Puppy. A Queen waves in a story book — Q is for Queen. A Rabbit hops — R is for Rabbit. P, Q, R!" },
-      { topic: "S · T · U Sunshine", prompt: "The Sun is bright — S is for Sun. A green Tree gives shade — T is for Tree. An Umbrella waits in case of rain — U is for Umbrella. S, T, U!" },
-      { topic: "V · W · X Visit", prompt: "Joe visits the Vet — V is for Vet. There is Water in the bowl — W is for Water. The X-ray shows tiny bones — X marks the spot. V, W, X!" },
-      { topic: "Y · Z A-Z Finish", prompt: "Yellow flowers bloom — Y is for Yellow. The Zebra in the picture book has stripes — Z is for Zebra. Then they sing the WHOLE alphabet A to Z!" },
+      // Henry 2026-05-30: EDUCATIONAL-first prompts. Letter is the HERO, no character story.
+      // Pattern per letter: STATE → playful HOOK → CHANT/REPEAT the sound. NO "Joe and Mia"
+      // narrative wrap. AI must teach the letter, not invent a journey for kids in a park.
+      // ── 3-letter combo lessons (one lesson covers 3 letters; letter stays the subject) ──
+      { topic: "A · B · C — Letters", prompt: "Teach 3 letters. A is for Apple — the apple bounces up high! Aaaa — Apple — A! B is for Ball — the ball rolls round and round! Buh — Ball — B! C is for Cat — the cat says meow! Kuh — Cat — C! Now sing: A, B, C!" },
+      { topic: "D · E · F — Letters", prompt: "Teach 3 letters. D is for Duck — the duck quacks loud! Duh — Duck — D! E is for Egg — the egg cracks open! Eh — Egg — E! F is for Fish — the fish swims fast! Fff — Fish — F! Now sing: D, E, F!" },
+      { topic: "G · H · I — Letters", prompt: "Teach 3 letters. G is for Goat — the goat chews grass! Guh — Goat — G! H is for Hat — the hat sits on top! Huh — Hat — H! I is for Ice — the ice is cold! Ih — Ice — I! Now sing: G, H, I!" },
+      { topic: "J · K · L — Letters", prompt: "Teach 3 letters. J is for Jam — the jam is sweet and red! Juh — Jam — J! K is for Kite — the kite flies high! Kuh — Kite — K! L is for Lion — the lion roars! Llll — Lion — L! Now sing: J, K, L!" },
+      { topic: "M · N · O — Letters", prompt: "Teach 3 letters. M is for Milk — the milk is cold and white! Mmm — Milk — M! N is for Nest — the nest holds tiny eggs! Nnn — Nest — N! O is for Orange — the orange is bright and round! Oh — Orange — O! Now sing: M, N, O!" },
+      { topic: "P · Q · R — Letters", prompt: "Teach 3 letters. P is for Puppy — the puppy wags its tail! Puh — Puppy — P! Q is for Queen — the queen has a sparkly crown! Kwuh — Queen — Q! R is for Rabbit — the rabbit hops fast! Rrr — Rabbit — R! Now sing: P, Q, R!" },
+      { topic: "S · T · U — Letters", prompt: "Teach 3 letters. S is for Sun — the sun is bright and warm! Sss — Sun — S! T is for Tree — the tree is tall and green! Tuh — Tree — T! U is for Umbrella — the umbrella opens wide! Uh — Umbrella — U! Now sing: S, T, U!" },
+      { topic: "V · W · X — Letters", prompt: "Teach 3 letters. V is for Van — the van drives along the road! Vvv — Van — V! W is for Water — the water splashes! Wuh — Water — W! X is for Box — find the X! Ksss — Box — X! Now sing: V, W, X!" },
+      { topic: "Y · Z — Letters & Full Alphabet", prompt: "Teach 2 letters then sing all 26. Y is for Yellow — the yellow flower glows! Yuh — Yellow — Y! Z is for Zebra — the zebra has black-white stripes! Zzz — Zebra — Z! Now sing the WHOLE alphabet: A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z!" },
       // ── Single-letter deep dives (one letter, many words for that letter) ──
       { topic: "Letter A — many words", prompt: "Learn the letter A together. A says 'ah'. Show an Apple, an Ant, an Airplane, an Arm, an Apron, an Acorn. Say each word slowly. Clap on each A!" },
       { topic: "Letter B — many words", prompt: "Learn the letter B. B says 'buh'. Show a Ball, a Bird, a Banana, a Bed, a Bus, a Book, a Bee. Clap for each B!" },
       { topic: "Letter C — many words", prompt: "Learn the letter C. C says 'kuh'. Show a Cat, a Cup, a Car, a Cake, a Cloud, a Cow, a Chair. Clap for each C!" },
-      // ── Alphabet song variants ──
-      { topic: "Sing the ABC (slow)", prompt: "Sing the alphabet song very slowly. Show each letter big and colorful as it sings: A-B-C-D-E-F-G… all the way to Z. Repeat once with friends joining in." },
-      { topic: "ABC with Friends", prompt: "Joe, Mia, Sam, Ada take turns singing the alphabet. Each kid says 2 letters and points to the matching picture. A-B (Joe), C-D (Mia), E-F (Sam), G-H (Ada), and so on to Z." },
-      { topic: "Backwards Z to A", prompt: "A silly twist! Sing the alphabet BACKWARDS — Z, Y, X, W… all the way to A. Show each letter big as it sings. Giggle at the end!" },
+      // ── Alphabet song variants (letter-as-hero, no character story) ──
+      { topic: "Sing the ABC (slow)", prompt: "Sing the alphabet very slowly. Each letter appears BIG and bright as we sing it: A — B — C — D — E — F — G — H — I — J — K — L — M — N — O — P — Q — R — S — T — U — V — W — X — Y — Z. Repeat once faster!" },
+      { topic: "ABC Call & Response", prompt: "Teacher says a letter, kids repeat. 'Say A!' — A! 'Say B!' — B! 'Say C!' — C! All the way through Z. Letter shown big each time. Kids chant along." },
+      { topic: "Backwards Z to A", prompt: "A silly twist! Sing the alphabet BACKWARDS — Z, Y, X, W, V, U, T, S, R, Q, P, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A. Show each letter big as it sings. Giggle at the end!" },
       // ── Word Magic: 3-letter word formation (B + A + G = BAG) ──
-      { topic: "Word Magic: BAG", prompt: "Word magic time! B + A + G makes BAG! Show the letters B, then A, then G clicking together. Then show a real BAG holding a teddy. Say it together: B-A-G — BAG!" },
-      { topic: "Word Magic: CAT", prompt: "Word magic! C + A + T makes CAT! Show C, A, T snapping into place. A friendly Cat meows. Say it: C-A-T — CAT!" },
-      { topic: "Word Magic: DOG", prompt: "Word magic! D + O + G makes DOG! Show D, O, G coming together. A happy Dog wags its tail. Say it: D-O-G — DOG!" },
-      { topic: "Word Magic: SUN", prompt: "Word magic! S + U + N makes SUN! Show S, U, N joining. The bright Sun smiles in the sky. Say it: S-U-N — SUN!" },
-      { topic: "Word Magic: HAT", prompt: "Word magic! H + A + T makes HAT! Show H, A, T building a word. Joe puts on a big silly Hat. Say it: H-A-T — HAT!" },
-      { topic: "Word Magic: PIG", prompt: "Word magic! P + I + G makes PIG! Show P, I, G clicking together. A pink Pig says oink. Say it: P-I-G — PIG!" },
-      { topic: "Word Magic: BED", prompt: "Word magic! B + E + D makes BED! Show B, E, D coming together. A cozy Bed with a pillow. Say it: B-E-D — BED!" },
-      { topic: "Word Magic: BUS", prompt: "Word magic! B + U + S makes BUS! Show B, U, S joining. A yellow Bus drives by. Say it: B-U-S — BUS!" },
-      { topic: "Word Magic: CUP", prompt: "Word magic! C + U + P makes CUP! Show C, U, P clicking. A blue Cup with juice. Say it: C-U-P — CUP!" },
-      { topic: "Word Magic: FOX", prompt: "Word magic! F + O + X makes FOX! Show F, O, X joining. A red Fox in the woods. Say it: F-O-X — FOX!" },
+      // ── Word Magic — 3-letter word formation (letters click together to MAKE a word) ──
+      // Pattern: SOUND each letter slowly → SNAP letters together → SHOW the object → CHANT the word.
+      // The LETTERS and the WORD-BUILDING are the lesson; the object is just the picture for the word.
+      { topic: "Word Magic: B-A-G = BAG", prompt: "Word magic time! Sound each letter. B says 'buh'. A says 'ah'. G says 'guh'. B + A + G — the letters SNAP together — BAG! Show a real bag. Say it slow: B-A-G. Say it fast: BAG! Chant: B-A-G spells BAG!" },
+      { topic: "Word Magic: C-A-T = CAT", prompt: "Word magic! C says 'kuh'. A says 'ah'. T says 'tuh'. C + A + T — letters SNAP — CAT! Show a cat. Slow: C-A-T. Fast: CAT! Chant: C-A-T spells CAT!" },
+      { topic: "Word Magic: D-O-G = DOG", prompt: "Word magic! D says 'duh'. O says 'oh'. G says 'guh'. D + O + G — SNAP — DOG! Show a dog. Slow: D-O-G. Fast: DOG! Chant: D-O-G spells DOG!" },
+      { topic: "Word Magic: S-U-N = SUN", prompt: "Word magic! S says 'sss'. U says 'uh'. N says 'nnn'. S + U + N — SNAP — SUN! Show the sun. Slow: S-U-N. Fast: SUN! Chant: S-U-N spells SUN!" },
+      { topic: "Word Magic: H-A-T = HAT", prompt: "Word magic! H says 'huh'. A says 'ah'. T says 'tuh'. H + A + T — SNAP — HAT! Show a hat. Slow: H-A-T. Fast: HAT! Chant: H-A-T spells HAT!" },
+      { topic: "Word Magic: P-I-G = PIG", prompt: "Word magic! P says 'puh'. I says 'ih'. G says 'guh'. P + I + G — SNAP — PIG! Show a pig. Slow: P-I-G. Fast: PIG! Chant: P-I-G spells PIG!" },
+      { topic: "Word Magic: B-E-D = BED", prompt: "Word magic! B says 'buh'. E says 'eh'. D says 'duh'. B + E + D — SNAP — BED! Show a bed. Slow: B-E-D. Fast: BED! Chant: B-E-D spells BED!" },
+      { topic: "Word Magic: B-U-S = BUS", prompt: "Word magic! B says 'buh'. U says 'uh'. S says 'sss'. B + U + S — SNAP — BUS! Show a yellow bus. Slow: B-U-S. Fast: BUS! Chant: B-U-S spells BUS!" },
+      { topic: "Word Magic: C-U-P = CUP", prompt: "Word magic! C says 'kuh'. U says 'uh'. P says 'puh'. C + U + P — SNAP — CUP! Show a cup. Slow: C-U-P. Fast: CUP! Chant: C-U-P spells CUP!" },
+      { topic: "Word Magic: F-O-X = FOX", prompt: "Word magic! F says 'fff'. O says 'oh'. X says 'ksss'. F + O + X — SNAP — FOX! Show a red fox. Slow: F-O-X. Fast: FOX! Chant: F-O-X spells FOX!" },
       // ── Phonics intros (letter sounds) ──
       { topic: "Letter Sounds A to E", prompt: "Learn the sounds! A says 'ah', B says 'buh', C says 'kuh', D says 'duh', E says 'eh'. Show one picture per letter and repeat the sound 3 times together." },
       { topic: "Letter Sounds F to J", prompt: "Letter sounds! F says 'ffh', G says 'guh', H says 'huh', I says 'ih', J says 'juh'. Picture per letter. Repeat each sound 3 times." },

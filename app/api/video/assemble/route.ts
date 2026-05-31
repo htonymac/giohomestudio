@@ -811,6 +811,7 @@ export async function POST(req: NextRequest) {
         social:         { size: 56, color: "#ffffff", outline: "#00d4ff", bord: 5, box: false,                font: "Impact" },
       };
       const preset = subMode ? MODE_PRESETS[subMode] : undefined;
+      console.log("[assemble.subtitle]", { mode: subMode, presetApplied: !!preset, captionPreview: body.caption?.slice(0, 60) });
 
       // Word wrap caption: max 50 chars per line, max 3 lines
       const capWords = body.caption.split(/\s+/);

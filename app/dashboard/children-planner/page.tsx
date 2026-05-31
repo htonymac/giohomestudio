@@ -1397,10 +1397,16 @@ function ChildrenPlannerInner() {
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
       if (data.error) {
-        setLastAction(`Image failed: ${data.error}`);
+        console.error("[scene-image fail]", { status: res.status, error: data.error, sceneId, modelId: effectiveImageModelId });
+        setLastAction(`Image failed (${res.status}): ${String(data.error).slice(0, 200)}`);
         return;
       }
       const url = data.imageUrl || data.imagePath || "";
+      if (!url) {
+        console.error("[scene-image no-url]", { status: res.status, data, sceneId });
+        setLastAction(`Image gen returned no URL (status ${res.status}) — see console`);
+        return;
+      }
       if (url) {
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
         setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
@@ -1496,9 +1502,13 @@ function ChildrenPlannerInner() {
         });
         const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, `child-beat-${bi}`);
         const url = data.imageUrl || data.imagePath || "";
-        if (url) newUrls.push(url);
+        if (url) {
+          newUrls.push(url);
+        } else if (data.error) {
+          console.error(`[makeChildSceneBeatImages] beat ${bi} error:`, data.error, "modelId:", effectiveImageModelId);
+        }
       } catch (err) {
-        console.error(`[makeChildSceneBeatImages] image ${bi} failed:`, err);
+        console.error(`[makeChildSceneBeatImages] image ${bi} fetch failed:`, err);
       }
     }
 
@@ -2843,7 +2853,44 @@ If you need more characters than listed, pick from these simple common names: Jo
       ageGroup === "preschool" ? "Vocabulary: words a 3-5 year old knows. Sentences max 10 words. Simple, playful, kind. No complex adult words." :
       ageGroup === "early"     ? "Vocabulary: 5-8 year old reading level. Sentences max 12 words. Light adventure, gentle." :
                                  "Vocabulary: 8-12 year old reading level. Can use slightly richer words but still accessible.";
-    const customInstruction = `Generate a UNIQUE child-safe story idea that fills a ${durationSec}-second video. Target length: about ${targetWords} words across roughly ${targetSentences} sentences. NOT 2-3 sentences — fill the duration properly.
+
+    // Henry 2026-05-30: EDUCATIONAL content types must LEAD with learning, not character story.
+    // Pure A=Apple is boring; pure narrative ("Joe finds an apple") buries the teaching.
+    // Goal: letter/number/concept is the HERO, wrapped in 1-line playful hooks per letter
+    // ("A is for Apple — watch the apple FLY up high!"). NOT a character journey.
+    const EDUCATIONAL_TYPES = new Set([
+      "letters-sounds", "numbers-counting", "colours-shapes", "animals-nature", "first-words",
+      "phonics", "early-maths", "science-discovery",
+      "mathematics", "science", "history-people", "geography", "computing-logic", "arts-music",
+      "health-wellbeing", "reading-writing",
+      "language-arts", "advanced-maths", "science-engineering", "history-civilisations",
+      "geography-global", "coding-python", "music-performance", "world-cultures", "research-thinking",
+    ]);
+    const isEducational = contentParam ? EDUCATIONAL_TYPES.has(contentParam) : false;
+
+    const customInstruction = isEducational
+      ? `Generate a UNIQUE child-safe EDUCATIONAL video script that fills ${durationSec} seconds. Target ${targetWords} words across ~${targetSentences} short lines.
+
+CONTEXT: ${ctx}
+SEED: ${seedRoll}
+TOPIC: ${topicParam || base}
+
+${ageVocab}
+
+THIS IS EDUCATIONAL — NOT A STORY.
+- The LEARNING CONTENT is the hero: the letters, numbers, sounds, words, facts, or concepts.
+- DO NOT build a character-driven narrative ("Joe and Mia go to the park"). DO NOT center characters running, sharing, or discovering.
+- For each unit (letter / number / colour / word / fact), give 2-3 short playful lines that TEACH IT and make it MEMORABLE:
+    * State it clearly: "A is for Apple."
+    * Add ONE playful hook so it sticks: "Watch the apple bounce HIGH! Apple — Apple — A!"
+    * Optional repeat / chant / sing-along feel.
+- Pacing: cover several units across the duration (e.g. 60s = 4-6 letters; 300s = 12-15 units with deeper repetition).
+- Include sound-it-out moments: "A — apple — aaa", "B — ball — bbb".
+- A LIGHT story-flavored hook is allowed ("Apple flew up — silly apple!"), but the LETTER/NUMBER/CONCEPT stays the subject of every line.
+- Repeat the core teaching word at least twice per unit so kids remember it.
+- Tone: warm, bright, sing-along, kind. No scary content. No adult words.
+- Return ONLY the script — no headers, no JSON wrapper, no quotes around it, no "title:" prefix.`
+      : `Generate a UNIQUE child-safe story idea that fills a ${durationSec}-second video. Target length: about ${targetWords} words across roughly ${targetSentences} sentences. NOT 2-3 sentences — fill the duration properly.
 
 CONTEXT: ${ctx}
 SEED: ${seedRoll}
