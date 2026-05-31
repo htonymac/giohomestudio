@@ -231,6 +231,13 @@ function KaraokeMusicPlannerInner() {
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState("mp3");
   const [exportUrls, setExportUrls] = useState<{format: string; url: string}[]>([]);
+  // Henry 2026-05-31: per-user toggle for RVC voice-enhancement. Default OFF since
+  // Contabo server has no GPU (CPU mode adds ~10–20 min per recording). Persisted
+  // in localStorage so the choice survives reloads.
+  const [keepRvc, setKeepRvc] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ghs_karaoke_keep_rvc") === "1";
+  });
   const [mixedOutputUrl, setMixedOutputUrl] = useState<string | null>(null);
 
   // ── Check flow lock ─────────────────────────────────────────────────────────
@@ -892,7 +899,41 @@ function KaraokeMusicPlannerInner() {
                   >
                     {stepDef.num === 2 && "Demucs install pending — server install scheduled (Python 3.10 + PyTorch)"}
                     {stepDef.num === 4 && "Basic Pitch install pending — server install scheduled (TensorFlow)"}
-                    {stepDef.num === 11 && "RVC install pending — server install scheduled (GPU recommended)"}
+                    {stepDef.num === 11 && (
+                      <div>
+                        <div style={{ marginBottom: 8 }}>
+                          RVC voice enhancement is OFF by default — this server has no GPU, so running it would add <strong style={{ color: "#ff8c1a" }}>10–20 minutes</strong> processing per 60-second recording (CPU mode).
+                        </div>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", padding: "8px 10px", background: keepRvc ? "rgba(255,140,26,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${keepRvc ? "#ff8c1a" : "rgba(255,255,255,0.08)"}`, borderRadius: 6 }}>
+                          <input
+                            type="checkbox"
+                            checked={keepRvc}
+                            onChange={e => {
+                              // Henry 2026-05-31: prompt on opt-IN so the user reads the
+                              // time cost before accepting. Opt-OUT is silent — no friction.
+                              if (e.target.checked) {
+                                const ok = typeof window !== "undefined" && window.confirm(
+                                  "Turn ON RVC voice enhancement?\n\n" +
+                                  "This server has NO GPU. Running RVC adds approximately:\n" +
+                                  "  • 10–20 minutes per 60-second recording\n" +
+                                  "  • 5–10 minutes per 30-second recording\n\n" +
+                                  "Your karaoke job will be MUCH slower. Continue?"
+                                );
+                                if (!ok) return;
+                              }
+                              setKeepRvc(e.target.checked);
+                              if (typeof window !== "undefined") localStorage.setItem("ghs_karaoke_keep_rvc", e.target.checked ? "1" : "0");
+                            }}
+                            style={{ width: 14, height: 14, accentColor: "#ff8c1a" }}
+                          />
+                          <div style={{ fontSize: 11, color: keepRvc ? "#ff8c1a" : "#ccc" }}>
+                            <strong>Keep RVC ON anyway</strong>
+                            {keepRvc && <div style={{ fontSize: 10, color: "#ff8c1a", marginTop: 4 }}>⚠ Expect +10–20 min per 60s recording. Re-toggle anytime — applies on the next karaoke job.</div>}
+                            {!keepRvc && <div style={{ fontSize: 10, color: "#7b7b80", marginTop: 4 }}>Step 11 will be skipped. Mixing uses your raw vocal.</div>}
+                          </div>
+                        </label>
+                      </div>
+                    )}
                   </div>
                 )}
 
