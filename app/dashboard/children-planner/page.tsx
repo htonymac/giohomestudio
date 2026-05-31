@@ -2774,6 +2774,20 @@ function ChildrenPlannerInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ── BELT-AND-SUSPENDERS auto-select safety net (Henry 2026-05-31) ──
+  // Saved-state restore at L2729-2738 auto-selects + persists assemblySelectedIds, but
+  // older projects saved before that fix have childScenes WITHOUT assemblySelectedIds.
+  // When such a project re-loads, restore yields childScenes hydrated but selection
+  // empty → Assemble stays grey forever. This effect catches it: as soon as childScenes
+  // is populated and we're NOT in restoration AND no selection exists, default to ALL.
+  // Manual user deselection still wins because user actions happen AFTER restore.
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    if (childScenes.length === 0) return;
+    if (assemblySelectedIds.length > 0) return;
+    setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`));
+  }, [childScenes, assemblySelectedIds.length]);
+
   // ── Save project state — DB only, debounced via useEffect deps ──
   useEffect(() => {
     if (isRestoringRef.current) return;
