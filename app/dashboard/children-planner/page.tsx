@@ -2383,8 +2383,51 @@ function ChildrenPlannerInner() {
     // Henry 2026-05-31: prefer the FULL expanded narrationText (from story-expand fullScript)
     // over the short textContent (prefill idea). Was producing 30s TTS when user clicked
     // Generate Narration before Build Story with AI. Plus raised char cap 3000→30000.
-    const text = (narrationText?.trim() || textContent?.trim() || readAlongText?.trim());
+    let text = (narrationText?.trim() || textContent?.trim() || readAlongText?.trim()) || "";
     if (!text) { setUiError("Write your story first before generating narration."); return; }
+
+    // Henry 2026-05-31 (#52 sequel): on a NEW project — user clicks "Generate Narration"
+    // directly without running "Build Story with AI" first. textContent is the short
+    // prefill idea (~80 chars), TTS plays for ~10s then stops — Henry's "talk talk once
+    // before and stop talking on new but talk on old". Mirror the assembleMovie auto-expand
+    // path: if text is visibly shorter than the picker duration warrants, expand FIRST so
+    // the narrator covers the full target.
+    const expectedCharFloor = Math.max(800, storyLengthMin * 60 * 130 / 60 * 4); // ≈ targetDuration × 4 chars/word
+    if (text.length < expectedCharFloor && (textContent || "").trim().length > 0) {
+      try {
+        setLastAction(`Expanding story to fill ${storyLengthMin}-min narration target...`);
+        const exp = await fetch("/api/hybrid/story-expand", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storyInput: textContent.trim(),
+            genre: "children",
+            tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
+            audience: AGE_AUDIENCE[ageGroup] || "children",
+            language: "English",
+            languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
+            storyType: "story_book",
+            targetDuration: storyLengthMin * 60,
+            targetDurationLabel: `${storyLengthMin} min`,
+            tier: "pro",
+            provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
+            childContext: { ageGroup, learningMode, safetyLevel, visualStyle: projectStyle },
+          }),
+          signal: AbortSignal.timeout(180000),
+        });
+        if (exp.ok) {
+          const expJson = await exp.json() as { expandedStory?: { fullScript?: string; summary?: string } };
+          const fullScript = expJson?.expandedStory?.fullScript || "";
+          if (fullScript && fullScript.length > text.length) {
+            text = fullScript;
+            setNarrationText(fullScript);
+            setExpandedContent(expJson?.expandedStory?.summary || fullScript);
+          }
+        }
+      } catch (autoExpErr) {
+        console.warn("[generateNarration] pre-expand failed:", autoExpErr);
+      }
+    }
+
     setNarrationGenerating(true);
     setUiError("");
     try {
@@ -2787,6 +2830,31 @@ function ChildrenPlannerInner() {
     if (assemblySelectedIds.length > 0) return;
     setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`));
   }, [childScenes, assemblySelectedIds.length]);
+
+  // ── BACKFILL empty visualDescription from narration (Henry 2026-05-31) ──
+  // Saved projects (and scene-plan responses for short summaries) can leave
+  // childScenes[i].visualDescription = "". Image gen then has only the title to chew on
+  // ("I is for Ice Cream") and renders a generic group of kids instead of the actual
+  // object. Backfill from scriptSegments or textContent sentences so the prompt is
+  // grounded in the spoken words for that scene.
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    if (childScenes.length === 0) return;
+    const empty = childScenes.filter(s => !s.visualDescription || s.visualDescription.trim().length < 6);
+    if (empty.length === 0) return;
+    const lines: string[] = (Array.isArray(scriptSegments) && scriptSegments.length > 0
+      ? scriptSegments.map(seg => seg.text).filter(Boolean)
+      : (textContent || "").split(/(?<=[.!?])\s+/)).map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    const perScene = Math.max(1, Math.ceil(lines.length / childScenes.length));
+    setChildScenes(prev => prev.map((s, i) => {
+      if (s.visualDescription && s.visualDescription.trim().length >= 6) return s;
+      const start = i * perScene;
+      const end = Math.min(lines.length, start + perScene);
+      const filled = lines.slice(start, end).join(" ");
+      return filled ? { ...s, visualDescription: filled } : s;
+    }));
+  }, [childScenes, scriptSegments, textContent]);
 
   // ── Save project state — DB only, debounced via useEffect deps ──
   useEffect(() => {

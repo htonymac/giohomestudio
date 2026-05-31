@@ -390,9 +390,12 @@ export async function POST(req: NextRequest) {
     promptParts.push(sceneActionDirective);
 
     // ── HUMAN CHARACTER GUARD — INJECTED LATE (after character block) for maximum override force ──
-    // Applied whenever NO explicit animal signal from scene or character species.
-    // Late-position injection overrides early style-prefix bias from the model.
-    if (!explicitAnimal) {
+    // Applied whenever NO explicit animal signal from scene or character species AND there
+    // IS at least one human character assigned. Without the character-presence check the
+    // guard fires on object-only scenes (e.g. "I is for Ice Cream", "P-I-G = PIG") and
+    // forces the model to render a group of kids in place of the actual object, producing
+    // generic "children illustration" outputs that ignore the letter/word being taught.
+    if (!explicitAnimal && resolvedCharacters.length > 0) {
       // GENESIS BEAR FIX (Henry 2026-05-30): purge "bear/animal/fur/snout/paws" from
       // POSITIVE prompt — diffusion models prime on what's mentioned regardless of NO/NOT.
       // Use affirmative-only phrasing here; negatives go in the negative prompt only.
