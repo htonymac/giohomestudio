@@ -7364,10 +7364,37 @@ Rules:
                 </div>
               ) : (
                 <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: 11, color: muted, flexShrink: 0 }}>Written by:</span>
-                    <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Author name"
-                      style={{ flex: 1, background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontWeight: 600, outline: "none", maxWidth: 280 }} />
+                  {/* Henry 2026-06-01: ALL THREE Story Credits inputs here too.
+                      Same localStorage-backed state as the Assembly tab's Story Credits panel,
+                      so filling any one of the 3 here populates Assembly + survives refresh. */}
+                  <div style={{ marginBottom: 12, padding: 12, background: s2, borderRadius: 10, border: `1px solid ${border}` }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0 }}>Story Credits</p>
+                      <span style={{ fontSize: 9, color: muted }}>Saved on this device — fills Assembly too</span>
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+                      <div>
+                        <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                          Written by {writtenBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                        </label>
+                        <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Author name"
+                          style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: "#0d0621", border: `1px solid ${writtenBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                          Made by {madeBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                        </label>
+                        <input type="text" value={madeBy} onChange={e => setMadeBy(e.target.value)} placeholder="Studio / creator"
+                          style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: "#0d0621", border: `1px solid ${madeBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                          Idea from {ideaFrom && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                        </label>
+                        <input type="text" value={ideaFrom} onChange={e => setIdeaFrom(e.target.value)} placeholder="Original idea by..."
+                          style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: "#0d0621", border: `1px solid ${ideaFrom ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      </div>
+                    </div>
                   </div>
                   {screenplayError && <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{screenplayError}</p>}
                   <div style={{ display: "flex", gap: 8 }}>
