@@ -149,10 +149,44 @@ export default function KaraokeMusicCreatorPage() {
   const [pickedBeatId, setPickedBeatId] = useState<string | null>(null);
   const [pickedBeatUrl, setPickedBeatUrl] = useState<string | null>(null);
   // Henry 2026-05-31: mood + genre filter state for 69-beat picker
-  const [beatMoodFilter, setBeatMoodFilter] = useState<string | null>(null);
-  const [beatGenreFilter, setBeatGenreFilter] = useState<string | null>(null);
+  // localStorage-persisted so filters survive page refresh (added 2026-06-01)
+  const [beatMoodFilter, setBeatMoodFilterRaw] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_karaoke_beat_mood_filter");
+    return v && v !== "null" ? v : null;
+  });
+  const setBeatMoodFilter = (v: string | null) => {
+    setBeatMoodFilterRaw(v);
+    if (typeof window !== "undefined") {
+      if (v == null) localStorage.removeItem("ghs_karaoke_beat_mood_filter");
+      else localStorage.setItem("ghs_karaoke_beat_mood_filter", v);
+    }
+  };
+  const [beatGenreFilter, setBeatGenreFilterRaw] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_karaoke_beat_genre_filter");
+    return v && v !== "null" ? v : null;
+  });
+  const setBeatGenreFilter = (v: string | null) => {
+    setBeatGenreFilterRaw(v);
+    if (typeof window !== "undefined") {
+      if (v == null) localStorage.removeItem("ghs_karaoke_beat_genre_filter");
+      else localStorage.setItem("ghs_karaoke_beat_genre_filter", v);
+    }
+  };
   // Henry 2026-06-01: tempo bucket filter — slow / medium / fast / untagged
-  const [beatTempoFilter, setBeatTempoFilter] = useState<string | null>(null);
+  const [beatTempoFilter, setBeatTempoFilterRaw] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const v = localStorage.getItem("ghs_karaoke_beat_tempo_filter");
+    return v && v !== "null" ? v : null;
+  });
+  const setBeatTempoFilter = (v: string | null) => {
+    setBeatTempoFilterRaw(v);
+    if (typeof window !== "undefined") {
+      if (v == null) localStorage.removeItem("ghs_karaoke_beat_tempo_filter");
+      else localStorage.setItem("ghs_karaoke_beat_tempo_filter", v);
+    }
+  };
   // Stable chip lists — populated from server meta on first load, don't shrink when user filters
   const [availableMoods, setAvailableMoods] = useState<string[]>([]);
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
