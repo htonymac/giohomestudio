@@ -199,6 +199,8 @@ function KaraokeMusicPlannerInner() {
 
   const [activeRecordingId, setActiveRecordingId] = useState<string | null>(qRecordingId);
   const [activeMode, setActiveMode] = useState<KaraokeMode>(qMode);
+  const [editingTakeId, setEditingTakeId] = useState<string | null>(null);
+  const [editingTakeName, setEditingTakeName] = useState("");
 
   // Sync URL param → state (handles Next.js hydration race where useState initializes before searchParams resolves)
   useEffect(() => {
@@ -888,9 +890,62 @@ function KaraokeMusicPlannerInner() {
                     overflow: "hidden",
                   }}
                 >
-                  <p style={{ margin: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {take.fileName || take.id}
-                  </p>
+                  {editingTakeId === take.id ? (
+                    <input
+                      autoFocus
+                      value={editingTakeName}
+                      onChange={e => setEditingTakeName(e.target.value)}
+                      onBlur={async () => {
+                        const newName = editingTakeName.trim();
+                        if (newName && newName !== take.fileName) {
+                          try {
+                            const res = await fetch("/api/karaoke/rename", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ recordingId: take.id, fileName: newName }),
+                            });
+                            const data = await res.json();
+                            if (data.ok) {
+                              showToast("Renamed");
+                              await loadAllTakes();
+                            } else {
+                              showToast(`Rename failed: ${data.error || "unknown"}`);
+                            }
+                          } catch { /* silent */ }
+                        }
+                        setEditingTakeId(null);
+                        setEditingTakeName("");
+                      }}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+                        else if (e.key === "Escape") { setEditingTakeId(null); setEditingTakeName(""); }
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      style={{
+                        width: "100%",
+                        padding: "2px 4px",
+                        background: "rgba(167,139,250,0.10)",
+                        border: "1px solid rgba(167,139,250,0.4)",
+                        borderRadius: 3,
+                        color: "#fff",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        outline: "none",
+                      }}
+                    />
+                  ) : (
+                    <p
+                      onDoubleClick={ev => {
+                        ev.stopPropagation();
+                        setEditingTakeId(take.id);
+                        setEditingTakeName(take.fileName || take.id);
+                      }}
+                      title="Double-click to rename"
+                      style={{ margin: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                    >
+                      {take.fileName || take.id}
+                    </p>
+                  )}
                   <p style={{ margin: "2px 0 0", fontSize: 10, color: "#55555a" }}>
                     Mode {take.mode || "?"} · {new Date(take.createdAt).toLocaleDateString()}
                   </p>
