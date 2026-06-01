@@ -250,6 +250,25 @@ function KaraokeMusicPlannerInner() {
     return initial;
   });
 
+  // Henry 2026-06-01: tab title sync — easy to find a take across many tabs
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const baseTitle = "Karaoke Planner";
+    const takeName = recording?.fileName || (activeRecordingId ? activeRecordingId.slice(0, 8) : "");
+    const anyRunning = Object.values(steps).some(s => s?.status === "running");
+    const indicator = anyRunning ? "● " : "";
+
+    const title = takeName
+      ? `${indicator}${takeName} — ${baseTitle}`
+      : `${indicator}${baseTitle}`;
+
+    document.title = title;
+
+    return () => {
+      document.title = baseTitle;
+    };
+  }, [recording?.fileName, activeRecordingId, steps]);
+
   const [toastMsg, setToastMsg] = useState("");
   const showToast = useCallback((msg: string) => setToastMsg(msg), []);
 
