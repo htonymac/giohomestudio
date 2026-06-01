@@ -1723,6 +1723,26 @@ function KaraokeMusicPlannerInner() {
                         )}
                       </div>
                     ))}
+                    {activeRecordingId && (
+                      <a
+                        href={`/api/karaoke/session-summary?recordingId=${activeRecordingId}`}
+                        download
+                        style={{
+                          display: "inline-block",
+                          marginTop: 10,
+                          padding: "5px 12px",
+                          borderRadius: 6,
+                          background: "rgba(122,224,195,0.10)",
+                          color: "#7ae0c3",
+                          fontSize: 11,
+                          textDecoration: "none",
+                          border: "1px solid rgba(122,224,195,0.3)",
+                        }}
+                        title="Download full session JSON — pipeline outputs + license"
+                      >
+                        📦 Download session summary (.json)
+                      </a>
+                    )}
                   </div>
                 )}
 
