@@ -103,9 +103,9 @@ interface StepDef {
 
 const STEP_DEFS: StepDef[] = [
   { num: 1, title: "Voice Input", subtitle: "Received from Karaoke Music Creator" },
-  { num: 2, title: "Vocal Cleanup", subtitle: "Demucs — separate vocals from background noise", postLinux: true },
+  { num: 2, title: "Vocal Cleanup", subtitle: "Demucs — separate vocals from background noise" },
   { num: 3, title: "Audio Analysis", subtitle: "Tempo · Key · Beats · Energy · Mood · Genre (librosa + Whisper)" },
-  { num: 4, title: "Melody Extraction", subtitle: "Basic Pitch — voice → MIDI note events", postLinux: true },
+  { num: 4, title: "Melody Extraction", subtitle: "Basic Pitch — voice → MIDI note events" },
   { num: 5, title: "Lyrics Extraction", subtitle: "Whisper transcription with word timestamps" },
   { num: 6, title: "Lyrics Intelligence", subtitle: "5-level AI polish (Claude Haiku) — your line is always option 1" },
   { num: 7, title: "Flow Profiling", subtitle: "Classify voice type · Detect phrase gaps · Hook candidates" },
@@ -411,6 +411,50 @@ function KaraokeMusicPlannerInner() {
       const msg = err instanceof Error ? err.message : "Analysis failed";
       setStepStatus(3, "error", undefined, msg);
       showToast(`Analysis error: ${msg}`);
+    }
+  }, [activeRecordingId, showToast]);
+
+  // ── Step 2: Vocal Cleanup (Demucs) — Henry 2026-05-31 ─────────────────────
+
+  const runVocalCleanup = useCallback(async () => {
+    if (!activeRecordingId) return;
+    setStepStatus(2, "running");
+    try {
+      const res = await fetch("/api/karaoke/vocal-cleanup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId }),
+      });
+      const parsed = await safeKaraokeJson<{ vocalUrl: string; instrumentalUrl: string; tookMs: number }>(res, "Vocal Cleanup");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setStepStatus(2, "done", { vocalUrl: parsed.data.vocalUrl, instrumentalUrl: parsed.data.instrumentalUrl } as unknown as Record<string, unknown>);
+      showToast(`Vocal cleanup done (${Math.round(parsed.data.tookMs / 1000)}s)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Vocal cleanup failed";
+      setStepStatus(2, "error", undefined, msg);
+      showToast(`Vocal cleanup error: ${msg}`);
+    }
+  }, [activeRecordingId, showToast]);
+
+  // ── Step 4: Melody Extraction (Basic Pitch) — Henry 2026-05-31 ────────────
+
+  const runMelodyExtract = useCallback(async () => {
+    if (!activeRecordingId) return;
+    setStepStatus(4, "running");
+    try {
+      const res = await fetch("/api/karaoke/melody-extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recordingId: activeRecordingId }),
+      });
+      const parsed = await safeKaraokeJson<{ midiUrl: string; noteCount: number; tookMs: number }>(res, "Melody Extraction");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setStepStatus(4, "done", { midiUrl: parsed.data.midiUrl, noteCount: parsed.data.noteCount } as unknown as Record<string, unknown>);
+      showToast(`Melody extracted: ${parsed.data.noteCount} notes (${Math.round(parsed.data.tookMs / 1000)}s)`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Melody extract failed";
+      setStepStatus(4, "error", undefined, msg);
+      showToast(`Melody extract error: ${msg}`);
     }
   }, [activeRecordingId, showToast]);
 
@@ -1008,6 +1052,37 @@ function KaraokeMusicPlannerInner() {
 
                 {/* ── Step-specific output/controls ─────────────────────── */}
 
+                {/* Step 2: Vocal Cleanup (Demucs) — Henry 2026-05-31 */}
+                {stepDef.num === 2 && !isPostLinux && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {steps[2]?.status === "done" && steps[2].output && (
+                      <div style={{ marginBottom: 10 }}>
+                        <p style={{ margin: "0 0 4px", fontSize: 11, color: "#7ae0c3" }}>✓ Stems separated</p>
+                        <div style={{ display: "grid", gap: 6 }}>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 10, color: "#7b7b80" }}>Vocals (your voice, isolated)</p>
+                            <audio controls src={(steps[2].output as { vocalUrl?: string }).vocalUrl} style={{ width: "100%", height: 28 }} />
+                          </div>
+                          <div>
+                            <p style={{ margin: 0, fontSize: 10, color: "#7b7b80" }}>Instrumental (everything else)</p>
+                            <audio controls src={(steps[2].output as { instrumentalUrl?: string }).instrumentalUrl} style={{ width: "100%", height: 28 }} />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={runVocalCleanup}
+                      disabled={steps[2]?.status === "running"}
+                      style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid rgba(122,224,195,0.4)", background: steps[2]?.status === "running" ? "rgba(122,224,195,0.05)" : "rgba(122,224,195,0.15)", color: "#7ae0c3", fontSize: 11, fontWeight: 600, cursor: steps[2]?.status === "running" ? "wait" : "pointer" }}
+                    >
+                      {steps[2]?.status === "running" ? "Running Demucs (~1 min)…" : steps[2]?.status === "done" ? "Re-run Vocal Cleanup" : "Run Vocal Cleanup"}
+                    </button>
+                    <p style={{ margin: "4px 0 0", fontSize: 9, color: "#55555a" }}>
+                      Demucs separates your voice from background noise. ~1 minute per 60s recording on CPU.
+                    </p>
+                  </div>
+                )}
+
                 {/* Step 3: Analysis run button + output */}
                 {stepDef.num === 3 && !isSkipped && !isPostLinux && activeRecordingId && (
                   <div style={{ marginTop: 12 }}>
@@ -1049,6 +1124,36 @@ function KaraokeMusicPlannerInner() {
                         {steps[3]?.status === "running" ? "Analysing… (30–60s)" : "Run Analysis"}
                       </button>
                     )}
+                  </div>
+                )}
+
+                {/* Step 4: Melody Extraction (Basic Pitch) — Henry 2026-05-31 */}
+                {stepDef.num === 4 && !isPostLinux && activeRecordingId && (
+                  <div style={{ marginTop: 12 }}>
+                    {steps[4]?.status === "done" && steps[4].output && (
+                      <div style={{ marginBottom: 10 }}>
+                        <p style={{ margin: "0 0 4px", fontSize: 11, color: "#7ae0c3" }}>
+                          ✓ MIDI extracted — {(steps[4].output as { noteCount?: number }).noteCount ?? "?"} notes
+                        </p>
+                        <a
+                          href={(steps[4].output as { midiUrl?: string }).midiUrl}
+                          download
+                          style={{ display: "inline-block", padding: "4px 10px", borderRadius: 6, background: "rgba(167,139,250,0.12)", color: "#a78bfa", fontSize: 11, textDecoration: "none", border: "1px solid rgba(167,139,250,0.3)" }}
+                        >
+                          Download MIDI
+                        </a>
+                      </div>
+                    )}
+                    <button
+                      onClick={runMelodyExtract}
+                      disabled={steps[4]?.status === "running"}
+                      style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid rgba(122,224,195,0.4)", background: steps[4]?.status === "running" ? "rgba(122,224,195,0.05)" : "rgba(122,224,195,0.15)", color: "#7ae0c3", fontSize: 11, fontWeight: 600, cursor: steps[4]?.status === "running" ? "wait" : "pointer" }}
+                    >
+                      {steps[4]?.status === "running" ? "Running Basic Pitch (~30s)…" : steps[4]?.status === "done" ? "Re-run Melody Extract" : "Run Melody Extraction"}
+                    </button>
+                    <p style={{ margin: "4px 0 0", fontSize: 9, color: "#55555a" }}>
+                      Basic Pitch converts your voice to MIDI notes — used to match music key to your singing.
+                    </p>
                   </div>
                 )}
 
