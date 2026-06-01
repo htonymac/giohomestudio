@@ -144,13 +144,15 @@ export default function KaraokeMusicCreatorPage() {
   const [libraryAssets, setLibraryAssets] = useState<{id: string; fileName?: string; fileUrl?: string; name?: string}[]>([]);
 
   // Henry 2026-05-31: pick-beat-first state
-  const [beats, setBeats] = useState<Array<{ id: string; filename: string; mood: string; genre: string; audioUrl: string; license: string }>>([]);
+  const [beats, setBeats] = useState<Array<{ id: string; filename: string; mood: string; genre: string; bpm?: number | null; audioUrl: string; license: string }>>([]);
   const [beatsLoading, setBeatsLoading] = useState(true);
   const [pickedBeatId, setPickedBeatId] = useState<string | null>(null);
   const [pickedBeatUrl, setPickedBeatUrl] = useState<string | null>(null);
   // Henry 2026-05-31: mood + genre filter state for 69-beat picker
   const [beatMoodFilter, setBeatMoodFilter] = useState<string | null>(null);
   const [beatGenreFilter, setBeatGenreFilter] = useState<string | null>(null);
+  // Henry 2026-06-01: tempo bucket filter — slow / medium / fast / untagged
+  const [beatTempoFilter, setBeatTempoFilter] = useState<string | null>(null);
   // Stable chip lists — populated from server meta on first load, don't shrink when user filters
   const [availableMoods, setAvailableMoods] = useState<string[]>([]);
   const [availableGenres, setAvailableGenres] = useState<string[]>([]);
@@ -191,12 +193,13 @@ export default function KaraokeMusicCreatorPage() {
   }, [loadRecent]);
 
   // ── Fetch safe beats for pick-beat-first surface ──────────────────────────
-  // Re-runs when mood/genre filter changes — server pre-filters, no client-side filter needed
+  // Re-runs when mood/genre/tempo filter changes — server pre-filters, no client-side filter needed
   useEffect(() => {
     let cancelled = false;
     const params = new URLSearchParams({ safeOnly: "1" });
     if (beatMoodFilter) params.set("mood", beatMoodFilter);
     if (beatGenreFilter) params.set("genre", beatGenreFilter);
+    if (beatTempoFilter) params.set("tempo", beatTempoFilter);
     setBeatsLoading(true);
     fetch(`/api/karaoke/beats-library?${params}`)
       .then((r) => r.json())
@@ -214,7 +217,7 @@ export default function KaraokeMusicCreatorPage() {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [beatMoodFilter, beatGenreFilter]);
+  }, [beatMoodFilter, beatGenreFilter, beatTempoFilter]);
 
   // ── Restore mode on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -914,6 +917,15 @@ export default function KaraokeMusicCreatorPage() {
                 </button>
               ))}
             </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Tempo:</span>
+              {["all", "slow", "medium", "fast", "untagged"].map(t => (
+                <button key={t} onClick={() => setBeatTempoFilter(t === "all" ? null : t)}
+                  style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatTempoFilter === (t === "all" ? null : t) ? "#facc15" : "rgba(255,255,255,0.1)"}`, background: beatTempoFilter === (t === "all" ? null : t) ? "rgba(250,204,21,0.18)" : "transparent", color: beatTempoFilter === (t === "all" ? null : t) ? "#facc15" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
+                  {t}
+                </button>
+              ))}
+            </div>
             <div style={{ fontSize: 9, color: "#55555a" }}>
               {beatsLoading ? "Loading…" : `Showing ${beats.length} beats`}
             </div>
@@ -942,6 +954,9 @@ export default function KaraokeMusicCreatorPage() {
                   {b.filename.split("/").pop()?.replace(/\.mp3$/i, "").replace(/[_-]/g, " ")}
                 </p>
                 <p style={{ margin: "3px 0 0", fontSize: 10, color: "#a78bfa" }}>{b.mood} · {b.genre}</p>
+                {b.bpm != null && (
+                  <p style={{ margin: "1px 0 0", fontSize: 9, color: "#7b7b80" }}>{b.bpm} BPM</p>
+                )}
                 <audio controls src={b.audioUrl} style={{ width: "100%", marginTop: 6, height: 22 }} />
                 <p style={{ margin: "4px 0 0", fontSize: 9, color: "#7b7b80" }}>{b.license}</p>
               </div>
