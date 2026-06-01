@@ -249,12 +249,31 @@ export default function KaraokeMusicCreatorPage() {
         // Non-fatal — mode also passed as query param
       }
 
+      // Henry 2026-05-31 (T1-B): if user picked a beat, mix voice over it immediately.
+      if (pickedBeatUrl) {
+        try {
+          const mixRes = await fetch("/api/karaoke/mix-over-beat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recordingId, beatUrl: pickedBeatUrl }),
+          });
+          const mixData = await mixRes.json();
+          if (mixData.ok && mixData.mixedUrl) {
+            showToast(`Mixed with picked beat — ready for review`);
+          } else if (mixData.error) {
+            showToast(`Mix warning: ${String(mixData.error).slice(0, 80)}`);
+          }
+        } catch (mixErr) {
+          showToast(`Mix step skipped: ${mixErr instanceof Error ? mixErr.message.slice(0, 60) : "unknown"}`);
+        }
+      }
+
       router.push(`/dashboard/karaoke-music-planner?recordingId=${recordingId}&mode=${selectedMode}`);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
       setIsUploading(false);
     }
-  }, [selectedMode, router, showToast]);
+  }, [selectedMode, router, showToast, pickedBeatUrl]);
 
   const handleRecordingComplete = useCallback(async (blob: Blob) => {
     const file = new File([blob], `recording-${Date.now()}.webm`, { type: blob.type });
