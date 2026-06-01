@@ -2188,43 +2188,94 @@ function ChildrenPlannerInner() {
       // narration text (or expandedContent fallback) so subtitle matches what's spoken,
       // not the scene topic. /api/video/assemble's chunked drawtext path consumes this.
       const captionForSubs = (usableNarrationText || narrationText || expandedContent || "").trim() || undefined;
-      const res = await fetch("/api/video/assemble", {
+      // Henry 2026-06-01: switched to fire-and-poll async pattern because Cloudflare
+      // Tunnel's free-tier edge has a hard 100-second timeout, and 7-scene assemble +
+      // auto-narration takes ~140s. /api/video/assemble-async returns a jobId immediately;
+      // the heavy work runs in-process and writes status to a file. Client polls
+      // /api/video/job-status until done. Hybrid uses /api/assembly/execute and is unaffected.
+      const assemblePayload = {
+        projectId: assembleProjectId,
+        title: `Children Story — ${contentParam || "story"}`,
+        scenes: scenesWithText,
+        musicUrl: selectedMusicUrl || generatedMusicUrl || undefined,
+        musicVolume: 0.75,
+        narrationList,
+        sfx: sfxList.length > 0 ? sfxList : undefined,
+        aspectRatio: "16:9",
+        subtitleConfig: effectiveSubtitleConfig,
+        caption: captionForSubs,
+        introUrl: introUrl || undefined,
+        outroUrl: outroUrl || undefined,
+      };
+      setLastAction("Submitting assembly job…");
+      const startRes = await fetch("/api/video/assemble-async", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: assembleProjectId,
-          title: `Children Story — ${contentParam || "story"}`,
-          scenes: scenesWithText,
-          musicUrl: selectedMusicUrl || generatedMusicUrl || undefined,
-          musicVolume: 0.75,
-          narrationList,
-          sfx: sfxList.length > 0 ? sfxList : undefined,
-          aspectRatio: "16:9",
-          subtitleConfig: effectiveSubtitleConfig,
-          caption: captionForSubs,
-          introUrl: introUrl || undefined,
-          outroUrl: outroUrl || undefined,
-        }),
+        body: JSON.stringify(assemblePayload),
       });
-      if (!res.ok) {
-        const errText = await res.text();
-        setLastAction(`Assembly error (${res.status}): ${errText.slice(0, 200)}`);
+      if (!startRes.ok) {
+        const errText = await startRes.text();
+        setLastAction(`Assembly start failed (${startRes.status}): ${errText.slice(0, 200)}`);
         setAssembling(false);
         return;
       }
-      const data = await res.json();
-      if (data.error) { setLastAction(`Assembly error: ${data.error}`); }
-      else if (data.outputUrl) {
-        setAssembledUrl(data.outputUrl);
-        setGeneratedVideoUrl(data.outputUrl);
-        try {
-          await fetch("/api/assets", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ title: `Children Story — ${contentParam || "story"}`, type: "children-video", videoUrl: data.outputUrl, status: "review", metadata: { ageGroup, learningMode, visualStyle: effectiveProjectStyle, scenes: assemblyScenes.length } }),
-          });
-        } catch { /* ignore */ }
-        setAssemblyComplete(true);
-        setLastAction("Story assembled successfully");
+      const startData = await startRes.json() as { jobId?: string; error?: string };
+      if (!startData.jobId) {
+        setLastAction(`Assembly start failed: ${startData.error || "no jobId returned"}`);
+        setAssembling(false);
+        return;
       }
+      const jobId = startData.jobId;
+      setLastAction(`Assembling… (job ${jobId.slice(0, 8)})`);
+
+      // Poll status every 4 seconds; cap at 12 minutes (180 polls).
+      const POLL_INTERVAL_MS = 4000;
+      const MAX_POLLS = 180;
+      let polled = 0;
+      let outputUrl: string | undefined;
+      let assemblyError: string | undefined;
+      while (polled < MAX_POLLS) {
+        await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+        polled++;
+        try {
+          const statusRes = await fetch(`/api/video/job-status?jobId=${encodeURIComponent(jobId)}`);
+          if (!statusRes.ok) continue; // 404 right after submit is normal — file might not be created yet
+          const status = await statusRes.json() as { status?: string; outputUrl?: string; error?: string; tookMs?: number };
+          if (status.status === "done" && status.outputUrl) {
+            outputUrl = status.outputUrl;
+            setLastAction(`Assembled in ${Math.round((status.tookMs || 0) / 1000)}s — ready`);
+            break;
+          }
+          if (status.status === "error") {
+            assemblyError = status.error || "unknown error";
+            break;
+          }
+          // running — surface progress every 5 polls (20 seconds)
+          if (polled % 5 === 0) {
+            setLastAction(`Assembling… ${polled * POLL_INTERVAL_MS / 1000}s elapsed`);
+          }
+        } catch { /* network blip — continue polling */ }
+      }
+
+      if (assemblyError) {
+        setLastAction(`Assembly error: ${assemblyError.slice(0, 200)}`);
+        setAssembling(false);
+        return;
+      }
+      if (!outputUrl) {
+        setLastAction(`Assembly timed out after ${polled * POLL_INTERVAL_MS / 1000}s — try fewer scenes or check server logs`);
+        setAssembling(false);
+        return;
+      }
+      setAssembledUrl(outputUrl);
+      setGeneratedVideoUrl(outputUrl);
+      try {
+        await fetch("/api/assets", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: `Children Story — ${contentParam || "story"}`, type: "children-video", videoUrl: outputUrl, status: "review", metadata: { ageGroup, learningMode, visualStyle: effectiveProjectStyle, scenes: assemblyScenes.length } }),
+        });
+      } catch { /* ignore */ }
+      setAssemblyComplete(true);
+      setLastAction("Story assembled successfully");
     } catch (err) { setLastAction(`Assembly failed — ${err instanceof Error ? err.message : "try again"}`); }
     setAssembling(false);
   }
