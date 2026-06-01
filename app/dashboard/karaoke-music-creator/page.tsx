@@ -138,6 +138,9 @@ export default function KaraokeMusicCreatorPage() {
   // Henry 2026-05-31: mood + genre filter state for 69-beat picker
   const [beatMoodFilter, setBeatMoodFilter] = useState<string | null>(null);
   const [beatGenreFilter, setBeatGenreFilter] = useState<string | null>(null);
+  // Stable chip lists — populated from server meta on first load, don't shrink when user filters
+  const [availableMoods, setAvailableMoods] = useState<string[]>([]);
+  const [availableGenres, setAvailableGenres] = useState<string[]>([]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -175,13 +178,20 @@ export default function KaraokeMusicCreatorPage() {
   }, [loadRecent]);
 
   // ── Fetch safe beats for pick-beat-first surface ──────────────────────────
+  // Re-runs when mood/genre filter changes — server pre-filters, no client-side filter needed
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/karaoke/beats-library?safeOnly=1")
+    const params = new URLSearchParams({ safeOnly: "1" });
+    if (beatMoodFilter) params.set("mood", beatMoodFilter);
+    if (beatGenreFilter) params.set("genre", beatGenreFilter);
+    setBeatsLoading(true);
+    fetch(`/api/karaoke/beats-library?${params}`)
       .then((r) => r.json())
-      .then((data: { beats?: typeof beats }) => {
+      .then((data: { beats?: typeof beats; meta?: { availableMoods?: string[]; availableGenres?: string[] } }) => {
         if (cancelled) return;
         setBeats(data.beats || []);
+        if (data.meta?.availableMoods) setAvailableMoods(data.meta.availableMoods);
+        if (data.meta?.availableGenres) setAvailableGenres(data.meta.availableGenres);
         setBeatsLoading(false);
       })
       .catch(() => {
@@ -191,7 +201,7 @@ export default function KaraokeMusicCreatorPage() {
       cancelled = true;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [beatMoodFilter, beatGenreFilter]);
 
   // ── Restore mode on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -875,7 +885,7 @@ export default function KaraokeMusicCreatorPage() {
           <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Mood:</span>
-              {["all", ...Array.from(new Set(beats.map(b => b.mood))).sort()].map(m => (
+              {["all", ...availableMoods].map(m => (
                 <button key={m} onClick={() => setBeatMoodFilter(m === "all" ? null : m)}
                   style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "rgba(255,255,255,0.1)"}`, background: beatMoodFilter === (m === "all" ? null : m) ? "rgba(167,139,250,0.18)" : "transparent", color: beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
                   {m}
@@ -884,7 +894,7 @@ export default function KaraokeMusicCreatorPage() {
             </div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
               <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Genre:</span>
-              {["all", ...Array.from(new Set(beats.map(b => b.genre))).sort()].map(g => (
+              {["all", ...availableGenres].map(g => (
                 <button key={g} onClick={() => setBeatGenreFilter(g === "all" ? null : g)}
                   style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatGenreFilter === (g === "all" ? null : g) ? "#22c55e" : "rgba(255,255,255,0.1)"}`, background: beatGenreFilter === (g === "all" ? null : g) ? "rgba(34,197,94,0.15)" : "transparent", color: beatGenreFilter === (g === "all" ? null : g) ? "#22c55e" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
                   {g}
@@ -892,20 +902,12 @@ export default function KaraokeMusicCreatorPage() {
               ))}
             </div>
             <div style={{ fontSize: 9, color: "#55555a" }}>
-              {(() => {
-                const filtered = beats.filter(b =>
-                  (!beatMoodFilter || b.mood === beatMoodFilter) &&
-                  (!beatGenreFilter || b.genre === beatGenreFilter)
-                );
-                return `Showing ${filtered.length} of ${beats.length} beats`;
-              })()}
+              {beatsLoading ? "Loading…" : `Showing ${beats.length} beats`}
             </div>
           </div>
         )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-          {beats
-            .filter(b => (!beatMoodFilter || b.mood === beatMoodFilter) && (!beatGenreFilter || b.genre === beatGenreFilter))
-            .map((b) => {
+          {beats.map((b) => {
             const isPicked = pickedBeatId === b.id;
             return (
               <div
