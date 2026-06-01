@@ -10,7 +10,7 @@ export interface StylePreset {
 export const STYLE_PRESETS: Record<string, StylePreset> = {
   "3d-cinematic": {
     prefix: "3D animated film, Pixar/DreamWorks quality, volumetric lighting, smooth skin textures, fabric and clothing textures, subsurface scattering, cinematic depth of field, rich color grading, 3D render, CGI animation",
-    suffix: "Highly detailed 3D render, professional VFX, cinematic lighting, consistent character design",
+    suffix: "Volumetric lighting, deep depth of field, cinematic camera focus, 3D rendered scene, photorealistic textures, Unreal Engine 5 quality, octane render, ray-traced reflections, professional VFX, consistent character design",
     // bear-guard: removed "photorealistic fur textures" — it primed image models toward animal/bear anatomy
     negative: "2D flat illustration, cartoon drawing, anime, sketch, watercolor, flat colors, clipart, sticker, cel-shaded, painted, bear, animal face, fur body, snout, paws",
   },
