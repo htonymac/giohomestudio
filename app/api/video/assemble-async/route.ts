@@ -35,8 +35,12 @@ export async function POST(req: NextRequest) {
     const jobId = randomUUID();
     writeStatus(jobId, { status: "running", startedAt: Date.now() });
 
-    // Resolve base URL for localhost call. CF Tunnel ingress is localhost:3200.
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3200";
+    // CRITICAL: this MUST be a localhost call, not the public URL. Using
+    // NEXT_PUBLIC_APP_URL routes the request back through Cloudflare → CF Tunnel →
+    // localhost:3200, which hits CF's 100-second edge timeout (the very thing we
+    // are trying to escape). The first cut of this route used the env var and
+    // produced jobs stuck "running" forever. Force localhost.
+    const base = process.env.INTERNAL_LOCALHOST_URL || "http://localhost:3200";
 
     // Fire-and-forget background work. Node keeps the process alive while
     // the promise is pending, so the fetch completes even after this handler
