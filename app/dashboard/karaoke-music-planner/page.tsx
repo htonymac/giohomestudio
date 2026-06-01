@@ -786,13 +786,13 @@ function KaraokeMusicPlannerInner() {
                   onClick={async (ev) => {
                     ev.stopPropagation();
                     if (typeof window === "undefined") return;
-                    const ok = window.confirm(
+                    const firstOk = window.confirm(
                       `Delete take "${take.fileName || take.id}"?\n\n` +
                       "This removes the recording, transcript, analysis,\n" +
                       "generated music, mix, and all exports for this take.\n\n" +
                       "Cannot be undone."
                     );
-                    if (!ok) return;
+                    if (!firstOk) return;
                     try {
                       const res = await fetch("/api/karaoke/delete", {
                         method: "POST",
@@ -800,18 +800,40 @@ function KaraokeMusicPlannerInner() {
                         body: JSON.stringify({ recordingId: take.id }),
                       });
                       const data = await res.json();
-                      if (!res.ok || data.error) {
+                      if (res.status === 409 && data.needsForce) {
+                        // Take has linked music-video projects — ask user to confirm force-delete.
+                        const count = (data.dependencies as string[]).length;
+                        const forceOk = window.confirm(
+                          `This take is linked to ${count} music-video project${count === 1 ? "" : "s"}.\n\n` +
+                          `Deleting it will BREAK those projects (no audio).\n\n` +
+                          `Force delete anyway?`
+                        );
+                        if (!forceOk) {
+                          showToast(`Delete cancelled — used by ${count} music-video project${count === 1 ? "" : "s"}`);
+                          return;
+                        }
+                        const forceRes = await fetch("/api/karaoke/delete", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ recordingId: take.id, force: true }),
+                        });
+                        const forceData = await forceRes.json();
+                        if (!forceRes.ok || forceData.error) {
+                          showToast(`Force delete failed: ${forceData.error || forceRes.status}`);
+                          return;
+                        }
+                        // Force-delete succeeded — fall through to success path below.
+                      } else if (!res.ok || data.error) {
                         showToast(`Delete failed: ${data.error || res.status}`);
                         return;
                       }
-                      // If the deleted take was active, clear the surface state.
+                      // Success path (normal delete OR confirmed force-delete).
                       if (isActive) {
                         setActiveRecordingId(null);
                         setRecording(null);
                       }
-                      // Refresh the takes list.
                       await loadAllTakes();
-                      showToast(`Deleted "${take.fileName || take.id}" (${data.deletedFiles} files)`);
+                      showToast(`Deleted "${take.fileName || take.id}"`);
                     } catch (err) {
                       showToast(`Delete error: ${err instanceof Error ? err.message : "unknown"}`);
                     }

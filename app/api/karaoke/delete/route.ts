@@ -88,7 +88,44 @@ export async function POST(req: NextRequest) {
       } catch { /* dir read failed - skip */ }
     }
 
-    // 4. Music generations logged with this recording's userId in the prompt
+    // 4. Check for dependent music-video planner projects before deleting.
+    // Music-video projects created from this karaoke take store state under
+    // localIds prefixed `mv_kara_<recordingId>_`. If any exist and the caller
+    // did not set force:true, return 409 so the client can confirm.
+    const force = body.force === true;
+    let linkedMvStates: { localId: string }[] = [];
+    try {
+      linkedMvStates = await prisma.hybridSavedState.findMany({
+        where: { localId: { startsWith: `mv_kara_${recordingId}_` } },
+        select: { localId: true },
+      });
+    } catch {
+      // HybridSavedState query failed (should not happen — model exists in schema).
+      // Non-fatal: skip dependency guard so deletion can still proceed.
+      linkedMvStates = [];
+    }
+
+    if (linkedMvStates.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          error: "Take is linked to music-video projects",
+          dependencies: linkedMvStates.map((l) => l.localId),
+          needsForce: true,
+        },
+        { status: 409 }
+      );
+    }
+
+    // 4b. If force-deleting, also remove the dangling saved-state rows.
+    if (force && linkedMvStates.length > 0) {
+      try {
+        await prisma.hybridSavedState.deleteMany({
+          where: { localId: { startsWith: `mv_kara_${recordingId}_` } },
+        });
+      } catch { /* non-fatal — orphaned rows will dangle harmlessly */ }
+    }
+
+    // 5. Music generations logged with this recording's userId in the prompt
     // (best-effort cleanup — non-fatal if MusicGeneration log doesn't exist)
     try {
       await prisma.musicGeneration.deleteMany({
@@ -96,7 +133,7 @@ export async function POST(req: NextRequest) {
       });
     } catch { /* table may not have all rows for this user - skip */ }
 
-    // 5. Delete the row itself last so a partial failure can be re-run
+    // 6. Delete the row itself last so a partial failure can be re-run
     await prisma.karaokeRecording.delete({ where: { id: recordingId } });
 
     return NextResponse.json({ ok: true, deletedFiles, recordingId });
