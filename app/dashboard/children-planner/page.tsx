@@ -290,7 +290,11 @@ function ChildrenPlannerInner() {
 
   // ── Screenplay ──
   const [screenplay, setScreenplay] = useState("");
-  const [screenplayAuthor, setScreenplayAuthor] = useState("");
+  // Henry 2026-06-01: screenplayAuthor is the SAME field as Story Credits' writtenBy.
+  // Filling either should populate both. Both persist via localStorage. So we alias:
+  // - read screenplayAuthor → return writtenBy
+  // - setScreenplayAuthor → setWrittenBy (which writes to localStorage)
+  // The standalone useState was creating a divergent field that user had to fill twice.
   const [screenplayError, setScreenplayError] = useState("");
   const [generatingScreenplay, setGeneratingScreenplay] = useState(false);
   const [parsingScript, setParsingScript] = useState(false);
@@ -7362,7 +7366,7 @@ Rules:
                 <>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <span style={{ fontSize: 11, color: muted, flexShrink: 0 }}>Written by:</span>
-                    <input type="text" value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Author name"
+                    <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Author name"
                       style={{ flex: 1, background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontWeight: 600, outline: "none", maxWidth: 280 }} />
                   </div>
                   {screenplayError && <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{screenplayError}</p>}
@@ -7393,7 +7397,7 @@ Rules:
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
                   <span style={{ fontSize: 10, color: muted }}>Written by:</span>
-                  <input type="text" value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Author name"
+                  <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Author name"
                     style={{ background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "5px 10px", color: "#fff", fontSize: 12, fontWeight: 600, outline: "none", width: 160 }} />
                 </div>
                 <button onClick={generateScreenplay}
@@ -7450,7 +7454,7 @@ Rules:
                   <h1 style={{ fontSize: 22, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: 3, marginBottom: 8, lineHeight: 1.2 }}>{(contentParam || "CHILDREN STORY").toUpperCase()}</h1>
                   {(ageGroup) && <p style={{ fontSize: 11, color: "#777", marginBottom: 24, fontStyle: "italic" }}>For {AGE_AUDIENCE[ageGroup] || "children"}</p>}
                   <p style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>Written by</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#000", marginBottom: 20 }}>{screenplayAuthor || "—"}</p>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#000", marginBottom: 20 }}>{writtenBy || "—"}</p>
                   <p style={{ fontSize: 8, color: "#aaa", letterSpacing: 1 }}>AI Assets by GIO HOME AI STUDIO · © {new Date().getFullYear()}</p>
                 </div>
                 <div style={{ color: "#111", fontSize: 12, lineHeight: 2 }}>
