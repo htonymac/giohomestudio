@@ -1,6 +1,68 @@
-# GHS HANDOFF — Session 2026-05-30 (Children parity sweep + Hybrid finish line)
+# GHS HANDOFF — Session 2026-05-31 (long-day Opus + 8-Sonnet sweep)
 
-**Last updated:** 2026-05-30 · **HEAD:** `b4f774f` (pushed, built, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+**Last updated:** 2026-05-31 (end of long session) · **HEAD:** `ea64b09` (pushed, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+
+## 🔥 2026-05-31 Long-day session summary (17 commits, 9 stubborn bugs, full karaoke loop closed)
+
+See `MUST-READ.md` at project root for the full root-cause + lesson log. Per-commit summary below.
+
+### Commits this session (in order)
+
+1. **`286c624`** — children: educational-first prefill + scene-description backfill + human-guard fix + generateNarration pre-expand. **Caused infinite re-render loop (later fixed in 1db36ff)**.
+2. **`a438f66`** — belt-and-suspenders auto-select for empty assemblySelectedIds (older saved projects).
+3. **`c628dbb`** — BIB fix: scriptSegments fallback in generateNarration + sub-80 char guard.
+4. **`2a15999`** — BIB fix #3: pull narration from audioPlans when textContent empty.
+5. **`267a01b`** — karaoke: expand stock library + honest genre-match warnings.
+6. **`cc0b198`** — karaoke: RVC keep-anyway toggle with OS confirmation prompt (Step 11).
+7. **`f44be26`** — karaoke: safe JSON parsing for non-JSON 5xx ("Unexpected token 'I'") + clarify music-gen fallback.
+8. **`dffefb9`** — karaoke: switching recordings now resets per-project state (no cross-project bleed).
+9. **`1db36ff`** — **CRITICAL** kill infinite re-render loop in visualDescription backfill (caused 3-sec click freeze).
+10. **`8bde095`** — BIB audit DEEP: shared narration resolver across all 3 TTS-firing paths + `?continue=` URL param fix.
+11. **`bca3057`** — intro/outro title use projectTitle (fixed "Present My story" leak).
+12. **`0c49fd7`** — karaoke ✕ delete button per take + `/api/karaoke/delete` endpoint.
+13. **`dc67814`** — **subtitle disappeared** RICH+SIMPLE drawtext fallback + journalctl logging.
+14. **`172489f`** — 4 Sonnet items batch: music genre picker · words-on-image toggle · `/api/karaoke/vocal-cleanup` route · `/api/karaoke/melody-extract` route.
+15. **`4a4cb67`** — safe-music policy + Free Mode beats picker + MUST-READ master log.
+16. **`ea64b09`** — wire Karaoke Step 2 (Demucs) + Step 4 (Basic Pitch) UI to backend routes. **Closes karaoke pipeline end-to-end.**
+
+### Server-side installs done today
+- Python pip via `get-pip.py --user` (no sudo needed)
+- Demucs + PyTorch — `/home/ghs/.local/bin/demucs`
+- Basic Pitch + TensorFlow — `/home/ghs/.local/bin/basic-pitch`
+- RVC SKIPPED (no GPU; opt-in toggle shipped instead)
+
+### Stubborn bugs root-caused & permanently fixed (see MUST-READ §2 for detail)
+- A. Page navigation slow (3-sec click freeze) — infinite re-render loop in useEffect
+- B. BIB narration — 3 divergent TTS paths, shared resolver now used by all
+- C. Subtitle disappeared — silent try/catch on complex drawtext, 2-tier fallback
+- D. Karaoke project bleed — 9 state slots not reset on recording switch
+- E. JSON parse error opaque — safeKaraokeJson helper for HTML 5xx responses
+- F. Assemble button grey on reopen — restore didn't set selection gate
+- G. Voice afro → sound default — stock library had no afro, freepd scan + match warning
+- H. Intro/outro "Present My Story" — title source priority fix
+- I. Karaoke post-Linux labels stale — installs done, labels + routes wired
+
+### Sonnet dispatch tally
+8 sub-agents across 3 batches, all clean typecheck:
+- Batch 1 (4): music genre, words-on-image, vocal-cleanup route, melody-extract route
+- Batch 2 (3): manifest audit, beats picker, music download script
+- Batch 3 (1): karaoke Step 2+4 UI wire-up
+
+---
+
+## 🩹 2026-05-31 (mid-session, archival) — Children planner: Assemble button stayed grey on reopened project
+
+## 🩹 2026-05-31 (this session) — Children planner: Assemble button stayed grey on reopened project
+
+Henry: `https://andiostudio.com/dashboard/children-planner?projectId=child_1780208261900_qqy3 assemble no workingh`
+
+Probed live in debug Chrome — button label `"Select scenes above to assemble"`, `disabled: true`. Root cause: restore effect at `app/dashboard/children-planner/page.tsx` L2710 hydrated `childScenes` from `/api/hybrid/saved-state` but never set `assemblySelectedIds` — Assemble is gated by `assemblySelectedIds.length === 0`. Auto-selection only fired inside planScenes paths (L1208/L1372), not on a saved-state restore.
+
+Fix (`d9432d8`): on restore, when `childScenes` come back from DB, auto-select all (mirrors planScenes pattern). Also persisted `assemblySelectedIds` + `assemblyMediaPrefs` in the save payload + useEffect deps so manual deselections survive too. Type-clean. Lesson logged to global `error_log.md` (gate-state not restored — class of bug; sanity-check pattern for future planner-restore work).
+
+Deploy: `git pull && pnpm build && sudo systemctl restart ghs.service` in flight.
+
+---
 
 ## 🎯 ACTIVE DIRECTIVE (Henry 2026-05-30)
 > "drive this to the finishing line — children needs a lot of amend — mirror hybrid with recent children update to fix child — record the bugs and prepare them — remember to save as my pc shut down any time"

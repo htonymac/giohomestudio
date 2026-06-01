@@ -3,8 +3,9 @@
  * Downloads a curated list of commercial-safe, attribution-free music tracks
  * into storage/music/stock/ and merges them into manifest.json.
  *
- * Sources: FreePD (CC0 / Public Domain) only.
+ * Sources: Internet Archive "cloud-music-4" (CC0 1.0 Universal / Public Domain).
  * No Incompetech. No attribution-required tracks.
+ * FreePD.com was the original source but permanently shut down in 2025.
  *
  * Usage: node scripts/download_safe_music.mjs
  * Idempotent: skips files that already exist on disk.
@@ -24,182 +25,195 @@ const STOCK_DIR = path.join(__dirname, "..", "storage", "music", "stock");
 const MANIFEST_PATH = path.join(STOCK_DIR, "manifest.json");
 
 // ---------------------------------------------------------------------------
-// Curated track list — all CC0 / Public Domain via FreePD
-// FreePD URL format: https://freepd.com/music/<Title With Spaces>.mp3
-// These are known published titles confirmed on the FreePD catalogue.
+// Curated track list — all CC0 1.0 Universal / Public Domain
+//
+// SOURCE CHANGE 2026-05-31: FreePD.com permanently shut down (2008–2025).
+// All 20 original FreePD URLs returned HTTP 404 — site closure confirmed
+// via WebFetch (page reads "The hosting and maintenance of the site have
+// ceased").
+//
+// New source: Internet Archive item "cloud-music-4"
+// https://archive.org/details/cloud-music-4
+// License: CC0 1.0 Universal — "all public domain - no attribution -
+// royalty free music" sourced from Pixabay.com and mixkit.co.
+// No attribution required. Commercial use allowed.
+//
+// URL pattern: https://archive.org/download/cloud-music-4/<filename>
 // ---------------------------------------------------------------------------
 
 const CURATED_TRACKS = [
   // --- calm / ambient ---
   {
-    url: "https://freepd.com/music/Algorithms.mp3",
-    filename: "freepd_algorithms.mp3",
+    url: "https://archive.org/download/cloud-music-4/ambient-light-main-7229.mp3",
+    filename: "ia_ambient_light.mp3",
+    mood: "calm",
+    genre: "ambient",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/ambient-piano-amp-strings-10711.mp3",
+    filename: "ia_ambient_piano_strings.mp3",
+    mood: "calm",
+    genre: "ambient",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/dreamy-piano-soft-sound-ambient-background-4049.mp3",
+    filename: "ia_dreamy_piano_ambient.mp3",
+    mood: "calm",
+    genre: "ambient",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/soft-ambient-10782.mp3",
+    filename: "ia_soft_ambient.mp3",
+    mood: "calm",
+    genre: "ambient",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+
+  // --- calm / electronic ---
+  {
+    url: "https://archive.org/download/cloud-music-4/modular-ambient-01-789.mp3",
+    filename: "ia_modular_ambient_01.mp3",
     mood: "calm",
     genre: "electronic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
+
+  // --- calm / world ---
   {
-    url: "https://freepd.com/music/Dreamy%20Flashback.mp3",
-    filename: "freepd_dreamy_flashback.mp3",
-    mood: "calm",
-    genre: "ambient",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Chill%20Pill.mp3",
-    filename: "freepd_chill_pill.mp3",
-    mood: "calm",
-    genre: "ambient",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Pamgaea.mp3",
-    filename: "freepd_pamgaea.mp3",
+    url: "https://archive.org/download/cloud-music-4/cinematic-inspiring-irish-pipe-main-9668.mp3",
+    filename: "ia_irish_pipe_cinematic.mp3",
     mood: "calm",
     genre: "world",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
 
   // --- upbeat / playful ---
   {
-    url: "https://freepd.com/music/Funky%20Chunk.mp3",
-    filename: "freepd_funky_chunk.mp3",
+    url: "https://archive.org/download/cloud-music-4/cinematic-chillhop-main-6676.mp3",
+    filename: "ia_chillhop.mp3",
     mood: "upbeat",
     genre: "electronic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Bossa%20Nova%20Sunset.mp3",
-    filename: "freepd_bossa_nova_sunset.mp3",
+    url: "https://archive.org/download/cloud-music-4/funky-trap-sax-4864.mp3",
+    filename: "ia_funky_trap_sax.mp3",
+    mood: "upbeat",
+    genre: "electronic",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/joy-of-travel-6671.mp3",
+    filename: "ia_joy_of_travel.mp3",
     mood: "upbeat",
     genre: "world",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Easy%20Lemon.mp3",
-    filename: "freepd_easy_lemon.mp3",
+    url: "https://archive.org/download/cloud-music-4/mixkit-playground-fun-12.mp3",
+    filename: "ia_playground_fun.mp3",
     mood: "playful",
     genre: "folk",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Galway.mp3",
-    filename: "freepd_galway.mp3",
+    url: "https://archive.org/download/cloud-music-4/mixkit-just-kidding-11.mp3",
+    filename: "ia_just_kidding.mp3",
     mood: "playful",
     genre: "folk",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/mixkit-comical-2.mp3",
+    filename: "ia_comical.mp3",
+    mood: "playful",
+    genre: "classical",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
   },
 
   // --- dramatic / epic ---
   {
-    url: "https://freepd.com/music/Cipher2.mp3",
-    filename: "freepd_cipher2.mp3",
+    url: "https://archive.org/download/cloud-music-4/cinematic-dramatic-11120.mp3",
+    filename: "ia_cinematic_dramatic.mp3",
     mood: "dramatic",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Heart%20of%20Nowhere.mp3",
-    filename: "freepd_heart_of_nowhere.mp3",
+    url: "https://archive.org/download/cloud-music-4/honor-and-sword-main-11222.mp3",
+    filename: "ia_honor_and_sword.mp3",
     mood: "dramatic",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Hidden%20Past.mp3",
-    filename: "freepd_hidden_past.mp3",
+    url: "https://archive.org/download/cloud-music-4/mixkit-silent-descent-614.mp3",
+    filename: "ia_silent_descent.mp3",
     mood: "mysterious",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Dark%20Fog.mp3",
-    filename: "freepd_dark_fog.mp3",
+    url: "https://archive.org/download/cloud-music-4/mixkit-deep-urban-623.mp3",
+    filename: "ia_deep_urban.mp3",
     mood: "mysterious",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
   {
-    url: "https://freepd.com/music/Impact%20Moderato.mp3",
-    filename: "freepd_impact_moderato.mp3",
+    url: "https://archive.org/download/cloud-music-4/epic-heart-main-6677.mp3",
+    filename: "ia_epic_heart.mp3",
     mood: "epic",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
 
   // --- emotional ---
   {
-    url: "https://freepd.com/music/Reflection.mp3",
-    filename: "freepd_reflection.mp3",
+    url: "https://archive.org/download/cloud-music-4/emotional-inspiring-epic-trailer-11258.mp3",
+    filename: "ia_emotional_epic_trailer.mp3",
+    mood: "emotional",
+    genre: "cinematic",
+    license: "PUBLIC_DOMAIN",
+    source: "internet-archive",
+  },
+  {
+    url: "https://archive.org/download/cloud-music-4/cancion-triste-1502.mp3",
+    filename: "ia_cancion_triste.mp3",
     mood: "emotional",
     genre: "classical",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Sad%20Trio.mp3",
-    filename: "freepd_sad_trio.mp3",
-    mood: "emotional",
-    genre: "classical",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
 
-  // --- adventure ---
+  // --- adventure / corporate ---
   {
-    url: "https://freepd.com/music/Heroic%20Age.mp3",
-    filename: "freepd_heroic_age.mp3",
+    url: "https://archive.org/download/cloud-music-4/desert-raid-5760.mp3",
+    filename: "ia_desert_raid.mp3",
     mood: "adventure",
     genre: "cinematic",
     license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Discovery%20Hit.mp3",
-    filename: "freepd_discovery_hit.mp3",
-    mood: "adventure",
-    genre: "cinematic",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-
-  // --- corporate / commercial safe ---
-  {
-    url: "https://freepd.com/music/Clean%20Soul.mp3",
-    filename: "freepd_clean_soul.mp3",
-    mood: "upbeat",
-    genre: "folk",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Bass%20Walker.mp3",
-    filename: "freepd_bass_walker.mp3",
-    mood: "upbeat",
-    genre: "electronic",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
-  },
-  {
-    url: "https://freepd.com/music/Merry%20Go.mp3",
-    filename: "freepd_merry_go.mp3",
-    mood: "playful",
-    genre: "classical",
-    license: "PUBLIC_DOMAIN",
-    source: "freepd",
+    source: "internet-archive",
   },
 ];
 
