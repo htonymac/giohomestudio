@@ -689,6 +689,32 @@ export default function ChildrenVideoPage() {
             {/* ── Content Type Grid — CHANGES PER AGE GROUP ── */}
             {ageGroup ? (
               <>
+                <button
+                  onClick={() => {
+                    setAgeGroup("");
+                    setContentType("");
+                    setSelectedTopic(null);
+                    setTopicFilter("");
+                    if (typeof window !== "undefined") {
+                      window.history.replaceState(null, "", "/dashboard/children-video");
+                    }
+                  }}
+                  style={{
+                    marginBottom: 10,
+                    padding: "5px 10px",
+                    background: "transparent",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 8,
+                    color: "#a78bfa",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                  }}
+                >
+                  ← Back to age groups
+                </button>
                 <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 4 }}>
                   What to create — for {currentAgeConfig?.label} ({currentAgeConfig?.age})
                 </p>
