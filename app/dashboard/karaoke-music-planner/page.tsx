@@ -262,6 +262,8 @@ function KaraokeMusicPlannerInner() {
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState("mp3");
   const [exportUrls, setExportUrls] = useState<{format: string; url: string; licenseFileUrl?: string}[]>([]);
+  // Henry 2026-06-01: ZIP bundle builder state for "Export ALL formats as ZIP" button in Step 16.
+  const [bundleBuilding, setBundleBuilding] = useState(false);
   // Henry 2026-05-31: per-user toggle for RVC voice-enhancement. Default OFF since
   // Contabo server has no GPU (CPU mode adds ~10–20 min per recording). Persisted
   // in localStorage so the choice survives reloads.
@@ -1988,6 +1990,50 @@ function KaraokeMusicPlannerInner() {
                         </a>
                       )}
                     </div>
+                    {/* Henry 2026-06-01: ZIP bundle — one-click "give me everything" for power users */}
+                    {activeRecordingId && (
+                      <div style={{ marginTop: 10 }}>
+                        <button
+                          data-testid="export-bundle-btn"
+                          disabled={bundleBuilding}
+                          onClick={async () => {
+                            setBundleBuilding(true);
+                            try {
+                              const res = await fetch("/api/karaoke/export-bundle", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ recordingId: activeRecordingId }),
+                              });
+                              const parsed = await safeKaraokeJson<{ bundleUrl: string; includedFormats: string[]; sizeBytes: number }>(res, "Export Bundle");
+                              if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+                              const a = document.createElement("a");
+                              a.href = parsed.data.bundleUrl;
+                              a.download = "";
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              showToast(`Bundle: ${parsed.data.includedFormats.length} files, ${Math.round(parsed.data.sizeBytes / 1024 / 1024)} MB`);
+                            } catch (err) {
+                              showToast(`Bundle error: ${err instanceof Error ? err.message : "unknown"}`);
+                            } finally {
+                              setBundleBuilding(false);
+                            }
+                          }}
+                          style={{
+                            padding: "5px 12px",
+                            borderRadius: 6,
+                            background: bundleBuilding ? "rgba(167,139,250,0.05)" : "rgba(167,139,250,0.10)",
+                            color: "#a78bfa",
+                            fontSize: 11,
+                            border: "1px solid rgba(167,139,250,0.3)",
+                            cursor: bundleBuilding ? "wait" : "pointer",
+                          }}
+                          title="Bundle all completed exports + license.txt into one ZIP"
+                        >
+                          {bundleBuilding ? "Bundling…" : "📦 Export ALL formats as ZIP"}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
