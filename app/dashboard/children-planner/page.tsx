@@ -5877,13 +5877,20 @@ Rules:
                       onClick={async () => {
                         setGeneratingIntro(true);
                         try {
+                          // Henry 2026-05-31 (#2): title priority — projectTitle (if user
+                          // customised) → topic from URL → contentType → "My Story" final fallback.
+                          // Was always saying "My Story" because contentParam is often empty.
+                          const effectiveTitle = (projectTitle && projectTitle !== "Untitled Children Project" ? projectTitle : "")
+                            || topicParam
+                            || contentParam
+                            || "My Story";
                           const res = await fetch("/api/video/title-card", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               type: "intro",
                               studioName: "GIO HOME AI STUDIO",
-                              title: contentParam || "My Story",
+                              title: effectiveTitle,
                               duration: 4,
                             }),
                           });
@@ -5922,13 +5929,18 @@ Rules:
                             .filter(c => c.voiceId)
                             .map(c => ({ characterName: c.displayName, actorName: c.voiceId || c.displayName }))
                             .slice(0, 6);
+                          // Henry 2026-05-31 (#2): same priority as intro — projectTitle wins.
+                          const effectiveTitle = (projectTitle && projectTitle !== "Untitled Children Project" ? projectTitle : "")
+                            || topicParam
+                            || contentParam
+                            || "My Story";
                           const res = await fetch("/api/video/title-card", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               type: "outro",
                               studioName: "GIO HOME AI STUDIO",
-                              title: contentParam || "My Story",
+                              title: effectiveTitle,
                               cast: castList,
                               director: writtenBy || undefined,
                               producer: madeBy || undefined,
