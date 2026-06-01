@@ -437,22 +437,22 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setStepStatus(3, "done", data.analysis);
+      const parsed = await safeKaraokeJson<{ recordingId: string; analysis: Record<string, unknown> }>(res, "Audio Analysis");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setStepStatus(3, "done", parsed.data.analysis);
 
       // Step 5 auto-completes if transcript returned
-      if (data.analysis?.transcription) {
+      if (parsed.data.analysis?.transcription) {
         setStepStatus(5, "done");
         setLyricLines(
-          String(data.analysis.transcription)
+          String(parsed.data.analysis.transcription)
             .split(/\n/)
             .map((t, i) => ({ id: `line-${i}`, text: t.trim() }))
             .filter((l) => l.text)
         );
       }
 
-      showToast(`Analysis complete — ${Math.round(data.analysis?.tempo_bpm || 0)} BPM, ${data.analysis?.detected_key || ""}, ${data.analysis?.suggested_genre || ""}`);
+      showToast(`Analysis complete — ${Math.round((parsed.data.analysis?.tempo_bpm as number) || 0)} BPM, ${(parsed.data.analysis?.detected_key as string) || ""}, ${(parsed.data.analysis?.suggested_genre as string) || ""}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Analysis failed";
       setStepStatus(3, "error", undefined, msg);
