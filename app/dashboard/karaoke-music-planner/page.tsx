@@ -201,6 +201,7 @@ function KaraokeMusicPlannerInner() {
   const [activeMode, setActiveMode] = useState<KaraokeMode>(qMode);
   const [editingTakeId, setEditingTakeId] = useState<string | null>(null);
   const [editingTakeName, setEditingTakeName] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Sync URL param → state (handles Next.js hydration race where useState initializes before searchParams resolves)
   useEffect(() => {
@@ -488,11 +489,14 @@ function KaraokeMusicPlannerInner() {
         // Toggle keyboard shortcut help panel
         e.preventDefault();
         setShowKeyboardHelp(s => !s);
+      } else if (e.key === "Escape" && openMenuId) {
+        // Close kebab menu
+        setOpenMenuId(null);
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [allTakes, activeRecordingId, mixedOutputUrl]);
+  }, [allTakes, activeRecordingId, mixedOutputUrl, openMenuId]);
 
   const setStepStatus = (num: number, status: StepStatus, output?: Record<string, unknown>, error?: string) => {
     setSteps((prev) => ({ ...prev, [num]: { status, output, error } }));
@@ -882,13 +886,14 @@ function KaraokeMusicPlannerInner() {
               <div
                 key={take.id}
                 style={{
+                  position: "relative" as const,
                   display: "flex",
                   alignItems: "stretch",
                   marginBottom: 3,
                   borderRadius: 7,
                   border: `1px solid ${isActive ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.05)"}`,
                   background: isActive ? "rgba(167,139,250,0.1)" : "transparent",
-                  overflow: "hidden",
+                  overflow: "visible",
                 }}
               >
                 <button
@@ -896,6 +901,7 @@ function KaraokeMusicPlannerInner() {
                   onClick={() => {
                     setActiveRecordingId(take.id);
                     setActiveMode((take.mode as KaraokeMode) || "A");
+                    setOpenMenuId(null);
                   }}
                   style={{
                     flex: 1,
@@ -969,6 +975,90 @@ function KaraokeMusicPlannerInner() {
                     Mode {take.mode || "?"} · {new Date(take.createdAt).toLocaleDateString()}
                   </p>
                 </button>
+                {/* ── Kebab menu button ───────────────────────────────────── */}
+                <button
+                  data-testid={`take-${take.id}-menu`}
+                  title="More actions"
+                  onClick={(ev) => {
+                    ev.stopPropagation();
+                    setOpenMenuId(openMenuId === take.id ? null : take.id);
+                  }}
+                  style={{
+                    padding: "0 8px",
+                    border: "none",
+                    borderLeft: "1px solid rgba(255,255,255,0.05)",
+                    background: "transparent",
+                    color: "#a78bfa",
+                    fontSize: 16,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  ⋮
+                </button>
+
+                {/* ── Kebab dropdown ──────────────────────────────────────── */}
+                {openMenuId === take.id && (
+                  <div
+                    onClick={ev => ev.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      right: 6,
+                      marginTop: 4,
+                      top: "100%",
+                      background: "#1a1a1e",
+                      border: "1px solid rgba(167,139,250,0.3)",
+                      borderRadius: 6,
+                      padding: 4,
+                      minWidth: 140,
+                      zIndex: 50,
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                    }}
+                  >
+                    <button
+                      onClick={ev => {
+                        ev.stopPropagation();
+                        setEditingTakeId(take.id);
+                        setEditingTakeName(take.fileName || take.id);
+                        setOpenMenuId(null);
+                      }}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", background: "transparent", border: "none", color: "#fff", fontSize: 11, textAlign: "left" as const, cursor: "pointer", borderRadius: 4 }}
+                    >
+                      ✎ Rename
+                    </button>
+                    <button
+                      onClick={async ev => {
+                        ev.stopPropagation();
+                        try {
+                          if (typeof navigator !== "undefined" && navigator.clipboard) {
+                            await navigator.clipboard.writeText(take.id);
+                            showToast("ID copied");
+                          } else {
+                            const ta = document.createElement("textarea");
+                            ta.value = take.id;
+                            document.body.appendChild(ta);
+                            ta.select();
+                            document.execCommand("copy");
+                            document.body.removeChild(ta);
+                            showToast("ID copied");
+                          }
+                        } catch { /* silent */ }
+                        setOpenMenuId(null);
+                      }}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", background: "transparent", border: "none", color: "#fff", fontSize: 11, textAlign: "left" as const, cursor: "pointer", borderRadius: 4 }}
+                    >
+                      📋 Copy ID
+                    </button>
+                    <button
+                      disabled
+                      onClick={ev => { ev.stopPropagation(); }}
+                      style={{ display: "block", width: "100%", padding: "5px 10px", background: "transparent", border: "none", color: "#55555a", fontSize: 11, textAlign: "left" as const, cursor: "not-allowed", borderRadius: 4 }}
+                    >
+                      📑 Duplicate (soon)
+                    </button>
+                  </div>
+                )}
+
                 <button
                   data-testid={`take-${take.id}-delete`}
                   title="Delete this take + all its files"
