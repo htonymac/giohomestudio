@@ -420,9 +420,34 @@ function ChildrenPlannerInner() {
   const [outroUrl, setOutroUrl] = useState<string | null>(null);
   const [generatingIntro, setGeneratingIntro] = useState(false);
   const [generatingOutro, setGeneratingOutro] = useState(false);
-  const [writtenBy, setWrittenBy] = useState("");
-  const [madeBy, setMadeBy] = useState("");
-  const [ideaFrom, setIdeaFrom] = useState("");
+  // Henry 2026-05-31: Story Credits — fill once, sticky across projects + hard refresh.
+  // These are author identity (your name / your studio / idea source), not per-project,
+  // so they live in localStorage. Survives Ctrl+Shift+R, survives project switches,
+  // survives logout. User clears them by editing the field.
+  const [writtenBy, setWrittenByState] = useState("");
+  const [madeBy, setMadeByState] = useState("");
+  const [ideaFrom, setIdeaFromState] = useState("");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const w = localStorage.getItem("ghs_credits_writtenBy") ?? "";
+    const m = localStorage.getItem("ghs_credits_madeBy") ?? "";
+    const i = localStorage.getItem("ghs_credits_ideaFrom") ?? "";
+    if (w) setWrittenByState(w);
+    if (m) setMadeByState(m);
+    if (i) setIdeaFromState(i);
+  }, []);
+  const setWrittenBy = (v: string) => {
+    setWrittenByState(v);
+    if (typeof window !== "undefined") localStorage.setItem("ghs_credits_writtenBy", v);
+  };
+  const setMadeBy = (v: string) => {
+    setMadeByState(v);
+    if (typeof window !== "undefined") localStorage.setItem("ghs_credits_madeBy", v);
+  };
+  const setIdeaFrom = (v: string) => {
+    setIdeaFromState(v);
+    if (typeof window !== "undefined") localStorage.setItem("ghs_credits_ideaFrom", v);
+  };
   const [subtitleMatchResult, setSubtitleMatchResult] = useState<{ status: "ok"|"warn"|"checking"; note: string } | null>(null);
 
   // ── Sound tier & model settings ──
@@ -5998,22 +6023,31 @@ Rules:
 
               {/* Credits — Written by / Made by / Idea from */}
               <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Story Credits</p>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0 }}>Story Credits</p>
+                  <span style={{ fontSize: 9, color: "#7b7b80" }}>Saved on this device — survives refresh</span>
+                </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
                   <div>
-                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Written by</label>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                      Written by {writtenBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                    </label>
                     <input value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Your name"
-                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${writtenBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Made by</label>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                      Made by {madeBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                    </label>
                     <input value={madeBy} onChange={e => setMadeBy(e.target.value)} placeholder="Studio / creator"
-                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${madeBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>Idea from</label>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                      Idea from {ideaFrom && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                    </label>
                     <input value={ideaFrom} onChange={e => setIdeaFrom(e.target.value)} placeholder="Original idea by..."
-                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${ideaFrom ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
                   </div>
                 </div>
               </div>
