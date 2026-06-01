@@ -7,6 +7,31 @@ import * as path from "path";
 import * as fs from "fs";
 import type { MusicGenerateInput, MusicGenerateOutput, MusicProviderCapabilities, MusicProviderAdapter } from "../types";
 
+// Henry 2026-06-01: read the explicit manifest so genre/mood requests can pick
+// from the catalog instead of falling through to random filename heuristics.
+let cachedManifest: Array<{
+  filename: string;
+  mood?: string;
+  genre?: string;
+  safeForFreeUser?: boolean;
+  blocked?: boolean;
+}> | null = null;
+
+function loadManifest(stockDir: string): typeof cachedManifest {
+  if (cachedManifest) return cachedManifest;
+  const manifestPath = path.join(stockDir, "manifest.json");
+  if (!fs.existsSync(manifestPath)) return [];
+  try {
+    const raw = fs.readFileSync(manifestPath, "utf-8");
+    const arr = JSON.parse(raw);
+    if (Array.isArray(arr)) {
+      cachedManifest = arr as NonNullable<typeof cachedManifest>;
+      return cachedManifest;
+    }
+  } catch { /* fall through */ }
+  return [];
+}
+
 // Keyword → ordered list of candidate filenames (most specific first)
 const KEYWORD_MAP: Array<{ keywords: string[]; files: string[] }> = [
   {
@@ -57,6 +82,36 @@ export type PickResult = { path: string; matchQuality: "exact" | "approximate" |
 
 function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string): PickResult | null {
   const searchText = `${prompt} ${genre ?? ""} ${mood ?? ""}`.toLowerCase();
+
+  // Try manifest-based match first — score each entry by genre + mood overlap with
+  // the requested searchText. Returns highest-scoring entry's filename.
+  const manifest = loadManifest(stockDir);
+  const safeOnly = manifest ? manifest.filter(e => e.safeForFreeUser === true && !e.blocked) : [];
+  if (safeOnly.length > 0) {
+    let best: { entry: typeof safeOnly[number]; score: number } | null = null;
+    for (const entry of safeOnly) {
+      let score = 0;
+      if (entry.genre && searchText.includes(entry.genre.toLowerCase())) score += 3;
+      if (entry.mood && searchText.includes(entry.mood.toLowerCase())) score += 2;
+      // bonus: filename includes a request keyword
+      const fn = entry.filename.toLowerCase();
+      for (const kw of searchText.split(/\s+/).filter(Boolean)) {
+        if (kw.length >= 4 && fn.includes(kw)) score += 1;
+      }
+      if (!best || score > best.score) {
+        // RANDOMIZE among ties so same request doesn't always return same track
+        if (!best || score > best.score || Math.random() < 0.5) {
+          best = { entry, score };
+        }
+      }
+    }
+    if (best && best.score > 0) {
+      const fullPath = path.join(stockDir, best.entry.filename);
+      if (fs.existsSync(fullPath)) {
+        return { path: fullPath, matchQuality: best.score >= 5 ? "exact" : "approximate" };
+      }
+    }
+  }
 
   // Check keyword map — EXACT only if the requested keyword file exists by EXACT name.
   for (const { keywords, files } of KEYWORD_MAP) {
