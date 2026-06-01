@@ -114,6 +114,19 @@ function Toast({ message, onDismiss }: { message: string; onDismiss: () => void 
 
 const KARAOKE_CREATOR_DB_KEY = "ghs_karaoke_creator_session";
 
+// Henry 2026-06-01: per-mood color stripe for at-a-glance differentiation
+const MOOD_COLORS: Record<string, string> = {
+  epic: "#ef4444",        // red
+  adventure: "#f97316",   // orange
+  dramatic: "#a855f7",    // purple
+  emotional: "#3b82f6",   // blue
+  calm: "#22d3ee",        // cyan
+  playful: "#facc15",     // yellow
+  upbeat: "#f472b6",      // pink
+  mysterious: "#6366f1",  // indigo
+  neutral: "#7b7b80",     // grey
+};
+
 export default function KaraokeMusicCreatorPage() {
   const router = useRouter();
 
@@ -887,7 +900,7 @@ export default function KaraokeMusicCreatorPage() {
               <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Mood:</span>
               {["all", ...availableMoods].map(m => (
                 <button key={m} onClick={() => setBeatMoodFilter(m === "all" ? null : m)}
-                  style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "rgba(255,255,255,0.1)"}`, background: beatMoodFilter === (m === "all" ? null : m) ? "rgba(167,139,250,0.18)" : "transparent", color: beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
+                  style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : `${MOOD_COLORS[m] || "#7b7b80"}66`}`, background: beatMoodFilter === (m === "all" ? null : m) ? "rgba(167,139,250,0.18)" : "transparent", color: beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
                   {m}
                 </button>
               ))}
@@ -924,6 +937,7 @@ export default function KaraokeMusicCreatorPage() {
                   setPickedBeatUrl(b.audioUrl);
                 }}
               >
+                <div style={{ height: 3, background: MOOD_COLORS[b.mood] || MOOD_COLORS.neutral, marginBottom: 6, borderRadius: 2 }} />
                 <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
                   {b.filename.split("/").pop()?.replace(/\.mp3$/i, "").replace(/[_-]/g, " ")}
                 </p>
