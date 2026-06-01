@@ -683,35 +683,97 @@ function KaraokeMusicPlannerInner() {
           )}
           {allTakes.map((take) => {
             const isActive = take.id === activeRecordingId;
+            // Henry 2026-05-31 (#7): row is now a flex container with a delete button
+            // alongside the take label. Click anywhere on the label area selects;
+            // click the trash icon opens a confirm dialog and removes the take + files.
             return (
-              <button
+              <div
                 key={take.id}
-                data-testid={`take-${take.id}`}
-                onClick={() => {
-                  setActiveRecordingId(take.id);
-                  setActiveMode((take.mode as KaraokeMode) || "A");
-                }}
                 style={{
-                  width: "100%",
-                  padding: "8px 10px",
+                  display: "flex",
+                  alignItems: "stretch",
+                  marginBottom: 3,
                   borderRadius: 7,
                   border: `1px solid ${isActive ? "rgba(167,139,250,0.3)" : "rgba(255,255,255,0.05)"}`,
                   background: isActive ? "rgba(167,139,250,0.1)" : "transparent",
-                  color: isActive ? "#a78bfa" : "#7b7b80",
-                  fontSize: 11,
-                  cursor: "pointer",
-                  textAlign: "left",
-                  marginBottom: 3,
                   overflow: "hidden",
                 }}
               >
-                <p style={{ margin: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {take.fileName || take.id}
-                </p>
-                <p style={{ margin: "2px 0 0", fontSize: 10, color: "#55555a" }}>
-                  Mode {take.mode || "?"} · {new Date(take.createdAt).toLocaleDateString()}
-                </p>
-              </button>
+                <button
+                  data-testid={`take-${take.id}`}
+                  onClick={() => {
+                    setActiveRecordingId(take.id);
+                    setActiveMode((take.mode as KaraokeMode) || "A");
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: "8px 10px",
+                    border: "none",
+                    background: "transparent",
+                    color: isActive ? "#a78bfa" : "#7b7b80",
+                    fontSize: 11,
+                    cursor: "pointer",
+                    textAlign: "left",
+                    overflow: "hidden",
+                  }}
+                >
+                  <p style={{ margin: 0, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {take.fileName || take.id}
+                  </p>
+                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#55555a" }}>
+                    Mode {take.mode || "?"} · {new Date(take.createdAt).toLocaleDateString()}
+                  </p>
+                </button>
+                <button
+                  data-testid={`take-${take.id}-delete`}
+                  title="Delete this take + all its files"
+                  onClick={async (ev) => {
+                    ev.stopPropagation();
+                    if (typeof window === "undefined") return;
+                    const ok = window.confirm(
+                      `Delete take "${take.fileName || take.id}"?\n\n` +
+                      "This removes the recording, transcript, analysis,\n" +
+                      "generated music, mix, and all exports for this take.\n\n" +
+                      "Cannot be undone."
+                    );
+                    if (!ok) return;
+                    try {
+                      const res = await fetch("/api/karaoke/delete", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ recordingId: take.id }),
+                      });
+                      const data = await res.json();
+                      if (!res.ok || data.error) {
+                        showToast(`Delete failed: ${data.error || res.status}`);
+                        return;
+                      }
+                      // If the deleted take was active, clear the surface state.
+                      if (isActive) {
+                        setActiveRecordingId(null);
+                        setRecording(null);
+                      }
+                      // Refresh the takes list.
+                      await loadAllTakes();
+                      showToast(`Deleted "${take.fileName || take.id}" (${data.deletedFiles} files)`);
+                    } catch (err) {
+                      showToast(`Delete error: ${err instanceof Error ? err.message : "unknown"}`);
+                    }
+                  }}
+                  style={{
+                    padding: "0 10px",
+                    border: "none",
+                    borderLeft: "1px solid rgba(255,255,255,0.05)",
+                    background: "transparent",
+                    color: "#ff7a45",
+                    fontSize: 14,
+                    cursor: "pointer",
+                    flexShrink: 0,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
             );
           })}
         </div>
