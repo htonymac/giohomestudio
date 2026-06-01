@@ -1634,7 +1634,7 @@ function ChildrenPlannerInner() {
               sceneId,
               sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
               characterIds: assignedChars,
-              projectStyle: sceneStyles[sceneId] || (effectiveProjectStyle === "storybook" ? "storybook" : effectiveProjectStyle === "2d-cartoon" ? "2d-cartoon" : "storybook"),
+              projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
               mood: "friendly, warm, safe",
               modelId: effectiveImageModelId,
               storyEra: storyEra || undefined,
