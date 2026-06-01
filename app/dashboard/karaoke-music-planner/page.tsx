@@ -969,6 +969,41 @@ function KaraokeMusicPlannerInner() {
               </span>
             </p>
           )}
+          {activeRecordingId && (
+            <button
+              onClick={async () => {
+                try {
+                  if (typeof navigator !== "undefined" && navigator.clipboard) {
+                    await navigator.clipboard.writeText(window.location.href);
+                    showToast("Share link copied — paste it anywhere to open this take");
+                  } else {
+                    const ta = document.createElement("textarea");
+                    ta.value = window.location.href;
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    showToast("Share link copied");
+                  }
+                } catch {
+                  showToast("Could not copy — copy the URL bar manually");
+                }
+              }}
+              title="Copy URL of this take for sharing"
+              style={{
+                marginTop: 8,
+                padding: "4px 10px",
+                borderRadius: 6,
+                background: "rgba(167,139,250,0.08)",
+                color: "#a78bfa",
+                fontSize: 11,
+                border: "1px solid rgba(167,139,250,0.3)",
+                cursor: "pointer",
+              }}
+            >
+              📋 Copy share link
+            </button>
+          )}
           {!activeRecordingId && (
             <p style={{ margin: "6px 0 0", fontSize: 13, color: "#ff7a45" }}>
               No recording loaded.{" "}
