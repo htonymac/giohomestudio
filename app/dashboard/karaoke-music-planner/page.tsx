@@ -286,6 +286,9 @@ function KaraokeMusicPlannerInner() {
   const [step2Progress, setStep2Progress] = useState<number | null>(null);
   const [step4Progress, setStep4Progress] = useState<number | null>(null);
 
+  // Keyboard shortcut help overlay (? / /)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
+
   // ── Check flow lock ─────────────────────────────────────────────────────────
 
   const isFlowLocked = useCallback((): boolean => {
@@ -421,6 +424,52 @@ function KaraokeMusicPlannerInner() {
       localStorage.setItem("ghs_karaoke_planner_draft", JSON.stringify(draft));
     } catch { /* quota — ignore */ }
   }, [activeMode, lyricLines, flowProfile, beatRecs, selectedBeatFamily, productionBrief, briefInstructions, generatedMusicUrl, exportFormat, exportUrls, mixedOutputUrl]);
+
+  // ── Keyboard shortcuts: J = next take · K = prev take · Space = play/pause · ? = help ──
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handler = (e: KeyboardEvent) => {
+      // Disable when user is typing in a text field
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+
+      if (e.key === "j" || e.key === "J") {
+        // Next take
+        e.preventDefault();
+        if (allTakes.length === 0) return;
+        const idx = allTakes.findIndex(t => t.id === activeRecordingId);
+        const next = allTakes[(idx + 1) % allTakes.length];
+        if (next) {
+          setActiveRecordingId(next.id);
+          setActiveMode((next.mode as KaraokeMode) || "A");
+        }
+      } else if (e.key === "k" || e.key === "K") {
+        // Previous take
+        e.preventDefault();
+        if (allTakes.length === 0) return;
+        const idx = allTakes.findIndex(t => t.id === activeRecordingId);
+        const prev = allTakes[(idx - 1 + allTakes.length) % allTakes.length];
+        if (prev) {
+          setActiveRecordingId(prev.id);
+          setActiveMode((prev.mode as KaraokeMode) || "A");
+        }
+      } else if (e.key === " " && mixedOutputUrl) {
+        // Toggle Now Playing audio
+        e.preventDefault();
+        const audio = document.querySelector<HTMLAudioElement>("audio[src='" + mixedOutputUrl + "']");
+        if (audio) {
+          if (audio.paused) audio.play().catch(() => {});
+          else audio.pause();
+        }
+      } else if (e.key === "?" || e.key === "/") {
+        // Toggle keyboard shortcut help panel
+        e.preventDefault();
+        setShowKeyboardHelp(s => !s);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [allTakes, activeRecordingId, mixedOutputUrl]);
 
   const setStepStatus = (num: number, status: StepStatus, output?: Record<string, unknown>, error?: string) => {
     setSteps((prev) => ({ ...prev, [num]: { status, output, error } }));
@@ -1036,7 +1085,50 @@ function KaraokeMusicPlannerInner() {
               </button>
             </p>
           )}
+          {/* Keyboard hint — discoverable without being intrusive */}
+          <button
+            onClick={() => setShowKeyboardHelp(s => !s)}
+            title="Keyboard shortcuts"
+            style={{
+              marginTop: 10,
+              padding: "3px 9px",
+              borderRadius: 5,
+              background: "transparent",
+              border: "1px solid rgba(167,139,250,0.2)",
+              color: "#55555a",
+              fontSize: 10,
+              cursor: "pointer",
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: "0.05em",
+            }}
+          >
+            ? for keys
+          </button>
         </div>
+
+        {/* Keyboard shortcut help overlay */}
+        {showKeyboardHelp && (
+          <div
+            onClick={() => setShowKeyboardHelp(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center" }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ background: "#1a1a1e", border: "1px solid rgba(167,139,250,0.3)", borderRadius: 12, padding: "20px 26px", color: "#fff", fontSize: 13, minWidth: 280 }}
+            >
+              <p style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: "#a78bfa" }}>Keyboard shortcuts</p>
+              <table style={{ width: "100%", fontSize: 12, color: "#c5c5c8", borderCollapse: "collapse" }}>
+                <tbody>
+                  <tr><td style={{ padding: "3px 8px 3px 0", color: "#a78bfa", fontFamily: "monospace" }}>J</td><td>Next take</td></tr>
+                  <tr><td style={{ padding: "3px 8px 3px 0", color: "#a78bfa", fontFamily: "monospace" }}>K</td><td>Previous take</td></tr>
+                  <tr><td style={{ padding: "3px 8px 3px 0", color: "#a78bfa", fontFamily: "monospace" }}>Space</td><td>Play / pause Now Playing audio</td></tr>
+                  <tr><td style={{ padding: "3px 8px 3px 0", color: "#a78bfa", fontFamily: "monospace" }}>?</td><td>Show this panel</td></tr>
+                </tbody>
+              </table>
+              <p style={{ margin: "12px 0 0", fontSize: 10, color: "#7b7b80" }}>Click anywhere to close. Shortcuts disabled while typing in inputs.</p>
+            </div>
+          </div>
+        )}
 
         {/* Mode banner */}
         <div
