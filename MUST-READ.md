@@ -84,6 +84,13 @@ Each entry: symptom → root cause → fix commit. Read this before reinventing 
 - **Fix:** `f44be26` (initial relabel) + `cc0b198` (RVC keep-anyway toggle with OS confirmation) — labels now say "server install scheduled" + Step 11 has user-controlled toggle.
 - **THEN:** Demucs + Basic Pitch actually installed on server today via `pip install --user demucs torch / basic-pitch tensorflow` (Step 2 and 4 binaries verified working). `172489f` shipped `/api/karaoke/vocal-cleanup` + `/api/karaoke/melody-extract` routes calling these binaries.
 
+### J. 3D style picker silently falls back to 2D-cartoon
+- **Symptom:** picking "3D Cinematic" in Design tab produced 2D-cartoon images.
+- **Root cause:** Variations code path (Generate Variations button) had a hardcoded ternary that only allowed `"storybook"` or `"2d-cartoon"` to pass through to the API — any other style ID fell through to `"storybook"` default. Single-image + Gen Max paths were correct.
+- **Fix:** `cad4b54` — replaced ternary with `effectiveProjectStyle` direct.
+- **Then `7fc67b1`** strengthened the 3d-cinematic preset's suffix from 75 vague chars to 217 chars of explicit cues (volumetric lighting, deep depth of field, Unreal Engine 5, octane render, ray-traced reflections) so the model actually renders 3D depth.
+- **Lesson:** when adding new style options, audit ALL render code paths (single, Gen Max, variations) — they may have divergent style routing.
+
 ---
 
 ## 3. Today's safe music policy (2026-05-31 — locked by Henry)
@@ -177,7 +184,7 @@ The route ALSO scans `storage/music/stock/freepd/` directly as a fallback so the
 
 ## 7. Pending non-trivial items at end of 2026-05-31 session
 
-1. **3D style picker doesn't render 3D** (#3) — style preset routing needs tracing through scene-image
+1. **~~3D style picker doesn't render 3D (#3)~~** — ✅ FIXED (`cad4b54` + `7fc67b1`). See MUST-READ §2.J.
 2. **Firefox assembly failure** (#5) — needs Playwright probe in headed Firefox
 3. **Image doesn't match narration** (#4) — biggest design problem; scene-image and narration are generated separately
 4. **7,200-line children-planner refactor** (#11) — multi-day, separate session, needs plan doc first
