@@ -1004,6 +1004,27 @@ function KaraokeMusicPlannerInner() {
               📋 Copy share link
             </button>
           )}
+          {activeRecordingId && mixedOutputUrl && (
+            <div style={{
+              marginTop: 10,
+              padding: "8px 12px",
+              background: "rgba(122,224,195,0.06)",
+              border: "1px solid rgba(122,224,195,0.2)",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+            }}>
+              <span style={{ fontSize: 10, color: "#7ae0c3", fontWeight: 700, letterSpacing: 0.4, textTransform: "uppercase" as const, whiteSpace: "nowrap" }}>
+                🎧 Now playing
+              </span>
+              <audio
+                controls
+                src={mixedOutputUrl}
+                style={{ flex: 1, height: 28, minWidth: 0 }}
+              />
+            </div>
+          )}
           {!activeRecordingId && (
             <p style={{ margin: "6px 0 0", fontSize: 13, color: "#ff7a45" }}>
               No recording loaded.{" "}
