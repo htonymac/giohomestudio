@@ -135,6 +135,9 @@ export default function KaraokeMusicCreatorPage() {
   const [beatsLoading, setBeatsLoading] = useState(true);
   const [pickedBeatId, setPickedBeatId] = useState<string | null>(null);
   const [pickedBeatUrl, setPickedBeatUrl] = useState<string | null>(null);
+  // Henry 2026-05-31: mood + genre filter state for 69-beat picker
+  const [beatMoodFilter, setBeatMoodFilter] = useState<string | null>(null);
+  const [beatGenreFilter, setBeatGenreFilter] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -867,8 +870,42 @@ export default function KaraokeMusicCreatorPage() {
         </div>
         {beatsLoading && <p style={{ fontSize: 11, color: "#7b7b80" }}>Loading beats…</p>}
         {!beatsLoading && beats.length === 0 && <p style={{ fontSize: 11, color: "#7b7b80" }}>No safe beats found.</p>}
+        {/* Henry 2026-05-31: mood + genre filters for 69-beat library */}
+        {!beatsLoading && beats.length > 0 && (
+          <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Mood:</span>
+              {["all", ...Array.from(new Set(beats.map(b => b.mood))).sort()].map(m => (
+                <button key={m} onClick={() => setBeatMoodFilter(m === "all" ? null : m)}
+                  style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "rgba(255,255,255,0.1)"}`, background: beatMoodFilter === (m === "all" ? null : m) ? "rgba(167,139,250,0.18)" : "transparent", color: beatMoodFilter === (m === "all" ? null : m) ? "#a78bfa" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: "#7b7b80", marginRight: 4 }}>Genre:</span>
+              {["all", ...Array.from(new Set(beats.map(b => b.genre))).sort()].map(g => (
+                <button key={g} onClick={() => setBeatGenreFilter(g === "all" ? null : g)}
+                  style={{ padding: "3px 9px", borderRadius: 12, border: `1px solid ${beatGenreFilter === (g === "all" ? null : g) ? "#22c55e" : "rgba(255,255,255,0.1)"}`, background: beatGenreFilter === (g === "all" ? null : g) ? "rgba(34,197,94,0.15)" : "transparent", color: beatGenreFilter === (g === "all" ? null : g) ? "#22c55e" : "#9b9b9b", fontSize: 10, cursor: "pointer" }}>
+                  {g}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 9, color: "#55555a" }}>
+              {(() => {
+                const filtered = beats.filter(b =>
+                  (!beatMoodFilter || b.mood === beatMoodFilter) &&
+                  (!beatGenreFilter || b.genre === beatGenreFilter)
+                );
+                return `Showing ${filtered.length} of ${beats.length} beats`;
+              })()}
+            </div>
+          </div>
+        )}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
-          {beats.map((b) => {
+          {beats
+            .filter(b => (!beatMoodFilter || b.mood === beatMoodFilter) && (!beatGenreFilter || b.genre === beatGenreFilter))
+            .map((b) => {
             const isPicked = pickedBeatId === b.id;
             return (
               <div
