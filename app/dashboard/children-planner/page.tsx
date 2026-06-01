@@ -2081,49 +2081,15 @@ function ChildrenPlannerInner() {
       // produced a silent video — user reported "narration do not work". Now we auto-fire
       // TTS in the assembly path so narration is always present.
       let resolvedNarratorAudioUrl = narratorAudioUrl;
-      // Henry 2026-05-31: if narrationText is missing or visibly too short for the picker
-      // duration (300s ≈ 650 words ≈ 3000 chars), auto-call story-expand FIRST so the TTS
-      // gets the full duration-scaled fullScript instead of the prefill idea (~80 words).
-      // Was the root cause of "5-min target → 30s narration" after the earlier fix.
-      let usableNarrationText = (narrationText || "").trim();
-      const expectedCharFloor = Math.max(800, storyLengthMin * 60 * 130 / 60 * 4); // ~4 chars/word
-      if (usableNarrationText.length < expectedCharFloor && (textContent || "").trim().length > 0) {
-        try {
-          setLastAction(`Story not expanded yet — auto-expanding for ${storyLengthMin}-min narration...`);
-          const seedInput = textContent.trim();
-          const exp = await fetch("/api/hybrid/story-expand", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              storyInput: seedInput,
-              genre: "children",
-              tone: tone === "soft" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
-              audience: AGE_AUDIENCE[ageGroup] || "children",
-              language: "English",
-              languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
-              storyType: "story_book",
-              targetDuration: storyLengthMin * 60,
-              targetDurationLabel: `${storyLengthMin} min`,
-              tier: "pro",
-              provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
-              childContext: { ageGroup, learningMode, safetyLevel, visualStyle: projectStyle },
-            }),
-            signal: AbortSignal.timeout(180000),
-          });
-          if (exp.ok) {
-            const expJson = await exp.json() as { expandedStory?: { fullScript?: string; summary?: string }; wordCount?: number };
-            const fullScript = expJson?.expandedStory?.fullScript || "";
-            if (fullScript && fullScript.length > usableNarrationText.length) {
-              usableNarrationText = fullScript;
-              setNarrationText(fullScript);
-              setExpandedContent(expJson?.expandedStory?.summary || fullScript);
-            }
-          }
-        } catch (autoExpErr) {
-          console.warn("[children-planner] auto-expand before narration failed:", autoExpErr);
-        }
-      }
+      // Henry 2026-05-31: use the SHARED resolver (same as generateNarration + the 2
+      // other TTS-firing paths). The previous inline expand block did NOT consider
+      // audioPlans — so projects where the user generated AI Audio Plans but never
+      // ran Build Story produced a silent assembly. Now: identical fallback chain
+      // across every TTS-firing path. NEVER divergent.
+      // Hybrid uses /api/assembly/execute and is unaffected.
+      const { text: usableNarrationText } = await resolveNarrationText();
       if (!resolvedNarratorAudioUrl) {
-        const storyForTTS = (usableNarrationText || narrationText || textContent || readAlongText || "").trim();
+        const storyForTTS = usableNarrationText.trim();
         if (storyForTTS.length > 10) {
           try {
             // Henry 2026-05-31: raised char cap from 3000 → 30000 (was capping at ~2 min
