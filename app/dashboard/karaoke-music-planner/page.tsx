@@ -238,6 +238,16 @@ function KaraokeMusicPlannerInner() {
     if (typeof window === "undefined") return false;
     return localStorage.getItem("ghs_karaoke_keep_rvc") === "1";
   });
+  // Henry 2026-05-31 — AI Singing toggles (T2-B + T2-C from KARAOKE_PLAN_05312026.md).
+  // Backend disabled — this server has no GPU. UI ready for GPU activation later.
+  const [keepDiffSinger, setKeepDiffSinger] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ghs_karaoke_keep_diffsinger") === "1";
+  });
+  const [keepBark, setKeepBark] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("ghs_karaoke_keep_bark") === "1";
+  });
   const [mixedOutputUrl, setMixedOutputUrl] = useState<string | null>(null);
 
   // ── Check flow lock ─────────────────────────────────────────────────────────
@@ -1679,19 +1689,39 @@ function KaraokeMusicPlannerInner() {
                   <div style={{ marginTop: 10 }}>
                     <button
                       data-testid="send-to-mv-planner-btn"
-                      onClick={() => router.push(`/dashboard/music-video-planner?karaokeId=${activeRecordingId}`)}
+                      onClick={async () => {
+                        if (!activeRecordingId) return;
+                        setStepStatus(17, "running");
+                        try {
+                          const res = await fetch("/api/music-video/from-karaoke", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ recordingId: activeRecordingId }),
+                          });
+                          const parsed = await safeKaraokeJson<{ projectId: string; redirectUrl: string }>(res, "Music Video Handoff");
+                          if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+                          setStepStatus(17, "done");
+                          showToast(`Music Video project created — opening...`);
+                          setTimeout(() => { window.location.href = parsed.data!.redirectUrl; }, 600);
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : "Handoff failed";
+                          setStepStatus(17, "error", undefined, msg);
+                          showToast(`MV handoff error: ${msg}`);
+                        }
+                      }}
                       style={{
                         padding: "8px 20px",
                         borderRadius: 7,
                         border: "none",
-                        background: "linear-gradient(135deg, #ff9a3c, #d17bff)",
+                        background: steps[17]?.status === "running" ? "rgba(167,139,250,0.3)" : "linear-gradient(135deg, #ff9a3c, #d17bff)",
                         color: "#fff",
                         fontWeight: 700,
                         fontSize: 12,
-                        cursor: "pointer",
+                        cursor: steps[17]?.status === "running" ? "not-allowed" : "pointer",
                         display: "flex",
                         alignItems: "center",
                         gap: 8,
+                        opacity: steps[17]?.status === "running" ? 0.7 : 1,
                       }}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

@@ -77,6 +77,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Recording not found: ${recordingId}` }, { status: 404 });
     }
 
+    // --- License metadata lookup (safe-music policy 2026-05-31) ---
+    const lastMusicGen = await prisma.musicGeneration.findFirst({
+      where: { userId: recording.userId, prompt: { contains: recordingId } },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const trackName = lastMusicGen?.modelName ?? "Stock Library";
+    const trackLicense =
+      lastMusicGen?.providerKey === "stock"
+        ? "Public Domain"
+        : lastMusicGen?.providerKey === "kie"
+        ? "Kie/Suno (commercial via Kie license)"
+        : lastMusicGen?.providerKey === "stable_audio"
+        ? "FAL Stable Audio license"
+        : lastMusicGen?.providerKey === "mubert"
+        ? "Mubert B2B license"
+        : lastMusicGen
+        ? "Unknown"
+        : "Public Domain";
+    const exportTitle = `Karaoke ${recordingId.slice(0, 8)}`;
+    const licenseComment = `Music: ${trackName}; License: ${trackLicense}; Exported: ${new Date().toISOString().slice(0, 10)}; Created with GioHomeStudio (andiostudio.com)`;
+
+    // These args are injected into every ffmpegArgs array before the output path.
+    const metadataArgs: string[] = [
+      "-metadata", `title=${exportTitle}`,
+      "-metadata", `comment=${licenseComment}`,
+      "-metadata", `artist=GioHomeStudio User`,
+      "-metadata", `album=Karaoke Export`,
+      "-metadata", `genre=Karaoke`,
+    ];
+
     // Determine source file
     const mixedUrl = recording.mixedOutputUrl;
     const voiceUrl = recording.fileUrl;
