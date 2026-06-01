@@ -47,7 +47,15 @@ export async function POST(req: NextRequest) {
       productImages,   // optional: string[] of product image URLs to use as visual references
       storyEra,        // "2024", "1819", "899 AD", "300 BC", etc. — era/year lock
       storyCulture,    // "Contemporary Lagos", "Victorian England", "Yoruba Kingdom", etc.
+      wordOverlay,     // Henry 2026-05-31 (#8): burn teaching word onto generated image
+      overlayText,     // the word/phrase to overlay (e.g. "BALL", "APPLE")
     } = body;
+
+    // Henry 2026-05-31 (#8): word overlay — typed defaults, safe for all callers that don't send these fields
+    const enableWordOverlay = body.wordOverlay === true;
+    const overlayWord = (typeof body.overlayText === "string" && body.overlayText.trim().length > 0 && body.overlayText.length < 40)
+      ? body.overlayText.trim().toUpperCase()
+      : null;
 
     // ── VISUAL STYLE DIRECTIVE — shared from src/lib/style-presets.ts ──
     const stylePreset = getStylePreset(projectStyle);
@@ -734,6 +742,43 @@ export async function POST(req: NextRequest) {
         }),
       });
     } catch { /* best effort */ }
+
+    // Henry 2026-05-31 (#8): word overlay — burn the teaching word onto the image
+    // using sharp's text composite. Keeps the original image as a backup at <name>.orig.png
+    // so user can disable later.
+    if (enableWordOverlay && overlayWord) {
+      try {
+        const sharp = (await import("sharp")).default;
+        const meta = await sharp(outputPath).metadata();
+        const W = meta.width || 1024;
+        const H = meta.height || 1024;
+        const fontSize = Math.round(H * 0.16); // 16% of height
+        // Cartoon-friendly: white text + thick black outline, drop shadow.
+        const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="6" dy="6" stdDeviation="3" flood-color="black" flood-opacity="0.6"/>
+        </filter>
+      </defs>
+      <text x="50%" y="${Math.round(H * 0.88)}" text-anchor="middle"
+            font-family="Arial Black, Impact, sans-serif" font-size="${fontSize}"
+            font-weight="900" fill="#FFFFFF" stroke="#000000" stroke-width="${Math.round(fontSize / 14)}"
+            paint-order="stroke" filter="url(#shadow)">${overlayWord.replace(/[<>&]/g, "")}</text>
+    </svg>`;
+        const overlayBuf = Buffer.from(svg);
+        const outBuf = await sharp(outputPath)
+          .composite([{ input: overlayBuf, top: 0, left: 0 }])
+          .png()
+          .toBuffer();
+        // Back up original then overwrite
+        const backupPath = outputPath.replace(/\.png$/i, ".orig.png");
+        try { fs.copyFileSync(outputPath, backupPath); } catch {}
+        fs.writeFileSync(outputPath, outBuf);
+      } catch (overlayErr) {
+        console.warn("[scene-image] word overlay failed:", overlayErr);
+        // non-fatal — return the un-overlaid image
+      }
+    }
 
     // Return local /storage/ URL as imageUrl — CDN URLs (FAL) expire within hours.
     // page.tsx stores this as scene.imageUrl → flows into assembly segment sourceUrl.

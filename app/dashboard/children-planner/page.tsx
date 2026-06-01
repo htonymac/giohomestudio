@@ -85,6 +85,21 @@ const MUSIC_CHOICES = [
   { id: "classroom", label: "Bright Classroom" },
 ];
 
+const MUSIC_GENRES = [
+  { id: "auto",        label: "Auto (Match Mood)" },
+  { id: "afrobeats",   label: "Afrobeats" },
+  { id: "rock",        label: "Rock" },
+  { id: "hiphop",      label: "Hip Hop" },
+  { id: "jazz",        label: "Jazz" },
+  { id: "classical",   label: "Classical" },
+  { id: "lofi",        label: "Lo-Fi" },
+  { id: "pop",         label: "Pop" },
+  { id: "country",     label: "Country" },
+  { id: "reggae",      label: "Reggae" },
+  { id: "electronic",  label: "Electronic" },
+  { id: "world",       label: "World / Folk" },
+];
+
 const VISUAL_STYLES = [
   { id: "storybook",  label: "Storybook",      colors: "#FFF8E1, #FF8A65", desc: "Warm illustrated book style" },
   { id: "cartoon",   label: "Bright Cartoon",  colors: "#E3F2FD, #FF5722", desc: "Bold colorful animation" },
@@ -244,6 +259,7 @@ function ChildrenPlannerInner() {
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
+  const [musicGenre, setMusicGenre] = useState("auto");
   const [visualStyle, setVisualStyle] = useState("storybook");
   const [projectStyle, setProjectStyle] = useState("storybook"); // maps to STYLE_PRESETS in scene-image API
   // ── Per-scene style overrides — keyed by sceneId, falls back to projectStyle ──
@@ -498,6 +514,8 @@ function ChildrenPlannerInner() {
   const [inlinePreview, setInlinePreview] = useState<CharacterIdentity | null>(null);
   const [importingFromPhoto, setImportingFromPhoto] = useState(false);
   const [photoImportLog, setPhotoImportLog] = useState("");
+  // Henry 2026-05-31 (#8): toggle — burn the teaching word onto generated images
+  const [wordOverlayEnabled, setWordOverlayEnabled] = useState(false);
   const [photoImportName, setPhotoImportName] = useState("");
   const [photoDragOver, setPhotoDragOver] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
@@ -526,6 +544,18 @@ function ChildrenPlannerInner() {
   const styleProgress = narrationStyle && visualStyle && musicChoice ? 100 : 0;
   const previewProgress = generatedVideoUrl ? 100 : 0;
   const reviewProgress = (review1Done ? 50 : 0) + (review2Done ? 50 : 0);
+
+  // Henry 2026-05-31 (#8): extract the teaching word from a scene title.
+  // "B is for Ball" → "BALL", "Word Magic: BAG" → "BAG", "Apple lesson" → "APPLE".
+  // Heuristic: prefer the last ALL-CAPS word; fall back to the last word of the title.
+  function extractTeachingWord(title: string | undefined): string | undefined {
+    if (!title) return undefined;
+    const capsMatch = title.match(/\b([A-Z]{2,})\b/g);
+    if (capsMatch && capsMatch.length > 0) return capsMatch[capsMatch.length - 1];
+    const words = title.trim().split(/\s+/);
+    const last = words[words.length - 1]?.replace(/[^a-zA-Z]/g, "");
+    return last && last.length > 1 ? last.toUpperCase() : undefined;
+  }
 
   // ── Expand content with AI ──
   async function expandContent() {
@@ -1399,6 +1429,8 @@ function ChildrenPlannerInner() {
           modelId: effectiveImageModelId,
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
+          wordOverlay: wordOverlayEnabled,
+          overlayText: extractTeachingWord(scene.title),
         }),
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
@@ -1504,6 +1536,8 @@ function ChildrenPlannerInner() {
             storyCulture: storyCulture || undefined,
             // Unique seed per image so retries on the same description still produce variation.
             seed: Math.floor(Math.random() * 1e9),
+            wordOverlay: wordOverlayEnabled,
+            overlayText: extractTeachingWord(scene.title),
           }),
         });
         const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, `child-beat-${bi}`);
@@ -1581,6 +1615,8 @@ function ChildrenPlannerInner() {
               storyEra: storyEra || undefined,
               storyCulture: storyCulture || undefined,
               seed: seeds[i],
+              wordOverlay: wordOverlayEnabled,
+              overlayText: extractTeachingWord(scene.title),
             }),
           });
           const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, `scene-variation-${i}`);
@@ -2656,6 +2692,7 @@ function ChildrenPlannerInner() {
           prompt: `${musicMood} background music for a children's story`,
           durationSeconds: 20,
           providerKey: resolvedProviderKey,
+          genre: musicGenre === "auto" ? undefined : musicGenre,
         }),
       });
       if (!res.ok) {
@@ -2711,6 +2748,7 @@ function ChildrenPlannerInner() {
             prompt: `${musicMood} background music for a children's story`,
             durationSeconds: 20,
             providerKey: contentProviderKey,
+            genre: musicGenre === "auto" ? undefined : musicGenre,
           }),
         });
         const musicData = await safeJson<{ url?: string; audioUrl?: string; fallbackReason?: string }>(musicRes, "music/generate");
@@ -2819,6 +2857,7 @@ function ChildrenPlannerInner() {
             if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
             if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
             if (d.musicChoice)      setMusicChoice(d.musicChoice);
+            if (d.musicGenre)       setMusicGenre(d.musicGenre);
             if (d.ageGroup)         setAgeGroup(d.ageGroup);
             if (d.safetyLevel)      setSafetyLevel(d.safetyLevel);
             if (d.learningMode)     setLearningMode(d.learningMode);
@@ -2861,6 +2900,8 @@ function ChildrenPlannerInner() {
             if (d.audioPlans && Object.keys(d.audioPlans).length > 0) setAudioPlans(d.audioPlans);
             if (d.establishingShotsChild && Object.keys(d.establishingShotsChild).length > 0) setEstablishingShotsChild(d.establishingShotsChild);
             if (d.establishingModeChild) setEstablishingModeChild(d.establishingModeChild);
+            // Henry 2026-05-31 (#8): restore word-on-image toggle
+            if (typeof d.wordOverlayEnabled === "boolean") setWordOverlayEnabled(d.wordOverlayEnabled);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -2928,7 +2969,7 @@ function ChildrenPlannerInner() {
     if (isRestoringRef.current) return;
     const data = {
       projectTitle,
-      textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
+      textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, musicGenre,
       ageGroup, safetyLevel, learningMode,
       storyEra, storyCulture,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
@@ -2947,6 +2988,8 @@ function ChildrenPlannerInner() {
       // Assembly selection (Henry 2026-05-31 children-planner assemble fix): persist which
       // scenes the user picked + their per-scene media preference, so reopen doesn't reset.
       assemblySelectedIds, assemblyMediaPrefs,
+      // Henry 2026-05-31 (#8): word-on-image toggle — persists across refresh
+      wordOverlayEnabled,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
@@ -2955,7 +2998,7 @@ function ChildrenPlannerInner() {
       body: JSON.stringify({ localId: activeProjectIdRef.current || "ghs_children_default", data }),
     }).catch(() => { /* silent on DB error */ });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, ageGroup, safetyLevel,
+  }, [projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, musicGenre, ageGroup, safetyLevel,
       storyEra, storyCulture,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       sceneBeatImages, selectedBeatImages, useMaxImageScenes,
@@ -2963,7 +3006,7 @@ function ChildrenPlannerInner() {
       selectedMusicUrl, selectedMusicName, soundTier, modelSettings, activeTab, characters,
       pacingPlan, pacingAudioUrl, pacingVideoUrl, pacingTimingMap, audioPlans,
       establishingShotsChild, establishingModeChild,
-      assemblySelectedIds, assemblyMediaPrefs]);
+      assemblySelectedIds, assemblyMediaPrefs, wordOverlayEnabled]);
 
   // ── Load project list for "My Projects" panel ──
   useEffect(() => {
@@ -3563,7 +3606,7 @@ Rules:
   async function flushCurrentProject() {
     const id = activeProjectIdRef.current || "ghs_children_default";
     const data = {
-      projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice,
+      projectTitle, textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, musicGenre,
       ageGroup, safetyLevel, learningMode, savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
       sceneBeatImages, selectedBeatImages,  // Gen Max beats — survive flush + reload
       useMaxImageScenes: Array.from(useMaxImageScenes),  // per-scene "use multi-image" opt-in
@@ -3620,6 +3663,7 @@ Rules:
         if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
         if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
         if (d.musicChoice)      setMusicChoice(d.musicChoice);
+        if (d.musicGenre)       setMusicGenre(d.musicGenre);
         if (d.ageGroup)         setAgeGroup(d.ageGroup);
         if (d.safetyLevel)      setSafetyLevel(d.safetyLevel);
         if (d.learningMode)     setLearningMode(d.learningMode);
@@ -4940,6 +4984,17 @@ Rules:
             })}
           </div>
 
+          {/* Henry 2026-05-31 (#8): word-on-image toggle for letter/word teaching scenes */}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: wordOverlayEnabled ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${wordOverlayEnabled ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.08)"}`, cursor: "pointer", marginBottom: 20 }}>
+            <input type="checkbox" checked={wordOverlayEnabled} onChange={e => setWordOverlayEnabled(e.target.checked)} style={{ width: 14, height: 14, accentColor: "#a78bfa" }} />
+            <div style={{ fontSize: 11, color: wordOverlayEnabled ? "#a78bfa" : "#aaa" }}>
+              <strong>Words on image</strong>
+              <div style={{ fontSize: 9, color: "#7b7b80", marginTop: 2 }}>
+                Burn the teaching word (BAG, APPLE, etc.) onto the generated picture
+              </div>
+            </div>
+          </label>
+
           {/* Music */}
           <p style={labelStyle}>Background Music</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 6, marginBottom: 20 }}>
@@ -4947,6 +5002,17 @@ Rules:
               <button key={m.id} onClick={() => { setMusicChoice(m.id); setLastAction(`Music: ${m.label}`); }}
                 style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${musicChoice === m.id ? childAccent : border}`, background: musicChoice === m.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center" }}>
                 <p style={{ fontSize: 9, fontWeight: 600, color: musicChoice === m.id ? childAccent : "#fff" }}>{m.label}</p>
+              </button>
+            ))}
+          </div>
+
+          {/* Henry 2026-05-31 (#6 #10): genre picker — auto means mood-driven */}
+          <p style={labelStyle}>Music Genre</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, marginBottom: 20 }}>
+            {MUSIC_GENRES.map(g => (
+              <button key={g.id} onClick={() => { setMusicGenre(g.id); setLastAction(`Genre: ${g.label}`); }}
+                style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${musicGenre === g.id ? childAccent : border}`, background: musicGenre === g.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center" }}>
+                <p style={{ fontSize: 9, fontWeight: 600, color: musicGenre === g.id ? childAccent : "#fff" }}>{g.label}</p>
               </button>
             ))}
           </div>
