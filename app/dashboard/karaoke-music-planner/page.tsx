@@ -543,9 +543,9 @@ function KaraokeMusicPlannerInner() {
           selectedBeatFamily: selectedBeatFamily || "Afro Light Groove",
         }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      const brief: ProductionBrief = data.productionBrief;
+      const parsed = await safeKaraokeJson<{ productionBrief: ProductionBrief }>(res, "Production Brief");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      const brief: ProductionBrief = parsed.data.productionBrief;
       setProductionBrief(brief);
       setBriefInstructions(brief.instructions);
       setStepStatus(9, "done");
@@ -593,18 +593,20 @@ function KaraokeMusicPlannerInner() {
           providerKey,
         }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) {
-        if (data.locked) {
-          setStepStatus(10, "locked", undefined, data.lockReasons?.join(", "));
-          showToast(`Flow lock: ${data.lockReasons?.join(" · ")}`);
-          return;
-        }
-        throw new Error(data.error);
+      const parsed = await safeKaraokeJson<{ generatedMusicUrl: string; provider: string; mode: string; locked?: boolean; lockReasons?: string[] }>(res, "Music Generation");
+      if (!parsed.ok || !parsed.data) {
+        // Check if raw text indicates a lock response — fall back to error path
+        throw new Error(parsed.error || "Unknown");
       }
-      setGeneratedMusicUrl(data.generatedMusicUrl);
-      setStepStatus(10, "done", { provider: data.provider, url: data.generatedMusicUrl });
-      showToast(`Music generated via ${data.provider} — ${data.mode === "B" ? "karaoke mode" : "track ready"}`);
+      if (parsed.data.locked) {
+        setStepStatus(10, "locked", undefined, parsed.data.lockReasons?.join(", "));
+        showToast(`Flow lock: ${parsed.data.lockReasons?.join(" · ")}`);
+        return;
+      }
+      if (!res.ok) throw new Error(parsed.error || "Music generation failed");
+      setGeneratedMusicUrl(parsed.data.generatedMusicUrl);
+      setStepStatus(10, "done", { provider: parsed.data.provider, url: parsed.data.generatedMusicUrl });
+      showToast(`Music generated via ${parsed.data.provider} — ${parsed.data.mode === "B" ? "karaoke mode" : "track ready"}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Generation failed";
       setStepStatus(10, "error", undefined, msg);
@@ -627,10 +629,10 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setMixedOutputUrl(data.mixedOutputUrl);
-      setStepStatus(15, "done", { url: data.mixedOutputUrl });
+      const parsed = await safeKaraokeJson<{ mixedOutputUrl: string }>(res, "Final Assembly");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setMixedOutputUrl(parsed.data.mixedOutputUrl);
+      setStepStatus(15, "done", { url: parsed.data.mixedOutputUrl });
       showToast("Final assembly complete — voice + music merged.");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Assembly failed";
@@ -650,11 +652,11 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId, format: exportFormat }),
       });
-      const data = await res.json();
-      if (!res.ok || data.error) throw new Error(data.error);
-      setExportUrls(data.exportedFiles || []);
-      setStepStatus(16, "done", { url: data.downloadUrl });
-      showToast(`Export ready: ${exportFormat} — ${data.downloadUrl}`);
+      const parsed = await safeKaraokeJson<{ exportedFiles?: { format: string; url: string }[]; downloadUrl: string }>(res, "Export");
+      if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
+      setExportUrls(parsed.data.exportedFiles || []);
+      setStepStatus(16, "done", { url: parsed.data.downloadUrl });
+      showToast(`Export ready: ${exportFormat} — ${parsed.data.downloadUrl}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Export failed";
       setStepStatus(16, "error", undefined, msg);

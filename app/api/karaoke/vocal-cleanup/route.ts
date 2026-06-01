@@ -134,10 +134,14 @@ function runDemucs(inputDiskPath: string, outDir: string): Promise<string | null
   return new Promise((resolve) => {
     const TIMEOUT_MS = 600_000; // 10 minutes
 
+    // Henry 2026-05-31: --segment 10 processes audio in 10-sec chunks — much more
+    // stable on long/edge inputs that previously errored around 80% progress.
     const proc = spawn("/home/ghs/.local/bin/demucs", [
       "--two-stems=vocals",
       "-n",
       "htdemucs",
+      "--segment",
+      "10",
       "-o",
       outDir,
       inputDiskPath,
