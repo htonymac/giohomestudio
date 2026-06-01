@@ -130,6 +130,12 @@ export default function KaraokeMusicCreatorPage() {
   const [showLibrary, setShowLibrary] = useState(false);
   const [libraryAssets, setLibraryAssets] = useState<{id: string; fileName?: string; fileUrl?: string; name?: string}[]>([]);
 
+  // Henry 2026-05-31: pick-beat-first state
+  const [beats, setBeats] = useState<Array<{ id: string; filename: string; mood: string; genre: string; audioUrl: string; license: string }>>([]);
+  const [beatsLoading, setBeatsLoading] = useState(true);
+  const [pickedBeatId, setPickedBeatId] = useState<string | null>(null);
+  const [pickedBeatUrl, setPickedBeatUrl] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showToast = useCallback((msg: string) => setToastMsg(msg), []);
@@ -164,6 +170,25 @@ export default function KaraokeMusicCreatorPage() {
   useEffect(() => {
     loadRecent();
   }, [loadRecent]);
+
+  // ── Fetch safe beats for pick-beat-first surface ──────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/karaoke/beats-library?safeOnly=1")
+      .then((r) => r.json())
+      .then((data: { beats?: typeof beats }) => {
+        if (cancelled) return;
+        setBeats(data.beats || []);
+        setBeatsLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setBeatsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Restore mode on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -812,6 +837,51 @@ export default function KaraokeMusicCreatorPage() {
           </p>
         </div>
       </div>
+
+      {/* Henry 2026-05-31: Pick-a-beat-first surface for safe Free Mode singing.
+          Shows commercial-safe free beats; user clicks one to load it as their backing.
+          Then records voice on top instead of having AI choose music after the fact. */}
+      <section style={{ marginTop: 24, padding: 16, background: "rgba(167,139,250,0.04)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 14, color: "#fff" }}>🎵 Pick a free beat</h3>
+          <span style={{ fontSize: 10, color: "#7b7b80" }}>Safe to sing or rap over — public domain only</span>
+        </div>
+        {beatsLoading && <p style={{ fontSize: 11, color: "#7b7b80" }}>Loading beats…</p>}
+        {!beatsLoading && beats.length === 0 && <p style={{ fontSize: 11, color: "#7b7b80" }}>No safe beats found.</p>}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 10 }}>
+          {beats.map((b) => {
+            const isPicked = pickedBeatId === b.id;
+            return (
+              <div
+                key={b.id}
+                style={{
+                  padding: 10,
+                  borderRadius: 10,
+                  background: isPicked ? "rgba(167,139,250,0.18)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${isPicked ? "rgba(167,139,250,0.5)" : "rgba(255,255,255,0.08)"}`,
+                  cursor: "pointer",
+                }}
+                onClick={() => {
+                  setPickedBeatId(b.id);
+                  setPickedBeatUrl(b.audioUrl);
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: "#fff", textOverflow: "ellipsis", overflow: "hidden", whiteSpace: "nowrap" }}>
+                  {b.filename.split("/").pop()?.replace(/\.mp3$/i, "").replace(/[_-]/g, " ")}
+                </p>
+                <p style={{ margin: "3px 0 0", fontSize: 10, color: "#a78bfa" }}>{b.mood} · {b.genre}</p>
+                <audio controls src={b.audioUrl} style={{ width: "100%", marginTop: 6, height: 22 }} />
+                <p style={{ margin: "4px 0 0", fontSize: 9, color: "#7b7b80" }}>{b.license}</p>
+              </div>
+            );
+          })}
+        </div>
+        {pickedBeatId && (
+          <div style={{ marginTop: 12, padding: 10, background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.3)", borderRadius: 8 }}>
+            <p style={{ margin: 0, fontSize: 11, color: "#22c55e" }}>✓ Beat picked. Hit record above to sing/rap over it.</p>
+          </div>
+        )}
+      </section>
     </div>
   );
 }
