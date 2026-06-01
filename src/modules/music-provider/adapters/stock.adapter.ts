@@ -13,6 +13,7 @@ let cachedManifest: Array<{
   filename: string;
   mood?: string;
   genre?: string;
+  bpm?: number | null;
   safeForFreeUser?: boolean;
   blocked?: boolean;
 }> | null = null;
@@ -80,7 +81,7 @@ function findFile(stockDir: string, candidates: string[]): string | null {
 // fell back to a generic track. "voice is afro, sound is default" frustration.
 export type PickResult = { path: string; matchQuality: "exact" | "approximate" | "fallback" };
 
-function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string): PickResult | null {
+function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: string, tempo?: number): PickResult | null {
   const searchText = `${prompt} ${genre ?? ""} ${mood ?? ""}`.toLowerCase();
 
   // Try manifest-based match first — score each entry by genre + mood overlap with
@@ -97,6 +98,12 @@ function pickTrack(stockDir: string, prompt: string, genre?: string, mood?: stri
       const fn = entry.filename.toLowerCase();
       for (const kw of searchText.split(/\s+/).filter(Boolean)) {
         if (kw.length >= 4 && fn.includes(kw)) score += 1;
+      }
+      // BPM proximity bonus — within 10 BPM = +2; within 20 = +1; otherwise 0
+      if (tempo && entry.bpm && entry.bpm > 0) {
+        const delta = Math.abs(tempo - entry.bpm);
+        if (delta <= 10) score += 2;
+        else if (delta <= 20) score += 1;
       }
       if (!best || score > best.score) {
         // RANDOMIZE among ties so same request doesn't always return same track
@@ -161,7 +168,8 @@ class StockAdapter implements MusicProviderAdapter {
 
   async generate(input: MusicGenerateInput): Promise<MusicGenerateOutput> {
     const stockDir = getStockDir();
-    const picked = pickTrack(stockDir, input.prompt, input.genre, input.mood);
+    const reqTempo = typeof (input as { tempo?: number }).tempo === "number" ? (input as { tempo?: number }).tempo : undefined;
+    const picked = pickTrack(stockDir, input.prompt, input.genre, input.mood, reqTempo);
 
     if (picked) {
       // Resolve to a SERVED URL relative to /api/media/music/stock/ (handles freepd/ too).
