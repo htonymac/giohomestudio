@@ -833,44 +833,79 @@ export async function POST(req: NextRequest) {
       );
       const escapedText = escapedCapLines.join("\\n");
       const captionAnim = `:alpha='if(lt(t,0.8),t/0.8,1)'`;
+      // Henry 2026-05-31 (#1): SUBTITLE-DISAPPEARED FIX
+      // Old code wrapped everything in a single silent try/catch — when the
+      // complex chunked alpha-fade expression failed to parse in ffmpeg
+      // (it's strict about quote escaping inside :alpha=), the whole filter
+      // failed and the catch dropped the error → assembled video kept all
+      // audio + image but had NO subtitle. Now: build the filter, log it,
+      // try it, and on failure fall back to a SIMPLE chunked enable= filter
+      // without alpha-fade. That filter is much more robust.
+      const subCfg = body.subtitleConfig;
+      const hexToFfmpeg = (hex?: string) => hex && /^#[0-9a-fA-F]{6}$/.test(hex) ? `0x${hex.slice(1)}` : "white";
+      const fs = preset?.size ?? (subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(96, subCfg.fontSize) : 36);
+      const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
+      const borderCol = preset?.outline ? hexToFfmpeg(preset.outline) : "black";
+      const borderW = preset?.bord ?? 2;
+      const bgOn = preset?.box ?? subCfg?.bgBox ?? false;
+      const bgOp2 = Math.min(1, Math.max(0, preset?.boxAlpha ?? subCfg?.bgOpacity ?? 0.6));
+      const bgP = bgOn ? `:box=1:boxcolor=black@${bgOp2.toFixed(2)}:boxborderw=10` : "";
+      const allWds = body.caption!.split(/\s+/).filter(Boolean);
+      const CHUNK = preset && subMode === "mrbeast_single" ? 1 : 5;
+      const grp: string[] = [];
+      for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
+      const SEC = preset && subMode === "mrbeast_single" ? 0.6 : 1.6;
+      const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
+
+      // BUILD A: rich filter with alpha fade-in/out (preferred — what was here before)
+      const richParts = grp.map((g, idx) => {
+        const s0 = idx * SEC;
+        const s1 = s0 + SEC + 0.4;
+        const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
+        const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
+      });
+      const richFilter = richParts.length > 0 ? richParts.join(",") :
+        `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
+
+      // BUILD B: simple fallback — enable= only, no alpha fade. Much more robust.
+      const simpleParts = grp.map((g, idx) => {
+        const s0 = idx * SEC;
+        const s1 = s0 + SEC + 0.4;
+        const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}`;
+      });
+      const simpleFilter = simpleParts.length > 0 ? simpleParts.join(",") :
+        `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10`;
+
+      let burned = false;
       try {
         await execFileAsync(ffmpeg, [
           "-i", finalPath,
-          "-vf", (() => {
-            // Henry 2026-05-30: respect subtitleConfig + stagger across video so subtitles
-            // don't sit stuck 5 sec at hardcoded fontsize=28 white. Plus mode preset wins
-            // over subCfg when the user picked a named mode (Dance Word / Kids / etc.) so
-            // the choice is visibly distinct, not silently dropped.
-            const subCfg = body.subtitleConfig;
-            const hexToFfmpeg = (hex?: string) => hex && /^#[0-9a-fA-F]{6}$/.test(hex) ? `0x${hex.slice(1)}` : "white";
-            const fs = preset?.size ?? (subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(96, subCfg.fontSize) : 36);
-            const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
-            const borderCol = preset?.outline ? hexToFfmpeg(preset.outline) : "black";
-            const borderW = preset?.bord ?? 2;
-            const bgOn = preset?.box ?? subCfg?.bgBox ?? false;
-            const bgOp2 = Math.min(1, Math.max(0, preset?.boxAlpha ?? subCfg?.bgOpacity ?? 0.6));
-            const bgP = bgOn ? `:box=1:boxcolor=black@${bgOp2.toFixed(2)}:boxborderw=10` : "";
-            const allWds = body.caption!.split(/\s+/).filter(Boolean);
-            // mrbeast_single = 1 word per chunk for maximum impact; otherwise 5 words.
-            const CHUNK = preset && subMode === "mrbeast_single" ? 1 : 5;
-            const grp: string[] = [];
-            for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
-            const SEC = preset && subMode === "mrbeast_single" ? 0.6 : 1.6;
-            const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
-            const parts = grp.map((g, idx) => {
-              const s0 = idx * SEC;
-              const s1 = s0 + SEC + 0.4;
-              const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
-              const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
-              return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
-            });
-            return parts.length > 0 ? parts.join(",") :
-              `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
-          })(),
+          "-vf", richFilter,
           "-c:a", "copy", "-y", captionOutput,
         ], { timeout: 120000 });
         finalPath = captionOutput;
-      } catch { /* drawtext failed — skip caption */ }
+        burned = true;
+      } catch (drawErrRich) {
+        console.warn("[assemble.subtitle] RICH drawtext failed, trying SIMPLE fallback:",
+          (drawErrRich as Error)?.message?.slice(0, 200));
+      }
+      if (!burned) {
+        try {
+          await execFileAsync(ffmpeg, [
+            "-i", finalPath,
+            "-vf", simpleFilter,
+            "-c:a", "copy", "-y", captionOutput,
+          ], { timeout: 120000 });
+          finalPath = captionOutput;
+          burned = true;
+          console.warn("[assemble.subtitle] SIMPLE fallback succeeded");
+        } catch (drawErrSimple) {
+          console.error("[assemble.subtitle] BOTH drawtext attempts failed — subtitle skipped:",
+            (drawErrSimple as Error)?.message?.slice(0, 200));
+        }
+      }
     }
 
     // ── Step 5d: Burn sticker overlays via FFmpeg drawellipse / drawbox ──
