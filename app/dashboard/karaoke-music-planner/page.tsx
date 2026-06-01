@@ -230,7 +230,7 @@ function KaraokeMusicPlannerInner() {
   const [briefInstructions, setBriefInstructions] = useState("");
   const [generatedMusicUrl, setGeneratedMusicUrl] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState("mp3");
-  const [exportUrls, setExportUrls] = useState<{format: string; url: string}[]>([]);
+  const [exportUrls, setExportUrls] = useState<{format: string; url: string; licenseFileUrl?: string}[]>([]);
   // Henry 2026-05-31: per-user toggle for RVC voice-enhancement. Default OFF since
   // Contabo server has no GPU (CPU mode adds ~10–20 min per recording). Persisted
   // in localStorage so the choice survives reloads.
@@ -249,6 +249,11 @@ function KaraokeMusicPlannerInner() {
     return localStorage.getItem("ghs_karaoke_keep_bark") === "1";
   });
   const [mixedOutputUrl, setMixedOutputUrl] = useState<string | null>(null);
+
+  // Simulated progress bars for Step 2 (Demucs ~1 min) and Step 4 (Basic Pitch ~30s).
+  // null = not running; number = 0–100 (stops at 90 until real response arrives).
+  const [step2Progress, setStep2Progress] = useState<number | null>(null);
+  const [step4Progress, setStep4Progress] = useState<number | null>(null);
 
   // ── Check flow lock ─────────────────────────────────────────────────────────
 
@@ -429,6 +434,15 @@ function KaraokeMusicPlannerInner() {
   const runVocalCleanup = useCallback(async () => {
     if (!activeRecordingId) return;
     setStepStatus(2, "running");
+    // Simulated progress: creeps to 90%, waits for real response, cleared in finally.
+    setStep2Progress(0);
+    const tick2 = setInterval(() => {
+      setStep2Progress(p => {
+        if (p === null) return 5;
+        if (p >= 90) return p;
+        return p + (Math.random() * 3 + 1);
+      });
+    }, 1000);
     try {
       const res = await fetch("/api/karaoke/vocal-cleanup", {
         method: "POST",
@@ -443,6 +457,9 @@ function KaraokeMusicPlannerInner() {
       const msg = err instanceof Error ? err.message : "Vocal cleanup failed";
       setStepStatus(2, "error", undefined, msg);
       showToast(`Vocal cleanup error: ${msg}`);
+    } finally {
+      clearInterval(tick2);
+      setStep2Progress(null);
     }
   }, [activeRecordingId, showToast]);
 
@@ -451,6 +468,15 @@ function KaraokeMusicPlannerInner() {
   const runMelodyExtract = useCallback(async () => {
     if (!activeRecordingId) return;
     setStepStatus(4, "running");
+    // Simulated progress: faster tick (600ms) — Basic Pitch is ~30s.
+    setStep4Progress(0);
+    const tick4 = setInterval(() => {
+      setStep4Progress(p => {
+        if (p === null) return 5;
+        if (p >= 90) return p;
+        return p + (Math.random() * 3 + 1);
+      });
+    }, 600);
     try {
       const res = await fetch("/api/karaoke/melody-extract", {
         method: "POST",
@@ -465,6 +491,9 @@ function KaraokeMusicPlannerInner() {
       const msg = err instanceof Error ? err.message : "Melody extract failed";
       setStepStatus(4, "error", undefined, msg);
       showToast(`Melody extract error: ${msg}`);
+    } finally {
+      clearInterval(tick4);
+      setStep4Progress(null);
     }
   }, [activeRecordingId, showToast]);
 
@@ -652,10 +681,14 @@ function KaraokeMusicPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ recordingId: activeRecordingId, format: exportFormat }),
       });
-      const parsed = await safeKaraokeJson<{ exportedFiles?: { format: string; url: string }[]; downloadUrl: string }>(res, "Export");
+      const parsed = await safeKaraokeJson<{ exportedFiles?: { format: string; url: string; licenseFileUrl?: string }[]; downloadUrl: string; format?: string; licenseFileUrl?: string }>(res, "Export");
       if (!parsed.ok || !parsed.data) throw new Error(parsed.error || "Unknown");
       setExportUrls(parsed.data.exportedFiles || []);
-      setStepStatus(16, "done", { url: parsed.data.downloadUrl });
+      setStepStatus(16, "done", {
+        url: parsed.data.downloadUrl,
+        format: parsed.data.format ?? "mp3",
+        licenseFileUrl: parsed.data.licenseFileUrl,
+      } as unknown as Record<string, unknown>);
       showToast(`Export ready: ${exportFormat} — ${parsed.data.downloadUrl}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Export failed";
@@ -1111,6 +1144,11 @@ function KaraokeMusicPlannerInner() {
                     >
                       {steps[2]?.status === "running" ? "Running Demucs (~1 min)…" : steps[2]?.status === "done" ? "Re-run Vocal Cleanup" : "Run Vocal Cleanup"}
                     </button>
+                    {steps[2]?.status === "running" && step2Progress !== null && (
+                      <div style={{ marginTop: 6, height: 4, background: "rgba(122,224,195,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.min(100, step2Progress).toFixed(0)}%`, background: "#7ae0c3", transition: "width 0.5s ease" }} />
+                      </div>
+                    )}
                     <p style={{ margin: "4px 0 0", fontSize: 9, color: "#55555a" }}>
                       Demucs separates your voice from background noise. ~1 minute per 60s recording on CPU.
                     </p>
@@ -1185,6 +1223,11 @@ function KaraokeMusicPlannerInner() {
                     >
                       {steps[4]?.status === "running" ? "Running Basic Pitch (~30s)…" : steps[4]?.status === "done" ? "Re-run Melody Extract" : "Run Melody Extraction"}
                     </button>
+                    {steps[4]?.status === "running" && step4Progress !== null && (
+                      <div style={{ marginTop: 6, height: 4, background: "rgba(122,224,195,0.08)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${Math.min(100, step4Progress).toFixed(0)}%`, background: "#7ae0c3", transition: "width 0.5s ease" }} />
+                      </div>
+                    )}
                     <p style={{ margin: "4px 0 0", fontSize: 9, color: "#55555a" }}>
                       Basic Pitch converts your voice to MIDI notes — used to match music key to your singing.
                     </p>
@@ -1628,6 +1671,25 @@ function KaraokeMusicPlannerInner() {
                         >
                           Download
                         </a>
+                        {ex.licenseFileUrl && (
+                          <a
+                            href={ex.licenseFileUrl}
+                            download
+                            style={{
+                              display: "inline-block",
+                              padding: "3px 8px",
+                              borderRadius: 4,
+                              background: "rgba(122,224,195,0.08)",
+                              color: "#7ae0c3",
+                              fontSize: 10,
+                              textDecoration: "none",
+                              border: "1px solid rgba(122,224,195,0.25)",
+                            }}
+                            title="Royalty-free license info for this export"
+                          >
+                            📜 License info (.txt)
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -1688,23 +1750,45 @@ function KaraokeMusicPlannerInner() {
                         </button>
                       ))}
                     </div>
-                    <button
-                      data-testid="run-export-btn"
-                      onClick={runExport}
-                      disabled={steps[16]?.status === "running"}
-                      style={{
-                        padding: "7px 18px",
-                        borderRadius: 7,
-                        border: "none",
-                        background: steps[16]?.status === "running" ? "rgba(167,139,250,0.3)" : "#a78bfa",
-                        color: "#fff",
-                        fontWeight: 700,
-                        fontSize: 12,
-                        cursor: steps[16]?.status === "running" ? "not-allowed" : "pointer",
-                      }}
-                    >
-                      {steps[16]?.status === "running" ? "Exporting…" : `Export as ${exportFormat}`}
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+                      <button
+                        data-testid="run-export-btn"
+                        onClick={runExport}
+                        disabled={steps[16]?.status === "running"}
+                        style={{
+                          padding: "7px 18px",
+                          borderRadius: 7,
+                          border: "none",
+                          background: steps[16]?.status === "running" ? "rgba(167,139,250,0.3)" : "#a78bfa",
+                          color: "#fff",
+                          fontWeight: 700,
+                          fontSize: 12,
+                          cursor: steps[16]?.status === "running" ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {steps[16]?.status === "running" ? "Exporting…" : `Export as ${exportFormat}`}
+                      </button>
+                      {steps[16]?.output && (steps[16].output as { licenseFileUrl?: string }).licenseFileUrl && (
+                        <a
+                          href={(steps[16].output as { licenseFileUrl?: string }).licenseFileUrl}
+                          download
+                          style={{
+                            display: "inline-block",
+                            marginTop: 6, marginLeft: 8,
+                            padding: "3px 8px",
+                            borderRadius: 4,
+                            background: "rgba(122,224,195,0.08)",
+                            color: "#7ae0c3",
+                            fontSize: 10,
+                            textDecoration: "none",
+                            border: "1px solid rgba(122,224,195,0.25)",
+                          }}
+                          title="Royalty-free license info for this export"
+                        >
+                          📜 License info (.txt)
+                        </a>
+                      )}
+                    </div>
                   </div>
                 )}
 
