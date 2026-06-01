@@ -206,6 +206,37 @@ function KaraokeMusicPlannerInner() {
       setActiveRecordingId(qRecordingId);
     }
   }, [qRecordingId, activeRecordingId]);
+
+  // Sync ?mode= URL param → state on hydration race (same pattern as qRecordingId above)
+  useEffect(() => {
+    const rawMode = searchParams.get("mode");
+    if (rawMode && (["A","B","C","D","E"] as string[]).includes(rawMode) && rawMode !== activeMode) {
+      setActiveMode(rawMode as KaraokeMode);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Henry 2026-06-01: deep-link URL state for sharing/bookmarking
+  // Writes ?recordingId=…&?mode=… back to the URL whenever they change.
+  // Uses replaceState (not pushState) so back-button history stays clean.
+  // Debounced 200ms to avoid history spam on rapid clicks.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handle = setTimeout(() => {
+      const search = new URLSearchParams(window.location.search);
+      if (activeRecordingId) search.set("recordingId", activeRecordingId);
+      else search.delete("recordingId");
+      if (activeMode && activeMode !== "A") search.set("mode", activeMode);
+      else search.delete("mode");
+      const next = search.toString();
+      const url = `/dashboard/karaoke-music-planner${next ? `?${next}` : ""}`;
+      if (url !== window.location.pathname + window.location.search) {
+        window.history.replaceState(null, "", url);
+      }
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [activeRecordingId, activeMode]);
+
   const [recording, setRecording] = useState<Recording | null>(null);
   const [allTakes, setAllTakes] = useState<Recording[]>([]);
   const [steps, setSteps] = useState<Record<number, StepState>>(() => {

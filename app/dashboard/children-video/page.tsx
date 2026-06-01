@@ -449,6 +449,7 @@ export default function ChildrenVideoPage() {
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const [showAgeInfo, setShowAgeInfo] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<{ topic: string; prompt: string } | null>(null);
+  const [topicFilter, setTopicFilter] = useState("");
 
   // ── Character import from DB ──
   const [characters, setCharacters] = useState<SavedCharacter[]>([]);
@@ -629,7 +630,7 @@ export default function ChildrenVideoPage() {
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
               {AGE_GROUPS.map(a => (
-                <button key={a.id} onClick={() => { setAgeGroup(a.id); setContentType(""); setSelectedTopic(null); setShowAgeInfo(true); }}
+                <button key={a.id} onClick={() => { setAgeGroup(a.id); setContentType(""); setSelectedTopic(null); setTopicFilter(""); setShowAgeInfo(true); }}
                   style={{ padding: "14px 10px", borderRadius: 12, border: `1px solid ${ageGroup === a.id ? childAccent : border}`, background: ageGroup === a.id ? `${childAccent}10` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
                   <p style={{ fontSize: 13, fontWeight: 600, color: ageGroup === a.id ? childAccent : "#fff" }}>{a.label}</p>
                   <p style={{ fontSize: 10, color: muted }}>{a.age}</p>
@@ -696,7 +697,7 @@ export default function ChildrenVideoPage() {
                 </p>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
                   {currentContentTypes.map(c => (
-                    <button key={c.id} onClick={() => { setContentType(c.id); setSelectedTopic(null); }}
+                    <button key={c.id} onClick={() => { setContentType(c.id); setSelectedTopic(null); setTopicFilter(""); }}
                       style={{ padding: "12px 10px", borderRadius: 12, border: `1px solid ${contentType === c.id ? childAccent : border}`, background: contentType === c.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
                       <span style={{ fontSize: 20, display: "block", marginBottom: 4 }}>{c.icon}</span>
                       <p style={{ fontSize: 11, fontWeight: 600, color: contentType === c.id ? childAccent : "#fff" }}>{c.label}</p>
@@ -722,8 +723,44 @@ export default function ChildrenVideoPage() {
                 <p style={{ fontSize: 9, color: "#3d5060", marginBottom: 10 }}>
                   These are curriculum-backed topics for {currentAgeConfig?.label}. Select one to pre-fill the planner, or skip and write your own.
                 </p>
+                {/* Henry 2026-06-01: topic search filter — for content types with many topics */}
+                {currentTopics.length > 6 && (
+                  <div style={{ marginBottom: 12 }}>
+                    <input
+                      type="text"
+                      value={topicFilter}
+                      onChange={e => setTopicFilter(e.target.value)}
+                      placeholder={`Search ${currentTopics.length} topics…`}
+                      style={{
+                        width: "100%",
+                        boxSizing: "border-box",
+                        padding: "8px 12px",
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 8,
+                        color: "#fff",
+                        fontSize: 12,
+                        outline: "none",
+                      }}
+                    />
+                    {topicFilter.trim() && (
+                      <p style={{ margin: "4px 0 0", fontSize: 10, color: "#7b7b80" }}>
+                        Showing {currentTopics.filter(t =>
+                          t.topic.toLowerCase().includes(topicFilter.toLowerCase().trim()) ||
+                          t.prompt.toLowerCase().includes(topicFilter.toLowerCase().trim())
+                        ).length} of {currentTopics.length}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {currentTopics.map((t, i) => (
+                  {currentTopics
+                    .filter(t =>
+                      !topicFilter.trim() ||
+                      t.topic.toLowerCase().includes(topicFilter.toLowerCase().trim()) ||
+                      t.prompt.toLowerCase().includes(topicFilter.toLowerCase().trim())
+                    )
+                    .map((t, i) => (
                     <button key={i} onClick={() => setSelectedTopic(selectedTopic?.topic === t.topic ? null : t)}
                       style={{
                         padding: "8px 14px", borderRadius: 10,
