@@ -4826,57 +4826,6 @@ Rules:
               "Enter your content here..."}
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
 
-          {/* Henry 2026-06-02: De-vocarize — high-visibility card */}
-          <div style={{
-            marginTop: 14,
-            padding: "14px 16px",
-            background: `linear-gradient(135deg, ${childAccent}14, ${childAccent}06)`,
-            border: `2px solid ${childAccent}55`,
-            borderRadius: 14,
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap" as const, gap: 8 }}>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: childAccent, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 }}>
-                  De-vocabularize Story
-                </p>
-                <p style={{ fontSize: 11, color: muted }}>
-                  Rewrite for a younger reading age — keeps the plot, swaps hard words for simple ones, shortens sentences.
-                </p>
-              </div>
-              {devocarizing && (
-                <span style={{ fontSize: 11, color: childAccent, fontStyle: "italic" as const, fontWeight: 700 }}>
-                  Rewriting for age {devocarizing}… (~30-60s)
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-              {[5, 6, 7, 8].map(age => (
-                <button
-                  key={age}
-                  disabled={!!devocarizing || !textContent.trim()}
-                  onClick={() => devocarize(age)}
-                  style={{
-                    padding: "10px 22px",
-                    borderRadius: 10,
-                    border: `2px solid ${childAccent}`,
-                    background: devocarizing === age ? childAccent : `${childAccent}1f`,
-                    color: devocarizing === age ? "#000" : childAccent,
-                    fontSize: 14,
-                    fontWeight: 800,
-                    cursor: (!!devocarizing || !textContent.trim()) ? "not-allowed" : "pointer",
-                    opacity: (!!devocarizing || !textContent.trim()) ? 0.45 : 1,
-                    minWidth: 90,
-                  }}>
-                  {devocarizing === age ? "Working…" : `Age ${age}`}
-                </button>
-              ))}
-            </div>
-            {!textContent.trim() && (
-              <p style={{ fontSize: 10, color: muted, fontStyle: "italic" as const, marginTop: 8 }}>
-                Add story text above first, then pick an age.
-              </p>
-            )}
-          </div>
 
           {/* Era & Culture Lock */}
           <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
@@ -4953,6 +4902,33 @@ Rules:
                 </button>
               );
             })}
+            {/* Henry 2026-06-02: De-vocabularize — single button in modify row.
+                Click → prompt() for age → rewrites story for that reading age. */}
+            <button
+              onClick={() => {
+                if (!textContent.trim()) { setLastAction("Add story text first"); return; }
+                const raw = window.prompt("Rewrite story for which age? (5-12)", "5");
+                if (raw === null) return;
+                const age = parseInt(raw.trim(), 10);
+                if (!Number.isFinite(age) || age < 5 || age > 12) {
+                  setLastAction("Age must be a number between 5 and 12");
+                  return;
+                }
+                void devocarize(age);
+              }}
+              disabled={!!devocarizing || !textContent.trim() || modifyingPrompt !== null || prefillingPrompt}
+              title="Rewrite story for a target reading age — simpler words, shorter sentences"
+              style={{
+                padding: "5px 9px", borderRadius: 6,
+                border: `1px solid ${childAccent}55`,
+                background: devocarizing ? `${childAccent}25` : `${childAccent}12`,
+                color: (!!devocarizing || !textContent.trim()) ? muted : childAccent,
+                fontSize: 9, fontWeight: 700,
+                cursor: (!!devocarizing || !textContent.trim()) ? "not-allowed" : "pointer",
+                opacity: (!!devocarizing || !textContent.trim()) ? 0.55 : 1,
+              }}>
+              {devocarizing ? `Age ${devocarizing}…` : "📖 De-vocabularize"}
+            </button>
             {prefillingPrompt && (
               <span style={{ fontSize: 9, color: childAccent, fontWeight: 700, padding: "5px 9px" }}>
                 ✨ AI suggesting a unique story idea…
