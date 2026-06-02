@@ -25,6 +25,23 @@ export async function GET(req: NextRequest) {
     try {
       const raw = fs.readFileSync(p, "utf-8");
       const data = JSON.parse(raw);
+      // Henry 2026-06-01: dead-worker detector. If status is "running" but the
+      // file hasn't been touched in >3 min, the worker is silently dead (most
+      // commonly because systemd killed it during a Next.js auto-restart). Tell
+      // the client clearly instead of letting the UI sit at 95% forever.
+      // The worker writes a status update at least every ~12s (retry loop), so
+      // 3 min stale = certainly dead.
+      if (data?.status === "running" && typeof data.updatedAt === "number") {
+        const ageMs = Date.now() - data.updatedAt;
+        if (ageMs > 180_000) {
+          return NextResponse.json({
+            ...data,
+            status: "error",
+            error: `Worker silently died ${Math.round(ageMs / 1000)}s ago — server likely restarted mid-assemble. Click Assemble again.`,
+            staleDetected: true,
+          });
+        }
+      }
       return NextResponse.json(data);
     } catch (readErr) {
       return NextResponse.json(
