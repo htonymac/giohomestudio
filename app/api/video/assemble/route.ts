@@ -160,6 +160,17 @@ export async function POST(req: NextRequest) {
       ? (body.subtitleConfig.mode as string) !== "none"
       : body.subtitleStyle !== "none";
 
+    // Henry 2026-06-02: kill the "two subtitles on screen" bug. When a
+    // top-level body.caption OR body.pacingEntries is present, the END-OF-
+    // PIPELINE chunked caption / ASS path will render its own subtitle on
+    // the whole video. The PER-SCENE PNG subtitle path (overlaying each
+    // scene's .text individually) would then DOUBLE-render — one rainbow at
+    // bottom, one white at top. Suppress the per-scene path in that case;
+    // the top-level path produces a single coherent caption.
+    const perSceneSubtitleEnabled = subtitleEnabled
+      && !body.caption
+      && !(body.pacingEntries && body.pacingEntries.length > 0);
+
     // ── Step 1: Process ALL scenes IN PARALLEL — massive speed improvement ──
     // Each scene writes to its own temp file so there is no conflict.
     async function processScene(scene: AssemblyScene): Promise<string | null> {
@@ -239,7 +250,7 @@ export async function POST(req: NextRequest) {
 
         // Generate subtitle PNG overlay via Sharp/SVG — bypasses FFmpeg font issues entirely
         let subPngFile: string | null = null;
-        if (slideText && subtitleEnabled) {
+        if (slideText && perSceneSubtitleEnabled) {
           const subText = buildSubtitleText(slideText);
           if (subText) {
             subPngFile = path.join(tempDir, `sub_${scene.scene}.png`);
@@ -341,7 +352,7 @@ export async function POST(req: NextRequest) {
 
           // Generate subtitle PNG (centered for bg slides) — Sharp/SVG, no drawtext
           let bgSubPng: string | null = null;
-          if (bgSubText && subtitleEnabled) {
+          if (bgSubText && perSceneSubtitleEnabled) {
             bgSubPng = path.join(tempDir, `bgsub_${scene.scene}.png`);
             try { await generateSubtitlePng(bgSubText, bgSubPng, "center", 64, subtitleCfg); }
             catch { bgSubPng = null; }
@@ -415,7 +426,7 @@ export async function POST(req: NextRequest) {
           const fps = 25;
           const fallbackSubText = buildSubtitleText(scene.text || "");
           let fallbackSubPng: string | null = null;
-          if (fallbackSubText && subtitleEnabled) {
+          if (fallbackSubText && perSceneSubtitleEnabled) {
             fallbackSubPng = path.join(tempDir, `fbsub_${scene.scene}.png`);
             try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", 52, subtitleCfg); }
             catch { fallbackSubPng = null; }
@@ -449,7 +460,7 @@ export async function POST(req: NextRequest) {
 
           // Generate subtitle PNG via Sharp/SVG — no drawtext font dependency
           let vidSubPng: string | null = null;
-          if (subText && subtitleEnabled) {
+          if (subText && perSceneSubtitleEnabled) {
             vidSubPng = path.join(tempDir, `vsub_${scene.scene}.png`);
             try {
               await generateSubtitlePng(subText, vidSubPng, "bottom", 52, subtitleCfg);
@@ -875,7 +886,11 @@ export async function POST(req: NextRequest) {
       const CHUNK = preset && subMode === "mrbeast_single" ? 1 : 5;
       const grp: string[] = [];
       for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
-      const SEC = preset && subMode === "mrbeast_single" ? 0.6 : 1.6;
+      // Henry 2026-06-02: bumped chunked-caption pace 1.6s -> 2.4s per 5-word chunk.
+      // Real narration is ~2-2.5 words/sec; 5 words / 1.6s = 3.1 w/s — too fast.
+      // 5 words / 2.4s = 2.1 w/s matches a normal kids-story narrator. mrbeast
+      // single-word mode bumped 0.6s -> 0.9s for the same reason.
+      const SEC = preset && subMode === "mrbeast_single" ? 0.9 : 2.4;
       const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
 
       // Henry 2026-06-02 Phase C: real rainbow. Cycle colors per chunk when
@@ -963,9 +978,15 @@ export async function POST(req: NextRequest) {
       // audio. Else fall back to chunked timing.
       if (body.pacingEntries && body.pacingEntries.length > 0) {
         console.log("[assemble.subtitle] using PACING PLAN timings:", body.pacingEntries.length, "entries");
+        // Henry 2026-06-02: pacing plan durations are TEXT-LENGTH estimates,
+        // not actual TTS audio length. Real narration usually runs slower than
+        // the estimate, so captions race ahead of the narrator. Apply a 1.25x
+        // stretch so captions visibly trail the narrator slightly (better
+        // perceived as "caption follows speech" than "caption arrives early").
+        const PACING_SCALE = 1.25;
         for (const e of body.pacingEntries) {
-          const s0 = Math.max(0, e.startMs / 1000);
-          const s1 = Math.max(s0 + 0.1, e.endMs / 1000);
+          const s0 = Math.max(0, (e.startMs * PACING_SCALE) / 1000);
+          const s1 = Math.max(s0 + 0.1, (e.endMs * PACING_SCALE) / 1000);
           dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,{\\fad(${FADE_IN_MS},${FADE_OUT_MS})}${assEscape(e.text)}`);
         }
       } else {
