@@ -256,6 +256,9 @@ function ChildrenPlannerInner() {
   const [showProjects, setShowProjects] = useState(false);
   const [projectsList, setProjectsList] = useState<Array<{ id: string; title: string; style: string; lastModified: number; sceneCount: number; characterCount: number }>>([]);
   const [textContent, setTextContent] = useState(topicPromptParam || "");
+  // Henry 2026-06-02: de-vocarize tracks WHICH age is currently being processed,
+  // null = not running, 5/6/7/8 = that age's button shows loading state.
+  const [devocarizing, setDevocarizing] = useState<number | null>(null);
   const [narrationStyle, setNarrationStyle] = useState("gentle");
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
@@ -2229,6 +2232,22 @@ function ChildrenPlannerInner() {
       // auto-narration takes ~140s. /api/video/assemble-async returns a jobId immediately;
       // the heavy work runs in-process and writes status to a file. Client polls
       // /api/video/job-status until done. Hybrid uses /api/assembly/execute and is unaffected.
+      // Henry 2026-06-02 Phase B: pacing-aware subtitle timing.
+      // If a Pacing Plan exists for this project, compute exact start/end ms
+      // per entry and ship to assemble route. Server uses those timings to
+      // build perfectly-synced ASS Dialogue lines instead of guessing with
+      // arbitrary 1.6s/chunk. No plan → falls back to chunked timing.
+      const pacingEntriesForAssemble = pacingPlan ? (() => {
+        let cum = 0;
+        return pacingPlan.entries
+          .filter(e => e.text && e.text.trim().length > 0 && e.type !== "pause")
+          .map(e => {
+            const startMs = cum;
+            cum += e.durationMs;
+            const endMs = cum;
+            return { text: e.text, startMs, endMs };
+          });
+      })() : undefined;
       const assemblePayload = {
         projectId: assembleProjectId,
         title: `Children Story — ${contentParam || "story"}`,
@@ -2240,6 +2259,7 @@ function ChildrenPlannerInner() {
         aspectRatio: "16:9",
         subtitleConfig: effectiveSubtitleConfig,
         caption: captionForSubs,
+        pacingEntries: pacingEntriesForAssemble,
         introUrl: introUrl || undefined,
         outroUrl: outroUrl || undefined,
       };
@@ -3782,6 +3802,33 @@ Rules:
     }
   }
 
+  // Henry 2026-06-02: de-vocarize — simplify the current story text for target age
+  async function devocarize(age: number) {
+    if (!textContent.trim()) { setLastAction("Add story text first"); return; }
+    setDevocarizing(age);
+    setLastAction(`Simplifying story for age ${age}…`);
+    try {
+      const res = await fetch("/api/children/devocarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: textContent, age }),
+      });
+      const data = await res.json() as { simplified?: string; error?: string; model?: string };
+      if (!res.ok || !data.simplified) {
+        setLastAction(`De-vocarize failed: ${data.error || `HTTP ${res.status}`}`);
+        return;
+      }
+      // Replace the text content. Original is gone — user can Ctrl+Z if browser kept it,
+      // OR they can re-type. We don't keep a backup field; deliberate keep-it-simple.
+      setTextContent(data.simplified);
+      setLastAction(`Simplified for age ${age} via ${data.model || "LLM"}`);
+    } catch (err) {
+      setLastAction(`De-vocarize error: ${(err as Error)?.message?.slice(0, 100) || "unknown"}`);
+    } finally {
+      setDevocarizing(null);
+    }
+  }
+
   // Henry 2026-06-02: export a project as JSON download
   async function exportChildProject(id: string, title: string) {
     try {
@@ -4778,6 +4825,30 @@ Rules:
               contentParam === "storybook" ? "Write your children's story:\nOnce upon a time, there was a little cat named Sam. Sam loved to play in the garden..." :
               "Enter your content here..."}
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
+
+          {/* Henry 2026-06-02: De-vocarize — simplify story vocabulary for target age */}
+          <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" as const }}>
+            <span style={{ fontSize: 9, color: muted, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>De-vocarize for age:</span>
+            {[5, 6, 7, 8].map(age => (
+              <button
+                key={age}
+                disabled={devocarizing || !textContent.trim()}
+                onClick={() => devocarize(age)}
+                style={{
+                  padding: "5px 12px", borderRadius: 8,
+                  border: `1px solid ${childAccent}60`,
+                  background: devocarizing ? `${childAccent}10` : `${childAccent}18`,
+                  color: childAccent, fontSize: 10, fontWeight: 700,
+                  cursor: (devocarizing || !textContent.trim()) ? "not-allowed" : "pointer",
+                  opacity: (devocarizing || !textContent.trim()) ? 0.5 : 1,
+                }}>
+                {devocarizing === age ? `${age}…` : `Age ${age}`}
+              </button>
+            ))}
+            {devocarizing && (
+              <span style={{ fontSize: 9, color: muted, fontStyle: "italic" as const }}>Rewriting for age {devocarizing}…</span>
+            )}
+          </div>
 
           {/* Era & Culture Lock */}
           <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>

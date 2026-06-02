@@ -91,6 +91,10 @@ interface AssemblyRequest {
   stickers?: StickerItem[]; // animated sticker overlays
   introUrl?: string;     // optional intro clip prepended before scenes
   outroUrl?: string;     // optional outro clip appended after scenes
+  // Henry 2026-06-02 Phase B: pacing-aware subtitle timing. When present,
+  // the assemble route uses these EXACT timings for ASS Dialogue lines
+  // instead of arbitrary 1.6s/chunk fallback. Karaoke-tight to narration.
+  pacingEntries?: Array<{ text: string; startMs: number; endMs: number }>;
 }
 
 // FFmpeg drawtext animation expressions
@@ -954,10 +958,22 @@ export async function POST(req: NextRequest) {
       const dialogueLines: string[] = [];
       const FADE_IN_MS = 180;
       const FADE_OUT_MS = 180;
-      for (let i = 0; i < grp.length; i++) {
-        const s0 = i * SEC;
-        const s1 = s0 + SEC; // tight — no overlap
-        dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,{\\fad(${FADE_IN_MS},${FADE_OUT_MS})}${assEscape(grp[i])}`);
+      // Phase B: if client supplied pacingEntries from the Pacing Plan, use
+      // those exact start/end ms — karaoke-tight sync to the actual narration
+      // audio. Else fall back to chunked timing.
+      if (body.pacingEntries && body.pacingEntries.length > 0) {
+        console.log("[assemble.subtitle] using PACING PLAN timings:", body.pacingEntries.length, "entries");
+        for (const e of body.pacingEntries) {
+          const s0 = Math.max(0, e.startMs / 1000);
+          const s1 = Math.max(s0 + 0.1, e.endMs / 1000);
+          dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,{\\fad(${FADE_IN_MS},${FADE_OUT_MS})}${assEscape(e.text)}`);
+        }
+      } else {
+        for (let i = 0; i < grp.length; i++) {
+          const s0 = i * SEC;
+          const s1 = s0 + SEC; // tight — no overlap
+          dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,{\\fad(${FADE_IN_MS},${FADE_OUT_MS})}${assEscape(grp[i])}`);
+        }
       }
       const assContent = `[Script Info]
 ScriptType: v4.00+
