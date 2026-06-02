@@ -2119,13 +2119,18 @@ function ChildrenPlannerInner() {
       // produced a silent video — user reported "narration do not work". Now we auto-fire
       // TTS in the assembly path so narration is always present.
       let resolvedNarratorAudioUrl = narratorAudioUrl;
-      // Henry 2026-05-31: use the SHARED resolver (same as generateNarration + the 2
-      // other TTS-firing paths). The previous inline expand block did NOT consider
-      // audioPlans — so projects where the user generated AI Audio Plans but never
-      // ran Build Story produced a silent assembly. Now: identical fallback chain
-      // across every TTS-firing path. NEVER divergent.
-      // Hybrid uses /api/assembly/execute and is unaffected.
-      const { text: usableNarrationText } = await resolveNarrationText();
+      // Henry 2026-06-01 (Option A — speed): the auto-expand + auto-TTS path
+      // was costing 45-90 seconds inside assembleMovie. Now SKIP both if
+      // narratorAudioUrl already exists. User has a clear path: click
+      // "Generate Narration" → Piper renders once → narratorAudioUrl set →
+      // Assemble runs in ffmpeg-only time (~30-50s for 7 scenes).
+      // If no narration url exists, we just SKIP the TTS path entirely and
+      // assemble silently — the warning was already surfaced via the
+      // resolveNarrationText returning short text. Hybrid is unaffected
+      // (uses /api/assembly/execute).
+      const { text: usableNarrationText } = resolvedNarratorAudioUrl
+        ? { text: narrationText || textContent || "" }
+        : await resolveNarrationText();
       if (!resolvedNarratorAudioUrl) {
         const storyForTTS = usableNarrationText.trim();
         if (storyForTTS.length > 10) {
@@ -6256,6 +6261,29 @@ Rules:
                   <button onClick={() => { setAssemblyError(null); setLastAction(""); }}
                     style={{ marginTop: 8, padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#fca5a5", fontSize: 10, cursor: "pointer" }}>
                     Dismiss
+                  </button>
+                </div>
+              )}
+              {/* Henry 2026-06-01 Option A: pre-narration warning so users see the speed path.
+                  No narration ready → tell them to click Generate Narration FIRST so Assemble
+                  runs in pure-ffmpeg time (~30-50s) instead of including 45-90s of TTS work. */}
+              {!narratorAudioUrl && !assembling && !assemblyError && assemblySelectedIds.length > 0 && (
+                <div style={{
+                  marginTop: -4, marginBottom: 12, padding: "10px 14px",
+                  background: "rgba(251,191,36,0.08)",
+                  border: "1px solid rgba(251,191,36,0.35)",
+                  borderRadius: 10,
+                  fontSize: 11,
+                  color: "#fbbf24",
+                }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 700 }}>⚡ Speed tip — generate narration first</p>
+                  <p style={{ margin: 0, color: "#fde68a" }}>
+                    Without pre-generated narration, Assemble takes ~3-4 minutes (story-expand + TTS run inline).
+                    Click <strong>Generate Narration</strong> in the Sound tab now — once it&apos;s ready, Assemble runs in ~30-50 seconds.
+                  </p>
+                  <button onClick={() => setActiveTab("sound")}
+                    style={{ marginTop: 8, padding: "4px 10px", borderRadius: 6, border: "1px solid rgba(251,191,36,0.4)", background: "transparent", color: "#fde68a", fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
+                    Go to Sound tab →
                   </button>
                 </div>
               )}
