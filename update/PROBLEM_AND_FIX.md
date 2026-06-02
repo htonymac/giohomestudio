@@ -4,6 +4,20 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-06-02 — ✅ FIXED (`32e450f`): Children planner — Generate button stuck as "Generating..." permanently after error
+
+**Symptom:** Henry: "image not generation - for new video an story image not generate". Generate/Regen button on scene card showed "Generating..." permanently after an API error (e.g. 502, 500, or 200+error). User could never click again without refreshing.
+
+**Root cause:** `generateSceneBoardImage()` in `app/dashboard/children-planner/page.tsx` had `setGeneratingSceneImage(null)` AFTER the try/catch block at line 1516. Two `return` statements inside `try` (L1487 for `data.error`, L1493 for no-url) bypassed this cleanup — the function exited early, leaving `generatingSceneImage === sceneId` permanently. The Generate button was `disabled={isGenImg}` where `isGenImg = generatingSceneImage === sceneId`, so it was permanently disabled.
+
+**Fix (`32e450f`):** Changed `catch` + post-block `setGeneratingSceneImage(null)` to `catch` + `finally { setGeneratingSceneImage(null) }`. The `finally` block runs on ALL exit paths — normal, early return, and exception — guaranteeing cleanup. Also improved error messages to show HTTP status code and "[children-planner]" prefix for easier debugging.
+
+**Live-verified 2026-06-02:** CDP test showed button correctly goes "Generate → Generating... (disabled) → Regen (enabled)" on success path. Error paths now also reset correctly via `finally`.
+
+**Prevention:** Any function that sets a "loading" state flag at the top MUST use `finally` for the cleanup, not a plain statement after try/catch. Otherwise any `return` inside `try` permanently locks the UI.
+
+---
+
 ## 2026-05-31 — ✅ FIXED (`d9432d8`): Children planner — Assemble button stays grey on reopened project
 
 **Symptom:** Henry hit `https://andiostudio.com/dashboard/children-planner?projectId=child_1780208261900_qqy3` and the Assemble button was disabled, label `"Select scenes above to assemble"`, even though scene cards above were rendered.
