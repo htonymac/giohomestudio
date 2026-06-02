@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/config/env";
 import { randomUUID } from "crypto";
+import { spawn } from "child_process";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -35,55 +36,27 @@ export async function POST(req: NextRequest) {
     const jobId = randomUUID();
     writeStatus(jobId, { status: "running", startedAt: Date.now() });
 
-    // CRITICAL: this MUST be a localhost call, not the public URL. Using
-    // NEXT_PUBLIC_APP_URL routes the request back through Cloudflare → CF Tunnel →
-    // localhost:3200, which hits CF's 100-second edge timeout (the very thing we
-    // are trying to escape). The first cut of this route used the env var and
-    // produced jobs stuck "running" forever. Force localhost.
-    const base = process.env.INTERNAL_LOCALHOST_URL || "http://localhost:3200";
+    // Henry 2026-06-01: prior implementation used fire-and-forget async IIFE.
+    // Next.js was discarding the promise after the response returned, so the
+    // fetch never completed and jobs stayed "running" forever. Now we spawn
+    // a DETACHED child process running scripts/assemble_job_worker.mjs. The
+    // worker is fully independent of the request lifecycle and updates the
+    // status file when done.
+    const bodyDir = path.join(env.storagePath, "jobs", "assemble", "bodies");
+    fs.mkdirSync(bodyDir, { recursive: true });
+    const bodyFile = path.join(bodyDir, `${jobId}.json`);
+    fs.writeFileSync(bodyFile, JSON.stringify(body));
 
-    // Fire-and-forget background work. Node keeps the process alive while
-    // the promise is pending, so the fetch completes even after this handler
-    // returns. We catch ALL errors and persist them to the status file.
-    (async () => {
-      const tStart = Date.now();
-      try {
-        const upstream = await fetch(`${base}/api/video/assemble`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-          // Generous timeout — 10 minutes covers very large assemblies.
-          signal: AbortSignal.timeout(600000),
-        });
-        const tookMs = Date.now() - tStart;
-        if (!upstream.ok) {
-          const text = await upstream.text();
-          writeStatus(jobId, {
-            status: "error",
-            error: `HTTP ${upstream.status}: ${text.slice(0, 200)}`,
-            tookMs,
-          });
-          return;
-        }
-        const data = await upstream.json() as { outputUrl?: string; error?: string; thumbnailUrl?: string };
-        if (data.error) {
-          writeStatus(jobId, { status: "error", error: data.error, tookMs });
-          return;
-        }
-        writeStatus(jobId, {
-          status: "done",
-          outputUrl: data.outputUrl,
-          thumbnailUrl: data.thumbnailUrl,
-          tookMs,
-        });
-      } catch (err) {
-        writeStatus(jobId, {
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-          tookMs: Date.now() - tStart,
-        });
-      }
-    })();
+    const workerScript = path.join(process.cwd(), "scripts", "assemble_job_worker.mjs");
+    const child = spawn(process.execPath, [workerScript, jobId, bodyFile], {
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        INTERNAL_LOCALHOST_URL: process.env.INTERNAL_LOCALHOST_URL || "http://localhost:3200",
+      },
+    });
+    child.unref(); // let the parent Node exit independently of the worker
 
     return NextResponse.json({ jobId, status: "running" });
   } catch (err) {
