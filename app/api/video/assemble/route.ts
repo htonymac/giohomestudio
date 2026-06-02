@@ -895,18 +895,97 @@ export async function POST(req: NextRequest) {
       const simpleFilter = simpleParts.length > 0 ? simpleParts.join(",") :
         `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10`;
 
+      // Henry 2026-06-02: ASS subtitle path — 10× faster than chained drawtexts.
+      // Previous version chained 30+ drawtext= filters into a single -vf for a
+      // 51s narration, taking 2-3 minutes per assembly because each drawtext
+      // is O(N_frames) work. libass rasterises ALL caption events from one
+      // .ass file in a single render pass — typically 10-30s total for the
+      // same narration. The drawtext fallback below is preserved verbatim
+      // in case libass complains about fonts.
+
+      // Convert HEX to ASS BGR (&HAABBGGRR — alpha=00 opaque).
+      const hexToAss = (hex?: string, alphaHex = "00"): string => {
+        if (!hex || !/^#?[0-9a-fA-F]{6}$/.test(hex.replace(/^#/, ""))) return "&H00FFFFFF";
+        const h = hex.replace(/^#/, "");
+        const r = h.slice(0, 2), g = h.slice(2, 4), b = h.slice(4, 6);
+        return `&H${alphaHex}${b}${g}${r}`.toUpperCase();
+      };
+      const txAss = hexToAss(preset?.color || subCfg?.textColor || "#FFFFFF");
+      const outlineAss = hexToAss(preset?.outline || "#000000");
+      const bgBoxAlphaHex = bgOn ? Math.round(255 * (1 - bgOp2)).toString(16).padStart(2, "0").toUpperCase() : "FF";
+      const bgAss = hexToAss("#000000", bgBoxAlphaHex);
+      const alignment = body.captionPosition === "top" ? 8 : body.captionPosition === "center" ? 5 : 2;
+      const marginV = body.captionPosition === "top" ? 40 : body.captionPosition === "center" ? 0 : 60;
+      const fontName = preset?.font || "Arial Black";
+      const borderStyle = bgOn ? 3 /* opaque box */ : 1 /* outline + shadow */;
+      const sec2ts = (s: number): string => {
+        const cs = Math.max(0, Math.round(s * 100));
+        const hh = Math.floor(cs / 360000);
+        const mm = Math.floor((cs % 360000) / 6000);
+        const ss = Math.floor((cs % 6000) / 100);
+        const cc = cs % 100;
+        return `${hh}:${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}.${String(cc).padStart(2, "0")}`;
+      };
+      const assEscape = (s: string): string => s
+        .replace(/\\/g, "\\\\")
+        .replace(/\n/g, "\\N")
+        .replace(/\{/g, "(").replace(/\}/g, ")");
+      const dialogueLines: string[] = [];
+      for (let i = 0; i < grp.length; i++) {
+        const s0 = i * SEC;
+        const s1 = s0 + SEC + 0.4;
+        dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,${assEscape(grp[i])}`);
+      }
+      const assContent = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,${fontName},${fs},${txAss},${txAss},${outlineAss},${bgAss},1,0,0,0,100,100,0,0,${borderStyle},${borderW},0,${alignment},20,20,${marginV},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+${dialogueLines.join("\n")}
+`;
+      const assFile = path.join(tempDir, "captions.ass");
       let burned = false;
       try {
+        await fs.promises.writeFile(assFile, assContent, "utf8");
+        // libass needs the absolute path forward-slashed even on Windows; on
+        // Linux it's straight passthrough. Escape ':' for filter syntax.
+        const assArg = assFile.replace(/\\/g, "/").replace(/:/g, "\\:");
         await execFileAsync(ffmpeg, [
           "-i", finalPath,
-          "-vf", richFilter,
+          "-vf", `ass=${assArg}`,
           "-c:a", "copy", "-y", captionOutput,
         ], { timeout: 120000 });
         finalPath = captionOutput;
         burned = true;
-      } catch (drawErrRich) {
-        console.warn("[assemble.subtitle] RICH drawtext failed, trying SIMPLE fallback:",
-          (drawErrRich as Error)?.message?.slice(0, 200));
+        console.log("[assemble.subtitle] ASS libass succeeded — fast path");
+      } catch (assErr) {
+        console.warn("[assemble.subtitle] ASS libass failed, falling back to drawtext:",
+          (assErr as Error)?.message?.slice(0, 200));
+      }
+
+      // Legacy drawtext fallback (slower but doesn't need fontconfig setup).
+      if (!burned) {
+        try {
+          await execFileAsync(ffmpeg, [
+            "-i", finalPath,
+            "-vf", richFilter,
+            "-c:a", "copy", "-y", captionOutput,
+          ], { timeout: 180000 });
+          finalPath = captionOutput;
+          burned = true;
+          console.warn("[assemble.subtitle] RICH drawtext fallback succeeded");
+        } catch (drawErrRich) {
+          console.warn("[assemble.subtitle] RICH drawtext failed, trying SIMPLE fallback:",
+            (drawErrRich as Error)?.message?.slice(0, 200));
+        }
       }
       if (!burned) {
         try {
@@ -914,12 +993,12 @@ export async function POST(req: NextRequest) {
             "-i", finalPath,
             "-vf", simpleFilter,
             "-c:a", "copy", "-y", captionOutput,
-          ], { timeout: 120000 });
+          ], { timeout: 180000 });
           finalPath = captionOutput;
           burned = true;
-          console.warn("[assemble.subtitle] SIMPLE fallback succeeded");
+          console.warn("[assemble.subtitle] SIMPLE drawtext fallback succeeded");
         } catch (drawErrSimple) {
-          console.error("[assemble.subtitle] BOTH drawtext attempts failed — subtitle skipped:",
+          console.error("[assemble.subtitle] ALL subtitle paths failed — skipping:",
             (drawErrSimple as Error)?.message?.slice(0, 200));
         }
       }
