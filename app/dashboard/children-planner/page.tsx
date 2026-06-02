@@ -399,6 +399,12 @@ function ChildrenPlannerInner() {
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
   const [assemblyProgress, setAssemblyProgress] = useState<Record<number, string>>({});
   const [assemblyComplete, setAssemblyComplete] = useState(false);
+  // Henry 2026-06-01: visible progress bar (0..100) + sticky error so users know
+  // exactly what's happening. Bar creeps up based on poll elapsed vs estimated.
+  // assemblyError is the full ffmpeg/server error, shown in red under the button.
+  const [assemblePercent, setAssemblePercent] = useState<number>(0);
+  const [assemblyError, setAssemblyError] = useState<string | null>(null);
+  const [assemblyElapsedSec, setAssemblyElapsedSec] = useState<number>(0);
   const [assemblySelectedIds, setAssemblySelectedIds] = useState<string[]>([]);
   const [assemblyMediaPrefs, setAssemblyMediaPrefs] = useState<Record<string, "image" | "video">>({});
   // ── Gen Max — per-scene action-beat images (mirrors hybrid-planner) ──
@@ -2013,6 +2019,9 @@ function ChildrenPlannerInner() {
     setAssembling(true);
     setAssemblyComplete(false);
     setAssembledUrl(null);
+    setAssemblyError(null);
+    setAssemblePercent(2); // tiny non-zero so the bar shows immediately
+    setAssemblyElapsedSec(0);
     const progress: Record<number, string> = {};
     try {
       // Each pushed segment carries:
@@ -2232,41 +2241,56 @@ function ChildrenPlannerInner() {
       setLastAction(`Assembling… (job ${jobId.slice(0, 8)})`);
 
       // Poll status every 4 seconds; cap at 12 minutes (180 polls).
+      // Progress bar creeps from 5% → 95% based on elapsed vs an estimate of
+      // ~20s per scene. Real completion fills to 100%.
       const POLL_INTERVAL_MS = 4000;
       const MAX_POLLS = 180;
+      const estimatedTotalMs = Math.max(60000, scenesToAssemble.length * 22000);
       let polled = 0;
       let outputUrl: string | undefined;
-      let assemblyError: string | undefined;
+      let jobError: string | undefined;
       while (polled < MAX_POLLS) {
         await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         polled++;
+        const elapsedMs = polled * POLL_INTERVAL_MS;
+        const sec = Math.round(elapsedMs / 1000);
+        setAssemblyElapsedSec(sec);
+        // Update bar smoothly — max 95% while running so 100% means "actually done"
+        const creeping = Math.min(95, 5 + (elapsedMs / estimatedTotalMs) * 90);
+        setAssemblePercent(creeping);
         try {
           const statusRes = await fetch(`/api/video/job-status?jobId=${encodeURIComponent(jobId)}`);
           if (!statusRes.ok) continue; // 404 right after submit is normal — file might not be created yet
           const status = await statusRes.json() as { status?: string; outputUrl?: string; error?: string; tookMs?: number };
           if (status.status === "done" && status.outputUrl) {
             outputUrl = status.outputUrl;
+            setAssemblePercent(100);
             setLastAction(`Assembled in ${Math.round((status.tookMs || 0) / 1000)}s — ready`);
             break;
           }
           if (status.status === "error") {
-            assemblyError = status.error || "unknown error";
+            jobError = status.error || "unknown error";
             break;
           }
           // running — surface progress every 5 polls (20 seconds)
           if (polled % 5 === 0) {
-            setLastAction(`Assembling… ${polled * POLL_INTERVAL_MS / 1000}s elapsed`);
+            setLastAction(`Assembling… ${sec}s elapsed (${Math.round(creeping)}%)`);
           }
         } catch { /* network blip — continue polling */ }
       }
 
-      if (assemblyError) {
-        setLastAction(`Assembly error: ${assemblyError.slice(0, 200)}`);
+      if (jobError) {
+        setAssemblyError(jobError);
+        setAssemblePercent(0);
+        setLastAction(`Assembly error: ${jobError.slice(0, 200)}`);
         setAssembling(false);
         return;
       }
       if (!outputUrl) {
-        setLastAction(`Assembly timed out after ${polled * POLL_INTERVAL_MS / 1000}s — try fewer scenes or check server logs`);
+        const timeoutMsg = `Assembly timed out after ${polled * POLL_INTERVAL_MS / 1000}s — try fewer scenes or check server logs`;
+        setAssemblyError(timeoutMsg);
+        setAssemblePercent(0);
+        setLastAction(timeoutMsg);
         setAssembling(false);
         return;
       }
@@ -2280,7 +2304,12 @@ function ChildrenPlannerInner() {
       } catch { /* ignore */ }
       setAssemblyComplete(true);
       setLastAction("Story assembled successfully");
-    } catch (err) { setLastAction(`Assembly failed — ${err instanceof Error ? err.message : "try again"}`); }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "try again";
+      setAssemblyError(msg);
+      setAssemblePercent(0);
+      setLastAction(`Assembly failed — ${msg}`);
+    }
     setAssembling(false);
   }
 
@@ -6186,13 +6215,50 @@ Rules:
               <button onClick={assembleMovie} disabled={assembling || assemblySelectedIds.length === 0}
                 style={{ width: "100%", padding: "16px 20px", borderRadius: 14, border: "none", background: (assembling || assemblySelectedIds.length === 0) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: assemblySelectedIds.length === 0 ? muted : "#fff", fontSize: 16, fontWeight: 800, cursor: (assembling || assemblySelectedIds.length === 0) ? "not-allowed" : "pointer", marginBottom: 12, letterSpacing: 0.3 }}>
                 {assembling
-                  ? "Assembling your story video... please wait"
+                  ? `Assembling… ${assemblyElapsedSec}s elapsed (${Math.round(assemblePercent)}%)`
                   : assembledUrl
                     ? "Assemble Again (overwrite)"
                     : assemblySelectedIds.length === 0
                       ? "Select scenes above to assemble"
                       : `Assemble ${assemblySelectedIds.length} Scene${assemblySelectedIds.length !== 1 ? "s" : ""} into Story Video`}
               </button>
+
+              {/* Henry 2026-06-01: visible progress bar + error display under the button */}
+              {assembling && (
+                <div style={{ marginTop: -4, marginBottom: 12 }}>
+                  <div style={{ width: "100%", height: 8, background: "rgba(255,255,255,0.06)", borderRadius: 4, overflow: "hidden" }}>
+                    <div
+                      style={{
+                        width: `${Math.min(100, Math.max(0, assemblePercent))}%`,
+                        height: "100%",
+                        background: `linear-gradient(90deg, ${childAccent}, #7c3aed)`,
+                        transition: "width 0.6s ease",
+                        boxShadow: assemblePercent < 100 ? `0 0 6px ${childAccent}80` : "none",
+                      }}
+                    />
+                  </div>
+                  <p style={{ margin: "6px 0 0", fontSize: 10, color: muted, textAlign: "center" as const }}>
+                    {assemblePercent < 95 ? "ffmpeg is rendering scenes + narration + subtitles…" : "Finalising…"}
+                  </p>
+                </div>
+              )}
+              {assemblyError && !assembling && (
+                <div style={{
+                  marginTop: -4, marginBottom: 12, padding: "10px 14px",
+                  background: "rgba(239,68,68,0.10)",
+                  border: "1px solid rgba(239,68,68,0.4)",
+                  borderRadius: 10,
+                  color: "#ef4444",
+                  fontSize: 12,
+                }}>
+                  <p style={{ margin: "0 0 4px", fontWeight: 700 }}>❌ Assembly error</p>
+                  <p style={{ margin: 0, fontFamily: "monospace" as const, fontSize: 11, color: "#fca5a5", whiteSpace: "pre-wrap" as const, wordBreak: "break-word" as const }}>{assemblyError}</p>
+                  <button onClick={() => { setAssemblyError(null); setLastAction(""); }}
+                    style={{ marginTop: 8, padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(239,68,68,0.4)", background: "transparent", color: "#fca5a5", fontSize: 10, cursor: "pointer" }}>
+                    Dismiss
+                  </button>
+                </div>
+              )}
 
               {assembledUrl && (
                 <div style={{ padding: "14px 16px", borderRadius: 12, background: `${childSafe}08`, border: `1px solid ${childSafe}30`, marginTop: 4 }}>
