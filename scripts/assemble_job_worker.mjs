@@ -74,6 +74,18 @@ async function main() {
       writeStatus({ status: "running", note: `retry ${attempt}/${RETRY_DELAYS_MS.length} (last: ${lastErr})` });
       await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt - 1]));
     }
+    // Henry 2026-06-01: heartbeat. Update status file timestamp every 8s while
+    // the fetch is in flight. Pairs with the dead-worker detector in
+    // /api/video/job-status which flags status as error when updatedAt > 3 min
+    // stale. With heartbeat, that detector fires within ~3 min of a TRUE death
+    // (server restart, OOM, etc) instead of waiting for the worker to write
+    // some other status line.
+    const heartbeat = setInterval(() => {
+      try {
+        const elapsed = Math.round((Date.now() - tStart) / 1000);
+        writeStatus({ status: "running", note: `assembling (${elapsed}s elapsed)` });
+      } catch { /* ignore */ }
+    }, 8000);
     try {
       const res = await fetch(`${base}/api/video/assemble`, {
         method: "POST",
@@ -82,6 +94,7 @@ async function main() {
         signal: AbortSignal.timeout(900000), // 15 min cap
       });
       const tookMs = Date.now() - tStart;
+      clearInterval(heartbeat);
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         writeStatus({
@@ -105,6 +118,7 @@ async function main() {
       });
       return;
     } catch (err) {
+      clearInterval(heartbeat);
       lastErr = err?.message || String(err);
       // Only retry on connection failures, not on real errors
       const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENETUNREACH|socket hang up/i.test(lastErr);
