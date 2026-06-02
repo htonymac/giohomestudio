@@ -47,11 +47,27 @@ async function main() {
   // Use 127.0.0.1 explicitly to avoid any DNS resolution edge cases for "localhost".
   const base = process.env.INTERNAL_LOCALHOST_URL || "http://127.0.0.1:3200";
 
-  // Retry-with-backoff. The worker can race with `systemctl restart ghs.service`
-  // — if it spawns while next-server is restarting (~1-3 seconds), the first
-  // fetch hits ECONNREFUSED. Up to 5 attempts with 2/4/8/16/30 second waits
-  // covers ~60 seconds of next-server boot time.
-  const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000];
+  // Henry 2026-06-01: SMART PROBE instead of blind retry wait.
+  // Quick probe-and-retry every 1 second up to 30 seconds, only while server
+  // is actually down. Once it's up, we proceed immediately. Old version had
+  // fixed 2/4/8/16/30s waits = up to 60s penalty even when server was already
+  // back. New version costs ~1s in the common case.
+  const PROBE_MAX_MS = 30000;
+  const probeStart = Date.now();
+  while (Date.now() - probeStart < PROBE_MAX_MS) {
+    try {
+      const probe = await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(2000) });
+      if (probe.ok || probe.status === 404) break; // 404 = route doesn't exist but server is UP
+    } catch {
+      await new Promise(r => setTimeout(r, 1000));
+      continue;
+    }
+    break;
+  }
+
+  // Legacy retry array — only used for ACTUAL connection failures during the
+  // assemble call itself, not for boot waits (probe handles those now).
+  const RETRY_DELAYS_MS = [2000, 4000, 8000];
   let lastErr = null;
   for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
     if (attempt > 0) {
