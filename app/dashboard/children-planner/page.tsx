@@ -2276,15 +2276,16 @@ function ChildrenPlannerInner() {
         await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
         polled++;
         const elapsedMs = polled * POLL_INTERVAL_MS;
-        const sec = Math.round(elapsedMs / 1000);
-        setAssemblyElapsedSec(sec);
-        // Update bar smoothly — max 95% while running so 100% means "actually done"
-        const creeping = Math.min(95, 5 + (elapsedMs / estimatedTotalMs) * 90);
-        setAssemblePercent(creeping);
+        const clientSec = Math.round(elapsedMs / 1000);
         try {
           const statusRes = await fetch(`/api/video/job-status?jobId=${encodeURIComponent(jobId)}`);
-          if (!statusRes.ok) continue; // 404 right after submit is normal — file might not be created yet
-          const status = await statusRes.json() as { status?: string; outputUrl?: string; error?: string; tookMs?: number };
+          if (!statusRes.ok) {
+            // 404 right after submit is normal. Use client estimate until status file exists.
+            setAssemblyElapsedSec(clientSec);
+            setAssemblePercent(Math.min(99, 5 + (elapsedMs / estimatedTotalMs) * 90));
+            continue;
+          }
+          const status = await statusRes.json() as { status?: string; outputUrl?: string; error?: string; tookMs?: number; note?: string };
           if (status.status === "done" && status.outputUrl) {
             outputUrl = status.outputUrl;
             setAssemblePercent(100);
@@ -2295,9 +2296,17 @@ function ChildrenPlannerInner() {
             jobError = status.error || "unknown error";
             break;
           }
-          // running — surface progress every 5 polls (20 seconds)
+          // Henry 2026-06-02: prefer server heartbeat elapsed time over client estimate.
+          // Worker writes "assembling (Xs elapsed)" every 8s. Parse X and show THAT
+          // so the bar reflects reality. Cap at 99% (not 95) so it doesn't look stuck.
+          const noteMatch = status.note?.match(/(\d+)s elapsed/);
+          const serverSec = noteMatch ? parseInt(noteMatch[1], 10) : clientSec;
+          setAssemblyElapsedSec(serverSec);
+          const creeping = Math.min(99, 5 + (serverSec * 1000 / estimatedTotalMs) * 90);
+          setAssemblePercent(creeping);
+          // Surface progress every 5 polls (20s)
           if (polled % 5 === 0) {
-            setLastAction(`Assembling… ${sec}s elapsed (${Math.round(creeping)}%)`);
+            setLastAction(`Assembling… ${serverSec}s elapsed (${Math.round(creeping)}%) — ${status.note || "running"}`);
           }
         } catch { /* network blip — continue polling */ }
       }
@@ -6261,7 +6270,7 @@ Rules:
                     />
                   </div>
                   <p style={{ margin: "6px 0 0", fontSize: 10, color: muted, textAlign: "center" as const }}>
-                    {assemblePercent < 95 ? "ffmpeg is rendering scenes + narration + subtitles…" : "Finalising…"}
+                    {assemblePercent < 95 ? "ffmpeg is rendering scenes + narration + subtitles…" : assemblePercent < 100 ? "Finalising bumpers + caption overlay (last step — typically 30-60s)…" : "Done"}
                   </p>
                 </div>
               )}
