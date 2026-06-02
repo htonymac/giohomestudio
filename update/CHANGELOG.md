@@ -1,5 +1,31 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-02 — Bumper concat speed-up: stream copy + ultrafast fallback — `(pending)`
+
+Step 5e (prepend intro / append outro) ran `-c:v libx264 -preset fast` unconditionally, taking 15-30s per assembly.
+
+**Fix:** Try `-c copy` first (near-instant, <1s for matched-codec clips). If FFmpeg rejects incompatible streams, fall back to `-preset ultrafast` (same quality trade-off as scene processing, ~2x faster than `fast`). Log which path was taken for diagnostics.
+
+**Edge cases handled:** no intro AND no outro → guard already existed (`if (introPath || outroPath)`), unchanged. Mismatched codecs/dims → copy attempt errors → re-encode fallback fires. copy output written to temp `with_bumpers_copy.mp4`, renamed on success to avoid partial writes.
+
+**Impact:** Same-codec bumpers (most common case when GHS generates its own intro/outro) go from ~15-30s to <1s. Mismatched bumpers go from ~15-30s to ~8-15s. No change to output format/codec/bitrate.
+
+---
+
+## 2026-05-31 — Children planner Assemble button stayed grey on reopened project — `d9432d8`
+
+Henry reported `andiostudio.com/dashboard/children-planner?projectId=child_1780208261900_qqy3 assemble no workingh`. Live probe in debug Chrome showed the Assemble button disabled with label "Select scenes above to assemble", even though the scene cards above were rendered.
+
+**Root cause:** the restore effect at `app/dashboard/children-planner/page.tsx` L2710 hydrated `childScenes` from `/api/hybrid/saved-state` but never re-set `assemblySelectedIds`. The button is gated by `assemblySelectedIds.length === 0`. Auto-selection only fired in the planScenes paths (L1208 + L1372), not on a saved-state restore — so every reopen left the gate state empty until the user clicked "Select All" manually.
+
+**Fix (`d9432d8`):**
+1. On restore: when `childScenes` come back from DB, auto-select all (mirrors planScenes pattern). If user persisted a manual subset, that wins on the next line.
+2. Persist `assemblySelectedIds` + `assemblyMediaPrefs` in the save payload + useEffect deps so manual deselections survive across sessions.
+
+**Impact:** Henry's reopened projects (Twins Guns, Marcus Cole, this child_1780… one, etc.) can now click Assemble immediately instead of hunting for Select All. Type-clean. Lesson logged to global `error_log.md` — gate-state-not-restored is a recurring class; future planner-restore work must sanity-check "what gates depend on what I just restored?".
+
+---
+
 ## 2026-05-29 — Narrator/actor coordination on audio AND subtitle paths — `8f1fd62` + `efaee13`
 
 Henry's e2e on `ghs_hybrid_default_1780008307352` exposed two paired regressions: narrator played at full volume during actor dialogue (no ducking) AND subtitle entries overlapped on screen ("D come on top of A even before C goes"). Same coordination gap on two surfaces. The 2026-05-28 duck fix lived only in `src/lib/assembly-builder.ts`, and its `narratorIdx` fallback only matched entries starting at `<=0.5s` — when the narrator is split into per-scene chunks (none start at 0), detection returns -1 → no duck emitted. Subtitle path had no equivalent windowing at all.

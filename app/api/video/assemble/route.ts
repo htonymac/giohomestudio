@@ -1149,12 +1149,29 @@ ${dialogueLines.join("\n")}
           const bumperConcat = path.join(tempDir, "bumper_concat.txt");
           fs.writeFileSync(bumperConcat, clipParts.map(f => `file '${path.resolve(f).replace(/\\/g, "/")}'`).join("\n"));
           try {
-            await execFileAsync(ffmpeg, [
-              "-f", "concat", "-safe", "0", "-i", bumperConcat,
-              "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-              "-c:a", "aac", "-b:a", "192k",
-              "-movflags", "+faststart", "-y", withBumpers,
-            ], { timeout: 300000 });
+            // Option A: try stream copy first — near-instant when codecs match (h264/aac same dims).
+            // FFmpeg will error if streams are incompatible; we catch and fall back to re-encode.
+            const copyOutput = path.join(tempDir, "with_bumpers_copy.mp4");
+            let usedCopy = false;
+            try {
+              await execFileAsync(ffmpeg, [
+                "-f", "concat", "-safe", "0", "-i", bumperConcat,
+                "-c", "copy",
+                "-movflags", "+faststart", "-y", copyOutput,
+              ], { timeout: 60000 });
+              usedCopy = true;
+              fs.renameSync(copyOutput, withBumpers);
+            } catch {
+              // Codecs/dims mismatch — fall back to re-encode with ultrafast (Option B).
+              // ultrafast is ~2x faster than fast with negligible quality difference at this step.
+              await execFileAsync(ffmpeg, [
+                "-f", "concat", "-safe", "0", "-i", bumperConcat,
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:a", "aac", "-b:a", "192k",
+                "-movflags", "+faststart", "-y", withBumpers,
+              ], { timeout: 300000 });
+            }
+            console.log(`[assemble] Bumper concat done (${usedCopy ? "stream copy" : "re-encode ultrafast"})`);
             finalPath = withBumpers;
           } catch (bumperErr) {
             console.warn("[assemble] Intro/outro concat failed, skipping:", bumperErr instanceof Error ? bumperErr.message.slice(0, 200) : bumperErr);
