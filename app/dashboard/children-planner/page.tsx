@@ -1492,15 +1492,6 @@ function ChildrenPlannerInner() {
       if (url) {
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
         setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
-        // Henry 2026-06-01 (Option B): fire-and-forget pre-render to bake Ken Burns
-        // motion. Result cached server-side by hash; assemble uses the MP4 directly
-        // and skips per-scene zoompan. Network blip / failure is silent.
-        fetch("/api/scene/prerender", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: url, duration: 5, motion: "zoom_in" }),
-        }).then(r => r.json()).then(d => {
-          if (d?.videoUrl) setPrerenderedSceneVideos(prev => ({ ...prev, [sceneId]: d.videoUrl }));
-        }).catch(() => { /* silent */ });
         // ACCUMULATE: also push this single image into the per-scene pool so it's
         // available alongside Gen Max beats in the assembly picker. Without this,
         // clicking Gen Image after Gen Max overwrites the active slot only and the
