@@ -184,6 +184,7 @@ function CommercialPlannerInner() {
   const [designComplete, setDesignComplete] = useState(false);
   const [storyAiProvider, setStoryAiProvider] = useState("claude:claude-haiku-4-5-20251001");
   const [voiceoverText, setVoiceoverText] = useState("");
+  const [devocarizing, setDevocarizing] = useState(false);
 
   // ── SB: Character inline registry state ──
   const [charTabName, setCharTabName] = useState("");
@@ -919,6 +920,8 @@ function CommercialPlannerInner() {
       await new Promise(r => setTimeout(r, 200));
     }
     try {
+      // TODO(pacing): commercial-planner has no pacingPlan state — pacingEntries not sent.
+      // Add word-timed voiceover plan here if commercial ever gains per-word pacing.
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -952,6 +955,32 @@ function CommercialPlannerInner() {
       else setLastAction(data.error || "Assembly failed");
     } catch { setLastAction("Assembly failed"); }
     setAssembling(false);
+  }
+
+  // ── De-vocabularize: simplify key message for a target reading/writing age ──
+  async function devocarize(age: number) {
+    const text = brief.keyMessage.trim();
+    if (!text) { setLastAction("Add key message first"); return; }
+    setDevocarizing(true);
+    setLastAction(`Simplifying key message for age ${age}…`);
+    try {
+      const res = await fetch("/api/children/devocarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, age }),
+      });
+      const data = await res.json() as { simplified?: string; error?: string; model?: string };
+      if (!res.ok || !data.simplified) {
+        setLastAction(`De-vocarize failed: ${data.error || `HTTP ${res.status}`}`);
+        return;
+      }
+      setBrief(p => ({ ...p, keyMessage: data.simplified! }));
+      setLastAction(`Key message simplified for age ${age} via ${data.model || "LLM"}`);
+    } catch (err) {
+      setLastAction(`De-vocarize error: ${(err as Error)?.message?.slice(0, 100) || "unknown"}`);
+    } finally {
+      setDevocarizing(false);
+    }
   }
 
   // ── FreeSound search / save ──
@@ -1376,7 +1405,36 @@ function CommercialPlannerInner() {
               <div><span style={lbl}>Budget Level</span><select style={inp} value={brief.budget} onChange={e => setBrief(p => ({ ...p, budget: e.target.value as BriefData["budget"] }))}>{BUDGETS.map(b => <option key={b}>{b}</option>)}</select></div>
               <div><span style={lbl}>Target Audience</span><input style={inp} value={brief.targetAudience} onChange={e => setBrief(p => ({ ...p, targetAudience: e.target.value }))} placeholder="Adults 25-40 urban" /></div>
             </div>
-            <div style={{ marginTop: 8 }}><span style={lbl}>Key Message</span><textarea style={{ ...inp, resize: "vertical" }} rows={2} value={brief.keyMessage} onChange={e => setBrief(p => ({ ...p, keyMessage: e.target.value }))} placeholder="The main idea this commercial must communicate…" /></div>
+            <div style={{ marginTop: 8 }}>
+              <span style={lbl}>Key Message</span>
+              <textarea style={{ ...inp, resize: "vertical" }} rows={2} value={brief.keyMessage} onChange={e => setBrief(p => ({ ...p, keyMessage: e.target.value }))} placeholder="The main idea this commercial must communicate…" />
+              {/* De-vocabularize: simplify key message for target audience age */}
+              <button
+                onClick={() => {
+                  if (!brief.keyMessage.trim()) { setLastAction("Add key message first"); return; }
+                  const raw = window.prompt("Simplify message for which age? (5-18)", "12");
+                  if (raw === null) return;
+                  const age = parseInt(raw.trim(), 10);
+                  if (!Number.isFinite(age) || age < 5 || age > 18) {
+                    setLastAction("Age must be a number between 5 and 18");
+                    return;
+                  }
+                  void devocarize(age);
+                }}
+                disabled={devocarizing || !brief.keyMessage.trim()}
+                title="Rewrite key message using simpler words for a target audience age"
+                style={{
+                  marginTop: 4, padding: "4px 8px", borderRadius: 6,
+                  border: `1px solid ${accent}55`,
+                  background: devocarizing ? `${accent}25` : `${accent}12`,
+                  color: (devocarizing || !brief.keyMessage.trim()) ? muted : accent,
+                  fontSize: 9, fontWeight: 700,
+                  cursor: (devocarizing || !brief.keyMessage.trim()) ? "not-allowed" : "pointer",
+                  opacity: (devocarizing || !brief.keyMessage.trim()) ? 0.55 : 1,
+                }}>
+                {devocarizing ? "Simplifying…" : "De-vocabularize"}
+              </button>
+            </div>
             <div style={{ marginTop: 8 }}><span style={lbl}>Call to Action</span><input style={inp} value={brief.callToAction} onChange={e => setBrief(p => ({ ...p, callToAction: e.target.value }))} placeholder="e.g. Order now at freshbrew.ng" /></div>
           </div>
 
