@@ -524,8 +524,25 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Run ALL scenes in parallel — massive speed improvement ──
-    const sceneResults = await Promise.all(body.scenes.map(processScene));
+    // ── Run scenes with bounded concurrency (Henry 2026-06-01) ──
+    // Previous version ran ALL scenes in parallel via Promise.all. When a client
+    // sent 70 scenes (children planner Max + Gen Max beats × 7 scenes), 70 ffmpeg
+    // processes spawned simultaneously and immediately blew past the cgroup's
+    // TasksMax / fd / scheduling limits — server returned an empty reply in ~2s
+    // (curl: 'Empty reply from server') and the worker reported 'fetch failed'.
+    // Cap at 4 concurrent ffmpegs. Same total work, just batched. For 70 scenes
+    // this means 18 batches of 4 instead of one batch of 70 — slightly slower
+    // wall-clock but actually FINISHES instead of crashing.
+    const SCENE_CONCURRENCY = Math.max(1, Math.min(4, body.scenes.length));
+    const sceneResults: (string | null)[] = new Array(body.scenes.length);
+    let __sceneIdx = 0;
+    await Promise.all(Array.from({ length: SCENE_CONCURRENCY }, async () => {
+      while (true) {
+        const i = __sceneIdx++;
+        if (i >= body.scenes.length) return;
+        sceneResults[i] = await processScene(body.scenes[i]);
+      }
+    }));
     const sceneFiles = sceneResults.filter((f): f is string => f !== null);
     if (sceneFiles.length === 0) {
       cleanTemp(tempDir);
