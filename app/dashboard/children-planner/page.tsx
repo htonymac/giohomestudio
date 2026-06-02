@@ -1,4 +1,5 @@
 "use client";
+// build-touch-2026-06-01-01 — change content hash to avoid Turbopack v16 chunk bug
 
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
