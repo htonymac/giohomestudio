@@ -44,45 +44,68 @@ async function main() {
     return;
   }
 
-  const base = process.env.INTERNAL_LOCALHOST_URL || "http://localhost:3200";
-  try {
-    const res = await fetch(`${base}/api/video/assemble`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(900000), // 15 min cap
-    });
-    const tookMs = Date.now() - tStart;
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
+  // Use 127.0.0.1 explicitly to avoid any DNS resolution edge cases for "localhost".
+  const base = process.env.INTERNAL_LOCALHOST_URL || "http://127.0.0.1:3200";
+
+  // Retry-with-backoff. The worker can race with `systemctl restart ghs.service`
+  // — if it spawns while next-server is restarting (~1-3 seconds), the first
+  // fetch hits ECONNREFUSED. Up to 5 attempts with 2/4/8/16/30 second waits
+  // covers ~60 seconds of next-server boot time.
+  const RETRY_DELAYS_MS = [2000, 4000, 8000, 16000, 30000];
+  let lastErr = null;
+  for (let attempt = 0; attempt < RETRY_DELAYS_MS.length + 1; attempt++) {
+    if (attempt > 0) {
+      writeStatus({ status: "running", note: `retry ${attempt}/${RETRY_DELAYS_MS.length} (last: ${lastErr})` });
+      await new Promise(r => setTimeout(r, RETRY_DELAYS_MS[attempt - 1]));
+    }
+    try {
+      const res = await fetch(`${base}/api/video/assemble`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(900000), // 15 min cap
+      });
+      const tookMs = Date.now() - tStart;
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        writeStatus({
+          status: "error",
+          error: `HTTP ${res.status}: ${text.slice(0, 300)}`,
+          tookMs,
+        });
+        return;
+      }
+      const data = await res.json();
+      if (data.error) {
+        writeStatus({ status: "error", error: data.error, tookMs });
+        return;
+      }
       writeStatus({
-        status: "error",
-        error: `HTTP ${res.status}: ${text.slice(0, 300)}`,
+        status: "done",
+        outputUrl: data.outputUrl,
+        thumbnailUrl: data.thumbnailUrl,
         tookMs,
+        retries: attempt,
       });
       return;
+    } catch (err) {
+      lastErr = err?.message || String(err);
+      // Only retry on connection failures, not on real errors
+      const retryable = /fetch failed|ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENETUNREACH|socket hang up/i.test(lastErr);
+      if (!retryable) break;
     }
-    const data = await res.json();
-    if (data.error) {
-      writeStatus({ status: "error", error: data.error, tookMs });
-      return;
-    }
-    writeStatus({
-      status: "done",
-      outputUrl: data.outputUrl,
-      thumbnailUrl: data.thumbnailUrl,
-      tookMs,
-    });
-  } catch (err) {
-    writeStatus({
-      status: "error",
-      error: err?.message || String(err),
-      tookMs: Date.now() - tStart,
-    });
-  } finally {
-    // Clean up the body file
-    try { fs.unlinkSync(bodyFile); } catch { /* ignore */ }
   }
+  // All retries exhausted
+  writeStatus({
+    status: "error",
+    error: `${lastErr || "unknown"} (after ${RETRY_DELAYS_MS.length + 1} attempts over ~60s — server may have been restarting, please retry)`,
+    tookMs: Date.now() - tStart,
+  });
+
+  // Cleanup
+  try {
+    fs.unlinkSync(bodyFile);
+  } catch { /* ignore */ }
 }
 
 main().then(() => process.exit(0)).catch((err) => {
