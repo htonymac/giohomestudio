@@ -394,6 +394,14 @@ function ChildrenPlannerInner() {
   const [preflightResult, setPreflightResult] = useState<{ checks: PreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
   const [preflightRunning, setPreflightRunning] = useState(false);
 
+  // Henry 2026-06-01 (Option B): cached pre-rendered MP4 per scene image. When
+  // an image is generated, we fire-and-forget POST /api/scene/prerender which
+  // bakes the Ken Burns motion + fade once. At assemble time we pass this MP4
+  // as a normal video URL (no `img:` prefix) so the assemble route skips its
+  // own per-scene zoompan work — straight to subtitle overlay + audio mix.
+  // Keyed by sceneId for the primary scene image; we also pre-render Gen Max
+  // beats so multi-image assemblies are fast too.
+  const [prerenderedSceneVideos, setPrerenderedSceneVideos] = useState<Record<string, string>>({});
   // ── Feature state: assembleMovie ──
   const [assembling, setAssembling] = useState(false);
   const [assembledUrl, setAssembledUrl] = useState<string | null>(null);
@@ -1483,6 +1491,15 @@ function ChildrenPlannerInner() {
       if (url) {
         setSceneImages(prev => ({ ...prev, [sceneId]: url }));
         setChildScenes(prev => prev.map(s => s.scene === scene.scene ? { ...s, imageUrl: url } : s));
+        // Henry 2026-06-01 (Option B): fire-and-forget pre-render to bake Ken Burns
+        // motion. Result cached server-side by hash; assemble uses the MP4 directly
+        // and skips per-scene zoompan. Network blip / failure is silent.
+        fetch("/api/scene/prerender", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl: url, duration: 5, motion: "zoom_in" }),
+        }).then(r => r.json()).then(d => {
+          if (d?.videoUrl) setPrerenderedSceneVideos(prev => ({ ...prev, [sceneId]: d.videoUrl }));
+        }).catch(() => { /* silent */ });
         // ACCUMULATE: also push this single image into the per-scene pool so it's
         // available alongside Gen Max beats in the assembly picker. Without this,
         // clicking Gen Image after Gen Max overwrites the active slot only and the
@@ -2068,15 +2085,21 @@ function ChildrenPlannerInner() {
           userOptedIntoMax && tickedBeats.length === 1 ? tickedBeats[0] :
           imageUrl ? imageUrl :
           (allBeats && allBeats.length > 0 ? allBeats[0] : undefined);
+        // Henry 2026-06-01 (Option B): if a pre-rendered Ken Burns MP4 exists
+        // for this scene's primary image, use it as a VIDEO (no img: prefix).
+        // The assemble route then skips its zoompan + scale work for this scene.
+        const preRendered = prerenderedSceneVideos[sceneId];
         if (pref === "video" && videoUrl) {
           assemblyScenes.push({ scene: ++segCounter, videoUrl, parentScene: s.scene });
         } else if (pref === "image" && singleImageSrc) {
-          assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${singleImageSrc}`, parentScene: s.scene });
+          const src = preRendered && singleImageSrc === imageUrl ? preRendered : `img:${singleImageSrc}`;
+          assemblyScenes.push({ scene: ++segCounter, videoUrl: src, parentScene: s.scene });
         } else if (videoUrl) {
           // auto: prefer video if available
           assemblyScenes.push({ scene: ++segCounter, videoUrl, parentScene: s.scene });
         } else if (singleImageSrc) {
-          assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${singleImageSrc}`, parentScene: s.scene });
+          const src = preRendered && singleImageSrc === imageUrl ? preRendered : `img:${singleImageSrc}`;
+          assemblyScenes.push({ scene: ++segCounter, videoUrl: src, parentScene: s.scene });
         }
       }
       if (assemblyScenes.length === 0) { setLastAction("No video or images available. Generate scene content first."); setAssembling(false); return; }
