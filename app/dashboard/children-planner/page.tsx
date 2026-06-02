@@ -1623,8 +1623,11 @@ function ChildrenPlannerInner() {
     if (newUrls.length > 0) {
       setSceneImages(prev => prev[sceneId] ? prev : { ...prev, [sceneId]: newUrls[0] });
       setChildScenes(prev => prev.map(s => s.scene === scene.scene && !s.imageUrl ? { ...s, imageUrl: newUrls[0] } : s));
-      // Auto-opt-in to multi-image mode so assembly expands the beats.
-      setUseMaxImageScenes(prev => prev.has(sceneId) ? prev : new Set(prev).add(sceneId));
+      // Henry 2026-06-01: REMOVED auto-opt-in to Max mode. Previously every Gen
+      // Max run auto-added the scene to useMaxImageScenes, which expanded each
+      // scene to ALL its beats at assemble time (7 scenes × ~10 beats = 70
+      // entries → server overload). Now Max is strictly user-toggle per scene
+      // via the Max button in the scene card.
     }
     setGeneratingMaxBeats(prev => { const n = new Set(prev); n.delete(sceneId); return n; });
     setMaxBeatsProgress(prev => { const n = { ...prev }; delete n[sceneId]; return n; });
@@ -2068,14 +2071,14 @@ function ChildrenPlannerInner() {
           : [];
         const wantsImagePath = pref === "image" || (pref !== "video" && !videoUrl);
         const userOptedIntoMax = useMaxImageScenes.has(sceneId);
-        if (wantsImagePath && userOptedIntoMax && tickedBeats.length > 1) {
-          // Push one assembly segment per ticked beat. CRITICAL: each gets a unique
-          // sequential scene number so /api/video/assemble's temp-file naming doesn't collide.
-          for (const beatUrl of tickedBeats) {
-            assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${beatUrl}`, parentScene: s.scene });
-          }
-          continue;
-        }
+        // Henry 2026-06-01: REMOVED multi-beat-as-segments branch.
+        // Previously: if Max ON + multiple beats ticked, push ONE assembly entry
+        // PER beat → 7 scenes × 10 beats = 70 entries → server hit task limits
+        // and returned empty reply in 2s. Henry's call: cap at primary images only,
+        // one entry per visible scene card. Max + multiple ticked beats now just
+        // picks the primary image like single-mode (no segment explosion).
+        // Max + exactly one ticked beat still picks that beat via singleImageSrc
+        // below — user can curate WHICH image is the scene image, not how many.
 
         // Single-image / video path. Source priority:
         //   1. user opted into Max + exactly one beat ticked → use that beat
