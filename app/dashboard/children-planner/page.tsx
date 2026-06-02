@@ -2291,11 +2291,13 @@ function ChildrenPlannerInner() {
       const jobId = startData.jobId;
       setLastAction(`Assembling… (job ${jobId.slice(0, 8)})`);
 
-      // Poll status every 4 seconds; cap at 12 minutes (180 polls).
-      // Progress bar creeps from 5% → 95% based on elapsed vs an estimate of
-      // ~20s per scene. Real completion fills to 100%.
+      // Poll status every 4 seconds; cap at 20 minutes (300 polls).
+      // Henry 2026-06-02: bumped 12 -> 20 min because long pacing-aware stories
+      // (36 entries / 319s narration) ran past 12-min cap while worker was
+      // still alive (worker has 15-min budget + bumper concat tail).
+      // Progress bar creeps based on heartbeat. Real completion fills to 100%.
       const POLL_INTERVAL_MS = 4000;
-      const MAX_POLLS = 180;
+      const MAX_POLLS = 300;
       const estimatedTotalMs = Math.max(60000, scenesToAssemble.length * 22000);
       let polled = 0;
       let outputUrl: string | undefined;
@@ -2347,7 +2349,11 @@ function ChildrenPlannerInner() {
         return;
       }
       if (!outputUrl) {
-        const timeoutMsg = `Assembly timed out after ${polled * POLL_INTERVAL_MS / 1000}s — try fewer scenes or check server logs`;
+        // Henry 2026-06-02: honest message — UI poll cap reached, server may
+        // STILL be processing (worker has its own 15-min budget). Tell user
+        // where the video will appear if the worker finishes.
+        const elapsedMin = Math.round((polled * POLL_INTERVAL_MS) / 60000);
+        const timeoutMsg = `UI poll cap reached after ${elapsedMin} min. The server worker may still be finishing — check All Content / Asset Library in a couple minutes. If still missing, try fewer scenes or rebuild pacing plan.`;
         setAssemblyError(timeoutMsg);
         setAssemblePercent(0);
         setLastAction(timeoutMsg);
