@@ -3740,7 +3740,10 @@ Rules:
     const newKey = `ghs_children_${Date.now()}`;
     activeProjectIdRef.current = newKey;
     window.history.replaceState(null, "", `/dashboard/children-planner?projectId=${encodeURIComponent(newKey)}`);
-    setProjectTitle("Untitled Children Project");
+    // Henry 2026-06-02: name new project by timestamp so the My Projects panel
+    // distinguishes them instead of showing N "Untitled Children Project" rows.
+    const newTitle = `Untitled (${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})`;
+    setProjectTitle(newTitle);
     setTextContent(""); setExpandedContent(""); setVisualStyle("storybook"); setNarrationStyle("gentle");
     setMusicChoice("soft_story"); setAgeGroup("preschool"); setSafetyLevel("high"); setLearningMode("storybook");
     setSavedChars([]); setSelectedCharIds([]); setCharacters([]); setChildScenes([]); setSceneImages({}); setSceneVideos({});
@@ -3750,6 +3753,56 @@ Rules:
     setSavedCuts([]); setActiveTab("design"); setLastAction("New project started");
     setShowProjects(false);
     isRestoringRef.current = false;
+    // Henry 2026-06-02: persist the fresh empty project IMMEDIATELY so it
+    // appears as the active OPEN entry in My Projects list right away. Before
+    // this, the panel still showed the OLD project as OPEN until user typed
+    // something — the new project felt invisible.
+    setTimeout(() => { void flushCurrentProject(); }, 50);
+  }
+
+  // Henry 2026-06-02: delete a project from the DB (My Projects list)
+  async function deleteChildProject(id: string, title: string) {
+    const ok = window.confirm(`Delete "${title || "Untitled"}"? This cannot be undone.`);
+    if (!ok) return;
+    try {
+      const res = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) { setLastAction(`Delete failed (${res.status})`); return; }
+      // If deleted the active project, switch to a fresh one
+      if (id === activeProjectIdRef.current) {
+        await newProject();
+      } else {
+        // Just refresh the list
+        const listRes = await fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children");
+        const listData = await listRes.json();
+        if (listData.projects) setProjectsList(listData.projects);
+        setLastAction(`Deleted "${title || "Untitled"}"`);
+      }
+    } catch (err) {
+      setLastAction(`Delete error: ${(err as Error)?.message?.slice(0, 100) || "unknown"}`);
+    }
+  }
+
+  // Henry 2026-06-02: export a project as JSON download
+  async function exportChildProject(id: string, title: string) {
+    try {
+      const res = await fetch(`/api/hybrid/saved-state?localId=${encodeURIComponent(id)}`);
+      const j = await res.json();
+      if (!j.found || !j.data) { setLastAction("Export failed: project data missing"); return; }
+      const payload = { projectId: id, title, exportedAt: new Date().toISOString(), data: j.data };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safe = (title || "untitled").replace(/[^a-z0-9-_]+/gi, "_").slice(0, 40);
+      a.href = url;
+      a.download = `children_project_${safe}_${id.slice(-8)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setLastAction(`Exported "${title || "Untitled"}"`);
+    } catch (err) {
+      setLastAction(`Export error: ${(err as Error)?.message?.slice(0, 100) || "unknown"}`);
+    }
   }
 
   // ── Load an existing children project ──
@@ -3857,12 +3910,28 @@ Rules:
                 {projectsList.sort((a, b) => b.lastModified - a.lastModified).map(proj => {
                   const isActive = proj.id === (activeProjectIdRef.current || "ghs_children_default");
                   return (
-                    <div key={proj.id} onClick={() => isActive ? setShowProjects(false) : loadChildProject(proj.id)}
-                      style={{ borderRadius: 12, border: `2px solid ${isActive ? ds.color.gold : ds.color.line}`, background: isActive ? `${ds.color.gold}08` : ds.color.paper, cursor: "pointer", padding: "12px 14px" }}>
-                      <p style={{ fontSize: 12, fontWeight: 700, color: isActive ? ds.color.gold : "#fff", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title || "Untitled"}</p>
-                      <p style={{ fontSize: 9, color: ds.color.mute }}>{proj.sceneCount} scenes · {proj.characterCount} chars</p>
-                      <p style={{ fontSize: 8, color: ds.color.mute, marginTop: 4 }}>{new Date(proj.lastModified).toLocaleDateString()}</p>
-                      {isActive && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 6, background: ds.color.gold, color: "#000", fontWeight: 800, display: "inline-block", marginTop: 4 }}>OPEN</span>}
+                    <div key={proj.id} style={{ borderRadius: 12, border: `2px solid ${isActive ? ds.color.gold : ds.color.line}`, background: isActive ? `${ds.color.gold}08` : ds.color.paper, padding: "12px 14px", position: "relative" as const }}>
+                      <div onClick={() => isActive ? setShowProjects(false) : loadChildProject(proj.id)} style={{ cursor: "pointer", paddingBottom: 28 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: isActive ? ds.color.gold : "#fff", marginBottom: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proj.title || "Untitled"}</p>
+                        <p style={{ fontSize: 9, color: ds.color.mute }}>{proj.sceneCount} scenes · {proj.characterCount} chars</p>
+                        <p style={{ fontSize: 8, color: ds.color.mute, marginTop: 4 }}>{new Date(proj.lastModified).toLocaleDateString()}</p>
+                        {isActive && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 6, background: ds.color.gold, color: "#000", fontWeight: 800, display: "inline-block", marginTop: 4 }}>OPEN</span>}
+                      </div>
+                      {/* Henry 2026-06-02: Export + Delete per project card */}
+                      <div style={{ position: "absolute" as const, bottom: 6, right: 6, display: "flex", gap: 4 }}>
+                        <button
+                          title="Export project as JSON"
+                          onClick={e => { e.stopPropagation(); exportChildProject(proj.id, proj.title); }}
+                          style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${ds.color.line2}`, background: "transparent", color: ds.color.mute, fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                          ↓ JSON
+                        </button>
+                        <button
+                          title="Delete project (cannot be undone)"
+                          onClick={e => { e.stopPropagation(); deleteChildProject(proj.id, proj.title); }}
+                          style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid #e0535340`, background: "transparent", color: "#ff7a7a", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
+                          🗑
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

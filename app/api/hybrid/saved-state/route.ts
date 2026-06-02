@@ -76,3 +76,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "DB save error" }, { status: 500 });
   }
 }
+
+// Henry 2026-06-02: DELETE /api/hybrid/saved-state?localId=xxx — remove a
+// saved project from the DB. Used by the My Projects panel's per-card trash
+// button. Storage assets under storage/scenes/, storage/video/, etc. are
+// NOT touched here — they live by sceneId not projectId, and the same scene
+// IDs can be reused across projects. Garbage collection is a separate concern.
+export async function DELETE(req: NextRequest) {
+  try {
+    const localId = req.nextUrl.searchParams.get("localId");
+    if (!localId) return NextResponse.json({ error: "localId required" }, { status: 400 });
+    await prisma.$executeRaw`DELETE FROM hybrid_saved_states WHERE "localId" = ${localId}`;
+    return NextResponse.json({ ok: true, localId });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "DB delete error" }, { status: 500 });
+  }
+}

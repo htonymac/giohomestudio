@@ -874,13 +874,21 @@ export async function POST(req: NextRequest) {
       const SEC = preset && subMode === "mrbeast_single" ? 0.6 : 1.6;
       const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
 
+      // Henry 2026-06-02 Phase C: real rainbow. Cycle colors per chunk when
+      // subMode === "rainbow". Old code used static red preset color — the
+      // "rainbow effect" Henry was seeing actually came from a different path
+      // (PNG subtitles). Make drawtext actually multicolor here.
+      const RAINBOW_PALETTE = ["0xf87171", "0xfb923c", "0xfacc15", "0x4ade80", "0x22d3ee", "0x60a5fa", "0xc084fc"];
+      const colorForChunk = (idx: number): string =>
+        subMode === "rainbow" ? RAINBOW_PALETTE[idx % RAINBOW_PALETTE.length] : txCol;
+
       // BUILD A: rich filter with alpha fade-in/out (preferred — what was here before)
       const richParts = grp.map((g, idx) => {
         const s0 = idx * SEC;
         const s1 = s0 + SEC + 0.4;
         const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
         const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
-        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
       });
       const richFilter = richParts.length > 0 ? richParts.join(",") :
         `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
@@ -890,10 +898,19 @@ export async function POST(req: NextRequest) {
         const s0 = idx * SEC;
         const s1 = s0 + SEC + 0.4;
         const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
-        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}`;
       });
       const simpleFilter = simpleParts.length > 0 ? simpleParts.join(",") :
         `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10`;
+
+      // Henry 2026-06-02 Phase C: engine routing.
+      // Some modes need per-word color cycling (rainbow) or per-char reveal
+      // (typewriter) — those CAN'T be done cleanly in ASS without huge inline
+      // tag explosion. Route them to drawtext (slower but expressive). All
+      // other modes go to ASS (10× faster).
+      const DRAWTEXT_ONLY_MODES = new Set(["rainbow", "typewriter"]);
+      const useAss = !subMode || !DRAWTEXT_ONLY_MODES.has(subMode);
+      console.log("[assemble.subtitle] engine:", useAss ? "ASS (fast)" : "drawtext (mode-specific)", "for mode:", subMode || "default");
 
       // Henry 2026-06-02: ASS subtitle path — 10× faster than chained drawtexts.
       // Previous version chained 30+ drawtext= filters into a single -vf for a
@@ -930,11 +947,17 @@ export async function POST(req: NextRequest) {
         .replace(/\\/g, "\\\\")
         .replace(/\n/g, "\\N")
         .replace(/\{/g, "(").replace(/\}/g, ")");
+      // Henry 2026-06-02 Phase A: no overlap. Each chunk ends EXACTLY when the
+      // next begins. Add libass \fad(in_ms,out_ms) inline tag for the smooth
+      // appearance/disappearance the old drawtext alpha-fade gave us, without
+      // letting two captions live on screen at once.
       const dialogueLines: string[] = [];
+      const FADE_IN_MS = 180;
+      const FADE_OUT_MS = 180;
       for (let i = 0; i < grp.length; i++) {
         const s0 = i * SEC;
-        const s1 = s0 + SEC + 0.4;
-        dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,${assEscape(grp[i])}`);
+        const s1 = s0 + SEC; // tight — no overlap
+        dialogueLines.push(`Dialogue: 0,${sec2ts(s0)},${sec2ts(s1)},Default,,0,0,0,,{\\fad(${FADE_IN_MS},${FADE_OUT_MS})}${assEscape(grp[i])}`);
       }
       const assContent = `[Script Info]
 ScriptType: v4.00+
@@ -953,22 +976,24 @@ ${dialogueLines.join("\n")}
 `;
       const assFile = path.join(tempDir, "captions.ass");
       let burned = false;
-      try {
-        await fs.promises.writeFile(assFile, assContent, "utf8");
-        // libass needs the absolute path forward-slashed even on Windows; on
-        // Linux it's straight passthrough. Escape ':' for filter syntax.
-        const assArg = assFile.replace(/\\/g, "/").replace(/:/g, "\\:");
-        await execFileAsync(ffmpeg, [
-          "-i", finalPath,
-          "-vf", `ass=${assArg}`,
-          "-c:a", "copy", "-y", captionOutput,
-        ], { timeout: 120000 });
-        finalPath = captionOutput;
-        burned = true;
-        console.log("[assemble.subtitle] ASS libass succeeded — fast path");
-      } catch (assErr) {
-        console.warn("[assemble.subtitle] ASS libass failed, falling back to drawtext:",
-          (assErr as Error)?.message?.slice(0, 200));
+      if (useAss) {
+        try {
+          await fs.promises.writeFile(assFile, assContent, "utf8");
+          // libass needs the absolute path forward-slashed even on Windows; on
+          // Linux it's straight passthrough. Escape ':' for filter syntax.
+          const assArg = assFile.replace(/\\/g, "/").replace(/:/g, "\\:");
+          await execFileAsync(ffmpeg, [
+            "-i", finalPath,
+            "-vf", `ass=${assArg}`,
+            "-c:a", "copy", "-y", captionOutput,
+          ], { timeout: 120000 });
+          finalPath = captionOutput;
+          burned = true;
+          console.log("[assemble.subtitle] ASS libass succeeded — fast path");
+        } catch (assErr) {
+          console.warn("[assemble.subtitle] ASS libass failed, falling back to drawtext:",
+            (assErr as Error)?.message?.slice(0, 200));
+        }
       }
 
       // Legacy drawtext fallback (slower but doesn't need fontconfig setup).
