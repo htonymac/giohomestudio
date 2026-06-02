@@ -1019,6 +1019,8 @@ export default function MusicVideoPlannerPage() {
     }
 
     try {
+      // TODO(pacing): music-video-planner has no word-timed pacing data — pacingEntries not sent.
+      // De-vocabularize not applicable: input is song lyrics, not a prose story.
       const res = await fetch("/api/video/assemble", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
