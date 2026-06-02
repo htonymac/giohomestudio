@@ -2445,3 +2445,3681 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ?? tests/children-verify-report.txt
   ?? tests/e2e-1-story-tab.png
   ```
+
+## 2026-05-24 02:21 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `267a6c7 chore(deps): add @aws-sdk/client-s3 + s3-request-presigner to package.json`
+- working tree:
+  ```
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ?? tests/e2e-2-story-filled.png
+  ```
+
+## 2026-05-24 03:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `267a6c7 chore(deps): add @aws-sdk/client-s3 + s3-request-presigner to package.json`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 03:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5f7124c fix(next.config): add andiostudio.com to allowedDevOrigins — restore button interactivity`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 03:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3094e0f docs(changelog): allowedDevOrigins fix recorded — verified 31/34 buttons restored`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 03:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7f7bb75 feat(music): GET /api/music/stock licensed catalog + manifest for 17 bundled tracks`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 03:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7f7bb75 feat(music): GET /api/music/stock licensed catalog + manifest for 17 bundled tracks`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 03:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 04:24 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 04:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 04:48 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 05:04 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 05:12 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 05:23 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `099af35 docs(changelog): Piper TTS + 50 CC BY music tracks LIVE on andiostudio.com`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 06:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `c4ed465 fix(assembly): NDJSON streaming response — defeats CF Free-plan 100s timeout`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 06:30 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-24 09:01 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ?? tests/children-verify-report.txt
+  ?? tests/e2e-1-story-tab.png
+  ```
+
+## 2026-05-27 00:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 00:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 02:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 02:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 02:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 03:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 03:24 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 03:30 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 03:48 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 04:12 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 06:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M src/core/pipeline.ts
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+  ```
+
+## 2026-05-27 06:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M src/core/pipeline.ts
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+  ```
+
+## 2026-05-27 06:58 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M src/core/pipeline.ts
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+  ```
+
+## 2026-05-27 07:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dddf7a9 docs(changelog): assembly streaming response landed (commit c4ed465)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M src/core/pipeline.ts
+   M src/lib/generation/gateways/segmind.ts
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+  ```
+
+## 2026-05-27 07:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `054659b fix(build): restore green production build + wire mock-video switch`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 07:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `054659b fix(build): restore green production build + wire mock-video switch`
+- working tree:
+  ```
+   M HANDOFF.md
+   D storage/characters/cmoffuo5a0008vrdvyvh7oln4/portrait_1777754781832.jpg
+   D storage/characters/cmoffuo5k0009vrdve2dbib7d/portrait_1777754786011.jpg
+   D storage/characters/cmoffuo5q000avrdv6j41epa2/portrait_1777754788678.jpg
+   D storage/characters/cmohu8s6f0000tzgwwwvbmm7j/portrait_1777754791426.jpg
+   D storage/characters/cmohu8s730001tzgw3u41hwqi/portrait_1777754793795.jpg
+   D storage/characters/cmohu8s7h0002tzgw0tbrs2o6/portrait_1777754796186.jpg
+   D storage/characters/cmohu8s7w0003tzgwmuyeuclp/portrait_1777754798993.jpg
+   D storage/characters/cmohu8s8p0004tzgw1ccp438e/portrait_1777754801553.jpg
+   D storage/characters/cmoiwlurg000atzgwynvbkw4k/portrait_1777754804173.jpg
+  ```
+
+## 2026-05-27 14:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `054659b fix(build): restore green production build + wire mock-video switch`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/globals.css
+   M app/layout.tsx
+   M test-results/.last-run.json
+  ?? app/components/AppShell.tsx
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-05-27 16:31 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `0875b13 docs: mobile shell shipped + 204-asset recovery + subtitle-too-big bug logged (2026-05-27)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 17:08 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `205c597 docs: Phase 1 stabilization complete — karaoke Tier1 engines, pg_dump cron, story-qc quarantine, R2 deferral + server-state recovery notes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 17:57 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `205c597 docs: Phase 1 stabilization complete — karaoke Tier1 engines, pg_dump cron, story-qc quarantine, R2 deferral + server-state recovery notes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 18:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `205c597 docs: Phase 1 stabilization complete — karaoke Tier1 engines, pg_dump cron, story-qc quarantine, R2 deferral + server-state recovery notes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 18:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `205c597 docs: Phase 1 stabilization complete — karaoke Tier1 engines, pg_dump cron, story-qc quarantine, R2 deferral + server-state recovery notes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 20:50 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `9773b87 docs: asset delete button fixed (move to .trash, no more reappearing)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 21:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ebe4cbd docs: dashboard mobile fix (dup topbar + grid overflow) live`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 21:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ebe4cbd docs: dashboard mobile fix (dup topbar + grid overflow) live`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-27 23:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `a1e9f3e docs: subtitle fix VERIFIED on real assembled render (not just synthetic)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-28 00:14 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `135dd32 fix(children+hybrid): content modes do their real format, length mandate, culture de-inversion + Hollywood`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 01:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `135dd32 fix(children+hybrid): content modes do their real format, length mandate, culture de-inversion + Hollywood`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 01:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `719625a fix(children): iterative length expansion — continuation passes fill long story requests`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 02:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `719625a fix(children): iterative length expansion — continuation passes fill long story requests`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 02:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `bbf0337 fix(culture): strip era 'For African settings' clause for non-African cultures`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 03:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `99c0d06 fix(build): drop regex /s dotAll flag (unsupported at TS target) — use [\s\S] — restores production build`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 03:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `fc3704a fix(hybrid+music-video): grids fluid at any width (auto-fit minmax); fixed layout grids preserved`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 18:30 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3f6b2cf fix(gate): portal the pre-generation modal to body so it centers (transformed ancestor broke fixed positioning)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 18:51 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1d1ac44 fix(assembly): missing-image scenes get a solid placeholder too (extract solidPlaceholderClip helper)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 19:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6b39bd0 fix(llm): free tier no longer 503s — Ollama auto-picks an installed model + story-expand falls back to cloud`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 20:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `71c86d0 fix(story-expand): cap free-tier Ollama at 45s + fall back to cloud — CPU-only host took >5min on llama3.1:8b (children planner hung). Continuations follow the provider that answered.`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 20:05 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `71c86d0 fix(story-expand): cap free-tier Ollama at 45s + fall back to cloud — CPU-only host took >5min on llama3.1:8b (children planner hung). Continuations follow the provider that answered.`
+- working tree:
+  ```
+   M HANDOFF.md
+   M scripts/abc_format_test.mjs
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-28 20:08 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `53ec66e docs: children-planner free-tier LLM fix verified (#45) + ABC format live-confirmed; handoff/changelog updated`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/length_fill_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-28 20:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `56c24cc docs+test: karaoke MAIN free-stock verified (#46) — premium gating confirmed live`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 20:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `02f743a perf(assembly): ~3-4x faster — ultrafast preset on intermediate clip encodes + concurrency 4->7 (8-core box)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 20:38 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d4a455b perf(assembly): skip final_merge video re-encode when concat already covers target — copy instead of stream_loop+libx264. Removes a full-video pass on long videos (the main remaining cost)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 20:40 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d4a455b perf(assembly): skip final_merge video re-encode when concat already covers target — copy instead of stream_loop+libx264. Removes a full-video pass on long videos (the main remaining cost)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/audio_merge_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-28 20:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `4ba9320 docs+test: assembly perf verified (#47) — 42s->20s, audio path probed (h264+aac); handoff updated`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 22:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `4ba9320 docs+test: assembly perf verified (#47) — 42s->20s, audio path probed (h264+aac); handoff updated`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/karaoke_e2e_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-28 22:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ee2debe fix(karaoke): LLM steps fall back Claude->OpenAI->Ollama — were direct Anthropic calls that 500'd when credits depleted, blocking the whole pipeline at flow-profile`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 23:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `86465f9 fix(karaoke): assemble resolves /api/media/music/stock/*.mp3 — resolveFilePath was karaoke-only, broke stock backing track ('Cannot resolve path')`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 23:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `bd95f49 docs: karaoke MAIN pipeline verified GREEN e2e on free engines (#48 LLM fallback, #49 assemble path); flag Anthropic credit depletion`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-28 23:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b834407 fix(scene-image): person-count lock + extra-people negative — stops phantom/duplicate people in multi-character scenes (2-char scene was rendering 3). Scoped to known small casts, skipped for crowd scenes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+   M update/REMAINING_TODO.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/phantom_people_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-05-28 23:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3eb2910 docs: karaoke tempo is fine (tempo_bpm correctly detected+consumed) — was a test-display artifact, not a bug`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 00:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `19a3d3e feat(hybrid): actor-voice on/off toggle in Sound + Assembly tabs (#2) — deactivate character voices anytime (narrator only); gated + persisted`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/ducking_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-29 00:08 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `075a7ac docs+test: narrator ducking (#51) + actor-voice toggle (#2) + scene-image cameraman/age/env/count (#52) — all verified`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 02:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `075a7ac docs+test: narrator ducking (#51) + actor-voice toggle (#2) + scene-image cameraman/age/env/count (#52) — all verified`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 03:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d47fffe fix(image): systemic anti-fantasy guard — non-fantasy stories no longer render angel/fairy wings, halos, divine glow from ambiguous words (plane 'wings' -> angel). Shared getAntiFantasyNegative() in scene-image + establishing-shot`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/plane_not_angel_test.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ```
+
+## 2026-05-29 03:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `9d4f9c7 docs+test: anti-fantasy guard verified (#53) — model plane renders as aircraft not angel wings`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 03:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `18def52 docs: refresh REMAINING_TODO to current state (12 fixes closed; what's left = R2/Phase3 + browser e2e + model residuals)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 03:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f4ba078 docs: live provider credit snapshot (Segmind 6.91, FAL locked/exhausted, ElevenLabs TTS ok, Kling valid); face-lock blocker corrected to FAL top-up (not R2)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 04:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `99ee613 docs: face-lock free seed path documented; FAL=premium-later; record no-lazy-API/free-first principle`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-29 22:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 00:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 00:48 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 02:23 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 02:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 02:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `280b841 docs: mark #6+#7 fixed (efaee13) + CHANGELOG explanation`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 02:46 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7894e03 feat(subtitle): 8 FB/YT-style per-word animated modes + duck depth 0.02`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 04:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `27d6c36 fix(subtitle): highlight mode now spotlights ONLY the spoken word, not full line`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 04:55 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b4f774f docs(p&f): log highlight bouncing-ball fix (27d6c36)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 05:06 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b4f774f docs(p&f): log highlight bouncing-ball fix (27d6c36)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 14:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7c4bd6b docs: handoff for auto-expand + template catalog fix (1d571d1)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 15:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ff91d86 docs: handoff #14 children subtitle staging (a40b53a)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 16:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `c18b875 docs: handoff #15 parity audit (6e3ba9a) — children at 85% parity`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 20:11 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `21de508 docs: handoff #33 karaoke flow-lock button (bf5cdc7) — 25 fixes shipped`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 20:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `21de508 docs: handoff #33 karaoke flow-lock button (bf5cdc7) — 25 fixes shipped`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 20:40 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `45336df docs: session scorecard 2026-05-30 — 29 closed, sweep backlog empty`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 22:23 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `0d10933 docs: handoff #38 children prefill + 10 modify buttons (56e32f2)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 22:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `37fadb9 docs: handoff #39 broken thumbnails + modify buttons (f7525e3)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 23:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `37fadb9 docs: handoff #39 broken thumbnails + modify buttons (f7525e3)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 23:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `9223748 docs: handoff #40 real narration+subtitle server fix (02c6f07)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-30 23:57 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `bbfa6a3 docs: handoff #41+#42 Max ON + Piper resolution (49f353d + b4d8092)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 00:57 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `c2cc065 docs: handoff #43 children fixes (529fa05 + b554f40)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 01:37 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6de9506 docs: handoff #44 inline LLM picker (0c1513c)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 01:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `528c79e docs: handoff #45 children prompt quality (322ae0c)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 02:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `528c79e docs: handoff #45 children prompt quality (322ae0c)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 02:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `528c79e docs: handoff #45 children prompt quality (322ae0c)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 02:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8479d1e test: karaoke epic-brief test for Henry listen`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 02:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `162104d docs: handoff #47 children auto-expand before narration (1351cc5)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 03:51 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `988ae71 docs: handoff #48 children 4-fix quality (156e03f)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 04:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5f0c5b6 fix(children): add manual ✨ Re-suggest button — auto-prefill silently no-op'd`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 04:37 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `824b74c docs: handoff #49 Letters & Sounds 5→27 topics (473b6d3) + #5f0c5b6 manual re-suggest`
+- working tree:
+  ```
+   M HANDOFF.md
+   M test-results/.last-run.json
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ```
+
+## 2026-05-31 04:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8596323 docs: handoff #50 educational-first + image-fail visibility (2007a8e)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-31 06:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `41d4c5a docs: handoff #51 mirror hybrid — fullScript + per-scene narration (02d101d)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ?? tests/children-1-no-textarea.png
+  ?? tests/children-2-story-filled.png
+  ?? tests/children-3-after-expand.png
+  ```
+
+## 2026-05-31 08:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d9432d8 fix(children-planner): assemble button stayed grey on reopen — auto-select scenes from restored state + persist selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 08:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d9432d8 fix(children-planner): assemble button stayed grey on reopen — auto-select scenes from restored state + persist selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 17:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d9432d8 fix(children-planner): assemble button stayed grey on reopen — auto-select scenes from restored state + persist selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 17:32 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d9432d8 fix(children-planner): assemble button stayed grey on reopen — auto-select scenes from restored state + persist selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 17:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `d9432d8 fix(children-planner): assemble button stayed grey on reopen — auto-select scenes from restored state + persist selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 17:46 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `a438f66 fix(children-planner): belt-and-suspenders auto-select net for empty assemblySelectedIds`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 20:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `286c624 fix(children): 3 image+narration fixes — descriptions backfilled, no human-guard on object scenes, pre-expand on narration`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 20:35 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f44be26 fix(karaoke): safe JSON parsing for non-JSON 5xx + clarify music gen fallback`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 21:21 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2a15999 fix(children): pull narration from audioPlans when textContent is empty (BIB fix #3)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:18 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `267a01b fix(karaoke): expand stock library + honest match-quality reporting`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:51 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:51 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 22:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `1db36ff fix(children-planner): kill infinite re-render loop in visualDescription backfill`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 23:06 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `cc0b198 feat(karaoke): RVC keep-anyway toggle with OS confirmation prompt`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 23:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `cc0b198 feat(karaoke): RVC keep-anyway toggle with OS confirmation prompt`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-05-31 23:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8bde095 fix(children-planner): BIB audit deep — shared narration resolver + ?continue= fix`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 00:05 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8bde095 fix(children-planner): BIB audit deep — shared narration resolver + ?continue= fix`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 00:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dc67814 fix(assemble): subtitle disappeared (#1) — surface drawtext failures + simple fallback`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 00:37 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dc67814 fix(assemble): subtitle disappeared (#1) — surface drawtext failures + simple fallback`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 00:58 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `172489f feat: 4 Sonnet-dispatched items — music genre picker, word-on-image, demucs/basic-pitch routes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 01:43 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `172489f feat: 4 Sonnet-dispatched items — music genre picker, word-on-image, demucs/basic-pitch routes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 01:43 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `172489f feat: 4 Sonnet-dispatched items — music genre picker, word-on-image, demucs/basic-pitch routes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 01:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `172489f feat: 4 Sonnet-dispatched items — music genre picker, word-on-image, demucs/basic-pitch routes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 02:14 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `4a4cb67 feat(karaoke + docs): safe music policy + Free Mode beats picker + MUST-READ master log`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 02:30 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ea64b09 feat(karaoke): wire Step 2 (Demucs) + Step 4 (Basic Pitch) UI to backend routes`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/HANDOFF.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 03:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6adc321 fix(scripts): pivot music download to Internet Archive cloud-music-4 (FreePD dead) + HANDOFF update`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 04:27 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6adc321 fix(scripts): pivot music download to Internet Archive cloud-music-4 (FreePD dead) + HANDOFF update`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 04:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6adc321 fix(scripts): pivot music download to Internet Archive cloud-music-4 (FreePD dead) + HANDOFF update`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 04:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `09cca38 feat(karaoke): T1-C purge cron + T1-D Music Video handoff route`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 04:57 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `09cca38 feat(karaoke): T1-C purge cron + T1-D Music Video handoff route`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 05:27 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `4a031a6 fix(children-planner): assembleMovie now uses shared resolveNarrationText helper`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 06:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `4a031a6 fix(children-planner): assembleMovie now uses shared resolveNarrationText helper`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/dashboard/karaoke-music-planner/page.tsx
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 06:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `0142e4a fix(karaoke): wire safeKaraokeJson to Steps 9/10/15/16 + Demucs --segment 10`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 06:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `62da4e3 feat(children-planner): Story Credits persist to localStorage (hard-refresh safe)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 06:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `62da4e3 feat(children-planner): Story Credits persist to localStorage (hard-refresh safe)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 06:42 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `62da4e3 feat(children-planner): Story Credits persist to localStorage (hard-refresh safe)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 06:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7544684 feat(stock): catalog_freepd.mjs script — adds explicit manifest entries for the freepd subdir with mood/genre per file`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/dashboard/children-planner/page.tsx
+   M app/dashboard/karaoke-music-creator/page.tsx
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? app/api/karaoke/mix-over-beat/
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? src/lib/karaoke/
+  ```
+
+## 2026-06-01 06:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ac7a23c docs: autonomous-push state log — running commit list + queue + safe-music policy + server install state`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/karaoke/delete/route.ts
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 07:06 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `11f717d docs(plan): children-planner 7,394-line refactor PLAN — 18 PRs, 11.5 days, 17 sessions`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `82c76d0 feat(karaoke export): surface license sidecar download next to MP3`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:20 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ab50f23 feat: children-video topic search filter + karaoke deep-link URL state`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `29d2a71 feat(music): manifest-driven stock scorer — 86 cataloged tracks now drive genre matching`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:33 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `f4728a7 feat(karaoke): /api/karaoke/session-summary — full take JSON archive download`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/karaoke/beats-library/route.ts
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 07:38 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `71661e3 feat(karaoke beats-library): mood + genre query params + meta block`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8bfb747 feat(karaoke picker): server-side mood/genre filter wire — chip rows stay stable`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:50 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7fc67b1 fix(style): 3d-cinematic suffix strengthened — volumetric + Unreal + octane cues`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 07:54 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6dc296b feat(stock): detect_track_bpm.mjs — rough BPM estimation via ffmpeg silencedetect`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:05 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b0b54cf fix(karaoke): Step 3 Audio Analysis converted to safeKaraokeJson`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:07 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b0b54cf fix(karaoke): Step 3 Audio Analysis converted to safeKaraokeJson`
+- working tree:
+  ```
+   M HANDOFF.md
+   M src/modules/music-provider/adapters/stock.adapter.ts
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-01 08:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `e71d972 feat(music): stock scorer now considers BPM proximity (additive bonus)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M app/api/karaoke/beats-library/route.ts
+   M app/dashboard/karaoke-music-creator/page.tsx
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-06-01 08:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `fb26d4e feat(karaoke): beats picker tempo filter + BPM display`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:20 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `14c4e12 feat(karaoke): 📋 Copy share link button on planner header`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:27 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `c9440ab feat(karaoke): 🎧 Now playing header bar — inline audio of mixed output`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `5b8bc6f docs: append wave 4 commits to AUTONOMOUS_PUSH log + 3D fall-through entry to MUST-READ`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7b2af47 feat(karaoke): keyboard shortcuts — J/K next/prev take, Space play/pause, ? for help`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 08:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `31f2b68 feat(karaoke): 📦 Export ALL formats as ZIP — bundle endpoint + Step 16 button`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:03 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `31f2b68 feat(karaoke): 📦 Export ALL formats as ZIP — bundle endpoint + Step 16 button`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:10 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8519c21 feat(karaoke): inline rename of takes via double-click in sidebar`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:16 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ffa90fa feat(karaoke): browser tab title syncs to current take + running indicator`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:19 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `ab28a9b docs: end-of-session overnight summary — single-page orientation for Henry`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `96f92d4 feat(karaoke): ⋮ kebab menu per take — Rename + Copy ID + (Duplicate soon)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 16:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `cc40b66 feat(children-video): ← Back to age groups link to reset selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 17:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `cc40b66 feat(children-video): ← Back to age groups link to reset selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 21:15 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `cc40b66 feat(children-video): ← Back to age groups link to reset selection`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 21:36 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3ee7bc6 fix(children assemble): fire-and-poll pattern — bypass Cloudflare Tunnel 100s timeout`
+- working tree:
+  ```
+
+## 2026-06-01 21:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `fe8b69c fix(children Story Credits): unify Screenplay 'Written by' with Story Credits writtenBy`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 23:06 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `e4f2505 feat(children Screenplay): all 3 Story Credits inputs (Written by / Made by / Idea from)`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 23:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8a5e7de fix(children Screenplay): Story Credits now ALWAYS visible on Screenplay tab`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 23:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8a5e7de fix(children Screenplay): Story Credits now ALWAYS visible on Screenplay tab`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-01 23:59 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `55222bd fix(assemble-async): force localhost — was sending internal fetch back through Cloudflare`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 00:02 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `55222bd fix(assemble-async): force localhost — was sending internal fetch back through Cloudflare`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 00:09 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `3f4f3c5 feat(children assemble): visible progress bar (0..100%) + red error box`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 00:29 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `92c0d88 fix(assemble-async): spawn detached worker process — Next.js was discarding bg promises`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 00:35 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `92c0d88 fix(assemble-async): spawn detached worker process — Next.js was discarding bg promises`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 00:41 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `378982a fix(assemble worker): retry with backoff + 127.0.0.1 — survives service restart race`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 01:01 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `e73058c perf(assemble worker): smart probe replaces blind 60s retry wait`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 01:22 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8295d87 perf(children) Option B: pre-render scene MP4 with Ken Burns on image gen`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:18 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `8295d87 perf(children) Option B: pre-render scene MP4 with Ken Burns on image gen`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:28 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:40 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:42 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:44 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:45 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 02:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `af7bea1 fix(assemble): dead-worker detector — stop UI from sitting at 95% forever`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 03:13 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 03:23 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 03:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 03:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 03:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ?? tests/children-1-landed.png
+  ```
+
+## 2026-06-02 04:28 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `dfa4839 fix(children): no more multi-beat explosion — 7 scenes = 7 entries, not 70`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/_tmp_page_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-06-02 05:17 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b42df0d WORKAROUND: switch start to next dev — sidestep Turbopack v16 chunk bug`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/_tmp_page_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-06-02 05:25 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `b42df0d WORKAROUND: switch start to next dev — sidestep Turbopack v16 chunk bug`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/_tmp_page_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-06-02 05:39 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `7cd69b8 fix(children): remove dead /api/scene/prerender call`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/_tmp_page_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ```
+
+## 2026-06-02 05:56 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6e370a9 fix(assemble worker): heartbeat every 8s while assembling`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 14:48 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `e4fec04 fix(children UI): show REAL server heartbeat elapsed, not client estimate`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 14:50 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `e4fec04 fix(children UI): show REAL server heartbeat elapsed, not client estimate`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 15:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2eb32b8 perf(assemble): ASS subtitle path — 10x faster than chained drawtexts`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 18:52 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `2eb32b8 perf(assemble): ASS subtitle path — 10x faster than chained drawtexts`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 19:26 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `a501dc2 fix(subtitle+projects): kill 2-subtitle overlap, restore rainbow, project mgmt`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 19:49 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `45fcfe0 ui(children): De-vocarize card — high-visibility prominent placement`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 20:00 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6eae854 ui(children): move De-vocabularize into modify row, prompt() for age`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 20:53 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6eae854 ui(children): move De-vocabularize into modify row, prompt() for age`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```
+
+## 2026-06-02 21:04 UTC — auto-checkpoint (dirty)
+- branch: `main`
+- HEAD: `6eae854 ui(children): move De-vocabularize into modify row, prompt() for age`
+- working tree:
+  ```
+   M HANDOFF.md
+   M update/CHANGELOG.md
+   M update/PROBLEM_AND_FIX.md
+  ?? FIXNEWCHIDHYBRIDANDMORE05272026.MD
+  ?? pnpm-lock.yaml
+  ?? scripts/_tmp_clean_check.mjs
+  ?? scripts/probe-children-assemble.mjs
+  ?? storage/scenes/
+  ?? storage/test_narration_mix.mp3
+  ?? tests/_mobile/
+  ```

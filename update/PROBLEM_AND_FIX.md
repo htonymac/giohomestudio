@@ -4,6 +4,20 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-05-31 — ✅ FIXED (`d9432d8`): Children planner — Assemble button stays grey on reopened project
+
+**Symptom:** Henry hit `https://andiostudio.com/dashboard/children-planner?projectId=child_1780208261900_qqy3` and the Assemble button was disabled, label `"Select scenes above to assemble"`, even though scene cards above were rendered.
+
+**Root cause:** The restore effect at `app/dashboard/children-planner/page.tsx` L2710 hydrated `childScenes` from `/api/hybrid/saved-state` but never re-set `assemblySelectedIds`. The big Assemble button is gated by `assemblySelectedIds.length === 0`. Auto-selection only ran inside the planScenes paths (L1208 + L1372), not on a saved-state restore. Every reopen left Assemble grey'd out until the user manually clicked "Select All".
+
+**Fix (commit `d9432d8`):** two touches —
+1. On restore: when `childScenes` come back from DB, auto-select all of them (mirrors the planScenes pattern).
+2. Persist `assemblySelectedIds` + `assemblyMediaPrefs` in the save payload + useEffect deps so manual deselections survive across sessions too.
+
+**Prevention:** when a feature is gated by state only one code path populates, any OTHER path that restores the upstream state must also restore the gate state — or move the auto-selection into a `useEffect` watching `childScenes`. Future planner-restore work should sanity-check "what gates depend on what I just restored?".
+
+---
+
 ## 2026-05-30 — ✅ FIXED (`6793682`): Children scene-card buttons appeared not to fire
 
 **Symptom (Henry screenshot SC01-SC03):** 7 buttons (Polish/Funny/Playful/Adventure/Emotion/Action/Establish) appeared to do nothing when clicked. Polish worked, the other 6 didn't visibly fire.

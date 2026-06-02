@@ -1483,13 +1483,14 @@ function ChildrenPlannerInner() {
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
       if (data.error) {
         console.error("[scene-image fail]", { status: res.status, error: data.error, sceneId, modelId: effectiveImageModelId });
-        setLastAction(`Image failed (${res.status}): ${String(data.error).slice(0, 200)}`);
+        // Show full error visibly — not just in Last Action (which is easy to miss)
+        setLastAction(`[children-planner] Image FAILED (HTTP ${res.status}): ${String(data.error).slice(0, 300)}`);
         return;
       }
       const url = data.imageUrl || data.imagePath || "";
       if (!url) {
         console.error("[scene-image no-url]", { status: res.status, data, sceneId });
-        setLastAction(`Image gen returned no URL (status ${res.status}) — see console`);
+        setLastAction(`[children-planner] Image gen returned no URL (HTTP ${res.status}) — check server logs`);
         return;
       }
       if (url) {
@@ -1511,9 +1512,16 @@ function ChildrenPlannerInner() {
         setLastAction(`Scene ${scene.scene} image generated`);
       }
     } catch (err) {
-      setLastAction(`Image generation failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+      // safeJson throws on non-ok / non-json (e.g. 502 gateway, 500 crash)
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[scene-image exception]", { sceneId, error: msg });
+      setLastAction(`[children-planner] Image generation exception: ${msg.slice(0, 300)}`);
+    } finally {
+      // BUG FIX 2026-06-02: early `return` inside `try` was bypassing this cleanup,
+      // leaving generatingSceneImage === sceneId forever → button stuck as "Generating…"
+      // and permanently disabled. `finally` guarantees cleanup on ALL exit paths.
+      setGeneratingSceneImage(null);
     }
-    setGeneratingSceneImage(null);
   }
 
   // ════════════════════════════════════════════════════════════════════════
