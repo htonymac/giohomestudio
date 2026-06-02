@@ -228,6 +228,7 @@ function MoviePlannerInner() {
   // ── Story ──
   const [title, setTitle] = useState("");
   const [idea, setIdea] = useState("");
+  const [devocarizing, setDevocarizing] = useState(false);
   const [expandedStory, setExpandedStory] = useState("");
   const [duration, setDuration] = useState("10 min");
   const [language, setLanguage] = useState("English");
@@ -1630,6 +1631,32 @@ function MoviePlannerInner() {
     }
   }
 
+  // ── De-vocabularize: simplify the movie idea for a target reading/writing age ──
+  async function devocarize(age: number) {
+    const text = idea.trim();
+    if (!text) { setLastAction("Add movie idea first"); return; }
+    setDevocarizing(true);
+    setLastAction(`Simplifying story for age ${age}…`);
+    try {
+      const res = await fetch("/api/children/devocarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, age }),
+      });
+      const data = await res.json() as { simplified?: string; error?: string; model?: string };
+      if (!res.ok || !data.simplified) {
+        setLastAction(`De-vocarize failed: ${data.error || `HTTP ${res.status}`}`);
+        return;
+      }
+      setIdea(data.simplified);
+      setLastAction(`Simplified for age ${age} via ${data.model || "LLM"}`);
+    } catch (err) {
+      setLastAction(`De-vocarize error: ${(err as Error)?.message?.slice(0, 100) || "unknown"}`);
+    } finally {
+      setDevocarizing(false);
+    }
+  }
+
   // ── Assemble Final Movie ──
   async function assembleMovie() {
     if (!moviePlan) return;
@@ -1732,6 +1759,8 @@ function MoviePlannerInner() {
         })
         .filter(Boolean);
 
+      // TODO(pacing): movie-planner has no pacingPlan state — pacingEntries not sent.
+      // Add a word-timed narration plan here if movie-planner ever gains per-word pacing.
       const res = await fetch("/api/video/assemble", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2707,6 +2736,34 @@ function MoviePlannerInner() {
               </button>
             </div>
             {expanding && <p style={{ fontSize: 10, color: accent, marginTop: 8, textAlign: "center" }}>Running 3-step pipeline: story expand → character extract → scene plan...</p>}
+            {/* De-vocabularize: simplify movie idea for a target age */}
+            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
+              <button
+                onClick={() => {
+                  if (!idea.trim()) { setLastAction("Add movie idea first"); return; }
+                  const raw = window.prompt("Simplify story idea for which age? (5-18)", "12");
+                  if (raw === null) return;
+                  const age = parseInt(raw.trim(), 10);
+                  if (!Number.isFinite(age) || age < 5 || age > 18) {
+                    setLastAction("Age must be a number between 5 and 18");
+                    return;
+                  }
+                  void devocarize(age);
+                }}
+                disabled={devocarizing || !idea.trim()}
+                title="Rewrite the movie idea using simpler words for a target age"
+                style={{
+                  padding: "5px 9px", borderRadius: 6,
+                  border: `1px solid ${accent}55`,
+                  background: devocarizing ? `${accent}25` : `${accent}12`,
+                  color: (devocarizing || !idea.trim()) ? muted : accent,
+                  fontSize: 9, fontWeight: 700,
+                  cursor: (devocarizing || !idea.trim()) ? "not-allowed" : "pointer",
+                  opacity: (devocarizing || !idea.trim()) ? 0.55 : 1,
+                }}>
+                {devocarizing ? "Simplifying…" : "De-vocabularize"}
+              </button>
+            </div>
           </div>
 
           {/* AI Production Plan button — shown after story is written */}
