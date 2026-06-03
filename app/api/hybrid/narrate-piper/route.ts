@@ -184,7 +184,12 @@ function runPiper(piperBin: string, modelPath: string, text: string, outputPath:
       "--length_scale", String(1.0 / speed),
     ];
 
-    const proc = spawn(piperBin, args, { timeout: 120000 });
+    // Henry 2026-06-03 (Sonnet C audit Fix #6): timeout scales with text length.
+    // Was hardcoded 120s. Long stories (3000+ chars) take Piper 60-120s on CPU,
+    // would hit the timeout, get killed mid-synth, throw, fall through. Same fix
+    // as /api/tts (commit 8807b18). Floor 60s, ceiling 10 min, ~500ms/char.
+    const piperTimeoutMs = Math.max(60_000, Math.min(600_000, Math.ceil(text.length * 500)));
+    const proc = spawn(piperBin, args, { timeout: piperTimeoutMs });
     proc.stdin.write(text);
     proc.stdin.end();
 

@@ -118,31 +118,55 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Piper fallback
+  // Henry 2026-06-03 (Sonnet C audit Fix #7): Piper fallback REWIRED.
+  // Was calling http://localhost:5000/tts — a Piper HTTP daemon that does
+  // not run on the Linux server. Every pacing narration call would silently
+  // fail with 502 after 30s. Now call our own /api/tts which has Piper
+  // properly configured + path candidate list + scaled timeouts (commit
+  // 8807b18 + this session's fixes).
   const plainText = buildPlainText(plan);
   try {
-    const piperRes = await fetch("http://localhost:5000/tts", {
+    const origin = process.env.INTERNAL_LOCALHOST_URL || "http://127.0.0.1:3200";
+    const piperRes = await fetch(`${origin}/api/tts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: plainText,
-        voice: voiceId ?? "en_US-lessac-medium",
+        provider: "piper",
+        voiceId: voiceId ?? "en_US-lessac-medium",
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(600000), // 10 min cap — same budget as /api/tts internal
     });
 
     if (!piperRes.ok) {
       throw new Error(`Piper TTS ${piperRes.status}`);
     }
 
-    const buffer = Buffer.from(await piperRes.arrayBuffer());
-    fs.writeFileSync(outPath, buffer);
+    const ttsData = await piperRes.json() as { audioUrl?: string; engine?: string; durationMs?: number };
+    // Reject silent placeholder — would land a 30s beep as the pacing audio.
+    if (ttsData.engine === "placeholder") {
+      throw new Error("TTS returned silent placeholder — Piper / FAL unavailable on server");
+    }
+    if (!ttsData.audioUrl) {
+      throw new Error("TTS returned no audioUrl");
+    }
 
-    return NextResponse.json({ ok: true, audioUrl, durationMs, timingMap });
+    // /api/tts wrote its own file. Copy/link it to our outPath so the
+    // pacing flow's expected file location holds, then use the real
+    // durationMs from the TTS engine if it returned one.
+    const ttsPath = ttsData.audioUrl.startsWith("/api/media/")
+      ? ttsData.audioUrl.replace("/api/media/", `${process.cwd()}/storage/`)
+      : null;
+    if (ttsPath && fs.existsSync(ttsPath) && ttsPath !== outPath) {
+      try { fs.copyFileSync(ttsPath, outPath); } catch { /* keep original outPath ref */ }
+    }
+
+    const realDurationMs = ttsData.durationMs || durationMs;
+    return NextResponse.json({ ok: true, audioUrl, durationMs: realDurationMs, timingMap });
   } catch (err) {
-    console.error("children/generate-narration: Piper fallback failed", err instanceof Error ? err.message : err);
+    console.error("[children/generate-narration] Piper fallback failed:", err instanceof Error ? err.message : err);
     return NextResponse.json(
-      { error: "All TTS providers failed. Configure ELEVENLABS_API_KEY or run Piper on port 5000." },
+      { error: `Pacing narration failed: ${err instanceof Error ? err.message : "unknown"}` },
       { status: 502 }
     );
   }
