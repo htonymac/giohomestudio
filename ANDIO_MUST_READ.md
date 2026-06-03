@@ -44,6 +44,23 @@
 - Proven mid-session 2026-06-02 when 4 Sonnets ssh'd in parallel. Locks Claude out for ~10-30 min.
 - Mitigation: bunch SSH-using agents 1-2 at a time, or whitelist PC IP via sudoers config.
 
+### Subtitle font size doesn't take effect on video (FIXED `44e7bca`)
+- Picker UI worked but only patched the CHUNKED caption path. Per-scene PNG subtitle path had 4 hardcoded `52` values that ignored `subtitleConfig.fontSize`. Now all 4 sites use `perSceneFontSize` derived from `subCfg.fontSize`.
+- File: `app/api/video/assemble/route.ts` (search `perSceneFontSize`).
+
+### Intro/outro shows hardcoded "GIO HOME AI STUDIO" (FIXED `44e7bca`)
+- 5 hardcoded sites: intro gen, outro gen, Screenplay tab preview x2, Story Credits placeholder.
+- Now: `studioName` state with editable input in Story Credits card. Persists per project.
+- File: `app/dashboard/children-planner/page.tsx` (search `studioName`).
+
+### Learning mode narration sounded like storytelling, not teacher (FIXED `44e7bca`)
+- Was hardcoded "gentle storytelling" voice for ALL modes including phonics/word/video_lesson.
+- Now `pickPiperVoice()`:
+  - Learning modes (phonics, word, video_lesson) → `en_GB-alan-medium` (British male teacher)
+  - read_along → `en_US-libritts_r-medium` (clearer enunciation)
+  - Story modes (storybook, poem, sentence) → `en_US-amy-medium` (warm narrator)
+- File: `app/dashboard/children-planner/page.tsx` (`pickPiperVoice` function).
+
 ### Action images show "smiling people" not action
 - Root: scene-image route uses `scene.visualDescription` + `scene.title` but NOT the narration text slice for that scene.
 - Henry's complaint 2026-06-03: stories with fight/kick/chase show passive smiling characters.

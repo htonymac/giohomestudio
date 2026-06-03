@@ -4,6 +4,51 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-06-03 — ✅ FIXED (`44e7bca`): font size full path + studio name editable + Piper voice per learning mode
+
+**Symptom (Henry verbatim):** "font size does not take effect on screen", "intro still show home studio", "pace is not ok for leading - learning if talk like story very bad - learning should not be like a story".
+
+**Root cause (3 unrelated issues, fixed in one commit):**
+
+1. **Font size silently ignored on per-scene path.** Subtitle Font Size picker (commit `c83357d`) patched the CHUNKED caption path's `fs` variable only. The PER-SCENE PNG subtitle path called `generateSubtitlePng(text, file, "bottom", 52, subCfg)` with hardcoded `52` at 4 sites. `subCfg.fontSize` was passed to the function but never used by the position/size arg. So if the user picked Large 72, the chunked caption used 72 but per-scene PNG still rendered at 52 — and per-scene PNG is what most short children videos use.
+
+2. **Studio name hardcoded in 5 places.** `"GIO HOME AI STUDIO"` was a literal in:
+   - children-planner intro gen body
+   - children-planner outro gen body
+   - Screenplay tab preview top text
+   - Screenplay tab preview footer text
+   - Could not be customized by user.
+
+3. **Same Piper voice for storytelling AND learning content.** Children planner had no voice routing based on `learningMode`. A phonics lesson sounded like a bedtime story — wrong cadence for teaching.
+
+**Fix:**
+
+1. `app/api/video/assemble/route.ts` — new `perSceneFontSize` var (line ~165) derived from `subCfg.fontSize` (clamped 18-120, fallback 52). All 4 `generateSubtitlePng` calls now pass `perSceneFontSize` instead of hardcoded `52`. Console log per scene shows size applied.
+
+2. `app/dashboard/children-planner/page.tsx` — new `studioName` state (default `"GIO HOME AI STUDIO"` for backward compat). Editable via new input in Story Credits card. Persists per project via `flushCurrentProject` save + restored on load. Used at all 5 sites.
+
+3. `pickPiperVoice()` function in children-planner. Routes voice by `learningMode`:
+   - phonics, word, video_lesson → `en_GB-alan-medium`
+   - read_along → `en_US-libritts_r-medium`
+   - storybook, poem, sentence → `en_US-amy-medium`
+   Wired into 3 `/api/tts` body construction sites.
+
+**Verification:** server pulled commit `44e7bca`. Henry to retest with explicit Large font + custom studio name + phonics mode.
+
+---
+
+## 2026-06-03 — ✅ TAGGED stable `v2026-06-03-stable` at HEAD `f14e9c7`
+
+Snapshot taken after the 10-fix audit ship + ANDIO_MUST_READ.md creation + action-images fix. `git checkout v2026-06-03-stable` to roll back to this point if any subsequent change regresses.
+
+Includes:
+- All 10 Sonnet audit fixes (font, perSegmentDuration, placeholder reject, pacing bridge, drawtext ultrafast, narrate-piper timeout, generate-narration rewire, worker STORAGE_PATH, storage cleanup tool)
+- Action images fix (narration slice + dynamic mood when action verbs detected)
+- `ANDIO_MUST_READ.md` at repo root (single-file index)
+- `CLAUDE.md` READ-FIRST block
+
+---
+
 ## 2026-06-03 — ✅ FIXED — 10-fix Sonnet-audit ship (`8ec0831` + `57e21db` + `c209d55` + `12c042c`)
 
 **Symptom:** Assembly stuck at 99% for 10+ minutes despite multiple earlier patches. Narration audio shipped as 30-second silent placeholder. Pacing narration never worked on Linux. Henry verbatim: "this system was built in window and has many window bypasses". Approved "Ship ALL 10" plan after 3 read-only Sonnets audited.
