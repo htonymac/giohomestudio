@@ -1,5 +1,22 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-03 — Session continuation (5 commits) — BIB regression + subtitle perf + custom font size
+
+### Narration (1 commit)
+- `8807b18` — **BIB regression #4 fix**. Piper had a hardcoded 30s timeout — long children stories (3000+ chars / 2+ min narration) hit the timeout, fell through silent catch to FAL/SAPI/silent-placeholder branch, produced 30s `_silent.mp3` BIB beep. Fix: timeout now scales `clamp(60_000, 600_000, text.length * 500)` ms. All silent catches replaced with explicit `console.error/warn`. Piper stderr captured + included in reject. Live-verified: 1500-char text → 95s real audio in 18s.
+
+### Subtitle (2 commits)
+- `bbf4135` — ASS timeout 120s → 600s + explicit `-preset ultrafast`. 98-segment / 400-sec videos were timing out on the ASS pass and silently falling back to the slow chained drawtext path (300-600s caption step instead of 60-180s).
+- `c83357d` — **Custom subtitle font size picker**. 4 preset pills (Small 36 / Medium 54 / Large 72 / XL 96) + numeric input 18-120. User pick now BEATS mode preset (was: `kids` mode locked at 54). Feeds BOTH ASS Style line and drawtext chain.
+
+### Docs (2 commits)
+- `b528bca` — `PROBLEM_AND_FIX.md` top entry for BIB #4 with full root cause, fix, prevention rule.
+- `09cb5e0` — 24h session record (this CHANGELOG entry below).
+
+**Note:** Recorded all 3 places: `update/CHANGELOG.md`, `update/PROBLEM_AND_FIX.md`, AND global `~/.claude/.../memory/error_log.md` (so any future Claude session on ANY project sees BIB #5 prevention rule).
+
+---
+
 ## 2026-06-02 / 2026-06-03 — 24-HOUR SESSION RECORD (29 commits) — children-planner + assemble route
 
 **Theme:** subtitle quality + assembly speed + project management + UI feature parity. Triggered by Henry's video tests showing 2 subtitles, slow assembly, broken delete, narration timing drift, image-narration mismatch.

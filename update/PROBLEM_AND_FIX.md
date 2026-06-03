@@ -4,6 +4,37 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-06-03 — ✅ SHIPPED (`c83357d`): Subtitle font size picker — Small/Medium/Large/XL + custom 18-120 px
+
+**Symptom (Henry verbatim):** "FIX SUBTITLE FONT SIZE OR TESXT SIZE" then "I CUSTOM WHERE I CAN CHOOSE SIZE". Mode presets (e.g. `kids` = 54px) hard-locked the subtitle size; user-supplied `subtitleConfig.fontSize` was ignored because the route code did `preset?.size ?? subCfg?.fontSize`.
+
+**Fix:**
+- `app/api/video/assemble/route.ts` — order swapped: `subCfg?.fontSize (if 18-120) ?? preset?.size ?? 54`. Default raised 36 → 54 (36 was too small for 1920x1080 video). Feeds BOTH ASS Style line (line 1068) and drawtext fontsize.
+- `app/dashboard/children-planner/page.tsx` — new "Subtitle Font Size" card on Assembly tab above "Image Flip Rate". 4 preset pills (Small 36 / Medium 54 / Large 72 / XL 96) + numeric input accepting any integer 18-120. Saves to `subtitleConfig.fontSize` → `effectiveSubtitleConfig` → assemble payload.
+
+**Live verification (pending):** to verify, render an assembly with explicit fontSize=72 and ffprobe the output for the rendered subtitle pixel height. Or eyeball — Henry should be able to see the size change immediately.
+
+---
+
+## 2026-06-03 — ✅ FIXED (`bbf4135`): Assembly stuck at 99% — ASS timeout was 120s, drawtext fallback ran 5-10 min
+
+**Symptom:** Assembly progress bar pegs at 99% for 5-10 minutes on long children stories. UI message: "Finalising bumpers + caption overlay (last step — typically 30-60s)". Direct ffmpeg inspection on the live server showed `drawtext=text='Once upon a time...'` filter chain running — i.e. ASS path silently failed, drawtext fallback took over.
+
+**Root cause:** `app/api/video/assemble/route.ts` ASS-path execFile timeout was hardcoded `{ timeout: 120000 }`. Henry's videos: 98 segments × 4s/chunk = ~400 seconds of output. ASS pass had to re-encode 400s of 1920x1080 video — that takes 90-180s on this CPU. Killed at 120s → silent catch → drawtext fallback chain → 300-600s caption step.
+
+Direct ASS test on the server with Henry's exact body proved ASS WORKS: rendered 30s test video in 16s, 52MB output, no error. So the failure was purely the under-budgeted timeout.
+
+**Fix:**
+- ASS timeout 120s → 600s (matches the scene-concat + bumper budget).
+- Explicit `-c:v libx264 -preset ultrafast -crf 23` on the ASS pass (was relying on ffmpeg default = `medium` preset = slow).
+- ASS-fail log promoted from `console.warn` → `console.error` so future regressions show up loud in journalctl.
+
+**Expected impact on Henry's long stories:**
+- Before: drawtext fallback ~300-600s for caption step
+- After: ASS direct ~60-180s
+
+---
+
 ## 2026-06-03 — ✅ FIXED (`8807b18`): **BIB-class regression #4** — Piper timeout was 30s for ANY text length
 
 **Symptom (Henry verbatim):** "OMG NOT THE BB AGAIN IT TOOKS US DAYS TO SOLVE HOOPE U RECORDED". Children narration audio showing 0:30 duration in the UI. Story is 2+ minutes long. Audio file written as `storage/audio/tts/tts_<ts>_silent.mp3` — exact same filename pattern + 30s duration as the original 2026-05-30 BIB beep.
