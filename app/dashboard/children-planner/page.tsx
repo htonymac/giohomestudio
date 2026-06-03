@@ -6398,6 +6398,61 @@ Rules:
                 </div>
               )}
 
+              {/* Henry 2026-06-03: Subtitle font size picker */}
+              <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: ds.color.card, border: `1px solid ${childAccent}30` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: childAccent, marginBottom: 2 }}>Subtitle Font Size</p>
+                    <p style={{ fontSize: 10, color: muted }}>Choose preset OR type custom px (18-120). Overrides mode default.</p>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" as const }}>
+                    {[
+                      { label: "Small", px: 36 },
+                      { label: "Medium", px: 54 },
+                      { label: "Large", px: 72 },
+                      { label: "XL", px: 96 },
+                    ].map(({ label, px }) => {
+                      const active = (subtitleConfig.fontSize ?? 54) === px;
+                      return (
+                        <button
+                          key={px}
+                          onClick={() => setSubtitleConfig(c => ({ ...c, fontSize: px }))}
+                          style={{
+                            padding: "6px 12px",
+                            borderRadius: 6,
+                            border: `1px solid ${active ? childAccent : border}`,
+                            background: active ? `${childAccent}25` : "transparent",
+                            color: active ? childAccent : muted,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            cursor: "pointer",
+                          }}>
+                          {label} {px}
+                        </button>
+                      );
+                    })}
+                    <input
+                      type="number"
+                      min={18}
+                      max={120}
+                      value={subtitleConfig.fontSize ?? 54}
+                      onChange={e => {
+                        const n = parseInt(e.target.value, 10);
+                        if (Number.isFinite(n) && n >= 18 && n <= 120) {
+                          setSubtitleConfig(c => ({ ...c, fontSize: n }));
+                        }
+                      }}
+                      style={{
+                        width: 64, padding: "6px 8px", borderRadius: 6,
+                        border: `1px solid ${border}`, background: "transparent",
+                        color: "#fff", fontSize: 11, fontWeight: 700, textAlign: "center" as const,
+                      }}
+                    />
+                    <span style={{ fontSize: 10, color: muted }}>px</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Henry 2026-06-02: Image flip rate picker — applies when scenes
                   have Max ON with multiple ticked beats. Each beat appears for
                   N seconds, cycling to fill the scene's narration duration. */}

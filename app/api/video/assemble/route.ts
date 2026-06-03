@@ -925,7 +925,13 @@ export async function POST(req: NextRequest) {
       // without alpha-fade. That filter is much more robust.
       const subCfg = body.subtitleConfig;
       const hexToFfmpeg = (hex?: string) => hex && /^#[0-9a-fA-F]{6}$/.test(hex) ? `0x${hex.slice(1)}` : "white";
-      const fs = preset?.size ?? (subCfg?.fontSize && subCfg.fontSize >= 18 ? Math.min(96, subCfg.fontSize) : 36);
+      // Henry 2026-06-03: user-explicit fontSize NOW BEATS the mode preset.
+      // Was: preset.size locked in when mode was set (e.g. 'kids' -> 54 always).
+      // Now: if subCfg.fontSize is in [18, 120], use it; else fall through to
+      // preset; else default 54 (was 36 — too small for video at 1920x1080).
+      const fs = (subCfg?.fontSize && subCfg.fontSize >= 18 && subCfg.fontSize <= 120)
+        ? subCfg.fontSize
+        : (preset?.size ?? 54);
       const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
       const borderCol = preset?.outline ? hexToFfmpeg(preset.outline) : "black";
       const borderW = preset?.bord ?? 2;
