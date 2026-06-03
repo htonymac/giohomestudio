@@ -1467,16 +1467,45 @@ function ChildrenPlannerInner() {
     setGeneratingSceneImage(sceneId);
     try {
       const assignedChars = sceneCharAssignments[sceneId] || scene.characters || [];
-      const childStylePrefix = "children's book illustration, age-appropriate, friendly, colorful, ";
+      // Henry 2026-06-03: ACTION IMAGES FIX. Previously sceneText was just
+      // scene.title + scene.visualDescription. Neither contains the action
+      // verbs from the narration ("spin and deliver a kick", "chase", "fight").
+      // So the action-extractor in /api/hybrid/scene-image never matched any
+      // action pattern — every image came back as smiling children posing.
+      //
+      // Fix: ALSO include the scene's narration slice. childScenes are split
+      // proportionally across the full narration text. Pull the slice for
+      // THIS scene so the action-extractor sees the real verbs.
+      const sceneSlice = (() => {
+        const src = (narrationText || expandedContent || textContent || "").trim();
+        if (!src || childScenes.length === 0) return "";
+        const sentences = src.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+        if (sentences.length === 0) return "";
+        const perScene = Math.max(1, Math.ceil(sentences.length / childScenes.length));
+        const idx = Math.max(0, scene.scene - 1);
+        const start = idx * perScene;
+        return sentences.slice(start, Math.min(sentences.length, start + perScene)).join(" ");
+      })();
+      // Detect action verbs in either the scene's title/desc OR the narration
+      // slice. If found, drop the "friendly/safe" softeners so the model is
+      // actually willing to render movement and tension.
+      const combinedActionCheck = `${scene.title || ""} ${scene.visualDescription || ""} ${sceneSlice}`.toLowerCase();
+      const hasAction = /\b(fight|kick|punch|chase|run|sprint|jump|leap|hit|fall|crash|spin|strike|swing|grab|push|shove|attack|battle|confront|argue|scream|cry|escape|hide|throw|catch|climb|dance|fly|swim|dive|sneak|rush)\b/.test(combinedActionCheck);
+      const childStylePrefix = hasAction
+        ? "children's book illustration, age-appropriate, dynamic, colorful, "
+        : "children's book illustration, age-appropriate, friendly, colorful, ";
+      const sceneTextWithAction = sceneSlice
+        ? `${childStylePrefix}${scene.title}. ${scene.visualDescription}. ${sceneSlice}`
+        : `${childStylePrefix}${scene.title}. ${scene.visualDescription}`;
       const res = await fetch("/api/hybrid/scene-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sceneId,
-          sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
+          sceneText: sceneTextWithAction,
           characterIds: assignedChars,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
-          mood: "friendly, warm, safe",
+          mood: hasAction ? "dynamic, expressive, story-driven" : "friendly, warm, safe",
           modelId: effectiveImageModelId,
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
