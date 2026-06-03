@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
     // Subtitle Font Size picker in children-planner went to subtitleConfig
     // .fontSize, which fed only the CHUNKED path (caption/ASS). Per-scene
     // PNG ignored it. Now derive the per-scene font size from subCfg too.
-    const perSceneFontSize = (body.subtitleConfig?.fontSize && body.subtitleConfig.fontSize >= 18 && body.subtitleConfig.fontSize <= 120)
+    const perSceneFontSize = (body.subtitleConfig?.fontSize && body.subtitleConfig.fontSize >= 18 && body.subtitleConfig.fontSize <= 200)
       ? body.subtitleConfig.fontSize
       : 52;
 
@@ -937,7 +937,8 @@ export async function POST(req: NextRequest) {
       // Was: preset.size locked in when mode was set (e.g. 'kids' -> 54 always).
       // Now: if subCfg.fontSize is in [18, 120], use it; else fall through to
       // preset; else default 54 (was 36 — too small for video at 1920x1080).
-      const fs = (subCfg?.fontSize && subCfg.fontSize >= 18 && subCfg.fontSize <= 120)
+      // Henry 2026-06-03: max bumped 120 -> 200 for very-large kids subtitles.
+      const fs = (subCfg?.fontSize && subCfg.fontSize >= 18 && subCfg.fontSize <= 200)
         ? subCfg.fontSize
         : (preset?.size ?? 54);
       const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
