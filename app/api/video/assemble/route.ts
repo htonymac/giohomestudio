@@ -936,11 +936,11 @@ export async function POST(req: NextRequest) {
       const CHUNK = preset && subMode === "mrbeast_single" ? 1 : 5;
       const grp: string[] = [];
       for (let i = 0; i < allWds.length; i += CHUNK) grp.push(allWds.slice(i, i + CHUNK).join(" "));
-      // Henry 2026-06-02: bumped chunked-caption pace 1.6s -> 2.4s per 5-word chunk.
-      // Real narration is ~2-2.5 words/sec; 5 words / 1.6s = 3.1 w/s — too fast.
-      // 5 words / 2.4s = 2.1 w/s matches a normal kids-story narrator. mrbeast
-      // single-word mode bumped 0.6s -> 0.9s for the same reason.
-      const SEC = preset && subMode === "mrbeast_single" ? 0.9 : 2.4;
+      // Henry 2026-06-02 (followup #2): even SLOWER for kids mode. Henry says
+      // captions still too fast. Bumped from 2.4s -> 4.0s per 5-word chunk =
+      // 1.25 w/s = very comfortable read pace for parents AND emerging readers.
+      // mrbeast single-word mode bumped 0.9s -> 1.4s.
+      const SEC = preset && subMode === "mrbeast_single" ? 1.4 : 4.0;
       const esc2 = (s: string) => s.replace(/\\/g, "\\\\").replace(/'/g, "’").replace(/:/g, "\\:").replace(/%/g, "%%");
 
       // Henry 2026-06-02 Phase C: real rainbow. Cycle colors per chunk when
