@@ -2078,14 +2078,12 @@ function ChildrenPlannerInner() {
           : [];
         const wantsImagePath = pref === "image" || (pref !== "video" && !videoUrl);
         const userOptedIntoMax = useMaxImageScenes.has(sceneId);
-        // Henry 2026-06-02: RESTORED multi-beat-as-segments path with user-
-        // controlled flip rate. Each ticked beat becomes its own assembly
-        // segment of duration `imageFlipRate` seconds (default 2s, picker
-        // ranges 0.5-5s in Assembly tab). Server has concurrency cap=4
-        // (commit 9101e87) so even 70+ segments process safely in batches.
-        // If beats are too FEW for the scene's narration duration, the
-        // segments cycle through the beats round-robin to fill the time.
-        if (wantsImagePath && userOptedIntoMax && tickedBeats.length > 1) {
+        // Henry 2026-06-02: DROPPED the Max-toggle gate. If a scene has more
+        // than one ticked beat image, USE THEM all (in tick order, cycling
+        // through if narration is longer than beats * flipRate). User can
+        // un-tick beats they don't want. Max toggle still respected when
+        // present but no longer required.
+        if (wantsImagePath && tickedBeats.length > 1) {
           const sceneNarrDuration = perSegmentDuration; // scene's share of total narration
           const slotsNeeded = Math.max(1, Math.ceil(sceneNarrDuration / imageFlipRate));
           for (let slot = 0; slot < slotsNeeded; slot++) {
