@@ -3979,18 +3979,22 @@ Rules:
                         {isActive && <span style={{ fontSize: 8, padding: "1px 6px", borderRadius: 6, background: ds.color.gold, color: "#000", fontWeight: 800, display: "inline-block", marginTop: 4 }}>OPEN</span>}
                       </div>
                       {/* Henry 2026-06-02: Export + Delete per project card */}
-                      <div style={{ position: "absolute" as const, bottom: 6, right: 6, display: "flex", gap: 4 }}>
+                      {/* Henry 2026-06-02 (followup): made the action buttons LARGE,
+                          clearly labeled, full-width row at the bottom. Previous version
+                          had 8px text + bare emoji — Henry reported "not working" because
+                          the targets were essentially invisible. */}
+                      <div style={{ position: "absolute" as const, bottom: 6, right: 6, left: 6, display: "flex", gap: 6, justifyContent: "flex-end" }}>
                         <button
                           title="Export project as JSON"
                           onClick={e => { e.stopPropagation(); exportChildProject(proj.id, proj.title); }}
-                          style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid ${ds.color.line2}`, background: "transparent", color: ds.color.mute, fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
-                          ↓ JSON
+                          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid ${ds.color.line2}`, background: `${ds.color.gold}10`, color: ds.color.gold, fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+                          Export
                         </button>
                         <button
                           title="Delete project (cannot be undone)"
                           onClick={e => { e.stopPropagation(); deleteChildProject(proj.id, proj.title); }}
-                          style={{ padding: "3px 6px", borderRadius: 4, border: `1px solid #e0535340`, background: "transparent", color: "#ff7a7a", fontSize: 8, fontWeight: 700, cursor: "pointer" }}>
-                          🗑
+                          style={{ padding: "6px 12px", borderRadius: 6, border: `1px solid #e05353`, background: "#e0535320", color: "#ff8a8a", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>
+                          Delete
                         </button>
                       </div>
                     </div>

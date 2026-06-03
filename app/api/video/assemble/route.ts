@@ -814,6 +814,32 @@ export async function POST(req: NextRequest) {
           .join(" ");
       }
     }
+    // Henry 2026-06-02: probe ACTUAL narrator audio length so pacing-aware
+    // captions sync to real TTS output (not just text-length estimates).
+    // Pacing plan durations are estimated from word counts, but real TTS
+    // (Piper et al.) often takes 25-40% LONGER. Without this, captions race
+    // ahead of the narrator. With it, captions track the actual audio.
+    let narratorActualDurationMs = 0;
+    if (body.pacingEntries && body.pacingEntries.length > 0) {
+      try {
+        const narrItem = body.narrationList?.find(n => (n.startTime || 0) < 1) || body.narrationList?.[0];
+        const narrUrl = narrItem?.audioUrl || body.narrationUrl;
+        const narrPath = narrUrl ? resolveMediaPath(narrUrl) : null;
+        if (narrPath && fs.existsSync(narrPath)) {
+          const ffprobeExe = env.ffprobePath || "ffprobe";
+          const probe = await execFileAsync(
+            ffprobeExe,
+            ["-v", "quiet", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", narrPath],
+            { timeout: 8000, encoding: "utf8" }
+          ).catch(() => ({ stdout: "0", stderr: "" }));
+          narratorActualDurationMs = Math.round(parseFloat(probe.stdout.trim() || "0") * 1000);
+          console.log("[assemble.subtitle] narrator audio actual ms:", narratorActualDurationMs,
+            "vs pacing estimate ms:", body.pacingEntries[body.pacingEntries.length - 1].endMs);
+        }
+      } catch (e) {
+        console.warn("[assemble.subtitle] narrator probe failed:", (e as Error)?.message?.slice(0, 100));
+      }
+    }
     if (body.caption) {
       const captionOutput = path.join(tempDir, "with_caption.mp4");
       const yPos = body.captionPosition === "top" ? "40" : body.captionPosition === "center" ? "(h-text_h)/2" : "h-text_h-60";
@@ -977,13 +1003,17 @@ export async function POST(req: NextRequest) {
       // those exact start/end ms — karaoke-tight sync to the actual narration
       // audio. Else fall back to chunked timing.
       if (body.pacingEntries && body.pacingEntries.length > 0) {
-        console.log("[assemble.subtitle] using PACING PLAN timings:", body.pacingEntries.length, "entries");
-        // Henry 2026-06-02: pacing plan durations are TEXT-LENGTH estimates,
-        // not actual TTS audio length. Real narration usually runs slower than
-        // the estimate, so captions race ahead of the narrator. Apply a 1.25x
-        // stretch so captions visibly trail the narrator slightly (better
-        // perceived as "caption follows speech" than "caption arrives early").
-        const PACING_SCALE = 1.25;
+        // Henry 2026-06-02: derive the EXACT scale factor from actual narrator
+        // audio length so captions sync to the real TTS audio. If probe
+        // succeeded, use ratio = actualMs / pacingTotalMs (typically 1.2-1.4).
+        // Fall back to fixed 1.4 if probe failed.
+        const lastEntry = body.pacingEntries[body.pacingEntries.length - 1];
+        const pacingEstimateMs = lastEntry.endMs || 1;
+        const PACING_SCALE = narratorActualDurationMs > 0
+          ? Math.max(0.8, Math.min(2.5, narratorActualDurationMs / pacingEstimateMs))
+          : 1.4;
+        console.log("[assemble.subtitle] PACING PLAN: entries=", body.pacingEntries.length,
+          "scale=", PACING_SCALE.toFixed(3), "(actual ms=", narratorActualDurationMs, "estimate ms=", pacingEstimateMs, ")");
         for (const e of body.pacingEntries) {
           const s0 = Math.max(0, (e.startMs * PACING_SCALE) / 1000);
           const s1 = Math.max(s0 + 0.1, (e.endMs * PACING_SCALE) / 1000);
