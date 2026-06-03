@@ -1,6 +1,45 @@
-# GHS HANDOFF — Session 2026-05-31 (long-day Opus + 8-Sonnet sweep)
+# GHS HANDOFF — Session 2026-06-02/03 (children-planner subtitle/assembly sprint)
 
-**Last updated:** 2026-05-31 (end of long session) · **HEAD:** `ea64b09` (pushed, live) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1)
+**Last updated:** 2026-06-03 mid-day · **HEAD:** `52e8d90` (pushed, live, server pulled) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
+
+## 🔥 2026-06-02/03 session current state (34 commits in 24h)
+
+**Where stopped:** Subtitle font size picker shipped (`c83357d`). Session docs committed (`52e8d90`). Server has all changes.
+
+**Active blockers:**
+1. **ASS occasional fallback to drawtext.** Bumped timeout 120s → 600s in `bbf4135`. Direct server test proved ASS works (30s test in 16s). Henry hit a stuck 99% AFTER the bump — need to tail `journalctl -u ghs.service` for the literal `[assemble.subtitle]` error string to see what's actually killing ASS now.
+2. **Scale conversation pending.** Henry mentioned launch plan: 3000 students + 1000 teachers + 20 concurrent. Current single-server dev-mode setup tops out around 3-5 concurrent. Need: queue (Redis/BullMQ), separate worker nodes, prod build (Turbopack chunk bug blocks), GPU for NVENC. ~5-7 days to safe 100 concurrent; 2-3 weeks for 1K+.
+3. **Two simultaneous assemblies = load avg 17+.** Henry retries Assemble while one is still running. Mitigation: client-side guard "Assembly in progress, cannot start another" + server-side dedup by projectId.
+
+**In-progress / next exact steps:**
+- Tail journalctl for `[assemble.subtitle]` lines on the next stuck Assemble. They now log loud (`bbf4135` `4cfb224`).
+- Test the new subtitle size picker on a real assembly. Verify pixel height via ffprobe on the resulting MP4.
+- If Henry pivots to launch-prep: spawn parallel Sonnets for queue layer + prod build fix + worker isolation + caching layer. Bunch 1-2 SSH-using agents at a time — fail2ban tripped at 4 concurrent.
+
+## Recent commits (latest first — last 10 of 34 in 24h sprint)
+
+- `52e8d90` docs: save + document this session (CHANGELOG + HANDOFF + PROBLEM_AND_FIX)
+- `c83357d` feat(subtitle): custom font size picker — 4 presets + numeric input
+- `bbf4135` fix(subtitle): ASS timeout 120s -> 600s + explicit ultrafast encode
+- `b528bca` docs(problem-fix): record BIB regression #4 — Piper 30s timeout
+- `8807b18` fix(tts): BIB regression — Piper timeout was 30s for ANY text length
+- `09cb5e0` docs(CHANGELOG): 24h session record — 29 commits grouped by theme
+- `b6195b8` fix(subtitle): slow chunked caption — 2.4s -> 4.0s per 5-word chunk
+- `6f383ff` perf(assemble): scene concat stream-copy + ultrafast fallback (~600s saved)
+- `cccb563` ui(outro): compact title-above-credits layout + AI cast list with Piper voice tag
+- `495a789` fix(children): probe ACTUAL narrator audio duration before image distribution
+
+## Recurring traps recorded this session
+
+- **BIB-class bug now has 5 variants** in PROBLEM_AND_FIX.md + global `~/.claude/.../memory/error_log.md`. All hit the same `_silent.mp3` placeholder branch via DIFFERENT silent fallbacks. Prevention rule: anyone touching `/api/tts` must NOT add silent `catch { }` blocks. Every TTS tier must log explicitly.
+- **Dev-mode dual-assembly problem.** Henry hits Assemble before previous finishes → 2 workers compete → load 17+ → bumper concat stalls → 99% UI for 8+ min. Mitigation pending: client-side guard.
+- **fail2ban triggers at 4+ parallel SSH** — proven mid-session when 4 Sonnets each ssh'd in parallel. Wait list: bunch SSH-heavy parallel agents 1-2 at a time, OR whitelist PC IP.
+
+---
+
+# Original 2026-05-31 long-day handoff (preserved for context)
+
+**HEAD:** `ea64b09` (pushed, live)
 
 ## 🔥 2026-05-31 Long-day session summary (17 commits, 9 stubborn bugs, full karaoke loop closed)
 
