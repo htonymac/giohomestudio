@@ -1008,7 +1008,14 @@ export async function POST(req: NextRequest) {
       const bgAss = hexToAss("#000000", bgBoxAlphaHex);
       const alignment = body.captionPosition === "top" ? 8 : body.captionPosition === "center" ? 5 : 2;
       const marginV = body.captionPosition === "top" ? 40 : body.captionPosition === "center" ? 0 : 60;
-      const fontName = preset?.font || "Arial Black";
+      // Henry 2026-06-03 (Sonnet B audit Fix #1): default font changed from
+      // "Arial Black" (Windows/macOS only, NOT installed on Linux server)
+      // to "DejaVu Sans" (always present on Ubuntu/Debian). On Linux, libass
+      // was silently failing to find "Arial Black", substituting a fallback,
+      // OR crashing the filter — causing EVERY assembly to fall back to the
+      // slow drawtext chain. This single line was the dominant cause of the
+      // 99% stuck bug. Mode presets that explicitly set .font still win.
+      const fontName = preset?.font || "DejaVu Sans";
       const borderStyle = bgOn ? 3 /* opaque box */ : 1 /* outline + shadow */;
       const sec2ts = (s: number): string => {
         const cs = Math.max(0, Math.round(s * 100));
@@ -1099,14 +1106,18 @@ ${dialogueLines.join("\n")}
         }
       }
 
-      // Legacy drawtext fallback (slower but doesn't need fontconfig setup).
+      // Henry 2026-06-03 (Sonnet B audit Fix #5): drawtext fallback was
+      // running at ffmpeg default preset = "medium" = 5x slower than needed.
+      // Now explicit `-preset ultrafast` so even when ASS fails we don't
+      // stall the user 10 minutes. Same crf 23 for visual parity.
       if (!burned) {
         try {
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", richFilter,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
             "-c:a", "copy", "-y", captionOutput,
-          ], { timeout: 180000 });
+          ], { timeout: 300000 });
           finalPath = captionOutput;
           burned = true;
           console.warn("[assemble.subtitle] RICH drawtext fallback succeeded");
@@ -1120,8 +1131,9 @@ ${dialogueLines.join("\n")}
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", simpleFilter,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
             "-c:a", "copy", "-y", captionOutput,
-          ], { timeout: 180000 });
+          ], { timeout: 300000 });
           finalPath = captionOutput;
           burned = true;
           console.warn("[assemble.subtitle] SIMPLE drawtext fallback succeeded");
