@@ -573,16 +573,40 @@ export async function POST(req: NextRequest) {
       // 2+ scenes — concat demuxer (reliable for same-format files)
       const concatFile = path.join(tempDir, "concat.txt");
       fs.writeFileSync(concatFile, sceneFiles.map(f => `file '${path.resolve(f).replace(/\\/g, "/")}'`).join("\n"));
+      // Henry 2026-06-02: try STREAM COPY first. All scene clips are encoded
+      // with the same libx264/aac params in processScene, so they should
+      // concat without re-encoding — that's nearly instant (~1-5s) regardless
+      // of segment count. With 63 segments the old re-encode took 600s+ and
+      // was the entire bottleneck.
+      const concatCopyOutput = path.join(tempDir, "concat_copy.mp4");
+      let concatDone = false;
       try {
         await execFileAsync(ffmpeg, [
           "-f", "concat", "-safe", "0", "-i", concatFile,
-          "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-          "-c:a", "aac", "-b:a", "128k",
-          "-movflags", "+faststart", "-y", concatOutput,
-        ], { timeout: 600000 });
-      } catch (e2) {
-        cleanTemp(tempDir);
-        return NextResponse.json({ error: `FFmpeg concat failed: ${e2 instanceof Error ? e2.message : String(e2)}` }, { status: 500 });
+          "-c", "copy",
+          "-movflags", "+faststart", "-y", concatCopyOutput,
+        ], { timeout: 120000 });
+        if (fs.existsSync(concatCopyOutput) && fs.statSync(concatCopyOutput).size > 1000) {
+          fs.renameSync(concatCopyOutput, concatOutput);
+          concatDone = true;
+          console.log("[assemble] scene concat: stream-copy succeeded (fast path)");
+        }
+      } catch (copyErr) {
+        console.warn("[assemble] scene concat: stream-copy failed, falling back to ultrafast re-encode:",
+          (copyErr as Error)?.message?.slice(0, 150));
+      }
+      if (!concatDone) {
+        try {
+          await execFileAsync(ffmpeg, [
+            "-f", "concat", "-safe", "0", "-i", concatFile,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            "-movflags", "+faststart", "-y", concatOutput,
+          ], { timeout: 600000 });
+        } catch (e2) {
+          cleanTemp(tempDir);
+          return NextResponse.json({ error: `FFmpeg concat failed: ${e2 instanceof Error ? e2.message : String(e2)}` }, { status: 500 });
+        }
       }
     }
 
