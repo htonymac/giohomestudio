@@ -1,5 +1,65 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-02 / 2026-06-03 — 24-HOUR SESSION RECORD (29 commits) — children-planner + assemble route
+
+**Theme:** subtitle quality + assembly speed + project management + UI feature parity. Triggered by Henry's video tests showing 2 subtitles, slow assembly, broken delete, narration timing drift, image-narration mismatch.
+
+### Assembly speed (5 commits)
+- `1ba16cc` — Bumper concat stream-copy + ultrafast fallback (~15-30s saved per assembly)
+- `2eb32b8` — ASS subtitle path (libass) — 10x faster than chained drawtexts (~10-30s vs 2-3 min)
+- `6f383ff` — Scene concat stream-copy + ultrafast fallback (~600s saved on 63-segment videos)
+- `9101e87` — Cap scene concurrency at 4 (was: spawn N ffmpegs -> Empty-reply crash at N>10)
+- `495a789` — Probe ACTUAL narrator audio with HTMLAudioElement (was: estimate by text length, 50% under)
+
+### Subtitle quality (5 commits)
+- `486ec47` — Phase B: Pacing-Aware sync — client ships `pacingEntries[]`, server builds ASS Dialogue from exact ms timings
+- `a501dc2` — Phase A (kill 2-subtitle overlap) + Phase C (rainbow -> drawtext engine routing) + project mgmt
+- `4cfb224` — Kill 2-subtitle overlap (per-scene PNG suppressed when caption/pacingEntries exists) + slow captions 1.6->2.4s
+- `300e7d9` — Audio-probed pacing scale (ffprobe narrator -> exact stretch ratio) + visible Delete/Export buttons
+- `b6195b8` — Slow chunked caption further: 2.4s -> 4.0s per 5-word chunk (1.25 w/s — comfortable read)
+
+### Children-planner features (8 commits)
+- `b2464db` — Option A: skip auto-expand+TTS when narration already ready + yellow speed tip
+- `486ec47` — De-vocabularize for ages 5-8 (LLM rewrites story for target reading age, prompt input)
+- `45fcfe0` -> `6eae854` — De-vocabularize UI: big card -> moved inline to modify-buttons row with `prompt()`
+- `71d769f` — Image flip rate picker: 0.5s / 1s / 2s / 3s / 5s per beat image
+- `d8dbb3c` — Drop Max-toggle gate — multi-beat path fires whenever ticked beats > 1 (was: 4 of 20 images shown)
+- `256fe24` — TDZ fix — compute scene narration share BEFORE segmentation loop (was: ReferenceError at Assemble click)
+
+### UI / project management (4 commits)
+- `a501dc2` — Project Delete + Export (JSON download) buttons per card; new projects persist immediately as OPEN with timestamp titles; DELETE endpoint added to `/api/hybrid/saved-state`
+- `e4fec04` — Show REAL server heartbeat elapsed time on progress bar (was: client-estimated 95% cap)
+- `300e7d9` — Made Delete/Export buttons LARGE (was 8px emoji-only — Henry: 'NOT WORKING')
+- `cccb563` — Outro layout compact (title close to credits) + AI cast list with Piper voice tag
+
+### Worker durability (6 commits)
+- `92c0d88` — Spawn detached worker process (was: Next.js discarding background promises after response -> status stuck "running" forever)
+- `af7bea1` — Dead-worker detector in `/api/video/job-status` (stale > 3 min -> synthetic error)
+- `6e370a9` — Worker heartbeat every 8s ("assembling (Xs elapsed)" in status file)
+- `e73058c` — Smart probe (1s polls) replaces blind 60s retry wait
+- `378982a` — Retry with backoff + 127.0.0.1 — survives service restart race
+- `b8e95c1` — UI poll cap 12min -> 20min + honest message ('worker may still be processing — check Asset Library')
+
+### Build / dev infra (2 commits)
+- `55222bd` — `assemble-async` was sending internal fetch back through Cloudflare — hardcoded localhost:3200
+- `6176a50` -> `b42df0d` — Next.js v16 Turbopack chunk bug. Tried fallback rewrite, content-hash invalidation. Final: switched `npm run start` from `next start` to `next dev` (workaround). `start:prod` kept as escape hatch.
+
+### Other planner ports (3 commits, Sonnet-shipped)
+- `2056156` — Movie planner De-vocabularize button (age 5-18 range)
+- `f272330` — Commercial planner De-vocabularize button (targets `keyMessage`)
+- `5f4ab90` — Music-video planner TODO(pacing) comment (input is lyrics — De-vocab skipped)
+
+### Image gen UI (1 commit, Sonnet-shipped)
+- `32e450f` — Image error messages now show HTTP status + full error text (was: silent fail, generating-state stuck button — fixed via `finally{}` block)
+
+---
+
+**Total commits:** 29 in 24 hours. **Live verified** via Playwright CDP on Chrome :9222 + ssh hmk for server probes. **Hybrid planner NOT touched** (Henry's hard rule).
+
+**Known still-broken:** Henry's narrator audio occasionally written as `tts_<ts>_silent.mp3` (30-sec placeholder) — same BIB-class bug recorded at line 81 below. Piper binary + voices + FAL_KEY all verified working via direct curl (3s response, real speech). Investigation continues into why a specific full-story assembly call path drops to placeholder.
+
+---
+
 ## 2026-06-02 — Bumper concat speed-up: stream copy + ultrafast fallback — `(pending)`
 
 Step 5e (prepend intro / append outro) ran `-c:v libx264 -preset fast` unconditionally, taking 15-30s per assembly.
