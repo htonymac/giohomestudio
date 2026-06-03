@@ -260,6 +260,9 @@ function ChildrenPlannerInner() {
   // null = not running, 5/6/7/8 = that age's button shows loading state.
   const [devocarizing, setDevocarizing] = useState<number | null>(null);
   const [narrationStyle, setNarrationStyle] = useState("gentle");
+  // Henry 2026-06-03: studio name displayed on intro/outro cards.
+  // Was hardcoded "GIO HOME AI STUDIO" in 3 places. Now editable per project.
+  const [studioName, setStudioName] = useState<string>("GIO HOME AI STUDIO");
   const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
@@ -514,6 +517,26 @@ function ChildrenPlannerInner() {
 
   // Learning mode + production system
   const [learningMode, setLearningMode] = useState<"storybook" | "word" | "sentence" | "poem" | "phonics" | "video_lesson" | "read_along">("storybook");
+  // Henry 2026-06-03: voice routing. Learning modes (phonics, word,
+  // video_lesson, read_along) need a CLEAR, instructional voice — a teacher.
+  // Story modes (storybook, poem, sentence) need a WARM, narrator voice.
+  // Piper supports many voices; default to en_GB-alan (clear male British,
+  // "teacher" cadence) for learning, en_US-amy (warm female US, "narrator"
+  // for stories). User can override via narrationStyle later.
+  const pickPiperVoice = (): string => {
+    const learningVoices: Record<string, string> = {
+      phonics: "en_GB-alan-medium",
+      word: "en_GB-alan-medium",
+      video_lesson: "en_GB-alan-medium",
+      read_along: "en_US-libritts_r-medium", // clearer enunciation for reading-along
+    };
+    const storyVoices: Record<string, string> = {
+      storybook: "en_US-amy-medium",
+      poem: "en_US-amy-medium",
+      sentence: "en_US-amy-medium",
+    };
+    return learningVoices[learningMode] || storyVoices[learningMode] || "en_US-amy-medium";
+  };
   const [productionSystem, setProductionSystem] = useState<"hybrid" | "movie">("hybrid");
 
   // Movie mode options
@@ -1979,7 +2002,7 @@ function ChildrenPlannerInner() {
           const ttsRes = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, speed: 0.9 }),
+            body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, voiceId: pickPiperVoice(), speed: 0.9 }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
@@ -2251,7 +2274,7 @@ function ChildrenPlannerInner() {
             setLastAction(`Auto-generating narration (${effectiveNarrationProvider}, ${storyForTTS.length} chars ≈ ${Math.round(storyForTTS.length / 4 / 130)} min)...`);
             const ttsRes = await fetch("/api/tts", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
+              body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, voiceId: pickPiperVoice(), speed: narrationSpeed }),
             });
             if (ttsRes.ok) {
               const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
@@ -2776,7 +2799,7 @@ function ChildrenPlannerInner() {
           provider: effectiveNarrationProvider,
           engine: effectiveNarrationProvider,
           speed: narrationSpeed,
-          voiceId: effectiveNarrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : undefined,
+          voiceId: effectiveNarrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : pickPiperVoice(),
         }),
       });
       if (!res.ok) {
@@ -3107,6 +3130,7 @@ function ChildrenPlannerInner() {
             if (d.expandedContent)  setExpandedContent(d.expandedContent);
             if (d.visualStyle)      setVisualStyle(d.visualStyle);
             if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
+            if (typeof d.studioName === "string") setStudioName(d.studioName);
             if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
             if (d.musicChoice)      setMusicChoice(d.musicChoice);
             if (d.musicGenre)       setMusicGenre(d.musicGenre);
@@ -3222,7 +3246,7 @@ function ChildrenPlannerInner() {
     if (isRestoringRef.current) return;
     const data = {
       projectTitle,
-      textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, musicGenre,
+      textContent, expandedContent, visualStyle, narrationStyle, narrationProvider, musicChoice, musicGenre, studioName,
       ageGroup, safetyLevel, learningMode,
       storyEra, storyCulture,
       savedChars, selectedCharIds, childScenes, sceneImages, sceneVideos,
@@ -3994,6 +4018,7 @@ Rules:
         if (d.expandedContent)  setExpandedContent(d.expandedContent);
         if (d.visualStyle)      setVisualStyle(d.visualStyle);
         if (d.narrationStyle)   setNarrationStyle(d.narrationStyle);
+            if (typeof d.studioName === "string") setStudioName(d.studioName);
         if (d.narrationProvider) setNarrationProvider(d.narrationProvider);
         if (d.musicChoice)      setMusicChoice(d.musicChoice);
         if (d.musicGenre)       setMusicGenre(d.musicGenre);
@@ -6338,7 +6363,7 @@ Rules:
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               type: "intro",
-                              studioName: "GIO HOME AI STUDIO",
+                              studioName: studioName || "GIO HOME AI STUDIO",
                               title: effectiveTitle,
                               duration: 4,
                             }),
@@ -6398,7 +6423,7 @@ Rules:
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               type: "outro",
-                              studioName: "GIO HOME AI STUDIO",
+                              studioName: studioName || "GIO HOME AI STUDIO",
                               title: effectiveTitle,
                               cast: castList,
                               director: writtenBy || undefined,
@@ -6423,13 +6448,21 @@ Rules:
                 </div>
               </div>
 
-              {/* Credits — Written by / Made by / Idea from */}
+              {/* Credits — Studio Name / Written by / Made by / Idea from */}
               <div style={{ ...cardStyle, marginBottom: 12, padding: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0 }}>Story Credits</p>
                   <span style={{ fontSize: 9, color: "#7b7b80" }}>Saved on this device — survives refresh</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+                  {/* Henry 2026-06-03: Studio Name editable (was hardcoded "GIO HOME AI STUDIO") */}
+                  <div>
+                    <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
+                      Studio Name {studioName && studioName !== "GIO HOME AI STUDIO" && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
+                    </label>
+                    <input value={studioName} onChange={e => setStudioName(e.target.value)} placeholder="Your studio name"
+                      style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${studioName && studioName !== "GIO HOME AI STUDIO" ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
+                  </div>
                   <div>
                     <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
                       Written by {writtenBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
@@ -7971,12 +8004,12 @@ Rules:
 
               <div style={{ marginTop: 16, background: "#fff", borderRadius: 12, padding: "40px 40px", maxWidth: 780, margin: "16px auto 0", boxShadow: "0 8px 40px rgba(0,0,0,0.5)", fontFamily: "'Courier New', Courier, monospace" }}>
                 <div style={{ textAlign: "center", marginBottom: 40, paddingBottom: 32, borderBottom: "1px solid #ddd" }}>
-                  <p style={{ fontSize: 9, color: "#666", letterSpacing: 4, textTransform: "uppercase", marginBottom: 2 }}>GIO HOME AI STUDIO</p>
-                  <h1 style={{ fontSize: 22, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: 3, marginBottom: 8, lineHeight: 1.2 }}>{(contentParam || "CHILDREN STORY").toUpperCase()}</h1>
+                  <p style={{ fontSize: 9, color: "#666", letterSpacing: 4, textTransform: "uppercase", marginBottom: 2 }}>{studioName || "GIO HOME AI STUDIO"}</p>
+                  <h1 style={{ fontSize: 22, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: 3, marginBottom: 8, lineHeight: 1.2 }}>{(projectTitle || contentParam || "CHILDREN STORY").toUpperCase()}</h1>
                   {(ageGroup) && <p style={{ fontSize: 11, color: "#777", marginBottom: 24, fontStyle: "italic" }}>For {AGE_AUDIENCE[ageGroup] || "children"}</p>}
                   <p style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>Written by</p>
                   <p style={{ fontSize: 14, fontWeight: 700, color: "#000", marginBottom: 20 }}>{writtenBy || "—"}</p>
-                  <p style={{ fontSize: 8, color: "#aaa", letterSpacing: 1 }}>AI Assets by GIO HOME AI STUDIO · © {new Date().getFullYear()}</p>
+                  <p style={{ fontSize: 8, color: "#aaa", letterSpacing: 1 }}>AI Assets by {studioName || "GIO HOME AI STUDIO"} · © {new Date().getFullYear()}</p>
                 </div>
                 <div style={{ color: "#111", fontSize: 12, lineHeight: 2 }}>
                   {screenplay.split("\n").map((line, i) => {

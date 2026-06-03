@@ -171,6 +171,14 @@ export async function POST(req: NextRequest) {
       && !body.caption
       && !(body.pacingEntries && body.pacingEntries.length > 0);
 
+    // Henry 2026-06-03: per-scene PNG subtitle path was hardcoded 52px font.
+    // Subtitle Font Size picker in children-planner went to subtitleConfig
+    // .fontSize, which fed only the CHUNKED path (caption/ASS). Per-scene
+    // PNG ignored it. Now derive the per-scene font size from subCfg too.
+    const perSceneFontSize = (body.subtitleConfig?.fontSize && body.subtitleConfig.fontSize >= 18 && body.subtitleConfig.fontSize <= 120)
+      ? body.subtitleConfig.fontSize
+      : 52;
+
     // ── Step 1: Process ALL scenes IN PARALLEL — massive speed improvement ──
     // Each scene writes to its own temp file so there is no conflict.
     async function processScene(scene: AssemblyScene): Promise<string | null> {
@@ -254,7 +262,7 @@ export async function POST(req: NextRequest) {
           const subText = buildSubtitleText(slideText);
           if (subText) {
             subPngFile = path.join(tempDir, `sub_${scene.scene}.png`);
-            try { await generateSubtitlePng(subText, subPngFile, "bottom", 52, subtitleCfg); }
+            try { await generateSubtitlePng(subText, subPngFile, "bottom", perSceneFontSize, subtitleCfg); }
             catch { subPngFile = null; }
           }
         }
@@ -354,7 +362,7 @@ export async function POST(req: NextRequest) {
           let bgSubPng: string | null = null;
           if (bgSubText && perSceneSubtitleEnabled) {
             bgSubPng = path.join(tempDir, `bgsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", 64, subtitleCfg); }
+            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", Math.max(perSceneFontSize, 64), subtitleCfg); }
             catch { bgSubPng = null; }
           }
 
@@ -428,7 +436,7 @@ export async function POST(req: NextRequest) {
           let fallbackSubPng: string | null = null;
           if (fallbackSubText && perSceneSubtitleEnabled) {
             fallbackSubPng = path.join(tempDir, `fbsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", 52, subtitleCfg); }
+            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", perSceneFontSize, subtitleCfg); }
             catch { fallbackSubPng = null; }
           }
           const fallbackArgs: string[] = [
