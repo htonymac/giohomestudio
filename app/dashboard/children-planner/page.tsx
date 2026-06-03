@@ -1953,8 +1953,17 @@ function ChildrenPlannerInner() {
             body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, speed: 0.9 }),
           });
           if (ttsRes.ok) {
-            const ttsData = await ttsRes.json() as { audioUrl?: string };
-            if (ttsData.audioUrl) {
+            const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
+            // Henry 2026-06-03 (Sonnet C audit Fix #3): reject silent placeholder.
+            // /api/tts returns engine="placeholder" when ALL TTS tiers failed
+            // (Piper crashed, FAL no key, etc) and it had to write a sine-tone
+            // _silent.mp3 file. Without this guard, that placeholder URL was
+            // stored as real narration and the assembled video played 30s of
+            // silence. Now we treat it as failure and surface to user.
+            if (ttsData.engine === "placeholder") {
+              fixed[fixed.length - 1] = "";
+              issues.push("Narration unavailable — TTS engine returned placeholder. Check Piper / FAL config.");
+            } else if (ttsData.audioUrl) {
               setNarratorAudioUrl(ttsData.audioUrl);
               fixed[fixed.length - 1] = `Narration generated (${autoProvider}).`;
             } else {
@@ -2216,8 +2225,13 @@ function ChildrenPlannerInner() {
               body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, speed: narrationSpeed }),
             });
             if (ttsRes.ok) {
-              const ttsData = await ttsRes.json() as { audioUrl?: string };
-              if (ttsData.audioUrl) {
+              const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
+              // Henry 2026-06-03 (Sonnet C audit Fix #3): same placeholder-reject
+              // applied to the auto-fire-during-assemble path. Otherwise assemble
+              // would proceed with a silent placeholder URL and ship a 30s beep.
+              if (ttsData.engine === "placeholder") {
+                setLastAction("Narration unavailable (TTS placeholder). Check server logs.");
+              } else if (ttsData.audioUrl) {
                 resolvedNarratorAudioUrl = ttsData.audioUrl;
                 setNarratorAudioUrl(ttsData.audioUrl);
               }
@@ -2232,10 +2246,19 @@ function ChildrenPlannerInner() {
       const sfxList: Array<{ sourceUrl: string; startTime: number; volume: number }> = [];
       if (sfxGeneratedUrl) sfxList.push({ sourceUrl: sfxGeneratedUrl, startTime: 0, volume: 0.6 });
       // Attach scene text so assembly route can render subtitles
-      const totalNarDuration = narrationText ? estimateTextDuration(narrationText) : 0;
+      // Henry 2026-06-03 (Sonnet A audit Fix #2 — the 99% stuck root cause):
+      // Old code computed perSegmentDuration from estimateTextDuration() — a
+      // 3-words-per-second text estimate. Real TTS (Piper) runs ~1.5-2 w/s.
+      // So estimate said 60s when actual audio was 5+ minutes. Segments rendered
+      // SHORT, video finished at 30-60s while audio still had 4+ minutes to play.
+      // Result: 99% stuck forever waiting for audio to catch up to video.
+      // FIX: use the AUDIO PROBED duration (_totalNarFromProbe) we already
+      // measured at the top of this function. Falls back to text estimate only
+      // when the probe failed (no audio yet, or HTMLAudioElement error).
+      const totalNarDuration = _totalNarFromProbe > 0
+        ? _totalNarFromProbe
+        : (narrationText ? estimateTextDuration(narrationText) : 0);
       // Per-segment duration: divide narrator total by total SEGMENT count.
-      // A 4-beat scene now contributes 4 segments with unique scene numbers, so it gets
-      // 4× the screen time of a 1-image scene (proportional to its content).
       const perSegmentDuration = totalNarDuration > 0
         ? Math.max(2, totalNarDuration / assemblyScenes.length)
         : 5;
@@ -2556,6 +2579,17 @@ function ChildrenPlannerInner() {
       if (data.ok && data.audioUrl) {
         setPacingAudioUrl(data.audioUrl);
         setPacingTimingMap(data.timingMap || []);
+        // Henry 2026-06-03 (Sonnet A audit Fix #4): bridge pacing -> main.
+        // Previously generatePacingNarration set ONLY pacingAudioUrl, not
+        // narratorAudioUrl. So when user clicked "Build Pacing Plan" +
+        // "Generate Pacing Narration" + "Assemble", the main assembleMovie()
+        // saw narratorAudioUrl=null, fired a SECOND TTS pass with raw text,
+        // produced a different audio file, and shipped THAT to assemble —
+        // while the pacing entries' timings referred to the FIRST audio.
+        // Result: subtitles desynced, pacing audio orphaned.
+        // Fix: also set narratorAudioUrl so the main assemble path uses
+        // the same paced narration the pacingEntries are timed against.
+        setNarratorAudioUrl(data.audioUrl);
         setLastAction(`Pacing narration ready — ${Math.round((data.durationMs || 0) / 1000)}s`);
       } else {
         setLastAction(`Narration failed: ${data.error || "unknown"}`);
@@ -2722,7 +2756,11 @@ function ChildrenPlannerInner() {
       }
       const data = await res.json() as { audioUrl?: string; error?: string; engine?: string; message?: string };
       if (data.error) throw new Error(data.error);
-      if (data.audioUrl) {
+      // Henry 2026-06-03 (Sonnet C audit Fix #3): reject placeholder on the
+      // manual Generate Narration button path.
+      if (data.engine === "placeholder") {
+        setLastAction("Narration unavailable — TTS returned silent placeholder. Check Piper / FAL config.");
+      } else if (data.audioUrl) {
         setNarratorAudioUrl(data.audioUrl);
         setLastAction(`Narration generated (${data.engine || effectiveNarrationProvider})`);
       } else if (data.engine === "browser-speech") {
@@ -6070,8 +6108,10 @@ Rules:
                           setLastAction("Generating narration...");
                           try {
                             const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 30000), provider: effectiveNarrationProvider || "piper", speed: 0.9 }) });
-                            const d = await r.json() as { audioUrl?: string };
-                            if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
+                            const d = await r.json() as { audioUrl?: string; engine?: string };
+                            // Henry 2026-06-03 (Sonnet C audit Fix #3): placeholder reject
+                            if (d.engine === "placeholder") setLastAction("Narration unavailable — TTS placeholder. Check server logs.");
+                            else if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
                             else setLastAction("Narration generation failed");
                           } catch { setLastAction("Narration error"); }
                         }}
