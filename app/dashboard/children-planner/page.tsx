@@ -430,6 +430,10 @@ function ChildrenPlannerInner() {
   // sceneMaxTarget — per-scene custom image count for Gen Max (default 4, range 1-30).
   // User overrides via the small number input next to the Gen Max button.
   const [sceneMaxTarget, setSceneMaxTarget] = useState<Record<string, number>>({});
+  // Henry 2026-06-02: image flip rate (seconds per beat image) when Max
+  // mode is on with multiple beats ticked. 0.5s = fast slideshow, 5s = slow.
+  // Persists per project.
+  const [imageFlipRate, setImageFlipRate] = useState<number>(2);
   // useMaxImageScenes — set of sceneIds where the user opted-in to "Use Max Image" in Assembly.
   // OFF (default): scene contributes ONE image to the assembled video (scene.imageUrl).
   // ON: scene expands into N segments — one per ticked beat in selectedBeatImages.
@@ -2052,7 +2056,7 @@ function ChildrenPlannerInner() {
       //             temp files like scene_img_1.png / imgslide_1.mp4 without collisions.
       //   parentScene: original parent scene number, used here only for subtitle text.
       //   videoUrl: img:<url> for image, or direct video URL for video clips.
-      type Segment = { scene: number; videoUrl: string; parentScene: number };
+      type Segment = { scene: number; videoUrl: string; parentScene: number; duration?: number };
       const assemblyScenes: Segment[] = [];
       let segCounter = 0;
       for (const s of scenesToAssemble) {
@@ -2074,14 +2078,26 @@ function ChildrenPlannerInner() {
           : [];
         const wantsImagePath = pref === "image" || (pref !== "video" && !videoUrl);
         const userOptedIntoMax = useMaxImageScenes.has(sceneId);
-        // Henry 2026-06-01: REMOVED multi-beat-as-segments branch.
-        // Previously: if Max ON + multiple beats ticked, push ONE assembly entry
-        // PER beat → 7 scenes × 10 beats = 70 entries → server hit task limits
-        // and returned empty reply in 2s. Henry's call: cap at primary images only,
-        // one entry per visible scene card. Max + multiple ticked beats now just
-        // picks the primary image like single-mode (no segment explosion).
-        // Max + exactly one ticked beat still picks that beat via singleImageSrc
-        // below — user can curate WHICH image is the scene image, not how many.
+        // Henry 2026-06-02: RESTORED multi-beat-as-segments path with user-
+        // controlled flip rate. Each ticked beat becomes its own assembly
+        // segment of duration `imageFlipRate` seconds (default 2s, picker
+        // ranges 0.5-5s in Assembly tab). Server has concurrency cap=4
+        // (commit 9101e87) so even 70+ segments process safely in batches.
+        // If beats are too FEW for the scene's narration duration, the
+        // segments cycle through the beats round-robin to fill the time.
+        if (wantsImagePath && userOptedIntoMax && tickedBeats.length > 1) {
+          const sceneNarrDuration = perSegmentDuration; // scene's share of total narration
+          const slotsNeeded = Math.max(1, Math.ceil(sceneNarrDuration / imageFlipRate));
+          for (let slot = 0; slot < slotsNeeded; slot++) {
+            const beatUrl = tickedBeats[slot % tickedBeats.length];
+            // Last slot eats any remainder so total scene time = narration time exactly
+            const dur = slot === slotsNeeded - 1
+              ? Math.max(imageFlipRate, sceneNarrDuration - imageFlipRate * (slotsNeeded - 1))
+              : imageFlipRate;
+            assemblyScenes.push({ scene: ++segCounter, videoUrl: `img:${beatUrl}`, parentScene: s.scene, duration: dur });
+          }
+          continue;
+        }
 
         // Single-image / video path. Source priority:
         //   1. user opted into Max + exactly one beat ticked → use that beat
@@ -2222,10 +2238,11 @@ function ChildrenPlannerInner() {
         const end = Math.min(_sentences.length, start + _perSeg);
         return _sentences.slice(start, end).join(" ");
       };
-      const scenesWithText = assemblyScenes.map(({ parentScene: _drop, ...rest }, i) => {
+      const scenesWithText = assemblyScenes.map(({ parentScene: _drop, duration: segDur, ...rest }, i) => {
         return {
           ...rest,
-          duration: perSegmentDuration,
+          // Per-segment duration if set (multi-beat flip rate), else equal split
+          duration: segDur ?? perSegmentDuration,
           // Real spoken words for this segment — never the meta title.
           text: _segText(i),
         };
@@ -3035,6 +3052,7 @@ function ChildrenPlannerInner() {
             // C6 PACING SAVE/LOAD (Henry 2026-05-30): restore the pacing engine outputs
             // so a refresh / re-open keeps the user's plan + narration + assembled video.
             if (d.pacingPlan)       setPacingPlan(d.pacingPlan);
+            if (typeof d.imageFlipRate === "number") setImageFlipRate(d.imageFlipRate);
             if (d.pacingAudioUrl)   setPacingAudioUrl(d.pacingAudioUrl);
             if (d.pacingVideoUrl)   setPacingVideoUrl(d.pacingVideoUrl);
             if (d.pacingTimingMap)  setPacingTimingMap(d.pacingTimingMap);
@@ -6342,6 +6360,37 @@ Rules:
                   <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Press the button below when you are ready. This may take a minute.</p>
                 </div>
               )}
+
+              {/* Henry 2026-06-02: Image flip rate picker — applies when scenes
+                  have Max ON with multiple ticked beats. Each beat appears for
+                  N seconds, cycling to fill the scene's narration duration. */}
+              <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: ds.color.card, border: `1px solid ${childAccent}30` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 8 }}>
+                  <div>
+                    <p style={{ fontSize: 12, fontWeight: 700, color: childAccent, marginBottom: 2 }}>Image Flip Rate</p>
+                    <p style={{ fontSize: 10, color: muted }}>How long each image shows when a scene has multiple beats (Max mode on)</p>
+                  </div>
+                  <div style={{ display: "flex", gap: 4 }}>
+                    {[0.5, 1, 2, 3, 5].map(rate => (
+                      <button
+                        key={rate}
+                        onClick={() => setImageFlipRate(rate)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          border: `1px solid ${imageFlipRate === rate ? childAccent : border}`,
+                          background: imageFlipRate === rate ? `${childAccent}25` : "transparent",
+                          color: imageFlipRate === rate ? childAccent : muted,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}>
+                        {rate}s
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
 
               {/* ── Children's Pacing Engine (word-timed narration) ── */}
               <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}30`, padding: 20 }}>
