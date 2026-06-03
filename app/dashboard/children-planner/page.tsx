@@ -6505,7 +6505,7 @@ Rules:
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap" as const, gap: 8 }}>
                   <div>
                     <p style={{ fontSize: 12, fontWeight: 700, color: childAccent, marginBottom: 2 }}>Subtitle Font Size</p>
-                    <p style={{ fontSize: 10, color: muted }}>Choose preset OR type custom px (18-120). Overrides mode default.</p>
+                    <p style={{ fontSize: 10, color: muted }}>Choose preset OR type custom px (18-200). Overrides mode default.</p>
                   </div>
                   <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" as const }}>
                     {[
@@ -6513,6 +6513,8 @@ Rules:
                       { label: "Medium", px: 54 },
                       { label: "Large", px: 72 },
                       { label: "XL", px: 96 },
+                      { label: "XXL", px: 128 },
+                      { label: "JUMBO", px: 160 },
                     ].map(({ label, px }) => {
                       const active = (subtitleConfig.fontSize ?? 54) === px;
                       return (
@@ -6536,11 +6538,11 @@ Rules:
                     <input
                       type="number"
                       min={18}
-                      max={120}
+                      max={200}
                       value={subtitleConfig.fontSize ?? 54}
                       onChange={e => {
                         const n = parseInt(e.target.value, 10);
-                        if (Number.isFinite(n) && n >= 18 && n <= 120) {
+                        if (Number.isFinite(n) && n >= 18 && n <= 200) {
                           setSubtitleConfig(c => ({ ...c, fontSize: n }));
                         }
                       }}
