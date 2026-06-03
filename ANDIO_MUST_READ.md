@@ -138,7 +138,136 @@
 
 ---
 
-## 5. ONE-LINE BOOT FOR FUTURE CLAUDE SESSIONS
+## 5. COMPLETE FIX INDEX — every shipped commit, grouped by theme
+
+**Save points (tags pushed to origin):**
+- `v2026-06-03-stable` at `f14e9c7` — 10-audit fixes + action images + ANDIO_MUST_READ
+- `v2026-06-03-stable-2` at `f14e9c7` — same, pre-font-bump snapshot
+
+Roll back to either with `git checkout <tag>`.
+
+**Full per-commit detail:** `update/CHANGELOG.md`. The list below is the INDEX so any future session can find a fix without scanning 60+ commits.
+
+### A. Subtitle pipeline (largest theme — 12 commits)
+
+| Commit | Fix | File:line |
+|---|---|---|
+| `a501dc2` | Phase A: kill 2-subtitle overlap (per-scene PNG suppressed when caption/pacing exists) | `assemble/route.ts` perSceneSubtitleEnabled |
+| `a501dc2` | Phase C: rainbow + typewriter route to drawtext; per-chunk RAINBOW_PALETTE cycling | `assemble/route.ts` colorForChunk |
+| `486ec47` | Phase B: client ships `pacingEntries[]`; server builds ASS Dialogue from exact ms timings | `assemble/route.ts:1035`, `page.tsx:2292` |
+| `2eb32b8` | ASS subtitle path via libass — 10× faster than chained drawtexts | `assemble/route.ts:987` |
+| `4cfb224` | Slow chunked-caption pace 1.6s → 2.4s/chunk | `assemble/route.ts:949` SEC |
+| `b6195b8` | Slow chunked further 2.4s → 4.0s/chunk (1.25 w/s comfortable read) | same |
+| `300e7d9` | Audio-probed pacing scale (ffprobe narrator → exact stretch ratio) | `assemble/route.ts:1037` |
+| `bbf4135` | ASS timeout 120s → 600s + explicit `-preset ultrafast` | `assemble/route.ts:1097` |
+| `8ec0831` | Font default `Arial Black` → `DejaVu Sans` (Linux-installed) — KILLS the silent fallback to drawtext | `assemble/route.ts:1011` |
+| `8ec0831` | Drawtext fallback `-preset ultrafast` (was medium) + timeout 180→300s | `assemble/route.ts:1093, 1108` |
+| `c83357d` | Subtitle font size picker (Small/Medium/Large/XL + numeric input) | `page.tsx` Assembly tab |
+| `44e7bca` | Font size applied to per-scene PNG path (was hardcoded 52) | `assemble/route.ts:165` perSceneFontSize |
+| `e08eade` + `689f64f` | Max font 120 → 200 + XXL 128 + JUMBO 160 presets | same + UI |
+
+### B. Assembly speed (8 commits)
+
+| Commit | Fix | Impact |
+|---|---|---|
+| `9101e87` | Cap scene concurrency at 4 (was: spawn N → Empty-reply crash at N>10) | Stops fork-bomb |
+| `1ba16cc` | Bumper concat stream-copy + ultrafast fallback | ~15-30s saved |
+| `6f383ff` | Scene concat stream-copy + ultrafast fallback | ~600s saved on 63-segment videos |
+| `bbf4135` | ASS pass explicit ultrafast preset | ~60-180s instead of 300+ |
+| `495a789` | Probe ACTUAL narrator audio with HTMLAudioElement (not text estimate) | Image distribution matches audio |
+| `dfa4839` | Children client: cap 7 entries (was 70 — Max+beat explosion) | 10x payload reduction |
+| `d8dbb3c` | Drop Max-toggle gate — use ticked beats always | Restores user control |
+| `71d769f` | Image flip rate picker (0.5/1/2/3/5s per beat) | User-tunable pace |
+
+### C. Narration / TTS (BIB-class — 6 commits)
+
+| Commit | Fix | BIB # |
+|---|---|---|
+| `8807b18` | Piper timeout SCALES with text length (was 30s hardcoded for any length) | #4 prevention |
+| `c209d55` | `narrate-piper` timeout also scales (was 120s hardcoded) | Hybrid same fix |
+| `c209d55` | `/api/children/generate-narration` rewired from `localhost:5000` daemon → `/api/tts` | Pacing narration works on Linux |
+| `57e21db` | Client rejects `engine === "placeholder"` at all 4 TTS call sites | #5 prevention |
+| `57e21db` | `generatePacingNarration` also sets `narratorAudioUrl` (bridge) | Pacing audio actually used |
+| `44e7bca` | `pickPiperVoice()` — learning modes get teacher voice, story modes get narrator voice | Voice quality fit |
+
+### D. Worker durability (7 commits)
+
+| Commit | Fix |
+|---|---|
+| `92c0d88` | Spawn detached worker process (was: Next.js discarded background promises after response) |
+| `55222bd` | `assemble-async` force `localhost:3200` (was sending internal fetch back through Cloudflare) |
+| `3ee7bc6` | Fire-and-poll pattern bypasses CF Tunnel 100s edge timeout |
+| `378982a` | Retry with backoff + 127.0.0.1 — survives service restart race |
+| `e73058c` | Smart probe (1s polls until `/api/health` responds) replaces blind 60s wait |
+| `6e370a9` | Worker heartbeat every 8s — status file shows current elapsed sec |
+| `af7bea1` | Dead-worker detector in job-status (stale > 3 min → synthetic error) |
+
+### E. Children planner UI (10+ commits)
+
+| Commit | Fix |
+|---|---|
+| `486ec47` | De-vocabularize for ages 5-8 (LLM rewrites story for target reading age) |
+| `45fcfe0` → `6eae854` | De-vocabularize button moved from big card to inline modify-row with `prompt()` |
+| `a501dc2` | Project Delete + Export (JSON download) per card |
+| `a501dc2` | New projects persist immediately as OPEN with timestamp titles |
+| `300e7d9` | Made Delete/Export buttons LARGE (was 8px emoji invisible) |
+| `e4fec04` | Show REAL server heartbeat elapsed time on progress bar (was client-estimated 95% cap) |
+| `b8e95c1` | UI poll cap 12min → 20min + honest timeout message |
+| `cccb563` | Outro layout compact (title close to credits) + AI cast list with Piper voice tag |
+| `44e7bca` | Studio Name editable in Story Credits (was hardcoded "GIO HOME AI STUDIO") |
+| `f14e9c7` | Action images: pass narration slice + drop "friendly" on action scenes |
+| `12c042c` | Storage Cleanup page at `/dashboard/storage-cleanup` (browse + delete files) |
+| `256fe24` | TDZ fix — compute scene narration share BEFORE segmentation loop |
+| `b2464db` | Option A — skip auto-expand+TTS when narration already ready + yellow speed tip |
+| `b8e95c1` + 4 others | Story Credits Written by/Made by/Idea from, localStorage persist, always-visible on Screenplay tab |
+
+### F. Other planner ports (3 commits, Sonnet-shipped)
+
+| Commit | Planner | What |
+|---|---|---|
+| `2056156` | Movie | De-vocabularize button (ages 5-18) |
+| `f272330` | Commercial | De-vocabularize button (targets `keyMessage`) |
+| `5f4ab90` | Music-Video | TODO(pacing) comment — input is lyrics, De-vocab skipped |
+
+### G. Image generation (2 commits)
+
+| Commit | Fix |
+|---|---|
+| `32e450f` | Image gen error messages show full HTTP + body; `finally{}` block prevents stuck Regen button |
+| `f14e9c7` | Action images — narration slice + dynamic mood when action verbs detected (see §A row above too) |
+
+### H. Build / dev infra (4 commits)
+
+| Commit | Fix |
+|---|---|
+| `92c0d88` | Detached worker process for assembly background work |
+| `6176a50` → `b42df0d` | Next.js v16 Turbopack chunk 404 — workaround: `npm run start` switched to `next dev`; `start:prod` kept |
+| `12c042c` | Worker reads `STORAGE_PATH` env (was hardcoded `../storage` relative) |
+| `55222bd` | assemble-async no longer routes internal fetch through Cloudflare |
+
+### I. Project management infra (3 commits)
+
+| Commit | Fix |
+|---|---|
+| `12c042c` | NEW `/api/storage/list` + `/api/storage/delete` + `/dashboard/storage-cleanup` page (browse + bulk delete) |
+| `a501dc2` | DELETE endpoint added to `/api/hybrid/saved-state` |
+| `b9c16e0` + `18535be` | This file (`ANDIO_MUST_READ.md`) + READ-FIRST block in `CLAUDE.md` |
+
+### J. Docs (8 commits)
+
+| Commit | What |
+|---|---|
+| `b9c16e0` | Created this `ANDIO_MUST_READ.md` index |
+| `18535be` | `CLAUDE.md` READ-FIRST block points at the 5 critical files |
+| `b528bca` | `PROBLEM_AND_FIX.md` BIB regression #4 (Piper 30s timeout) |
+| `09cb5e0` | `CHANGELOG.md` 24h session record — 29 commits grouped by theme |
+| `d2acb6a` | `CHANGELOG.md` + `PROBLEM_AND_FIX.md` 10-fix audit shipment |
+| `3174260` | `PROBLEM_AND_FIX.md` font/studio/voice fix |
+| Multiple updates to global `~/.claude/.../memory/error_log.md` BIB #5 prevention rule |
+
+---
+
+## 7. ONE-LINE BOOT FOR FUTURE CLAUDE SESSIONS
 
 If you're a future Claude continuing GHS work, your boot sequence is:
 1. Read THIS file first (`ANDIO_MUST_READ.md`).
