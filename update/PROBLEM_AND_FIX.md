@@ -4,6 +4,43 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-06-03 — ✅ FIXED — 10-fix Sonnet-audit ship (`8ec0831` + `57e21db` + `c209d55` + `12c042c`)
+
+**Symptom:** Assembly stuck at 99% for 10+ minutes despite multiple earlier patches. Narration audio shipped as 30-second silent placeholder. Pacing narration never worked on Linux. Henry verbatim: "this system was built in window and has many window bypasses". Approved "Ship ALL 10" plan after 3 read-only Sonnets audited.
+
+**Root cause (one big interconnected cascade — NOT separate bugs):**
+1. ASS subtitle default font was `Arial Black` — not installed on Linux server. libass silently substituted/failed → drawtext fallback hit on EVERY assembly.
+2. Drawtext fallback ran at ffmpeg default preset (medium) = 5× slower than ultrafast. With 980 drawtext filters for long captions → 10-min stall.
+3. `perSegmentDuration` computed from `estimateTextDuration()` (text estimate ~3 w/s) NOT from the probed audio (~1.5-2 w/s for real TTS). Segments rendered 30-60s while audio played 5+ min → 99% stuck waiting for impossible.
+4. `/api/tts` returns `engine="placeholder"` when all TTS tiers fail (Piper crashed, FAL no key) — writes a 30s `_silent.mp3` sine tone. Client treated it as success, stored as `narratorAudioUrl`, shipped to assemble. Live server had 39 `_silent.mp3` files = 25% of all narration generations silently failed.
+5. `generatePacingNarration()` set `pacingAudioUrl` only. Main `assembleMovie()` saw `narratorAudioUrl=null`, fired SECOND TTS with raw text — pacing entries' timings referred to the FIRST audio, narrationList shipped the SECOND. Desync.
+6. `/api/hybrid/narrate-piper` had hardcoded 120s timeout — same BIB-class as `/api/tts` fix from `8807b18` but missed in that fix.
+7. `/api/children/generate-narration` Piper fallback called `http://localhost:5000/tts` — a separate daemon that does not run on Linux. Every pacing narration call silently 502'd.
+8. `scripts/assemble_job_worker.mjs:24` hardcoded `STORAGE_PATH` — would misroute if env points elsewhere.
+
+**Fixes (4 commits, ordered by impact):**
+
+| # | Commit | File:line | What |
+|---|---|---|---|
+| 1 | `8ec0831` | `assemble/route.ts:1011` | Default font `Arial Black → DejaVu Sans` |
+| 5 | `8ec0831` | `assemble/route.ts:1093, 1108` | Drawtext fallback `preset ultrafast` (was medium) + timeout 180s → 300s |
+| 2 | `57e21db` | `page.tsx:2235-2245` | `perSegmentDuration` uses `_totalNarFromProbe` (audio probe) not text estimate |
+| 3 | `57e21db` | `page.tsx:1956, 2218, 2733, 6101` | 4 client TTS sites reject `engine==="placeholder"` |
+| 4 | `57e21db` | `page.tsx:2580` | `generatePacingNarration` also calls `setNarratorAudioUrl` |
+| 6 | `c209d55` | `narrate-piper/route.ts:187` | Spawn timeout scales: `clamp(60s, 10min, text.length * 500ms)` |
+| 7 | `c209d55` | `generate-narration/route.ts:124` | Piper fallback now calls `/api/tts` not `localhost:5000` |
+| 8 | `12c042c` | `assemble_job_worker.mjs:25` | Reads `STORAGE_PATH` env, fallback to relative path |
+| 10 | `12c042c` | NEW `/api/storage/list`, `/api/storage/delete`, `/dashboard/storage-cleanup` | Storage browser + bulk delete |
+| 9 | (partial) | console.error already in route | ASS error visible via journalctl; UI surfacing deferred |
+
+**Why this is the SAME bug class fixed multiple times:** every silent fallback in the TTS / subtitle pipeline lands at the same `_silent.mp3` placeholder or drawtext slow-path. Five separate root causes, one destination. Fixes ship preventatively at each entry point.
+
+**Linux server proof:** 39 `_silent.mp3` files in `/home/ghs/giohomestudio/storage/audio/tts/`, all with sibling 0-byte WAVs of the same timestamp. Most recent: 2026-06-03 07:37 UTC (after the `8807b18` timeout fix — meaning a SECOND failure mode beyond timeout exists, probably Piper crashing on specific Unicode chars in long stories).
+
+**Prevention rule (added to global error_log.md):** any silent `catch { }` in narration/TTS/subtitle paths is forbidden. Every tier must `console.error` with the actual reason. Client must reject `engine==="placeholder"` responses.
+
+---
+
 ## 2026-06-03 — ✅ SHIPPED (`c83357d`): Subtitle font size picker — Small/Medium/Large/XL + custom 18-120 px
 
 **Symptom (Henry verbatim):** "FIX SUBTITLE FONT SIZE OR TESXT SIZE" then "I CUSTOM WHERE I CAN CHOOSE SIZE". Mode presets (e.g. `kids` = 54px) hard-locked the subtitle size; user-supplied `subtitleConfig.fontSize` was ignored because the route code did `preset?.size ?? subCfg?.fontSize`.

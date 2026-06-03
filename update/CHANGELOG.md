@@ -1,5 +1,49 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-03 — **10-FIX SONNET-AUDIT-DRIVEN SHIP** (4 commits) — full assembly + narration repair
+
+Henry: "this system was built in window and has many window bypasses... go through all the files - read only call sonnets - get a breakdown and see why it happens and map a plan do the in children and child planner then we move on". Approved "Ship ALL 10" plan.
+
+3 read-only Sonnets audited (each non-overlapping):
+- **A** — children-planner page.tsx end-to-end (Windows paths, BYPASSes, assemble flow trace, pacing/narration state-handoff bugs)
+- **B** — /api/video/assemble/route.ts (ASS path step-by-step, silent catches, drawtext bottleneck)
+- **C** — narration/TTS pipeline (Piper, FAL, all silent fallbacks, `_silent.mp3` count on live server)
+
+Cascade of root causes found (one big interconnected breakage, not separate bugs):
+1. **`Arial Black` font default not on Linux** → libass silently falls back → drawtext fires (slow path) every assembly
+2. **Drawtext fallback ran at preset=medium** (5× slower than ultrafast)
+3. **`perSegmentDuration` from text estimate, not probed audio** → video renders 30-60s while audio plays 5+ min → **99% stuck forever**
+4. **Client treats `engine="placeholder"` as success** → `_silent.mp3` stored as narration → user gets 30s beep
+5. **`generatePacingNarration` sets `pacingAudioUrl` only** → main assemble fires NEW TTS → audio mismatch
+6. **`narrate-piper` 120s timeout hardcoded** (same BIB-class as the `/api/tts` fix from `8807b18`)
+7. **`/api/children/generate-narration` calls `localhost:5000`** — a Piper daemon that doesn't exist on Linux → silent 502
+8. **Worker hardcoded `STORAGE_PATH`** → would silently misroute on env change
+
+39 `_silent.mp3` files vs 112 real WAVs on the server proved 25% of all narration generations had silently failed.
+
+### Shipped (4 commits)
+
+- `8ec0831` — `route.ts:1011` font `Arial Black → DejaVu Sans` (Fix 1) + drawtext `-preset ultrafast` (Fix 5)
+- `57e21db` — `page.tsx`: probed-audio `perSegmentDuration` (Fix 2), reject `engine="placeholder"` at all 4 TTS call sites (Fix 3), `generatePacingNarration` also sets `narratorAudioUrl` (Fix 4)
+- `c209d55` — `narrate-piper`: timeout scales to text length (Fix 6); `generate-narration`: rewired from `localhost:5000` to `/api/tts` (Fix 7)
+- `12c042c` — `assemble_job_worker.mjs`: respects `STORAGE_PATH` env (Fix 8); new `/api/storage/list` + `/api/storage/delete` + `/dashboard/storage-cleanup` page (Fix 10) — lets Henry browse + bulk-delete files under `audio/tts`, `scenes/unlinked`, `video/temp` etc.
+
+Fix 9 (surface ASS error to job-status) partial — `console.error` already logs to journalctl; full UI surfacing deferred since Fix 1 should make ASS rarely fall back at all.
+
+### Expected impact
+
+| Step | Before | After |
+|---|---|---|
+| ASS subtitle render (kids/bold/most modes) | Silently fails on missing font → drawtext fallback | Succeeds with DejaVu Sans, 60-180s |
+| Drawtext fallback (rainbow/typewriter) | preset=medium = 5-10 min | preset=ultrafast = 30-60s |
+| Video length vs audio length | mismatch → 99% stuck forever | aligned (probed) |
+| Pacing narration | silent 502 (localhost:5000 dead) | real audio via Piper |
+| Silent placeholder mp3 | shipped to assemble as "narration" | rejected with user-visible error |
+| Pacing → assemble handoff | desync (2 different audio files) | bridged (single audio) |
+| Storage cleanup | no UI | `/dashboard/storage-cleanup` with delete buttons |
+
+---
+
 ## 2026-06-03 — Session continuation (5 commits) — BIB regression + subtitle perf + custom font size
 
 ### Narration (1 commit)
