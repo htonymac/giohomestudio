@@ -22,7 +22,13 @@ if (!jobId || !bodyFile) {
   process.exit(2);
 }
 
-const STORAGE = path.resolve(__dirname, "..", "storage");
+// Henry 2026-06-03 (Sonnet A audit Fix #8): worker now respects STORAGE_PATH
+// env var (same convention as env.storagePath in src/config/env.ts). Was
+// hardcoded to ../storage relative to scripts/ — only worked because the
+// route and the worker happened to resolve to the same path on Windows
+// and on the current Linux setup. If STORAGE_PATH is set to a different
+// mount (e.g. for an external volume), the worker now follows.
+const STORAGE = process.env.STORAGE_PATH || path.resolve(__dirname, "..", "storage");
 const statusPath = path.join(STORAGE, "jobs", "assemble", `${jobId}.json`);
 
 function writeStatus(data) {
