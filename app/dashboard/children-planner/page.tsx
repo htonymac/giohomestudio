@@ -2059,6 +2059,14 @@ function ChildrenPlannerInner() {
       type Segment = { scene: number; videoUrl: string; parentScene: number; duration?: number };
       const assemblyScenes: Segment[] = [];
       let segCounter = 0;
+      // Henry 2026-06-02: compute the per-scene narration share BEFORE the
+      // segmentation loop so the multi-beat path knows how long each scene
+      // has to fill. (The actual perSegmentDuration is recomputed AFTER
+      // segmentation because it's based on segment count.)
+      const _totalNarEstimate = narrationText ? estimateTextDuration(narrationText) : 0;
+      const _sceneNarrShare = _totalNarEstimate > 0 && scenesToAssemble.length > 0
+        ? _totalNarEstimate / scenesToAssemble.length
+        : 5;
       for (const s of scenesToAssemble) {
         const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
         const videoUrl = sceneVideos[sceneId];
@@ -2084,7 +2092,7 @@ function ChildrenPlannerInner() {
         // un-tick beats they don't want. Max toggle still respected when
         // present but no longer required.
         if (wantsImagePath && tickedBeats.length > 1) {
-          const sceneNarrDuration = perSegmentDuration; // scene's share of total narration
+          const sceneNarrDuration = _sceneNarrShare; // scene's share of total narration
           const slotsNeeded = Math.max(1, Math.ceil(sceneNarrDuration / imageFlipRate));
           for (let slot = 0; slot < slotsNeeded; slot++) {
             const beatUrl = tickedBeats[slot % tickedBeats.length];
