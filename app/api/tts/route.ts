@@ -107,28 +107,57 @@ export async function POST(req: NextRequest) {
       const piperModel = modelCandidates.find(p => fs.existsSync(p)) || "";
 
       if (fs.existsSync(piperPath) && piperModel) {
+        // Henry 2026-06-03: BIB regression fix. Long stories (5000+ chars) take
+        // 60-120s+ for Piper to synthesize. Old hardcoded 30s timeout killed
+        // Piper mid-synthesis -> threw -> silent catch hid the error -> dropped
+        // to FAL or silent placeholder.
+        //
+        // New: timeout scales with text length. Floor 60s for short clips,
+        // ceiling 10 min for huge stories. 2-byte-per-char-per-second budget
+        // is generous on the server's CPU.
+        const piperTimeoutMs = Math.max(60_000, Math.min(600_000, Math.ceil(speakText.length * 500)));
+        console.log(`[tts.piper] text=${speakText.length} chars, timeout=${(piperTimeoutMs/1000).toFixed(0)}s, model=${path.basename(piperModel)}`);
         await new Promise<void>((resolve, reject) => {
           const proc = spawn(piperPath, [
             "--model", piperModel,
             "--output_file", outFile,
             ...(speed ? ["--length_scale", String(1 / (speed || 1))] : []),
           ]);
+          let stderr = "";
+          proc.stderr?.on("data", chunk => { stderr += chunk.toString(); });
           // speakText = original with directive adverbs stripped (whispered/shouted/etc).
           // Piper has no emotion API, so cleaning the text is the most we can do.
           proc.stdin.write(speakText);
           proc.stdin.end();
-          const timer = setTimeout(() => { proc.kill(); reject(new Error("Piper timeout")); }, 30000);
-          proc.on("close", (code) => { clearTimeout(timer); if (code === 0) resolve(); else reject(new Error(`Piper exit ${code}`)); });
+          const timer = setTimeout(() => {
+            proc.kill();
+            reject(new Error(`Piper timeout after ${(piperTimeoutMs/1000).toFixed(0)}s on ${speakText.length} chars`));
+          }, piperTimeoutMs);
+          proc.on("close", (code) => {
+            clearTimeout(timer);
+            if (code === 0) resolve();
+            else reject(new Error(`Piper exit ${code}: ${stderr.slice(0, 200)}`));
+          });
           proc.on("error", (e) => { clearTimeout(timer); reject(e); });
         });
 
         if (fs.existsSync(outFile) && fs.statSync(outFile).size > 1000) {
           const url = `/api/media/audio/tts/${path.basename(outFile)}`;
           const durationMs = getAudioDurationMs(outFile, "wav");
+          console.log(`[tts.piper] OK ${(durationMs/1000).toFixed(1)}s audio for ${speakText.length} chars`);
           return NextResponse.json({ audioUrl: url, engine: "piper", text: text.slice(0, 100), durationMs });
+        } else {
+          console.error("[tts.piper] file missing or too small after Piper succeeded — model output empty?");
         }
+      } else {
+        console.warn(`[tts.piper] SKIPPED: piperBin=${fs.existsSync(piperPath)} model=${piperModel || "NONE"}`);
       }
-    } catch { /* Piper failed */ }
+    } catch (piperErr) {
+      // Henry 2026-06-03: was silent catch (the BIB-recurrence bug). Now logs
+      // EXPLICITLY so the next time narration silently goes BIB we know which
+      // tier failed and why.
+      console.error("[tts.piper] FAILED:", piperErr instanceof Error ? piperErr.message : String(piperErr));
+    }
 
     // Try 2a: FAL Standard Narrator — fal-ai/kokoro american-english (smaller, fast)
     // Henry 2026-05-30 "BIB" fix: previously triggered only on provider="fal-narrator"
