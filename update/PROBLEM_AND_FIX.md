@@ -4,6 +4,29 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## 2026-06-03 — ✅ FIXED (`8807b18`): **BIB-class regression #4** — Piper timeout was 30s for ANY text length
+
+**Symptom (Henry verbatim):** "OMG NOT THE BB AGAIN IT TOOKS US DAYS TO SOLVE HOOPE U RECORDED". Children narration audio showing 0:30 duration in the UI. Story is 2+ minutes long. Audio file written as `storage/audio/tts/tts_<ts>_silent.mp3` — exact same filename pattern + 30s duration as the original 2026-05-30 BIB beep.
+
+**Root cause:** `/api/tts/route.ts` line 120 had `setTimeout(..., 30000)` for Piper synthesis. Long children stories (5000+ chars / 2+ min narration) take 60-120 seconds for Piper to synthesise on the server CPU. After 30s the timer fired, killed Piper mid-synth, threw `Piper timeout` — but line 131 was `} catch { /* Piper failed */ }` (totally silent). No log of WHY. Request fell to FAL (which may also timeout on long text), then ElevenLabs (no key), then Windows SAPI (Linux — fails), then line 288 silent-placeholder branch which writes the `_silent.mp3` file (440Hz sine tone + silence, duration capped at 30s).
+
+**Why this is BIB #4 and not a totally new bug:** the 2026-05-30 BIB fixes (commits `b4d8092` + `49f353d`) addressed path resolution (Piper voice files in wrong dir). This regression is a different way into the SAME silent-placeholder branch — timeout instead of missing files. Three earlier BIB variants are recorded at error_log.md line 780. All share: silent fallback chain → `_silent.mp3` placeholder at 30s.
+
+**Fix (`8807b18`):**
+1. Piper timeout now scales with text length: `clamp(60_000, 600_000, text.length * 500)` ms. Floor 60s for short clips, ceiling 10 min for huge stories. 500ms/char is generous — actual synthesis is ~50ms/char on this CPU.
+2. ALL silent catches in /api/tts replaced with explicit `console.error/warn` so future BIB regressions appear in journalctl immediately: `[tts.piper] SKIPPED: bin=... model=...`, `[tts.piper] FAILED: ...`, `[tts.piper] OK Xs audio for Y chars`.
+3. Piper's stderr now captured and included in the reject message — was just `Piper exit N`.
+
+**Live verification:** Henry's 1500-char story → Piper → 95-second real audio in 18 seconds. HTTP 200, engine=piper. NOT silent placeholder. Logs visible via `journalctl -u ghs.service -f`.
+
+**To prevent BIB #5:** anyone changing /api/tts must NOT add silent `catch { }` blocks. Every TTS tier must log explicitly. Add a regression test: POST 3000-char text, assert engine!=placeholder.
+
+**Linked records:**
+- Earlier BIB fixes: this file line 81 (path resolution), CHANGELOG.md line 554 (provider routing)
+- Global learned-fix: `~/.claude/projects/C--Users-USER/memory/error_log.md` line 780 (4-variant BIB class)
+
+---
+
 ## 2026-06-02 — ✅ FIXED (`32e450f`): Children planner — Generate button stuck as "Generating..." permanently after error
 
 **Symptom:** Henry: "image not generation - for new video an story image not generate". Generate/Regen button on scene card showed "Generating..." permanently after an API error (e.g. 502, 500, or 200+error). User could never click again without refreshing.
