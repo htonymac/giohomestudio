@@ -2061,12 +2061,33 @@ function ChildrenPlannerInner() {
       let segCounter = 0;
       // Henry 2026-06-02: compute the per-scene narration share BEFORE the
       // segmentation loop so the multi-beat path knows how long each scene
-      // has to fill. (The actual perSegmentDuration is recomputed AFTER
-      // segmentation because it's based on segment count.)
-      const _totalNarEstimate = narrationText ? estimateTextDuration(narrationText) : 0;
-      const _sceneNarrShare = _totalNarEstimate > 0 && scenesToAssemble.length > 0
-        ? _totalNarEstimate / scenesToAssemble.length
+      // has to fill.
+      //
+      // Henry 2026-06-02 (followup): probe ACTUAL narrator audio length via
+      // HTMLAudioElement. Previously used estimateTextDuration() which is a
+      // ~3-words-per-second estimate from text alone — real TTS (Piper,
+      // pacing plan with pauses) runs 1.4-2x slower. Result: client computed
+      // sceneNarrShare = 5s when real share was 25-45s, so multi-beat path
+      // built only 2-3 segments per scene at flip rate, finishing all images
+      // in ~30-60s while audio kept playing 5+ minutes.
+      const _probeAudioDuration = async (url: string | null): Promise<number> => {
+        if (!url) return 0;
+        return new Promise<number>((resolve) => {
+          const a = new Audio();
+          let settled = false;
+          const done = (n: number) => { if (!settled) { settled = true; resolve(n); } };
+          a.addEventListener("loadedmetadata", () => done(a.duration || 0));
+          a.addEventListener("error", () => done(0));
+          setTimeout(() => done(0), 5000);
+          a.src = url;
+        });
+      };
+      const _probedSec = await _probeAudioDuration(narratorAudioUrl);
+      const _totalNarFromProbe = _probedSec > 0 ? _probedSec : (narrationText ? estimateTextDuration(narrationText) : 0);
+      const _sceneNarrShare = _totalNarFromProbe > 0 && scenesToAssemble.length > 0
+        ? _totalNarFromProbe / scenesToAssemble.length
         : 5;
+      console.log("[children-planner] sceneNarrShare", _sceneNarrShare, "from probed audio", _probedSec, "s");
       for (const s of scenesToAssemble) {
         const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
         const videoUrl = sceneVideos[sceneId];
