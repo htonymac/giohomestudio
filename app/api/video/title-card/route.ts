@@ -185,10 +185,19 @@ function buildOutroSvg(
   if (producer) credits.push({ role: "Producer", name: escape(producer) });
   if (username) credits.push({ role: "Created by", name: escape(username) });
 
-  const creditRowH = 50;
-  const startY = Math.max(140, H / 2 - (credits.length * creditRowH) / 2);
+  // Henry 2026-06-02: compact layout. Title sits right above the credits,
+  // not pinned to the top with a huge empty gap. Block center = H/2.
+  const creditRowH = 46;
+  const titleH = 70;
+  const titleGap = 40;
+  const totalBlockH = titleH + titleGap + credits.length * creditRowH;
+  const blockTopY = Math.max(80, (H - totalBlockH) / 2);
+  const titleY = blockTopY + titleH * 0.7;
+  const lineY = blockTopY + titleH + 8;
+  const creditsTopY = blockTopY + titleH + titleGap;
+
   const creditRows = credits.map((c, i) => {
-    const y = startY + i * creditRowH;
+    const y = creditsTopY + i * creditRowH;
     return `
     <text x="${W / 2 - 180}" y="${y}"
       text-anchor="end"
@@ -215,18 +224,18 @@ function buildOutroSvg(
     </defs>
     <rect width="${W}" height="${H}" fill="url(#bg)"/>
 
-    <!-- Title at top -->
-    <text x="${W / 2}" y="80"
+    <!-- Title sits right above credits (close, not pinned top) -->
+    <text x="${W / 2}" y="${titleY}"
       text-anchor="middle"
       font-family="'Arial Black',Impact,sans-serif"
       font-size="42"
       font-weight="900"
       fill="rgba(255,255,255,0.9)"
       letter-spacing="3">${escape(title.toUpperCase())}</text>
-    <line x1="280" y1="102" x2="${W - 280}" y2="102"
+    <line x1="280" y1="${lineY}" x2="${W - 280}" y2="${lineY}"
       stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
 
-    <!-- Cast & crew credits -->
+    <!-- Cast & crew credits (compact, right under title) -->
     ${creditRows}
 
     <!-- Studio footer -->

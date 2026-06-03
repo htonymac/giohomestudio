@@ -6305,10 +6305,20 @@ Rules:
                       onClick={async () => {
                         setGeneratingOutro(true);
                         try {
+                          // Henry 2026-06-02: include ALL characters (not just
+                          // those with a voiceId) and format the cast like a
+                          // real movie credit: character = "Giovanni", actor =
+                          // "AI Giovanni · Piper" so users see the AI voice
+                          // contribution explicitly.
                           const castList = characters
-                            .filter(c => c.voiceId)
-                            .map(c => ({ characterName: c.displayName, actorName: c.voiceId || c.displayName }))
-                            .slice(0, 6);
+                            .slice(0, 8)
+                            .map(c => {
+                              const voiceTag = c.voiceId ? c.voiceId.toUpperCase() : "PIPER";
+                              return {
+                                characterName: c.displayName || "Character",
+                                actorName: `AI ${c.displayName || "Voice"} · ${voiceTag}`,
+                              };
+                            });
                           // Henry 2026-05-31 (#2): same priority as intro — projectTitle wins.
                           const effectiveTitle = (projectTitle && projectTitle !== "Untitled Children Project" ? projectTitle : "")
                             || topicParam
