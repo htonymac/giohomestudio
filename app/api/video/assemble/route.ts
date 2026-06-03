@@ -1073,17 +1073,23 @@ ${dialogueLines.join("\n")}
           // libass needs the absolute path forward-slashed even on Windows; on
           // Linux it's straight passthrough. Escape ':' for filter syntax.
           const assArg = assFile.replace(/\\/g, "/").replace(/:/g, "\\:");
+          // Henry 2026-06-03: bumped 120s -> 600s. 98-segment videos with 2400+
+          // char captions = ~400 seconds of output. libass is fast per-frame
+          // but the re-encode pass over 400s of 1920x1080 video still takes
+          // 60-180s on this CPU. Was timing out -> silent fallback to drawtext
+          // chain (which takes 300+s).
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", `ass=${assArg}`,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
             "-c:a", "copy", "-y", captionOutput,
-          ], { timeout: 120000 });
+          ], { timeout: 600000 });
           finalPath = captionOutput;
           burned = true;
           console.log("[assemble.subtitle] ASS libass succeeded — fast path");
         } catch (assErr) {
-          console.warn("[assemble.subtitle] ASS libass failed, falling back to drawtext:",
-            (assErr as Error)?.message?.slice(0, 200));
+          console.error("[assemble.subtitle] ASS libass FAILED, falling back to drawtext:",
+            (assErr as Error)?.message?.slice(0, 300));
         }
       }
 
