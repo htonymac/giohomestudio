@@ -1,5 +1,28 @@
 # GioHomeStudio Master Canvas
 
+## 🔥 READ-FIRST BLOCK — every new Claude session MUST read these in order
+
+Before touching ANY code in this repo:
+
+1. **`ANDIO_MUST_READ.md`** (project root) — single-file index of every tough recurring bug + every task that's not properly implemented. Pointer-only, ~150 lines. Tells you where the real content lives.
+2. **`update/PROBLEM_AND_FIX.md`** — every bug we've fixed with verbatim symptom + root cause + commit. **Grep this file FIRST before debugging any new bug.** If your symptom matches a prior entry, apply the known fix.
+3. **`update/HANDOFF.md`** — where the last session stopped, current blockers, next exact steps.
+4. **`update/CHANGELOG.md`** — chronological commit log grouped by theme. Faster scan than `git log`.
+5. **`~/.claude/projects/C--Users-USER/memory/error_log.md`** — global learned-fixes across all Henry's projects. BIB-class bugs live here.
+
+**Hard rules (Henry's, never violate):**
+- NO silent `catch { }` blocks in TTS / subtitle / narration paths. Every tier MUST `console.error` with the actual reason.
+- DO NOT touch `app/dashboard/hybrid-planner/*` without explicit Henry GO. Hybrid is the mature reference.
+- DO NOT delete existing functions. Workflow fixes only.
+- DO NOT mix code from multiple unrelated areas in one commit.
+
+When you ship a bug fix:
+- ADD an entry to `update/PROBLEM_AND_FIX.md` with verbatim symptom + root cause + commit + prevention rule.
+- ADD a pointer in `ANDIO_MUST_READ.md` §2 (tough bugs) or §3 (unfinished tasks).
+- If the bug is class-level (recurring shape across surfaces), add to global `error_log.md` so future sessions on OTHER projects don't repeat.
+
+---
+
 ## 0. Karaoke Architecture (locked 2026-04-27 per Final Master System Canvas)
 
 GHS Karaoke / Voice-to-Music splits across two surfaces, NOT one:
