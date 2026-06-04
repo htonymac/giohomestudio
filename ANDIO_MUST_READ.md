@@ -8,10 +8,11 @@
 
 ## 1. WHEN SOMETHING BREAKS — read in this order
 
-1. **`update/PROBLEM_AND_FIX.md`** — every project-side bug with verbatim symptom + root cause + fix commit. Grep for your symptom.
-2. **`~/.claude/projects/C--Users-USER/memory/error_log.md`** — global "learned calluses" across ALL Henry's projects. BIB-class bugs live here.
-3. **`update/CHANGELOG.md`** — chronological commit-grouped record. Easier scan than git log.
-4. **`update/HANDOFF.md`** — current session's where-stopped, blockers, next-steps.
+1. **`BIG_PROBLEM_ANDIO_FIX.md`** — the 16 architectural / scale / cost / security / lawsuit time bombs with junior-dev explanations + fix code skeletons + execution plan. **READ THIS BEFORE LAUNCH.**
+2. **`update/PROBLEM_AND_FIX.md`** — every tactical bug we've already fixed with verbatim symptom + root cause + commit. Grep for your symptom.
+3. **`~/.claude/projects/C--Users-USER/memory/error_log.md`** — global "learned calluses" across ALL Henry's projects. BIB-class bugs live here.
+4. **`update/CHANGELOG.md`** — chronological commit-grouped record. Easier scan than git log.
+5. **`update/HANDOFF.md`** — current session's where-stopped, blockers, next-steps.
 
 ---
 
