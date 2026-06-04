@@ -33,6 +33,15 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Henry 2026-06-04: pass through internal localhost requests. The detached
+  // assemble worker, the children-narration -> /api/tts inner call, and
+  // anything else where the server hits itself comes from 127.0.0.1 — those
+  // don't have the browser cookie. Was: 401 -> 'AUTH IS STOPP ASSEMBLE'.
+  const host = req.headers.get("host") || "";
+  if (host.startsWith("127.0.0.1") || host.startsWith("localhost")) {
+    return NextResponse.next();
+  }
+
   const cookie = req.cookies.get("andio_access");
   if (cookie?.value === code) {
     return NextResponse.next();
