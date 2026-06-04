@@ -450,6 +450,11 @@ export default function ChildrenVideoPage() {
   const [showAgeInfo, setShowAgeInfo] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState<{ topic: string; prompt: string } | null>(null);
   const [topicFilter, setTopicFilter] = useState("");
+  // Henry 2026-06-04: Custom Story input. Accepts BOTH a bare statement ("a boy kill a big snake")
+  // AND an instruction ("write me a story of a boy that killed a big snake make it intense").
+  // The planner's story-expand API + AI prefill handle either shape — they just need raw text.
+  const [customStory, setCustomStory] = useState("");
+  const [showCustomStory, setShowCustomStory] = useState(false);
 
   // ── Character import from DB ──
   const [characters, setCharacters] = useState<SavedCharacter[]>([]);
@@ -740,11 +745,70 @@ export default function ChildrenVideoPage() {
               </div>
             )}
 
+            {/* ── Custom Story input — appears after content type selection ──
+                Henry 2026-06-04: previously all stories were preset tiles only. Now user can
+                type a freeform statement OR an instruction; planner's story-expand handles both. */}
+            {contentType && (
+              <div style={{ marginBottom: 20 }}>
+                <button onClick={() => { setShowCustomStory(s => !s); if (!showCustomStory) setSelectedTopic(null); }}
+                  style={{
+                    width: "100%", padding: "12px 16px", borderRadius: 12,
+                    border: `1px solid ${customStory.trim() ? "#a855f7" : border}`,
+                    background: customStory.trim() ? "rgba(168,85,247,0.08)" : "rgba(168,85,247,0.03)",
+                    cursor: "pointer", textAlign: "left",
+                    display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10,
+                  }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>✏️</span>
+                    <div>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: customStory.trim() ? "#a855f7" : "#fff", margin: 0 }}>
+                        Write Your Own Story {customStory.trim() ? "— Active" : ""}
+                      </p>
+                      <p style={{ fontSize: 9, color: muted, margin: "2px 0 0" }}>
+                        Type a story OR an instruction — AI will expand it
+                      </p>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 12, color: muted }}>{showCustomStory ? "▼" : "▶"}</span>
+                </button>
+                {showCustomStory && (
+                  <div style={{ marginTop: 10, background: "rgba(168,85,247,0.04)", border: "1px solid rgba(168,85,247,0.2)", borderRadius: 12, padding: 14 }}>
+                    <textarea
+                      value={customStory}
+                      onChange={e => { setCustomStory(e.target.value); if (e.target.value.trim()) setSelectedTopic(null); }}
+                      rows={5}
+                      placeholder={`Examples:\n• "A boy kills a big snake in the alley"  (statement — AI builds full story around it)\n• "Write me a story of a boy that killed a big snake, make it intense"  (instruction — AI follows your directions)\n• "Bryan, age 8, learns the letter B with his dog Max"  (mention names + ages — AI uses them)\n\nTip: mention character names + ages — AI auto-builds characters and keeps them consistent across scenes.`}
+                      style={{
+                        width: "100%", boxSizing: "border-box",
+                        padding: "10px 12px",
+                        background: "rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 8,
+                        color: "#fff", fontSize: 12, lineHeight: 1.5,
+                        outline: "none", resize: "vertical", fontFamily: "inherit",
+                      }}
+                    />
+                    {customStory.trim() && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                        <p style={{ fontSize: 10, color: "#a855f7", margin: 0 }}>
+                          Custom story will pre-fill the planner ({customStory.trim().split(/\s+/).length} words)
+                        </p>
+                        <button onClick={() => setCustomStory("")}
+                          style={{ fontSize: 10, color: muted, background: "none", border: `1px solid ${border}`, borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>
+                          Clear
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ── Topic Suggestions — appears after content type selection ── */}
-            {contentType && currentTopics.length > 0 && (
+            {contentType && currentTopics.length > 0 && !customStory.trim() && (
               <div style={{ marginBottom: 20 }}>
                 <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#3b82f6", marginBottom: 4 }}>
-                  Suggested topics — click one or type your own in the planner
+                  Suggested topics — click one or use Custom Story above
                 </p>
                 <p style={{ fontSize: 9, color: "#3d5060", marginBottom: 10 }}>
                   These are curriculum-backed topics for {currentAgeConfig?.label}. Select one to pre-fill the planner, or skip and write your own.
@@ -957,11 +1021,14 @@ export default function ChildrenVideoPage() {
                 landed on top of someone else's work. Now we mint a fresh ID per page render
                 so each navigation = a new project. Multi-tab: tab A and tab B render at
                 different timestamps → independent projects. */}
-            <a href={`/dashboard/children-planner?projectId=child_${Date.now()}_${Math.random().toString(36).slice(2,6)}&branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(selectedTopic?.topic || "")}&topicPrompt=${encodeURIComponent(selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}`}
+            {/* Custom story takes priority over selected topic — same topicPrompt URL slot,
+                planner already wires topicPrompt → textContent → story-expand. Topic label
+                = "Custom Story" so the planner header shows what was chosen. */}
+            <a href={`/dashboard/children-planner?projectId=child_${Date.now()}_${Math.random().toString(36).slice(2,6)}&branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(customStory.trim() ? "Custom Story" : (selectedTopic?.topic || ""))}&topicPrompt=${encodeURIComponent(customStory.trim() || selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}`}
               style={{ textDecoration: "none" }}>
               <button disabled={!contentType || !ageGroup}
                 style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (contentType && ageGroup) ? childAccent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (contentType && ageGroup) ? "pointer" : "not-allowed", transition: "all 0.2s" }}>
-                {!ageGroup ? "Select an age group first" : !contentType ? "Select what to create" : `Open ${currentAgeConfig?.label} Planner`}
+                {!ageGroup ? "Select an age group first" : !contentType ? "Select what to create" : customStory.trim() ? `Open Planner with Your Story` : `Open ${currentAgeConfig?.label} Planner`}
               </button>
             </a>
           </div>

@@ -3345,7 +3345,16 @@ function ChildrenPlannerInner() {
     if (expandedContent || childScenes.length > 0 || expanding) return;
     autoExpandedRef.current = true;
     setActiveTab("content");
-    prefillPrompt();
+    // Henry 2026-06-04: when user wrote a CUSTOM story on /children-video, the URL
+    // arrives with topic="Custom Story". prefillPrompt() regenerates a fresh story
+    // from scratch — but Henry already wrote what he wants. So for custom stories
+    // we skip prefill and go straight to expandStory(), which takes the user's
+    // text as `storyInput` and expands it (preserving intent + characters).
+    if (topicParam === "Custom Story") {
+      expandStory();
+    } else {
+      prefillPrompt();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicPromptParam, textContent, expandedContent, childScenes.length, expanding]);
 
