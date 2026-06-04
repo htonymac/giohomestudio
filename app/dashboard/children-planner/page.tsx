@@ -3286,10 +3286,20 @@ function ChildrenPlannerInner() {
       assemblySelectedIds, assemblyMediaPrefs, wordOverlayEnabled]);
 
   // ── Load project list for "My Projects" panel ──
+  // Henry 2026-06-04: was filtering server-side by prefix=ghs_children which
+  // missed 27+ of Henry's projects that use child_<ts>_<rand> format (URL-
+  // created). Now: fetch all, filter client-side for BOTH children prefixes.
   useEffect(() => {
-    fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children")
+    fetch("/api/hybrid/saved-state?list=true")
       .then(r => r.json())
-      .then(d => { if (d.projects) setProjectsList(d.projects); })
+      .then(d => {
+        if (d.projects) {
+          const filtered = d.projects.filter((p: { id: string }) =>
+            p.id.startsWith("child_") || p.id.startsWith("ghs_children")
+          );
+          setProjectsList(filtered);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -3897,9 +3907,14 @@ Rules:
         body: JSON.stringify({ localId: id, data }),
       });
       // Refresh project list
-      const listRes = await fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children");
+      const listRes = await fetch("/api/hybrid/saved-state?list=true");
       const listData = await listRes.json();
-      if (listData.projects) setProjectsList(listData.projects);
+      if (listData.projects) {
+        const filtered = listData.projects.filter((p: { id: string }) =>
+          p.id.startsWith("child_") || p.id.startsWith("ghs_children")
+        );
+        setProjectsList(filtered);
+      }
     } catch { /* silent */ }
   }
 
@@ -3942,9 +3957,14 @@ Rules:
         await newProject();
       } else {
         // Just refresh the list
-        const listRes = await fetch("/api/hybrid/saved-state?list=true&prefix=ghs_children");
+        const listRes = await fetch("/api/hybrid/saved-state?list=true");
         const listData = await listRes.json();
-        if (listData.projects) setProjectsList(listData.projects);
+        if (listData.projects) {
+          const filtered = listData.projects.filter((p: { id: string }) =>
+            p.id.startsWith("child_") || p.id.startsWith("ghs_children")
+          );
+          setProjectsList(filtered);
+        }
         setLastAction(`Deleted "${title || "Untitled"}"`);
       }
     } catch (err) {
