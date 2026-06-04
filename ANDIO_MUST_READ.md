@@ -70,6 +70,38 @@
 
 ---
 
+## 2.5 LAUNCH-BLOCKER TIME BOMBS — read `BIG_PROBLEM_ANDIO_FIX.md`
+
+**16 strategic risks** documented with junior-dev-readable explanations + fix code + verification rules:
+
+| # | Problem | Severity | Effort |
+|---|---|---|---|
+| 1 | No multi-tenancy (no `tenant_id`) | LAUNCH BLOCKER | 1-2 days |
+| 2 | No Row-Level Security in Postgres | LAUNCH BLOCKER | 1 day |
+| 3 | Files >4000 lines (children-planner 8359, hybrid 13567) | BLOCKS PROD BUILD | 2-3 days |
+| 4 | Single Linux VPS + no queue | FAILS AT >5 USERS | 3-5 days |
+| 5 | LLM cost runaway (no semantic cache, no model routing) | $5K SURPRISE BILL RISK | 2 days |
+| 6 | **API rate limit apocalypse** (no backoff, no breaker, no budget cap) | KILLS LAUNCH DAY | 2 days |
+| 7 | **LEGAL** — no ToS/Privacy/DMCA/AI Policy/COPPA/AUP | LAWSUIT EXPOSURE | 1-2 days |
+| 8 | No CDN for video output | BANDWIDTH CAP | 1-2 days |
+| 9 | No cost monitoring | BLIND FLYING | 1 day |
+| 10 | No audit log | LEGAL DEFENSE GAP | 1 day |
+| 11 | Shared access code (single key) | ROTATION PAIN | 3-5 days |
+| 12 | No read replicas / no geo routing | LATENCY | 1 week (Phase 4) |
+| 13 | No AI semantic cache | OVERLAPS #5 | 2 days |
+| 14 | No image cache | OVERLAPS #5 | 1 day |
+| 15 | No tests | QUALITY DRIFT | ongoing |
+| 16 | No staging environment | NO SAFETY NET | 1 day |
+
+**Phase 1 (must land before public launch):** items 1, 2, 5, 6, 7
+**Phase 2 (must land before 100 concurrent users):** items 3, 4, 8, 9, 10
+**Phase 3 (before 1K paying users):** items 11, 13, 14, 15, 16
+**Phase 4 (1K+):** item 12
+
+Full code skeletons + verification steps + prevention rules for each are in `BIG_PROBLEM_ANDIO_FIX.md`.
+
+---
+
 ## 3. TASKS NOT FULLY IMPLEMENTED — pointer + file
 
 ### Production-scale architecture
