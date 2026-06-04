@@ -1529,11 +1529,11 @@ function ChildrenPlannerInner() {
           characterIds: assignedChars,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
           mood: hasAction ? "dynamic, expressive, story-driven" : "friendly, warm, safe",
-          // Henry 2026-06-04 (A): action scenes auto-route to FLUX Pro — much
-          // better at motion/dynamic poses than Segmind Pruna. Non-action
-          // scenes still use whatever model the project picked (Pruna by
-          // default — fast + cheap + renders calm storybook fine).
-          modelId: hasAction ? "fal_flux_pro" : effectiveImageModelId,
+          // Henry 2026-06-04: action scenes auto-route to FLUX Schnell — still
+          // far better at motion than Segmind Pruna, but ~$0.003/image vs
+          // $0.04 for FLUX Pro (13x cheaper). Non-action scenes keep using
+          // whatever model the project picked (Pruna by default).
+          modelId: hasAction ? "fal_flux_schnell" : effectiveImageModelId,
           // Henry 2026-06-04 (B): signal to server to inject stronger
           // anti-static negatives (smiling for camera, posing, idle, etc.)
           isActionScene: hasAction,
