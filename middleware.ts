@@ -38,7 +38,17 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Redirect to unlock page, preserving where the user was going.
+  // Henry 2026-06-04: APIs return 401 JSON, pages get redirected. Was: APIs
+  // also got redirected -> client received HTML, tried to parse as JSON,
+  // SAVE silently failed with no error visible to user.
+  if (pathname.startsWith("/api/")) {
+    return NextResponse.json(
+      { error: "Authentication required. Reload the page and re-enter the access code." },
+      { status: 401 }
+    );
+  }
+
+  // Redirect HTML page requests to the unlock page.
   const url = req.nextUrl.clone();
   url.pathname = "/unlock";
   url.searchParams.set("to", pathname);
