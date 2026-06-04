@@ -1529,11 +1529,11 @@ function ChildrenPlannerInner() {
           characterIds: assignedChars,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
           mood: hasAction ? "dynamic, expressive, story-driven" : "friendly, warm, safe",
-          // Henry 2026-06-04: action scenes auto-route to FLUX Schnell — still
-          // far better at motion than Segmind Pruna, but ~$0.003/image vs
-          // $0.04 for FLUX Pro (13x cheaper). Non-action scenes keep using
-          // whatever model the project picked (Pruna by default).
-          modelId: hasAction ? "fal_flux_schnell" : effectiveImageModelId,
+          // Henry 2026-06-04: every scene uses FLUX Schnell ($0.003/img).
+          // Cheapest model in the FAL lineup AND best motion of any cheap
+          // tier. Action vs non-action only changes the negative prompts
+          // and mood string now — same model both paths.
+          modelId: effectiveImageModelId,
           // Henry 2026-06-04 (B): signal to server to inject stronger
           // anti-static negatives (smiling for camera, posing, idle, etc.)
           isActionScene: hasAction,
@@ -3095,9 +3095,13 @@ function ChildrenPlannerInner() {
   const effectiveVideoModelId = projectSettings.videoModelVersion !== "auto"
     ? (projectSettings.videoModelVersion ?? selectedVideoModelId)
     : selectedVideoModelId;
+  // Henry 2026-06-04: FLUX Schnell as the FORCED default for children-planner.
+  // FAL pricing: Schnell = $0.003/image. Pruna = $0.005. Pro = $0.04. Schnell
+  // is BOTH the cheapest AND better than Pruna at motion/composition. Always
+  // win, no tradeoff. Project's explicit pick (if not 'auto') still respected.
   const effectiveImageModelId = projectSettings.imageModelVersion !== "auto"
-    ? (projectSettings.imageModelVersion ?? selectedImageModelId)
-    : selectedImageModelId;
+    ? (projectSettings.imageModelVersion ?? "fal_flux_schnell")
+    : "fal_flux_schnell";
   // SubtitleConfig: build from hook fields, spread over local config for non-migrated fields
   const effectiveSubtitleConfig: typeof subtitleConfig = projectSettings
     ? {
