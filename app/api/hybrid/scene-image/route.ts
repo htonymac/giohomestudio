@@ -486,7 +486,14 @@ export async function POST(req: NextRequest) {
     // don't drift into literal fantasy imagery. Context = scene + character descs + culture.
     const fantasyContext = `${sceneText || ""} ${storyCulture || ""} ${resolvedCharacters.map(c => c.visualDescription || "").join(" ")}`;
     const antiFantasyNegative = getAntiFantasyNegative(fantasyContext);
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative;
+    // Henry 2026-06-04 (B): when client signals isActionScene=true, append
+    // strong anti-static negatives. Pushes model away from defaults like
+    // "smiling for camera" and "centered subject" toward actual motion.
+    const actionScene = body.isActionScene === true;
+    const antiStaticNegative = actionScene
+      ? ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless"
+      : "";
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

@@ -1529,7 +1529,14 @@ function ChildrenPlannerInner() {
           characterIds: assignedChars,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
           mood: hasAction ? "dynamic, expressive, story-driven" : "friendly, warm, safe",
-          modelId: effectiveImageModelId,
+          // Henry 2026-06-04 (A): action scenes auto-route to FLUX Pro — much
+          // better at motion/dynamic poses than Segmind Pruna. Non-action
+          // scenes still use whatever model the project picked (Pruna by
+          // default — fast + cheap + renders calm storybook fine).
+          modelId: hasAction ? "fal_flux_pro" : effectiveImageModelId,
+          // Henry 2026-06-04 (B): signal to server to inject stronger
+          // anti-static negatives (smiling for camera, posing, idle, etc.)
+          isActionScene: hasAction,
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
           wordOverlay: wordOverlayEnabled,
