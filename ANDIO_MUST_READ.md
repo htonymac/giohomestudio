@@ -13,6 +13,8 @@
 3. **`~/.claude/projects/C--Users-USER/memory/error_log.md`** — global "learned calluses" across ALL Henry's projects. BIB-class bugs live here.
 4. **`update/CHANGELOG.md`** — chronological commit-grouped record. Easier scan than git log.
 5. **`update/HANDOFF.md`** — current session's where-stopped, blockers, next-steps.
+6. **`update/VOICE_PICKER_AUDIT_06042026.md`** — every planner's voice picker state, what's canonical vs inline.
+7. **`update/VOICE_UNIFICATION_PROGRESS_06042026.md`** — 4-hour run report (2026-06-04 Opus): CI/CD fixed, voice registry shipped, Edge-TTS Nigerian Neural live, staging foundation built.
 
 ---
 
@@ -48,6 +50,32 @@
 ### Subtitle font size doesn't take effect on video (FIXED `44e7bca`)
 - Picker UI worked but only patched the CHUNKED caption path. Per-scene PNG subtitle path had 4 hardcoded `52` values that ignored `subtitleConfig.fontSize`. Now all 4 sites use `perSceneFontSize` derived from `subCfg.fontSize`.
 - File: `app/api/video/assemble/route.ts` (search `perSceneFontSize`).
+
+### TypeScript `fs.promises` "no overlap" error in CI (FIXED `ca3e50f`)
+- Local `const fs = (fontSize)` at line 941 shadowed the imported `import * as fs from "fs"`.
+- `fs.promises.writeFile` at line 1094 was reading `.promises` on a number → CI red.
+- Renamed local var to `fontSizePx`. Hard rule: never name local vars after imported modules.
+
+### CI failing for ~5 commits — npm vs pnpm + sharp/form-data + fs shadow (FIXED 2026-06-04)
+- Three-cause stack: workflow used `npm ci` but project uses pnpm; sharp+form-data imports analyzed statically by Turbopack despite try/catch wrap; fs shadow above.
+- Fix: switched CI to `pnpm install --frozen-lockfile`, added sharp + form-data as deps, renamed fs shadow.
+- → `update/PROBLEM_AND_FIX.md` "2026-06-04 — Voice Unification 4-Hour Run" + commits `1116a66`/`a7707cb`/`ca3e50f`.
+
+### CD deploy workflow failed 3× before passing (FIXED 2026-06-04)
+- Causes: pubkey installed only for `ghs` not `admin`; `pkill -f` denied (process owned by ghs); shallow clone refspec doesn't track origin/staging.
+- Fix: installed pubkey for both users; `pkill -u ghs -f`; explicit `git fetch origin staging:refs/remotes/origin/staging`.
+- → `update/PROBLEM_AND_FIX.md` "CD deploy workflow failed 3 times" entry.
+
+### Cloudflare API tokens in ENV TOKEN.txt are dead (NEEDS HENRY 2026-06-04)
+- Both `cfat_YiuJfPN5...` and `cfat_gq5gE16...` return "Invalid API Token".
+- Henry must generate fresh token at dash.cloudflare.com/profile/api-tokens with Tunnel:Edit + Zone:DNS:Edit + Zone:Read.
+- Saves to ENV TOKEN.txt → trigger `cf staging hostname` → I wire staging.andiostudio.com.
+
+### Voice picker was 3 voices only on Children planner (FIXED `5d2d483` 2026-06-04)
+- Henry: "GHS Standard/Plus/Pro/Premium/Best is ONE category". Picker showed only 3 options.
+- Root: inline `<select>` instead of canonical VoiceTierSelector. Voices hardcoded inside component, not from registry.
+- Fix: created `src/lib/voice-registry.ts` (30 voices, 5 tiers) + extended VoiceTierSelector + replaced children-planner inline. Added Edge-TTS Nigerian Neural as GHS Standard+.
+- → `update/VOICE_UNIFICATION_PROGRESS_06042026.md`
 
 ### Intro/outro shows hardcoded "GIO HOME AI STUDIO" (FIXED `44e7bca`)
 - 5 hardcoded sites: intro gen, outro gen, Screenplay tab preview x2, Story Credits placeholder.

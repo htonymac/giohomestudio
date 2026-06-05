@@ -1831,3 +1831,84 @@ All `narratorAudioDuration` references inside the assembly-building section repl
 - wan text-to-video: SKIPPED — Wan Pro not activated on FAL account. Enable at fal.ai/models.
 - wan image-to-video: SKIPPED — Wan Pro i2v not activated on FAL account.
 - kling_std image-to-video: FAL completed but no video URL found: {"detail":[{"loc":["body","image_url"],"msg":"Failed to download the file. Please check if the URL is accessible and try again.","type":"file_download_error","url":"https://docs.fal.ai/errors#file_download_error","input":"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Cat03.jpg/1280px-Cat
+
+
+## 2026-06-04 — Voice Unification 4-Hour Run (Opus 4.7) — Multiple Fixes
+
+### CI was failing for ~5 commits — root cause: npm vs pnpm mismatch + missing deps + TS fs shadow
+**Symptom:** Every GitHub Actions CI run failed with `npm ci` error or `Module not found: sharp/form-data` or `Type error: Property promises does not exist on number`.
+
+**Root causes (3 separate):**
+1. Local dev uses pnpm but CI workflow used `npm ci` against a stale `package-lock.json`
+2. `sharp` + `form-data` imports analyzed statically by Turbopack even though wrapped in try/catch
+3. Local `const fs = (fontSize)` at app/api/video/assemble/route.ts:941 shadowed the imported fs module — `fs.promises.writeFile` at line 1094 read as `.promises` on a number
+
+**Fix:**
+1. `.github/workflows/ci.yml` switched from `npm ci` → `pnpm install --frozen-lockfile` with pnpm/action-setup@v4
+2. Added `sharp` + `form-data` as deps via `pnpm add`
+3. Renamed shadow var `fs` → `fontSizePx` in 6 places (lines 941, 975, 978, 985, 988, 1084)
+
+**Commit:** 5ef7554 + a7707cb + ca3e50f
+**Prevention:** Never name local vars after imported modules. CI catches it but a deploy could ship the bug silently.
+
+---
+
+### Voice picker on Children planner was 3 voices only (Piper/fal-narrator/ElevenLabs) — fix: canonical 5-tier picker with Nigerian Neural
+**Symptom:** Henry: "GHS Standard/Plus/Pro/Premium/Best is ONE category — user can edit voice inside tier" but picker showed only 3 options.
+
+**Root cause:** Children planner used inline `<select>` at line 7041. Canonical VoiceTierSelector existed at app/components/VoiceTierSelector.tsx but was used only by 3 small surfaces (video-trimmer/finishing/editor). The component had voices hardcoded inside — not from a registry.
+
+**Fix:**
+1. Created `src/lib/voice-registry.ts` with 30 voices across 5 tiers
+2. Extended `VoiceTierSelector.tsx` to read from registry + added country filter + see-more panel
+3. Replaced children-planner inline select with canonical component
+4. Added Edge-TTS Nigerian Neural (Ezinne, Abeo) as GHS Standard+ tier
+
+**Commit:** 16e18fb + 1944e4a + 5d2d483
+**Verified live:** Playwright screenshot tests/voice-picker-OK.png — all 5 tiers + Ezinne dropdown visible at andiostudio.com
+
+---
+
+### Edge-TTS Nigerian voice not in /api/tts route — fix: new branch + pip install + path resolution
+**Symptom:** Selecting GHS Standard+ in picker had no backend implementation. /api/tts only knew piper/elevenlabs/fal-narrator.
+
+**Root cause:** /api/tts had no edge-tts case. Even if added, `edge-tts` Python CLI pip-installs to `~/.local/bin` which Next.js process does NOT have on PATH.
+
+**Fix:**
+1. Added edge-tts + gtts branches to /api/tts/route.ts (before Gemini block)
+2. `pip install --user edge-tts gtts` on server (~/.local/bin/edge-tts)
+3. Resolve binary via explicit `~/.local/bin/edge-tts` path with PATH fallback
+4. 60s timeout, Piper fallback on any failure
+
+**Commit:** 058857d + 96fe36e
+**Verified live:** `curl -X POST /api/tts -d provider:"edge-tts",voiceId:"en-NG-EzinneNeural"` returns 200 + audioUrl in 2s. Smoke test: 32KB MPEG ADTS file.
+
+---
+
+### CD deploy workflow failed 3 times before passing — root causes: SSH user mismatch + pkill ownership + shallow clone refspec
+**Symptom:** GitHub Actions deploy-staging workflow failed with "ssh: handshake failed", then "pkill Operation not permitted", then "fatal: ambiguous argument origin/staging".
+
+**Root causes (3 separate):**
+1. Deploy keypair installed only for `ghs` user but workflow SSHes as `admin` (then sudos to ghs)
+2. `pkill -f "next.*-p 3201"` from admin tried to kill ghs-owned process — denied without explicit `-u ghs`
+3. Staging clone was created with `--depth=20` and only tracks `+refs/heads/main:refs/remotes/origin/main` — `git fetch origin` does not create `origin/staging` ref
+
+**Fix:**
+1. `ssh-copy-id` equivalent: appended pubkey to BOTH /home/admin/.ssh/authorized_keys AND /home/ghs/.ssh/authorized_keys
+2. Changed to `pkill -u ghs -f "next.*-p 3201"` so the kill runs as the process owner
+3. Added explicit refspec: `git fetch origin staging:refs/remotes/origin/staging` before reset
+
+**Commit:** a7707cb + 5d180c9 + 730f58b + 1cfbca5
+**Verified:** Push to staging branch → CD run #27000569019 SUCCESS — auto-pulled + installed + restarted port 3201.
+
+---
+
+### Cloudflare API tokens in ENV TOKEN.txt are DEAD — fix: Henry must rotate
+**Symptom:** Attempted to use `cfat_YiuJfPN5...` and `cfat_gq5gE16...` from `C:\Users\USER\Desktop\ENV FILE\ENV TOKEN.txt` to wire `staging.andiostudio.com` hostname via CF API — both returned `{"success":false,"errors":[{"code":1000,"message":"Invalid API Token"}]}`.
+
+**Root cause:** Tokens were rotated/revoked since last save to file. Document is stale.
+
+**Fix:** Henry generates a new CF API token at dash.cloudflare.com/profile/api-tokens with scopes: `Cloudflare Tunnel:Edit + Zone:DNS:Edit + Zone:Read`. Saves to ENV TOKEN.txt. Then trigger `cf staging hostname` and I wire staging.andiostudio.com.
+
+**Prevention:** Add rotation date to ENV TOKEN.txt entries so we know when a key was last updated. Treat tokens older than 90 days as suspect.
+
