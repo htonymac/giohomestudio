@@ -964,13 +964,40 @@ export default function ChildrenVideoPage() {
                 </button>
                 {showCurriculum && (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10, marginBottom: 16 }}>
-                    {currentCurriculum.map(c => (
-                      <div key={c.id} style={{ background: "rgba(245,158,11,0.03)", border: `1px solid rgba(245,158,11,0.15)`, borderRadius: 12, padding: 16 }}>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "#fff", marginBottom: 4 }}>{c.label}</p>
-                        <p style={{ fontSize: 10, color: muted, marginBottom: 6 }}>{c.desc}</p>
-                        <span style={{ fontSize: 9, color: "#f59e0b" }}>{c.episodes} episodes</span>
-                      </div>
-                    ))}
+                    {currentCurriculum.map(c => {
+                      // Henry 2026-06-04: tiles were divs (not clickable). Now: clicking a
+                      // curriculum template fills the customStory textarea with a starter
+                      // prompt derived from label+desc, so the planner expands a story
+                      // grounded in this curriculum item. We also clear any selected topic
+                      // so the customStory wins on the URL.
+                      const isPicked = customStory.trim().startsWith(`[${c.label}]`);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => {
+                            const starter = `[${c.label}] ${c.desc}. Make a ${c.episodes}-episode-friendly children's video script for ${currentAgeConfig?.label || "this age"}, focused on this curriculum item. Use simple words and short sentences.`;
+                            setCustomStory(starter);
+                            setShowCustomStory(true);
+                            setSelectedTopic(null);
+                            setShowCurriculum(false);
+                          }}
+                          style={{
+                            background: isPicked ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.03)",
+                            border: `1px solid ${isPicked ? "#f59e0b" : "rgba(245,158,11,0.15)"}`,
+                            borderRadius: 12, padding: 16, textAlign: "left",
+                            cursor: "pointer", transition: "all 0.15s",
+                            display: "block", width: "100%", boxSizing: "border-box",
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = "rgba(245,158,11,0.08)"; e.currentTarget.style.borderColor = "#f59e0b"; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = isPicked ? "rgba(245,158,11,0.10)" : "rgba(245,158,11,0.03)"; e.currentTarget.style.borderColor = isPicked ? "#f59e0b" : "rgba(245,158,11,0.15)"; }}
+                        >
+                          <p style={{ fontSize: 13, fontWeight: 600, color: isPicked ? "#f59e0b" : "#fff", marginBottom: 4 }}>{c.label}</p>
+                          <p style={{ fontSize: 10, color: muted, marginBottom: 6 }}>{c.desc}</p>
+                          <span style={{ fontSize: 9, color: "#f59e0b" }}>{c.episodes} episodes · click to use →</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </>
