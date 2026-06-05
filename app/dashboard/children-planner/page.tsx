@@ -17,6 +17,8 @@ import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
+import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
+import { getVoiceById, type GhsVoiceTier } from "@/lib/voice-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
@@ -263,7 +265,14 @@ function ChildrenPlannerInner() {
   // Henry 2026-06-03: studio name displayed on intro/outro cards.
   // Was hardcoded "GIO HOME AI STUDIO" in 3 places. Now editable per project.
   const [studioName, setStudioName] = useState<string>("GIO HOME AI STUDIO");
-  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
+  // Henry 2026-06-04 voice unification: extended provider type to include the
+  // new TTS branches (edge-tts, gtts, fal-f5, fal-xtts, fal-bark, gemini). The
+  // VoiceTierSelector emits a VoiceTierConfig; we derive narrationProvider from
+  // that on every change so the existing /api/tts call sites don't change.
+  const [narrationProvider, setNarrationProvider] = useState<
+    "piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gtts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark"
+  >("piper");
+  const [voiceTierConfig, setVoiceTierConfig] = useState<VoiceTierConfig>({ tier: "standard", voiceId: "piper_lessac_us", speed: 1 });
   const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [musicGenre, setMusicGenre] = useState("auto");
@@ -7036,15 +7045,31 @@ Rules:
           <div style={{ ...cardStyle, marginBottom: 16 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Voice Layers</p>
             <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Layer 1 = Narrator (default: Piper free). Additional layers add secondary voice tracks.</p>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 11, color: "#fff", fontWeight: 600, minWidth: 60 }}>Layer 1</span>
-              <select value={effectiveNarrationProvider} onChange={e => { setNarrationProvider(e.target.value as typeof narrationProvider); patchProjectSettings({ narrationProvider: e.target.value }).catch(() => {}); }}
-                style={{ flex: 1, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "6px 10px", color: "#fff", fontSize: 11, outline: "none" }}>
-                <option value="piper">Piper (free local)</option>
-                <option value="fal-narrator">FAL Narrator (cloud)</option>
-                <option value="elevenlabs">ElevenLabs (premium)</option>
-                <option value="karaoke">Karaoke (browser)</option>
-              </select>
+            {/* Henry 2026-06-04 voice unification: replaced inline <select> with
+                canonical VoiceTierSelector. User now picks GHS Standard / Standard+
+                / Pro / Premium / Best AND can override the specific voice inside
+                each tier (incl. Nigerian Neural under Standard+). All voice picks
+                derived from src/lib/voice-registry.ts — single source of truth. */}
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 11, color: "#fff", fontWeight: 600, marginBottom: 6 }}>Layer 1 — Narrator</p>
+              <VoiceTierSelector
+                value={voiceTierConfig}
+                onChange={(c) => {
+                  setVoiceTierConfig(c);
+                  // Bridge: derive legacy narrationProvider from the new config so
+                  // /api/tts call sites (still expecting "piper"/"elevenlabs"/etc.)
+                  // keep working. The actual TTS engine in /api/tts now also
+                  // accepts edge-tts / gtts / gemini / fal-f5 / etc.
+                  const voice = c.voiceId ? getVoiceById(c.voiceId) : undefined;
+                  const provider = (voice?.provider ?? "piper") as typeof narrationProvider;
+                  // Map fal-kokoro back to the legacy alias the route knows ("fal-narrator").
+                  const mapped: typeof narrationProvider = provider === "fal-kokoro" ? "fal-narrator" : provider;
+                  setNarrationProvider(mapped);
+                  setNarrationSpeed(c.speed ?? 1);
+                  patchProjectSettings({ narrationProvider: mapped }).catch(() => {});
+                }}
+                compact
+              />
             </div>
             {/* Speed + generate row */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
