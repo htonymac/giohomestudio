@@ -18,7 +18,7 @@ import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "..
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
-import { getVoiceById, type GhsVoiceTier } from "@/lib/voice-registry";
+import { getVoiceById, randomVoiceAnyTier, type GhsVoiceTier } from "@/lib/voice-registry";
 import { getUserTier, voiceTierGate } from "@/lib/user-tier";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
@@ -273,7 +273,13 @@ function ChildrenPlannerInner() {
   const [narrationProvider, setNarrationProvider] = useState<
     "piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gtts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark"
   >("piper");
-  const [voiceTierConfig, setVoiceTierConfig] = useState<VoiceTierConfig>({ tier: "standard", voiceId: "piper_lessac_us", speed: 1 });
+  // Henry 2026-06-05: random voice on init (never deterministic). useState's
+  // lazy initializer runs once per project mount → user gets a fresh voice each
+  // new project but it doesn't reshuffle on re-render.
+  const [voiceTierConfig, setVoiceTierConfig] = useState<VoiceTierConfig>(() => {
+    const v = randomVoiceAnyTier(true);
+    return { tier: v.tier, voiceId: v.id, speed: 1 };
+  });
   const [autoSfx, setAutoSfx] = useState(true);
   const [musicChoice, setMusicChoice] = useState("soft_story");
   const [musicGenre, setMusicGenre] = useState("auto");

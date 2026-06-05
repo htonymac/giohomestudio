@@ -118,12 +118,22 @@ export function getVoicesByProvider(provider: VoiceProvider): VoiceEntry[] {
   return VOICE_REGISTRY.filter(v => v.provider === provider);
 }
 
-// Default voice ID per tier — used when a tier is selected but no specific
-// voice override is set.
+// Default voice per tier — Henry 2026-06-05: must be RANDOM each pick, never
+// deterministic. Reason: deterministic default = same voice every project = boring.
+// Each new project draws a fresh voice from the tier.
 export function defaultVoiceForTier(tier: GhsVoiceTier): VoiceEntry {
   const candidates = getVoicesByTier(tier);
   if (candidates.length === 0) return getVoiceById("piper_lessac_us")!;
-  return candidates[0];
+  return candidates[Math.floor(Math.random() * candidates.length)];
+}
+
+// Random voice across the WHOLE registry (any tier). Used by planners that want
+// a fully random default on project init.
+export function randomVoiceAnyTier(freeTiersOnly = true): VoiceEntry {
+  const pool = freeTiersOnly
+    ? VOICE_REGISTRY.filter(v => FREE_TIERS.has(v.tier))
+    : VOICE_REGISTRY;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 // Branding label per tier — what the user sees in the picker.
