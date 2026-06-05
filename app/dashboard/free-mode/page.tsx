@@ -2607,7 +2607,10 @@ function FreeModeChat() {
 
             <div style={{ width: 1, height: 16, background: C.line }} />
 
-            {/* Voice */}
+            {/* Voice — Henry 2026-06-04 voice unification: kept inline select for
+                Free Mode's compact toolbar (don't change UI). Just extended the
+                option list to expose the new providers wired in /api/tts. The
+                canonical VoiceTierSelector is used on the bigger planners. */}
             <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎙</span>
               <select value={effectiveNarrationProvider} onChange={e => { setVoiceProvider(e.target.value); patchProjectSettings({ narrationProvider: e.target.value }).catch(() => {}); }} style={{
@@ -2618,11 +2621,17 @@ function FreeModeChat() {
                 <optgroup label="GHS Standard">
                   <option value="piper">Piper (Free)</option>
                 </optgroup>
+                <optgroup label="GHS Standard+">
+                  <option value="edge-tts">Edge-TTS Nigerian (Free)</option>
+                </optgroup>
                 <optgroup label="GHS Pro">
                   <option value="fal_narrator">FAL Narrator</option>
                   <option value="ghs_karaoke">GHS Karaoke</option>
                 </optgroup>
                 <optgroup label="GHS Premium">
+                  <option value="gemini">Gemini Flash</option>
+                </optgroup>
+                <optgroup label="GHS Best">
                   <option value="elevenlabs">ElevenLabs</option>
                 </optgroup>
               </select>
