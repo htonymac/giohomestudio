@@ -74,6 +74,75 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // ── Edge-TTS (free Microsoft Neural, includes Nigerian voices) ──
+    // Henry 2026-06-04: GHS Standard+ tier. Free + near-ElevenLabs quality.
+    // Voices like en-NG-EzinneNeural give Andio a local-market advantage.
+    // Requires `pip install edge-tts` on the server; falls through to Piper on any failure.
+    if (effectiveProvider === "edge-tts" || effectiveProvider === "edge") {
+      const audioDir = path.join(env.storagePath, "audio", "tts");
+      fs.mkdirSync(audioDir, { recursive: true });
+      const outFile = path.join(audioDir, `tts_edge_${Date.now()}.mp3`);
+      const edgeVoice = voiceId || "en-NG-EzinneNeural";
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const proc = spawn("edge-tts", ["--voice", edgeVoice, "--text", speakText, "--write-media", outFile]);
+          let stderr = "";
+          proc.stderr?.on("data", c => { stderr += c.toString(); });
+          const timer = setTimeout(() => { proc.kill(); reject(new Error(`edge-tts timeout`)); }, 60_000);
+          proc.on("close", code => {
+            clearTimeout(timer);
+            if (code === 0) resolve();
+            else reject(new Error(`edge-tts exit ${code}: ${stderr.slice(0, 200)}`));
+          });
+          proc.on("error", e => { clearTimeout(timer); reject(e); });
+        });
+        if (fs.existsSync(outFile) && fs.statSync(outFile).size > 500) {
+          const url = `/api/media/audio/tts/${path.basename(outFile)}`;
+          const durationMs = getAudioDurationMs(outFile, "mp3");
+          console.log(`[tts.edge] OK ${(durationMs/1000).toFixed(1)}s audio for ${speakText.length} chars, voice=${edgeVoice}`);
+          return NextResponse.json({ audioUrl: url, engine: "edge-tts", text: text.slice(0, 100), durationMs });
+        }
+      } catch (e) {
+        console.error("[tts.edge] FAILED:", e instanceof Error ? e.message : String(e));
+      }
+      // Fall through to Piper on any edge-tts failure (per Henry's hard rule).
+    }
+
+    // ── gTTS (Google Translate fallback, free) ──
+    // Henry 2026-06-04: GHS Standard fallback. Requires `pip install gtts` on the server.
+    if (effectiveProvider === "gtts" || effectiveProvider === "google-translate") {
+      const audioDir = path.join(env.storagePath, "audio", "tts");
+      fs.mkdirSync(audioDir, { recursive: true });
+      const outFile = path.join(audioDir, `tts_gtts_${Date.now()}.mp3`);
+      const gttsLang = voiceId?.replace(/^gtts_/, "") || "en";
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const pyCode = `import sys; from gtts import gTTS; t = gTTS(text=sys.stdin.read(), lang='${gttsLang}'); t.save('${outFile.replace(/\\/g, "/")}')`;
+          const proc = spawn("python3", ["-c", pyCode]);
+          let stderr = "";
+          proc.stderr?.on("data", c => { stderr += c.toString(); });
+          proc.stdin.write(speakText);
+          proc.stdin.end();
+          const timer = setTimeout(() => { proc.kill(); reject(new Error(`gtts timeout`)); }, 60_000);
+          proc.on("close", code => {
+            clearTimeout(timer);
+            if (code === 0) resolve();
+            else reject(new Error(`gtts exit ${code}: ${stderr.slice(0, 200)}`));
+          });
+          proc.on("error", e => { clearTimeout(timer); reject(e); });
+        });
+        if (fs.existsSync(outFile) && fs.statSync(outFile).size > 500) {
+          const url = `/api/media/audio/tts/${path.basename(outFile)}`;
+          const durationMs = getAudioDurationMs(outFile, "mp3");
+          console.log(`[tts.gtts] OK ${(durationMs/1000).toFixed(1)}s audio for ${speakText.length} chars, lang=${gttsLang}`);
+          return NextResponse.json({ audioUrl: url, engine: "gtts", text: text.slice(0, 100), durationMs });
+        }
+      } catch (e) {
+        console.error("[tts.gtts] FAILED:", e instanceof Error ? e.message : String(e));
+      }
+      // Fall through to Piper on any gtts failure.
+    }
+
     // ── Try Gemini Premium if explicitly requested ──
     if (effectiveProvider === "gemini" || effectiveProvider === "premium") {
       try {
