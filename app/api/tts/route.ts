@@ -147,6 +147,39 @@ export async function POST(req: NextRequest) {
       // Fall through to Piper on any gtts failure.
     }
 
+    // ── FAL voice models (F5-TTS / XTTS-v2 / Bark) — Henry 2026-06-04 ──
+    // GHS Pro tier. Each is one branch with the FAL endpoint inferred from provider.
+    // Falls through to Piper on any failure (per Henry's hard rule).
+    const FAL_VOICE_ENDPOINTS: Record<string, string> = {
+      "fal-f5":    "fal-ai/f5-tts",
+      "fal-xtts":  "fal-ai/xtts-v2",
+      "fal-bark":  "fal-ai/bark",
+    };
+    if (FAL_VOICE_ENDPOINTS[effectiveProvider] && process.env.FAL_KEY) {
+      try {
+        const endpoint = FAL_VOICE_ENDPOINTS[effectiveProvider];
+        const falRes = await fetch(`https://fal.run/${endpoint}`, {
+          method: "POST",
+          headers: { Authorization: `Key ${process.env.FAL_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ text: speakText, voice: voiceId || undefined, prompt: speakText }),
+        });
+        if (falRes.ok) {
+          const data = await falRes.json() as { audio?: { url?: string }; audio_url?: string };
+          const audioUrl = data.audio?.url || data.audio_url;
+          if (audioUrl) {
+            console.log(`[tts.${effectiveProvider}] OK url=${audioUrl.slice(0, 80)}`);
+            return NextResponse.json({ audioUrl, engine: effectiveProvider, text: text.slice(0, 100) });
+          }
+          console.error(`[tts.${effectiveProvider}] no audio URL in response`);
+        } else {
+          console.error(`[tts.${effectiveProvider}] FAL status ${falRes.status}`);
+        }
+      } catch (e) {
+        console.error(`[tts.${effectiveProvider}] FAILED:`, e instanceof Error ? e.message : String(e));
+      }
+      // Fall through to Piper.
+    }
+
     // ── Try Gemini Premium if explicitly requested ──
     if (effectiveProvider === "gemini" || effectiveProvider === "premium") {
       try {
