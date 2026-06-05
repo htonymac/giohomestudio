@@ -194,12 +194,18 @@ export default function VoiceTierSelector({ value, onChange, compact, userTier =
             onChange={e => pickVoice(e.target.value)}
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 10px", color: "#e0e8f0", fontSize: 11 }}
           >
-            {tierVoices.map(v => (
-              <option key={v.id} value={v.id}>
-                {v.displayName} · {v.country} {v.gender === "female" ? "♀" : v.gender === "male" ? "♂" : ""}
-                {v.notes ? ` — ${v.notes}` : ""}
-              </option>
-            ))}
+            {tierVoices.map(v => {
+              const gender = v.gender === "female" ? "♀" : v.gender === "male" ? "♂" : "";
+              // Henry 2026-06-05: show tone + age so user picks BEFORE listening.
+              const tone = v.tone ? ` [${v.tone}]` : "";
+              const age = v.ageType && v.ageType !== "adult" ? ` (${v.ageType})` : "";
+              const note = v.notes ? ` — ${v.notes}` : "";
+              return (
+                <option key={v.id} value={v.id}>
+                  {v.displayName} · {v.country} {gender}{tone}{age}{note}
+                </option>
+              );
+            })}
           </select>
         </div>
       )}

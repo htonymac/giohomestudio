@@ -38,6 +38,12 @@ export interface VoiceEntry {
   language: string;              // BCP-47 code e.g. "en-US"
   country: string;               // country flag-region e.g. "US", "GB", "NG"
   gender: "male" | "female" | "neutral";
+  // Henry 2026-06-05: voice TONE — describes character so user picks before listening.
+  // Choose from: "bass" (deepest male) | "baritone" | "tenor" (high male) | "alto" (low female)
+  //            | "soprano" (high female) | "warm" | "bright" | "deep" | "neutral"
+  //            | "child" | "elderly" | "news" | "narration" | "cheerful" | "dramatic"
+  tone?: string;
+  ageType?: "child" | "young-adult" | "adult" | "elderly";
   sampleText?: string;           // for preview button
   pricePerMin: number;           // estimated, USD
   notes?: string;
@@ -51,16 +57,31 @@ export const VOICE_REGISTRY: VoiceEntry[] = [
   { id: "piper_alan_gb",       displayName: "Alan",         provider: "piper", modelId: "en_GB-alan-medium",          tier: "standard", language: "en-GB", country: "GB", gender: "male",    pricePerMin: 0 },
   { id: "piper_libritts_us",   displayName: "Libritts",     provider: "piper", modelId: "en_US-libritts_r-medium",    tier: "standard", language: "en-US", country: "US", gender: "neutral", pricePerMin: 0 },
 
-  // ── GHS Standard+ (Edge-TTS, cloud, free) — Nigerian + global ────────────
-  { id: "edge_ezinne_ng",      displayName: "Ezinne",       provider: "edge-tts", modelId: "en-NG-EzinneNeural",    tier: "standard-plus", language: "en-NG", country: "NG", gender: "female", pricePerMin: 0, notes: "🇳🇬 Nigerian neural — market advantage" },
-  { id: "edge_abeo_ng",        displayName: "Abeo",         provider: "edge-tts", modelId: "en-NG-AbeoNeural",      tier: "standard-plus", language: "en-NG", country: "NG", gender: "male",   pricePerMin: 0, notes: "🇳🇬 Nigerian neural" },
-  { id: "edge_aria_us",        displayName: "Aria",         provider: "edge-tts", modelId: "en-US-AriaNeural",      tier: "standard-plus", language: "en-US", country: "US", gender: "female", pricePerMin: 0 },
-  { id: "edge_guy_us",         displayName: "Guy",          provider: "edge-tts", modelId: "en-US-GuyNeural",       tier: "standard-plus", language: "en-US", country: "US", gender: "male",   pricePerMin: 0 },
-  { id: "edge_jenny_us",       displayName: "Jenny",        provider: "edge-tts", modelId: "en-US-JennyNeural",     tier: "standard-plus", language: "en-US", country: "US", gender: "female", pricePerMin: 0, notes: "Storytelling style" },
-  { id: "edge_ryan_gb",        displayName: "Ryan-UK",      provider: "edge-tts", modelId: "en-GB-RyanNeural",      tier: "standard-plus", language: "en-GB", country: "GB", gender: "male",   pricePerMin: 0 },
-  { id: "edge_sonia_gb",       displayName: "Sonia",        provider: "edge-tts", modelId: "en-GB-SoniaNeural",     tier: "standard-plus", language: "en-GB", country: "GB", gender: "female", pricePerMin: 0 },
-  { id: "edge_natasha_au",     displayName: "Natasha",      provider: "edge-tts", modelId: "en-AU-NatashaNeural",   tier: "standard-plus", language: "en-AU", country: "AU", gender: "female", pricePerMin: 0 },
-  { id: "edge_andrew_us",      displayName: "Andrew",       provider: "edge-tts", modelId: "en-US-AndrewMultilingualNeural", tier: "standard-plus", language: "en-US", country: "US", gender: "male", pricePerMin: 0, notes: "Multilingual" },
+  // ── GHS Standard+ (Edge-TTS, cloud, free) — Nigerian + US (12 voices) + UK + AU ──
+  // 🇳🇬 NIGERIAN —
+  { id: "edge_ezinne_ng",      displayName: "Ezinne",       provider: "edge-tts", modelId: "en-NG-EzinneNeural",    tier: "standard-plus", language: "en-NG", country: "NG", gender: "female", tone: "warm",       ageType: "adult",       pricePerMin: 0, notes: "🇳🇬 Nigerian neural — market advantage" },
+  { id: "edge_abeo_ng",        displayName: "Abeo",         provider: "edge-tts", modelId: "en-NG-AbeoNeural",      tier: "standard-plus", language: "en-NG", country: "NG", gender: "male",   tone: "baritone",   ageType: "adult",       pricePerMin: 0, notes: "🇳🇬 Nigerian neural" },
+  // 🇺🇸 US MALE — bass / baritone / tenor / warm
+  { id: "edge_christopher_us", displayName: "Christopher",  provider: "edge-tts", modelId: "en-US-ChristopherNeural", tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "bass",       ageType: "adult",       pricePerMin: 0, notes: "Deep bass — authoritative narrator" },
+  { id: "edge_roger_us",       displayName: "Roger",        provider: "edge-tts", modelId: "en-US-RogerNeural",     tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "deep",       ageType: "adult",       pricePerMin: 0, notes: "Mature deep voice" },
+  { id: "edge_steffan_us",     displayName: "Steffan",      provider: "edge-tts", modelId: "en-US-SteffanNeural",   tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "warm narration", ageType: "adult",   pricePerMin: 0, notes: "Warm storyteller" },
+  { id: "edge_brian_us",       displayName: "Brian",        provider: "edge-tts", modelId: "en-US-BrianNeural",     tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "baritone",   ageType: "young-adult", pricePerMin: 0, notes: "Friendly young adult" },
+  { id: "edge_eric_us",        displayName: "Eric",         provider: "edge-tts", modelId: "en-US-EricNeural",      tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "bright",     ageType: "young-adult", pricePerMin: 0, notes: "Clear bright male" },
+  { id: "edge_guy_us",         displayName: "Guy",          provider: "edge-tts", modelId: "en-US-GuyNeural",       tier: "standard-plus", language: "en-US", country: "US", gender: "male",   tone: "tenor",      ageType: "young-adult", pricePerMin: 0, notes: "Approachable upper-male" },
+  { id: "edge_andrew_us",      displayName: "Andrew",       provider: "edge-tts", modelId: "en-US-AndrewMultilingualNeural", tier: "standard-plus", language: "en-US", country: "US", gender: "male", tone: "baritone", ageType: "adult", pricePerMin: 0, notes: "Multilingual narrator" },
+  // 🇺🇸 US FEMALE — soprano / alto / storytelling / cheerful / child
+  { id: "edge_aria_us",        displayName: "Aria",         provider: "edge-tts", modelId: "en-US-AriaNeural",      tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "soprano",    ageType: "young-adult", pricePerMin: 0, notes: "Bright soprano" },
+  { id: "edge_jenny_us",       displayName: "Jenny",        provider: "edge-tts", modelId: "en-US-JennyNeural",     tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "narration",  ageType: "adult",       pricePerMin: 0, notes: "Storytelling — best for children's content" },
+  { id: "edge_emma_us",        displayName: "Emma",         provider: "edge-tts", modelId: "en-US-EmmaMultilingualNeural", tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "warm",   ageType: "adult",       pricePerMin: 0, notes: "Warm multilingual female" },
+  { id: "edge_ava_us",         displayName: "Ava",          provider: "edge-tts", modelId: "en-US-AvaMultilingualNeural", tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "soprano",  ageType: "young-adult", pricePerMin: 0, notes: "Bright multilingual" },
+  { id: "edge_michelle_us",    displayName: "Michelle",     provider: "edge-tts", modelId: "en-US-MichelleNeural",  tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "alto",       ageType: "adult",       pricePerMin: 0, notes: "Mid-range female" },
+  { id: "edge_ana_us",         displayName: "Ana",          provider: "edge-tts", modelId: "en-US-AnaNeural",       tier: "standard-plus", language: "en-US", country: "US", gender: "female", tone: "child",      ageType: "child",       pricePerMin: 0, notes: "👶 Child voice — best for educational kid characters" },
+  // 🇬🇧 UK + 🇦🇺 AU
+  { id: "edge_ryan_gb",        displayName: "Ryan-UK",      provider: "edge-tts", modelId: "en-GB-RyanNeural",      tier: "standard-plus", language: "en-GB", country: "GB", gender: "male",   tone: "tenor",      ageType: "young-adult", pricePerMin: 0, notes: "British tenor" },
+  { id: "edge_sonia_gb",       displayName: "Sonia",        provider: "edge-tts", modelId: "en-GB-SoniaNeural",     tier: "standard-plus", language: "en-GB", country: "GB", gender: "female", tone: "soprano",    ageType: "adult",       pricePerMin: 0, notes: "British soprano" },
+  { id: "edge_libby_gb",       displayName: "Libby",        provider: "edge-tts", modelId: "en-GB-LibbyNeural",     tier: "standard-plus", language: "en-GB", country: "GB", gender: "female", tone: "warm",       ageType: "adult",       pricePerMin: 0, notes: "Warm British female" },
+  { id: "edge_natasha_au",     displayName: "Natasha",      provider: "edge-tts", modelId: "en-AU-NatashaNeural",   tier: "standard-plus", language: "en-AU", country: "AU", gender: "female", tone: "alto",       ageType: "adult",       pricePerMin: 0, notes: "Aussie alto" },
+  { id: "edge_william_au",     displayName: "William",      provider: "edge-tts", modelId: "en-AU-WilliamNeural",   tier: "standard-plus", language: "en-AU", country: "AU", gender: "male",   tone: "baritone",   ageType: "adult",       pricePerMin: 0, notes: "Aussie baritone" },
 
   // ── GHS Standard B (gTTS fallback) ───────────────────────────────────────
   { id: "gtts_en_us",          displayName: "gTTS US",      provider: "gtts", modelId: "en-us",                     tier: "standard", language: "en-US", country: "US", gender: "neutral", pricePerMin: 0, notes: "Fallback only" },
