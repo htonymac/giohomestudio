@@ -1523,3 +1523,25 @@ model StoryEditHistory {
   @@index([projectId])
   @@map("story_edit_history")
 }
+
+// LLM semantic cache — H3 of 12-hour run, added 2026-06-05.
+// Wraps callLLM with deterministic cache: hash(prompt + system + role + model) →
+// stored response. On hit, skip the API call entirely. Saves API spend on the
+// repeated patterns (FAQ, status checks, identical chat continuations).
+model LlmCache {
+  id           String   @id @default(cuid())
+  hashKey      String   @unique
+  prompt       String   @db.Text
+  systemPrompt String?  @db.Text
+  role         String?
+  responseText String   @db.Text
+  provider     String
+  model        String?
+  hits         Int      @default(0)
+  createdAt    DateTime @default(now())
+  lastHitAt    DateTime @default(now())
+
+  @@index([hashKey])
+  @@index([createdAt])
+  @@map("llm_cache")
+}

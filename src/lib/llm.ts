@@ -17,6 +17,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { loadLLMSettings, getLLMSettingsStatus } from "@/lib/llm-settings";
 import { kieCallLLM } from "@/lib/generation/gateways/kie";
+import { getCachedLLM, storeLLMResponse } from "@/lib/llm-cache";
 
 // ── Provider models ───────────────────────────────────────────
 export type LLMSpeed = "fast" | "quality";
@@ -97,6 +98,7 @@ export interface LLMOptions {
   timeoutMs?: number;     // default 20000
   forceProvider?: "claude" | "openai" | "gpt" | "grok" | "ollama" | "kie" | "deepseek"; // override auto-selection
   forceModel?: string;    // override specific model e.g. "claude-opus-4-6", "o3-mini"
+  skipCache?: boolean;    // H3 of 12-hour run: bypass LlmCache (use for chat / per-user state)
 }
 
 // ── Per-provider callers ──────────────────────────────────────
@@ -281,6 +283,17 @@ export async function callLLM(
   const role: LLMRole = opts.role ?? (opts.speed === "quality" ? "quality" : "fast");
   const speed: LLMSpeed = roleToSpeed(role);
 
+  // H3 of 12-hour run: semantic cache check. Opt out per-call by setting
+  // opts.skipCache = true (e.g. for /api/free-mode/chat where each new user
+  // message MUST hit a fresh LLM call).
+  if (!opts.skipCache) {
+    const cached = await getCachedLLM({ prompt, system, role, model: opts.forceModel });
+    if (cached.hit && cached.text) {
+      console.log(`[llm.cache] HIT role=${role} model=${cached.model ?? "?"} provider=${cached.provider}`);
+      return { ok: true, text: cached.text, provider: cached.provider ?? "cache" };
+    }
+  }
+
   // Check per-call forced provider first (opts.forceProvider), then global LLM_PROVIDER setting
   const forced = opts.forceProvider?.toLowerCase() || loadLLMSettings().LLM_PROVIDER?.toLowerCase();
   if (forced === "claude")                     return callClaude(prompt, system, speed, opts);
@@ -308,7 +321,16 @@ export async function callLLM(
   const errors: string[] = [];
   for (const fn of providers) {
     const result = await fn();
-    if (result.ok) return result;
+    if (result.ok) {
+      // Cache the successful response (fire-and-forget, don't slow the caller)
+      if (!opts.skipCache && result.text) {
+        storeLLMResponse(
+          { prompt, system, role, model: opts.forceModel },
+          { text: result.text, provider: result.provider, model: opts.forceModel },
+        ).catch(() => {});
+      }
+      return result;
+    }
     errors.push(result.error);
   }
 
