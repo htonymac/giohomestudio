@@ -19,6 +19,7 @@ import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
 import { getVoiceById, type GhsVoiceTier } from "@/lib/voice-registry";
+import { getUserTier, voiceTierGate } from "@/lib/user-tier";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
@@ -7054,6 +7055,7 @@ Rules:
               <p style={{ fontSize: 11, color: "#fff", fontWeight: 600, marginBottom: 6 }}>Layer 1 — Narrator</p>
               <VoiceTierSelector
                 value={voiceTierConfig}
+                userTier={voiceTierGate(getUserTier())}
                 onChange={(c) => {
                   setVoiceTierConfig(c);
                   // Bridge: derive legacy narrationProvider from the new config so
