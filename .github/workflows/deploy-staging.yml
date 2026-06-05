@@ -31,7 +31,7 @@ jobs:
               set -e
               cd /home/ghs/giohomestudio-staging
               echo "[deploy-staging] pulling staging branch..."
-              git fetch origin staging
+              git fetch origin
               git reset --hard origin/staging
               echo "[deploy-staging] installing deps..."
               pnpm install --frozen-lockfile
