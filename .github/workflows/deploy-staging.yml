@@ -31,7 +31,10 @@ jobs:
               set -e
               cd /home/ghs/giohomestudio-staging
               echo "[deploy-staging] pulling staging branch..."
-              git fetch origin
+              # Shallow clone tracks only main by default. Force fetch + create the
+              # remote-tracking ref for staging so origin/staging exists locally.
+              git config --add remote.origin.fetch "+refs/heads/staging:refs/remotes/origin/staging" 2>/dev/null || true
+              git fetch origin staging:refs/remotes/origin/staging
               git reset --hard origin/staging
               echo "[deploy-staging] installing deps..."
               pnpm install --frozen-lockfile
