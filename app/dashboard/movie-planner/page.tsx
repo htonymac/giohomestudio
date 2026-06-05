@@ -279,7 +279,8 @@ function MoviePlannerInner() {
   const [narrationTexts, setNarrationTexts] = useState<Record<number, string>>({});
   const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
-  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke">("piper");
+  // H9: extend type to include new TTS branches wired in /api/tts.
+  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark" | "gtts">("piper");
   const [autoSfx, setAutoSfx] = useState(true);
   // ── Narration audio URLs (sceneNum → audioUrl) — populated when TTS is generated ──
   const [sceneNarrationAudioUrls, setSceneNarrationAudioUrls] = useState<Record<number, string>>({});
@@ -4305,11 +4306,16 @@ function MoviePlannerInner() {
             <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Narration Provider</p>
             <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select the TTS engine for all scene narrations in this project.</p>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
+              {/* Henry 2026-06-05 H9: pill picker kept (don't change UI) but new
+                  GHS Standard+ / Premium / Best options added so movie-planner users
+                  can pick Edge-TTS Nigerian / Gemini / etc. without leaving the pill row. */}
               {([
-                { id: "piper",       label: "Piper (free)",   color: accent },
-                { id: "fal-narrator", label: "FAL Narrator",  color: blue },
-                { id: "elevenlabs",  label: "ElevenLabs",     color: purple },
-                { id: "karaoke",     label: "Karaoke",        color: gold },
+                { id: "piper",       label: "GHS Standard",       color: accent },
+                { id: "edge-tts",    label: "GHS Standard+ (NG)", color: "#10b981" },
+                { id: "fal-narrator", label: "FAL Narrator",      color: blue },
+                { id: "gemini",      label: "GHS Premium",        color: "#00d4ff" },
+                { id: "elevenlabs",  label: "GHS Best",           color: purple },
+                { id: "karaoke",     label: "Karaoke",            color: gold },
               ] as const).map(p => (
                 <button key={p.id} onClick={() => { setNarrationProvider(p.id); patchProjectSettings({ narrationProvider: p.id }).catch(() => {}); }}
                   style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${effectiveNarrationProvider === p.id ? p.color : border}`,
