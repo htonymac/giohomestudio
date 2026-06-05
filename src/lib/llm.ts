@@ -18,6 +18,7 @@ import OpenAI from "openai";
 import { loadLLMSettings, getLLMSettingsStatus } from "@/lib/llm-settings";
 import { kieCallLLM } from "@/lib/generation/gateways/kie";
 import { getCachedLLM, storeLLMResponse } from "@/lib/llm-cache";
+import { scoreComplexity } from "@/lib/llm-complexity";
 
 // ── Provider models ───────────────────────────────────────────
 export type LLMSpeed = "fast" | "quality";
@@ -99,6 +100,7 @@ export interface LLMOptions {
   forceProvider?: "claude" | "openai" | "gpt" | "grok" | "ollama" | "kie" | "deepseek"; // override auto-selection
   forceModel?: string;    // override specific model e.g. "claude-opus-4-6", "o3-mini"
   skipCache?: boolean;    // H3 of 12-hour run: bypass LlmCache (use for chat / per-user state)
+  autoSpeed?: boolean;    // H6: classify prompt complexity and downgrade simple ones to fast
 }
 
 // ── Per-provider callers ──────────────────────────────────────
@@ -280,7 +282,19 @@ export async function callLLM(
   opts: LLMOptions = {}
 ): Promise<LLMResult> {
   // Resolve role and speed once — passed into each provider caller
-  const role: LLMRole = opts.role ?? (opts.speed === "quality" ? "quality" : "fast");
+  let role: LLMRole = opts.role ?? (opts.speed === "quality" ? "quality" : "fast");
+
+  // H6: when autoSpeed is set, downgrade "quality" requests to "fast" if the
+  // classifier says the prompt is simple. Saves on Sonnet/GPT-4o calls when
+  // Haiku/4o-mini would suffice.
+  if (opts.autoSpeed && (role === "quality" || role === "supervisor")) {
+    const score = scoreComplexity(prompt, system);
+    if (score.verdict === "simple") {
+      console.log(`[llm.cost-router] downgrade role=${role}→fast reason=${score.reason}`);
+      role = "fast";
+    }
+  }
+
   const speed: LLMSpeed = roleToSpeed(role);
 
   // H3 of 12-hour run: semantic cache check. Opt out per-call by setting
