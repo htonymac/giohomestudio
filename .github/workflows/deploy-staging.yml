@@ -1,0 +1,44 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Trigger server pull + restart on staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.GHS_SSH_HOST }}
+          username: ${{ secrets.GHS_SSH_USER }}
+          port: ${{ secrets.GHS_SSH_PORT }}
+          key: ${{ secrets.GHS_DEPLOY_KEY }}
+          command_timeout: 8m
+          script: |
+            set -e
+            sudo -n -u ghs bash -c '
+              cd /home/ghs/giohomestudio-staging
+              echo "[deploy-staging] pulling staging branch..."
+              git fetch origin staging
+              git reset --hard origin/staging
+              echo "[deploy-staging] installing deps..."
+              pnpm install --frozen-lockfile
+              echo "[deploy-staging] running prisma generate..."
+              pnpm prisma generate
+              echo "[deploy-staging] restarting staging Next on port 3201..."
+              pkill -f "next.*-p 3201" || true
+              sleep 2
+              nohup pnpm dev -p 3201 > /tmp/ghs-staging.log 2>&1 &
+              sleep 8
+              curl -sf -m 10 http://localhost:3201/api/healthz || curl -sf -m 10 http://localhost:3201/ > /dev/null
+              echo "[deploy-staging] DONE"
+            '
