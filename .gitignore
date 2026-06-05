@@ -93,3 +93,8 @@ storage/llm-settings.json
 
 # asset delete trash (recoverable, not tracked)
 storage/.trash/
+
+# SSH deploy keys (NEVER commit)
+ghs_deploy_key
+ghs_deploy_key.pub
+*.pem
