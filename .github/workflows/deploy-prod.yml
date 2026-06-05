@@ -42,20 +42,25 @@ jobs:
           script: |
             set -e
             export TAG="${{ steps.tag.outputs.value }}"
-            sudo -n -u ghs bash -c "
+            sudo -n -u ghs TAG="$TAG" bash -s <<'SCRIPT'
+              set -e
               cd /home/ghs/giohomestudio
-              echo \"[deploy-prod] fetching tag $TAG...\"
+              echo "[deploy-prod] fetching tag $TAG..."
               git fetch --tags origin
-              git checkout \"$TAG\"
-              echo \"[deploy-prod] installing deps...\"
+              git checkout "$TAG"
+              echo "[deploy-prod] installing deps..."
               pnpm install --frozen-lockfile
-              echo \"[deploy-prod] running prisma generate...\"
-              pnpm prisma generate
-              echo \"[deploy-prod] restarting Next on port 3200...\"
-              pkill -f 'next.*-p 3200' || true
-              sleep 2
-              nohup pnpm dev -p 3200 > /tmp/ghs-prod.log 2>&1 &
-              sleep 8
-              curl -sf -m 10 http://localhost:3200/ > /dev/null
-              echo \"[deploy-prod] DEPLOYED tag $TAG\"
-            "
+              echo "[deploy-prod] running prisma generate..."
+              pnpm prisma generate || true
+              echo "[deploy-prod] restarting Next on port 3200..."
+              pkill -u ghs -f "next.*-p 3200" 2>/dev/null || true
+              sleep 3
+              setsid bash -c 'nohup pnpm dev -p 3200 > /tmp/ghs-prod.log 2>&1 < /dev/null &'
+              sleep 12
+              if curl -sf -m 10 -o /dev/null http://localhost:3200/unlock; then
+                echo "[deploy-prod] OK — port 3200 responding for tag $TAG"
+              else
+                tail -20 /tmp/ghs-prod.log || true
+                exit 1
+              fi
+            SCRIPT

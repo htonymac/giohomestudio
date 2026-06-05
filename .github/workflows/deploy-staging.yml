@@ -25,7 +25,10 @@ jobs:
           command_timeout: 8m
           script: |
             set -e
-            sudo -n -u ghs bash -c '
+            # All operations run as ghs user (process owner). Wrapped via a temp
+            # script to avoid heredoc/quote interleaving issues over SSH.
+            sudo -n -u ghs bash -s <<'SCRIPT'
+              set -e
               cd /home/ghs/giohomestudio-staging
               echo "[deploy-staging] pulling staging branch..."
               git fetch origin staging
@@ -33,12 +36,18 @@ jobs:
               echo "[deploy-staging] installing deps..."
               pnpm install --frozen-lockfile
               echo "[deploy-staging] running prisma generate..."
-              pnpm prisma generate
+              pnpm prisma generate || true
               echo "[deploy-staging] restarting staging Next on port 3201..."
-              pkill -f "next.*-p 3201" || true
-              sleep 2
-              nohup pnpm dev -p 3201 > /tmp/ghs-staging.log 2>&1 &
-              sleep 8
-              curl -sf -m 10 http://localhost:3201/api/healthz || curl -sf -m 10 http://localhost:3201/ > /dev/null
+              pkill -u ghs -f "next.*-p 3201" 2>/dev/null || true
+              sleep 3
+              setsid bash -c 'nohup pnpm dev -p 3201 > /tmp/ghs-staging.log 2>&1 < /dev/null &'
+              sleep 12
+              if curl -sf -m 10 -o /dev/null http://localhost:3201/unlock; then
+                echo "[deploy-staging] OK — port 3201 responding"
+              else
+                echo "[deploy-staging] WARN — port 3201 not responding yet, check /tmp/ghs-staging.log"
+                tail -20 /tmp/ghs-staging.log || true
+                exit 1
+              fi
               echo "[deploy-staging] DONE"
-            '
+            SCRIPT

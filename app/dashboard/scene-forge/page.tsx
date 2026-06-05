@@ -432,11 +432,12 @@ export default function SceneForgePage() {
               <label style={{ fontSize: 11, color: ds.color.mute2, fontFamily: ds.font.sans, letterSpacing: "0.05em", textTransform: "uppercase" }}>Music Source</label>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {([
-                  { id: "standard",    label: "GHS Standard", desc: "Piper TTS — free, always available",      badge: "FREE",    color: ds.color.lilac },
-                  { id: "ghs_karaoke", label: "GHS Pro",      desc: "GHS Karaoke built-in",                   badge: "LOW",     color: "#22c55e" },
-                  { id: "pro",         label: "GHS Karaoke",  desc: "FAL Stable Audio — up to 47s",           badge: "MID",     color: "#7cc4ff" },
-                  { id: "classic",     label: "GHS Classic",  desc: "Suno via Kie.ai — full songs",           badge: "PREMIUM", color: "#ff9a3c" },
-                  { id: "premium",     label: "GHS Premium",  desc: "Suno via Kie.ai — premium quality",      badge: "HIGHEST", color: "#a855f7" },
+                  { id: "standard",       label: "GHS Standard",  desc: "Piper TTS — free, always available",      badge: "FREE",    color: ds.color.lilac },
+                  { id: "standard_plus",  label: "GHS Standard+", desc: "Edge-TTS Nigerian Neural — free cloud",   badge: "FREE+",   color: "#10b981" },
+                  { id: "ghs_karaoke",    label: "GHS Pro",       desc: "GHS Karaoke built-in",                   badge: "LOW",     color: "#22c55e" },
+                  { id: "pro",            label: "GHS Karaoke",   desc: "FAL Stable Audio — up to 47s",           badge: "MID",     color: "#7cc4ff" },
+                  { id: "classic",        label: "GHS Classic",   desc: "Suno via Kie.ai — full songs",           badge: "PREMIUM", color: "#ff9a3c" },
+                  { id: "premium",        label: "GHS Premium",   desc: "Suno via Kie.ai — premium quality",      badge: "HIGHEST", color: "#a855f7" },
                 ] as const).map(opt => (
                   <button key={opt.id} onClick={() => { setMusicTier(opt.id); patchProjectSettings({ soundTier: opt.id }).catch(() => {}); }}
                     style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${effectiveSoundTier === opt.id ? opt.color : ds.color.line2}`, background: effectiveSoundTier === opt.id ? `${opt.color}14` : ds.color.card, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
