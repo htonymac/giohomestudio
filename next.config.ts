@@ -16,14 +16,15 @@ const nextConfig: NextConfig = {
 };
 
 // Sentry wrap — H2 of 12-hour run, installed 2026-06-05.
-// Only wraps when SENTRY_AUTH_TOKEN is present so dev builds don't try to upload
-// source maps without credentials.
-import { withSentryConfig } from "@sentry/nextjs";
-
-const hasSentryAuth = !!process.env.SENTRY_AUTH_TOKEN;
-
-export default hasSentryAuth
-  ? withSentryConfig(nextConfig, {
+// Lazy require to avoid Next.js compiled-config module resolution issues with pnpm
+// (next.config.compiled.js sits at repo root and pnpm's symlinked node_modules
+// trip the require). Only wraps when SENTRY_AUTH_TOKEN is set.
+let finalConfig = nextConfig;
+if (process.env.SENTRY_AUTH_TOKEN) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { withSentryConfig } = require("@sentry/nextjs");
+    finalConfig = withSentryConfig(nextConfig, {
       org: "henmac",
       project: "ghs-web",
       authToken: process.env.SENTRY_AUTH_TOKEN,
@@ -32,5 +33,9 @@ export default hasSentryAuth
       reactComponentAnnotation: { enabled: false },
       hideSourceMaps: true,
       disableLogger: true,
-    })
-  : nextConfig;
+    });
+  } catch (e) {
+    console.warn("[next.config] Sentry wrap skipped:", e instanceof Error ? e.message : String(e));
+  }
+}
+export default finalConfig;
