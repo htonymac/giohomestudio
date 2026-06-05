@@ -44,6 +44,12 @@ function getUserKey(req: NextRequest): string {
 
 export async function POST(req: NextRequest) {
   try {
+    // H4 kill switch: emergency disable for Free Mode.
+    const { isFlagEnabled, flagDisabledResponse } = await import("@/lib/feature-flags");
+    if (!(await isFlagEnabled("FLAG_FREEMODE"))) {
+      return flagDisabledResponse("Free Mode");
+    }
+
     const body = await req.json();
     const { sessionId, message, history = [] } = body as {
       sessionId: string;

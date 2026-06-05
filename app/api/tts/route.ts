@@ -147,6 +147,19 @@ export async function POST(req: NextRequest) {
       // Fall through to Piper on any gtts failure.
     }
 
+    // Kill-switch check for paid voice tiers — H4 of 12-hour run.
+    // If FLAG_FAL_VOICES is OFF, fall through to Piper instead of calling FAL.
+    // If FLAG_ELEVENLABS_VOICES is OFF, same — fall through.
+    const { isFlagEnabled } = await import("@/lib/feature-flags");
+    const falVoicesEnabled = await isFlagEnabled("FLAG_FAL_VOICES");
+    const elevenLabsEnabled = await isFlagEnabled("FLAG_ELEVENLABS_VOICES");
+    if (!falVoicesEnabled && /^fal-/.test(effectiveProvider)) {
+      console.warn("[tts] FLAG_FAL_VOICES disabled — forcing Piper for", effectiveProvider);
+    }
+    if (!elevenLabsEnabled && effectiveProvider === "elevenlabs") {
+      console.warn("[tts] FLAG_ELEVENLABS_VOICES disabled — forcing Piper for elevenlabs");
+    }
+
     // ── FAL voice models (F5-TTS / XTTS-v2 / Bark) — Henry 2026-06-04 ──
     // GHS Pro tier. Each is one branch with the FAL endpoint inferred from provider.
     // Falls through to Piper on any failure (per Henry's hard rule).
@@ -155,7 +168,7 @@ export async function POST(req: NextRequest) {
       "fal-xtts":  "fal-ai/xtts-v2",
       "fal-bark":  "fal-ai/bark",
     };
-    if (FAL_VOICE_ENDPOINTS[effectiveProvider] && process.env.FAL_KEY) {
+    if (FAL_VOICE_ENDPOINTS[effectiveProvider] && process.env.FAL_KEY && falVoicesEnabled) {
       try {
         const endpoint = FAL_VOICE_ENDPOINTS[effectiveProvider];
         const falRes = await fetch(`https://fal.run/${endpoint}`, {
@@ -195,8 +208,10 @@ export async function POST(req: NextRequest) {
     fs.mkdirSync(audioDir, { recursive: true });
     const outFile = path.join(audioDir, `tts_${Date.now()}.wav`);
 
-    // Try 1: Piper TTS (free, local) — skip if elevated provider explicitly requested
-    if (effectiveProvider === "elevenlabs" || effectiveProvider === "pro" || effectiveProvider === "fal-narrator" || effectiveProvider === "fal-narrator-gemini") {
+    // Try 1: Piper TTS (free, local) — skip if elevated provider explicitly requested.
+    // H4 of 12-hour run: kill-switch FLAG_ELEVENLABS_VOICES drops elevenlabs to Piper.
+    const wantElevenLabs = (effectiveProvider === "elevenlabs" || effectiveProvider === "pro") && elevenLabsEnabled;
+    if (wantElevenLabs || effectiveProvider === "fal-narrator" || effectiveProvider === "fal-narrator-gemini") {
       // Jump straight to requested provider — handled below
     } else try {
       // Henry 2026-05-30: route previously hard-coded ONE model path. Linux server has

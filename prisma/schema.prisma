@@ -1545,3 +1545,17 @@ model LlmCache {
   @@index([createdAt])
   @@map("llm_cache")
 }
+
+// Feature Flags — H4 of 12-hour run, added 2026-06-05.
+// One JSON config in the DB toggles risky features without code deploy.
+// Kill switches: FLAG_FAL_VOICES, FLAG_VIDEO_ASSEMBLY, FLAG_FREEMODE,
+// FLAG_HYBRID, FLAG_LLM_CACHE. Toggle via /api/admin/flags.
+model FeatureFlag {
+  key         String   @id
+  enabled     Boolean  @default(true)
+  description String?  @db.Text
+  updatedAt   DateTime @updatedAt
+  updatedBy   String?
+
+  @@map("feature_flags")
+}

@@ -140,6 +140,12 @@ function getTextAnimationFilter(animation: string | undefined, dur: number, anim
 
 export async function POST(req: NextRequest) {
   try {
+    // H4 kill switch: emergency disable for video assembly.
+    const { isFlagEnabled, flagDisabledResponse } = await import("@/lib/feature-flags");
+    if (!(await isFlagEnabled("FLAG_VIDEO_ASSEMBLY"))) {
+      return flagDisabledResponse("video assembly");
+    }
+
     const body: AssemblyRequest = await req.json();
 
     if (!body.scenes?.length) {
