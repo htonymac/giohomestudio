@@ -84,8 +84,12 @@ export async function POST(req: NextRequest) {
       const outFile = path.join(audioDir, `tts_edge_${Date.now()}.mp3`);
       const edgeVoice = voiceId || "en-NG-EzinneNeural";
       try {
+        // edge-tts pip-installs to ~/.local/bin which Next.js process doesn't have on PATH.
+        // Try explicit path on Linux server, fall back to PATH name on dev/other envs.
+        const edgeBin = process.env.EDGE_TTS_BIN
+          || (fs.existsSync(path.join(os.homedir(), ".local/bin/edge-tts")) ? path.join(os.homedir(), ".local/bin/edge-tts") : "edge-tts");
         await new Promise<void>((resolve, reject) => {
-          const proc = spawn("edge-tts", ["--voice", edgeVoice, "--text", speakText, "--write-media", outFile]);
+          const proc = spawn(edgeBin, ["--voice", edgeVoice, "--text", speakText, "--write-media", outFile]);
           let stderr = "";
           proc.stderr?.on("data", c => { stderr += c.toString(); });
           const timer = setTimeout(() => { proc.kill(); reject(new Error(`edge-tts timeout`)); }, 60_000);
