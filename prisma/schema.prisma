@@ -1559,3 +1559,18 @@ model FeatureFlag {
 
   @@map("feature_flags")
 }
+
+// Daily per-user paid-API spend cap — H7 of 12-hour run, 2026-06-05.
+// userKey: sha256(IP + project)? Or session userId when auth is wired.
+// cents: total cents spent on paid APIs today across all gateways.
+// Default cap: $2/user/day, $100/admin/day. Cap controlled via env vars.
+model DailySpend {
+  userKey   String
+  day       String   // YYYY-MM-DD
+  cents     Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@id([userKey, day])
+  @@index([day])
+  @@map("daily_spend")
+}

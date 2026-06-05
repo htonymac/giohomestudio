@@ -3,6 +3,7 @@
 // Uses queue-based async API: submit → poll → download result.
 
 import axios from "axios";
+import { withBackoff, falBreaker } from "@/lib/rate-limit-defense";
 
 // Sync endpoint returns results directly (faster for supported models)
 const SYNC_URL = "https://fal.run";
@@ -241,7 +242,19 @@ export async function falGenerateImage(req: FalImageRequest): Promise<FalRespons
   }
 
   console.log(`[fal] Image: ${req.endpoint}`);
-  return submitAndPoll(req.endpoint, input);
+  // H7: wrap with circuit breaker + exponential backoff. Breaker opens after 5
+  // consecutive failures and blocks for 30s, preventing 1K users hammering a
+  // broken provider. Backoff retries on 429 + 5xx with jitter.
+  return falBreaker.exec(() =>
+    withBackoff(
+      () => submitAndPoll(req.endpoint, input),
+      {
+        maxRetries: 3,
+        baseMs: 800,
+        onRetry: (attempt, delayMs, err) => console.warn(`[fal.image] retry ${attempt} in ${delayMs}ms after`, err instanceof Error ? err.message : String(err)),
+      },
+    )
+  );
 }
 
 export async function falGenerateVideo(req: FalVideoRequest, onProgress?: FalProgressCallback): Promise<FalResponse> {
@@ -263,7 +276,17 @@ export async function falGenerateVideo(req: FalVideoRequest, onProgress?: FalPro
   }
 
   console.log(`[fal] Video: ${req.endpoint} (queue mode) duration=${input.duration}`);
-  return submitAndPoll(req.endpoint, input, true, onProgress);
+  // H7: same backoff + breaker wrap for video.
+  return falBreaker.exec(() =>
+    withBackoff(
+      () => submitAndPoll(req.endpoint, input, true, onProgress),
+      {
+        maxRetries: 3,
+        baseMs: 1200,
+        onRetry: (attempt, delayMs, err) => console.warn(`[fal.video] retry ${attempt} in ${delayMs}ms after`, err instanceof Error ? err.message : String(err)),
+      },
+    )
+  );
 }
 
 export async function downloadFalMedia(url: string): Promise<Buffer> {
