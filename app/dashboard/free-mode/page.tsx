@@ -1811,11 +1811,15 @@ function FreeModeChat() {
     setMessages(prev => [...prev, userMsg]);
     setSending(true);
 
-    // Build history for LLM context (last 10 messages)
+    // Build history for LLM context (last 10 messages).
+    // Henry 2026-06-04 Free Mode fix: previously only scene TITLES were sent. Result:
+    // when user said "make scene 3 more intense", LLM had only "Scene 3: Snake Attack"
+    // with no body text or mood — couldn't preserve story details. Now: include scene
+    // body + mood per scene so LLM has full context to refine.
     const historyContext = messages.slice(-10).map(m => ({
       role:    m.role,
       content: m.scenes
-        ? m.content + "\n[Scenes: " + m.scenes.map(s => s.title).join(", ") + "]"
+        ? m.content + "\n[Story scenes:\n" + m.scenes.map(s => `${s.id} (${s.mood}): ${s.title} — ${s.text}`).join("\n") + "]"
         : m.content,
     }));
 
@@ -1960,11 +1964,18 @@ function FreeModeChat() {
       const usedModel = imgModel ?? effectiveImageModelId;
       const stylePrefix = VISUAL_STYLES[usedStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
       const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
+      // Henry 2026-06-04 Free Mode fix: previously prompt = style + names + scene.text.
+      // Image gen would focus on the subject name and miss the scene drama (Henry's
+      // complaint: "FREE MODE DOES NOT GENERATE SCENE CONTENT, JUST SUBJECT").
+      // Now: include scene title + mood for context + emphasize the action verbs.
+      const sceneTitle = scene.title || "";
+      const sceneMood  = scene.mood ? `, ${scene.mood} mood, cinematic atmosphere` : "";
+      const richPrompt = `${stylePrefix} ${charPrefix}${sceneTitle ? sceneTitle + ". " : ""}${scene.text} ${sceneMood}. Composition shows the full scene action, not just the subject.`;
       const imgRes = await fetch("/api/generation/image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt:  stylePrefix + " " + charPrefix + scene.text,
+          prompt:  richPrompt,
           modelId: usedModel,
           width:   832, height: 1472,
         }),
@@ -2013,7 +2024,11 @@ function FreeModeChat() {
 
       const stylePrefix = VISUAL_STYLES[effectiveProjectStyle]?.prefix ?? VISUAL_STYLES["realistic"].prefix;
       const charPrefix = characters.length > 0 ? characters.map(c => c.name).join(", ") + ". " : "";
-      const prompt = stylePrefix + " " + charPrefix + scene.text;
+      // Henry 2026-06-04 Free Mode fix: same enrichment as image gen — include scene
+      // title + mood so video prompt captures the scene drama, not just the subject.
+      const sceneTitle = scene.title || "";
+      const sceneMood  = scene.mood ? `, ${scene.mood} mood, cinematic motion` : "";
+      const prompt = `${stylePrefix} ${charPrefix}${sceneTitle ? sceneTitle + ". " : ""}${scene.text} ${sceneMood}.`;
 
       const vidRes = await fetch("/api/video/generate", {
         method: "POST",
