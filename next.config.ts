@@ -15,27 +15,8 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["andiostudio.com", "www.andiostudio.com"],
 };
 
-// Sentry wrap — H2 of 12-hour run, installed 2026-06-05.
-// Lazy require to avoid Next.js compiled-config module resolution issues with pnpm
-// (next.config.compiled.js sits at repo root and pnpm's symlinked node_modules
-// trip the require). Only wraps when SENTRY_AUTH_TOKEN is set.
-let finalConfig = nextConfig;
-if (process.env.SENTRY_AUTH_TOKEN) {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { withSentryConfig } = require("@sentry/nextjs");
-    finalConfig = withSentryConfig(nextConfig, {
-      org: "henmac",
-      project: "ghs-web",
-      authToken: process.env.SENTRY_AUTH_TOKEN,
-      silent: true,
-      widenClientFileUpload: true,
-      reactComponentAnnotation: { enabled: false },
-      hideSourceMaps: true,
-      disableLogger: true,
-    });
-  } catch (e) {
-    console.warn("[next.config] Sentry wrap skipped:", e instanceof Error ? e.message : String(e));
-  }
-}
-export default finalConfig;
+// Sentry: wrap REMOVED 2026-06-05 — pnpm hoist trap caused next.config.compiled.js
+// at repo root to fail resolving @sentry/nextjs. The SDK still runs fine via
+// instrumentation.ts (server boot hook) — wrap was only for source-map upload at
+// build time. Re-add later via a separate next.config when we move to next build.
+export default nextConfig;
