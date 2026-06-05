@@ -7061,9 +7061,10 @@ Rules:
                   // keep working. The actual TTS engine in /api/tts now also
                   // accepts edge-tts / gtts / gemini / fal-f5 / etc.
                   const voice = c.voiceId ? getVoiceById(c.voiceId) : undefined;
-                  const provider = (voice?.provider ?? "piper") as typeof narrationProvider;
-                  // Map fal-kokoro back to the legacy alias the route knows ("fal-narrator").
-                  const mapped: typeof narrationProvider = provider === "fal-kokoro" ? "fal-narrator" : provider;
+                  const rawProvider: string = voice?.provider ?? "piper";
+                  // Map fal-kokoro to the legacy "fal-narrator" alias the route knows.
+                  // Cast widen → compare as string → cast narrow back to the state type.
+                  const mapped = (rawProvider === "fal-kokoro" ? "fal-narrator" : rawProvider) as typeof narrationProvider;
                   setNarrationProvider(mapped);
                   setNarrationSpeed(c.speed ?? 1);
                   patchProjectSettings({ narrationProvider: mapped }).catch(() => {});
