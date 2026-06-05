@@ -938,7 +938,10 @@ export async function POST(req: NextRequest) {
       // Now: if subCfg.fontSize is in [18, 120], use it; else fall through to
       // preset; else default 54 (was 36 — too small for video at 1920x1080).
       // Henry 2026-06-03: max bumped 120 -> 200 for very-large kids subtitles.
-      const fs = (subCfg?.fontSize && subCfg.fontSize >= 18 && subCfg.fontSize <= 200)
+      // Henry 2026-06-04: was `const fs` — shadowed the imported `fs` module
+      // and broke CI TS check at line 1094 (fs.promises.writeFile read as
+      // .promises on a number). Renamed to fontSizePx.
+      const fontSizePx = (subCfg?.fontSize && subCfg.fontSize >= 18 && subCfg.fontSize <= 200)
         ? subCfg.fontSize
         : (preset?.size ?? 54);
       const txCol = preset?.color ? hexToFfmpeg(preset.color) : hexToFfmpeg(subCfg?.textColor);
@@ -972,20 +975,20 @@ export async function POST(req: NextRequest) {
         const s1 = s0 + SEC + 0.4;
         const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
         const fade = `:alpha='if(lt(t-${s0.toFixed(2)},0.25),(t-${s0.toFixed(2)})/0.25,if(gt(t-${s0.toFixed(2)},${(SEC - 0.25).toFixed(2)}),1-(t-${s0.toFixed(2)}-${(SEC - 0.25).toFixed(2)})/0.25,1))'`;
-        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fontSizePx}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}${fade}`;
       });
       const richFilter = richParts.length > 0 ? richParts.join(",") :
-        `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
+        `drawtext=text='${escapedText}':fontsize=${fontSizePx}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10${captionAnim}`;
 
       // BUILD B: simple fallback — enable= only, no alpha fade. Much more robust.
       const simpleParts = grp.map((g, idx) => {
         const s0 = idx * SEC;
         const s1 = s0 + SEC + 0.4;
         const enable = `:enable='between(t,${s0.toFixed(2)},${s1.toFixed(2)})'`;
-        return `drawtext=text='${esc2(g)}':fontsize=${fs}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}`;
+        return `drawtext=text='${esc2(g)}':fontsize=${fontSizePx}:fontcolor=${colorForChunk(idx)}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}${enable}`;
       });
       const simpleFilter = simpleParts.length > 0 ? simpleParts.join(",") :
-        `drawtext=text='${escapedText}':fontsize=${fs}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10`;
+        `drawtext=text='${escapedText}':fontsize=${fontSizePx}:fontcolor=${txCol}:borderw=${borderW}:bordercolor=${borderCol}${bgP}:x=(w-text_w)/2:y=${yPos}:line_spacing=10`;
 
       // Henry 2026-06-02 Phase C: engine routing.
       // Some modes need per-word color cycling (rainbow) or per-char reveal
@@ -1081,7 +1084,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${fontName},${fs},${txAss},${txAss},${outlineAss},${bgAss},1,0,0,0,100,100,0,0,${borderStyle},${borderW},0,${alignment},20,20,${marginV},1
+Style: Default,${fontName},${fontSizePx},${txAss},${txAss},${outlineAss},${bgAss},1,0,0,0,100,100,0,0,${borderStyle},${borderW},0,${alignment},20,20,${marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
