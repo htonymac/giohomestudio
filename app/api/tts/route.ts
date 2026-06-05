@@ -83,22 +83,23 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(audioDir, { recursive: true });
       const outFile = path.join(audioDir, `tts_edge_${Date.now()}.mp3`);
       const edgeVoice = voiceId || "en-NG-EzinneNeural";
-      // Henry 2026-06-05 H10: also write word-level subtitles for tight word-highlight sync.
-      // edge-tts emits a VTT file with [time --> time] WORD lines; we parse it below
-      // and return pacingEntries to the caller so the planner uses ACTUAL word timing
-      // instead of estimated character-rate pacing (which was the desync bug).
-      const subFile = outFile.replace(/\.mp3$/, ".vtt");
+      // Henry 2026-06-05 H10: word-level pacing for tight subtitle highlight sync.
+      // The edge-tts CLI emits SENTENCE-level VTT (useless for per-word highlight).
+      // Our wrapper scripts/edge_tts_word.py uses the Python SDK directly to capture
+      // WordBoundary streaming events (the engine's internal per-word timestamps)
+      // and writes a JSON file with {durationMs, words:[{word,startMs,endMs}]}.
+      const wordFile = outFile.replace(/\.mp3$/, ".words.json");
       try {
-        // edge-tts pip-installs to ~/.local/bin which Next.js process doesn't have on PATH.
-        // Try explicit path on Linux server, fall back to PATH name on dev/other envs.
-        const edgeBin = process.env.EDGE_TTS_BIN
-          || (fs.existsSync(path.join(os.homedir(), ".local/bin/edge-tts")) ? path.join(os.homedir(), ".local/bin/edge-tts") : "edge-tts");
+        const pythonBin = process.env.PYTHON_BIN || "python3";
+        const wrapperPath = process.env.EDGE_TTS_WRAPPER
+          || path.join(process.cwd(), "scripts", "edge_tts_word.py");
         await new Promise<void>((resolve, reject) => {
-          const proc = spawn(edgeBin, [
+          const proc = spawn(pythonBin, [
+            wrapperPath,
             "--voice", edgeVoice,
             "--text", speakText,
-            "--write-media", outFile,
-            "--write-subtitles", subFile,
+            "--out-audio", outFile,
+            "--out-words", wordFile,
           ]);
           let stderr = "";
           proc.stderr?.on("data", c => { stderr += c.toString(); });
@@ -114,25 +115,21 @@ export async function POST(req: NextRequest) {
           const url = `/api/media/audio/tts/${path.basename(outFile)}`;
           const durationMs = getAudioDurationMs(outFile, "mp3");
 
-          // H10: parse the WebVTT cue list edge-tts emits into pacingEntries.
-          // Each cue is one word. Format: HH:MM:SS.mmm --> HH:MM:SS.mmm \n WORD
+          // H10: read the JSON word-timing file the Python wrapper emitted.
+          // Shape: {durationMs, words: [{word, startMs, endMs}]}
           let pacingEntries: Array<{ word: string; startMs: number; endMs: number }> | undefined;
           try {
-            if (fs.existsSync(subFile)) {
-              const vtt = fs.readFileSync(subFile, "utf8");
-              const cueRe = /(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s+-->\s+(\d{2}):(\d{2}):(\d{2})\.(\d{3})\s*\n([^\n]+)/g;
-              const entries: Array<{ word: string; startMs: number; endMs: number }> = [];
-              let m: RegExpExecArray | null;
-              while ((m = cueRe.exec(vtt)) !== null) {
-                const sMs = (+m[1]) * 3600000 + (+m[2]) * 60000 + (+m[3]) * 1000 + (+m[4]);
-                const eMs = (+m[5]) * 3600000 + (+m[6]) * 60000 + (+m[7]) * 1000 + (+m[8]);
-                const word = m[9].trim();
-                if (word) entries.push({ word, startMs: sMs, endMs: eMs });
+            if (fs.existsSync(wordFile)) {
+              const json = JSON.parse(fs.readFileSync(wordFile, "utf8")) as {
+                durationMs?: number;
+                words?: Array<{ word: string; startMs: number; endMs: number }>;
+              };
+              if (Array.isArray(json.words) && json.words.length > 0) {
+                pacingEntries = json.words;
               }
-              if (entries.length > 0) pacingEntries = entries;
             }
           } catch (parseErr) {
-            console.error("[tts.edge] VTT parse failed (keeping audio):", parseErr instanceof Error ? parseErr.message : String(parseErr));
+            console.error("[tts.edge] word-timing JSON parse failed:", parseErr instanceof Error ? parseErr.message : String(parseErr));
           }
 
           console.log(`[tts.edge] OK ${(durationMs/1000).toFixed(1)}s audio + ${pacingEntries?.length ?? 0} word timings, voice=${edgeVoice}`);
