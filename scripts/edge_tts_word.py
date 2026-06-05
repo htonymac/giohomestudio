@@ -25,7 +25,9 @@ import edge_tts
 
 
 async def synthesize(voice: str, text: str, out_audio: str, out_words: str) -> int:
-    communicate = edge_tts.Communicate(text, voice)
+    # edge-tts 7.x defaults to SentenceBoundary; explicit WordBoundary unlocks
+    # per-word timing (which the engine internally knows). Fixed 2026-06-05.
+    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
     words = []
     last_end_ms = 0
 
