@@ -1912,3 +1912,45 @@ All `narratorAudioDuration` references inside the assembly-building section repl
 
 **Prevention:** Add rotation date to ENV TOKEN.txt entries so we know when a key was last updated. Treat tokens older than 90 days as suspect.
 
+
+
+---
+
+## 2026-06-05 — 12-Hour Run H1: Security Audit
+
+### pnpm audit: 4 transitive CVEs via deprecated `request` package
+**Symptom:** `pnpm audit` flags CVE-2023-28155 (SSRF in request@2.88.2) + form-data + qs + uuid weaknesses, all reached via `node-telegram-bot-api → @cypress/request-promise → request-promise-core → request`.
+
+**Severity:** MEDIUM. The `request` package is server-side only and used only by the Telegram bot (AUT integration). No user-facing surface hits it. But still a known attack path through Telegram if Henry ever forwards untrusted URLs.
+
+**Mitigation:** Telegram bot calls are limited to admin chat IDs in code; SSRF impact bounded. Long-term fix: replace `node-telegram-bot-api` with a maintained alternative (e.g., `grammy` or direct fetch to Telegram Bot API).
+
+---
+
+### /api route auth coverage: 15 of 301 routes (5%) — 286 routes UNAUTHENTICATED
+**Symptom:** Grep for `requireAuth | getServerSession | userId | authCheck | x-api-key` across `app/api/**/route.ts` returns only 15 files. Total route count: 301.
+
+**What it means:** 286 API endpoints (95%) have NO auth gate. Today they are accessible to anyone who passes the site-wide cookie unlock (`/api/unlock`). With pre-launch traffic (Henry only), this is OK. Post-launch it is a FAL-credit-drain + LLM-budget-drain + storage-fill risk.
+
+**Highest-risk unauthenticated routes:**
+- `/api/tts` — burns FAL/ElevenLabs per call
+- `/api/video/assemble` — consumes FFmpeg + server CPU for minutes
+- `/api/free-mode/chat` — burns LLM credits per message
+- `/api/generation/image` — burns FAL credits per image
+- `/api/hybrid/story-expand` — burns LLM tokens
+- `/api/hybrid/scene-image` — burns FAL credits
+
+**Fix path (DEFERRED to launch hardening):**
+1. Add `requireAuth()` middleware helper that throws 401 if no valid session cookie.
+2. Mount on every /api/* route in 2 categories: free (Piper, Edge-TTS) + paid (FAL, ElevenLabs).
+3. Combine with daily-budget cap (already exists for /api/free-mode/daily-limits) extended to all paid APIs.
+
+**Logged for pre-launch checklist.**
+
+---
+
+### Client env leak check: CLEAN
+**Symptom:** Grep `.env` for `NEXT_PUBLIC_` keys.
+**Result:** Only `NEXT_PUBLIC_APP_URL=http://localhost:3200`. No secrets exposed to client. No FAL_KEY, ELEVENLABS, ANTHROPIC, OPENAI prefixed with NEXT_PUBLIC.
+**Prevention:** Rule already in place — secrets prefixed `NEXT_PUBLIC_` leak to the browser bundle. CI lint could catch new ones.
+

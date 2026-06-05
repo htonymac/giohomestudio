@@ -27,6 +27,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1053.0",
     "@playwright/test": "^1.58.2",
     "@prisma/client": "^5.22.0",
+    "@sentry/nextjs": "^10.56.0",
     "adm-zip": "^0.5.17",
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.3",

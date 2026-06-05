@@ -15,4 +15,22 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: ["andiostudio.com", "www.andiostudio.com"],
 };
 
-export default nextConfig;
+// Sentry wrap — H2 of 12-hour run, installed 2026-06-05.
+// Only wraps when SENTRY_AUTH_TOKEN is present so dev builds don't try to upload
+// source maps without credentials.
+import { withSentryConfig } from "@sentry/nextjs";
+
+const hasSentryAuth = !!process.env.SENTRY_AUTH_TOKEN;
+
+export default hasSentryAuth
+  ? withSentryConfig(nextConfig, {
+      org: "henmac",
+      project: "ghs-web",
+      authToken: process.env.SENTRY_AUTH_TOKEN,
+      silent: true,
+      widenClientFileUpload: true,
+      reactComponentAnnotation: { enabled: false },
+      hideSourceMaps: true,
+      disableLogger: true,
+    })
+  : nextConfig;
