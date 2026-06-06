@@ -21,12 +21,65 @@
 import { prisma } from "@/lib/prisma";
 
 export const KNOWN_FLAGS = {
+  // Voice / TTS providers
   FLAG_FAL_VOICES: {
-    description: "Allow FAL paid voice providers (F5-TTS, XTTS, Bark, Gemini). Disable to prevent FAL credit drain.",
+    description: "Allow FAL paid voice providers (F5-TTS, XTTS, Bark, Gemini, Kokoro). Disable to prevent FAL voice credit drain.",
     defaultEnabled: true,
   },
   FLAG_ELEVENLABS_VOICES: {
     description: "Allow ElevenLabs voice (GHS Best tier). Disable to prevent EL credit drain.",
+    defaultEnabled: true,
+  },
+  // Image providers
+  FLAG_FAL_IMAGES: {
+    description: "Allow FAL paid image providers (FLUX, Ideogram, Recraft, Seedream, etc). Disable to prevent FAL image credit drain.",
+    defaultEnabled: true,
+  },
+  FLAG_SEGMIND_IMAGES: {
+    description: "Allow Segmind paid image gen (Pruna). Disable to prevent Segmind credit drain.",
+    defaultEnabled: true,
+  },
+  // Video providers
+  FLAG_FAL_VIDEO: {
+    description: "Allow FAL video gen (Wan, Kling-on-FAL, Hailuo, Runway-on-FAL). Disable to stop FAL video spend.",
+    defaultEnabled: true,
+  },
+  FLAG_KLING_DIRECT: {
+    description: "Allow Kling Direct API (uses Henry's Kling credits not FAL). Disable to stop direct Kling spend.",
+    defaultEnabled: true,
+  },
+  FLAG_MUAPI_VIDEO: {
+    description: "Allow MuAPI video gen (Seedance, Wan via MuAPI). Disable to stop MuAPI spend.",
+    defaultEnabled: true,
+  },
+  FLAG_RUNWAY_DIRECT: {
+    description: "Allow Runway Direct API. Disable to stop direct Runway spend.",
+    defaultEnabled: true,
+  },
+  // LLM providers
+  FLAG_ANTHROPIC_LLM: {
+    description: "Allow Claude API calls (Haiku/Sonnet/Opus). Disable to force fallback to Ollama / GPT / Grok / Kie.",
+    defaultEnabled: true,
+  },
+  FLAG_OPENAI_LLM: {
+    description: "Allow OpenAI API calls (GPT-4o, o3-mini). Disable to force fallback chain.",
+    defaultEnabled: true,
+  },
+  FLAG_GROK_LLM: {
+    description: "Allow Grok API calls (grok-3, grok-3-mini). Disable to force fallback chain.",
+    defaultEnabled: true,
+  },
+  FLAG_KIE_LLM: {
+    description: "Allow Kie.ai DeepSeek calls. Disable to stop Kie spend.",
+    defaultEnabled: true,
+  },
+  // Music / SFX providers
+  FLAG_KIE_MUSIC: {
+    description: "Allow Kie.ai Suno V5 music gen (GHS Premium music tier). Disable to stop Suno spend.",
+    defaultEnabled: true,
+  },
+  FLAG_FAL_MUSIC: {
+    description: "Allow FAL Stable Audio music gen. Disable to stop FAL music spend.",
     defaultEnabled: true,
   },
   FLAG_VIDEO_ASSEMBLY: {
