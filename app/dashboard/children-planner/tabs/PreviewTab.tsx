@@ -22,7 +22,9 @@ export interface PreviewTabProps {
   childSafe: string;
   childAccent: string;
   // ── State WRITE / nav ──
-  setActiveTab: (t: string) => void;
+  // Narrowed to the only two destinations the tab actually navigates to;
+  // matches parent's WorkshopTab union without importing it (avoid cycle).
+  setActiveTab: (t: "review1" | "review2") => void;
   setReview1Done: (v: boolean) => void;
   setGeneratedVideoUrl: (s: string) => void;
   setGeneratedMusicUrl: (s: string) => void;

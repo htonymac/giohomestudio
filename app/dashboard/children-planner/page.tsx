@@ -2,6 +2,7 @@
 // build-touch-2026-06-01-01 — change content hash to avoid Turbopack v16 chunk bug
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import NarrationControls from "../../components/NarrationControls";
 import type { NarrationSettings } from "../../components/NarrationControls";
@@ -14,6 +15,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
 import Review1Tab from "./tabs/Review1Tab";
 import PreviewTab from "./tabs/PreviewTab";
+import ScriptTab from "./tabs/ScriptTab";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
@@ -352,7 +354,15 @@ function ChildrenPlannerInner() {
   const [runningIntelligence, setRunningIntelligence] = useState(false);
 
   // ── Feature state: makeSceneVideo ──
-  interface ChildScene { scene: number; title: string; visualDescription: string; cameraDirection?: string; imageUrl?: string; characters?: string[]; variantUrls?: string[] }
+  // ChildScene base moved to tabs/_shared-types.ts (Wave 1 segregation 2026-06-05).
+  // Extended here with cameraDirection / imageUrl / characters / variantUrls fields
+  // that page.tsx uses but tab components don't need.
+  type ChildScene = import("./tabs/_shared-types").ChildScene & {
+    title: string;
+    imageUrl?: string;
+    characters?: string[];
+    variantUrls?: string[];
+  };
   const [childScenes, setChildScenes] = useState<ChildScene[]>([]);
   // ── AI Audio Plan (Henry 2026-05-30, task #12): per-scene audioPlan state +
   // runChildrenAudioPlan() mirror hybrid's Step 7. Holds narration script + music mood + SFX list per scene.
@@ -5237,7 +5247,7 @@ Rules:
                       <span style={{ fontSize: 10, color: childAccent, fontWeight: 700, flexShrink: 0, minWidth: 28 }}>SC{String(s.scene).padStart(2, "0")}</span>
                       <div style={{ flex: 1 }}>
                         <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", marginBottom: 2 }}>{s.title}</p>
-                        <p style={{ fontSize: 9, color: muted, lineHeight: 1.4 }}>{s.visualDescription.substring(0, 100)}{s.visualDescription.length > 100 ? "..." : ""}</p>
+                        <p style={{ fontSize: 9, color: muted, lineHeight: 1.4 }}>{(s.visualDescription ?? "").substring(0, 100)}{(s.visualDescription ?? "").length > 100 ? "..." : ""}</p>
                         {intel && (() => {
                           const energyColor = SCENE_ENERGY_COLOR[intel.energyLevel] || "#888";
                           return (
@@ -7195,122 +7205,27 @@ Rules:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* SCRIPT & STORY PLAN TAB                                             */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCRIPT TAB — extracted Wave 1.3 */}
       {activeTab === "script" && (
-        <div>
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Script & Story Plan</h2>
-            <p style={{ fontSize: 11, color: muted, marginBottom: 18 }}>
-              Parse your story into narrator lines and character parts. Edit the segments, then move on to Voices & Sounds.
-            </p>
-
-            {!textContent && (
-              <div style={{ padding: "20px 24px", borderRadius: 12, background: `${childAccent}08`, border: `1px solid ${childAccent}30`, textAlign: "center" }}>
-                <p style={{ fontSize: 13, color: childAccent, fontWeight: 600, marginBottom: 8 }}>Write your content first</p>
-                <p style={{ fontSize: 11, color: muted, marginBottom: 14 }}>Go to the Content tab and write your story before building the script.</p>
-                <button onClick={() => setActiveTab("content")}
-                  style={{ padding: "9px 22px", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  Go to Content
-                </button>
-              </div>
-            )}
-
-            {textContent && (
-              <div>
-                {/* FIX 1 (2026-05-22): scene-edit toolbar lives HERE in Script tab, NOT Scene Board */}
-                {childScenes.length > 0 && (
-                  <div style={{ marginBottom: 18, padding: 14, borderRadius: 10, background: `${childAccent}06`, border: `1px solid ${childAccent}25` }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Refine Scenes</p>
-                    <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Edit each scene&apos;s visual description and apply child-safe AI rewrites. Image prompts read this — changes here flow to Scene Board on next regen.</p>
-                    <div style={{ display: "flex", flexDirection: "column" as const, gap: 10, maxHeight: 520, overflowY: "auto" }}>
-                      {childScenes.map(s => {
-                        const sceneId = `child_sc${s.scene}`;
-                        return (
-                          <div key={sceneId} style={{ padding: 10, borderRadius: 8, background: "#0d0817", border: `1px solid ${border}` }}>
-                            <p style={{ fontSize: 11, fontWeight: 700, color: childAccent, marginBottom: 4 }}>SC{String(s.scene).padStart(2, "0")} — {s.title || "Untitled"}</p>
-                            <textarea
-                              value={s.visualDescription || ""}
-                              onChange={e => setChildScenes(prev => prev.map(sc => sc.scene === s.scene ? { ...sc, visualDescription: e.target.value } : sc))}
-                              rows={3}
-                              style={{ width: "100%", background: "transparent", border: `1px solid ${border}`, borderRadius: 6, color: "#ccc", fontSize: 10, padding: 6, lineHeight: 1.4, resize: "vertical", outline: "none", marginBottom: 6 }}
-                            />
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
-                              <button onClick={() => handlePolishScene(sceneId, s.visualDescription, "polish")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #a855f770", background: "transparent", color: "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>✨ Polish</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "funny")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>😄 Funny</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "playful")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #f472b670", background: "#f472b610", color: "#f472b6", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🎈 Playful</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "adventure")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #06b6d470", background: "#06b6d410", color: "#06b6d4", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🗡 Adventure</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "emotional")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #ec489970", background: "#ec489910", color: "#ec4899", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>💗 Emotion</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "add_action")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fb923c70", background: "#fb923c10", color: "#fb923c", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>➕ Action</button>
-                              <button onClick={() => handleChildSceneOp(sceneId, s.visualDescription, "establish")} disabled={polishingScene === sceneId} style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid #fbbf2470", background: "#fbbf2410", color: "#fbbf24", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>🌅 Establish</button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Script-level batch ops — apply to whole script, NOT per-scene */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginTop: 12, paddingTop: 12, borderTop: `1px solid ${border}` }}>
-                      <button onClick={() => {
-                        const allText = scriptSegments.map(s => s.text).join(" ");
-                        handleAdultWordCheck("script-global", allText);
-                      }} disabled={polishingScene === "script-global"} title="Scan full script for adult/scary words"
-                        style={{ padding: "7px 12px", borderRadius: 7, border: "1px solid #ef444470", background: "#ef444410", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>🛡 Scan Script for Adult Words</button>
-                    </div>
-                  </div>
-                )}
-
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-                  <p style={{ fontSize: 12, color: muted }}>
-                    {scriptSegments.length > 0
-                      ? `${scriptSegments.filter(s => s.type === "narration").length} narrator + ${scriptSegments.filter(s => s.type === "dialogue").length} character lines`
-                      : "Ready to parse your story into script segments"}
-                  </p>
-                  <button
-                    onClick={parseScript}
-                    disabled={parsingScript}
-                    style={{ padding: "9px 20px", borderRadius: 10, border: "none", background: parsingScript ? "#2a2040" : childAccent, color: parsingScript ? muted : "#000", fontSize: 12, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
-                    {parsingScript ? "Parsing..." : scriptSegments.length > 0 ? "Re-Parse Script" : "Parse Story into Script"}
-                  </button>
-                </div>
-
-                {scriptSegments.length > 0 && (
-                  <div style={{ maxHeight: 400, overflowY: "auto", display: "flex", flexDirection: "column" as const, gap: 4, marginBottom: 14 }}>
-                    {scriptSegments.map((seg, i) => (
-                      <div key={i} style={{ padding: "8px 10px", borderRadius: 8, background: seg.type === "narration" ? `${ds.color.sky}09` : `${C2}09`, border: `1px solid ${seg.type === "narration" ? ds.color.sky : C2}20`, display: "flex", gap: 8 }}>
-                        <span style={{ fontSize: 8, fontWeight: 700, color: seg.type === "narration" ? ds.color.sky : C2, minWidth: 56, alignSelf: "flex-start", paddingTop: 4 }}>{seg.type === "narration" ? "NARRATOR" : seg.speaker?.toUpperCase() || "CHARACTER"}</span>
-                        <textarea
-                          value={seg.text}
-                          onChange={e => setScriptSegments(prev => prev.map((s, j) => j === i ? { ...s, text: e.target.value } : s))}
-                          rows={2}
-                          style={{ flex: 1, background: "transparent", border: "none", color: "#ccc", fontSize: 10, lineHeight: 1.4, resize: "vertical", outline: "none" }}
-                        />
-                        <button
-                          onClick={() => setScriptSegments(prev => prev.filter((_, j) => j !== i))}
-                          style={{ background: "transparent", border: "none", color: muted, fontSize: 12, cursor: "pointer", alignSelf: "flex-start" }}>
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {scriptSegments.length > 0 && (
-                  <div style={{ display: "flex", gap: 10, paddingTop: 10, borderTop: `1px solid ${ds.color.line}` }}>
-                    <button
-                      onClick={() => setActiveTab("sound")}
-                      style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                      Go to Voices & Sounds
-                    </button>
-                  </div>
-                )}
-
-                {scriptSegments.length === 0 && (
-                  <p style={{ fontSize: 11, color: muted, textAlign: "center", padding: "20px 0" }}>
-                    Click "Parse Story into Script" to begin.
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <ScriptTab
+          textContent={textContent}
+          childScenes={childScenes}
+          scriptSegments={scriptSegments}
+          polishingScene={polishingScene}
+          parsingScript={parsingScript}
+          cardStyle={cardStyle}
+          muted={muted}
+          border={border}
+          childAccent={childAccent}
+          C2={C2}
+          setActiveTab={setActiveTab}
+          setChildScenes={setChildScenes as unknown as React.Dispatch<React.SetStateAction<import("./tabs/_shared-types").ChildScene[]>>}
+          setScriptSegments={setScriptSegments}
+          handlePolishScene={handlePolishScene}
+          handleChildSceneOp={handleChildSceneOp}
+          handleAdultWordCheck={handleAdultWordCheck}
+          parseScript={parseScript}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
@@ -7774,7 +7689,7 @@ Rules:
                           </button>
                         )}
                         <button
-                          onClick={() => handlePolishScene(sceneId, scene.visualDescription, "polish")}
+                          onClick={() => handlePolishScene(sceneId, scene.visualDescription ?? "", "polish")}
                           disabled={polishingScene === sceneId}
                           data-testid={`polish-btn-${sceneId}`}
                           style={{ padding: "6px 10px", borderRadius: 7, border: "1px solid #a855f770", background: polishingScene === sceneId ? "#a855f715" : "transparent", color: polishingScene === sceneId ? muted : "#c084fc", fontSize: 9, fontWeight: 700, cursor: polishingScene === sceneId ? "not-allowed" : "pointer" }}>

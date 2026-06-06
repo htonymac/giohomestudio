@@ -35,6 +35,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Kill-switch check — H10 of 12-hour run.
+  // FAL_IMAGES / SEGMIND_IMAGES disable per-provider; if BOTH are off, the route
+  // returns 503 since there's no fallback path. modelId starting "fal_" → FAL,
+  // "segmind" → Segmind. Unknown providers fail open (existing behavior).
+  try {
+    const { isFlagEnabled, flagDisabledResponse } = await import("@/lib/feature-flags");
+    const m = parsed.data.modelId ?? "";
+    if (/^fal[_-]/i.test(m) && !(await isFlagEnabled("FLAG_FAL_IMAGES"))) {
+      return flagDisabledResponse("FAL image generation");
+    }
+    if (/^segmind/i.test(m) && !(await isFlagEnabled("FLAG_SEGMIND_IMAGES"))) {
+      return flagDisabledResponse("Segmind image generation");
+    }
+  } catch { /* flag check best-effort, fail open */ }
+
   // Auto-resolve character tokens in prompt (e.g. JON_RABBIT848 → full description)
   let finalPrompt = parsed.data.prompt;
   let resolvedCharacters: Array<{ characterId: string; displayName: string }> = [];
