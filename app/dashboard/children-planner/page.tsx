@@ -3206,6 +3206,9 @@ function ChildrenPlannerInner() {
             if (d.establishingModeChild) setEstablishingModeChild(d.establishingModeChild);
             // Henry 2026-05-31 (#8): restore word-on-image toggle
             if (typeof d.wordOverlayEnabled === "boolean") setWordOverlayEnabled(d.wordOverlayEnabled);
+            // Henry 2026-06-05 (task #86): restore continueMotion + per-scene motion map.
+            if (typeof d.continuousMotionEnabled === "boolean") setContinuousMotionEnabled(d.continuousMotionEnabled);
+            if (d.sceneContinuousMotion && typeof d.sceneContinuousMotion === "object") setSceneContinuousMotion(d.sceneContinuousMotion);
           }
         }
       } catch { /* DB unavailable — start fresh */ }
@@ -3294,6 +3297,11 @@ function ChildrenPlannerInner() {
       assemblySelectedIds, assemblyMediaPrefs,
       // Henry 2026-05-31 (#8): word-on-image toggle — persists across refresh
       wordOverlayEnabled,
+      // Henry 2026-06-05 (task #86): continueMotion / sceneContinuousMotion were never
+      // persisted. The toggle state reset every refresh — DB inspection showed
+      // continueMotion=None. Now both the global flag and per-scene map survive.
+      continuousMotionEnabled,
+      sceneContinuousMotion,
       timestamp: Date.now(),
     };
     fetch("/api/hybrid/saved-state", {
