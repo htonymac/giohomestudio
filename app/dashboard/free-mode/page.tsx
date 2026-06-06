@@ -927,14 +927,27 @@ function HybridModal({
                 </div>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>🎙 VOICE</div>
+                  {/* Henry 2026-06-05: scene-card voice picker was 3-option (Piper / FAL /
+                      EL) — didn't show the new GHS Standard+ (Edge-TTS Nigerian Neural),
+                      GHS Premium (Gemini Flash), or sub-models. Mirroring the toolbar
+                      list so per-scene picks have the full tier range. */}
                   <select value={voiceProvider} onChange={e => setVoiceProvider(e.target.value)} style={selStyle}>
                     <optgroup label="GHS Standard">
-                      <option value="piper">Piper (Free)</option>
+                      <option value="piper">Piper (Free local)</option>
+                    </optgroup>
+                    <optgroup label="GHS Standard+ (Free Cloud)">
+                      <option value="edge-tts">Edge-TTS Nigerian Neural</option>
                     </optgroup>
                     <optgroup label="GHS Pro">
                       <option value="fal_narrator">FAL Narrator</option>
+                      <option value="fal-f5">FAL F5-TTS</option>
+                      <option value="fal-xtts">FAL XTTS (voice clone)</option>
+                      <option value="fal-bark">FAL Bark</option>
                     </optgroup>
                     <optgroup label="GHS Premium">
+                      <option value="gemini">Gemini Flash</option>
+                    </optgroup>
+                    <optgroup label="GHS Best">
                       <option value="elevenlabs">ElevenLabs</option>
                     </optgroup>
                   </select>
@@ -1944,6 +1957,22 @@ function FreeModeChat() {
     }
   }
 
+  // Henry 2026-06-05: auto-mode feel for Free Mode. After AI returns scenes
+  // AND user has picked a visual style, batch-generate all scene images in
+  // sequence (1.5s gap between calls so FAL rate limit + breaker stay happy).
+  // Each gen carries the rich prompt (title + mood + scene.text) per fix b1bd7fc.
+  // No-op if a scene already has an image. Stops if daily image limit hits 0.
+  async function genAllImagesForMsg(msgId: string) {
+    const msg = messages.find(m => m.id === msgId);
+    if (!msg?.scenes) return;
+    for (const sc of msg.scenes) {
+      if (sc.imageUrl) continue;               // already generated, skip
+      if (limits.imageRemaining <= 0) break;   // out of daily budget, stop
+      await genSceneImage(msgId, sc.id);
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  }
+
   // Generate image for one scene — stores imageUrl IN the scene (survives refresh)
   async function genSceneImage(msgId: string, sceneId: string, imgModel?: string, imgStyle?: string) {
     const msg = messages.find(m => m.id === msgId);
@@ -2712,7 +2741,19 @@ function FreeModeChat() {
               <span style={{ fontSize: 9, color: C.mute2, fontWeight: 700 }}>🎨</span>
               <select
                 value={effectiveProjectStyle}
-                onChange={e => { setImageStyle(e.target.value); setStylePromptOpen(false); patchProjectSettings({ visualStyle: e.target.value }).catch(() => {}); }}
+                onChange={e => {
+                  const style = e.target.value;
+                  setImageStyle(style);
+                  setStylePromptOpen(false);
+                  patchProjectSettings({ visualStyle: style }).catch(() => {});
+                  // Henry 2026-06-05: auto-mode feel. Once a style is picked, fire
+                  // image gen for the LATEST scene set so user doesn't have to click
+                  // every scene's gen button. ~1.5s gap per call (see genAllImagesForMsg).
+                  const lastMsg = [...messages].reverse().find(m => m.scenes && m.scenes.length > 0);
+                  if (lastMsg) {
+                    setTimeout(() => genAllImagesForMsg(lastMsg.id), 800);
+                  }
+                }}
                 style={{
                   padding: "3px 5px", borderRadius: 7, fontSize: 10, fontWeight: 700,
                   border: `1px solid ${stylePromptOpen ? C.gold + "80" : C.line}`,
