@@ -4,6 +4,44 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-05 — TS variance error when extracting tab from god-file with literal-union state setter
+
+**Symptom (recurring across Wave 1.2 → 1.5):**
+```
+error TS2322: Type 'Dispatch<SetStateAction<WorkshopTab>>' is not assignable to type '(t: string) => void'.
+  Types of parameters 't' and 'value' are incompatible.
+    Type 'SetStateAction<string>' is not assignable to type 'SetStateAction<WorkshopTab>'.
+```
+
+Also seen when passing array setStates (`setChildScenes`, `setSavedCuts`) from parent to extracted tab whose local type adds/extends fields not present in shared type.
+
+**Root cause:** TS function-parameter contravariance. A parent `Dispatch<SetStateAction<"a"|"b"|"c">>` CANNOT be assigned to a child prop typed as `Dispatch<SetStateAction<string>>` because the child could legally pass `"x"` which the parent's setter does not accept. The compiler's strictFunctionTypes catches this even though the child only ever passes valid values at runtime.
+
+**Fixes (two patterns, both proven in PRs #34 + #35):**
+
+- **Pattern A — narrow at child prop interface (preferred when known fixed set):**
+  ```tsx
+  setActiveTab: (t: "design" | "content" | "sound" | "review1" | "review2" | "preview") => void;
+  ```
+  Child declares the actual values it will pass. Parent's narrower `WorkshopTab` union is now a SUBTYPE.
+
+- **Pattern B — cast at parent prop-pass site (when child uses shared/extended type):**
+  ```tsx
+  setChildScenes={setChildScenes as unknown as React.Dispatch<React.SetStateAction<SharedChildScene[]>>}
+  ```
+  Used when parent's local type extends a shared one (e.g., adds `imageUrl?: string`). The cast acknowledges runtime safety because parent type is a superset of child type.
+
+**Prevention rule:** When extracting any tab from a god-file:
+1. Create `tabs/_shared-types.ts` for shapes referenced by both parent and child.
+2. Parent's local type = `import("./tabs/_shared-types").Shape & { extraFields }`.
+3. Child `setActiveTab` prop = narrow literal union of EXACTLY the values it dispatches.
+4. Run `pnpm tsc --noEmit` BEFORE commit.
+
+Pattern locked while shipping children-planner Wave 1 (PRs #34 + #35).
+
+
+---
+
 ## 2026-06-03 — ✅ FIXED (`44e7bca`): font size full path + studio name editable + Piper voice per learning mode
 
 **Symptom (Henry verbatim):** "font size does not take effect on screen", "intro still show home studio", "pace is not ok for leading - learning if talk like story very bad - learning should not be like a story".
