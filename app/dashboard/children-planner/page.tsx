@@ -16,6 +16,8 @@ import * as Icon from "../../components/icons";
 import Review1Tab from "./tabs/Review1Tab";
 import PreviewTab from "./tabs/PreviewTab";
 import ScriptTab from "./tabs/ScriptTab";
+import Review2Tab from "./tabs/Review2Tab";
+import OverviewTab from "./tabs/OverviewTab";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
@@ -4241,257 +4243,45 @@ Rules:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* OVERVIEW TAB                                                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* OVERVIEW TAB — extracted Wave 1.5 */}
       {activeTab === "overview" && (
-        <div>
-          {/* ── Production System Toggle ── */}
-          <div style={{ ...cardStyle, marginBottom: 12 }}>
-            <p style={labelStyle}>Production System</p>
-            <div style={{ display: "flex", gap: 8, marginBottom: productionSystem === "movie" ? 16 : 0 }}>
-              <button onClick={() => { setProductionSystem("hybrid"); setLastAction("System: Hybrid Story"); }}
-                style={{ flex: 1, padding: "12px 10px", borderRadius: 12, border: `2px solid ${productionSystem === "hybrid" ? ds.color.lilac : ds.color.line}`, background: productionSystem === "hybrid" ? `${ds.color.lilac}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: ds.grad.tile.c4, margin: "0 auto 6px", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Film size={14} color="#fff" /></div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: productionSystem === "hybrid" ? ds.color.lilac : ds.color.ink }}>Hybrid Story</p>
-                <p style={{ fontSize: 9, color: ds.color.mute }}>Text + images pipeline</p>
-              </button>
-              <button onClick={() => { setProductionSystem("movie"); setLastAction("System: Movie Mode"); }}
-                style={{ flex: 1, padding: "12px 10px", borderRadius: 12, border: `2px solid ${productionSystem === "movie" ? ds.color.lilac : ds.color.line}`, background: productionSystem === "movie" ? `${ds.color.lilac}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: ds.grad.tile.c7, margin: "0 auto 6px", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.Monitor size={14} color="#fff" /></div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: productionSystem === "movie" ? ds.color.lilac : ds.color.ink }}>Movie Mode</p>
-                <p style={{ fontSize: 9, color: ds.color.mute }}>Scenes + video generation</p>
-              </button>
-            </div>
-
-            {/* Movie Mode extra options */}
-            {productionSystem === "movie" && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, paddingTop: 4 }}>
-                {/* Genre */}
-                <div>
-                  <p style={labelStyle}>Genre</p>
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
-                    {MOVIE_GENRES.map(g => (
-                      <button key={g} onClick={() => { setMovieGenre(g); setLastAction(`Genre: ${g}`); }}
-                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${movieGenre === g ? childAccent : border}`, background: movieGenre === g ? `${childAccent}12` : "transparent", color: movieGenre === g ? childAccent : "#fff", fontSize: 10, fontWeight: movieGenre === g ? 700 : 400, cursor: "pointer", textAlign: "left" as const }}>
-                        {g}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Scene count */}
-                <div>
-                  <p style={labelStyle}>Number of Scenes</p>
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
-                    {MOVIE_SCENE_COUNTS.map(n => (
-                      <button key={n} onClick={() => { setMovieSceneCount(n); setLastAction(`Scenes: ${n}`); }}
-                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${movieSceneCount === n ? childAccent : border}`, background: movieSceneCount === n ? `${childAccent}12` : "transparent", color: movieSceneCount === n ? childAccent : "#fff", fontSize: 10, fontWeight: movieSceneCount === n ? 700 : 400, cursor: "pointer", textAlign: "left" as const }}>
-                        {n} scenes
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Scene duration */}
-                <div>
-                  <p style={labelStyle}>Scene Duration</p>
-                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 4 }}>
-                    {MOVIE_SCENE_DURATIONS.map(d => (
-                      <button key={d} onClick={() => { setMovieSceneDuration(d); setLastAction(`Duration: ${d}`); }}
-                        style={{ padding: "7px 10px", borderRadius: 8, border: `1px solid ${movieSceneDuration === d ? childAccent : border}`, background: movieSceneDuration === d ? `${childAccent}12` : "transparent", color: movieSceneDuration === d ? childAccent : "#fff", fontSize: 10, fontWeight: movieSceneDuration === d ? 700 : 400, cursor: "pointer", textAlign: "left" as const }}>
-                        {d} per scene
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Stats Grid — 4 status bubbles */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12, marginBottom: 12 }}>
-            {[
-              { label: "Content", value: textContent ? "Ready!" : "Empty", color: childAccent, ok: !!textContent },
-              { label: "Style", value: styleProgress === 100 ? "Set!" : "Pending", color: C3, ok: styleProgress === 100 },
-              { label: "Preview", value: generatedVideoUrl ? "Done!" : "Not yet", color: C4, ok: !!generatedVideoUrl },
-              { label: "Safety", value: review1Done && review2Done ? "2/2" : review1Done ? "1/2" : "0/2", color: childSafe, ok: review1Done && review2Done },
-            ].map(stat => (
-              <div key={stat.label} style={{
-                ...cardStyle, marginBottom: 0, textAlign: "center", padding: "18px 12px",
-                border: `2px solid ${stat.ok ? stat.color + "50" : border}`,
-                background: stat.ok ? `${stat.color}10` : ds.color.card,
-                boxShadow: stat.ok ? `0 0 20px ${stat.color}20` : "none",
-              }}>
-                <p style={{ fontSize: 18, fontWeight: 900, color: stat.ok ? stat.color : muted, margin: "0 0 4px" }}>{stat.value}</p>
-                <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1, margin: 0 }}>{stat.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Progress + Next Steps side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-            {/* Progress Bars */}
-            <div style={cardStyle}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Production Progress</p>
-              <ProgressBar label="Content" value={contentProgress} color={childAccent} />
-              <ProgressBar label="Style" value={styleProgress} color={childAccent} />
-              <ProgressBar label="Preview" value={previewProgress} color="#00d4ff" />
-              <div style={{ borderTop: `1px solid ${border}`, paddingTop: 10, marginTop: 6 }}>
-                <ProgressBar label="Safety Reviews" value={reviewProgress} color={childSafe} />
-              </div>
-            </div>
-
-            {/* Next Steps */}
-            <div style={cardStyle}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Next Steps</p>
-              <div style={{ background: s2, borderRadius: 10, padding: 12, border: `1px solid ${border}`, marginBottom: 8 }}>
-                <p style={{ fontSize: 9, color: childAccent, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Last Action</p>
-                <p style={{ fontSize: 12, color: "#fff" }}>{lastAction}</p>
-              </div>
-              <div style={{ background: `${childSafe}08`, borderRadius: 10, padding: 12, border: `1px solid ${childSafe}20` }}>
-                <p style={{ fontSize: 9, color: childSafe, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Next Step</p>
-                <p style={{ fontSize: 12, color: "#fff" }}>
-                  {!designComplete ? "Set age group & learning mode" :
-                   !textContent ? "Enter your content" :
-                   styleProgress < 100 ? "Choose voice & style" :
-                   !review1Done ? "Complete safety review" :
-                   !generatedVideoUrl ? "Generate preview" :
-                   !review2Done ? "Complete final review" :
-                   "Ready to render!"}
-                </p>
-                <button onClick={() => {
-                  if (!designComplete) setActiveTab("design");
-                  else if (!textContent) setActiveTab("content");
-                  else if (styleProgress < 100) setActiveTab("sound");
-                  else if (!review1Done) setActiveTab("review1");
-                  else if (!generatedVideoUrl) setActiveTab("preview");
-                  else if (!review2Done) setActiveTab("review2");
-                  else setActiveTab("review2");
-                }} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: childSafe, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  Go
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Demo Scene Gallery ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <div>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: childAccent }}>Sample Scenes</p>
-                <p style={{ margin: 0, fontSize: 11, color: muted }}>Examples of what your children videos can look like</p>
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-              {[
-                { img: "/api/media/demo/child_abc.png",       label: "ABC Learning",    color: C4 },
-                { img: "/api/media/demo/child_colors.png",    label: "Color World",     color: C2 },
-                { img: "/api/media/demo/child_counting.png",  label: "Counting Fun",    color: C3 },
-                { img: "/api/media/demo/child_nursery.png",   label: "Nursery Rhyme",   color: "#c084fc" },
-                { img: "/api/media/demo/child_story.png",     label: "Story Time",      color: childSafe },
-              ].map(scene => (
-                <div key={scene.label} style={{ position: "relative", borderRadius: 14, overflow: "hidden", cursor: "pointer", border: `2px solid ${scene.color}30`, transition: "all 0.2s" }}
-                  onClick={() => setContentImage(scene.img)}>
-                  <img src={scene.img} alt={scene.label}
-                    style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }}
-                    onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                  {/* Label overlay */}
-                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: "10px 8px",
-                    background: `linear-gradient(transparent, rgba(0,0,0,0.85))` }}>
-                    <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: scene.color }}>{scene.label}</p>
-                  </div>
-                  {/* Hover glow badge */}
-                  <div style={{ position: "absolute", top: 6, right: 6, background: scene.color, borderRadius: 6, padding: "2px 6px", fontSize: 9, fontWeight: 700, color: "#000" }}>
-                    Demo
-                  </div>
-                </div>
-              ))}
-            </div>
-            {contentImage && (
-              <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 12, background: `${childSafe}10`, border: `1px solid ${childSafe}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                <Icon.Check style={{ width: 14, height: 14, color: childSafe, flexShrink: 0 }} />
-                <p style={{ margin: 0, fontSize: 12, color: childSafe }}>Demo image selected as content reference</p>
-                <button onClick={() => setContentImage(null)} style={{ marginLeft: "auto", fontSize: 10, padding: "3px 8px", borderRadius: 6, border: `1px solid ${childSafe}40`, background: "transparent", color: childSafe, cursor: "pointer" }}>Clear</button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Demo Videos strip ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-              <Icon.Film style={{ width: 18, height: 18, color: C2, flexShrink: 0 }} />
-              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: C2 }}>Demo Videos</p>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-              {[
-                { src: "/api/media/demo/child_abc_scene.mp4",      label: "ABC Video",    color: C4 },
-                { src: "/api/media/demo/child_colors_scene.mp4",   label: "Colors Video", color: C2 },
-                { src: "/api/media/demo/child_counting_scene.mp4", label: "Count Video",  color: C3 },
-                { src: "/api/media/demo/child_nursery_scene.mp4",  label: "Nursery",      color: "#c084fc" },
-                { src: "/api/media/demo/child_story_scene.mp4",    label: "Story Video",  color: childSafe },
-              ].map(v => (
-                <div key={v.label} style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${v.color}30` }}>
-                  <video src={v.src} muted loop style={{ width: "100%", aspectRatio: "4/3", objectFit: "cover", display: "block" }}
-                    onMouseEnter={e => (e.target as HTMLVideoElement).play()}
-                    onMouseLeave={e => (e.target as HTMLVideoElement).pause()} />
-                  <p style={{ margin: 0, padding: "6px 8px", fontSize: 10, fontWeight: 700, color: v.color, background: "rgba(0,0,0,0.6)" }}>▶ {v.label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Links — 4 columns */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
-            {[
-              { label: designComplete ? "Design Set" : "Set Design", color: C3, action: () => setActiveTab("design"), href: null },
-              { label: "Open Editor", color: childSafe, action: null, href: "/dashboard/collaborative-editor?from=children-planner" },
-              { label: "Characters", color: C2, action: null, href: "/dashboard/character-voices" },
-              { label: "Children Video", color: C4, action: null, href: "/dashboard/children-video" },
-            ].map(link => {
-              const inner = (
-                <div key={link.label} onClick={link.action ?? undefined} style={{
-                  ...cardStyle, cursor: "pointer", textAlign: "center", padding: "18px 8px", marginBottom: 0,
-                  border: `2px solid ${link.color}30`,
-                  transition: "all 0.18s",
-                }}>
-                  <p style={{ fontSize: 11, color: link.color, fontWeight: 700, marginBottom: 0 }}>{link.label}</p>
-                </div>
-              );
-              return link.href ? (
-                <a key={link.label} href={link.href} style={{ textDecoration: "none" }}
-                  onClick={() => { /* return state handled via URL params */ }}>
-                  {inner}
-                </a>
-              ) : inner;
-            })}
-          </div>
-
-          {/* Warnings */}
-          {(!textContent || styleProgress < 100 || (!review1Done && generatedVideoUrl)) && (
-            <div style={{ ...cardStyle, borderColor: "#f59e0b30", background: "rgba(245,158,11,0.04)" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 10 }}>Warnings</p>
-              {!textContent && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "rgba(245,158,11,0.06)", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#f59e0b" }}>!</span>
-                  <p style={{ fontSize: 11, color: "#f59e0b", flex: 1 }}>No content entered yet</p>
-                  <button onClick={() => setActiveTab("content")} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.3)", background: "transparent", color: "#f59e0b", fontSize: 8, cursor: "pointer" }}>Fix</button>
-                </div>
-              )}
-              {styleProgress < 100 && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "rgba(245,158,11,0.06)", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#f59e0b" }}>!</span>
-                  <p style={{ fontSize: 11, color: "#f59e0b", flex: 1 }}>Style configuration incomplete</p>
-                  <button onClick={() => setActiveTab("sound")} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.3)", background: "transparent", color: "#f59e0b", fontSize: 8, cursor: "pointer" }}>Fix</button>
-                </div>
-              )}
-              {!review1Done && generatedVideoUrl && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: "rgba(245,158,11,0.06)", marginBottom: 4 }}>
-                  <span style={{ fontSize: 10, color: "#f59e0b" }}>!</span>
-                  <p style={{ fontSize: 11, color: "#f59e0b", flex: 1 }}>Safety review not completed</p>
-                  <button onClick={() => setActiveTab("review1")} style={{ padding: "3px 8px", borderRadius: 4, border: "1px solid rgba(245,158,11,0.3)", background: "transparent", color: "#f59e0b", fontSize: 8, cursor: "pointer" }}>Fix</button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <OverviewTab
+          productionSystem={productionSystem}
+          textContent={textContent}
+          styleProgress={styleProgress}
+          generatedVideoUrl={generatedVideoUrl}
+          review1Done={review1Done}
+          review2Done={review2Done}
+          contentProgress={contentProgress}
+          previewProgress={previewProgress}
+          reviewProgress={reviewProgress}
+          lastAction={lastAction}
+          designComplete={designComplete}
+          contentImage={contentImage}
+          movieGenre={movieGenre}
+          movieSceneCount={movieSceneCount}
+          movieSceneDuration={movieSceneDuration}
+          MOVIE_GENRES={MOVIE_GENRES}
+          MOVIE_SCENE_COUNTS={MOVIE_SCENE_COUNTS}
+          MOVIE_SCENE_DURATIONS={MOVIE_SCENE_DURATIONS}
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          childAccent={childAccent}
+          childSafe={childSafe}
+          muted={muted}
+          s2={s2}
+          border={border}
+          C2={C2}
+          C3={C3}
+          C4={C4}
+          setProductionSystem={setProductionSystem}
+          setMovieGenre={setMovieGenre}
+          setMovieSceneCount={setMovieSceneCount}
+          setMovieSceneDuration={setMovieSceneDuration}
+          setActiveTab={setActiveTab}
+          setContentImage={setContentImage}
+          setLastAction={setLastAction}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
@@ -6762,200 +6552,39 @@ Rules:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* REVIEW 2 TAB — MANDATORY FINAL SAFETY CHECK                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* REVIEW 2 TAB — extracted Wave 1.4 */}
       {activeTab === "review2" && (
-        <div style={{ ...cardStyle, padding: 28, border: `2px solid ${childSafe}40` }}>
-          {/* ── Saved Story Cuts ── */}
-          {savedCuts.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <button onClick={() => setShowCutsPanel(p => !p)}
-                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: `1px solid ${childSafe}30`, background: showCutsPanel ? `${childSafe}10` : `${childSafe}06`, color: childSafe, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                <Icon.Folder style={{ width: 16, height: 16, flexShrink: 0 }} />
-                <span>Saved Story Versions ({savedCuts.length})</span>
-                <div style={{ display: "flex", gap: 6, marginLeft: 8, flexWrap: "wrap", flex: 1 }}>
-                  {savedCuts.map(c => <span key={c.name} style={{ fontSize: 9, padding: "1px 7px", borderRadius: 8, background: `${childSafe}20`, color: childSafe }}>{c.name}</span>)}
-                </div>
-                <span style={{ fontSize: 10, color: muted }}>{showCutsPanel ? "▲ Close" : "▼ Open"}</span>
-              </button>
-              {showCutsPanel && (
-                <div style={{ background: surface, border: `1px solid ${childSafe}25`, borderRadius: 12, padding: 12, marginTop: 4, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 8 }}>
-                  {savedCuts.map((c, ci) => (
-                    <div key={c.name}
-                      onClick={() => { setAssemblyName(c.name); if (c.videoUrl) setGeneratedVideoUrl(c.videoUrl); setShowCutsPanel(false); setLastAction(`Loaded version: "${c.name}"`); }}
-                      style={{ background: s2, borderRadius: 10, border: `2px solid ${assemblyName === c.name ? childSafe : border}`, padding: 10, cursor: "pointer" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                        {c.videoUrl ? <Icon.Film style={{ width: 13, height: 13, flexShrink: 0 }} /> : <Icon.Grid style={{ width: 13, height: 13, flexShrink: 0 }} />}
-                        <p style={{ fontSize: 12, fontWeight: 700, color: assemblyName === c.name ? childSafe : "#fff", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</p>
-                        <button onClick={e => { e.stopPropagation(); setSavedCuts(prev => prev.filter((_, i) => i !== ci)); }}
-                          style={{ padding: "1px 6px", borderRadius: 4, border: "none", background: "transparent", color: "#ef4444", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center" }}><Icon.X style={{ width: 10, height: 10 }} /></button>
-                      </div>
-                      <p style={{ fontSize: 9, color: muted }}>{new Date(c.savedAt).toLocaleDateString()}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Assembly status summary (scene selection moved to Assembly tab) ── */}
-          {assembledUrl && (
-            <div style={{ ...cardStyle, marginBottom: 12, borderColor: `${childSafe}30`, padding: "14px 16px" }}>
-              <p style={{ fontSize: 12, color: childSafe, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Icon.Check style={{ width: 14, height: 14 }} /> Video assembled ({assemblySelectedIds.length} scene{assemblySelectedIds.length !== 1 ? "s" : ""})
-              </p>
-              <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 180, borderRadius: 8 }} />
-            </div>
-          )}
-          {!assembledUrl && (
-            <div style={{ marginBottom: 12, padding: "12px 16px", borderRadius: 10, background: `${childAccent}06`, border: `1px solid ${border}` }}>
-              <p style={{ fontSize: 12, color: muted }}>No video assembled yet. Go to the <strong style={{ color: "#fff" }}>Assembly</strong> tab first to build your video, then come back here for the final check.</p>
-              <button onClick={() => setActiveTab("assembly")} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                Go to Assembly
-              </button>
-            </div>
-          )}
-
-          {/* ── Story Version Name + Save ── */}
-          <div style={{ ...cardStyle, padding: "14px 16px", marginBottom: 12 }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>Story Version Name</label>
-                <input type="text" value={assemblyName} onChange={e => setAssemblyName(e.target.value)} placeholder="Main Story, Bilingual Edit, Short Version..."
-                  style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit", fontWeight: 600 }} />
-              </div>
-              <button
-                onClick={() => {
-                  if (!assemblyName.trim()) return;
-                  setSavedCuts(prev => {
-                    const existing = prev.findIndex(c => c.name === assemblyName);
-                    const cut = { name: assemblyName, sceneIds: [], videoUrl: generatedVideoUrl || undefined, savedAt: new Date().toISOString() };
-                    const next = existing >= 0 ? prev.map((c, i) => i === existing ? cut : c) : [...prev, cut];
-                    return next;
-                  });
-                  setLastAction(`Version "${assemblyName}" saved`);
-                }}
-                style={{ padding: "10px 16px", borderRadius: 10, border: "none", background: childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 22, flexShrink: 0 }}>
-                Save Version
-              </button>
-            </div>
-          </div>
-
-          {/* ── Pre-Flight AI Review ── */}
-          <div style={{ ...cardStyle, marginBottom: 12, borderColor: preflightResult ? (preflightResult.blockingErrors > 0 ? "#ef444440" : preflightResult.warnings > 0 ? "#f59e0b40" : `${childSafe}40`) : `${childAccent}30` }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Icon.Star style={{ width: 15, height: 15, color: childAccent, flexShrink: 0 }} />
-                <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>AI Audio & Audit</p>
-              </div>
-              {preflightResult && (
-                <div style={{ display: "flex", gap: 6 }}>
-                  {preflightResult.blockingErrors > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: "#ef444420", color: "#ef4444", fontWeight: 700 }}>{preflightResult.blockingErrors} error{preflightResult.blockingErrors !== 1 ? "s" : ""}</span>}
-                  {preflightResult.warnings > 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: "#f59e0b20", color: "#f59e0b", fontWeight: 700 }}>{preflightResult.warnings} warning{preflightResult.warnings !== 1 ? "s" : ""}</span>}
-                  {preflightResult.canAssemble && preflightResult.warnings === 0 && <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: 6, background: `${childSafe}20`, color: childSafe, fontWeight: 700 }}>Ready</span>}
-                </div>
-              )}
-            </div>
-            <button onClick={runPreflight} disabled={preflightRunning}
-              style={{ width: "100%", padding: "10px", borderRadius: 10, border: `1px solid ${childAccent}30`, background: preflightRunning ? "#2a2040" : `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 600, cursor: preflightRunning ? "not-allowed" : "pointer", marginBottom: preflightResult ? 10 : 0 }}>
-              {preflightRunning ? "AI Audio & Audit running..." : "AI Audio & Audit"}
-            </button>
-            {preflightResult && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {preflightResult.checks.map(check => (
-                  <div key={check.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 8, background: check.status === "ok" ? `${childSafe}08` : check.status === "warn" ? "#f59e0b08" : "#ef444408", border: `1px solid ${check.status === "ok" ? childSafe : check.status === "warn" ? "#f59e0b" : "#ef4444"}20` }}>
-                    <span style={{ fontSize: 12, flexShrink: 0, marginTop: 1 }}>{check.status === "ok" ? "✓" : check.status === "warn" ? "⚠" : "✗"}</span>
-                    <div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: check.status === "ok" ? childSafe : check.status === "warn" ? "#f59e0b" : "#ef4444" }}>{check.label}</p>
-                      {check.detail && <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>{check.detail}</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Warning if preview not generated */}
-          {!generatedVideoUrl && (
-            <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
-              <p style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>Preview not yet generated</p>
-              <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>You need to generate a preview before completing the final review.</p>
-              <button onClick={() => setActiveTab("review1")} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: "#f59e0b", color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                Go to Review 1
-              </button>
-            </div>
-          )}
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <Icon.Check style={{ width: 22, height: 22, color: childSafe, flexShrink: 0 }} />
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: childSafe }}>Second Review — Final Safety Check</h2>
-              <p style={{ fontSize: 11, color: muted }}>This is the FINAL check before content can be exported or published. Both reviews are mandatory for children content.</p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 16 }}>
-            {[
-              { label: "Visuals are child-safe", check: "No inappropriate imagery, characters look child-friendly" },
-              { label: "Narration is clear", check: "Pronunciation is clear, pace is appropriate for children" },
-              { label: "Text highlighting syncs", check: "Highlighted words match spoken words exactly" },
-              { label: "Music is appropriate", check: "Music supports learning, doesn't overpower voice" },
-              { label: "No unsafe AI mistakes", check: "No strange objects, no adult styling, no confusing elements" },
-              { label: "Background is clean", check: "Simple, uncluttered, child-appropriate scenes" },
-            ].map(item => (
-              <div key={item.label} style={{ background: s2, borderRadius: 10, padding: 12, border: `1px solid ${border}` }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: "#fff", marginBottom: 4 }}>{item.label}</p>
-                <p style={{ fontSize: 10, color: muted }}>{item.check}</p>
-              </div>
-            ))}
-          </div>
-
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "14px 16px", borderRadius: 12, background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.15)", marginBottom: 16 }}>
-            <input type="checkbox" checked={review2Done} onChange={e => { setReview2Done(e.target.checked); if (e.target.checked) setLastAction("Review 2 approved"); }} style={{ marginTop: 3, accentColor: childSafe }} />
-            <span style={{ fontSize: 12, color: "#e0e0f0", lineHeight: 1.6 }}>
-              I have watched the preview in full. I confirm that the visuals, narration, text, and music are all appropriate for children. I approve this content for final rendering and export.
-            </span>
-          </label>
-
-          <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setActiveTab("preview")} style={{ padding: "14px 24px", borderRadius: 14, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>Back to Preview</button>
-            <button disabled={!review2Done || saving || !!finalVideoUrl}
-              onClick={handleFinalRender}
-              style={{ flex: 1, padding: 16, borderRadius: 14, border: "none", background: (!review2Done || saving || !!finalVideoUrl) ? "#2a2a40" : childSafe, color: "#000", fontSize: 16, fontWeight: 700, cursor: (!review2Done || saving || !!finalVideoUrl) ? "not-allowed" : "pointer" }}>
-              {saving ? "Saving to Library..." : finalVideoUrl ? "Saved to Asset Library" : "Both Reviews Passed — Render Final Video"}
-            </button>
-          </div>
-          {saveError && <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8 }}>{saveError}</p>}
-
-          {/* Export options — shown after save */}
-          {finalVideoUrl && (
-            <div style={{ marginTop: 16, padding: 20, borderRadius: 14, background: `${childSafe}08`, border: `1px solid ${childSafe}30` }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: childSafe, marginBottom: 12 }}>Content saved to Asset Library</p>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <a href={finalVideoUrl} download style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                    Download Video
-                  </button>
-                </a>
-                <a href="/dashboard/asset-library" style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${childSafe}`, background: "transparent", color: childSafe, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    View in Asset Library
-                  </button>
-                </a>
-                <a href={`/dashboard/collaborative-editor?videoUrl=${encodeURIComponent(finalVideoUrl)}&from=children-planner`}
-                  onClick={() => { /* return state handled via URL params */ }}
-                  style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    Open in Editor
-                  </button>
-                </a>
-                <a href="/dashboard/all-content" style={{ textDecoration: "none" }}>
-                  <button style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 11, cursor: "pointer" }}>
-                    All Content
-                  </button>
-                </a>
-              </div>
-            </div>
-          )}
-        </div>
+        <Review2Tab
+          savedCuts={savedCuts}
+          showCutsPanel={showCutsPanel}
+          assemblyName={assemblyName}
+          assemblySelectedIds={assemblySelectedIds}
+          assembledUrl={assembledUrl}
+          generatedVideoUrl={generatedVideoUrl}
+          finalVideoUrl={finalVideoUrl}
+          review2Done={review2Done}
+          saving={saving}
+          saveError={saveError}
+          preflightResult={preflightResult}
+          preflightRunning={preflightRunning}
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          childSafe={childSafe}
+          childAccent={childAccent}
+          muted={muted}
+          s2={s2}
+          border={border}
+          surface={surface}
+          setActiveTab={setActiveTab}
+          setShowCutsPanel={setShowCutsPanel}
+          setAssemblyName={setAssemblyName}
+          setSavedCuts={setSavedCuts as unknown as React.Dispatch<React.SetStateAction<import("./tabs/Review2Tab").SavedCut[]>>}
+          setGeneratedVideoUrl={setGeneratedVideoUrl}
+          setReview2Done={setReview2Done}
+          setLastAction={setLastAction}
+          runPreflight={runPreflight}
+          handleFinalRender={handleFinalRender}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
