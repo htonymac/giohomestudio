@@ -26,7 +26,15 @@ echo "[deploy-staging] installing deps..."
 pnpm install --frozen-lockfile
 
 echo "[deploy-staging] generating prisma client..."
-pnpm prisma generate || true
+# Sourcery flagged that '|| true' here would hide schema / migration errors.
+# Let it fail loud — a broken Prisma client is a deploy-killing problem we
+# want surfaced immediately, not silenced. If you genuinely need to skip it
+# (e.g. dev environment without a DB), set SKIP_PRISMA_GENERATE=1 explicitly.
+if [[ "${SKIP_PRISMA_GENERATE:-0}" == "1" ]]; then
+  echo "[deploy-staging] SKIP_PRISMA_GENERATE=1 set — skipping"
+else
+  pnpm prisma generate
+fi
 
 echo "[deploy-staging] restarting via PM2..."
 if pm2 describe ghs-staging >/dev/null 2>&1; then
