@@ -21,6 +21,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   }
 
+  // Kill-switch check — H10 of 12-hour run.
+  // Per-provider: FAL_VIDEO / KLING_DIRECT / MUAPI_VIDEO / RUNWAY_DIRECT.
+  // modelId prefix selects the gate. Unknown prefix fails open.
+  try {
+    const { isFlagEnabled, flagDisabledResponse } = await import("@/lib/feature-flags");
+    const m = parsed.data.modelId ?? "";
+    if (/^fal[_-]/i.test(m) && !(await isFlagEnabled("FLAG_FAL_VIDEO"))) {
+      return flagDisabledResponse("FAL video generation");
+    }
+    if (/^kling[_-]direct/i.test(m) && !(await isFlagEnabled("FLAG_KLING_DIRECT"))) {
+      return flagDisabledResponse("Kling Direct video generation");
+    }
+    if (/^muapi/i.test(m) && !(await isFlagEnabled("FLAG_MUAPI_VIDEO"))) {
+      return flagDisabledResponse("MuAPI video generation");
+    }
+    if (/^runway[_-]direct/i.test(m) && !(await isFlagEnabled("FLAG_RUNWAY_DIRECT"))) {
+      return flagDisabledResponse("Runway Direct video generation");
+    }
+  } catch { /* flag check best-effort, fail open */ }
+
   const outputPath = path.join(env.storagePath, "video", `gen_${Date.now()}.mp4`);
 
   const result = await generateVideo({

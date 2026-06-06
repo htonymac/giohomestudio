@@ -6123,3 +6123,12 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ?? storage/test_narration_mix.mp3
   ?? tests/_mobile/
   ```
+
+## 2026-06-06 02:12 UTC — auto-checkpoint (dirty)
+- branch: `fix/freemode-narration-ui-comprehensive`
+- HEAD: `747b526 fix(free-mode+ui): scene-card voice picker + brighter muted UI + auto-batch image gen`
+- working tree:
+  ```
+   M app/api/generation/image/route.ts
+   M app/api/generation/video/route.ts
+  ```
