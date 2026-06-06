@@ -12,6 +12,7 @@ import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
+import Review1Tab from "./tabs/Review1Tab";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
@@ -5730,61 +5731,32 @@ Rules:
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* REVIEW 1 TAB — MANDATORY SAFETY CHECK                              */}
+      {/* REVIEW 1 TAB — extracted Wave 1 of children-planner segregation       */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "review1" && (
-        <div style={{ ...cardStyle, padding: 28, border: `2px solid ${childSafe}40` }}>
-          {/* Warning if not ready */}
-          {(!textContent || styleProgress < 100) && (
-            <div style={{ marginBottom: 16, padding: "12px 16px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.2)" }}>
-              <p style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>Content or style not yet configured</p>
-              <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>
-                {!textContent ? "Go to Content Input to enter your text. " : ""}
-                {styleProgress < 100 ? "Go to Style & Voice to configure all settings." : ""}
-              </p>
-            </div>
-          )}
-
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <Icon.Check style={{ width: 22, height: 22, color: childSafe, flexShrink: 0 }} />
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: childSafe }}>First Review — Safety Check</h2>
-              <p style={{ fontSize: 11, color: muted }}>Review the plan before AI generates visuals. This is mandatory for children content.</p>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 16 }}>
-            {[
-              { label: "Content Interpretation", check: "Text matches intended learning goal" },
-              { label: "Age Appropriateness", check: `Content suitable for ${ageParam || "target"} age group` },
-              { label: "Narration Style", check: `${NARRATION_STYLES.find(n => n.id === narrationStyle)?.label} selected` },
-              { label: "Visual Plan", check: `${VISUAL_STYLES.find(v => v.id === effectiveProjectStyle)?.label} — child-safe colors` },
-              { label: "Word Difficulty", check: "Words match selected age level" },
-              { label: "Music Suitability", check: `${MUSIC_CHOICES.find(m => m.id === musicChoice)?.label} — narration priority` },
-            ].map(item => (
-              <div key={item.label} style={{ background: s2, borderRadius: 10, padding: 12, border: `1px solid ${border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                  <p style={{ fontSize: 12, fontWeight: 600, color: "#fff" }}>{item.label}</p>
-                </div>
-                <p style={{ fontSize: 10, color: childSafe }}>{item.check}</p>
-              </div>
-            ))}
-          </div>
-
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", padding: "14px 16px", borderRadius: 12, background: "rgba(34,197,94,0.04)", border: "1px solid rgba(34,197,94,0.15)", marginBottom: 16 }}>
-            <input type="checkbox" checked={review1Done} onChange={e => { setReview1Done(e.target.checked); if (e.target.checked) setLastAction("Review 1 approved"); }} style={{ marginTop: 3, accentColor: childSafe }} />
-            <span style={{ fontSize: 12, color: "#e0e0f0", lineHeight: 1.6 }}>
-              I have reviewed the plan above. The content type, age group, narration style, visual style, and music choice are appropriate for children. I approve generating the preview.
-            </span>
-          </label>
-
-          <button onClick={generateChildrenContent}
-            disabled={!review1Done || generating}
-            style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (!review1Done || generating) ? "#2a2a40" : childSafe, color: "#000", fontSize: 16, fontWeight: 700, cursor: (!review1Done || generating) ? "not-allowed" : "pointer" }}>
-            {generating ? (generationProgress || "Generating child-safe preview...") : "Approved — Generate Preview"}
-          </button>
-          {generationError && <p style={{ fontSize: 11, color: "#ef4444", marginTop: 8 }}>{generationError}</p>}
-        </div>
+        <Review1Tab
+          textContent={textContent}
+          styleProgress={styleProgress}
+          ageParam={ageParam}
+          narrationStyle={narrationStyle}
+          effectiveProjectStyle={effectiveProjectStyle}
+          musicChoice={musicChoice}
+          review1Done={review1Done}
+          generating={generating}
+          generationProgress={generationProgress}
+          generationError={generationError}
+          NARRATION_STYLES={NARRATION_STYLES}
+          VISUAL_STYLES={VISUAL_STYLES}
+          MUSIC_CHOICES={MUSIC_CHOICES}
+          cardStyle={cardStyle}
+          childSafe={childSafe}
+          muted={muted}
+          s2={s2}
+          border={border}
+          setReview1Done={setReview1Done}
+          setLastAction={setLastAction}
+          generateChildrenContent={generateChildrenContent}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
