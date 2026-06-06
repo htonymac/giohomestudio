@@ -32,12 +32,13 @@ export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   try {
-    const [cacheStats, flags, todayKey, weekAgoKey] = [
-      await getCacheStats(),
-      await listFlags(),
-      new Date().toISOString().slice(0, 10),
-      new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
-    ];
+    // Per Sourcery review: await inside array literal is sequential. Parallelize
+    // the two independent async calls. Freeze "now" once so the date window is
+    // consistent (no midnight rollover race between todayKey + DB queries).
+    const now = Date.now();
+    const todayKey = new Date(now).toISOString().slice(0, 10);
+    const weekAgoKey = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const [cacheStats, flags] = await Promise.all([getCacheStats(), listFlags()]);
 
     const [todayTotal, topSpenders, last7Days] = await Promise.all([
       prisma.dailySpend.aggregate({
