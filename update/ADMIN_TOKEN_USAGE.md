@@ -65,17 +65,52 @@ curl.exe -X POST -H "X-Admin-Token: $T" -H "Content-Type: application/json" `
   -d $body https://andiostudio.com/api/admin/flags
 ```
 
-The 7 known flags (all default `true`):
+The known flags (all default `true`). Grouped by provider domain so an incident has one obvious lever:
 
+### Voice / TTS
 | Flag | What killing it does |
 |---|---|
-| `FLAG_FAL_VOICES` | FAL F5/XTTS/Bark/Gemini fall back to Piper. Stops FAL voice spend. |
-| `FLAG_ELEVENLABS_VOICES` | ElevenLabs falls back to Piper. Stops EL spend. |
+| `FLAG_FAL_VOICES` | FAL F5 / XTTS / Bark / Gemini / Kokoro fall back to Piper. Stops FAL voice spend. |
+| `FLAG_ELEVENLABS_VOICES` | ElevenLabs falls back to Piper. Stops ElevenLabs spend. |
+
+### Image gen
+| Flag | What killing it does |
+|---|---|
+| `FLAG_FAL_IMAGES` | FAL FLUX / Ideogram / Recraft / Seedream blocked. |
+| `FLAG_SEGMIND_IMAGES` | Segmind (Pruna) blocked. |
+
+### Video gen
+| Flag | What killing it does |
+|---|---|
+| `FLAG_FAL_VIDEO` | FAL Wan / Kling-on-FAL / Hailuo / Runway-on-FAL blocked. |
+| `FLAG_KLING_DIRECT` | Direct Kling API (Henry's own credits) blocked. |
+| `FLAG_MUAPI_VIDEO` | MuAPI Seedance / Wan blocked. |
+| `FLAG_RUNWAY_DIRECT` | Runway Direct API blocked. |
+
+### LLM providers
+| Flag | What killing it does |
+|---|---|
+| `FLAG_ANTHROPIC_LLM` | Claude Haiku / Sonnet / Opus blocked. Forces fallback chain (OpenAI → Grok → Ollama → Kie). |
+| `FLAG_OPENAI_LLM` | GPT-4o / o3-mini blocked. |
+| `FLAG_GROK_LLM` | Grok blocked. |
+| `FLAG_KIE_LLM` | Kie.ai DeepSeek blocked. |
+
+### Music
+| Flag | What killing it does |
+|---|---|
+| `FLAG_KIE_MUSIC` | Kie.ai Suno V5 music blocked. Falls back to stock library. |
+| `FLAG_FAL_MUSIC` | FAL Stable Audio music blocked. Falls back to stock library. |
+
+### Surface kill switches
+| Flag | What killing it does |
+|---|---|
 | `FLAG_VIDEO_ASSEMBLY` | `/api/video/assemble` returns 503. New videos can't be made. |
 | `FLAG_FREEMODE` | `/api/free-mode/chat` returns 503. Free Mode disabled. |
 | `FLAG_HYBRID` | Reserved — wired when Hybrid planner gets a kill switch later. |
 | `FLAG_LLM_CACHE` | Cache lookups bypassed (debug only). |
 | `FLAG_NEW_USER_SIGNUPS` | Reserved — wired when auth/signup ships. |
+
+**Important: provider flags ONLY take effect on routes that actually check them.** The flag table is the catalog; the route code is what enforces it. As of 2026-06-05 the wired enforcement covers `/api/tts` (voice flags) + `/api/video/assemble` + `/api/free-mode/chat`. Extending enforcement to image / video / LLM / music routes is a follow-up commit per route.
 
 ### 3. `GET /api/admin/cost` — observability dashboard
 
