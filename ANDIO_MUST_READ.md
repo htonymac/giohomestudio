@@ -15,6 +15,7 @@
 5. **`update/HANDOFF.md`** — current session's where-stopped, blockers, next-steps.
 6. **`update/VOICE_PICKER_AUDIT_06042026.md`** — every planner's voice picker state, what's canonical vs inline.
 7. **`update/VOICE_UNIFICATION_PROGRESS_06042026.md`** — 4-hour run report (2026-06-04 Opus): CI/CD fixed, voice registry shipped, Edge-TTS Nigerian Neural live, staging foundation built.
+8. **`update/ADMIN_TOKEN_USAGE.md`** — what the ADMIN_TOKEN is, why it exists (per doctrine §1), the 3 endpoints it gates (`/api/admin/flags`, `/cost`, `/sentry-test`), kill-switch flag catalog, PowerShell curl examples, when to actually use it, rotation procedure. Token value lives ONLY in server `.env`, never in repo or chat.
 
 ---
 
