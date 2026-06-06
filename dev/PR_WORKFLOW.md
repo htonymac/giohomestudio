@@ -64,15 +64,21 @@ Every PR template ships with 14 critical-area checkboxes. Tick the ones your cha
 13. Destructive DB actions
 14. Large-file / performance
 
-## Merge gates
+## Merge gates (updated 2026-06-05)
 
 A PR cannot merge until ALL of:
 
-- [ ] Sourcery has reviewed AND every CRITICAL issue is fixed (HIGH/MEDIUM allowed if explained in a comment)
-- [ ] The PR includes a staging link, test build, OR sample generated output (when the change affects app output)
-- [ ] 1 maintainer approval AFTER the last push
-- [ ] All PR conversations resolved
+- [ ] Sourcery review passes (required status check on main)
+- [ ] All Sourcery comments + PR conversations resolved
+- [ ] When change affects app output: staging link, test build, OR sample generated output attached
 - [ ] No force-push has been used (force-push is blocked)
+- [ ] If the change touches Generation / Storage / Deletion / Payment / Keys: maintainer confirms the attached sample
+
+### The 5-minute rule
+
+Maintainer approval is NOT required to merge. If Sourcery is clean and the maintainer does not respond within 5 minutes of being pinged on a non-special-case PR, the agent merges. This keeps cadence high without giving up the Sourcery safety net.
+
+Special-case PRs (Generation / Storage / Deletion / Payment / Keys) always wait for explicit maintainer confirmation regardless of timer — no auto-merge.
 
 ## Special-case rule
 
