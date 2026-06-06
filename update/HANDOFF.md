@@ -1,6 +1,20 @@
-# GHS HANDOFF — Session 2026-06-02/03 (children-planner subtitle/assembly sprint)
+# GHS HANDOFF — Session 2026-06-04/05 (children-planner Wave 1 segregation complete)
 
-**Last updated:** 2026-06-03 mid-day · **HEAD:** `52e8d90` (pushed, live, server pulled) · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
+**Last updated:** 2026-06-05 (after PR #35 merge) · **HEAD:** `main` post PR #35 · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
+
+## 🔥 2026-06-04/05 — Children-planner Wave 1 segregation: COMPLETE
+
+5 low-risk tabs extracted from god-file. **`children-planner/page.tsx`: 8,402 → 7,891 LOC (-511, -6.1%).** Created `tabs/` directory with `_shared-types.ts` (24) + Review1Tab (117) + PreviewTab (105) + ScriptTab (194) + Review2Tab (283) + OverviewTab (354).
+
+Shipped via PRs #34 + #35 (both Sourcery-clean + auto-merged on 10-min Henry-silence rule).
+
+**TS variance pattern locked** (logged in PROBLEM_AND_FIX): when extracting a tab from a parent that uses a literal-union state setter (`Dispatch<SetStateAction<"design"|"content"|...>>`), child tab's `setActiveTab` prop must declare a NARROWED literal union — `(t: string) => void` does NOT accept the parent type because of variance. Two patterns:
+- Pattern A (narrow at child): `setActiveTab: (t: "review1" | "preview") => void;`
+- Pattern B (cast at parent prop pass): `setChildScenes as unknown as React.Dispatch<React.SetStateAction<...>>`
+
+**Waves 2 + 3 (medium/high-risk tabs) waiting on explicit Henry trigger.**
+
+## 📜 Earlier in session 2026-06-02/03
 
 ## 🔥 2026-06-02/03 session current state (34 commits in 24h)
 

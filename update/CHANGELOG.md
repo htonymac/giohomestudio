@@ -1,5 +1,14 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-04/05 — **CHILDREN-PLANNER WAVE 1 SEGREGATION SHIPPED** (PRs #34 + #35, 8 commits, Sourcery-clean)
+
+**What:** Extracted 5 low-risk tabs from `app/dashboard/children-planner/page.tsx` god-file.
+**Why:** First wave of `update/SEGREGATION_PLAN_CHILDREN_06052026.md`. Reduces god-file blast radius without behavior change.
+**Impact:** page.tsx 8,402 → **7,891 LOC** (-511, -6.1%). New `tabs/` dir: `_shared-types.ts` + Review1Tab + PreviewTab + ScriptTab + Review2Tab + OverviewTab (1,053 LOC of focused per-tab files).
+**Risk:** Low. Type-check clean. No behavior change. State + handlers stay in parent; tabs receive props only.
+**Pattern locked:** TS variance handling for tab extraction documented in PROBLEM_AND_FIX (narrow setActiveTab union OR cast at parent prop-pass site).
+**Pending:** Wave 2 (medium-risk tabs) + Wave 3 (high-risk tabs) on explicit Henry trigger.
+
 ## 2026-06-03 — **10-FIX SONNET-AUDIT-DRIVEN SHIP** (4 commits) — full assembly + narration repair
 
 Henry: "this system was built in window and has many window bypasses... go through all the files - read only call sonnets - get a breakdown and see why it happens and map a plan do the in children and child planner then we move on". Approved "Ship ALL 10" plan.
