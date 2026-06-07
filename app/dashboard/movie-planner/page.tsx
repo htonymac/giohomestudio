@@ -23,6 +23,7 @@ import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
+import ScriptTab from "./tabs/ScriptTab";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -3700,140 +3701,44 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* SCREENPLAY TAB                                                       */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCRIPT TAB — extracted to tabs/ScriptTab.tsx (movie-planner Wave 1)   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "script" && (
-        <div>
-          {/* Setup / Generate */}
-          {!screenplay && !generatingScreenplay && (
-            <div style={{ ...cardStyle, borderColor: `${purple}20`, marginBottom: 16 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Screenplay</p>
-              <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a full formatted screenplay from your story, or paste your own script below and parse it into narrator/dialogue segments.</p>
-              {!idea.trim() && !expandedStory ? (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                  <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>Write your story idea first — go to Story & Draft tab.</p>
-                  <button onClick={() => setActiveTab("story")} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: purple, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Go to Story</button>
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <span style={{ fontSize: 11, color: muted, flexShrink: 0 }}>Written by:</span>
-                    <input type="text" value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Your name"
-                      style={{ flex: 1, background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 13, fontWeight: 600, outline: "none", maxWidth: 280 }} />
-                  </div>
-                  {screenplayError && <p style={{ fontSize: 11, color: red, marginBottom: 8 }}>{screenplayError}</p>}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={generateScreenplay}
-                      style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${purple}, #7c3aed)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                      Generate Screenplay
-                    </button>
-                    <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your screenplay here...\n\nFADE OUT.\n\nTHE END")}
-                      style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
-                      Paste My Own
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Loading */}
-          {generatingScreenplay && (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <Icon.Wand style={{ width: 36, height: 36, color: muted, marginBottom: 12 }} />
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your screenplay...</p>
-              <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
-            </div>
-          )}
-
-          {/* Screenplay paper */}
-          {screenplay && !generatingScreenplay && (
-            <>
-              {/* Toolbar */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
-                  <span style={{ fontSize: 10, color: muted }}>Written by:</span>
-                  <input type="text" value={screenplayAuthor} onChange={e => setScreenplayAuthor(e.target.value)} placeholder="Your name"
-                    style={{ background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "5px 10px", color: "#fff", fontSize: 12, fontWeight: 600, outline: "none", width: 160 }} />
-                </div>
-                <button onClick={generateScreenplay}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${purple}40`, background: "transparent", color: purple, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                  Regenerate
-                </button>
-                <button onClick={() => { const blob = new Blob([screenplay], { type: "text/plain" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${title || "screenplay"}.txt`; a.click(); }}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: accent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                  Download .txt
-                </button>
-                <button onClick={parseScript} disabled={parsingScript}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: parsingScript ? "#2a2a40" : blue, color: "#000", fontSize: 11, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
-                  {parsingScript ? "Parsing..." : "Parse Script"}
-                </button>
-                <button onClick={sendScreenplayToScenes} disabled={sendingToScenes || !moviePlan}
-                  style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: sendingToScenes ? `${gold}60` : gold, color: "#000", fontSize: 11, fontWeight: 700, cursor: sendingToScenes || !moviePlan ? "default" : "pointer", opacity: !moviePlan ? 0.4 : 1 }}>
-                  {sendingToScenes ? "Sending..." : "Send to Scenes →"}
-                </button>
-              </div>
-
-              {/* Send result */}
-              {sendToScenesResult && (
-                <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${accent}10`, border: `1px solid ${accent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                  <Icon.Check style={{ width: 14, height: 14, color: accent, flexShrink: 0 }} />
-                  <p style={{ fontSize: 11, color: accent, flex: 1 }}>{sendToScenesResult}</p>
-                  <button onClick={() => setActiveTab("sound")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: accent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Voice & Audio</button>
-                </div>
-              )}
-
-              {/* Parsed segments preview */}
-              {showScriptReview && scriptSegments.length > 0 && (
-                <div style={{ ...cardStyle, marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>Parsed Script — {scriptSegments.length} segments</p>
-                    <button onClick={() => setShowScriptReview(false)} style={{ fontSize: 10, color: muted, background: "none", border: "none", cursor: "pointer" }}>Hide</button>
-                  </div>
-                  <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                    {scriptSegments.map((seg, i) => (
-                      <div key={i} style={{ padding: "6px 10px", borderRadius: 6, background: seg.type === "dialogue" ? `${blue}10` : `${purple}10`, borderLeft: `3px solid ${seg.type === "dialogue" ? blue : purple}` }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: seg.type === "dialogue" ? blue : purple, textTransform: "uppercase", marginRight: 8 }}>
-                          {seg.type === "dialogue" ? (seg.speaker || "CHAR") : "NARR"}
-                        </span>
-                        <span style={{ fontSize: 10, color: "#ccc" }}>{seg.text.substring(0, 100)}{seg.text.length > 100 ? "..." : ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Screenplay editor */}
-              <textarea value={screenplay} onChange={e => setScreenplay(e.target.value)}
-                style={{ ...inputStyle, minHeight: 400, fontFamily: "'Courier New', Courier, monospace", fontSize: 12, lineHeight: 1.8, resize: "vertical", whiteSpace: "pre-wrap" }} />
-
-              {/* White paper preview */}
-              <div style={{ marginTop: 16, background: "#fff", borderRadius: 12, padding: "40px 40px", maxWidth: 780, margin: "16px auto 0", boxShadow: "0 8px 40px rgba(0,0,0,0.5)", fontFamily: "'Courier New', Courier, monospace" }}>
-                <div style={{ textAlign: "center", marginBottom: 40, paddingBottom: 32, borderBottom: "1px solid #ddd" }}>
-                  <p style={{ fontSize: 9, color: "#666", letterSpacing: 4, textTransform: "uppercase", marginBottom: 2 }}>GIO HOME AI STUDIO</p>
-                  <h1 style={{ fontSize: 22, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: 3, marginBottom: 8, lineHeight: 1.2 }}>{(title || "UNTITLED").toUpperCase()}</h1>
-                  {(genre || tone) && <p style={{ fontSize: 11, color: "#777", marginBottom: 24, fontStyle: "italic" }}>{[genre, tone].filter(Boolean).join(" · ")}</p>}
-                  <p style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>Written by</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#000", marginBottom: 20 }}>{screenplayAuthor || "—"}</p>
-                  <p style={{ fontSize: 8, color: "#aaa", letterSpacing: 1 }}>AI Assets by GIO HOME AI STUDIO · © {new Date().getFullYear()}</p>
-                </div>
-                <div style={{ color: "#111", fontSize: 12, lineHeight: 2 }}>
-                  {screenplay.split("\n").map((line, i) => {
-                    const t = line.trim();
-                    if (!t) return <div key={i} style={{ height: 6 }} />;
-                    if (/^(INT\.|EXT\.|INT\/EXT\.)/.test(t)) return <p key={i} style={{ fontWeight: 700, color: "#000", marginTop: 24, marginBottom: 2 }}>{t}</p>;
-                    if (/^(FADE IN:|FADE OUT\.|CUT TO:|DISSOLVE TO:)/.test(t)) return <p key={i} style={{ fontStyle: "italic", color: "#555", marginTop: 12 }}>{t}</p>;
-                    if (t === "THE END") return <p key={i} style={{ textAlign: "center", fontWeight: 900, fontSize: 14, marginTop: 40, letterSpacing: 4 }}>THE END</p>;
-                    if (/^[A-Z][A-Z\s\-'().]+$/.test(t) && t.length < 40 && !t.startsWith("INT") && !t.startsWith("EXT") && !t.startsWith("FADE") && !t.startsWith("CUT")) return <p key={i} style={{ fontWeight: 700, marginTop: 16, paddingLeft: "38%" }}>{t}</p>;
-                    if (t.startsWith("(") && t.endsWith(")")) return <p key={i} style={{ fontStyle: "italic", color: "#555", paddingLeft: "30%" }}>{t}</p>;
-                    const prev = screenplay.split("\n").slice(0, i).reverse().find(l => l.trim());
-                    const isDlg = prev && (/^[A-Z][A-Z\s\-'().]+$/.test(prev.trim()) || (prev.trim().startsWith("(") && prev.trim().endsWith(")")));
-                    if (isDlg) return <p key={i} style={{ color: "#222", paddingLeft: "20%", paddingRight: "20%" }}>{line}</p>;
-                    return <p key={i} style={{ color: "#333", marginBottom: 2 }}>{line}</p>;
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <ScriptTab
+          screenplay={screenplay}
+          generatingScreenplay={generatingScreenplay}
+          idea={idea}
+          expandedStory={expandedStory}
+          screenplayAuthor={screenplayAuthor}
+          screenplayError={screenplayError}
+          parsingScript={parsingScript}
+          scriptSegments={scriptSegments}
+          showScriptReview={showScriptReview}
+          sendingToScenes={sendingToScenes}
+          sendToScenesResult={sendToScenesResult}
+          hasMoviePlan={!!moviePlan}
+          title={title}
+          genre={genre}
+          tone={tone}
+          cardStyle={cardStyle}
+          inputStyle={inputStyle}
+          s2={s2}
+          border={border}
+          muted={muted}
+          accent={accent}
+          purple={purple}
+          blue={blue}
+          gold={gold}
+          red={red}
+          setActiveTab={setActiveTab}
+          setScreenplayAuthor={setScreenplayAuthor}
+          setScreenplay={setScreenplay}
+          setShowScriptReview={setShowScriptReview}
+          generateScreenplay={generateScreenplay}
+          parseScript={parseScript}
+          sendScreenplayToScenes={sendScreenplayToScenes}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
