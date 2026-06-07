@@ -6148,3 +6148,7 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
 ## 2026-06-07 05:29 UTC — auto-checkpoint (new-commit)
 - branch: `refactor/movie-planner-wave-2`
 - HEAD: `dfc81e9 refactor(movie-planner): Wave 2.1 — extract CharactersTab (-150 LOC)`
+
+## 2026-06-07 07:26 UTC — auto-checkpoint (new-commit)
+- branch: `fix/free-mode-images-per-second`
+- HEAD: `3c11a76 fix(free-mode): user-pick seconds-per-image + subtitles persist + 600s cap`
