@@ -6132,3 +6132,15 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
    M app/api/generation/image/route.ts
    M app/api/generation/video/route.ts
   ```
+
+## 2026-06-06 02:59 UTC — auto-checkpoint (new-commit)
+- branch: `docs/wave1-segregation-log`
+- HEAD: `00331e0 docs: log Wave 1 segregation results + TS variance pattern`
+
+## 2026-06-06 03:01 UTC — auto-checkpoint (dirty)
+- branch: `docs/wave1-segregation-log`
+- HEAD: `00331e0 docs: log Wave 1 segregation results + TS variance pattern`
+- working tree:
+  ```
+   M HANDOFF.md
+  ```

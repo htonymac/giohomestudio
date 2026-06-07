@@ -18,6 +18,11 @@ import PreviewTab from "./tabs/PreviewTab";
 import ScriptTab from "./tabs/ScriptTab";
 import Review2Tab from "./tabs/Review2Tab";
 import OverviewTab from "./tabs/OverviewTab";
+import SoundTab from "./tabs/SoundTab";
+import StyleTab from "./tabs/StyleTab";
+import StoryTab from "./tabs/StoryTab";
+import ScreenplayTab from "./tabs/ScreenplayTab";
+import CharactersTab from "./tabs/CharactersTab";
 import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
@@ -4292,1243 +4297,228 @@ Rules:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* CHARACTERS TAB — Inline Registry (AI-first)                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* CHARACTERS TAB — extracted Wave 2.5                                   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "characters" && (
-        <div style={{ padding: "16px 32px 32px" }}>
-          {/* Header: Character Registry + Vision AI selector */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap" as const, gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Character Registry ({characters.length})</h2>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#ffffff08", border: "1px solid #ffffff15", borderRadius: 8, padding: "4px 10px" }}>
-                <span style={{ fontSize: 10, color: "#888", fontWeight: 600, letterSpacing: 0.5 }}>VISION AI</span>
-                {(["auto", "ollama", "claude", "gpt"] as const).map(p => (
-                  <button key={p} onClick={() => setVisionProvider(p)}
-                    style={{ padding: "3px 8px", borderRadius: 5, border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer",
-                      background: visionProvider === p ? (p === "ollama" ? "#16a34a" : p === "claude" ? "#7c3aed" : p === "gpt" ? "#0284c7" : childAccent) : "#ffffff10",
-                      color: visionProvider === p ? "#fff" : "#aaa" }}>
-                    {p === "auto" ? "Auto" : p === "ollama" ? "Local" : p === "claude" ? "Claude" : "GPT"}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const }}>
-              <button onClick={buildAllStoryCharacters} disabled={buildingAllChars || !( expandedContent || textContent.trim())}
-                style={{ padding: "10px 18px", borderRadius: 10, border: "none",
-                  background: buildingAllChars ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #059669)`,
-                  color: "#fff", fontSize: 11, fontWeight: 700, cursor: buildingAllChars ? "not-allowed" : "pointer" }}>
-                {buildAllProgress || (buildingAllChars ? "Building..." : "Build Story Characters with AI")}
-              </button>
-              <div style={{ display: "flex", gap: 4 }}>
-                <input value={charTabName} onChange={e => setCharTabName(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && charTabName.trim()) { buildCharacterInline(charTabName.trim()).then(() => setCharTabName("")); }}}
-                  placeholder="Add character by name..."
-                  style={{ background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "8px 12px", color: "#fff", fontSize: 11, outline: "none", width: 180 }} />
-                <button onClick={() => { if (charTabName.trim()) buildCharacterInline(charTabName.trim()).then(() => setCharTabName("")); }}
-                  disabled={!charTabName.trim() || charTabCreating}
-                  style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: charTabCreating ? "#2a2a40" : childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                  {charTabCreating ? "..." : "+ Add"}
-                </button>
-              </div>
-              {(() => {
-                const charsWithoutImages = characters.filter(c => !c.imageUrl && !c.hasImage);
-                return charsWithoutImages.length > 0 ? (
-                  <button disabled={!!batchPortraitProgress} onClick={async () => {
-                    let completed = 0;
-                    setBatchPortraitProgress(`0/${charsWithoutImages.length}`);
-                    for (const char of charsWithoutImages) {
-                      try { await generateCharacterPortrait(char); completed++; setBatchPortraitProgress(`${completed}/${charsWithoutImages.length}`); if (completed < charsWithoutImages.length) await new Promise(r => setTimeout(r, 1500)); } catch { /* continue */ }
-                    }
-                    setBatchPortraitProgress(null);
-                    setLastAction(`Batch: ${completed}/${charsWithoutImages.length} portraits generated`);
-                  }}
-                    style={{ padding: "10px 18px", borderRadius: 10, border: "none", background: "linear-gradient(135deg, #00d4ff, #0084ff)", color: "#fff", fontSize: 11, fontWeight: 700, cursor: batchPortraitProgress ? "not-allowed" : "pointer", opacity: batchPortraitProgress ? 0.7 : 1 }}>
-                    {batchPortraitProgress ? `Generating ${batchPortraitProgress}...` : `Generate All Portraits (${charsWithoutImages.length})`}
-                  </button>
-                ) : null;
-              })()}
-              <button onClick={() => setShowCharacterPicker(true)}
-                style={{ padding: "10px 16px", borderRadius: 10, border: `1px solid ${ds.color.lilac}30`, background: "transparent", color: ds.color.lilac, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                Import Existing
-              </button>
-            </div>
-          </div>
-
-          {/* UI Error */}
-          {uiError && (
-            <div style={{ ...cardStyle, borderColor: "#ef444440", background: "#ef444410", marginBottom: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <p style={{ fontSize: 12, color: "#ef4444" }}>{uiError}</p>
-              <button onClick={() => setUiError(null)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>×</button>
-            </div>
-          )}
-
-          {/* BUILD FROM PHOTO section */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-              <div style={{ height: 1, flex: 1, background: "linear-gradient(90deg, #ffffff18, transparent)" }} />
-              <span style={{ fontSize: 9, fontWeight: 800, color: "#ffffff40", letterSpacing: 2, textTransform: "uppercase" as const }}>Build from Photo</span>
-              <div style={{ height: 1, flex: 1, background: "linear-gradient(270deg, #ffffff18, transparent)" }} />
-            </div>
-            <div
-              onDragOver={e => { e.preventDefault(); setPhotoDragOver(true); }}
-              onDragLeave={() => setPhotoDragOver(false)}
-              onDrop={e => { e.preventDefault(); setPhotoDragOver(false); const file = e.dataTransfer.files?.[0]; if (file && file.type.startsWith("image/")) importCharacterFromPhoto(file, photoImportName); else setPhotoImportLog("[!] Drop an image file (JPG, PNG, WebP)"); }}
-              style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 0, borderRadius: 14, overflow: "hidden", border: photoDragOver ? `2px solid ${childAccent}` : importingFromPhoto ? `2px solid ${ds.color.lilac}60` : "2px solid #ffffff14", background: "#0d0d1a", transition: "border-color 0.2s ease" }}>
-              <label style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", gap: 6, cursor: importingFromPhoto ? "not-allowed" : "pointer", background: photoDragOver ? `${childAccent}20` : importingFromPhoto ? `${ds.color.lilac}15` : "#ffffff06", padding: "18px 10px", borderRight: "1px solid #ffffff10", minHeight: 90 }}>
-                <div style={{ width: 48, height: 48, borderRadius: "50%", border: `2px solid ${photoDragOver ? childAccent : importingFromPhoto ? ds.color.lilac : "#ffffff25"}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, background: photoDragOver ? `${childAccent}18` : "#ffffff08" }}>
-                  {importingFromPhoto ? "..." : photoDragOver ? "Drop" : "+"}
-                </div>
-                <span style={{ fontSize: 9, fontWeight: 700, color: photoDragOver ? childAccent : "#ffffff50", textTransform: "uppercase" as const, letterSpacing: 0.8 }}>
-                  {photoDragOver ? "Drop now" : importingFromPhoto ? "Reading…" : "Drop / Browse"}
-                </span>
-                <input type="file" accept="image/*" style={{ display: "none" }} disabled={importingFromPhoto}
-                  onChange={e => { const file = e.target.files?.[0]; if (file) importCharacterFromPhoto(file, photoImportName); e.target.value = ""; }} />
-              </label>
-              <div style={{ padding: "14px 16px", display: "flex", flexDirection: "column" as const, justifyContent: "center", gap: 10 }}>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", margin: "0 0 2px" }}>Import any photo</p>
-                  <p style={{ fontSize: 10, color: muted, margin: 0 }}>AI reads the image, extracts visual traits, and builds a full character identity automatically.</p>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input value={photoImportName} onChange={e => setPhotoImportName(e.target.value)} placeholder="Character name (optional)"
-                    style={{ background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 11px", color: "#fff", fontSize: 11, outline: "none", flex: 1 }}
-                    disabled={importingFromPhoto} />
-                  <label style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: importingFromPhoto ? "#1a1a2e" : `linear-gradient(135deg, ${childAccent}, #059669)`, color: importingFromPhoto ? "#444" : "#000", fontSize: 10, fontWeight: 800, cursor: importingFromPhoto ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, flexShrink: 0, display: "flex", alignItems: "center" }}>
-                    {importingFromPhoto ? "Importing..." : "Choose Photo"}
-                    <input type="file" accept="image/*" style={{ display: "none" }} disabled={importingFromPhoto}
-                      onChange={e => { const file = e.target.files?.[0]; if (file) importCharacterFromPhoto(file, photoImportName); e.target.value = ""; }} />
-                  </label>
-                </div>
-                {photoImportLog && <span style={{ fontSize: 9, fontWeight: 700, color: photoImportLog.startsWith("[!]") ? childAccent : "#22c55e" }}>{photoImportLog}</span>}
-              </div>
-            </div>
-          </div>
-
-          {/* Inline preview card */}
-          {inlinePreview && (
-            <div style={{ ...cardStyle, borderColor: `${childAccent}40`, marginBottom: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                {inlinePreview.imageUrl ? (
-                  <img src={inlinePreview.imageUrl} alt={inlinePreview.displayName} style={{ width: 52, height: 52, borderRadius: 10, objectFit: "cover", border: `2px solid ${childAccent}40`, flexShrink: 0 }} />
-                ) : (
-                  <Icon.User style={{ width: 20, height: 20 }} />
-                )}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", margin: 0 }}>{inlinePreview.displayName}</p>
-                    {inlinePreview.tags?.includes("photo-import") && <span style={{ fontSize: 9, fontWeight: 700, color: childAccent, background: `${childAccent}18`, padding: "2px 6px", borderRadius: 4 }}>FROM PHOTO</span>}
-                  </div>
-                  <p style={{ fontSize: 10, color: muted, margin: 0 }}>{inlinePreview.roleType} · {inlinePreview.gender} · {inlinePreview.ageRange}</p>
-                </div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <button onClick={acceptInlineCharacter} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 800, cursor: "pointer" }}>Add to Cast</button>
-                  <button onClick={() => { setInlinePreview(null); setPhotoImportLog(""); }} style={{ padding: "8px 10px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: "#ef4444", fontSize: 11, cursor: "pointer" }}>
-                    <Icon.X style={{ width: 12, height: 12 }} />
-                  </button>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 6, marginBottom: 10 }}>
-                {([["Species", inlinePreview.species], ["Build", inlinePreview.bodyBuild], ["Colours", inlinePreview.colorDescription], ["Face", inlinePreview.faceFeatures], ["Clothing", inlinePreview.clothingDetails], ["Distinctive", inlinePreview.distinctiveFeatures]] as [string, string | undefined][])
-                  .filter(([, v]) => v && v !== "not specified").map(([label, value]) => (
-                  <div key={label} style={{ padding: "6px 8px", borderRadius: 6, background: "#ffffff05" }}>
-                    <p style={{ fontSize: 8, color: muted, fontWeight: 600, textTransform: "uppercase" as const, marginBottom: 2 }}>{label}</p>
-                    <p style={{ fontSize: 10, color: "#fff" }}>{(value as string).slice(0, 60)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Empty state */}
-          {characters.length === 0 ? (
-            <div style={{ ...cardStyle, textAlign: "center", padding: 40 }}>
-              <Icon.Users style={{ width: 28, height: 28, color: muted, marginBottom: 12 }} />
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 6 }}>No characters yet</p>
-              <p style={{ fontSize: 12, color: muted, marginBottom: 20 }}>
-                {(expandedContent || textContent.trim()) ? "Your story is ready — click above to let AI build all characters automatically." : "Write your story first, then AI will detect and build all characters for you."}
-              </p>
-              <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" as const }}>
-                {(expandedContent || textContent.trim()) && (
-                  <button onClick={buildAllStoryCharacters} disabled={buildingAllChars}
-                    style={{ padding: "12px 20px", borderRadius: 12, border: "none", background: `linear-gradient(135deg, ${childAccent}, #059669)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                    {buildAllProgress || "Build Story Characters with AI"}
-                  </button>
-                )}
-                <button onClick={() => setShowCharacterPicker(true)} style={{ padding: "12px 20px", borderRadius: 12, border: `1px solid ${ds.color.lilac}40`, background: "transparent", color: ds.color.lilac, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  Import from Registry
-                </button>
-                {!(expandedContent || textContent.trim()) && (
-                  <button onClick={() => setActiveTab("content")} style={{ padding: "12px 20px", borderRadius: 12, border: `1px solid ${childAccent}40`, background: "transparent", color: childAccent, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                    ← Go to Story First
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 14 }}>
-              {characters.map(char => {
-                const isEditing = editingCharId === char.characterId;
-                const isGenerating = generatingPortrait === char.characterId;
-                const hasVisual = !!(char.species || char.colorDescription || char.clothingDetails || char.distinctiveFeatures);
-                const visualDesc = buildVisualDescription(char);
-
-                return (
-                  <div key={char.characterId} style={{ ...cardStyle, borderColor: char.imageLocked ? `${childAccent}40` : hasVisual ? `${ds.color.lilac}30` : `${border}` }}>
-                    {/* Top row */}
-                    <div style={{ display: "flex", gap: 14, marginBottom: 10 }}>
-                      <div style={{ position: "relative", width: 80, height: 80, borderRadius: 14, background: `${ds.color.lilac}20`, flexShrink: 0, overflow: "hidden", border: char.imageLocked ? `2px solid ${childAccent}` : `1px solid ${border}` }}>
-                        {char.imageUrl
-                          ? <img src={normalizeImageUrl(char.imageUrl)} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}><Icon.User style={{ width: 32, height: 32, color: muted }} /></div>
-                        }
-                        {char.imageLocked && <div style={{ position: "absolute", bottom: 2, right: 2, background: childAccent, borderRadius: 4, padding: "1px 4px", fontSize: 7, color: "#000", fontWeight: 800 }}>LOCKED</div>}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2, justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>{char.displayName}</p>
-                            {char.imageLocked
-                              ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}20`, color: childAccent, fontWeight: 700 }}>Look Locked</span>
-                              : hasVisual
-                              ? <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${ds.color.lilac}15`, color: ds.color.lilac, fontWeight: 600 }}>AI-described</span>
-                              : char.imageUrl
-                              ? <span onClick={() => analyzeCharacterImage(char.characterId, char.imageUrl!)} style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}10`, color: childAccent, fontWeight: 600, cursor: "pointer" }}>Click to AI-read image</span>
-                              : <span style={{ fontSize: 8, padding: "2px 7px", borderRadius: 8, background: `${childAccent}10`, color: childAccent, fontWeight: 600 }}>Upload image first</span>
-                            }
-                          </div>
-                          <button
-                            onClick={() => { if (confirm(`Remove ${char.displayName} from cast?`)) setCharacters(prev => prev.filter(x => x.characterId !== char.characterId)); }}
-                            style={{ background: "#ef444415", border: "1px solid #ef444430", borderRadius: 6, color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer", padding: "3px 9px", flexShrink: 0 }}>
-                            × Remove
-                          </button>
-                        </div>
-                        {visualDesc ? (
-                          <p style={{ fontSize: 9, color: "#aaa", lineHeight: 1.5, marginBottom: 4, background: `${ds.color.lilac}06`, padding: "4px 6px", borderRadius: 6, border: `1px solid ${ds.color.lilac}15` }}>
-                            <span style={{ color: ds.color.lilac, fontWeight: 600 }}>Visual: </span>{visualDesc.slice(0, 120)}{visualDesc.length > 120 ? "..." : ""}
-                          </p>
-                        ) : (
-                          <p style={{ fontSize: 9, color: childAccent, background: `${childAccent}08`, padding: "4px 6px", borderRadius: 6, marginBottom: 4 }}>
-                            Click "Define Appearance" to describe this character so scenes look consistent.
-                          </p>
-                        )}
-                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" as const }}>
-                          <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${ds.color.lilac}15`, color: ds.color.lilac, fontWeight: 600 }}>{char.roleType}</span>
-                          {char.gender && <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${C4}15`, color: C4, fontWeight: 600 }}>{char.gender}</span>}
-                          {char.voiceId && <span style={{ fontSize: 9, padding: "3px 10px", borderRadius: 20, background: `${childAccent}15`, color: childAccent, fontWeight: 600 }}>Voice</span>}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: isEditing ? 12 : 0 }}>
-                      <button onClick={() => setEditingCharId(isEditing ? null : char.characterId)}
-                        style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isEditing ? ds.color.lilac : border}`, background: isEditing ? `${ds.color.lilac}15` : "transparent", color: isEditing ? ds.color.lilac : muted, fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                        {isEditing ? "Close Builder" : "Define Appearance"}
-                      </button>
-                      {/* ── Portrait model selector ── */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
-                        <span style={{ fontSize: 10, color: "#64748b", fontWeight: 600, whiteSpace: "nowrap" }}>Model</span>
-                        <select
-                          value={charPortraitModel[char.characterId] || (char.tags?.includes("photo-import") ? "fal_flux_pulid" : "segmind_flux")}
-                          onChange={e => setCharPortraitModel(prev => ({ ...prev, [char.characterId]: e.target.value }))}
-                          style={{
-                            padding: "4px 8px", borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: "pointer",
-                            border: "1px solid #ffffff20", background: "#0f172a", color: "#e2e8f0",
-                            outline: "none", flex: 1
-                          }}>
-                          <option value="segmind_flux">Flux Free ($0.0004) — drafts</option>
-                          <option value="fal_flux_schnell">Flux Schnell ($0.003) — fast+good</option>
-                          <option value="segmind_pruna">Pruna ($0.005) — fast</option>
-                          <option value="fal_ideogram_v3_turbo">Ideogram v3 ($0.02) — text/ads</option>
-                          <option value="fal_flux_dev">Flux Dev ($0.025) — quality</option>
-                          <option value="fal_flux_pro">Flux Pro ($0.05) — best</option>
-                          <option value="fal_flux_pulid">Face Lock / PuLID — real photo only</option>
-                        </select>
-                      </div>
-                      <button onClick={() => generateCharacterPortrait(char)} disabled={isGenerating}
-                        style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: isGenerating ? "#2a2a40" : `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 10, fontWeight: 700, cursor: isGenerating ? "not-allowed" : "pointer", opacity: isGenerating ? 0.7 : 1 }}>
-                        {isGenerating ? "Generating 3 shots..." : char.imageUrl ? "Regenerate (3 shots)" : "Generate Portrait (3 shots)"}
-                      </button>
-                      {charRefImages[char.characterId]?.length > 0 && (
-                        <div style={{ flexBasis: "100%", marginTop: 10, padding: "10px 12px", background: s2, borderRadius: 8, border: `1px solid ${border}` }}>
-                          <p style={{ fontSize: 9, color: muted, marginBottom: 6, fontWeight: 600 }}>Full body shots — click to set as main</p>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {charRefImages[char.characterId].map((shot, i) => {
-                              const isMain = char.imageUrl === shot.url;
-                              const ANGLE_NAME: Record<string, string> = { front: "Front", "three-quarter": "3/4 View", side: "Side" };
-                              return (
-                                <div key={i} onClick={() => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageUrl: shot.url } : c))}
-                                  style={{ cursor: "pointer", textAlign: "center" }}>
-                                  <img src={shot.url} alt={shot.angle} style={{ width: 56, height: 80, objectFit: "cover", borderRadius: 6, border: isMain ? `2px solid ${ds.color.lilac}` : `1px solid ${border}`, display: "block" }} />
-                                  <span style={{ fontSize: 8, color: isMain ? ds.color.lilac : muted, fontWeight: isMain ? 700 : 400 }}>{isMain ? "MAIN" : ANGLE_NAME[shot.angle] || shot.angle}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-                      {char.imageUrl && (() => {
-                        const isAnalyzing = analyzingCharacter === char.characterId;
-                        return (
-                          <button onClick={() => { if (!isAnalyzing) analyzeCharacterImage(char.characterId, char.imageUrl!); }} disabled={isAnalyzing}
-                            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${ds.color.lilac}40`, background: isAnalyzing ? `${ds.color.lilac}20` : `${ds.color.lilac}08`, color: ds.color.lilac, fontSize: 10, fontWeight: 700, cursor: isAnalyzing ? "wait" : "pointer", opacity: isAnalyzing ? 0.8 : 1 }}>
-                            {isAnalyzing ? "Reading image..." : "AI Read Look"}
-                          </button>
-                        );
-                      })()}
-                      {(() => {
-                        const isSaving = savingCharacter === char.characterId;
-                        const isSaved = savedCharacter === char.characterId;
-                        return (
-                          <button onClick={() => { if (!isSaving) saveCharacterToRegistry(char); }} disabled={isSaving}
-                            style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${isSaved ? childAccent : "#e05c2040"}`, background: isSaved ? `${childAccent}18` : "#e05c2008", color: isSaved ? childAccent : "#e05c20", fontSize: 10, fontWeight: 700, cursor: isSaving ? "wait" : "pointer", opacity: isSaving ? 0.7 : 1 }}>
-                            {isSaving ? "Saving..." : isSaved ? "Saved!" : "Save Character"}
-                          </button>
-                        );
-                      })()}
-                      <button onClick={() => openImagePicker(char.characterId)}
-                        style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #0ea5e940", background: "#0ea5e908", color: "#0ea5e9", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                        Import Image
-                      </button>
-                      {char.imageUrl && !char.imageLocked && (
-                        <button onClick={() => { setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageLocked: true } : c)); setLastAction(`${char.displayName}'s look is LOCKED`); }}
-                          style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                          Lock this Look
-                        </button>
-                      )}
-                      {char.imageLocked && (
-                        <button onClick={() => { setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, imageLocked: false } : c)); }}
-                          style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                          Unlock
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Visual Identity Builder */}
-                    {isEditing && (
-                      <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${ds.color.lilac}20` }}>
-                        <p style={{ fontSize: 11, fontWeight: 700, color: ds.color.lilac, marginBottom: 10 }}>Visual Identity — fill in what makes this character unique</p>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
-                          <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Character Type / Species</label>
-                            <input value={char.species || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, species: e.target.value } : c))}
-                              placeholder='"rabbit", "human", "lion", "young boy"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Body Build / Size</label>
-                            <input value={char.bodyBuild || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, bodyBuild: e.target.value } : c))}
-                              placeholder='"small and round", "tall and slim"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Fur / Skin / Color Description</label>
-                            <input value={char.colorDescription || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, colorDescription: e.target.value } : c))}
-                              placeholder='"warm grey fur with white belly", "brown skin"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Face & Eyes</label>
-                            <input value={char.faceFeatures || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, faceFeatures: e.target.value } : c))}
-                              placeholder='"big round eyes, small button nose, wide smile"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Clothing (be specific)</label>
-                            <input value={char.clothingDetails || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, clothingDetails: e.target.value } : c))}
-                              placeholder='"red overalls, yellow shirt"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Accessories</label>
-                            <input value={char.accessories || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, accessories: e.target.value } : c))}
-                              placeholder='"small backpack, red hat"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Age / Posture</label>
-                            <input value={char.ageAppearance || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, ageAppearance: e.target.value } : c))}
-                              placeholder='"young child, age 6, cheerful expression"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                          <div style={{ gridColumn: "1 / -1" }}>
-                            <label style={{ ...labelStyle, fontSize: 9 }}>Distinctive Features</label>
-                            <input value={char.distinctiveFeatures || ""} onChange={e => setCharacters(prev => prev.map(c => c.characterId === char.characterId ? { ...c, distinctiveFeatures: e.target.value } : c))}
-                              placeholder='"fluffy white tail, very big ears, always smiling"'
-                              style={{ width: "100%", background: surface, border: `1px solid ${border}`, borderRadius: 10, padding: "8px 10px", color: "#fff", fontSize: 11, outline: "none", fontFamily: "inherit" }} />
-                          </div>
-                        </div>
-                        {buildVisualDescription(char) && (
-                          <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: `${ds.color.lilac}08`, border: `1px solid ${ds.color.lilac}20` }}>
-                            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 600, marginBottom: 2 }}>→ This is what gets injected into every scene prompt:</p>
-                            <p style={{ fontSize: 9, color: "#ccc", lineHeight: 1.6, fontStyle: "italic" }}>
-                              CHARACTER {char.displayName.toUpperCase()} (EXACT FIXED APPEARANCE): {buildVisualDescription(char)}
-                            </p>
-                          </div>
-                        )}
-                        <button onClick={() => { generateCharacterPortrait(char); setEditingCharId(null); }} disabled={isGenerating}
-                          style={{ marginTop: 10, width: "100%", padding: "10px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                          Generate Portrait from This Description →
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Next step CTA */}
-          {characters.length > 0 && (
-            <div style={{ ...cardStyle, borderColor: `${childAccent}20`, marginTop: 8 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <p style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>
-                    {characters.filter(c => c.voiceId).length}/{characters.length} characters fully built
-                  </p>
-                  <p style={{ fontSize: 10, color: muted, marginTop: 2 }}>
-                    {characters.filter(c => !c.voiceId).length > 0
-                      ? `${characters.filter(c => !c.voiceId).length} still need AI build — click "Build Story Characters with AI" above`
-                      : "All characters ready — proceed to Scene Board"}
-                  </p>
-                </div>
-                <button onClick={() => setActiveTab("sceneBoard")}
-                  style={{ padding: "11px 22px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${C4}, #0084ff)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                  → Step 3: Scene Board
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* CharacterPicker modal for "Import Existing" */}
-          {showCharacterPicker && (
-            <>
-              <div onClick={() => setShowCharacterPicker(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299 }} />
-              <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 300, background: "#0f1117", border: "1px solid #ffffff18", borderRadius: 16, width: "min(680px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
-                <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #ffffff10", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Import from Character Registry</p>
-                  <button onClick={() => setShowCharacterPicker(false)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer" }}><Icon.X style={{ width: 16, height: 16 }} /></button>
-                </div>
-                <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                  <CharacterPicker
-                    onSelect={(char) => {
-                      const newChar: CharacterIdentity = {
-                        characterId: char.characterId || char.id || `CC_IMP_${Date.now()}`,
-                        dbId: char.id,
-                        displayName: char.name,
-                        roleType: char.role || "supporting",
-                        gender: char.gender || "unknown",
-                        ageRange: "child",
-                        skinTone: "", hairStyle: "", wardrobeStyle: "",
-                        speechStyle: "normal", accentType: "",
-                        emotionProfile: "", voiceId: char.voiceId || "",
-                        voiceType: "childlike", intonation: "playful", language: "English",
-                        tags: ["imported"], hasVoice: !!char.voiceId, hasImage: !!char.imageUrl,
-                        imageUrl: char.imageUrl ? (char.imageUrl.startsWith("http") || char.imageUrl.startsWith("/api/") ? char.imageUrl : `/api/media/${char.imageUrl.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}`) : undefined,
-                        visualDescription: char.visualDescription || undefined,
-                      };
-                      setCharacters(prev => prev.some(c => c.characterId === newChar.characterId) ? prev : [...prev, newChar]);
-                      setShowCharacterPicker(false);
-                      setLastAction(`Imported "${char.name}"`);
-                    }}
-                    onCreateNew={() => { window.open("/dashboard/character-voices?returnTo=children-planner", "_blank"); }}
-                    compact
-                  />
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Image Picker Modal */}
-          {imagePickerForCharId && (
-            <>
-              <div onClick={() => setImagePickerForCharId(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 299 }} />
-              <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%,-50%)", zIndex: 300, background: "#0f1117", border: "1px solid #ffffff18", borderRadius: 16, width: "min(680px, 95vw)", maxHeight: "80vh", display: "flex", flexDirection: "column" as const, overflow: "hidden" }}>
-                <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid #ffffff10", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Import Image</p>
-                    <p style={{ fontSize: 11, color: "#888", marginTop: 2 }}>Pick an existing image for <strong style={{ color: "#0ea5e9" }}>{characters.find(c => c.characterId === imagePickerForCharId)?.displayName || imagePickerForCharId}</strong></p>
-                  </div>
-                  <button onClick={() => setImagePickerForCharId(null)} style={{ background: "none", border: "none", color: "#888", cursor: "pointer" }}><Icon.X style={{ width: 16, height: 16 }} /></button>
-                </div>
-                <div style={{ padding: "12px 20px", borderBottom: "1px solid #ffffff08", background: "#ffffff04" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "#0ea5e9" }}>Upload from computer</span>
-                    <input type="file" accept="image/*" style={{ display: "none" }}
-                      onChange={async e => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        const reader = new FileReader();
-                        reader.onload = ev => { const dataUrl = ev.target?.result as string; if (dataUrl && imagePickerForCharId) assignImageToCharacter(imagePickerForCharId, dataUrl); };
-                        reader.readAsDataURL(file);
-                      }} />
-                    <span style={{ fontSize: 9, color: "#666" }}>JPG, PNG, WEBP</span>
-                  </label>
-                </div>
-                <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-                  {imagePickerLoading ? <p style={{ textAlign: "center", color: "#888", fontSize: 12, padding: 40 }}>Loading assets...</p>
-                  : imagePickerAssets.length === 0 ? <div style={{ textAlign: "center", color: "#666", fontSize: 12, padding: 40 }}><p>No images found. Generate portrait images first.</p></div>
-                  : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
-                      {imagePickerAssets.map(asset => {
-                        const displayUrl = asset.fileUrl || (asset.filePath ? `/api/media/${asset.filePath.replace(/\\/g, "/").replace(/^.*?storage[\\/]?/, "")}` : "");
-                        if (!displayUrl) return null;
-                        return (
-                          <div key={asset.id} onClick={() => imagePickerForCharId && assignImageToCharacter(imagePickerForCharId, displayUrl)}
-                            style={{ cursor: "pointer", borderRadius: 10, overflow: "hidden", border: "2px solid #ffffff10" }}>
-                            <img src={displayUrl} alt={asset.name} style={{ width: "100%", aspectRatio: "1", objectFit: "cover", display: "block" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                            <div style={{ padding: "5px 6px", background: "#ffffff06" }}>
-                              <p style={{ fontSize: 9, color: "#ccc", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{asset.name}</p>
-                              {asset.source === "character_registry" && <p style={{ fontSize: 8, color: "#7c3aed", marginTop: 1 }}>Character Registry</p>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  }
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <CharactersTab
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          s2={s2}
+          surface={surface}
+          border={border}
+          muted={muted}
+          childAccent={childAccent}
+          C4={C4}
+          dsLilac={ds.color.lilac}
+          characters={characters}
+          setCharacters={setCharacters as unknown as React.Dispatch<React.SetStateAction<import("./tabs/CharactersTab").ChildCharacterIdentity[]>>}
+          visionProvider={visionProvider}
+          setVisionProvider={setVisionProvider}
+          buildAllStoryCharacters={buildAllStoryCharacters}
+          buildingAllChars={buildingAllChars}
+          buildAllProgress={buildAllProgress}
+          expandedContent={expandedContent}
+          textContent={textContent}
+          charTabName={charTabName}
+          setCharTabName={setCharTabName}
+          buildCharacterInline={buildCharacterInline}
+          charTabCreating={charTabCreating}
+          batchPortraitProgress={batchPortraitProgress}
+          setBatchPortraitProgress={setBatchPortraitProgress}
+          generateCharacterPortrait={generateCharacterPortrait}
+          setLastAction={setLastAction}
+          showCharacterPicker={showCharacterPicker}
+          setShowCharacterPicker={setShowCharacterPicker}
+          uiError={uiError}
+          setUiError={setUiError}
+          photoDragOver={photoDragOver}
+          setPhotoDragOver={setPhotoDragOver}
+          importingFromPhoto={importingFromPhoto}
+          photoImportName={photoImportName}
+          setPhotoImportName={setPhotoImportName}
+          importCharacterFromPhoto={importCharacterFromPhoto}
+          photoImportLog={photoImportLog}
+          setPhotoImportLog={setPhotoImportLog}
+          inlinePreview={inlinePreview}
+          setInlinePreview={setInlinePreview as unknown as React.Dispatch<React.SetStateAction<import("./tabs/CharactersTab").ChildCharacterIdentity | null>>}
+          acceptInlineCharacter={acceptInlineCharacter}
+          editingCharId={editingCharId}
+          setEditingCharId={setEditingCharId}
+          generatingPortrait={generatingPortrait}
+          buildVisualDescription={buildVisualDescription}
+          normalizeImageUrl={normalizeImageUrl}
+          analyzingCharacter={analyzingCharacter}
+          analyzeCharacterImage={analyzeCharacterImage}
+          savingCharacter={savingCharacter}
+          savedCharacter={savedCharacter}
+          saveCharacterToRegistry={saveCharacterToRegistry}
+          openImagePicker={openImagePicker}
+          charPortraitModel={charPortraitModel}
+          setCharPortraitModel={setCharPortraitModel}
+          charRefImages={charRefImages}
+          imagePickerForCharId={imagePickerForCharId}
+          setImagePickerForCharId={setImagePickerForCharId}
+          imagePickerAssets={imagePickerAssets}
+          imagePickerLoading={imagePickerLoading}
+          assignImageToCharacter={assignImageToCharacter}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* CONTENT INPUT TAB                                                   */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* CONTENT/STORY TAB — extracted Wave 2.3                                */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "content" && (
-        <div style={{ ...cardStyle, padding: 28 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Enter Your Content</h2>
-
-          {/* ── Learning Mode Selector ── */}
-          <div style={{ marginBottom: 20 }}>
-            <p style={labelStyle}>Learning Mode</p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-              {LEARNING_MODES.map(mode => {
-                const isActive = learningMode === mode.id;
-                return (
-                  <button key={mode.id} onClick={() => { setLearningMode(mode.id as typeof learningMode); setLastAction(`Mode: ${mode.label}`); }}
-                    style={{
-                      padding: "12px 10px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                      border: `2px solid ${isActive ? childAccent : border}`,
-                      background: isActive ? `${childAccent}10` : "transparent",
-                      transition: "all 0.15s",
-                    }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: isActive ? childAccent : "#fff", marginBottom: 2 }}>{mode.label}</p>
-                    <p style={{ fontSize: 9, color: muted, lineHeight: 1.3 }}>{mode.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {topicParam && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.2)" }}>
-              <p style={{ fontSize: 11, color: "#3b82f6", fontWeight: 600 }}>
-                Topic: {topicParam}
-              </p>
-              <p style={{ fontSize: 9, color: muted, marginTop: 2 }}>
-                Pre-filled from curriculum suggestion. Edit below to customise, or use as-is.
-              </p>
-            </div>
-          )}
-
-          {charactersParam && (
-            <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(168,85,247,0.06)", border: "1px solid rgba(168,85,247,0.2)" }}>
-              <p style={{ fontSize: 11, color: childAccent, fontWeight: 600 }}>
-                Characters: {charactersParam.split(",").filter(Boolean).length} imported
-              </p>
-              <p style={{ fontSize: 9, color: muted }}>Characters from your library will be used in this content.</p>
-            </div>
-          )}
-
-          <textarea value={textContent} onChange={e => { setTextContent(e.target.value); setLastAction("Content updated"); }} rows={6}
-            placeholder={contentParam === "3letter" ? "Enter words (one per line):\ncat\nsat\nram\njam\nran" :
-              contentParam === "abc" ? "Enter the letters to cover (or leave empty for full A-Z)" :
-              contentParam === "poem" ? "Enter your children's poem:\nTwinkle twinkle little star\nHow I wonder what you are" :
-              contentParam === "storybook" ? "Write your children's story:\nOnce upon a time, there was a little cat named Sam. Sam loved to play in the garden..." :
-              "Enter your content here..."}
-            style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 12, padding: "14px 16px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
-
-
-          {/* Era & Culture Lock */}
-          <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
-            <div>
-              <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
-              <input
-                value={storyEra}
-                onChange={e => setStoryEra(e.target.value)}
-                placeholder="e.g. Today, 1819, 899 AD, 300 BC"
-                style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 10px", color: "#fff", fontSize: 10, outline: "none" }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Culture / Setting</label>
-              <input
-                value={storyCulture}
-                onChange={e => setStoryCulture(e.target.value)}
-                placeholder="e.g. Contemporary Lagos, Victorian England"
-                style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 8, padding: "7px 10px", color: "#fff", fontSize: 10, outline: "none" }}
-              />
-            </div>
-          </div>
-          {(storyEra || storyCulture) && (
-            <p style={{ fontSize: 8, color: "#fb923c", marginTop: 4, fontWeight: 600 }}>
-              Era lock active: {[storyEra, storyCulture].filter(Boolean).join(" · ")}
-            </p>
-          )}
-
-          {/* AI Content Expansion + small Modify buttons (Henry 2026-05-30 task #38) */}
-          <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-            <button
-              onClick={expandContent}
-              disabled={expandingContent || !textContent.trim()}
-              style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childAccent}`, background: expandingContent ? `${childAccent}10` : `${childAccent}20`, color: (expandingContent || !textContent.trim()) ? muted : childAccent, fontSize: 12, fontWeight: 600, cursor: (expandingContent || !textContent.trim()) ? "not-allowed" : "pointer" }}>
-              {expandingContent ? "Expanding..." : "Expand with AI"}
-            </button>
-            <button
-              onClick={expandStory}
-              disabled={expanding || !textContent.trim()}
-              style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childSafe}`, background: expanding ? `${childSafe}10` : `${childSafe}20`, color: (expanding || !textContent.trim()) ? muted : childSafe, fontSize: 12, fontWeight: 700, cursor: (expanding || !textContent.trim()) ? "not-allowed" : "pointer" }}>
-              {expanding ? "Building..." : "Build Story with AI"}
-            </button>
-            {/* Modify-with-AI: small per-intent buttons (mirror hybrid scene-card toolbar style) */}
-            {([
-              { kind: "intense"     as const, label: "🔥 Intensify",        col: "#ef4444" },
-              { kind: "playful"     as const, label: "🎈 Make Playful",     col: "#f472b6" },
-              { kind: "funny"       as const, label: "😄 Make Fun",         col: "#fbbf24" },
-              { kind: "educational" as const, label: "📚 Educational",      col: "#06b6d4" },
-              { kind: "adventure"   as const, label: "🗺 Adventure",        col: "#10b981" },
-              { kind: "magical"     as const, label: "✨ Magical",          col: "#a78bfa" },
-              { kind: "cozy"        as const, label: "🤗 Cozy",             col: "#fb923c" },
-              { kind: "diverse"     as const, label: "🌍 Diverse",          col: "#34d399" },
-              { kind: "musical"     as const, label: "🎵 Musical",          col: "#c084fc" },
-              { kind: "emotional"   as const, label: "💝 Heartwarming",     col: "#ec4899" },
-            ]).map(({ kind, label, col }) => {
-              const busy = modifyingPrompt === kind;
-              const disabled = !textContent.trim() || modifyingPrompt !== null || prefillingPrompt;
-              return (
-                <button
-                  key={kind}
-                  onClick={() => modifyPrompt(kind)}
-                  disabled={disabled}
-                  title={`Rewrite the story idea — ${label.replace(/^\S+\s/, "").toLowerCase()}`}
-                  style={{
-                    padding: "5px 9px", borderRadius: 6,
-                    border: `1px solid ${col}55`,
-                    background: busy ? `${col}25` : `${col}12`,
-                    color: disabled ? muted : col,
-                    fontSize: 9, fontWeight: 700,
-                    cursor: disabled ? "not-allowed" : "pointer",
-                    opacity: disabled ? 0.55 : 1,
-                  }}>
-                  {busy ? "…" : label}
-                </button>
-              );
-            })}
-            {/* Henry 2026-06-02: De-vocabularize — single button in modify row.
-                Click → prompt() for age → rewrites story for that reading age. */}
-            <button
-              onClick={() => {
-                if (!textContent.trim()) { setLastAction("Add story text first"); return; }
-                const raw = window.prompt("Rewrite story for which age? (5-12)", "5");
-                if (raw === null) return;
-                const age = parseInt(raw.trim(), 10);
-                if (!Number.isFinite(age) || age < 5 || age > 12) {
-                  setLastAction("Age must be a number between 5 and 12");
-                  return;
-                }
-                void devocarize(age);
-              }}
-              disabled={!!devocarizing || !textContent.trim() || modifyingPrompt !== null || prefillingPrompt}
-              title="Rewrite story for a target reading age — simpler words, shorter sentences"
-              style={{
-                padding: "5px 9px", borderRadius: 6,
-                border: `1px solid ${childAccent}55`,
-                background: devocarizing ? `${childAccent}25` : `${childAccent}12`,
-                color: (!!devocarizing || !textContent.trim()) ? muted : childAccent,
-                fontSize: 9, fontWeight: 700,
-                cursor: (!!devocarizing || !textContent.trim()) ? "not-allowed" : "pointer",
-                opacity: (!!devocarizing || !textContent.trim()) ? 0.55 : 1,
-              }}>
-              {devocarizing ? `Age ${devocarizing}…` : "📖 De-vocabularize"}
-            </button>
-            {prefillingPrompt && (
-              <span style={{ fontSize: 9, color: childAccent, fontWeight: 700, padding: "5px 9px" }}>
-                ✨ AI suggesting a unique story idea…
-              </span>
-            )}
-            {/* Henry 2026-05-31: manual re-suggest button so if auto-prefill didn't fire
-                (project re-open, race condition, etc.) user can force a fresh idea. */}
-            <button
-              onClick={() => prefillPrompt()}
-              disabled={prefillingPrompt || modifyingPrompt !== null}
-              title="Generate a fresh unique story idea from the current selections + a new random seed"
-              style={{
-                padding: "5px 9px", borderRadius: 6,
-                border: `1px solid ${childSafe}55`,
-                background: prefillingPrompt ? `${childSafe}25` : `${childSafe}12`,
-                color: (prefillingPrompt || modifyingPrompt !== null) ? muted : childSafe,
-                fontSize: 9, fontWeight: 700,
-                cursor: (prefillingPrompt || modifyingPrompt !== null) ? "not-allowed" : "pointer",
-                opacity: (prefillingPrompt || modifyingPrompt !== null) ? 0.55 : 1,
-              }}>
-              {prefillingPrompt ? "…" : "✨ Re-suggest"}
-            </button>
-            {/* Small inline LLM picker — Henry 2026-05-31: shows the ACTUAL model name
-                (Claude Haiku/Sonnet/Opus, GPT-4o, Ollama, etc.) so user knows what's
-                generating their prefill + modify edits. Owner override of the GHS
-                Standard/Plus/Pro branding rule for this surface. */}
-            <select
-              value={storyAiProvider}
-              onChange={e => setStoryAiProvider(e.target.value)}
-              title="Active LLM for prefill + modify buttons"
-              style={{
-                padding: "5px 8px", borderRadius: 6,
-                border: `1px solid ${childAccent}55`,
-                background: "#151518", color: childAccent,
-                fontSize: 9, fontWeight: 700,
-                cursor: "pointer", outline: "none",
-              }}>
-              <option value="ollama"                              style={{ background: "#151518" }}>🧠 Ollama (local, free)</option>
-              <option value="claude:claude-haiku-4-5-20251001"    style={{ background: "#151518" }}>⚡ Claude Haiku 4.5</option>
-              <option value="claude:claude-sonnet-4-6"            style={{ background: "#151518" }}>✨ Claude Sonnet 4.6 (rec)</option>
-              <option value="claude:claude-opus-4-7"              style={{ background: "#151518" }}>🌟 Claude Opus 4.7</option>
-              <option value="openai:gpt-4o-mini"                  style={{ background: "#151518" }}>🔸 GPT-4o Mini</option>
-              <option value="openai:gpt-4o"                       style={{ background: "#151518" }}>🔶 GPT-4o</option>
-              <option value="openai:o1-mini"                      style={{ background: "#151518" }}>🧩 o1-mini (reasoning)</option>
-            </select>
-            {expandedContent && (
-              <button
-                onClick={extractChildCharacters}
-                disabled={extractingChars !== "idle"}
-                style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childSafe}`, background: `${childSafe}15`, color: extractingChars !== "idle" ? muted : childSafe, fontSize: 12, fontWeight: 600, cursor: extractingChars !== "idle" ? "not-allowed" : "pointer" }}>
-                {extractingChars === "building" ? "Building Characters..." : extractingChars === "extracting" ? "Extracting..." : "Extract Characters from Story"}
-              </button>
-            )}
-          </div>
-
-          {/* Show planned scenes after expandStory */}
-          {childScenes.length > 0 && (
-            <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 12, background: `${childSafe}08`, border: `1px solid ${childSafe}25` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <p style={{ fontSize: 10, color: childSafe, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 1 }}>
-                  Story Built — {childScenes.length} Scenes Planned
-                </p>
-                <button
-                  disabled={runningIntelligence || childScenes.length === 0}
-                  onClick={runSceneIntelligence}
-                  style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #4ade8030", background: runningIntelligence ? "#1a2a1a" : "#0d1a0d", color: "#4ade80", fontSize: 10, fontWeight: 700, cursor: runningIntelligence ? "not-allowed" : "pointer", opacity: runningIntelligence ? 0.6 : 1 }}
-                >
-                  {runningIntelligence ? "Detecting..." : "Story Scenes"}
-                </button>
-              </div>
-              {runningIntelligence && (
-                <p style={{ fontSize: 10, color: "#4ade80", margin: "4px 0" }}>Scene Intelligence running — detecting environments and ambient sounds...</p>
-              )}
-              {!runningIntelligence && Object.keys(sceneIntelligence).length > 0 && (
-                <p style={{ fontSize: 10, color: "#666", margin: "4px 0" }}>
-                  {Object.keys(sceneIntelligence).length} scenes have sound environment data
-                </p>
-              )}
-              <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
-                {childScenes.map(s => {
-                  const sceneKey = `child_sc${String(s.scene).padStart(2, "0")}`;
-                  const intel = sceneIntelligence[sceneKey];
-                  return (
-                    <div key={s.scene} style={{ padding: "8px 12px", borderRadius: 8, background: s2, border: `1px solid ${border}`, display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <span style={{ fontSize: 10, color: childAccent, fontWeight: 700, flexShrink: 0, minWidth: 28 }}>SC{String(s.scene).padStart(2, "0")}</span>
-                      <div style={{ flex: 1 }}>
-                        <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", marginBottom: 2 }}>{s.title}</p>
-                        <p style={{ fontSize: 9, color: muted, lineHeight: 1.4 }}>{(s.visualDescription ?? "").substring(0, 100)}{(s.visualDescription ?? "").length > 100 ? "..." : ""}</p>
-                        {intel && (() => {
-                          const energyColor = SCENE_ENERGY_COLOR[intel.energyLevel] || "#888";
-                          return (
-                            <div style={{ margin: "8px 0", padding: "6px 8px", borderRadius: 8, background: "#ffffff05", border: "1px solid #ffffff0a" }}>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                                <span style={{ fontSize: 9, fontWeight: 700, color: "#fff", textTransform: "capitalize" }}>{intel.environmentType.replace(/-/g, " ")}</span>
-                                <span style={{ fontSize: 8, color: "#666" }}>•</span>
-                                <span style={{ fontSize: 8, color: "#666", textTransform: "capitalize" }}>{intel.timeOfDay}</span>
-                                <span style={{ marginLeft: "auto", fontSize: 7, padding: "1px 5px", borderRadius: 4, background: `${energyColor}20`, color: energyColor, fontWeight: 700, textTransform: "uppercase" }}>{intel.energyLevel}</span>
-                              </div>
-                              <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
-                                {intel.ambienceSounds.slice(0, 4).map((sound, i) => (
-                                  <span key={i} style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#1a2a1a", color: "#4ade80", border: "1px solid #4ade8030" }}>{sound}</span>
-                                ))}
-                                {intel.sfxEvents.length > 0 && (
-                                  <span style={{ fontSize: 7, padding: "2px 6px", borderRadius: 20, background: "#2a1a1a", color: "#eab308", border: "1px solid #eab30830" }}>{intel.sfxEvents[0]}</span>
-                                )}
-                                {autoSfx && intel.sfxEvents.length > 0 && (
-                                  <span style={{ fontSize: 6, padding: "2px 5px", borderRadius: 20, background: "#1a1a2a", color: "#818cf8", border: "1px solid #818cf830" }}>Auto SFX</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <button onClick={() => setActiveTab("review1")} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: childSafe, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                Proceed to Review →
-              </button>
-            </div>
-          )}
-
-          {/* Show expanded content if available */}
-          {expandedContent && (
-            <div style={{ marginTop: 12, padding: "14px 16px", borderRadius: 12, background: `${childAccent}08`, border: `1px solid ${childAccent}25` }}>
-              <p style={{ fontSize: 10, color: childAccent, fontWeight: 600, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>AI Expanded Story</p>
-              <p style={{ fontSize: 12, color: "#e0e0f0", lineHeight: 1.6, whiteSpace: "pre-wrap" as const }}>{expandedContent}</p>
-              <button onClick={() => { setTextContent(expandedContent); setLastAction("Used expanded content"); }}
-                style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                Use This Text
-              </button>
-            </div>
-          )}
-
-          {/* Upload Reference Image */}
-          <div style={{ marginTop: 14 }}>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 6, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Upload Reference Image</p>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <label style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", borderRadius: 8, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                Choose Image
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const formData = new FormData();
-                  formData.append("file", file);
-                  try {
-                    const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
-                    const data = await res.json();
-                    if (data.url) { setContentImage(data.url); setLastAction("Reference image uploaded"); }
-                  } catch { /* ignore */ }
-                }} />
-              </label>
-              {contentImage && (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <img src={contentImage} alt="Reference" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: `1px solid ${border}` }} />
-                  <button onClick={() => { setContentImage(null); setLastAction("Reference image removed"); }}
-                    style={{ fontSize: 9, padding: "4px 8px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, cursor: "pointer" }}>
-                    Remove
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {isBilingual && (
-            <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)" }}>
-              <p style={{ fontSize: 11, color: "#f59e0b" }}>
-                Bilingual mode active — each word/sentence will be shown in {langParam.toUpperCase()} and {lang2Param.toUpperCase()} with dual narration.
-              </p>
-            </div>
-          )}
-
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <div style={{ flex: 1 }}>
-              <p style={{ fontSize: 10, color: muted, marginBottom: 6 }}>Energy Level</p>
-              <div style={{ display: "flex", gap: 6 }}>
-                <button onClick={() => { setTone("soft"); setLastAction("Energy set to Soft"); }}
-                  style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${tone === "soft" ? childSafe : border}`, background: tone === "soft" ? `${childSafe}10` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: tone === "soft" ? childSafe : "#fff" }}>Soft</p>
-                  <p style={{ fontSize: 8, color: muted }}>Calm, bedtime, gentle</p>
-                </button>
-                <button onClick={() => { setTone("active"); setLastAction("Energy set to Active"); }}
-                  style={{ flex: 1, padding: "10px", borderRadius: 8, border: `1px solid ${tone === "active" ? "#f59e0b" : border}`, background: tone === "active" ? "rgba(245,158,11,0.1)" : "transparent", cursor: "pointer", textAlign: "center" }}>
-                  <p style={{ fontSize: 11, fontWeight: 600, color: tone === "active" ? "#f59e0b" : "#fff" }}>Active</p>
-                  <p style={{ fontSize: 8, color: muted }}>Playful, energetic, fun</p>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Next step CTA */}
-          {textContent && (
-            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-              <button onClick={() => setActiveTab("script")}
-                style={{ flex: 1, padding: "11px 0", borderRadius: 10, border: "none", background: childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                Next: Script & Story Plan
-              </button>
-            </div>
-          )}
-        </div>
+        <StoryTab
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          s2={s2}
+          border={border}
+          muted={muted}
+          childAccent={childAccent}
+          childSafe={childSafe}
+          LEARNING_MODES={LEARNING_MODES}
+          learningMode={learningMode}
+          setLearningMode={setLearningMode as unknown as (id: string) => void}
+          topicParam={topicParam}
+          charactersParam={charactersParam}
+          contentParam={contentParam}
+          langParam={langParam}
+          lang2Param={lang2Param}
+          isBilingual={isBilingual}
+          textContent={textContent}
+          setTextContent={setTextContent}
+          storyEra={storyEra}
+          setStoryEra={setStoryEra}
+          storyCulture={storyCulture}
+          setStoryCulture={setStoryCulture}
+          expandContent={expandContent}
+          expandingContent={expandingContent}
+          expandStory={expandStory}
+          expanding={expanding}
+          modifyPrompt={modifyPrompt}
+          modifyingPrompt={modifyingPrompt}
+          prefillPrompt={prefillPrompt}
+          prefillingPrompt={prefillingPrompt}
+          devocarize={devocarize}
+          devocarizing={devocarizing}
+          extractChildCharacters={extractChildCharacters}
+          extractingChars={extractingChars}
+          storyAiProvider={storyAiProvider}
+          setStoryAiProvider={setStoryAiProvider}
+          expandedContent={expandedContent}
+          childScenes={childScenes}
+          runningIntelligence={runningIntelligence}
+          runSceneIntelligence={runSceneIntelligence}
+          sceneIntelligence={sceneIntelligence}
+          SCENE_ENERGY_COLOR={SCENE_ENERGY_COLOR}
+          autoSfx={autoSfx}
+          contentImage={contentImage}
+          setContentImage={setContentImage}
+          tone={tone}
+          setTone={setTone as unknown as (s: string) => void}
+          setLastAction={setLastAction}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* STYLE & VOICE TAB                                                   */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* STYLE TAB — extracted Wave 2.2 of children-planner segregation        */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "style" && (
-        <div style={{ ...cardStyle, padding: 28 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Voice, Visual & Music</h2>
-
-          {/* ── AI Model Picker ── */}
-          <div style={{ marginBottom: 20 }}>
-            <span style={labelStyle}>AI Generation Models</span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <button onClick={() => { setAidMode("video"); setShowAidPicker(true); }}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon.Film style={{ width: 12, height: 12 }} />
-                Video Model: <span style={{ color: "#fff" }}>{effectiveVideoModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
-              </button>
-              <button onClick={() => { setAidMode("image"); setShowAidPicker(true); }}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${childSafe}40`, background: `${childSafe}10`, color: childSafe, fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon.Image style={{ width: 12, height: 12 }} />
-                Image Model: <span style={{ color: "#fff" }}>{effectiveImageModelId.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</span>
-              </button>
-              {/* Seed control */}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <input
-                  type="number"
-                  placeholder="Seed (random)"
-                  value={genSeed ?? ""}
-                  onChange={e => {
-                    const v = e.target.value === "" ? null : parseInt(e.target.value, 10);
-                    setGenSeed(isNaN(v as number) ? null : v);
-                  }}
-                  style={{ width: 110, padding: "5px 8px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, outline: "none" }}
-                />
-                <button
-                  title="Randomize seed"
-                  onClick={() => setGenSeed(Math.floor(Math.random() * 1e9))}
-                  style={{ padding: "5px 7px", borderRadius: 7, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 12, cursor: "pointer", lineHeight: 1 }}>
-                  🎲
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Narration style */}
-          <p style={labelStyle}>Narration Voice</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 6, marginBottom: 20 }}>
-            {NARRATION_STYLES.map(n => (
-              <button key={n.id} onClick={() => { setNarrationStyle(n.id); setLastAction(`Narration: ${n.label}`); }}
-                style={{ padding: "10px 12px", borderRadius: 10, border: `1px solid ${narrationStyle === n.id ? childAccent : border}`, background: narrationStyle === n.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "left" }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: narrationStyle === n.id ? childAccent : "#fff" }}>{n.label}</p>
-                <p style={{ fontSize: 9, color: muted }}>{n.desc}</p>
-              </button>
-            ))}
-          </div>
-
-          {/* Narration provider selector */}
-          <p style={labelStyle}>Narration Provider</p>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 14 }}>
-            {([
-              { id: "piper",       label: "Piper (free)",   color: childSafe },
-              { id: "fal-narrator", label: "FAL Narrator",  color: C4 },
-              { id: "elevenlabs",  label: "ElevenLabs",     color: C2 },
-              { id: "karaoke",     label: "Karaoke",        color: childAccent },
-            ] as const).map(p => (
-              <button key={p.id} onClick={() => { setNarrationProvider(p.id); patchProjectSettings({ narrationProvider: p.id }).catch(() => {}); }}
-                style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${effectiveNarrationProvider === p.id ? p.color : border}`,
-                  background: effectiveNarrationProvider === p.id ? `${p.color}12` : "transparent",
-                  color: effectiveNarrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Narration controls */}
-          <div style={{ marginBottom: 20 }}>
-            <NarrationControls
-              narrationText={narrationText}
-              onNarrationChange={setNarrationText}
-              onSettingsChange={setNarrationSettings}
-              initialSettings={{ mode: "children" }}
-              compact
-            />
-          </div>
-
-          {/* Visual style */}
-          <p style={labelStyle}>Visual Style</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 20 }}>
-            {VISUAL_STYLES.map(v => {
-              const isActive = effectiveProjectStyle === v.id;
-              const [c1, c2] = v.colors.split(",").map(s => s.trim());
-              return (
-                <button key={v.id} onClick={() => { setVisualStyle(v.id); patchProjectSettings({ visualStyle: v.id }).catch(() => {}); setLastAction(`Visual: ${v.label}`); }}
-                  style={{ padding: "0", borderRadius: 12, border: `2px solid ${isActive ? childAccent : border}`, background: "transparent", cursor: "pointer", overflow: "hidden", transition: "border-color 0.15s" }}>
-                  <div style={{ height: 36, background: `linear-gradient(135deg, ${c1}, ${c2})` }} />
-                  <div style={{ padding: "8px 6px", textAlign: "center" }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: isActive ? childAccent : "#fff", marginBottom: 2 }}>{v.label}</p>
-                    <p style={{ fontSize: 8, color: muted, lineHeight: 1.3 }}>{v.desc}</p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Henry 2026-05-31 (#8): word-on-image toggle for letter/word teaching scenes */}
-          <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderRadius: 8, background: wordOverlayEnabled ? "rgba(167,139,250,0.12)" : "rgba(255,255,255,0.03)", border: `1px solid ${wordOverlayEnabled ? "rgba(167,139,250,0.4)" : "rgba(255,255,255,0.08)"}`, cursor: "pointer", marginBottom: 20 }}>
-            <input type="checkbox" checked={wordOverlayEnabled} onChange={e => setWordOverlayEnabled(e.target.checked)} style={{ width: 14, height: 14, accentColor: "#a78bfa" }} />
-            <div style={{ fontSize: 11, color: wordOverlayEnabled ? "#a78bfa" : "#aaa" }}>
-              <strong>Words on image</strong>
-              <div style={{ fontSize: 9, color: "#7b7b80", marginTop: 2 }}>
-                Burn the teaching word (BAG, APPLE, etc.) onto the generated picture
-              </div>
-            </div>
-          </label>
-
-          {/* Music */}
-          <p style={labelStyle}>Background Music</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 6, marginBottom: 20 }}>
-            {MUSIC_CHOICES.map(m => (
-              <button key={m.id} onClick={() => { setMusicChoice(m.id); setLastAction(`Music: ${m.label}`); }}
-                style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${musicChoice === m.id ? childAccent : border}`, background: musicChoice === m.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <p style={{ fontSize: 9, fontWeight: 600, color: musicChoice === m.id ? childAccent : "#fff" }}>{m.label}</p>
-              </button>
-            ))}
-          </div>
-
-          {/* Henry 2026-05-31 (#6 #10): genre picker — auto means mood-driven */}
-          <p style={labelStyle}>Music Genre</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, marginBottom: 20 }}>
-            {MUSIC_GENRES.map(g => (
-              <button key={g.id} onClick={() => { setMusicGenre(g.id); setLastAction(`Genre: ${g.label}`); }}
-                style={{ padding: "10px 8px", borderRadius: 10, border: `1px solid ${musicGenre === g.id ? childAccent : border}`, background: musicGenre === g.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center" }}>
-                <p style={{ fontSize: 9, fontWeight: 600, color: musicGenre === g.id ? childAccent : "#fff" }}>{g.label}</p>
-              </button>
-            ))}
-          </div>
-
-          <p style={{ fontSize: 9, color: muted, marginBottom: 16 }}>Music is always secondary to narration. Voice stays at 100%, music at 18-35%. Music ducks when narration is active.</p>
-
-          {/* Auto SFX toggle */}
-          <div data-testid="auto-sfx-toggle" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderRadius: 12, background: s2, border: `1px solid ${autoSfx ? childAccent + "40" : border}`, marginBottom: 20 }}>
-            <div>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 2 }}>Auto SFX</p>
-              <p style={{ fontSize: 9, color: muted }}>AI assigns sound effects to each scene automatically. Only CC0 / CC BY / Public Domain tracks used.</p>
-            </div>
-            <button data-testid="auto-sfx-btn" onClick={() => { setAutoSfx(v => !v); setLastAction(`Auto SFX: ${!autoSfx ? "ON" : "OFF"}`); }}
-              style={{ padding: "7px 18px", borderRadius: 20, border: `1px solid ${autoSfx ? childAccent : border}`, background: autoSfx ? `${childAccent}18` : "transparent", color: autoSfx ? childAccent : muted, fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const, minWidth: 64 }}>
-              {autoSfx ? "ON" : "OFF"}
-            </button>
-          </div>
-
-          {/* ── Music Library Picker ── */}
-          <p style={labelStyle}>Music Library</p>
-          <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${border}`, marginBottom: 20 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-              <button onClick={loadMusicLibrary} disabled={loadingMusic}
-                style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${childAccent}`, background: `${childAccent}10`, color: loadingMusic ? muted : childAccent, fontSize: 11, fontWeight: 700, cursor: loadingMusic ? "not-allowed" : "pointer" }}>
-                {loadingMusic ? "Loading..." : "Browse Music Library"}
-              </button>
-              {musicLibrary.length > 0 && (
-                <button onClick={aiPickMusic} disabled={aiPickingMusic}
-                  style={{ padding: "8px 16px", borderRadius: 8, border: `1px solid ${childSafe}`, background: `${childSafe}10`, color: aiPickingMusic ? muted : childSafe, fontSize: 11, fontWeight: 700, cursor: aiPickingMusic ? "not-allowed" : "pointer" }}>
-                  {aiPickingMusic ? "Picking..." : "AI Pick Music"}
-                </button>
-              )}
-            </div>
-            {selectedMusicName && (
-              <div style={{ padding: "8px 12px", borderRadius: 8, background: `${childAccent}12`, border: `1px solid ${childAccent}30`, marginBottom: 8 }}>
-                <p style={{ fontSize: 11, color: childAccent, fontWeight: 700 }}>Selected: {selectedMusicName}</p>
-                {selectedMusicUrl && <audio src={selectedMusicUrl} controls style={{ width: "100%", height: 28, marginTop: 6 }} />}
-              </div>
-            )}
-            {aiMusicPickLog && <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>{aiMusicPickLog}</p>}
-          </div>
-
-          {/* ── Sound Effects Browser ── */}
-          <p style={labelStyle}>Sound Effects Studio</p>
-          <div style={{ background: s2, borderRadius: 12, padding: 14, border: `1px solid ${border}`, marginBottom: 20 }}>
-            <div style={{ display: "flex", gap: 4, marginBottom: 12, background: "#0a0d14", borderRadius: 8, padding: 4 }}>
-              {([{ id: "freesound", label: "Sound Effects Browser" }, { id: "ai-sfx", label: "AI Audio Studio" }] as const).map(t => (
-                <button key={t.id} onClick={() => setSoundTab(t.id)}
-                  style={{ flex: 1, padding: "7px 12px", borderRadius: 6, border: "none", background: soundTab === t.id ? childAccent : "transparent", color: soundTab === t.id ? "#000" : muted, fontSize: 11, fontWeight: soundTab === t.id ? 700 : 400, cursor: "pointer" }}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            {soundTab === "freesound" && (
-              <div>
-                {fsNoKey ? (
-                  <div style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.2)", marginBottom: 12 }}>
-                    <p style={{ fontSize: 12, color: "#ef4444", fontWeight: 600 }}>Freesound API key not configured</p>
-                    <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Add FREESOUND_API_KEY to your environment.</p>
-                  </div>
-                ) : (
-                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                    <input value={fsQuery} onChange={e => setFsQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && searchFreesound()} placeholder="Search: birds chirping, water stream, laughter..."
-                      style={{ flex: 1, background: "#0a0d14", border: `1px solid ${border}`, borderRadius: 8, padding: "9px 12px", color: "#fff", fontSize: 12, outline: "none" }} />
-                    <button onClick={() => searchFreesound()} disabled={fsSearching || !fsQuery.trim()}
-                      style={{ padding: "9px 16px", borderRadius: 8, border: "none", background: fsSearching ? "#2a2a40" : childAccent, color: "#000", fontSize: 12, fontWeight: 700, cursor: (fsSearching || !fsQuery.trim()) ? "not-allowed" : "pointer" }}>
-                      {fsSearching ? "..." : "Search"}
-                    </button>
-                  </div>
-                )}
-                {fsResults.length > 0 && (
-                  <div style={{ maxHeight: 240, overflowY: "auto" as const, display: "flex", flexDirection: "column" as const, gap: 6 }}>
-                    {fsResults.map(sound => {
-                      const saved = fsSaved.has(sound.id);
-                      const saving = fsSaving === sound.id;
-                      const previewing = sfxPreviewId === sound.id;
-                      return (
-                        <div key={sound.id} style={{ background: "#0a0d14", borderRadius: 10, padding: "10px 12px", border: `1px solid ${border}`, display: "flex", gap: 8, alignItems: "flex-start" }}>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 11, fontWeight: 600, color: "#fff", marginBottom: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{sound.name}</p>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 4 }}>
-                              <span style={{ fontSize: 9, color: muted }}>{sound.duration.toFixed(1)}s</span>
-                              <span style={{ fontSize: 9, color: muted }}>by {sound.username}</span>
-                              {(sound.tags || []).slice(0, 3).map(tag => <span key={tag} style={{ fontSize: 9, padding: "1px 6px", borderRadius: 8, background: `${childAccent}15`, color: childAccent }}>{tag}</span>)}
-                            </div>
-                            {previewing && <audio src={sound.previewUrl} autoPlay controls style={{ width: "100%", height: 24 }} />}
-                          </div>
-                          <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                            <button onClick={() => setSfxPreviewId(previewing ? null : sound.id)}
-                              style={{ padding: "5px 10px", borderRadius: 6, border: `1px solid ${border}`, background: previewing ? `${childAccent}20` : "transparent", color: previewing ? childAccent : muted, fontSize: 10, cursor: "pointer" }}>
-                              {previewing ? "■" : "▶"}
-                            </button>
-                            <button onClick={() => saveFreesound(sound)} disabled={saved || saving}
-                              style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: saved ? `${childSafe}20` : childSafe, color: saved ? childSafe : "#000", fontSize: 10, fontWeight: 700, cursor: (saved || saving) ? "not-allowed" : "pointer" }}>
-                              {saving ? "..." : saved ? "Saved" : "Save"}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {!fsNoKey && fsResults.length === 0 && !fsSearching && (
-                  <p style={{ fontSize: 11, color: muted, textAlign: "center" as const }}>Search for child-friendly sound effects above</p>
-                )}
-              </div>
-            )}
-
-            {soundTab === "ai-sfx" && (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <p style={{ fontSize: 11, color: muted }}>Describe a sound effect and AI generates it for you.</p>
-                  <button
-                    onClick={async () => {
-                      const story = expandedContent || textContent || readAlongText;
-                      if (!story.trim()) { setLastAction("Write your story first, then auto-suggest will read it"); return; }
-                      setSfxDesc("Reading your story and scenes...");
-                      try {
-                        const sceneCtx = childScenes.length > 0
-                          ? `\nScenes:\n${childScenes.slice(0, 5).map((s, i) => `Scene ${i + 1}: ${s.title || ""} — ${(s.visualDescription || "").slice(0, 100)}`).join("\n")}`
-                          : "";
-                        const charCtx = savedChars.length > 0 ? `\nCharacters: ${savedChars.map(c => c.name).join(", ")}` : "";
-                        const prompt = `You are a children's video sound designer. Read this story carefully and write ONE specific sound effect description (15-25 words) that matches the actual events and mood in the story. Be specific to what happens — mention characters, actions, settings from the story.\n\nStory: ${story.slice(0, 900)}${sceneCtx}${charCtx}\nStyle: ${effectiveProjectStyle || "children's illustration"}, Age: ${ageGroup || "3-8"}, Tone: ${tone || "playful"}\n\nReply with ONLY the sound effect description. No intro text, no quotes.`;
-                        const res = await fetch("/api/llm/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ prompt, role: "fast", maxTokens: 80 }) });
-                        const d = await res.json();
-                        setSfxDesc((d.text || "").replace(/^["']|["']$/g, "").trim());
-                      } catch { setSfxDesc(""); setLastAction("Auto-suggest failed — type a description manually"); }
-                    }}
-                    style={{ padding: "5px 12px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: `${childAccent}10`, color: childAccent, fontSize: 10, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" as const }}>
-                    ✨ Auto-suggest from story
-                  </button>
-                </div>
-                <textarea value={sfxDesc} onChange={e => setSfxDesc(e.target.value)} rows={3}
-                  placeholder="e.g. Happy children laughing and playing, gentle bells ringing, magical sparkle sound..."
-                  style={{ width: "100%", background: "#0a0d14", border: `1px solid ${border}`, borderRadius: 10, padding: "10px 12px", color: "#fff", fontSize: 12, outline: "none", fontFamily: "inherit", resize: "vertical" as const, marginBottom: 8 }} />
-                <button onClick={generateElevenLabsSfx} disabled={sfxGenerating || !sfxDesc.trim() || sfxDesc === "AI is reading your story..."}
-                  style={{ padding: "9px 20px", borderRadius: 8, border: "none", background: (sfxGenerating || !sfxDesc.trim()) ? "#2a2a40" : `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: "#fff", fontSize: 12, fontWeight: 700, cursor: (sfxGenerating || !sfxDesc.trim()) ? "not-allowed" : "pointer" }}>
-                  {sfxGenerating ? "Generating sound..." : "Generate Sound Effect"}
-                </button>
-                {sfxGeneratedUrl && (
-                  <div style={{ marginTop: 10, padding: "10px 14px", borderRadius: 10, background: `${childAccent}10`, border: `1px solid ${childAccent}25` }}>
-                    <p style={{ fontSize: 11, color: childAccent, fontWeight: 600, marginBottom: 6 }}>Generated Sound Effect</p>
-                    <audio src={sfxGeneratedUrl} controls style={{ width: "100%", height: 32 }} />
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Read-Along Settings (visible only in read_along mode) ── */}
-          {learningMode === "read_along" && (
-            <div style={{ marginBottom: 20, padding: 18, borderRadius: 14, border: `2px solid ${childAccent}40`, background: `${childAccent}06` }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 14 }}>Read-Along Settings</p>
-
-              <div style={{ marginBottom: 14 }}>
-                <p style={labelStyle}>Read-Along Text</p>
-                <textarea value={readAlongText} onChange={e => { setReadAlongText(e.target.value); setLastAction("Read-along text updated"); }} rows={4}
-                  placeholder="Paste the text you want children to read along with narration..."
-                  style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "vertical" }} />
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <p style={labelStyle}>Highlight Mode</p>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {(["word", "sentence", "line", "karaoke"] as const).map(hm => (
-                    <button key={hm} onClick={() => { setHighlightMode(hm); setLastAction(`Highlight: ${hm}`); }}
-                      style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1px solid ${highlightMode === hm ? childAccent : border}`, background: highlightMode === hm ? `${childAccent}12` : "transparent", color: highlightMode === hm ? childAccent : "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" as const }}>
-                      {hm}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <p style={labelStyle}>Read Speed</p>
-                <div style={{ display: "flex", gap: 6 }}>
-                  {(["slow", "normal", "fast"] as const).map(spd => (
-                    <button key={spd} onClick={() => { setReadSpeed(spd); setLastAction(`Speed: ${spd}`); }}
-                      style={{ flex: 1, padding: "8px 6px", borderRadius: 8, border: `1px solid ${readSpeed === spd ? childAccent : border}`, background: readSpeed === spd ? `${childAccent}12` : "transparent", color: readSpeed === spd ? childAccent : "#fff", fontSize: 10, fontWeight: 600, cursor: "pointer", textTransform: "capitalize" as const }}>
-                      {spd}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, marginBottom: 14 }}>
-                <div>
-                  <p style={labelStyle}>Font Size: {fontSize}px</p>
-                  <input type="range" min={24} max={48} value={fontSize} onChange={e => setFontSize(Number(e.target.value))}
-                    style={{ width: "100%", accentColor: childAccent }} />
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 8, color: muted }}>24px</span>
-                    <span style={{ fontSize: 8, color: muted }}>48px</span>
-                  </div>
-                </div>
-                <div>
-                  <p style={labelStyle}>Highlight Color</p>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="color" value={highlightColor} onChange={e => setHighlightColor(e.target.value)}
-                      style={{ width: 40, height: 36, borderRadius: 8, border: `1px solid ${border}`, background: "transparent", cursor: "pointer", padding: 2 }} />
-                    <span style={{ fontSize: 11, color: "#fff", fontFamily: "monospace" }}>{highlightColor}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Static text preview */}
-              {readAlongText && (() => {
-                const previewWords = readAlongText.split(/\s+/);
-                return (
-                  <div>
-                    <p style={labelStyle}>Preview</p>
-                    <div style={{ background: s2, borderRadius: 10, padding: 16, border: `1px solid ${border}`, lineHeight: 1.6 }}>
-                      {previewWords.slice(0, 20).map((word, i) => (
-                        <span key={i}
-                          style={{
-                            fontSize,
-                            fontWeight: 600,
-                            color: i === 0 ? "#000" : "#fff",
-                            background: i === 0 ? highlightColor : "transparent",
-                            padding: i === 0 ? "2px 6px" : "2px 4px",
-                            borderRadius: 4,
-                            marginRight: 6,
-                            display: "inline-block",
-                          }}>
-                          {word}
-                        </span>
-                      ))}
-                      {previewWords.length > 20 && <span style={{ fontSize: 11, color: muted }}> …</span>}
-                    </div>
-                    <p style={{ fontSize: 9, color: muted, marginTop: 6 }}>First word shown highlighted as preview. Actual sync runs during video generation.</p>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          <button onClick={() => { setPlanning(true); setLastAction("Plan generating..."); setTimeout(() => { setPlanning(false); setLastAction("Plan generated"); setActiveTab("review1"); }, 2000); }}
-            disabled={planning || !textContent.trim()}
-            style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (planning || !textContent.trim()) ? "#2a2a40" : childAccent, color: "#fff", fontSize: 16, fontWeight: 700, cursor: (planning || !textContent.trim()) ? "not-allowed" : "pointer" }}>
-            {planning ? "Child-Safe Planner analyzing..." : !textContent.trim() ? "Enter content first" : "Generate Plan \u2014 First Review"}
-          </button>
-        </div>
+        <StyleTab
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          s2={s2}
+          border={border}
+          muted={muted}
+          childAccent={childAccent}
+          childSafe={childSafe}
+          C2={C2}
+          C4={C4}
+          effectiveVideoModelId={effectiveVideoModelId}
+          effectiveImageModelId={effectiveImageModelId}
+          setAidMode={setAidMode}
+          setShowAidPicker={setShowAidPicker}
+          genSeed={genSeed}
+          setGenSeed={setGenSeed}
+          NARRATION_STYLES={NARRATION_STYLES}
+          narrationStyle={narrationStyle}
+          setNarrationStyle={setNarrationStyle}
+          effectiveNarrationProvider={effectiveNarrationProvider}
+          setNarrationProvider={setNarrationProvider}
+          patchProjectSettings={patchProjectSettings}
+          narrationText={narrationText}
+          setNarrationText={setNarrationText}
+          setNarrationSettings={setNarrationSettings}
+          VISUAL_STYLES={VISUAL_STYLES}
+          effectiveProjectStyle={effectiveProjectStyle}
+          setVisualStyle={setVisualStyle}
+          wordOverlayEnabled={wordOverlayEnabled}
+          setWordOverlayEnabled={setWordOverlayEnabled}
+          MUSIC_CHOICES={MUSIC_CHOICES}
+          MUSIC_GENRES={MUSIC_GENRES}
+          musicChoice={musicChoice}
+          setMusicChoice={setMusicChoice}
+          musicGenre={musicGenre}
+          setMusicGenre={setMusicGenre}
+          autoSfx={autoSfx}
+          setAutoSfx={setAutoSfx}
+          loadMusicLibrary={loadMusicLibrary}
+          loadingMusic={loadingMusic}
+          musicLibrary={musicLibrary}
+          aiPickMusic={aiPickMusic}
+          aiPickingMusic={aiPickingMusic}
+          selectedMusicName={selectedMusicName}
+          selectedMusicUrl={selectedMusicUrl}
+          aiMusicPickLog={aiMusicPickLog}
+          soundTab={soundTab}
+          setSoundTab={setSoundTab}
+          fsNoKey={fsNoKey}
+          fsQuery={fsQuery}
+          setFsQuery={setFsQuery}
+          searchFreesound={searchFreesound}
+          fsSearching={fsSearching}
+          fsResults={fsResults}
+          fsSaved={fsSaved}
+          fsSaving={fsSaving}
+          sfxPreviewId={sfxPreviewId}
+          setSfxPreviewId={setSfxPreviewId}
+          saveFreesound={saveFreesound}
+          sfxDesc={sfxDesc}
+          setSfxDesc={setSfxDesc}
+          generateElevenLabsSfx={generateElevenLabsSfx}
+          sfxGenerating={sfxGenerating}
+          sfxGeneratedUrl={sfxGeneratedUrl}
+          expandedContent={expandedContent}
+          textContent={textContent}
+          readAlongText={readAlongText}
+          childScenes={childScenes}
+          savedChars={savedChars}
+          ageGroup={ageGroup}
+          tone={tone}
+          learningMode={learningMode}
+          setReadAlongText={setReadAlongText}
+          highlightMode={highlightMode}
+          setHighlightMode={setHighlightMode}
+          readSpeed={readSpeed}
+          setReadSpeed={setReadSpeed}
+          fontSize={fontSize}
+          setFontSize={setFontSize}
+          highlightColor={highlightColor}
+          setHighlightColor={setHighlightColor}
+          setLastAction={setLastAction}
+          setPlanning={setPlanning}
+          planning={planning}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
@@ -6591,244 +5581,48 @@ Rules:
       {/* SOUND TAB — SC: 5-tier model selector, parse script, narration     */}
       {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "sound" && (
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Sound & SFX</h2>
-          </div>
-
-          {/* ── 5-Tier Sound Model Selector (binding) ── */}
-          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40`, background: `${childAccent}06` }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4 }}>Sound Model</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select audio quality tier for this project. Higher tiers = better quality + higher cost.</p>
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
-              {SOUND_TIERS.map(tier => (
-                <button key={tier.id} onClick={() => { setSoundTier(tier.id); setModelSettings(p => ({ ...p, soundModel: tier.id })); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
-                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderRadius: 10, border: `2px solid ${effectiveSoundTier === tier.id ? childAccent : ds.color.line}`, background: effectiveSoundTier === tier.id ? `${childAccent}12` : "transparent", cursor: "pointer", textAlign: "left" as const }}>
-                  <div>
-                    <span style={{ display: "block", fontSize: 12, fontWeight: 700, color: effectiveSoundTier === tier.id ? childAccent : "#fff" }}>{tier.label}</span>
-                    <span style={{ display: "block", fontSize: 10, color: muted, marginTop: 2 }}>{tier.desc}</span>
-                  </div>
-                  <span style={{ fontSize: 10, color: effectiveSoundTier === tier.id ? childAccent : muted, fontFamily: ds.font.mono, flexShrink: 0, marginLeft: 8 }}>{tier.cost}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ── Script status (parse in Script tab) ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Script Status</p>
-            {scriptSegments.length === 0 ? (
-              <div>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Parse your story into narrator and character lines in the Script tab first.</p>
-                <button onClick={() => setActiveTab("script")}
-                  style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                  Go to Script & Story Plan
-                </button>
-              </div>
-            ) : (
-              <p style={{ fontSize: 11, color: childSafe }}>
-                {scriptSegments.filter(s => s.type === "narration").length} narrator + {scriptSegments.filter(s => s.type === "dialogue").length} character lines parsed
-              </p>
-            )}
-          </div>
-
-          {/* ── Voice Layers ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Voice Layers</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Layer 1 = Narrator (default: Piper free). Additional layers add secondary voice tracks.</p>
-            {/* Henry 2026-06-04 voice unification: replaced inline <select> with
-                canonical VoiceTierSelector. User now picks GHS Standard / Standard+
-                / Pro / Premium / Best AND can override the specific voice inside
-                each tier (incl. Nigerian Neural under Standard+). All voice picks
-                derived from src/lib/voice-registry.ts — single source of truth. */}
-            <div style={{ marginBottom: 10 }}>
-              <p style={{ fontSize: 11, color: "#fff", fontWeight: 600, marginBottom: 6 }}>Layer 1 — Narrator</p>
-              <VoiceTierSelector
-                value={voiceTierConfig}
-                userTier={voiceTierGate(getUserTier())}
-                onChange={(c) => {
-                  setVoiceTierConfig(c);
-                  // Bridge: derive legacy narrationProvider from the new config so
-                  // /api/tts call sites (still expecting "piper"/"elevenlabs"/etc.)
-                  // keep working. The actual TTS engine in /api/tts now also
-                  // accepts edge-tts / gtts / gemini / fal-f5 / etc.
-                  const voice = c.voiceId ? getVoiceById(c.voiceId) : undefined;
-                  const rawProvider: string = voice?.provider ?? "piper";
-                  // Map fal-kokoro to the legacy "fal-narrator" alias the route knows.
-                  // Cast widen → compare as string → cast narrow back to the state type.
-                  const mapped = (rawProvider === "fal-kokoro" ? "fal-narrator" : rawProvider) as typeof narrationProvider;
-                  setNarrationProvider(mapped);
-                  setNarrationSpeed(c.speed ?? 1);
-                  patchProjectSettings({ narrationProvider: mapped }).catch(() => {});
-                }}
-                compact
-              />
-            </div>
-            {/* Speed + generate row */}
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span style={{ fontSize: 10, color: muted }}>Speed</span>
-                  <span style={{ fontSize: 10, color: "#fff", fontWeight: 700 }}>{narrationSpeed.toFixed(2)}x</span>
-                </div>
-                <input type="range" min={0.5} max={2.0} step={0.05} value={narrationSpeed}
-                  onChange={e => setNarrationSpeed(parseFloat(e.target.value))}
-                  style={{ width: "100%", accentColor: childSafe }} />
-              </div>
-            </div>
-            <button onClick={generateNarration} disabled={narrationGenerating || !textContent?.trim()}
-              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: narrationGenerating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: (narrationGenerating || !textContent?.trim()) ? "not-allowed" : "pointer", opacity: !textContent?.trim() ? 0.5 : 1 }}>
-              {narrationGenerating ? "Generating narration..." : "Generate Narration"}
-            </button>
-            {narratorAudioUrl && (
-              <div style={{ marginTop: 10 }}>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Narrator audio:</p>
-                <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 32 }} />
-              </div>
-            )}
-          </div>
-
-          {/* ── AI Audio Plan (Henry 2026-05-30 task #12 — mirror hybrid Step 7) ── */}
-          <div style={{ ...cardStyle, marginBottom: 16, borderColor: `${childAccent}40` }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: childAccent, marginBottom: 4 }}>AI Audio Plan</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>
-              AI reads every scene and writes a narration script, picks a music mood, and suggests SFX + ambience.
-              Makes the final video sound alive without manual entry per scene.
-            </p>
-            <button onClick={runChildrenAudioPlan} disabled={runningAudioPlan || childScenes.length === 0}
-              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: runningAudioPlan ? "#2a2040" : childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: (runningAudioPlan || childScenes.length === 0) ? "not-allowed" : "pointer", opacity: childScenes.length === 0 ? 0.5 : 1 }}>
-              {runningAudioPlan ? "AI planning audio..." : Object.keys(audioPlans).length > 0 ? "Re-run AI Audio Plan" : "Run AI Audio Plan"}
-            </button>
-            {childScenes.length === 0 && (
-              <p style={{ fontSize: 10, color: muted, marginTop: 8 }}>Build scenes first (Scene Board tab).</p>
-            )}
-            {Object.keys(audioPlans).length > 0 && !runningAudioPlan && (
-              <div style={{ marginTop: 12 }}>
-                <p style={{ fontSize: 11, color: childSafe, marginBottom: 8 }}>
-                  ✓ {Object.keys(audioPlans).length} scene{Object.keys(audioPlans).length === 1 ? "" : "s"} planned
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
-                  {childScenes.slice(0, 8).map(s => {
-                    const plan = audioPlans[s.scene];
-                    if (!plan) return null;
-                    return (
-                      <div key={s.scene} style={{ padding: "8px 10px", borderRadius: 7, background: "rgba(255,255,255,0.03)", border: `1px solid ${ds.color.line}` }}>
-                        <p style={{ fontSize: 10, color: "#fff", fontWeight: 700, margin: 0 }}>SC{String(s.scene).padStart(2, "0")} · {s.title.slice(0, 40)}</p>
-                        {plan.musicMood && <p style={{ fontSize: 9, color: muted, margin: "3px 0 0" }}>Music: {plan.musicMood}</p>}
-                        {plan.sfxList && plan.sfxList.length > 0 && <p style={{ fontSize: 9, color: muted, margin: "2px 0 0" }}>SFX: {plan.sfxList.slice(0, 4).join(", ")}</p>}
-                        {plan.narrationScript && <p style={{ fontSize: 9, color: childSafe, margin: "3px 0 0", fontStyle: "italic" }}>&quot;{plan.narrationScript.slice(0, 100)}{plan.narrationScript.length > 100 ? "..." : ""}&quot;</p>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ── Character Voices — only actors in THIS project, not the full library ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Character Voices</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Assign a voice to each actor character for their dialogue lines.</p>
-            {(() => {
-              const projectChars = savedChars.filter(c => selectedCharIds.includes(c.id));
-              const inlineChars = characters.filter(c => !projectChars.some(p => p.characterId === c.characterId));
-              const allActors = [
-                ...projectChars.map(c => ({ id: c.id, name: c.name, imageUrl: c.imageUrl || null })),
-                ...inlineChars.map(c => ({ id: c.characterId, name: c.displayName, imageUrl: c.imageUrl || null })),
-              ];
-              if (allActors.length === 0) {
-                return (
-                  <div style={{ padding: "12px 0", textAlign: "center" as const }}>
-                    <p style={{ fontSize: 11, color: muted }}>No actor characters added to this project yet.</p>
-                    <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>Add characters in the Characters tab, then assign their dialogue voices here.</p>
-                  </div>
-                );
-              }
-              return allActors.map(char => (
-                <div key={char.id} style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 0", borderBottom: `1px solid ${ds.color.line}` }}>
-                  {char.imageUrl
-                    ? <img src={char.imageUrl} alt={char.name} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                    : <div style={{ width: 28, height: 28, borderRadius: "50%", background: `${childAccent}30`, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 11, color: childAccent, fontWeight: 700 }}>{char.name[0]}</span></div>
-                  }
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", flex: 1 }}>{char.name}</span>
-                  <select value={characterVoices[char.id] || "en_US-lessac-medium"}
-                    onChange={e => setCharacterVoices(prev => ({ ...prev, [char.id]: e.target.value }))}
-                    style={{ flex: 2, background: ds.color.paper, border: `1px solid ${ds.color.line}`, borderRadius: 8, padding: "5px 8px", color: "#fff", fontSize: 10, outline: "none" }}>
-                    <option value="en_US-lessac-medium">Lessac (Neutral Male)</option>
-                    <option value="en_US-amy-medium">Amy (Neutral Female)</option>
-                    <option value="en_US-ryan-high">Ryan (Male)</option>
-                    <option value="en_GB-alan-medium">Alan (British Male)</option>
-                    <option value="en_US-libritts_r-medium">LibriTTS (Expressive)</option>
-                    <option value="en_US-kathleen-low">Kathleen (Female, Low)</option>
-                    <option value="en_US-danny-low">Danny (Male, Low)</option>
-                    <option value="en_US-joe-medium">Joe (Male, Warm)</option>
-                  </select>
-                </div>
-              ));
-            })()}
-          </div>
-
-          {/* ── Music ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Background Music</p>
-            <p style={{ fontSize: 10, color: muted, marginBottom: 10 }}>Generate child-safe background music for this story.</p>
-
-            {/* GHS Music Tier Selection */}
-            <p style={{ fontSize: 11, fontWeight: 600, color: muted, marginBottom: 8 }}>Music Source</p>
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 6, marginBottom: 12 }}>
-              {/* GHS Standard */}
-              <button data-testid="music-tier-stock" onClick={() => setMusicTier("stock")}
-                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "stock" ? "#a78bfa" : "rgba(255,255,255,0.07)"}`, background: musicTier === "stock" ? "rgba(167,139,250,0.1)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "stock" ? "#a78bfa" : "#c5c5c8" }}>GHS Standard</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Stock Library — always available</p>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#7ae0c3", fontFamily: "'JetBrains Mono', monospace", background: "rgba(122,224,195,0.08)", border: "1px solid rgba(122,224,195,0.2)", borderRadius: 4, padding: "2px 6px" }}>FREE</span>
-              </button>
-              {/* GHS Pro */}
-              <button data-testid="music-tier-ghs-pro" onClick={() => setMusicTier("ghs_pro")}
-                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_pro" ? "#7cc4ff" : "rgba(255,255,255,0.07)"}`, background: musicTier === "ghs_pro" ? "rgba(124,196,255,0.08)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_pro" ? "#7cc4ff" : "#c5c5c8" }}>GHS Pro</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>FAL Stable Audio — instrumental, up to 47s</p>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#7cc4ff", fontFamily: "'JetBrains Mono', monospace", background: "rgba(124,196,255,0.08)", border: "1px solid rgba(124,196,255,0.2)", borderRadius: 4, padding: "2px 6px" }}>MID</span>
-              </button>
-              {/* GHS Classic */}
-              <button data-testid="music-tier-ghs-classic" onClick={() => setMusicTier("ghs_classic")}
-                style={{ padding: "10px 12px", borderRadius: 8, border: `1px solid ${musicTier === "ghs_classic" ? "#ff9a3c" : "rgba(255,255,255,0.07)"}`, background: musicTier === "ghs_classic" ? "rgba(255,154,60,0.08)" : "#151518", cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <p style={{ margin: 0, fontSize: 12, fontWeight: 700, color: musicTier === "ghs_classic" ? "#ff9a3c" : "#c5c5c8" }}>GHS Classic</p>
-                  <p style={{ margin: "2px 0 0", fontSize: 10, color: "#7b7b80", lineHeight: 1.4 }}>Suno via Kie.ai — full lyrical songs</p>
-                </div>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#ff9a3c", fontFamily: "'JetBrains Mono', monospace", background: "rgba(255,154,60,0.08)", border: "1px solid rgba(255,154,60,0.2)", borderRadius: 4, padding: "2px 6px", whiteSpace: "nowrap" as const }}>PREMIUM</span>
-              </button>
-            </div>
-
-            <button onClick={generateChildrenMusic} disabled={musicGenerating}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: musicGenerating ? "#2a2040" : C4, color: "#000", fontSize: 12, fontWeight: 700, cursor: musicGenerating ? "not-allowed" : "pointer" }}>
-              {musicGenerating ? "Generating music..." : "Generate Background Music"}
-            </button>
-            {generatedMusicUrl && (
-              <div style={{ marginTop: 10 }}>
-                <audio src={generatedMusicUrl} controls style={{ width: "100%", height: 32 }} />
-                {musicFallbackReason && <p style={{ fontSize: 9, color: muted, marginTop: 4 }}>{musicFallbackReason}</p>}
-              </div>
-            )}
-          </div>
-
-          {/* ── SFX ── */}
-          <div style={{ ...cardStyle, marginBottom: 16 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Sound Effects</p>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-              <p style={{ fontSize: 10, color: muted }}>Auto-mode picks CC0 sounds for each scene mood.</p>
-              <button onClick={() => setAutoSfx(v => !v)}
-                style={{ padding: "6px 16px", borderRadius: 20, border: `1px solid ${autoSfx ? childSafe + "60" : ds.color.line}`, background: autoSfx ? `${childSafe}18` : "transparent", color: autoSfx ? childSafe : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                Auto SFX: {autoSfx ? "ON" : "OFF"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <SoundTab
+          cardStyle={cardStyle}
+          muted={muted}
+          childAccent={childAccent}
+          childSafe={childSafe}
+          C4={C4}
+          SOUND_TIERS={SOUND_TIERS}
+          effectiveSoundTier={effectiveSoundTier}
+          setSoundTier={setSoundTier as unknown as (id: string) => void}
+          setModelSettings={setModelSettings as unknown as React.Dispatch<React.SetStateAction<{ soundModel: string } & Record<string, unknown>>>}
+          patchProjectSettings={patchProjectSettings}
+          scriptSegments={scriptSegments}
+          setActiveTab={setActiveTab}
+          voiceTierConfig={voiceTierConfig}
+          setVoiceTierConfig={setVoiceTierConfig}
+          userVoiceTier={voiceTierGate(getUserTier())}
+          getVoiceById={getVoiceById}
+          setNarrationProvider={setNarrationProvider}
+          narrationSpeed={narrationSpeed}
+          setNarrationSpeed={setNarrationSpeed}
+          narrationGenerating={narrationGenerating}
+          textContent={textContent}
+          generateNarration={generateNarration}
+          narratorAudioUrl={narratorAudioUrl}
+          runningAudioPlan={runningAudioPlan}
+          childScenes={childScenes}
+          audioPlans={audioPlans}
+          runChildrenAudioPlan={runChildrenAudioPlan}
+          savedChars={savedChars}
+          selectedCharIds={selectedCharIds}
+          characters={characters}
+          characterVoices={characterVoices}
+          setCharacterVoices={setCharacterVoices}
+          musicTier={musicTier}
+          setMusicTier={setMusicTier}
+          musicGenerating={musicGenerating}
+          generateChildrenMusic={generateChildrenMusic}
+          generatedMusicUrl={generatedMusicUrl}
+          musicFallbackReason={musicFallbackReason}
+          autoSfx={autoSfx}
+          setAutoSfx={setAutoSfx}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
@@ -7442,156 +6236,45 @@ Rules:
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* SCREENPLAY TAB                                                      */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* SCREENPLAY TAB — extracted Wave 2.4                                   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "screenplay" && (
-        <div>
-          {/* Henry 2026-06-01: Story Credits ALWAYS visible on Screenplay tab — even when
-              screenplay already generated, so user can edit credits anytime. Same
-              localStorage-backed state as Assembly tab. */}
-          <div style={{ ...cardStyle, marginBottom: 16, padding: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", margin: 0 }}>Story Credits</p>
-              <span style={{ fontSize: 9, color: muted }}>Saved on this device — fills Assembly too</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
-                  Written by {writtenBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
-                </label>
-                <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Your name"
-                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${writtenBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
-                  Made by {madeBy && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
-                </label>
-                <input type="text" value={madeBy} onChange={e => setMadeBy(e.target.value)} placeholder="Studio / creator"
-                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${madeBy ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: muted, display: "block", marginBottom: 3, textTransform: "uppercase" as const, letterSpacing: 1 }}>
-                  Idea from {ideaFrom && <span style={{ color: "#34d399", marginLeft: 4 }}>✓</span>}
-                </label>
-                <input type="text" value={ideaFrom} onChange={e => setIdeaFrom(e.target.value)} placeholder="Original idea by..."
-                  style={{ width: "100%", boxSizing: "border-box" as const, padding: "6px 10px", background: s2, border: `1px solid ${ideaFrom ? "#34d39960" : border}`, borderRadius: 8, color: "#fff", fontSize: 11, outline: "none" }} />
-              </div>
-            </div>
-          </div>
-
-          {!screenplay && !generatingScreenplay && (
-            <div style={{ ...cardStyle, borderColor: `${childAccent}20`, marginBottom: 16 }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Story Script</p>
-              <p style={{ fontSize: 11, color: muted, marginBottom: 16 }}>Generate a formatted story script from your content, or paste your own and parse it into narrator/dialogue segments for audio generation.</p>
-              {!textContent.trim() && !expandedContent.trim() ? (
-                <div style={{ textAlign: "center", padding: "16px 0" }}>
-                  <p style={{ fontSize: 11, color: muted, marginBottom: 12 }}>Enter your story content first — go to the Content tab.</p>
-                  <button onClick={() => setActiveTab("content")} style={{ padding: "8px 18px", borderRadius: 8, border: "none", background: childAccent, color: "#fff", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Go to Content</button>
-                </div>
-              ) : (
-                <>
-                  {screenplayError && <p style={{ fontSize: 11, color: "#ef4444", marginBottom: 8 }}>{screenplayError}</p>}
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={generateScreenplay}
-                      style={{ padding: "10px 24px", borderRadius: 10, border: "none", background: `linear-gradient(135deg, ${childAccent}, #7c3aed)`, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
-                      Generate Story Script
-                    </button>
-                    <button onClick={() => setScreenplay("FADE IN:\n\nINT. SCENE ONE - DAY\n\nPaste your story script here...\n\nFADE OUT.\n\nTHE END")}
-                      style={{ padding: "10px 20px", borderRadius: 10, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 12, cursor: "pointer" }}>
-                      Paste My Own
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
-          {generatingScreenplay && (
-            <div style={{ textAlign: "center", padding: "60px 20px" }}>
-              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Writing your story script...</p>
-              <p style={{ fontSize: 11, color: muted }}>15–30 seconds</p>
-            </div>
-          )}
-
-          {screenplay && !generatingScreenplay && (
-            <>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: "auto" }}>
-                  <span style={{ fontSize: 10, color: muted }}>Written by:</span>
-                  <input type="text" value={writtenBy} onChange={e => setWrittenBy(e.target.value)} placeholder="Author name"
-                    style={{ background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "5px 10px", color: "#fff", fontSize: 12, fontWeight: 600, outline: "none", width: 160 }} />
-                </div>
-                <button onClick={generateScreenplay}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: `1px solid ${childAccent}40`, background: "transparent", color: childAccent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                  Regenerate
-                </button>
-                <button onClick={() => { const blob = new Blob([screenplay], { type: "text/plain" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${contentParam || "story"}_script.txt`; a.click(); }}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: childAccent, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
-                  Download .txt
-                </button>
-                <button onClick={parseScript} disabled={parsingScript}
-                  style={{ padding: "7px 14px", borderRadius: 8, border: "none", background: parsingScript ? "#2a2a40" : "#00d4ff", color: "#000", fontSize: 11, fontWeight: 700, cursor: parsingScript ? "not-allowed" : "pointer" }}>
-                  {parsingScript ? "Parsing..." : "Parse Script"}
-                </button>
-                <button onClick={sendScreenplayToContent} disabled={sendingToScenes}
-                  style={{ padding: "7px 16px", borderRadius: 8, border: "none", background: sendingToScenes ? `${childSafe}60` : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: sendingToScenes ? "default" : "pointer" }}>
-                  {sendingToScenes ? "Sending..." : "Send to Narration →"}
-                </button>
-              </div>
-
-              {sendToScenesResult && (
-                <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 8, background: `${childAccent}10`, border: `1px solid ${childAccent}30`, display: "flex", alignItems: "center", gap: 10 }}>
-                  <Icon.Check style={{ width: 14, height: 14, color: childAccent, flexShrink: 0 }} />
-                  <p style={{ fontSize: 11, color: childAccent, flex: 1 }}>{sendToScenesResult}</p>
-                  <button onClick={() => setActiveTab("style")} style={{ padding: "6px 12px", borderRadius: 7, border: "none", background: childAccent, color: "#000", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>Go to Style & Voice</button>
-                </div>
-              )}
-
-              {showScriptReview && scriptSegments.length > 0 && (
-                <div style={{ ...cardStyle, marginBottom: 12 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <p style={{ fontSize: 12, fontWeight: 700, color: "#fff" }}>Parsed Script — {scriptSegments.length} segments</p>
-                    <button onClick={() => setShowScriptReview(false)} style={{ fontSize: 10, color: muted, background: "none", border: "none", cursor: "pointer" }}>Hide</button>
-                  </div>
-                  <div style={{ maxHeight: 200, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4 }}>
-                    {scriptSegments.map((seg, i) => (
-                      <div key={i} style={{ padding: "6px 10px", borderRadius: 6, background: seg.type === "dialogue" ? "rgba(0,212,255,0.1)" : `${childAccent}10`, borderLeft: `3px solid ${seg.type === "dialogue" ? "#00d4ff" : childAccent}` }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: seg.type === "dialogue" ? "#00d4ff" : childAccent, textTransform: "uppercase", marginRight: 8 }}>
-                          {seg.type === "dialogue" ? (seg.speaker || "CHAR") : "NARR"}
-                        </span>
-                        <span style={{ fontSize: 10, color: "#ccc" }}>{seg.text.substring(0, 100)}{seg.text.length > 100 ? "..." : ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <textarea value={screenplay} onChange={e => setScreenplay(e.target.value)}
-                style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 12, outline: "none", fontFamily: "'Courier New', Courier, monospace", minHeight: 400, lineHeight: 1.8, resize: "vertical" as const, whiteSpace: "pre-wrap" }} />
-
-              <div style={{ marginTop: 16, background: "#fff", borderRadius: 12, padding: "40px 40px", maxWidth: 780, margin: "16px auto 0", boxShadow: "0 8px 40px rgba(0,0,0,0.5)", fontFamily: "'Courier New', Courier, monospace" }}>
-                <div style={{ textAlign: "center", marginBottom: 40, paddingBottom: 32, borderBottom: "1px solid #ddd" }}>
-                  <p style={{ fontSize: 9, color: "#666", letterSpacing: 4, textTransform: "uppercase", marginBottom: 2 }}>{studioName || "GIO HOME AI STUDIO"}</p>
-                  <h1 style={{ fontSize: 22, fontWeight: 900, color: "#000", textTransform: "uppercase", letterSpacing: 3, marginBottom: 8, lineHeight: 1.2 }}>{(projectTitle || contentParam || "CHILDREN STORY").toUpperCase()}</h1>
-                  {(ageGroup) && <p style={{ fontSize: 11, color: "#777", marginBottom: 24, fontStyle: "italic" }}>For {AGE_AUDIENCE[ageGroup] || "children"}</p>}
-                  <p style={{ fontSize: 11, color: "#555", marginBottom: 2 }}>Written by</p>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: "#000", marginBottom: 20 }}>{writtenBy || "—"}</p>
-                  <p style={{ fontSize: 8, color: "#aaa", letterSpacing: 1 }}>AI Assets by {studioName || "GIO HOME AI STUDIO"} · © {new Date().getFullYear()}</p>
-                </div>
-                <div style={{ color: "#111", fontSize: 12, lineHeight: 2 }}>
-                  {screenplay.split("\n").map((line, i) => {
-                    const t = line.trim();
-                    if (!t) return <div key={i} style={{ height: 6 }} />;
-                    if (/^(INT\.|EXT\.|INT\/EXT\.)/.test(t)) return <p key={i} style={{ fontWeight: 700, color: "#000", marginTop: 24, marginBottom: 2 }}>{t}</p>;
-                    if (/^(FADE IN:|FADE OUT\.|CUT TO:|DISSOLVE TO:)/.test(t)) return <p key={i} style={{ fontStyle: "italic", color: "#555", marginTop: 12 }}>{t}</p>;
-                    if (t === "THE END") return <p key={i} style={{ textAlign: "center", fontWeight: 900, fontSize: 14, marginTop: 40, letterSpacing: 4 }}>THE END</p>;
-                    if (/^[A-Z][A-Z\s\-'().]+$/.test(t) && t.length < 40 && !t.startsWith("INT") && !t.startsWith("EXT") && !t.startsWith("FADE") && !t.startsWith("CUT")) return <p key={i} style={{ fontWeight: 700, marginTop: 16, paddingLeft: "38%" }}>{t}</p>;
-                    if (t.startsWith("(") && t.endsWith(")")) return <p key={i} style={{ fontStyle: "italic", color: "#555", paddingLeft: "30%" }}>{t}</p>;
-                    return <p key={i} style={{ color: "#333", marginBottom: 2 }}>{line}</p>;
-                  })}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <ScreenplayTab
+          cardStyle={cardStyle}
+          s2={s2}
+          border={border}
+          muted={muted}
+          childAccent={childAccent}
+          childSafe={childSafe}
+          writtenBy={writtenBy}
+          setWrittenBy={setWrittenBy}
+          madeBy={madeBy}
+          setMadeBy={setMadeBy}
+          ideaFrom={ideaFrom}
+          setIdeaFrom={setIdeaFrom}
+          textContent={textContent}
+          expandedContent={expandedContent}
+          screenplay={screenplay}
+          setScreenplay={setScreenplay}
+          generatingScreenplay={generatingScreenplay}
+          screenplayError={screenplayError}
+          generateScreenplay={generateScreenplay}
+          parsingScript={parsingScript}
+          parseScript={parseScript}
+          sendingToScenes={sendingToScenes}
+          sendScreenplayToContent={sendScreenplayToContent}
+          sendToScenesResult={sendToScenesResult}
+          showScriptReview={showScriptReview}
+          setShowScriptReview={setShowScriptReview}
+          scriptSegments={scriptSegments}
+          studioName={studioName}
+          projectTitle={projectTitle}
+          contentParam={contentParam}
+          ageGroup={ageGroup}
+          AGE_AUDIENCE={AGE_AUDIENCE}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {/* ═══ AID MODEL PICKER MODAL ═══ */}
