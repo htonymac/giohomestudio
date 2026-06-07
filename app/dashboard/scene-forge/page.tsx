@@ -75,7 +75,7 @@ export default function SceneForgePage() {
   const [duration, setDuration]         = useState<number>(30);
   const [voice, setVoice]               = useState<string>("default");
   const [addMusic, setAddMusic]         = useState<boolean>(true);
-  const [musicTier, setMusicTier]       = useState<"standard" | "ghs_karaoke" | "pro" | "classic" | "premium">("standard");
+  const [musicTier, setMusicTier]       = useState<"standard" | "standard_plus" | "ghs_karaoke" | "pro" | "classic" | "premium">("standard");
   const [addBroll, setAddBroll]         = useState<boolean>(false);
   const [tier, setTier]                 = useState<AITier>("pro");
   const [videoModel, setVideoModel]     = useState<string>("muapi_seedance_v2");
@@ -122,7 +122,7 @@ export default function SceneForgePage() {
         if (s.duration) setDuration(s.duration as number);
         if (s.voice)    setVoice(s.voice as string);
         if (typeof s.addMusic === "boolean") setAddMusic(s.addMusic);
-        if (s.musicTier) setMusicTier(s.musicTier as "standard" | "ghs_karaoke" | "pro" | "classic" | "premium");
+        if (s.musicTier) setMusicTier(s.musicTier as "standard" | "standard_plus" | "ghs_karaoke" | "pro" | "classic" | "premium");
         if (typeof s.addBroll === "boolean") setAddBroll(s.addBroll);
         if (s.tier)       setTier(s.tier as AITier);
         if (s.videoModel) setVideoModel(s.videoModel as string);
