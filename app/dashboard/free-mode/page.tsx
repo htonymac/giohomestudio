@@ -795,9 +795,16 @@ function HybridModal({
   // at the start of runHybrid() so the user sees which "vibe" Free Mode picked
   // (Children / Action / Music Video / Commercial / Documentary / Cinematic).
   const [selectedModeLabel, setSelectedModeLabel] = useState<string | null>(null);
+  // Henry 2026-06-07 (Free Mode 360s test): a long video (1 scene × 360s) showed
+  // only ONE image + no subtitle because we hard-capped MAX_IMAGES_PER_SCENE = 4.
+  // Now the user picks "seconds per image" (1s or 2s) and we generate
+  // sceneDuration / secondsPerImage images per scene. The free image model
+  // (Segmind Flux at $0.0004) makes 30+ images per scene affordable —
+  // Henry: "ALL FREE MONEY MUST GENERTTAE A LOT OFR IMAGES BY SHORT SCENE".
+  const [secondsPerImage, setSecondsPerImage] = useState<1 | 2>(2);
 
   const effectiveDuration = customDur
-    ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration))
+    ? Math.max(5, Math.min(600, parseInt(customDur) || totalDuration))
     : totalDuration;
 
   const selStyle: React.CSSProperties = {
@@ -818,18 +825,23 @@ function HybridModal({
     //     has both narrator voice and background music.
     const pipeline = [
       "Calculate scene timings",
-      "Generate scene images (up to 4 per scene)",
+      `Generate scene images (~${secondsPerImage}s each)`,
       "Generate narration (Piper)",
       "Generate background music",
       "Assemble final video",
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
 
-    // Up to 4 images per scene. Each becomes its own slide; total scene time is
-    // split evenly across them. Tunable from one place; the comment trail
-    // documents Henry's "MAX 4 BUT SHOULD BE INBUILD" directive (2026-06-07).
-    const MAX_IMAGES_PER_SCENE = 4;
+    // Henry 2026-06-07 update: image-count is no longer fixed at 4. User picks
+    // 1s or 2s per image and we generate ceil(sceneDuration / secondsPerImage)
+    // images per scene. A 60s scene at 2s/image = 30 images; at 1s/image = 60.
+    //
+    // Cap at 60 images per scene as a safety rail so a runaway 600s scene at
+    // 1s/image doesn't kick off 600 parallel calls. 60 is enough for any
+    // reasonable scene length and keeps the worst-case cost predictable.
     const sceneDuration = effectiveDuration / scenes.length;
+    const IMAGES_PER_SCENE_CAP = 60;
+    const imagesPerScene = Math.max(1, Math.min(IMAGES_PER_SCENE_CAP, Math.ceil(sceneDuration / secondsPerImage)));
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
     const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
 
@@ -866,10 +878,13 @@ function HybridModal({
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
 
-        // Generate UP TO MAX_IMAGES_PER_SCENE images in parallel. Each one
-        // becomes its own slide so the final video shows multiple visual beats
-        // per scene (Henry: "GET MORE PHONE LIKE MAX 4 BUT SHOULD BE INBUILD").
-        const imageRequests = SHOT_VARIATIONS.slice(0, MAX_IMAGES_PER_SCENE).map(async (variation, vIdx) => {
+        // Generate imagesPerScene images in parallel. Each one becomes its own
+        // slide so the final video shows many visual beats per scene. We cycle
+        // through the 4 SHOT_VARIATIONS (variation index = i % 4) so the
+        // imagery stays visually diverse even on a 30-image / 60-second scene.
+        // Henry 2026-06-07: long videos at 1-2s/image now produce a real
+        // photo gallery instead of a single still.
+        const imageRequests = Array.from({ length: imagesPerScene }, (_, vIdx) => SHOT_VARIATIONS[vIdx % SHOT_VARIATIONS.length]).map(async (variation, vIdx) => {
           const prompt = `${basePrompt} (${variation})`;
           try {
             const imgRes = await fetch("/api/generation/image", {
@@ -905,7 +920,7 @@ function HybridModal({
         if (imageResults.length === 0) {
           // Every image attempt failed — fall back to gradient slide so the
           // pipeline never silently drops a scene.
-          sceneFailures.push(`S${idx + 1}: all ${MAX_IMAGES_PER_SCENE} images failed`);
+          sceneFailures.push(`S${idx + 1}: all ${imagesPerScene} images failed`);
           assemblyScenes.push({
             scene: idx,
             videoUrl: "bg:#1a1a2e",
@@ -920,13 +935,18 @@ function HybridModal({
             assemblyScenes.push({
               // Use a unique scene index per slide so assemble's parallel
               // processing doesn't collide on the temp filename
-              // `scene_img_${scene}.ext` (one slide per scene number).
-              scene: idx * MAX_IMAGES_PER_SCENE + slideIdx,
+              // `scene_img_${scene}.ext` (one slide per scene number). We
+              // multiply by IMAGES_PER_SCENE_CAP (not imagesPerScene) so the
+              // index space is stable across scenes of different lengths.
+              scene: idx * IMAGES_PER_SCENE_CAP + slideIdx,
               videoUrl: `img:${url}`,
               duration: perImageDuration,
-              // Only show the scene title on the FIRST slide; subsequent slides
-              // stay visually clean while the narration continues.
-              text: slideIdx === 0 ? sc.title : "",
+              // Henry 2026-06-07 fix: scene title now shows on EVERY slide so
+              // the subtitle persists for the whole scene, not just the first
+              // ~2 seconds. Previously the long video showed a title for the
+              // first image then went visually silent for the rest of the
+              // scene.
+              text: sc.title,
               animation: "fade_in",
             });
           });
@@ -1122,6 +1142,29 @@ function HybridModal({
               </div>
               <div style={{ fontSize: 10, color: C.mute2, marginTop: 4 }}>
                 {scenes.length} scenes × ~{Math.round(effectiveDuration / scenes.length)}s each
+              </div>
+            </div>
+
+            {/* ── Images-per-second picker — Henry 2026-06-07.
+                  Drives how many images are generated per scene:
+                    imagesPerScene = ceil(sceneDuration / secondsPerImage), capped at 60.
+                  1s/image = denser photo gallery, slower gen, more API calls.
+                  2s/image = balanced default, half as many images.
+                  Free model (Segmind Flux $0.0004) keeps even 60-image scenes cheap. ── */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.mute2, marginBottom: 6 }}>SECONDS PER IMAGE</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {([1, 2] as const).map(v => (
+                  <button key={v} onClick={() => setSecondsPerImage(v)} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: `1px solid ${secondsPerImage === v ? C.lilac + "60" : C.line}`,
+                    background: secondsPerImage === v ? `${C.lilac}18` : "transparent",
+                    color: secondsPerImage === v ? C.lilac : C.mute, cursor: "pointer",
+                  }}>{v}s / image</button>
+                ))}
+                <span style={{ fontSize: 10, color: C.mute2, marginLeft: 10 }}>
+                  ≈ {Math.max(1, Math.min(60, Math.ceil((effectiveDuration / Math.max(1, scenes.length)) / secondsPerImage)))} images per scene
+                </span>
               </div>
             </div>
 
