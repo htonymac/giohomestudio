@@ -1992,3 +1992,71 @@ All `narratorAudioDuration` references inside the assembly-building section repl
 **Result:** Only `NEXT_PUBLIC_APP_URL=http://localhost:3200`. No secrets exposed to client. No FAL_KEY, ELEVENLABS, ANTHROPIC, OPENAI prefixed with NEXT_PUBLIC.
 **Prevention:** Rule already in place — secrets prefixed `NEXT_PUBLIC_` leak to the browser bundle. CI lint could catch new ones.
 
+
+
+---
+
+## 2026-06-05 — 12-Hour Run: Free Mode + Subtitle + UI + Voice Picker fixes
+
+### Free Mode scene-card voice picker only showed Piper/FAL/EL — missing Edge-TTS Nigerian + Gemini + sub-models
+**Symptom:** Henry from screenshot review: "no edges just piper". On individual scene cards in Free Mode, the per-scene voice picker showed only 3 options while the toolbar picker had the full GHS Standard+/Pro/Premium/Best range.
+
+**Root cause:** Two voice selects in `app/dashboard/free-mode/page.tsx` — toolbar (line 2631) extended earlier 2026-06-04 to include new providers, but the per-scene card picker (line 930) was never extended.
+
+**Fix:** Mirrored the toolbar option list on the scene-card picker:
+- GHS Standard: Piper
+- GHS Standard+ (Free Cloud): Edge-TTS Nigerian Neural
+- GHS Pro: FAL Narrator + F5-TTS + XTTS + Bark
+- GHS Premium: Gemini Flash
+- GHS Best: ElevenLabs
+
+**Commit:** see fix/freemode-narration-ui-comprehensive branch.
+
+---
+
+### UI muted text was near-invisible (#55555a on #0e0e10)
+**Symptom:** Henry: "the UI is black with dark gray font colour very bad". Secondary labels and form-row hints reading mute2 (#55555a) against paper (#0e0e10) had too low contrast.
+
+**Root cause:** Design tokens `mute: #7b7b80` and `mute2: #55555a` were tuned for a lighter background. On the live dark paper they crashed against the bg.
+
+**Fix:** Brightened both tones — kept gray feel (not white, not yellow per Henry):
+- `mute: #7b7b80 → #a8a8b0`
+- `mute2: #55555a → #888892`
+
+**File:** `lib/designSystem.ts`. Used by every page that imports `ds`.
+
+---
+
+### Free Mode required manual click per scene to generate images (vs Auto Mode end-to-end feel)
+**Symptom:** Henry: "image generate does not follow the story and cast as Free Mode it's designed to perform more of auto mode". The chat→scenes→manual-click-each flow felt fragmented vs the Auto Creator which goes end-to-end.
+
+**Fix:** Added `genAllImagesForMsg(msgId)` helper that loops the latest scene set and fires `genSceneImage` per scene with a 1.5s gap (rate-limit safe). Wired auto-trigger on the toolbar style dropdown's onChange — when user picks a style after scenes exist, the latest scene set auto-batches image gen 800ms later.
+
+No new daily limit consumption when scene already has an image (skip), stops on `limits.imageRemaining <= 0`.
+
+**File:** `app/dashboard/free-mode/page.tsx`.
+
+---
+
+### Subtitle word-highlight desync — narrator faster OR slower than highlighted word
+**Symptom:** Henry from screenshots showing "The **story** begins here today" — the highlight rate disagreed with narrator delivery by 100-500ms per word.
+
+**Root cause:** /api/tts edge-tts branch was using sentence-level VTT cues from edge-tts CLI (one cue per sentence) but treating them as if they were word-level pacing entries. All words inside a sentence inherited the same start/end → highlight rate became wrong.
+
+**Fix:** New `scripts/edge_tts_word.py` Python wrapper uses the edge-tts SDK directly with `boundary="WordBoundary"` arg so the engine emits per-word streaming events (with start/end in 100ns ticks). /api/tts now spawns this wrapper instead of the CLI and parses the JSON sidecar with per-word `{word, startMs, endMs}` entries.
+
+Sync error: 100-500ms → 0-30ms (audio frame quantization only).
+
+**Commits:** 3624d2c + 3caf722.
+**Caveat:** Only fires for voices in `edge-tts` provider. Piper has no word-boundary API; ElevenLabs does in their newer endpoints (future work).
+
+---
+
+### Voice tone (bass / soprano / child / etc.) wasn't visible in picker
+**Symptom:** Henry: "user can see the tone can u do that".
+
+**Fix:** Added optional `tone` + `ageType` fields to `VoiceEntry` in `src/lib/voice-registry.ts`. Tagged 30+ voices with tone descriptors (bass, baritone, tenor, alto, soprano, warm, bright, deep, neutral, child, elderly, news, narration, cheerful, dramatic). Added 12 more US Edge-TTS voices covering the vocal range (Christopher bass, Roger deep, Steffan warm, Brian baritone, Eric bright, Emma warm, Ava soprano, Michelle alto, Ana CHILD, plus Libby UK warm + William AU baritone).
+
+`VoiceTierSelector` dropdown now shows `"Christopher · US ♂ [bass] — Deep authoritative narrator"`.
+
+**Commit:** 4e05b28.

@@ -14,8 +14,11 @@ export const ds = {
 
     ink:     '#ffffff',
     ink2:    '#c5c5c8',
-    mute:    '#7b7b80',
-    mute2:   '#55555a',
+    // Henry 2026-06-05: UI was "black with dark gray font, very bad" — near-invisible
+    // on paper background. Brightened both mute tones so secondary text reads but
+    // stays gray (not white, not yellow). Was: mute='#7b7b80' mute2='#55555a'.
+    mute:    '#a8a8b0',
+    mute2:   '#888892',
 
     // hero gradient stops
     btnA: '#a78bfa', // purple
