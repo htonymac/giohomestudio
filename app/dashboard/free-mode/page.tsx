@@ -618,6 +618,145 @@ function VideoConfirmModal({
 
 type SubtitleStyleKey = "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Movie-mode auto-classifier — picks the best generation "vibe" from the user's
+// scenes + cast so Free Mode produces output that fits the content WITHOUT a
+// manual mode-picker step (Henry 2026-06-07: "FREE MODE MUST SLECT BEST MODE
+// FIT FOR THE MOVIE").
+//
+// Strategy: simple keyword tally. We score each candidate mode by how many of
+// its trigger words appear in the combined scene + character text, then pick
+// the highest score. Ties + zero-score both fall back to "cinematic" — the
+// safest default for an unknown prompt.
+//
+// Returned mode drives:
+//   - narration speed   (children = slower / clearer)
+//   - music prompt      (children = playful, action = upbeat, etc.)
+//   - shot variations   (children = friendlier framings)
+//
+// Adding a new mode = one entry in MODE_RULES. No other call site changes.
+// ─────────────────────────────────────────────────────────────────────────────
+type FreeModeKind = "children" | "music_video" | "commercial" | "action" | "documentary" | "cinematic";
+
+interface FreeModeProfile {
+  /** Narration playback speed sent to /api/tts. 1.0 = normal. */
+  narrationSpeed: number;
+  /** Music prompt template — string-replaces the generic Hybrid prompt. */
+  musicPromptTemplate: (sceneMoods: string) => string;
+  /** Per-shot-variation strings used when generating the 4 images per scene. */
+  shotVariations: string[];
+  /** Human-readable label shown in the UI banner. */
+  label: string;
+}
+
+const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModeProfile }> = {
+  children: {
+    triggers: ["kid", "kids", "child", "children", "baby", "toddler", "preschool", "abc", "alphabet", "counting", "lullaby", "bedtime", "nursery", "rhyme", "playful", "cartoon"],
+    profile: {
+      narrationSpeed: 0.9, // slower so young listeners can follow
+      musicPromptTemplate: (moods) => `Gentle children's storybook background music. Soft solo piano with delicate music box and warm light strings. Cheerful instrumental, no vocals, no heavy drums. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide friendly establishing shot, soft lighting, warm colours",
+        "medium shot at child eye level, inviting expressions",
+        "close-up of expressive faces, gentle smiles",
+        "playful low angle, dynamic but safe composition",
+      ],
+      label: "Children",
+    },
+  },
+  music_video: {
+    triggers: ["song", "music", "dance", "beat", "rhythm", "sing", "singer", "lyrics", "hip-hop", "rap", "pop", "rock", "concert", "stage", "performance"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Driving music-video instrumental backing track. Modern beat, strong rhythm section, dynamic energy. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide stage shot, dramatic lighting, audience silhouettes",
+        "medium tracking shot following motion, shallow depth of field",
+        "tight close-up syncing to the beat",
+        "low angle hero shot, cinematic colour grade",
+      ],
+      label: "Music Video",
+    },
+  },
+  commercial: {
+    triggers: ["brand", "product", "buy", "sale", "deal", "advertise", "promo", "promotion", "launch", "campaign", "discount", "offer", "store", "shop"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Upbeat commercial background music. Bright energetic instrumental, hooks listener fast, broadcast-ready. Mood cues: ${moods}.`,
+      shotVariations: [
+        "clean product hero shot, white-light backdrop",
+        "medium lifestyle shot of the product in use",
+        "close-up of product detail, premium feel",
+        "wide aspirational scene, cinematic colour",
+      ],
+      label: "Commercial",
+    },
+  },
+  action: {
+    triggers: ["fight", "chase", "battle", "war", "explosion", "attack", "weapon", "soldier", "warrior", "hero", "villain", "escape", "pursuit", "stunt"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Tense action movie score. Hybrid orchestral + electronic percussion, builds intensity, cinematic. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide establishing shot, high contrast lighting",
+        "medium tracking shot of the action, shallow DOF",
+        "tight close-up of intense expressions",
+        "low angle dramatic hero shot, dynamic composition",
+      ],
+      label: "Action",
+    },
+  },
+  documentary: {
+    triggers: ["real", "true", "history", "historical", "documentary", "news", "report", "interview", "fact", "evidence", "investigation", "journalist"],
+    profile: {
+      narrationSpeed: 0.95,
+      musicPromptTemplate: (moods) => `Subtle documentary background score. Restrained orchestral pads with light percussion, supports narration without overpowering. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide establishing shot, natural lighting, documentary realism",
+        "medium interview-style framing, neutral background",
+        "close-up of meaningful detail, archive feel",
+        "observational handheld angle, intimate perspective",
+      ],
+      label: "Documentary",
+    },
+  },
+  cinematic: {
+    triggers: [], // safe default — no triggers needed
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Cinematic instrumental background music for scenes: ${moods}. Rich, dynamic, supports the story.`,
+      shotVariations: [
+        "wide establishing shot, cinematic framing",
+        "medium shot, eye-level perspective",
+        "close-up detail, soft depth of field",
+        "low angle dramatic shot, dynamic composition",
+      ],
+      label: "Cinematic",
+    },
+  },
+};
+
+/**
+ * Decide which mode the prompt belongs to by counting keyword hits in the
+ * combined scene + character text. Highest scorer wins; ties + zero-score
+ * → "cinematic" (the safest default for unknown content).
+ */
+function classifyFreeModeKind(scenes: Scene[], characters?: Character[]): { kind: FreeModeKind; profile: FreeModeProfile } {
+  const haystack = (
+    scenes.map(s => `${s.title} ${s.text} ${s.mood ?? ""}`).join(" ") + " " +
+    (characters?.map(c => c.name).join(" ") ?? "")
+  ).toLowerCase();
+
+  let bestKind: FreeModeKind = "cinematic";
+  let bestScore = 0;
+  (Object.keys(MODE_RULES) as FreeModeKind[]).forEach(kind => {
+    const score = MODE_RULES[kind].triggers.reduce((acc, kw) => acc + (haystack.includes(kw) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; bestKind = kind; }
+  });
+
+  return { kind: bestKind, profile: MODE_RULES[bestKind].profile };
+}
+
 function HybridModal({
   scenes,
   onClose,
@@ -652,6 +791,10 @@ function HybridModal({
   const [done,    setDone]    = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error,     setError]     = useState<string | null>(null);
+  // Henry 2026-06-07: auto-mode-select banner. Populated by classifyFreeModeKind()
+  // at the start of runHybrid() so the user sees which "vibe" Free Mode picked
+  // (Children / Action / Music Video / Commercial / Documentary / Cinematic).
+  const [selectedModeLabel, setSelectedModeLabel] = useState<string | null>(null);
 
   const effectiveDuration = customDur
     ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration))
@@ -690,6 +833,14 @@ function HybridModal({
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
     const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
 
+    // Henry 2026-06-07: pick the best mode for this prompt up-front so narration
+    // / music / shot framing all align to one consistent vibe instead of being
+    // generic. setSelectedModeLabel() drives the UI banner so the user sees
+    // which mode was chosen and can override later if needed.
+    const { kind: selectedKind, profile: modeProfile } = classifyFreeModeKind(scenes, characters);
+    setSelectedModeLabel(modeProfile.label);
+    console.info(`[hybrid] auto-selected mode: ${selectedKind} (${modeProfile.label})`);
+
     try {
       // Step 1: timings
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "running" } : x));
@@ -702,15 +853,12 @@ function HybridModal({
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
       const sceneFailures: string[] = [];
-      // Helper — small randomiser so the 4 images per scene are visually distinct
-      // (different camera angles / framing) instead of being the same shot 4 times.
-      // Each variation appends to the BASE prompt so the character + style stay locked.
-      const SHOT_VARIATIONS = [
-        "wide establishing shot, cinematic framing",
-        "medium shot, eye-level perspective",
-        "close-up detail, soft depth of field",
-        "low angle dramatic shot, dynamic composition",
-      ];
+      // Henry 2026-06-07: per-mode shot variations so a "children" project gets
+      // friendlier framing and an "action" project gets dramatic angles. Comes
+      // from the mode classifier above instead of being a single hard-coded
+      // list — keeps the four images per scene visually distinct AND tonally
+      // matched to the content.
+      const SHOT_VARIATIONS = modeProfile.shotVariations;
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
@@ -815,8 +963,11 @@ function HybridModal({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               text: narrationText.slice(0, 30000),
-              provider: "piper",         // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
-              speed: 1.0,
+              provider: "piper",                // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
+              // Per-mode narration speed: children = slower so young listeners
+              // can follow; documentary = slightly slower for clarity; others
+              // = 1.0. Drives whatever pacing the Piper engine respects.
+              speed: modeProfile.narrationSpeed,
             }),
           });
           if (ttsRes.ok) {
@@ -841,7 +992,11 @@ function HybridModal({
       let musicUrl: string | null = null;
       try {
         const sceneMoodSummary = scenes.map(s => s.mood).join(", ");
-        const musicPrompt = `Background music for a video with scenes: ${sceneMoodSummary}. Cinematic, instrumental.`;
+        // Henry 2026-06-07: per-mode music prompt — children get gentle piano,
+        // action gets hybrid orchestral, etc. Picked up-front by the classifier
+        // so the bed track fits the content instead of being a generic
+        // "Cinematic, instrumental" string for every project.
+        const musicPrompt = modeProfile.musicPromptTemplate(sceneMoodSummary);
         const providerKey: "stable_audio" | "kie" | "stock" | "auto" =
           musicTier === "fal_stable_audio" ? "stable_audio"
           : musicTier === "kie_classic" || musicTier === "kie_premium" ? "kie"
@@ -1057,6 +1212,21 @@ function HybridModal({
               </div>
             </div>
           </>
+        )}
+
+        {/* ── Auto-selected mode banner — visible during AND after generation.
+              Lets the user see which "vibe" Free Mode picked for the prompt
+              (Children / Action / Music Video / etc) so it's not a hidden
+              decision. Henry 2026-06-07. ── */}
+        {selectedModeLabel && (
+          <div style={{
+            padding: "8px 12px", borderRadius: 8, marginBottom: 12,
+            background: `${C.lilac}10`, border: `1px solid ${C.lilac}30`,
+            fontSize: 11, color: C.lilac, display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span>✨</span>
+            <span>AI selected mode: <strong>{selectedModeLabel}</strong> — narration speed, music style, and shot framing tuned for this content.</span>
+          </div>
         )}
 
         {/* ── Pipeline progress ── */}
