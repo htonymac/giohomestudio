@@ -26,6 +26,7 @@ import { useProjectSettings } from "@/hooks/useProjectSettings";
 import ScriptTab from "./tabs/ScriptTab";
 import OverviewTab from "./tabs/OverviewTab";
 import DesignTab from "./tabs/DesignTab";
+import StoryTab from "./tabs/StoryTab";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -2448,254 +2449,68 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* STORY & DRAFT TAB                                                   */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* STORY TAB — extracted to tabs/StoryTab.tsx (movie-planner Wave 1.4)   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "story" && (
-        <div>
-          {/* Design-first nudge — shown if genre/format not yet set */}
-          {!genre && (
-            <div onClick={() => setActiveTab("design")}
-              style={{ padding: "12px 16px", borderRadius: 10, marginBottom: 12, cursor: "pointer", background: `${gold}08`, border: `1px solid ${gold}30`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <p style={{ fontSize: 12, fontWeight: 700, color: gold }}>Set Design First</p>
-                <p style={{ fontSize: 11, color: muted, marginTop: 2 }}>Genre, tone, format, and style feed the AI — without them the AI plans a generic movie, not your movie.</p>
-              </div>
-              <span style={{ fontSize: 11, color: gold, whiteSpace: "nowrap", marginLeft: 16 }}>Go to Design</span>
-            </div>
-          )}
-          {genre && (
-            <div style={{ padding: "10px 16px", borderRadius: 10, marginBottom: 12, background: `${green}08`, border: `1px solid ${green}20`, display: "flex", gap: 8, alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: green, display: "inline-flex", alignItems: "center", gap: 4 }}><Icon.Check style={{ width: 12, height: 12 }} /> Design set:</span>
-              <span style={{ fontSize: 11, color: muted }}>{genre}{tone ? ` · ${tone}` : ""}{setting ? ` · ${setting}` : ""}{format ? ` · ${FORMATS.find(f => f.id === format)?.label || format}` : ""}</span>
-              <button onClick={() => setActiveTab("design")} style={{ marginLeft: "auto", padding: "3px 10px", borderRadius: 6, border: `1px solid ${green}30`, background: "transparent", color: green, fontSize: 10, cursor: "pointer" }}>Edit Design</button>
-            </div>
-          )}
-          <div style={cardStyle}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 16 }}>Story & Draft</h2>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Movie Title</label>
-              <input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. The Last Guardian" style={inputStyle} />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Movie Idea *</label>
-              <textarea value={idea} onChange={e => setIdea(e.target.value)} rows={5}
-                placeholder="e.g. 'The man walked slowly toward the giant snake. The beast glared at him like prey. Beside him was a fallen log. He grabbed it and prepared to fight.'"
-                style={{ ...inputStyle, resize: "vertical" }} />
-              <p style={{ fontSize: 10, color: "#3d5060", marginTop: 6 }}>Write short — AI will expand this into full cinematic detail.</p>
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <label style={labelStyle}>Expanded Story (optional)</label>
-              <textarea value={expandedStory} onChange={e => setExpandedStory(e.target.value)} rows={4}
-                placeholder="Add more story detail if you have it — backstory, character motivations, key plot points..."
-                style={{ ...inputStyle, resize: "vertical" }} />
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10, marginBottom: 16 }}>
-              <div>
-                <label style={{ ...labelStyle, fontSize: 9 }}>Duration</label>
-                <DurationPicker
-                  preset="episode"
-                  value={duration}
-                  onChange={(label: string) => setDuration(label)}
-                  label=""
-                  accentColor="#7c5cfc"
-                />
-              </div>
-              <div>
-                <label style={{ ...labelStyle, fontSize: 9 }}>Language</label>
-                <select value={effectiveLanguage} onChange={e => { setLanguage(e.target.value); patchProjectSettings({ language: e.target.value }).catch(() => {}); }} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
-                  {["English (US)", "English (UK)", "English (AU)", "French", "Spanish", "Portuguese", "Arabic", "Hindi", "Mandarin", "Swahili", "German", "Italian", "Japanese", "Korean", "Russian", "Turkish", "Dutch", "Mixed"].map(l => (
-                    <option key={l} value={l} style={{ background: surface }}>{l}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label style={{ ...labelStyle, fontSize: 9 }}>Cost Preference</label>
-                <select value={format === "audio_only" ? "free" : "balanced"} onChange={() => {}} style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
-                  {["efficient", "balanced", "premium"].map(c => <option key={c} value={c} style={{ background: surface }}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label style={{ ...labelStyle, fontSize: 9 }}>Audience</label>
-                <select defaultValue="general" style={{ ...inputStyle, fontSize: 11, padding: "8px 10px" }}>
-                  {["general", "children", "teens", "adults", "business", "family"].map(a => <option key={a} value={a} style={{ background: surface }}>{a}</option>)}
-                </select>
-              </div>
-            </div>
-
-            <AITierSelector value={aiTier} onChange={setAiTier} compact />
-
-            {/* Era & Culture Lock */}
-            <div style={{ marginTop: 12, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 8 }}>
-              <div>
-                <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Era / Year</label>
-                <input
-                  value={storyEra}
-                  onChange={e => setStoryEra(e.target.value)}
-                  placeholder="e.g. 2024, 1819, 899 AD, 300 BC, Today"
-                  style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: 9, color: "#fb923c", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const, display: "block", marginBottom: 4 }}>Story Culture / Setting</label>
-                <input
-                  value={storyCulture}
-                  onChange={e => setStoryCulture(e.target.value)}
-                  placeholder="e.g. Contemporary Lagos, Victorian England, Yoruba Kingdom"
-                  style={{ ...inputStyle, fontSize: 10, padding: "7px 10px" }}
-                />
-              </div>
-            </div>
-            {(storyEra || storyCulture) && (
-              <p style={{ fontSize: 8, color: "#fb923c", marginTop: 4, fontWeight: 600 }}>
-                Era lock active — all scene images: {[storyEra, storyCulture].filter(Boolean).join(" · ")}
-              </p>
-            )}
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 0, marginTop: 10 }}>
-              <button onClick={() => expandStory()} disabled={!idea.trim() || expanding}
-                style={{ ...btnPrimary, flex: 1, background: !idea.trim() || expanding ? "#2a2a40" : "linear-gradient(135deg, #22c55e, #16a34a)", cursor: !idea.trim() || expanding ? "not-allowed" : "pointer" }}>
-                {expanding ? "Expanding Story..." : "Expand with AI Intelligence"}
-              </button>
-              <button onClick={() => {
-                if (!idea.trim()) return;
-                if (!genre) { setLastAction("Set Design before running AI planning"); setActiveTab("design"); return; }
-                generateMoviePlan();
-              }} disabled={!idea.trim() || planning}
-                style={{ ...btnPrimary, flex: 1, background: !idea.trim() || planning ? "#2a2a40" : !genre ? gold : "#7c5cfc", cursor: !idea.trim() || planning ? "not-allowed" : "pointer" }}>
-                {planning ? "Planning..." : !genre ? "Set Design First" : "Generate Movie Plan"}
-              </button>
-            </div>
-            {expanding && <p style={{ fontSize: 10, color: accent, marginTop: 8, textAlign: "center" }}>Running 3-step pipeline: story expand → character extract → scene plan...</p>}
-            {/* De-vocabularize: simplify movie idea for a target age */}
-            <div style={{ marginTop: 8, display: "flex", gap: 6 }}>
-              <button
-                onClick={() => {
-                  if (!idea.trim()) { setLastAction("Add movie idea first"); return; }
-                  const raw = window.prompt("Simplify story idea for which age? (5-18)", "12");
-                  if (raw === null) return;
-                  const age = parseInt(raw.trim(), 10);
-                  if (!Number.isFinite(age) || age < 5 || age > 18) {
-                    setLastAction("Age must be a number between 5 and 18");
-                    return;
-                  }
-                  void devocarize(age);
-                }}
-                disabled={devocarizing || !idea.trim()}
-                title="Rewrite the movie idea using simpler words for a target age"
-                style={{
-                  padding: "5px 9px", borderRadius: 6,
-                  border: `1px solid ${accent}55`,
-                  background: devocarizing ? `${accent}25` : `${accent}12`,
-                  color: (devocarizing || !idea.trim()) ? muted : accent,
-                  fontSize: 9, fontWeight: 700,
-                  cursor: (devocarizing || !idea.trim()) ? "not-allowed" : "pointer",
-                  opacity: (devocarizing || !idea.trim()) ? 0.55 : 1,
-                }}>
-                {devocarizing ? "Simplifying…" : "De-vocabularize"}
-              </button>
-            </div>
-          </div>
-
-          {/* AI Production Plan button — shown after story is written */}
-          {idea.trim() && !aiProductionPlan && (
-            <div style={{ ...cardStyle, borderColor: `${gold}20`, marginBottom: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: gold, marginBottom: 4 }}>AI Production Plan</p>
-                  <p style={{ fontSize: 11, color: muted }}>Let AI read your genre, tone, and story — then suggest scene count, pacing, music mood, and visual style.</p>
-                </div>
-                <button onClick={generateProductionPlan} disabled={generatingProductionPlan}
-                  style={{ padding: "10px 20px", borderRadius: 10, border: "none", background: generatingProductionPlan ? "#2a2a40" : `linear-gradient(135deg, ${gold}, #d97706)`, color: "#000", fontSize: 12, fontWeight: 700, cursor: generatingProductionPlan ? "not-allowed" : "pointer", flexShrink: 0, marginLeft: 16 }}>
-                  {generatingProductionPlan ? "Planning..." : "Get AI Plan"}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* AI Production Plan card — collapsible */}
-          {aiProductionPlan && (
-            <div style={{ ...cardStyle, borderColor: `${gold}30`, marginBottom: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: showProductionPlan ? 14 : 0 }}>
-                <p style={{ fontSize: 13, fontWeight: 700, color: gold }}>
-                  AI Production Plan — {aiProductionPlan.sceneCount > 0 ? `${aiProductionPlan.sceneCount} scenes` : "Ready"}
-                </p>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={generateProductionPlan} disabled={generatingProductionPlan}
-                    style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${gold}40`, background: "transparent", color: gold, fontSize: 10, cursor: "pointer" }}>
-                    Regenerate
-                  </button>
-                  <button onClick={() => setShowProductionPlan(p => !p)}
-                    style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: muted, fontSize: 10, cursor: "pointer" }}>
-                    {showProductionPlan ? "Collapse" : "Expand"}
-                  </button>
-                </div>
-              </div>
-              {showProductionPlan && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
-                    <p style={{ ...labelStyle, marginBottom: 4 }}>Music Mood</p>
-                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.musicMood}</p>
-                  </div>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
-                    <p style={{ ...labelStyle, marginBottom: 4 }}>Visual Style</p>
-                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.visualStyle}</p>
-                  </div>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
-                    <p style={{ ...labelStyle, marginBottom: 4 }}>Narrator Tone</p>
-                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.narratorTone}</p>
-                  </div>
-                  <div style={{ padding: "10px 14px", borderRadius: 10, background: s2, border: `1px solid ${border}` }}>
-                    <p style={{ ...labelStyle, marginBottom: 4 }}>Pacing</p>
-                    <p style={{ fontSize: 13, color: "#fff", fontWeight: 600 }}>{aiProductionPlan.pacing}</p>
-                  </div>
-                  {aiProductionPlan.scenes.length > 0 && (
-                    <div style={{ gridColumn: "1 / -1", maxHeight: 200, overflowY: "auto" }}>
-                      <p style={labelStyle}>Suggested Scenes</p>
-                      {aiProductionPlan.scenes.map((sc, i) => (
-                        <div key={i} style={{ display: "flex", gap: 10, padding: "6px 10px", borderRadius: 6, background: `${accent}08`, marginBottom: 4, border: `1px solid ${border}` }}>
-                          <span style={{ fontSize: 10, color: accent, fontWeight: 700, minWidth: 60 }}>Scene {i + 1}</span>
-                          <span style={{ fontSize: 11, color: "#fff", flex: 1 }}>{sc.title}</span>
-                          <span style={{ fontSize: 10, color: muted }}>{sc.duration}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Expanded summary display */}
-          {expandedStory && (
-            <div style={{ ...cardStyle, borderColor: `${accent}20` }}>
-              <p style={labelStyle}>Expanded Story</p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.7 }}>{expandedStory}</p>
-            </div>
-          )}
-
-          {/* Draft Zone */}
-          <div style={cardStyle}>
-            <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Draft Zone — Unfinished Scenes</p>
-            {scenes.filter(s => s.status === "planned" || s.status === "needs_edit").length > 0 ? (
-              <div>
-                <p style={{ fontSize: 10, color: muted, marginBottom: 8 }}>{draftScenes} scenes in draft</p>
-                {scenes.filter(s => s.status === "planned" || s.status === "needs_edit").map(s => (
-                  <div key={s.scene} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 8, background: s2, marginBottom: 4, border: `1px solid ${border}` }}>
-                    <span style={badgeStyle(gold)}>SC{String(s.scene).padStart(2, "0")}</span>
-                    <p style={{ fontSize: 11, color: "#fff", flex: 1 }}>{s.title}</p>
-                    <span style={{ fontSize: 9, color: muted }}>{sceneImages[`SC${String(s.scene).padStart(2, "0")}`] ? "has image" : "no image"}</span>
-                    <button onClick={() => { setActiveTab("scenes"); setSelectedScene(s.scene); }}
-                      style={{ padding: "4px 10px", borderRadius: 6, border: `1px solid ${border}`, background: "transparent", color: blue, fontSize: 9, cursor: "pointer" }}>Open</button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p style={{ fontSize: 11, color: muted }}>{totalScenes === 0 ? "No scenes created yet. Run AI Planning from the Design tab." : "All scenes reviewed or approved!"}</p>
-            )}
-          </div>
-        </div>
+        <StoryTab
+          genre={genre}
+          tone={tone}
+          setting={setting}
+          format={format}
+          FORMATS={FORMATS}
+          title={title}
+          setTitle={setTitle}
+          idea={idea}
+          setIdea={setIdea}
+          expandedStory={expandedStory}
+          setExpandedStory={setExpandedStory}
+          duration={duration}
+          setDuration={setDuration}
+          effectiveLanguage={effectiveLanguage}
+          onChangeLanguage={(v: string) => {
+            // Bundles original inline behavior: setLanguage + patchProjectSettings.
+            setLanguage(v);
+            patchProjectSettings({ language: v }).catch(() => {});
+          }}
+          aiTier={aiTier}
+          setAiTier={setAiTier}
+          storyEra={storyEra}
+          setStoryEra={setStoryEra}
+          storyCulture={storyCulture}
+          setStoryCulture={setStoryCulture}
+          expanding={expanding}
+          planning={planning}
+          devocarizing={devocarizing}
+          generatingProductionPlan={generatingProductionPlan}
+          aiProductionPlan={aiProductionPlan as unknown as import("./tabs/StoryTab").StoryAiProductionPlan | null}
+          showProductionPlan={showProductionPlan}
+          setShowProductionPlan={setShowProductionPlan}
+          generateProductionPlan={generateProductionPlan}
+          scenes={scenes as unknown as ReadonlyArray<import("./tabs/StoryTab").StoryDraftScene>}
+          sceneImages={sceneImages}
+          draftScenes={draftScenes}
+          totalScenes={totalScenes}
+          setSelectedScene={setSelectedScene}
+          expandStory={expandStory}
+          generateMoviePlan={generateMoviePlan}
+          devocarize={devocarize}
+          setActiveTab={setActiveTab}
+          setLastAction={setLastAction}
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          inputStyle={inputStyle}
+          btnPrimary={btnPrimary}
+          s2={s2}
+          surface={surface}
+          border={border}
+          muted={muted}
+          accent={accent}
+          blue={blue}
+          gold={gold}
+          green={green}
+          badgeStyle={badgeStyle}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
