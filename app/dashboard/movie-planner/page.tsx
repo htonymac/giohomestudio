@@ -24,6 +24,7 @@ import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
 import ScriptTab from "./tabs/ScriptTab";
+import OverviewTab from "./tabs/OverviewTab";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS AI Movie & Series Planner — PRODUCTION WORKSHOP
@@ -2388,231 +2389,59 @@ function MoviePlannerInner() {
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* OVERVIEW TAB                                                        */}
       {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* OVERVIEW TAB — extracted to tabs/OverviewTab.tsx (movie-planner Wave 1.2) */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
       {activeTab === "overview" && (
-        <div>
-          {/* Stats grid — 5 columns */}
-          <div style={{ ...cardStyle, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 12 }}>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: accent }}>{totalScenes}</p>
-              <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Total Scenes</p>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: gold }}>{draftScenes}</p>
-              <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Draft</p>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: green }}>{approvedScenes}</p>
-              <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Approved</p>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: red }}>{blockedScenes}</p>
-              <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Blocked</p>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <p style={{ fontSize: 28, fontWeight: 800, color: purple }}>{savedCharacters.length}</p>
-              <p style={{ fontSize: 9, color: muted, textTransform: "uppercase", letterSpacing: 1 }}>Characters</p>
-            </div>
-          </div>
-
-          {/* Progress + Resume side by side */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
-            <div style={cardStyle}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Production Progress</p>
-              <ProgressBar label="Story" value={storyProgress} color={accent} />
-              <ProgressBar label="Characters" value={characterProgress} color={purple} />
-              <ProgressBar label="AI Planning" value={planningProgress} color={gold} />
-              <ProgressBar label="Scenes Generated" value={sceneProgress} color={blue} />
-              <ProgressBar label="Scene Images" value={imageProgress} color={green} />
-              <div style={{ borderTop: `1px solid ${border}`, paddingTop: 10, marginTop: 6 }}>
-                <ProgressBar label="Assembly Readiness" value={assemblyReadiness} color={assemblyReadiness > 70 ? green : assemblyReadiness > 40 ? gold : red} />
-              </div>
-            </div>
-
-            <div style={cardStyle}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Resume & Next Steps</p>
-              <div style={{ background: s2, borderRadius: 10, padding: 12, border: `1px solid ${border}`, marginBottom: 8 }}>
-                <p style={{ fontSize: 9, color: accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Last Action</p>
-                <p style={{ fontSize: 12, color: "#fff" }}>{lastAction}</p>
-              </div>
-              <div style={{ background: s2, borderRadius: 10, padding: 12, border: `1px solid ${border}`, marginBottom: 8 }}>
-                <p style={{ fontSize: 9, color: gold, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Phase</p>
-                <p style={{ fontSize: 12, color: "#fff" }}>{projectPhase.replace(/_/g, " ")}</p>
-              </div>
-              <div style={{ background: `${accent}08`, borderRadius: 10, padding: 12, border: `1px solid ${accent}20` }}>
-                <p style={{ fontSize: 9, color: accent, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Next Step</p>
-                <p style={{ fontSize: 12, color: "#fff" }}>
-                  {!genre ? "Set movie design first (genre, tone, format)" :
-                   !idea ? "Write your story idea" :
-                   selectedCast.length === 0 ? "Select your cast" :
-                   !moviePlan ? "Run AI Planning" :
-                   generatedImages < totalScenes ? `Generate images for ${totalScenes - generatedImages} scenes` :
-                   generatedScenes < totalScenes ? "Render remaining scenes" :
-                   "Ready for assembly!"}
-                </p>
-                <button onClick={() => {
-                  if (!genre) setActiveTab("design");
-                  else if (!idea) setActiveTab("story");
-                  else if (selectedCast.length === 0) setActiveTab("characters");
-                  else if (!moviePlan) setActiveTab("story");
-                  else if (generatedImages < totalScenes) setActiveTab("scenes");
-                  else setActiveTab("assembly");
-                }} style={{ marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
-                  Go
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Warnings */}
-          {warnings.length > 0 && (
-            <div style={{ ...cardStyle, borderColor: `${gold}30`, background: `${gold}04` }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: gold, marginBottom: 10 }}>Warnings & Blockers ({warnings.length})</p>
-              {warnings.slice(0, 8).map((w, i) => {
-                const fixTab: WorkshopTab = w.includes("voice") || w.includes("portrait") ? "characters" : w.includes("Scene") || w.includes("image") ? "scenes" : w.includes("character") || w.includes("cast") ? "characters" : "overview";
-                return (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: `${gold}06`, marginBottom: 4 }}>
-                    <span style={{ fontSize: 10, color: gold }}>!</span>
-                    <p style={{ fontSize: 11, color: gold, flex: 1 }}>{w}</p>
-                    <button onClick={() => setActiveTab(fixTab)} style={{ padding: "3px 8px", borderRadius: 4, border: `1px solid ${gold}30`, background: "transparent", color: gold, fontSize: 8, cursor: "pointer", flexShrink: 0 }}>Fix</button>
-                  </div>
-                );
-              })}
-              {warnings.length > 8 && <p style={{ fontSize: 10, color: muted, marginTop: 4 }}>+{warnings.length - 8} more</p>}
-            </div>
-          )}
-
-          {/* Quick Links */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8 }}>
-            <button onClick={() => setActiveTab("scenes")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${blue}20` }}>
-              <Icon.Film style={{ width: 24, height: 24, color: blue, marginBottom: 6 }} />
-              <p style={{ fontSize: 11, color: blue, fontWeight: 600, marginTop: 6 }}>Scene Board</p>
-            </button>
-            <a href="/dashboard/character-voices" style={{ textDecoration: "none" }}>
-              <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${purple}20` }}>
-                <Icon.User style={{ width: 24, height: 24, color: purple, marginBottom: 6 }} />
-                <p style={{ fontSize: 11, color: purple, fontWeight: 600, marginTop: 6 }}>Character Registry</p>
-              </div>
-            </a>
-            <a href="/dashboard/collaborative-editor?from=movie-planner" style={{ textDecoration: "none" }}
-              onClick={() => { /* return state handled via URL params */ }}>
-              <div style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${accent}20` }}>
-                <Icon.Wand style={{ width: 24, height: 24, color: accent, marginBottom: 6 }} />
-                <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 6 }}>Open Editor</p>
-              </div>
-            </a>
-            <button onClick={() => setActiveTab("assembly")} style={{ ...cardStyle, cursor: "pointer", textAlign: "center", border: `1px solid ${gold}20` }}>
-              <Icon.Bolt style={{ width: 24, height: 24, color: gold, marginBottom: 6 }} />
-              <p style={{ fontSize: 11, color: gold, fontWeight: 600, marginTop: 6 }}>Assembly</p>
-            </button>
-          </div>
-
-          {/* Cost summary */}
-          {moviePlan && (
-            <div style={{ ...cardStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 14, color: "#fff" }}>Estimated Credits: <strong style={{ color: accent }}>{moviePlan.estimatedCredits}</strong></span>
-              <span style={{ fontSize: 12, color: muted }}>{totalScenes} scenes &middot; {format || "hybrid"} format</span>
-            </div>
-          )}
-
-          {/* Assembled video in Overview */}
-          {assembledUrl && (
-            <div style={{ ...cardStyle, borderColor: `${green}40`, background: `${green}04` }}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: green, marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon.Check style={{ width: 14, height: 14 }} /> Movie Assembled
-              </p>
-              <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 280, borderRadius: 10, marginBottom: 10 }} />
-              <div style={{ display: "flex", gap: 8 }}>
-                <a href={assembledUrl} target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: "none" }}>
-                  <button style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid ${green}30`, background: `${green}08`, color: green, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    Watch Full Movie
-                  </button>
-                </a>
-                <a href={assembledUrl} download={`${title || "movie"}.mp4`} style={{ flex: 1, textDecoration: "none" }}>
-                  <button style={{ width: "100%", padding: "8px 14px", borderRadius: 8, border: `1px solid ${accent}30`, background: `${accent}08`, color: accent, fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                    Download MP4
-                  </button>
-                </a>
-              </div>
-            </div>
-          )}
-
-          {/* Movie Blueprint if exists */}
-          {moviePlan && (
-            <div style={cardStyle}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Movie Blueprint</p>
-              <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>{moviePlan.summary}</p>
-            </div>
-          )}
-
-          {/* ── SD: Model Settings Panel ── */}
-          <div style={{ ...cardStyle, marginTop: 12 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginBottom: showModelSettings ? 14 : 0 }}
-              onClick={() => setShowModelSettings(p => !p)}>
-              <p style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Model Settings</p>
-              <span style={{ fontSize: 11, color: muted }}>{showModelSettings ? "Hide" : "Show"}</span>
-            </div>
-            {showModelSettings && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 14 }}>
-                {/* 1. Story LLM */}
-                <div>
-                  <p style={{ ...labelStyle }}>Story LLM</p>
-                  {([
-                    { id: "claude-haiku-4-5", label: "Haiku 4.5 — Fast (draft)" },
-                    { id: "claude-sonnet-4-6", label: "Sonnet 4.6 — Balanced" },
-                    { id: "claude-opus-4-7", label: "Opus 4.7 — Premium (final)" },
-                    { id: "gpt-4o-mini", label: "GPT Fast" },
-                    { id: "gpt-4o", label: "GPT Premium" },
-                  ] as const).map(m => (
-                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, storyLLM: m.id }))}
-                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.storyLLM === m.id ? accent : border}`, background: modelSettings.storyLLM === m.id ? `${accent}12` : "transparent", color: modelSettings.storyLLM === m.id ? accent : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                {/* 2. Character Image Model */}
-                <div>
-                  <p style={{ ...labelStyle }}>Character Image</p>
-                  {([
-                    { id: "fal_flux_schnell", label: "Flux Schnell (default, fast)" },
-                    { id: "fal_flux_dev", label: "Flux Dev (quality)" },
-                    { id: "pruna_flux", label: "Pruna (optimized)" },
-                  ] as const).map(m => (
-                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, charImageModel: m.id }))}
-                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.charImageModel === m.id ? purple : border}`, background: modelSettings.charImageModel === m.id ? `${purple}12` : "transparent", color: modelSettings.charImageModel === m.id ? purple : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                {/* 3. Scene Video Model */}
-                <div>
-                  <p style={{ ...labelStyle }}>Scene Video</p>
-                  {([
-                    { id: "kling_1_6_standard", label: "Kling 1.6 Standard" },
-                    { id: "kling_2_5_pro", label: "Kling 2.5 Pro" },
-                    { id: "runway_gen4", label: "Runway Gen-4" },
-                    { id: "veo2", label: "Veo 2" },
-                    { id: "fal_wan_lite", label: "Wan 2.5" },
-                  ] as const).map(m => (
-                    <button key={m.id} onClick={() => setModelSettings(p => ({ ...p, sceneVideoModel: m.id }))}
-                      style={{ display: "block", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.sceneVideoModel === m.id ? gold : border}`, background: modelSettings.sceneVideoModel === m.id ? `${gold}12` : "transparent", color: modelSettings.sceneVideoModel === m.id ? gold : "#fff", fontSize: 10, cursor: "pointer", textAlign: "left" as const }}>
-                      {m.label}
-                    </button>
-                  ))}
-                </div>
-                {/* 4. Sound/SFX Model (synced with Audio tab 5-tier) */}
-                <div>
-                  <p style={{ ...labelStyle }}>Sound/SFX</p>
-                  {SOUND_TIERS_MOVIE.map(tier => (
-                    <button key={tier.id} onClick={() => { setModelSettings(p => ({ ...p, soundModel: tier.id })); setSoundTier(tier.id); patchProjectSettings({ soundTier: tier.id }).catch(() => {}); }}
-                      style={{ display: "flex", justifyContent: "space-between", width: "100%", padding: "6px 10px", marginBottom: 4, borderRadius: 8, border: `1px solid ${modelSettings.soundModel === tier.id ? green : border}`, background: modelSettings.soundModel === tier.id ? `${green}12` : "transparent", color: modelSettings.soundModel === tier.id ? green : "#fff", fontSize: 10, cursor: "pointer" }}>
-                      <span>{tier.label}</span><span style={{ opacity: 0.6 }}>{tier.cost}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <OverviewTab
+          totalScenes={totalScenes}
+          draftScenes={draftScenes}
+          approvedScenes={approvedScenes}
+          blockedScenes={blockedScenes}
+          savedCharactersCount={savedCharacters.length}
+          storyProgress={storyProgress}
+          characterProgress={characterProgress}
+          planningProgress={planningProgress}
+          sceneProgress={sceneProgress}
+          imageProgress={imageProgress}
+          assemblyReadiness={assemblyReadiness}
+          lastAction={lastAction}
+          projectPhase={projectPhase}
+          hasGenre={!!genre}
+          hasIdea={!!idea}
+          selectedCastCount={selectedCast.length}
+          hasMoviePlan={!!moviePlan}
+          generatedImages={generatedImages}
+          generatedScenes={generatedScenes}
+          warnings={warnings}
+          moviePlan={moviePlan}
+          format={format}
+          title={title}
+          assembledUrl={assembledUrl}
+          showModelSettings={showModelSettings}
+          setShowModelSettings={setShowModelSettings}
+          modelSettings={modelSettings}
+          setModelSettings={setModelSettings as unknown as React.Dispatch<React.SetStateAction<import("./tabs/OverviewTab").OverviewModelSettings>>}
+          SOUND_TIERS_MOVIE={SOUND_TIERS_MOVIE}
+          onPickSoundTier={(id: string) => {
+            // Three side-effects bundled — mirrors original inline behavior verbatim.
+            setModelSettings(p => ({ ...p, soundModel: id as typeof modelSettings.soundModel }));
+            setSoundTier(id as typeof modelSettings.soundModel);
+            patchProjectSettings({ soundTier: id }).catch(() => {});
+          }}
+          cardStyle={cardStyle}
+          labelStyle={labelStyle}
+          s2={s2}
+          border={border}
+          muted={muted}
+          accent={accent}
+          purple={purple}
+          gold={gold}
+          red={red}
+          blue={blue}
+          green={green}
+          setActiveTab={setActiveTab}
+        />
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
