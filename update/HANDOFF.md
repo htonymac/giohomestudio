@@ -1,18 +1,46 @@
-# GHS HANDOFF — Session 2026-06-04/05 (children-planner Wave 1 segregation complete)
+# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
-**Last updated:** 2026-06-05 (after PR #35 merge) · **HEAD:** `main` post PR #35 · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
+**Last updated:** 2026-06-06 (after PRs #37 + #38 merge) · **HEAD:** `main` post Wave 3 · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
 
-## 🔥 2026-06-04/05 — Children-planner Wave 1 segregation: COMPLETE
+## 🔥 2026-06-05/06 — Children-planner segregation FULLY COMPLETE (Waves 1 + 2 + 3)
 
-5 low-risk tabs extracted from god-file. **`children-planner/page.tsx`: 8,402 → 7,891 LOC (-511, -6.1%).** Created `tabs/` directory with `_shared-types.ts` (24) + Review1Tab (117) + PreviewTab (105) + ScriptTab (194) + Review2Tab (283) + OverviewTab (354).
+**page.tsx: 8,402 → ~5,226 LOC (-3,176, -38%)** across 5 merged PRs (#34 #35 #37 #38 + docs PR #36) plus PR #39 type-fix. 12 standalone tab files + `_shared-types.ts`.
 
-Shipped via PRs #34 + #35 (both Sourcery-clean + auto-merged on 10-min Henry-silence rule).
+### Final tab inventory (`app/dashboard/children-planner/tabs/`)
+| Tab | LOC | Wave |
+|---|---|---|
+| `_shared-types.ts` | 60 | 1 + 2 |
+| `Review1Tab.tsx` | 117 | 1.1 |
+| `PreviewTab.tsx` | 105 | 1.2 |
+| `ScriptTab.tsx` | 194 | 1.3 |
+| `Review2Tab.tsx` | 283 | 1.4 |
+| `OverviewTab.tsx` | 354 | 1.5 |
+| `SoundTab.tsx` | 315 | 2.1 |
+| `StyleTab.tsx` | 462 | 2.2 |
+| `StoryTab.tsx` | 407 | 2.3 |
+| `ScreenplayTab.tsx` | 215 | 2.4 |
+| `CharactersTab.tsx` | 565 | 2.5 |
+| `SceneBoardTab.tsx` | 605 | 3.1 |
+| `AssemblyTab.tsx` | 706 | 3.2 |
+
+### Notes
+- All extractions are pure JSX relocations — parent retains state + handlers. Tabs receive props.
+- TS variance pattern locked in `update/PROBLEM_AND_FIX.md` as **P-2026-06-05** (two fix patterns: narrow union at child OR cast at parent prop-pass).
+- PR #39 fixed a pre-existing scene-forge type bug (missing `standard_plus` in musicTier union) that was blocking ALL CI builds.
+- Local type-check needs `pnpm prisma generate` after any schema bump — CI runs this automatically; local does not.
+
+### Triggers ready (NOT auto-fired)
+- `split hybrid` → 13,567 LOC god-file. Still untouched (hard rule — Hybrid is mature reference).
+- `split movie-planner` → 5,107 LOC. Second-biggest non-Hybrid. No trigger yet.
+- `split collaborative-editor` → 4,820 LOC. No trigger yet.
+
+## 📜 Earlier this session 2026-06-05 — Children-planner Wave 1 segregation: COMPLETE
+
+5 low-risk tabs extracted from god-file. **`children-planner/page.tsx`: 8,402 → 7,891 LOC (-511, -6.1%) post-Wave 1.** Shipped via PRs #34 + #35.
 
 **TS variance pattern locked** (logged in PROBLEM_AND_FIX): when extracting a tab from a parent that uses a literal-union state setter (`Dispatch<SetStateAction<"design"|"content"|...>>`), child tab's `setActiveTab` prop must declare a NARROWED literal union — `(t: string) => void` does NOT accept the parent type because of variance. Two patterns:
 - Pattern A (narrow at child): `setActiveTab: (t: "review1" | "preview") => void;`
 - Pattern B (cast at parent prop pass): `setChildScenes as unknown as React.Dispatch<React.SetStateAction<...>>`
-
-**Waves 2 + 3 (medium/high-risk tabs) waiting on explicit Henry trigger.**
 
 ## 📜 Earlier in session 2026-06-02/03
 

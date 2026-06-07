@@ -1,5 +1,21 @@
 # GioHomeStudio — CHANGELOG
 
+## 2026-06-05/06 — **CHILDREN-PLANNER SEGREGATION FULLY COMPLETE — Waves 2 + 3** (PRs #37 + #38 + #39, ~14 commits)
+
+**What:** Extracted the remaining 7 tabs from `app/dashboard/children-planner/page.tsx` (5 medium-risk in Wave 2 + 2 high-risk in Wave 3) plus a pre-existing scene-forge type-bug fix that was blocking CI.
+**Why:** Closes `update/SEGREGATION_PLAN_CHILDREN_06052026.md` — the god-file is no longer a god-file.
+**Impact:**
+- Wave 2 (PR #37): page.tsx 7,891 → 6,573 (-1,318 LOC). 5 tabs out: SoundTab (315) + StyleTab (462) + StoryTab (407) + ScreenplayTab (215) + CharactersTab (565).
+- Wave 3 (PR #38): page.tsx 6,573 → 5,226 (-1,347 LOC). 2 tabs out: SceneBoardTab (605) + AssemblyTab (706).
+- Scene-forge fix (PR #39): added `standard_plus` to `setMusicTier` literal union (pre-existing bug, was blocking ALL CI builds with `tsc --noEmit` in Next build step).
+- **Cumulative result from start of segregation work: page.tsx 8,402 → 5,226 LOC (-3,176, -38%) across 12 standalone tab files + 1 shared-types module.**
+
+**Risk:** Low. All extractions are pure JSX relocations. Inline async closures (narration/music/intro/outro generators in AssemblyTab) preserved verbatim to avoid behavior drift. Build verified clean via `pnpm tsc --noEmit` and CI (Next.js build with internal type-check) both clean.
+
+**Pattern reinforced:** TS variance pattern from Wave 1 (P-2026-06-05 in PROBLEM_AND_FIX) used 4-5 more times across Waves 2 + 3 — proven across literal-union setters (`setTone`, `setSoundTier`, `setChildScenes`, `setCharacters`, `setInlinePreview`).
+
+**Pending:** No further children-planner work. Hybrid (13,567 LOC) explicitly off-limits without `split hybrid` trigger.
+
 ## 2026-06-04/05 — **CHILDREN-PLANNER WAVE 1 SEGREGATION SHIPPED** (PRs #34 + #35, 8 commits, Sourcery-clean)
 
 **What:** Extracted 5 low-risk tabs from `app/dashboard/children-planner/page.tsx` god-file.
