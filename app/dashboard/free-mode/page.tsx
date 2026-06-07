@@ -666,15 +666,26 @@ function HybridModal({
   async function runHybrid() {
     setRunning(true);
     setError(null);
+    // Henry 2026-06-07 fix: Free Mode Hybrid was shipping silent video (no TTS
+    // call) AND only 1 image per scene. New pipeline:
+    //   - Generate up to MAX_IMAGES_PER_SCENE per scene (4), in-built, no user
+    //     toggle (so output looks rich without a config click).
+    //   - Generate narration via Piper (FORCED — Henry: "JUST PIPER" in Free Mode).
+    //   - Pass narrationUrl + musicUrl in the assembly payload so the final mp4
+    //     has both narrator voice and background music.
     const pipeline = [
       "Calculate scene timings",
-      "Generate scene images",
-      "Add text overlays",
-      "Generate music & audio",
+      "Generate scene images (up to 4 per scene)",
+      "Generate narration (Piper)",
+      "Generate background music",
       "Assemble final video",
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
 
+    // Up to 4 images per scene. Each becomes its own slide; total scene time is
+    // split evenly across them. Tunable from one place; the comment trail
+    // documents Henry's "MAX 4 BUT SHOULD BE INBUILD" directive (2026-06-07).
+    const MAX_IMAGES_PER_SCENE = 4;
     const sceneDuration = effectiveDuration / scenes.length;
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
     const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
@@ -691,53 +702,85 @@ function HybridModal({
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
       const sceneFailures: string[] = [];
+      // Helper — small randomiser so the 4 images per scene are visually distinct
+      // (different camera angles / framing) instead of being the same shot 4 times.
+      // Each variation appends to the BASE prompt so the character + style stay locked.
+      const SHOT_VARIATIONS = [
+        "wide establishing shot, cinematic framing",
+        "medium shot, eye-level perspective",
+        "close-up detail, soft depth of field",
+        "low angle dramatic shot, dynamic composition",
+      ];
+
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
-        const prompt = charContext
+        const basePrompt = charContext
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
-        let pushedImage = false;
-        try {
-          const imgRes = await fetch("/api/generation/image", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              prompt,
-              modelId: imageModel || "segmind_flux",
-              width: 832, height: 1472,
-            }),
-          });
-          if (imgRes.ok) {
+
+        // Generate UP TO MAX_IMAGES_PER_SCENE images in parallel. Each one
+        // becomes its own slide so the final video shows multiple visual beats
+        // per scene (Henry: "GET MORE PHONE LIKE MAX 4 BUT SHOULD BE INBUILD").
+        const imageRequests = SHOT_VARIATIONS.slice(0, MAX_IMAGES_PER_SCENE).map(async (variation, vIdx) => {
+          const prompt = `${basePrompt} (${variation})`;
+          try {
+            const imgRes = await fetch("/api/generation/image", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                prompt,
+                modelId: imageModel || "segmind_flux",
+                width: 832, height: 1472,
+              }),
+            });
+            if (!imgRes.ok) {
+              const errBody = await imgRes.json().catch(() => ({}));
+              const reason = errBody?.error ?? `HTTP ${imgRes.status}`;
+              console.error(`[hybrid] scene ${idx + 1} image ${vIdx + 1} gen failed:`, reason);
+              return null;
+            }
             const imgData = await imgRes.json();
             // For assembly we want a path the SERVER can read directly:
             //   - if imagePath (absolute) → pass it raw, assemble's resolveMediaPath
             //     accepts absolute paths via fs.existsSync.
             //   - else if imageUrl (remote http/https) → assemble downloads it.
             const assembleUrl: string = imgData.imagePath ?? imgData.imageUrl ?? "";
-            if (assembleUrl) {
-              // "img:" prefix tells /api/video/assemble to treat this as an image and render Ken Burns
-              assemblyScenes.push({ scene: idx, videoUrl: `img:${assembleUrl}`, duration: sceneDuration, text: sc.title, animation: "fade_in" });
-              pushedImage = true;
-            }
-          } else {
-            const errBody = await imgRes.json().catch(() => ({}));
-            const reason = errBody?.error ?? `HTTP ${imgRes.status}`;
-            console.error(`[hybrid] scene ${idx + 1} image gen failed:`, reason);
-            sceneFailures.push(`S${idx + 1}: ${reason}`);
+            return assembleUrl || null;
+          } catch (e) {
+            console.error(`[hybrid] scene ${idx + 1} image ${vIdx + 1} exception:`, e);
+            return null;
           }
-        } catch (e) {
-          console.error(`[hybrid] scene ${idx + 1} image gen exception:`, e);
-          sceneFailures.push(`S${idx + 1}: ${e instanceof Error ? e.message : "exception"}`);
-        }
-        // Fallback: assemble still gets a slide for this scene (gradient + subtitle)
-        // so the pipeline never silently drops a scene.
-        if (!pushedImage) {
+        });
+
+        const imageResults = (await Promise.all(imageRequests)).filter((u): u is string => !!u);
+
+        if (imageResults.length === 0) {
+          // Every image attempt failed — fall back to gradient slide so the
+          // pipeline never silently drops a scene.
+          sceneFailures.push(`S${idx + 1}: all ${MAX_IMAGES_PER_SCENE} images failed`);
           assemblyScenes.push({
             scene: idx,
-            videoUrl: "bg:#1a1a2e", // gradient fallback the assemble route understands
+            videoUrl: "bg:#1a1a2e",
             duration: sceneDuration,
             text: sc.title,
             animation: "fade_in",
+          });
+        } else {
+          // Split the scene's airtime evenly across the images we got.
+          const perImageDuration = sceneDuration / imageResults.length;
+          imageResults.forEach((url, slideIdx) => {
+            assemblyScenes.push({
+              // Use a unique scene index per slide so assemble's parallel
+              // processing doesn't collide on the temp filename
+              // `scene_img_${scene}.ext` (one slide per scene number).
+              scene: idx * MAX_IMAGES_PER_SCENE + slideIdx,
+              videoUrl: `img:${url}`,
+              duration: perImageDuration,
+              // Only show the scene title on the FIRST slide; subsequent slides
+              // stay visually clean while the narration continues.
+              text: slideIdx === 0 ? sc.title : "",
+              animation: "fade_in",
+            });
           });
         }
       }
@@ -748,9 +791,49 @@ function HybridModal({
       }
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      // Step 3: text overlays (handled inside assemble via scene.text + subtitle engine)
+      // ── Step 3: narration (Piper) ────────────────────────────────────────
+      // Henry 2026-06-07: Free Mode's Hybrid path was shipping silent video
+      // because this step was missing entirely (the pipeline jumped from images
+      // → music → assemble). New behavior:
+      //   - Stitch every scene's title + text into one narration script.
+      //   - Hit /api/tts with provider: "piper" (FORCED — Henry's spec
+      //     "HYBRID IN FREE MODE DONT OF EDGE TTS JUST PIPER"). The UI selector
+      //     is intentionally bypassed for the Free Mode → Hybrid route so the
+      //     output is consistent.
+      //   - Best-effort. If TTS fails, we still ship a silent assembly rather
+      //     than throwing, because music + visuals are usable on their own.
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 200));
+      let narrationUrl: string | null = null;
+      try {
+        const narrationText = scenes
+          .map(s => `${s.title}. ${s.text}`)
+          .filter(t => t.replace(/\s+/g, "").length > 0)
+          .join(" ");
+        if (narrationText.trim().length > 0) {
+          const ttsRes = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: narrationText.slice(0, 30000),
+              provider: "piper",         // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
+              speed: 1.0,
+            }),
+          });
+          if (ttsRes.ok) {
+            const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
+            if (ttsData.engine === "placeholder") {
+              console.warn("[hybrid] TTS returned placeholder — server has no usable Piper. Video will ship silent.");
+            } else if (ttsData.audioUrl) {
+              narrationUrl = ttsData.audioUrl;
+            }
+          } else {
+            const errBody = await ttsRes.json().catch(() => ({}));
+            console.warn("[hybrid] narration TTS failed:", errBody?.error ?? `HTTP ${ttsRes.status}`);
+          }
+        }
+      } catch (e) {
+        console.warn("[hybrid] narration TTS exception:", e);
+      }
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
 
       // Step 4: generate background music
@@ -785,7 +868,10 @@ function HybridModal({
       }
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
 
-      // Step 5: assemble — passes img: prefixed scenes + musicUrl
+      // Step 5: assemble — img: prefixed scenes + narrationUrl + musicUrl.
+      // Henry 2026-06-07 fix: narrationUrl was never being passed (Free Mode
+      // skipped TTS entirely), so the output mp4 had no spoken track. Now both
+      // narration (foreground voice) and music (background bed) ride along.
       setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "running" } : x));
       const payload: Record<string, unknown> = {
         scenes:        assemblyScenes,
@@ -793,6 +879,7 @@ function HybridModal({
         aspectRatio:   "9:16",
         subtitleStyle,
       };
+      if (narrationUrl) payload.narrationUrl = narrationUrl;
       if (musicUrl) payload.musicUrl = musicUrl;
 
       const res = await fetch("/api/video/assemble", {
