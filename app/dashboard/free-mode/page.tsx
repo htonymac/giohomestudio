@@ -618,6 +618,145 @@ function VideoConfirmModal({
 
 type SubtitleStyleKey = "classic" | "cinema" | "neon" | "minimal" | "bold" | "none";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Movie-mode auto-classifier — picks the best generation "vibe" from the user's
+// scenes + cast so Free Mode produces output that fits the content WITHOUT a
+// manual mode-picker step (Henry 2026-06-07: "FREE MODE MUST SLECT BEST MODE
+// FIT FOR THE MOVIE").
+//
+// Strategy: simple keyword tally. We score each candidate mode by how many of
+// its trigger words appear in the combined scene + character text, then pick
+// the highest score. Ties + zero-score both fall back to "cinematic" — the
+// safest default for an unknown prompt.
+//
+// Returned mode drives:
+//   - narration speed   (children = slower / clearer)
+//   - music prompt      (children = playful, action = upbeat, etc.)
+//   - shot variations   (children = friendlier framings)
+//
+// Adding a new mode = one entry in MODE_RULES. No other call site changes.
+// ─────────────────────────────────────────────────────────────────────────────
+type FreeModeKind = "children" | "music_video" | "commercial" | "action" | "documentary" | "cinematic";
+
+interface FreeModeProfile {
+  /** Narration playback speed sent to /api/tts. 1.0 = normal. */
+  narrationSpeed: number;
+  /** Music prompt template — string-replaces the generic Hybrid prompt. */
+  musicPromptTemplate: (sceneMoods: string) => string;
+  /** Per-shot-variation strings used when generating the 4 images per scene. */
+  shotVariations: string[];
+  /** Human-readable label shown in the UI banner. */
+  label: string;
+}
+
+const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModeProfile }> = {
+  children: {
+    triggers: ["kid", "kids", "child", "children", "baby", "toddler", "preschool", "abc", "alphabet", "counting", "lullaby", "bedtime", "nursery", "rhyme", "playful", "cartoon"],
+    profile: {
+      narrationSpeed: 0.9, // slower so young listeners can follow
+      musicPromptTemplate: (moods) => `Gentle children's storybook background music. Soft solo piano with delicate music box and warm light strings. Cheerful instrumental, no vocals, no heavy drums. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide friendly establishing shot, soft lighting, warm colours",
+        "medium shot at child eye level, inviting expressions",
+        "close-up of expressive faces, gentle smiles",
+        "playful low angle, dynamic but safe composition",
+      ],
+      label: "Children",
+    },
+  },
+  music_video: {
+    triggers: ["song", "music", "dance", "beat", "rhythm", "sing", "singer", "lyrics", "hip-hop", "rap", "pop", "rock", "concert", "stage", "performance"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Driving music-video instrumental backing track. Modern beat, strong rhythm section, dynamic energy. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide stage shot, dramatic lighting, audience silhouettes",
+        "medium tracking shot following motion, shallow depth of field",
+        "tight close-up syncing to the beat",
+        "low angle hero shot, cinematic colour grade",
+      ],
+      label: "Music Video",
+    },
+  },
+  commercial: {
+    triggers: ["brand", "product", "buy", "sale", "deal", "advertise", "promo", "promotion", "launch", "campaign", "discount", "offer", "store", "shop"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Upbeat commercial background music. Bright energetic instrumental, hooks listener fast, broadcast-ready. Mood cues: ${moods}.`,
+      shotVariations: [
+        "clean product hero shot, white-light backdrop",
+        "medium lifestyle shot of the product in use",
+        "close-up of product detail, premium feel",
+        "wide aspirational scene, cinematic colour",
+      ],
+      label: "Commercial",
+    },
+  },
+  action: {
+    triggers: ["fight", "chase", "battle", "war", "explosion", "attack", "weapon", "soldier", "warrior", "hero", "villain", "escape", "pursuit", "stunt"],
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Tense action movie score. Hybrid orchestral + electronic percussion, builds intensity, cinematic. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide establishing shot, high contrast lighting",
+        "medium tracking shot of the action, shallow DOF",
+        "tight close-up of intense expressions",
+        "low angle dramatic hero shot, dynamic composition",
+      ],
+      label: "Action",
+    },
+  },
+  documentary: {
+    triggers: ["real", "true", "history", "historical", "documentary", "news", "report", "interview", "fact", "evidence", "investigation", "journalist"],
+    profile: {
+      narrationSpeed: 0.95,
+      musicPromptTemplate: (moods) => `Subtle documentary background score. Restrained orchestral pads with light percussion, supports narration without overpowering. Mood cues: ${moods}.`,
+      shotVariations: [
+        "wide establishing shot, natural lighting, documentary realism",
+        "medium interview-style framing, neutral background",
+        "close-up of meaningful detail, archive feel",
+        "observational handheld angle, intimate perspective",
+      ],
+      label: "Documentary",
+    },
+  },
+  cinematic: {
+    triggers: [], // safe default — no triggers needed
+    profile: {
+      narrationSpeed: 1.0,
+      musicPromptTemplate: (moods) => `Cinematic instrumental background music for scenes: ${moods}. Rich, dynamic, supports the story.`,
+      shotVariations: [
+        "wide establishing shot, cinematic framing",
+        "medium shot, eye-level perspective",
+        "close-up detail, soft depth of field",
+        "low angle dramatic shot, dynamic composition",
+      ],
+      label: "Cinematic",
+    },
+  },
+};
+
+/**
+ * Decide which mode the prompt belongs to by counting keyword hits in the
+ * combined scene + character text. Highest scorer wins; ties + zero-score
+ * → "cinematic" (the safest default for unknown content).
+ */
+function classifyFreeModeKind(scenes: Scene[], characters?: Character[]): { kind: FreeModeKind; profile: FreeModeProfile } {
+  const haystack = (
+    scenes.map(s => `${s.title} ${s.text} ${s.mood ?? ""}`).join(" ") + " " +
+    (characters?.map(c => c.name).join(" ") ?? "")
+  ).toLowerCase();
+
+  let bestKind: FreeModeKind = "cinematic";
+  let bestScore = 0;
+  (Object.keys(MODE_RULES) as FreeModeKind[]).forEach(kind => {
+    const score = MODE_RULES[kind].triggers.reduce((acc, kw) => acc + (haystack.includes(kw) ? 1 : 0), 0);
+    if (score > bestScore) { bestScore = score; bestKind = kind; }
+  });
+
+  return { kind: bestKind, profile: MODE_RULES[bestKind].profile };
+}
+
 function HybridModal({
   scenes,
   onClose,
@@ -652,9 +791,20 @@ function HybridModal({
   const [done,    setDone]    = useState(false);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [error,     setError]     = useState<string | null>(null);
+  // Henry 2026-06-07: auto-mode-select banner. Populated by classifyFreeModeKind()
+  // at the start of runHybrid() so the user sees which "vibe" Free Mode picked
+  // (Children / Action / Music Video / Commercial / Documentary / Cinematic).
+  const [selectedModeLabel, setSelectedModeLabel] = useState<string | null>(null);
+  // Henry 2026-06-07 (Free Mode 360s test): a long video (1 scene × 360s) showed
+  // only ONE image + no subtitle because we hard-capped MAX_IMAGES_PER_SCENE = 4.
+  // Now the user picks "seconds per image" (1s or 2s) and we generate
+  // sceneDuration / secondsPerImage images per scene. The free image model
+  // (Segmind Flux at $0.0004) makes 30+ images per scene affordable —
+  // Henry: "ALL FREE MONEY MUST GENERTTAE A LOT OFR IMAGES BY SHORT SCENE".
+  const [secondsPerImage, setSecondsPerImage] = useState<1 | 2>(2);
 
   const effectiveDuration = customDur
-    ? Math.max(5, Math.min(300, parseInt(customDur) || totalDuration))
+    ? Math.max(5, Math.min(600, parseInt(customDur) || totalDuration))
     : totalDuration;
 
   const selStyle: React.CSSProperties = {
@@ -675,20 +825,33 @@ function HybridModal({
     //     has both narrator voice and background music.
     const pipeline = [
       "Calculate scene timings",
-      "Generate scene images (up to 4 per scene)",
+      `Generate scene images (~${secondsPerImage}s each)`,
       "Generate narration (Piper)",
       "Generate background music",
       "Assemble final video",
     ];
     setSteps(pipeline.map(label => ({ label, status: "pending" })));
 
-    // Up to 4 images per scene. Each becomes its own slide; total scene time is
-    // split evenly across them. Tunable from one place; the comment trail
-    // documents Henry's "MAX 4 BUT SHOULD BE INBUILD" directive (2026-06-07).
-    const MAX_IMAGES_PER_SCENE = 4;
+    // Henry 2026-06-07 update: image-count is no longer fixed at 4. User picks
+    // 1s or 2s per image and we generate ceil(sceneDuration / secondsPerImage)
+    // images per scene. A 60s scene at 2s/image = 30 images; at 1s/image = 60.
+    //
+    // Cap at 60 images per scene as a safety rail so a runaway 600s scene at
+    // 1s/image doesn't kick off 600 parallel calls. 60 is enough for any
+    // reasonable scene length and keeps the worst-case cost predictable.
     const sceneDuration = effectiveDuration / scenes.length;
+    const IMAGES_PER_SCENE_CAP = 60;
+    const imagesPerScene = Math.max(1, Math.min(IMAGES_PER_SCENE_CAP, Math.ceil(sceneDuration / secondsPerImage)));
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
     const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
+
+    // Henry 2026-06-07: pick the best mode for this prompt up-front so narration
+    // / music / shot framing all align to one consistent vibe instead of being
+    // generic. setSelectedModeLabel() drives the UI banner so the user sees
+    // which mode was chosen and can override later if needed.
+    const { kind: selectedKind, profile: modeProfile } = classifyFreeModeKind(scenes, characters);
+    setSelectedModeLabel(modeProfile.label);
+    console.info(`[hybrid] auto-selected mode: ${selectedKind} (${modeProfile.label})`);
 
     try {
       // Step 1: timings
@@ -702,15 +865,12 @@ function HybridModal({
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
 
       const sceneFailures: string[] = [];
-      // Helper — small randomiser so the 4 images per scene are visually distinct
-      // (different camera angles / framing) instead of being the same shot 4 times.
-      // Each variation appends to the BASE prompt so the character + style stay locked.
-      const SHOT_VARIATIONS = [
-        "wide establishing shot, cinematic framing",
-        "medium shot, eye-level perspective",
-        "close-up detail, soft depth of field",
-        "low angle dramatic shot, dynamic composition",
-      ];
+      // Henry 2026-06-07: per-mode shot variations so a "children" project gets
+      // friendlier framing and an "action" project gets dramatic angles. Comes
+      // from the mode classifier above instead of being a single hard-coded
+      // list — keeps the four images per scene visually distinct AND tonally
+      // matched to the content.
+      const SHOT_VARIATIONS = modeProfile.shotVariations;
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
@@ -718,10 +878,13 @@ function HybridModal({
           ? `${stylePrefix} ${charContext}. ${sc.text}`
           : `${stylePrefix} ${sc.text}`;
 
-        // Generate UP TO MAX_IMAGES_PER_SCENE images in parallel. Each one
-        // becomes its own slide so the final video shows multiple visual beats
-        // per scene (Henry: "GET MORE PHONE LIKE MAX 4 BUT SHOULD BE INBUILD").
-        const imageRequests = SHOT_VARIATIONS.slice(0, MAX_IMAGES_PER_SCENE).map(async (variation, vIdx) => {
+        // Generate imagesPerScene images in parallel. Each one becomes its own
+        // slide so the final video shows many visual beats per scene. We cycle
+        // through the 4 SHOT_VARIATIONS (variation index = i % 4) so the
+        // imagery stays visually diverse even on a 30-image / 60-second scene.
+        // Henry 2026-06-07: long videos at 1-2s/image now produce a real
+        // photo gallery instead of a single still.
+        const imageRequests = Array.from({ length: imagesPerScene }, (_, vIdx) => SHOT_VARIATIONS[vIdx % SHOT_VARIATIONS.length]).map(async (variation, vIdx) => {
           const prompt = `${basePrompt} (${variation})`;
           try {
             const imgRes = await fetch("/api/generation/image", {
@@ -757,7 +920,7 @@ function HybridModal({
         if (imageResults.length === 0) {
           // Every image attempt failed — fall back to gradient slide so the
           // pipeline never silently drops a scene.
-          sceneFailures.push(`S${idx + 1}: all ${MAX_IMAGES_PER_SCENE} images failed`);
+          sceneFailures.push(`S${idx + 1}: all ${imagesPerScene} images failed`);
           assemblyScenes.push({
             scene: idx,
             videoUrl: "bg:#1a1a2e",
@@ -772,13 +935,18 @@ function HybridModal({
             assemblyScenes.push({
               // Use a unique scene index per slide so assemble's parallel
               // processing doesn't collide on the temp filename
-              // `scene_img_${scene}.ext` (one slide per scene number).
-              scene: idx * MAX_IMAGES_PER_SCENE + slideIdx,
+              // `scene_img_${scene}.ext` (one slide per scene number). We
+              // multiply by IMAGES_PER_SCENE_CAP (not imagesPerScene) so the
+              // index space is stable across scenes of different lengths.
+              scene: idx * IMAGES_PER_SCENE_CAP + slideIdx,
               videoUrl: `img:${url}`,
               duration: perImageDuration,
-              // Only show the scene title on the FIRST slide; subsequent slides
-              // stay visually clean while the narration continues.
-              text: slideIdx === 0 ? sc.title : "",
+              // Henry 2026-06-07 fix: scene title now shows on EVERY slide so
+              // the subtitle persists for the whole scene, not just the first
+              // ~2 seconds. Previously the long video showed a title for the
+              // first image then went visually silent for the rest of the
+              // scene.
+              text: sc.title,
               animation: "fade_in",
             });
           });
@@ -815,8 +983,11 @@ function HybridModal({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               text: narrationText.slice(0, 30000),
-              provider: "piper",         // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
-              speed: 1.0,
+              provider: "piper",                // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
+              // Per-mode narration speed: children = slower so young listeners
+              // can follow; documentary = slightly slower for clarity; others
+              // = 1.0. Drives whatever pacing the Piper engine respects.
+              speed: modeProfile.narrationSpeed,
             }),
           });
           if (ttsRes.ok) {
@@ -841,7 +1012,11 @@ function HybridModal({
       let musicUrl: string | null = null;
       try {
         const sceneMoodSummary = scenes.map(s => s.mood).join(", ");
-        const musicPrompt = `Background music for a video with scenes: ${sceneMoodSummary}. Cinematic, instrumental.`;
+        // Henry 2026-06-07: per-mode music prompt — children get gentle piano,
+        // action gets hybrid orchestral, etc. Picked up-front by the classifier
+        // so the bed track fits the content instead of being a generic
+        // "Cinematic, instrumental" string for every project.
+        const musicPrompt = modeProfile.musicPromptTemplate(sceneMoodSummary);
         const providerKey: "stable_audio" | "kie" | "stock" | "auto" =
           musicTier === "fal_stable_audio" ? "stable_audio"
           : musicTier === "kie_classic" || musicTier === "kie_premium" ? "kie"
@@ -970,6 +1145,29 @@ function HybridModal({
               </div>
             </div>
 
+            {/* ── Images-per-second picker — Henry 2026-06-07.
+                  Drives how many images are generated per scene:
+                    imagesPerScene = ceil(sceneDuration / secondsPerImage), capped at 60.
+                  1s/image = denser photo gallery, slower gen, more API calls.
+                  2s/image = balanced default, half as many images.
+                  Free model (Segmind Flux $0.0004) keeps even 60-image scenes cheap. ── */}
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.mute2, marginBottom: 6 }}>SECONDS PER IMAGE</div>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {([1, 2] as const).map(v => (
+                  <button key={v} onClick={() => setSecondsPerImage(v)} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    border: `1px solid ${secondsPerImage === v ? C.lilac + "60" : C.line}`,
+                    background: secondsPerImage === v ? `${C.lilac}18` : "transparent",
+                    color: secondsPerImage === v ? C.lilac : C.mute, cursor: "pointer",
+                  }}>{v}s / image</button>
+                ))}
+                <span style={{ fontSize: 10, color: C.mute2, marginLeft: 10 }}>
+                  ≈ {Math.max(1, Math.min(60, Math.ceil((effectiveDuration / Math.max(1, scenes.length)) / secondsPerImage)))} images per scene
+                </span>
+              </div>
+            </div>
+
             {/* ── Audio / SFX / Music controls ── */}
             <div style={{
               padding: "12px 14px", borderRadius: 10,
@@ -1057,6 +1255,21 @@ function HybridModal({
               </div>
             </div>
           </>
+        )}
+
+        {/* ── Auto-selected mode banner — visible during AND after generation.
+              Lets the user see which "vibe" Free Mode picked for the prompt
+              (Children / Action / Music Video / etc) so it's not a hidden
+              decision. Henry 2026-06-07. ── */}
+        {selectedModeLabel && (
+          <div style={{
+            padding: "8px 12px", borderRadius: 8, marginBottom: 12,
+            background: `${C.lilac}10`, border: `1px solid ${C.lilac}30`,
+            fontSize: 11, color: C.lilac, display: "flex", alignItems: "center", gap: 8,
+          }}>
+            <span>✨</span>
+            <span>AI selected mode: <strong>{selectedModeLabel}</strong> — narration speed, music style, and shot framing tuned for this content.</span>
+          </div>
         )}
 
         {/* ── Pipeline progress ── */}
