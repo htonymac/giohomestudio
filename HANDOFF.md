@@ -6184,3 +6184,15 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
 ## 2026-06-08 02:23 UTC — auto-checkpoint (new-commit)
 - branch: `fix/free-mode-subtitle-flip-prompt`
 - HEAD: `2475832 fix(free-mode): subtitle uses scene narration text, image flip min 1s, richer prompt`
+
+## 2026-06-08 03:00 UTC — auto-checkpoint (new-commit)
+- branch: `refactor/movie-planner-assembly-tab`
+- HEAD: `14f2281 refactor(movie-planner): Wave 3 — extract AssemblyTab (-300 LOC)`
+
+## 2026-06-08 03:04 UTC — auto-checkpoint (dirty)
+- branch: `refactor/movie-planner-assembly-tab`
+- HEAD: `14f2281 refactor(movie-planner): Wave 3 — extract AssemblyTab (-300 LOC)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ```
