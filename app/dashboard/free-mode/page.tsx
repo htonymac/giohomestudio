@@ -847,9 +847,7 @@ function HybridModal({
     // Cap at 60 images per scene as a safety rail so a runaway 600s scene at
     // 1s/image doesn't kick off 600 parallel calls. 60 is enough for any
     // reasonable scene length and keeps the worst-case cost predictable.
-    const sceneDuration = effectiveDuration / scenes.length;
     const IMAGES_PER_SCENE_CAP = 60;
-    const imagesPerScene = Math.max(1, Math.min(IMAGES_PER_SCENE_CAP, Math.ceil(sceneDuration / secondsPerImage)));
     const charContext = characters?.map(c => `${c.name}${c.imageUrl ? " [has portrait]" : ""}`).join(", ") ?? "";
     const stylePrefix = imageStyle ? (VISUAL_STYLES[imageStyle]?.prefix ?? "") : VISUAL_STYLES["realistic"].prefix;
 
@@ -860,6 +858,41 @@ function HybridModal({
     const { kind: selectedKind, profile: modeProfile } = classifyFreeModeKind(scenes, characters);
     setSelectedModeLabel(modeProfile.label);
     console.info(`[hybrid] auto-selected mode: ${selectedKind} (${modeProfile.label})`);
+
+    // ── Henry 2026-06-08: NARRATION ↔ IMAGE SYNC ──────────────────────────
+    // BUG REPORT (Henry): "narrator says cat in box, image shows cat eating
+    // fish — pattern is 1-3, 2-4, 3-1 instead of 1-1, 2-2, 3-3".
+    //
+    // ROOT CAUSE: previous code divided effectiveDuration evenly across
+    // scenes (`sceneDuration = effectiveDuration / scenes.length`). When the
+    // AI returns scenes with WILDLY different text lengths (Scene 1 = 80
+    // chars, Scene 2 = 20 chars), Piper TTS produces ~6.2s of audio for the
+    // first scene but the video allocates only sceneDuration / N seconds of
+    // images to it — the spoken audio drifts past the scene's image slot into
+    // the NEXT scene's slot, then drifts further every scene. By scene 3
+    // narration is talking about scene 1 while images show scene 3.
+    //
+    // FIX: estimate per-scene narration duration from text length (chars /
+    // charsPerSec, adjusted for mode-specific narration speed), then scale the
+    // estimates to sum to effectiveDuration. Scenes with more text get more
+    // airtime. Narration timing now matches image timing because both derive
+    // from the same per-scene proportion.
+    //
+    // Speech-rate constants — calibrated against Piper output:
+    //   ~13 characters per second at speed 1.0 (normal Piper pace).
+    //   Faster narrationSpeed = more chars per second covered.
+    //   Minimum 2s per scene so a one-word scene still shows something.
+    const charsPerSec = 13 * (modeProfile.narrationSpeed || 1.0);
+    const sceneNarrationEstimates = scenes.map(s => {
+      const text = `${s.title}. ${s.text}`;
+      const chars = text.replace(/\s+/g, "").length;
+      return Math.max(2, chars / charsPerSec);
+    });
+    const totalEstimate = sceneNarrationEstimates.reduce((a, b) => a + b, 0) || 1;
+    // Scale to fit the user's chosen total duration while preserving per-scene
+    // ratio. Result: scene durations are proportional to their narration length.
+    const scaleFactor = effectiveDuration / totalEstimate;
+    const scenePerSceneDuration = sceneNarrationEstimates.map(e => e * scaleFactor);
 
     try {
       // Step 1: timings
@@ -882,6 +915,12 @@ function HybridModal({
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
+        // Per-scene duration is now PROPORTIONAL to its narration text length
+        // (see sync-fix comment above the loop). Each scene's image budget is
+        // derived from THIS duration, not a global slice — so a scene with
+        // more narration gets both more spoken seconds AND more image slides.
+        const thisSceneDuration = scenePerSceneDuration[idx];
+        const thisSceneImagesPerScene = Math.max(1, Math.min(IMAGES_PER_SCENE_CAP, Math.ceil(thisSceneDuration / secondsPerImage)));
         // Henry 2026-06-08: previous prompt was just `${stylePrefix} ${sc.text}`
         // which sometimes produced generic images that didn't match the story.
         // The AI returns scenes with a short text + a mood tag + a title — feeding
@@ -905,7 +944,7 @@ function HybridModal({
         // imagery stays visually diverse even on a 30-image / 60-second scene.
         // Henry 2026-06-07: long videos at 1-2s/image now produce a real
         // photo gallery instead of a single still.
-        const imageRequests = Array.from({ length: imagesPerScene }, (_, vIdx) => SHOT_VARIATIONS[vIdx % SHOT_VARIATIONS.length]).map(async (variation, vIdx) => {
+        const imageRequests = Array.from({ length: thisSceneImagesPerScene }, (_, vIdx) => SHOT_VARIATIONS[vIdx % SHOT_VARIATIONS.length]).map(async (variation, vIdx) => {
           const prompt = `${basePrompt} (${variation})`;
           try {
             const imgRes = await fetch("/api/generation/image", {
@@ -948,11 +987,11 @@ function HybridModal({
         if (imageResults.length === 0) {
           // Every image attempt failed — fall back to gradient slide so the
           // pipeline never silently drops a scene.
-          sceneFailures.push(`S${idx + 1}: all ${imagesPerScene} images failed`);
+          sceneFailures.push(`S${idx + 1}: all ${thisSceneImagesPerScene} images failed`);
           assemblyScenes.push({
             scene: idx,
             videoUrl: "bg:#1a1a2e",
-            duration: sceneDuration,
+            duration: thisSceneDuration,
             text: sceneCaption,
             animation: "fade_in",
           });
@@ -965,7 +1004,7 @@ function HybridModal({
           // the total above the scene's slot, FFmpeg's concat just runs slightly
           // long for that scene — acceptable cost for legible imagery.
           const MIN_IMAGE_DURATION = 1.0;
-          const perImageDuration = Math.max(MIN_IMAGE_DURATION, sceneDuration / imageResults.length);
+          const perImageDuration = Math.max(MIN_IMAGE_DURATION, thisSceneDuration / imageResults.length);
           imageResults.forEach((url, slideIdx) => {
             assemblyScenes.push({
               // Use a unique scene index per slide so assemble's parallel

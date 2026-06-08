@@ -21,11 +21,17 @@
 
 ## 2. TOUGH RECURRING BUGS — quick pointer
 
-### Free Mode Hybrid — 9-bug sprint (2026-06-07/08, PRs #43 / #45 / #48 / #49)
-Silent video + 1-image-per-scene + sub-second image flips + posed/portrait images + sidebar "No sessions yet". All addressed across 4 PRs.
-- Full root-cause + fix table + prevention rules: `update/PROBLEM_AND_FIX.md` "P-2026-06-08 — Free Mode Hybrid: 9 distinct user-visible bugs (multi-PR sprint)"
-- Anonymous-user-identity (IP rotation) sibling entry below it: "P-2026-06-08 — Anonymous user sessions vanish when IP changes"
-- **Key prevention rules locked:** caption per slide MUST be `sc.text` not `sc.title`; `MIN_IMAGE_DURATION = 1.0s` clamp; image prompts MUST include "cinematic film still / not posed" anchor (image models default to portrait priors); shot-variation strings describe ACTION (mid-action, motion captured) not CAMERA POSITION (wide / medium / close).
+### Free Mode Hybrid — 10-bug sprint (2026-06-07/08, PRs #43 / #45 / #48 / #49 / #51)
+Silent video + 1-image-per-scene + sub-second image flips + posed/portrait images + sidebar "No sessions yet" + **narration drifts out of sync with images** (10th bug shipped in PR #51).
+- Latest entry: `update/PROBLEM_AND_FIX.md` "P-2026-06-08 — Free Mode Hybrid: narration ↔ image timing drift"
+- Full earlier 9-bug table: same file, "P-2026-06-08 — Free Mode Hybrid: 9 distinct user-visible bugs (multi-PR sprint)"
+- Anonymous-user-identity (IP rotation) sibling entry: "P-2026-06-08 — Anonymous user sessions vanish when IP changes"
+- **Key prevention rules locked:**
+  - Caption per slide MUST be `sc.text` not `sc.title`
+  - `MIN_IMAGE_DURATION = 1.0s` clamp
+  - Image prompts MUST include "cinematic film still / not posed" anchor (image models default to portrait priors)
+  - Shot-variation strings describe ACTION (mid-action, motion captured) not CAMERA POSITION (wide / medium / close)
+  - **Any pipeline pairing audio + timed visuals MUST size visuals from per-segment audio duration, NEVER from a global divide-by-N. Equal duration = drift the moment text lengths differ.**
 
 ### BIB-class (5 variants, same destination — `_silent.mp3` placeholder)
 - **Variant #1-4** — Piper voice path resolution, missing FAL fallback, audioPlans empty, narration-source divergence
