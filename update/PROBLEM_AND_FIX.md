@@ -58,6 +58,20 @@ Earlier PR #51 fixed proportional scene duration from text-length estimates (~13
 
 ---
 
+## P-2026-06-08 — movie-planner Wave 2.3: Sound tab extracted to SoundTab.tsx
+
+**Symptom:** Movie planner page.tsx at 3,664 LOC after Wave 3 (AssemblyTab extraction). Sound tab was the only remaining inline block — 819 LOC in the middle of the file, packed with inline async closures (multi-cast dialogue, auto-lipsync, audition, freesound search, music tier picker). Hard to reason about and slow to type-check.
+
+**Why now:** Octogent server-side dispatch blocked at SOPS layer (see P-2026-06-08 below). Henry's FIRE RAMP directive explicitly approved inline extraction by Opus for the sound tab: "Sound tab I do inline myself — concurrent with Sonnet work, not delegated."
+
+**Root cause (of the size):** Sound tab accreted features over 5 weeks (GHS Sound Tier, 5-tier Sound Model, Multi-Cast Dialogue Phase 1+3, Freesound, AI-SFX, Music Library tier picker, per-scene narration controls) and was never refactored. Inline closures referenced 25+ pieces of parent state directly — extracting as parent callbacks would multiply prop noise. Same pattern AssemblyTab solved by accepting the prop count as the cost of a fat presentational component.
+
+**Fix applied:** Extracted to `app/dashboard/movie-planner/tabs/SoundTab.tsx` (~80 props, junior-dev module docblock + JSDoc per prop). Page.tsx: 3,664 → 2,946 LOC (-718, -19.6%). Movie-planner cumulative: 5,107 → 2,946 (-42.3%) across 8 standalone tab files. Variance casts at parent prop-pass site (`savedCharacters as unknown as Parameters<typeof SoundTab>[0]["savedCharacters"]`) — same P-2026-06-05 cross-type pattern. Zero behavior change.
+
+**Prevention rule:** Any single tab block over 400 LOC inside a page.tsx must be extracted before the next feature lands inside it. Wave-3-style extractions are routine, not heroic.
+
+---
+
 ## P-2026-06-08 — Server-side GHS Octogent: worker dispatch silent (SOPS missing)
 
 **Symptom:** `octogent terminal create --initial-prompt "..."` succeeds and returns a terminal ID, but `octogent channel list <id>` returns `"No messages for terminal-X"` indefinitely. The dispatched task never appears to run. Tested 2026-06-08 during the FIRE RAMP probe.
