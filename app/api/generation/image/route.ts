@@ -5,6 +5,7 @@
 // so callers that know the characters but don't embed tokens still get visual descriptions.
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { env } from "@/config/env";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
@@ -91,7 +92,13 @@ export async function POST(req: NextRequest) {
     finalNegative += getStyleCollisionNegative(parsed.data.projectStyle);
   }
 
-  const outputPath = path.join(env.storagePath, "images", `gen_${Date.now()}.png`);
+  // Henry 2026-06-08: Date.now() alone collided when Free Mode fired 10+
+  // parallel image gen requests in the same millisecond — all wrote to the
+  // same file, so callers got back 10 identical paths and FFmpeg looped the
+  // last-write image instead of showing the gallery. Append 8 random hex
+  // chars so every concurrent request gets a unique filename.
+  const uniqSuffix = randomBytes(4).toString("hex");
+  const outputPath = path.join(env.storagePath, "images", `gen_${Date.now()}_${uniqSuffix}.png`);
 
   const result = await generateImage({
     ...parsed.data,
