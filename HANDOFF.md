@@ -6152,3 +6152,35 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
 ## 2026-06-07 07:26 UTC — auto-checkpoint (new-commit)
 - branch: `fix/free-mode-images-per-second`
 - HEAD: `3c11a76 fix(free-mode): user-pick seconds-per-image + subtitles persist + 600s cap`
+
+## 2026-06-07 23:05 UTC — auto-checkpoint (new-commit)
+- branch: `refactor/movie-planner-scenes-tab`
+- HEAD: `38e0b48 refactor(movie-planner): Wave 2.2 — extract ScenesTab (-322 LOC)`
+
+## 2026-06-08 00:48 UTC — auto-checkpoint (dirty)
+- branch: `refactor/movie-planner-scenes-tab`
+- HEAD: `38e0b48 refactor(movie-planner): Wave 2.2 — extract ScenesTab (-322 LOC)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ```
+
+## 2026-06-08 01:48 UTC — auto-checkpoint (dirty)
+- branch: `refactor/movie-planner-scenes-tab`
+- HEAD: `38e0b48 refactor(movie-planner): Wave 2.2 — extract ScenesTab (-322 LOC)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ```
+
+## 2026-06-08 01:55 UTC — auto-checkpoint (dirty)
+- branch: `refactor/movie-planner-scenes-tab`
+- HEAD: `38e0b48 refactor(movie-planner): Wave 2.2 — extract ScenesTab (-322 LOC)`
+- working tree:
+  ```
+   M HANDOFF.md
+  ```
+
+## 2026-06-08 02:23 UTC — auto-checkpoint (new-commit)
+- branch: `fix/free-mode-subtitle-flip-prompt`
+- HEAD: `2475832 fix(free-mode): subtitle uses scene narration text, image flip min 1s, richer prompt`
