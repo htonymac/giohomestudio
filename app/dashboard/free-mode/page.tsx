@@ -831,10 +831,12 @@ function HybridModal({
     //   - Generate narration via Piper (FORCED — Henry: "JUST PIPER" in Free Mode).
     //   - Pass narrationUrl + musicUrl in the assembly payload so the final mp4
     //     has both narrator voice and background music.
+    // Order matches execution: narration first (so we know real scene durations),
+    // then images sized to those durations, then music, then assemble.
     const pipeline = [
       "Calculate scene timings",
       `Generate scene images (~${secondsPerImage}s each)`,
-      "Generate narration (Piper)",
+      "Generate per-scene narration",
       "Generate background music",
       "Assemble final video",
     ];
@@ -859,48 +861,95 @@ function HybridModal({
     setSelectedModeLabel(modeProfile.label);
     console.info(`[hybrid] auto-selected mode: ${selectedKind} (${modeProfile.label})`);
 
-    // ── Henry 2026-06-08: NARRATION ↔ IMAGE SYNC ──────────────────────────
-    // BUG REPORT (Henry): "narrator says cat in box, image shows cat eating
-    // fish — pattern is 1-3, 2-4, 3-1 instead of 1-1, 2-2, 3-3".
+    // ── Henry 2026-06-08: NARRATION ↔ IMAGE SYNC + PER-SLIDE SUBTITLES ────
+    // BUG REPORT 1 (Henry, 2026-06-08 morning): "narrator says cat in box,
+    // image shows cat eating fish — pattern is 1-3, 2-4, 3-1 instead of
+    // 1-1, 2-2, 3-3" → fixed in PR #51 with chars/sec estimates.
     //
-    // ROOT CAUSE: previous code divided effectiveDuration evenly across
-    // scenes (`sceneDuration = effectiveDuration / scenes.length`). When the
-    // AI returns scenes with WILDLY different text lengths (Scene 1 = 80
-    // chars, Scene 2 = 20 chars), Piper TTS produces ~6.2s of audio for the
-    // first scene but the video allocates only sceneDuration / N seconds of
-    // images to it — the spoken audio drifts past the scene's image slot into
-    // the NEXT scene's slot, then drifts further every scene. By scene 3
-    // narration is talking about scene 1 while images show scene 3.
+    // BUG REPORT 2 (Henry, 2026-06-08 evening): "subtitle/naration/image
+    // none work in along with image and video, 0/10". → ROOT CAUSE: even
+    // estimate-based timing drifts because real Piper output diverges from
+    // the 13 chars/sec estimate (varies with text complexity, punctuation,
+    // numerals). And subtitle text was the SAME per-scene caption repeated
+    // on every slide — so 3 slides in a scene show identical caption while
+    // narration progresses through 3 sentences.
     //
-    // FIX: estimate per-scene narration duration from text length (chars /
-    // charsPerSec, adjusted for mode-specific narration speed), then scale the
-    // estimates to sum to effectiveDuration. Scenes with more text get more
-    // airtime. Narration timing now matches image timing because both derive
-    // from the same per-scene proportion.
+    // FIX (this PR): generate narration PER SCENE up-front (parallel) and
+    // use the SERVER-RETURNED durationMs as the scene's ACTUAL duration.
+    // Then derive per-slide image timing AND per-sentence subtitle timing
+    // from the real audio length. Send narrationList + pacingEntries to
+    // assemble so each slide has its own caption matching what's spoken.
     //
-    // Speech-rate constants — calibrated against Piper output:
-    //   ~13 characters per second at speed 1.0 (normal Piper pace).
-    //   Faster narrationSpeed = more chars per second covered.
-    //   Minimum 2s per scene so a one-word scene still shows something.
+    // Falls back to text-length estimates if TTS fails for a scene (keeps
+    // the pipeline shipping even with a flaky narrator).
     const charsPerSec = 13 * (modeProfile.narrationSpeed || 1.0);
     const sceneNarrationEstimates = scenes.map(s => {
       const text = `${s.title}. ${s.text}`;
       const chars = text.replace(/\s+/g, "").length;
       return Math.max(2, chars / charsPerSec);
     });
-    const totalEstimate = sceneNarrationEstimates.reduce((a, b) => a + b, 0) || 1;
-    // Scale to fit the user's chosen total duration while preserving per-scene
-    // ratio. Result: scene durations are proportional to their narration length.
-    const scaleFactor = effectiveDuration / totalEstimate;
-    const scenePerSceneDuration = sceneNarrationEstimates.map(e => e * scaleFactor);
 
     try {
-      // Step 1: timings
+      // Step 1: timings (placeholder — real durations come from Step 2's narration)
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "running" } : x));
-      await new Promise(r => setTimeout(r, 400));
+      await new Promise(r => setTimeout(r, 200));
       setSteps(s => s.map((x, i) => i === 0 ? { ...x, status: "done" } : x));
 
-      // Step 2: generate fresh images for ALL scenes
+      // ── Step 2 (moved up): NARRATION first, per scene, parallel ──
+      // We need real audio durations BEFORE generating images so image timing
+      // matches narration timing exactly.
+      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
+      const sceneNarrations: Array<{
+        idx: number; audioUrl: string | null; durationSec: number;
+        text: string; // full narration text for this scene (used for pacingEntries split)
+      }> = [];
+      await Promise.all(scenes.map(async (s, idx) => {
+        const narrText = `${s.title}. ${s.text}`.trim();
+        if (narrText.length === 0) {
+          sceneNarrations[idx] = { idx, audioUrl: null, durationSec: sceneNarrationEstimates[idx], text: "" };
+          return;
+        }
+        try {
+          const ttsRes = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              text: narrText.slice(0, 8000),
+              provider: voiceProvider || "piper",
+              speed: modeProfile.narrationSpeed,
+            }),
+          });
+          if (ttsRes.ok) {
+            const data = await ttsRes.json() as { audioUrl?: string; engine?: string; durationMs?: number };
+            if (data.engine === "placeholder" || !data.audioUrl) {
+              sceneNarrations[idx] = { idx, audioUrl: null, durationSec: sceneNarrationEstimates[idx], text: narrText };
+              return;
+            }
+            // Server-returned durationMs is the truth. Fall back to estimate if missing.
+            const realDur = data.durationMs && data.durationMs > 0
+              ? data.durationMs / 1000
+              : sceneNarrationEstimates[idx];
+            sceneNarrations[idx] = { idx, audioUrl: data.audioUrl, durationSec: realDur, text: narrText };
+          } else {
+            sceneNarrations[idx] = { idx, audioUrl: null, durationSec: sceneNarrationEstimates[idx], text: narrText };
+          }
+        } catch (e) {
+          console.warn(`[hybrid] scene ${idx + 1} narration failed:`, e);
+          sceneNarrations[idx] = { idx, audioUrl: null, durationSec: sceneNarrationEstimates[idx], text: narrText };
+        }
+      }));
+      // Compact in case Promise.all filled holes (it shouldn't, but defensive)
+      for (let i = 0; i < scenes.length; i++) {
+        if (!sceneNarrations[i]) {
+          sceneNarrations[i] = { idx: i, audioUrl: null, durationSec: sceneNarrationEstimates[i], text: `${scenes[i].title}. ${scenes[i].text}`.trim() };
+        }
+      }
+      // Real per-scene durations replace the estimate. Floor at 2s and cap at 60s
+      // per scene so an outlier audio doesn't blow up the timeline.
+      const scenePerSceneDuration = sceneNarrations.map(n => Math.max(2, Math.min(60, n.durationSec)));
+      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
+
+      // Step 3: generate fresh images for ALL scenes (was Step 2 — renumbered)
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "running" } : x));
       // assemblyScenes uses "img:<url>" prefix so the assemble route renders them as Ken Burns image slides
       const assemblyScenes: Array<{ scene: number; videoUrl: string; duration: number; text: string; animation: string }> = [];
@@ -1030,56 +1079,8 @@ function HybridModal({
       }
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      // ── Step 3: narration ────────────────────────────────────────────────
-      // Henry 2026-06-08: previously hard-coded provider:"piper" so the user
-      // couldn't pick who narrated. Now we honor whatever the user selected in
-      // the HybridModal voice dropdown (voiceProvider state — defaulted to
-      // "piper" via initVoiceProvider). Empty string falls back to "piper" so
-      // the pipeline never breaks if the dropdown somehow renders blank.
-      //
-      // Pipeline shape unchanged:
-      //   - Stitch every scene's title + text into one narration script.
-      //   - POST /api/tts with the picked provider + the per-mode speed.
-      //   - Best-effort. If TTS fails the assembly still ships (silent fall-back).
-      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
-      let narrationUrl: string | null = null;
-      try {
-        const narrationText = scenes
-          .map(s => `${s.title}. ${s.text}`)
-          .filter(t => t.replace(/\s+/g, "").length > 0)
-          .join(" ");
-        if (narrationText.trim().length > 0) {
-          const ttsRes = await fetch("/api/tts", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text: narrationText.slice(0, 30000),
-              // User-picked narrator. Falls back to piper if somehow empty.
-              provider: voiceProvider || "piper",
-              // Per-mode narration speed: children = slower so young listeners
-              // can follow; documentary = slightly slower for clarity; others
-              // = 1.0. Drives whatever pacing the chosen engine respects.
-              speed: modeProfile.narrationSpeed,
-            }),
-          });
-          if (ttsRes.ok) {
-            const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
-            if (ttsData.engine === "placeholder") {
-              console.warn("[hybrid] TTS returned placeholder — server has no usable Piper. Video will ship silent.");
-            } else if (ttsData.audioUrl) {
-              narrationUrl = ttsData.audioUrl;
-            }
-          } else {
-            const errBody = await ttsRes.json().catch(() => ({}));
-            console.warn("[hybrid] narration TTS failed:", errBody?.error ?? `HTTP ${ttsRes.status}`);
-          }
-        }
-      } catch (e) {
-        console.warn("[hybrid] narration TTS exception:", e);
-      }
-      setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "done" } : x));
-
-      // Step 4: generate background music
+      // ── Step 4: background music ──────────────────────────────────────────
+      // (Step 3 = images, completed above. Step 2 = narration, done up-front.)
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "running" } : x));
       let musicUrl: string | null = null;
       try {
@@ -1115,19 +1116,66 @@ function HybridModal({
       }
       setSteps(s => s.map((x, i) => i === 3 ? { ...x, status: "done" } : x));
 
-      // Step 5: assemble — img: prefixed scenes + narrationUrl + musicUrl.
-      // Henry 2026-06-07 fix: narrationUrl was never being passed (Free Mode
-      // skipped TTS entirely), so the output mp4 had no spoken track. Now both
-      // narration (foreground voice) and music (background bed) ride along.
+      // ── Step 5: assemble ──────────────────────────────────────────────────
+      // Henry 2026-06-08 (PR after #55): switched from single narrationUrl to
+      // per-scene narrationList + pacingEntries so:
+      //  - Each scene's narration plays at its exact cumulative startTime
+      //  - Subtitles are sentence-level + time-coded (karaoke-tight via
+      //    assemble's pacingEntries path) instead of a per-scene caption that
+      //    sat frozen on screen for the duration of all that scene's slides.
       setSteps(s => s.map((x, i) => i === 4 ? { ...x, status: "running" } : x));
+
+      // Build narrationList: cumulative startTime per scene = sum of prior scene durations.
+      // Volume 1.0 (foreground voice; music ducks beneath it via assemble's musicVolume default).
+      const narrationList: Array<{ audioUrl: string; startTime: number; volume: number }> = [];
+      let narrCursorSec = 0;
+      for (let i = 0; i < scenes.length; i++) {
+        const n = sceneNarrations[i];
+        if (n?.audioUrl) {
+          narrationList.push({ audioUrl: n.audioUrl, startTime: Math.round(narrCursorSec * 1000) / 1000, volume: 1.0 });
+        }
+        narrCursorSec += scenePerSceneDuration[i];
+      }
+
+      // Build pacingEntries: split each scene's narration text into sentence-
+      // sized chunks and time-distribute them across the scene's REAL duration.
+      // The assemble route reads this and renders ASS Dialogue lines with exact
+      // start/end ms — subtitle moves with the narrator's words instead of
+      // flashing the same caption on every slide.
+      const pacingEntries: Array<{ text: string; startMs: number; endMs: number }> = [];
+      let paceCursorMs = 0;
+      for (let i = 0; i < scenes.length; i++) {
+        const sceneDurMs = Math.round(scenePerSceneDuration[i] * 1000);
+        const fullText = sceneNarrations[i]?.text || `${scenes[i].title}. ${scenes[i].text}`.trim();
+        if (!fullText) {
+          paceCursorMs += sceneDurMs;
+          continue;
+        }
+        // Split into sentence-ish chunks; falls back to whole text if no
+        // terminator was present. Limit chunk count to ~8 to avoid spammy
+        // 12-line subtitles on a verbose scene.
+        const rawChunks = fullText.split(/(?<=[.!?])\s+/).filter(t => t.trim().length > 0);
+        const chunks = rawChunks.length > 0 ? rawChunks.slice(0, 8) : [fullText];
+        const perChunkMs = sceneDurMs / chunks.length;
+        chunks.forEach((chunk, cIdx) => {
+          pacingEntries.push({
+            text:    chunk.trim(),
+            startMs: Math.round(paceCursorMs + cIdx * perChunkMs),
+            endMs:   Math.round(paceCursorMs + (cIdx + 1) * perChunkMs),
+          });
+        });
+        paceCursorMs += sceneDurMs;
+      }
+
       const payload: Record<string, unknown> = {
         scenes:        assemblyScenes,
         projectId:     `free_${Date.now()}`,
         aspectRatio:   "9:16",
         subtitleStyle,
       };
-      if (narrationUrl) payload.narrationUrl = narrationUrl;
-      if (musicUrl) payload.musicUrl = musicUrl;
+      if (narrationList.length > 0) payload.narrationList = narrationList;
+      if (musicUrl)                 payload.musicUrl = musicUrl;
+      if (pacingEntries.length > 0) payload.pacingEntries = pacingEntries;
 
       const res = await fetch("/api/video/assemble", {
         method: "POST",

@@ -4,6 +4,30 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Free Mode Hybrid: per-scene narration + pacingEntries + real audio durations
+
+**Symptom (verbatim, Henry):** "free mode subtitle/naration/image none work — image and naration is 0/10 very bad — subtitle/naration 0/10 no one score — does not work in along with image and video".
+
+**Root cause (3 stacked):**
+
+1. **Subtitle stuck on per-scene caption** — `runHybrid` set `text: sceneCaption` on every slide of a scene (e.g. 3 slides × 1s = same caption for 3s) → frozen subtitle while narration moved through sentences.
+2. **Narration is ONE big audio for the whole video** — single `/api/tts` call with concatenated text → returned ONE URL. If real audio length ≠ total slide duration, the end drifted into silence or got cut. Subtitle PNG path had no idea what was being spoken at any moment.
+3. **No `pacingEntries` in assemble payload** — assemble's tight-sync subtitle path (ASS Dialogue lines with exact start/end ms) only fires when `pacingEntries` is present. Free Mode never sent it → fell back to arbitrary 1.6s/chunk fallback.
+
+Earlier PR #51 fixed proportional scene duration from text-length estimates (~13 chars/sec) but estimates drift from real Piper output, and per-scene captions still repeated across slides.
+
+**Fix applied:**
+
+1. **Reordered pipeline** — narration now runs BEFORE images. We need real audio durations to size image slots.
+2. **Per-scene narration** — `Promise.all(scenes.map(...))` fires one `/api/tts` call per scene in parallel. Each scene gets its own audio URL + server-returned `durationMs`. Falls back to text estimate when missing or TTS fails.
+3. **Built `narrationList`** — replaces single `narrationUrl`. Each entry = `{audioUrl, startTime, volume}` with `startTime` = cumulative prior scene durations.
+4. **Built `pacingEntries`** — split each scene's narration into sentence chunks (`/(?<=[.!?])\s+/`, max 8/scene), time-distribute across the scene's real duration. Assemble's ASS Dialogue path renders subtitles karaoke-tight.
+5. **Image durations now derived from real probed audio** — `scenePerSceneDuration = sceneNarrations.map(n => max(2, min(60, n.durationSec)))`. Images, narration, subtitles all align because all three come from the same source.
+
+**Prevention rule (locked):** Any pipeline pairing audio + timed visuals MUST drive all three timelines (images, audio, subtitles) from ONE source of truth — the actual audio durations. Estimates are a fallback only. And subtitle text MUST be sentence-level + time-coded via `pacingEntries`, never a frozen per-scene caption that repeats across slides.
+
+---
+
 ## P-2026-06-08 — Hybrid: story drift + species drift + race homogenization (3 in 1)
 
 **Symptom (verbatim from Henry):** Typed into Hybrid: "A CAT AND 3 MICE TRAVELLED FROM A CITY TO A RULER AREA - ON THE RULER AREA THERE WAS A LOT OF BIGGER CAT AND FOX WHO WANT TO FEED ON THE RATS - AS TIME GOES ON THE CAT FOUND 3 MORE CAT WHO HELP THEM RESCUE AND PROTECT THE RATS AND FINALLY SEE THEM HOME". AI returned: "Whiskers, the clever gray cat, gathers his three brave mice companions: Squeaky, Nibbles, and Tiny..." then images rendered ALL CHARACTERS as Black human children with no cats, no mice, no foxes, no rescue arc.

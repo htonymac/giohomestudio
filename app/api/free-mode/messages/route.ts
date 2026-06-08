@@ -2,16 +2,14 @@
 // videos / images / hybrid output into the chat history, even if user never sent
 // a text prompt for it).
 // Body: { sessionId, role, content, scenes? }
+//
+// Henry 2026-06-08: switched from IP-hash userKey to cookie-based identity.
+// Must match /sessions + /sessions/list + /chat so created sessions are
+// findable by the sidebar list (prior PR #49 missed this route).
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createHash } from "crypto";
-
-function getUserKey(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip        = forwarded?.split(",")[0].trim() ?? "unknown";
-  return createHash("sha256").update(ip + "-free-mode").digest("hex").slice(0, 32);
-}
+import { resolveUserKey } from "@/lib/free-mode-user-key";
 
 export async function POST(req: NextRequest) {
   try {
@@ -27,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "sessionId, role, content required" }, { status: 400 });
     }
 
-    const userKey = getUserKey(req);
+    const { userKey, setCookieOnResponse } = resolveUserKey(req);
 
     // Ensure session exists (so standalone video gens land in history even if
     // user never sent a chat message in this session yet).
@@ -46,7 +44,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json({ id: saved.id, ok: true });
+    const res = NextResponse.json({ id: saved.id, ok: true });
+    setCookieOnResponse(res);
+    return res;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
