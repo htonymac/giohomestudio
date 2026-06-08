@@ -874,9 +874,18 @@ function HybridModal({
 
       for (let idx = 0; idx < scenes.length; idx++) {
         const sc = scenes[idx];
+        // Henry 2026-06-08: previous prompt was just `${stylePrefix} ${sc.text}`
+        // which sometimes produced generic images that didn't match the story.
+        // The AI returns scenes with a short text + a mood tag + a title — feeding
+        // ALL of them gives the image model concrete subject matter, atmosphere,
+        // and a label so the generated frames actually look like the scene the
+        // narration is describing. Title acts as the "what is this scene about"
+        // anchor; text adds setting / action; mood adds lighting + emotional cue.
+        const sceneSubject = [sc.title, sc.text].filter(Boolean).join(" — ");
+        const moodLine = sc.mood ? ` Mood: ${sc.mood}.` : "";
         const basePrompt = charContext
-          ? `${stylePrefix} ${charContext}. ${sc.text}`
-          : `${stylePrefix} ${sc.text}`;
+          ? `${stylePrefix} ${charContext}. ${sceneSubject}.${moodLine}`
+          : `${stylePrefix} ${sceneSubject}.${moodLine}`;
 
         // Generate imagesPerScene images in parallel. Each one becomes its own
         // slide so the final video shows many visual beats per scene. We cycle
@@ -917,6 +926,13 @@ function HybridModal({
 
         const imageResults = (await Promise.all(imageRequests)).filter((u): u is string => !!u);
 
+        // Henry 2026-06-08: caption text used to be sc.title (one-word "Scene 1"
+        // headers, repeated identically on every slide → looked like the same
+        // word flashing). Now we prefer sc.text (the actual narration line for
+        // this scene) and fall back to title only if text is empty. Single source
+        // of truth — both branches below reuse it.
+        const sceneCaption = (sc.text && sc.text.trim().length > 0) ? sc.text : sc.title;
+
         if (imageResults.length === 0) {
           // Every image attempt failed — fall back to gradient slide so the
           // pipeline never silently drops a scene.
@@ -925,12 +941,19 @@ function HybridModal({
             scene: idx,
             videoUrl: "bg:#1a1a2e",
             duration: sceneDuration,
-            text: sc.title,
+            text: sceneCaption,
             animation: "fade_in",
           });
         } else {
-          // Split the scene's airtime evenly across the images we got.
-          const perImageDuration = sceneDuration / imageResults.length;
+          // Henry 2026-06-08: per-image duration was occasionally landing
+          // sub-second when AI returned many short scenes (10 scenes × 15s total
+          // = 1.5s/scene; at 1s/image picker = 2 images/scene = 0.75s each →
+          // user saw "mini secs" image flips). Clamp to MIN_IMAGE_DURATION so
+          // every slide gets at least 1 second of airtime. If clamping inflates
+          // the total above the scene's slot, FFmpeg's concat just runs slightly
+          // long for that scene — acceptable cost for legible imagery.
+          const MIN_IMAGE_DURATION = 1.0;
+          const perImageDuration = Math.max(MIN_IMAGE_DURATION, sceneDuration / imageResults.length);
           imageResults.forEach((url, slideIdx) => {
             assemblyScenes.push({
               // Use a unique scene index per slide so assemble's parallel
@@ -941,12 +964,9 @@ function HybridModal({
               scene: idx * IMAGES_PER_SCENE_CAP + slideIdx,
               videoUrl: `img:${url}`,
               duration: perImageDuration,
-              // Henry 2026-06-07 fix: scene title now shows on EVERY slide so
-              // the subtitle persists for the whole scene, not just the first
-              // ~2 seconds. Previously the long video showed a title for the
-              // first image then went visually silent for the rest of the
-              // scene.
-              text: sc.title,
+              // Show the scene's narration text on every slide so the caption
+              // tracks the spoken audio rather than flashing a one-word title.
+              text: sceneCaption,
               animation: "fade_in",
             });
           });
