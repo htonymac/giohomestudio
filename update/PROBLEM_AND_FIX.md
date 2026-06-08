@@ -4,6 +4,53 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Server-side GHS Octogent: worker dispatch silent (SOPS missing)
+
+**Symptom:** `octogent terminal create --initial-prompt "..."` succeeds and returns a terminal ID, but `octogent channel list <id>` returns `"No messages for terminal-X"` indefinitely. The dispatched task never appears to run. Tested 2026-06-08 during the FIRE RAMP probe.
+
+**Root cause:** Octogent workers need an LLM credential (`ANTHROPIC_API_KEY` or Codex login) in the process environment to dispatch tasks. The GioBiz and HMK Sync Octogents launch via:
+```
+sops exec-env /home/<user>/secrets/prod.sops.yaml OCTOGENT_API_PORT=<port> OCTOGENT_NO_OPEN=1 octogent
+```
+The SOPS-encrypted secrets file is decrypted into the process env before Octogent starts. GHS has `ANTHROPIC_API_KEY` in `/home/ghs/giohomestudio/.env` (for Next.js) but **no `/home/ghs/secrets/prod.sops.yaml`** — so when GHS Octogent was started via plain `OCTOGENT_API_PORT=8788 OCTOGENT_NO_OPEN=1 nohup octogent`, no API key was visible to worker processes.
+
+**Secondary issue:** `pkill -f "node.*octogent"` from a fresh ssh session as `sudo -u ghs` failed with `Operation not permitted` even though the target process was owned by `ghs`. sshd session scoping blocks cross-session kills.
+
+**Fix path (deferred — needs Henry's involvement for age key):**
+1. Generate ghs user's age key + add to SOPS recipients
+2. Create `/home/ghs/secrets/prod.sops.yaml` with `ANTHROPIC_API_KEY` encrypted
+3. Restart Octogent: `sops exec-env /home/ghs/secrets/prod.sops.yaml OCTOGENT_API_PORT=8788 OCTOGENT_NO_OPEN=1 octogent &`
+4. Re-test with a tiny read-only prompt; if worker responds, proceed with Sonnet-on-server ramp
+
+**Workaround for now:** Segregation work continues inline (Opus / me) until SOPS is wired. No Sonnet-on-server dispatch.
+
+**Prevention rule:** Before dispatching ANY task through Octogent on a NEW project, verify the worker chain end-to-end with a one-line probe. "API up + tentacle created" does NOT mean dispatch works — workers need creds.
+
+---
+
+## P-2026-06-08 — Free Mode Hybrid: narration ↔ image timing drift
+
+**Symptom (Henry verbatim):** "FREE MODE STORY DOES NOT RHYTM WITH THE IMAGES AS READ OF STORY AND IMAGE NEED TO BE 1 1, 2 2, 3 3, 4 4 BUT NOW IS 1 3, 2 4, 3 1 - SO NARATOR SAY THE CAT IN THE BOX IMAGE SHOW CAT EATIN FISH NARATOR SAY CAT EATING FISH IMAGE S"
+
+Narrator's voice is talking about scene 1's text while the image is already showing scene 2 or 3. Audio and visuals drift further apart with each scene.
+
+**Root cause:** `runHybrid()` was computing scene durations evenly: `sceneDuration = effectiveDuration / scenes.length`. This treats every scene as equal-length visually, but the AI returns scenes with WILDLY different narration text lengths. Piper TTS produces audio proportional to character count — a 200-char scene plays for ~15s while a 50-char scene plays for ~4s. The video allocated the SAME image budget to both. Audio drifts past the image slot for the long scene, then catches up during the short scene. Cumulative drift = 1-1 sync becomes 1-3, 2-4, 3-1 by scene 4.
+
+**Fix (PR #51):** Per-scene duration is now PROPORTIONAL to per-scene narration text length:
+- Estimate each scene's narration time: `chars / (13 * narrationSpeed)`
+- Sum estimates, derive `scaleFactor = effectiveDuration / totalEstimate`
+- Each scene's duration = estimate × scaleFactor (preserves ratio, hits user's chosen total)
+- Per-scene image budget and per-image duration derive from THIS per-scene duration, not a global slice
+- Minimum 2s per scene so one-word scenes still show
+
+**Calibration constants (tune here if drift returns):**
+- `charsPerSec = 13 * narrationSpeed` — Piper averages ~13 non-whitespace chars/sec at speed 1.0. Faster narrationSpeed = proportionally more chars/sec.
+- `Math.max(2, ...)` — minimum 2s per scene.
+
+**Prevention rule:** ANY pipeline that pairs generated audio with timed visuals MUST size the visuals from the audio's actual or estimated duration, NEVER from a global divide-by-N. Equal duration = drift the moment any one scene's text length differs from the average.
+
+---
+
 ## P-2026-06-08 — Free Mode Hybrid: 9 distinct user-visible bugs (multi-PR sprint)
 
 **Symptom band (Henry's reports 2026-06-07/08):**
