@@ -1,20 +1,16 @@
 // GET /api/free-mode/sessions/list?q=... — list all sessions for this userKey
+//
+// 2026-06-08: switched to cookie-based userKey. See lib/free-mode-user-key.ts.
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createHash } from "crypto";
-
-function getUserKey(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip        = forwarded?.split(",")[0].trim() ?? "unknown";
-  return createHash("sha256").update(ip + "-free-mode").digest("hex").slice(0, 32);
-}
+import { resolveUserKey } from "@/lib/free-mode-user-key";
 
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const q       = (searchParams.get("q") ?? "").trim().toLowerCase();
-    const userKey = getUserKey(req);
+    const { userKey, setCookieOnResponse } = resolveUserKey(req);
 
     const sessions = await prisma.freeModeSession.findMany({
       where: { userKey },
@@ -54,7 +50,12 @@ export async function GET(req: NextRequest) {
     });
 
     const filtered = q ? items.filter(i => i.title.toLowerCase().includes(q)) : items;
-    return NextResponse.json({ sessions: filtered });
+    // Attach the cookie so brand-new visitors get a stable identity from the
+    // very first sidebar load — without it the next request would mint a
+    // different userKey and they'd see an empty list again.
+    const res = NextResponse.json({ sessions: filtered });
+    setCookieOnResponse(res);
+    return res;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
