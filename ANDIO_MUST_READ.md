@@ -21,6 +21,13 @@
 
 ## 2. TOUGH RECURRING BUGS — quick pointer
 
+### Movie-Planner segregation COMPLETE (2026-06-08, PRs #44 / #46 / #47 / #50 / #53)
+- All 8 inline tab blocks now stand-alone: `tabs/{DesignTab, StoryTab, ScriptTab, CharactersTab, ScenesTab, OverviewTab, SoundTab, AssemblyTab}.tsx`
+- page.tsx: 5,107 → 2,946 LOC (-42.3%) — Sound tab was the last 819-LOC inline block (Wave 2.3)
+- Pattern locked: junior-dev module docblock + JSDoc-per-prop + state stays in parent + variance casts at parent prop-pass site
+- Prevention rule: any tab > 400 LOC inline must be extracted before next feature lands inside it
+- → `update/PROBLEM_AND_FIX.md` "P-2026-06-08 — movie-planner Wave 2.3: Sound tab extracted"
+
 ### Free Mode Hybrid — 10-bug sprint (2026-06-07/08, PRs #43 / #45 / #48 / #49 / #51)
 Silent video + 1-image-per-scene + sub-second image flips + posed/portrait images + sidebar "No sessions yet" + **narration drifts out of sync with images** (10th bug shipped in PR #51).
 - Latest entry: `update/PROBLEM_AND_FIX.md` "P-2026-06-08 — Free Mode Hybrid: narration ↔ image timing drift"
