@@ -254,6 +254,12 @@ export async function POST(req: NextRequest) {
     // contradicting ethnicity word near their name.
     let _dominantSkin = "";
     let _combinedStory = "";
+    // Henry 2026-06-08: strength check on dominance.
+    // Old behavior: ONE stray "African" word in story background → entire cast forced Black.
+    // Henry's screenshot showed all-Black cast on a cat/mice story with zero explicit ethnicity.
+    // New rule: only treat dominance as "strong" when ethnic words appear 3+ times in the
+    // story OR an explicit country/culture input was provided via the request body.
+    let _dominantIsStrong = false;
     if (expandedStory && typeof expandedStory === "object") {
       const allText: string[] = [];
       const walk = (val: unknown) => {
@@ -264,12 +270,31 @@ export async function POST(req: NextRequest) {
       walk(expandedStory);
       _combinedStory = allText.join(" ").toLowerCase().slice(0, 20000);
       _dominantSkin = inferSkinToneFromText(_combinedStory);
+      if (_dominantSkin) {
+        // Count how many distinct ethnic mentions support the dominance.
+        const ethnicWordRegex = /\b(latina|latino|hispanic|mexican|cuban|black|african|nigerian|yoruba|igbo|hausa|asian|chinese|japanese|korean|filipino|vietnamese|middle\s*eastern|arab|persian|turkish|lebanese|indian|south\s*asian|pakistani|bangladeshi|native\s*american|indigenous|navajo|cherokee|white|caucasian|european|british|irish|italian|german|russian|scandinavian)\b/g;
+        const ethnicMatches = _combinedStory.match(ethnicWordRegex) || [];
+        _dominantIsStrong = ethnicMatches.length >= 3;
+      }
     }
     const LIGHT_DEFAULT_PATTERN = /\b(fair|pale|light\s+tan|light\s+skin|caucasian|peach|cream)\b/i;
     const dominantIsNonLight = _dominantSkin && !/\b(fair|pale|light|caucasian)\b/i.test(_dominantSkin);
     if (_dominantSkin) {
-      console.log(`[character-extract] Story dominant ethnicity: "${_dominantSkin}"`);
+      console.log(`[character-extract] Story dominant ethnicity: "${_dominantSkin}" (strong=${_dominantIsStrong})`);
     }
+
+    // Diversity rotation pool — used when story has NO explicit per-character ethnicity AND
+    // dominance is weak. Spreads cast across continents instead of forcing one tone.
+    // Henry 2026-06-08: complaint "show everyone black it does not also show white" — this
+    // pool restores a mixed cast in the no-context default.
+    const DIVERSITY_POOL: string[] = [
+      "warm brown skin, Latina/Hispanic features, dark hair, dark eyes",
+      "fair Caucasian skin, European features, light hair or brown hair",
+      "dark brown skin, African features, melanated",
+      "fair Asian skin, East Asian features, dark hair",
+      "warm brown skin, South Asian features, dark hair",
+      "olive-tan skin, Middle Eastern features, dark hair, dark eyes",
+    ];
 
     for (let i = 0; i < rawCharacters.length; i++) {
       const ch = rawCharacters[i];
@@ -298,10 +323,12 @@ export async function POST(req: NextRequest) {
       // Catches cases like "Story has 3 Black inventors but LLM put 'fair skin' for Andre".
       // Only overrides when:
       //   1. Story's dominant ethnicity is non-light (Black/Latina/Asian/etc.)
-      //   2. This character's skinTone is generic-light from the LLM default
-      //   3. The character does NOT have an explicit light-skin ethnicity word near their name
+      //   2. Dominance is STRONG (3+ ethnic word mentions, not one stray reference)
+      //   3. This character's skinTone is generic-light from the LLM default
+      //   4. The character does NOT have an explicit light-skin ethnicity word near their name
       //      in the story text (so "Black Malik and white Andre" still respects Andre's white)
-      if (dominantIsNonLight && LIGHT_DEFAULT_PATTERN.test(skinTone)) {
+      // Henry 2026-06-08: added strength check. Weak dominance no longer homogenizes the cast.
+      if (dominantIsNonLight && _dominantIsStrong && LIGHT_DEFAULT_PATTERN.test(skinTone)) {
         const firstName = name.toLowerCase().split(/\s+/)[0];
         const nameRegex = new RegExp(`\\b${firstName.replace(/[^a-z0-9]/g, "")}\\b`, "g");
         let hasExplicitLight = false;
@@ -314,11 +341,24 @@ export async function POST(req: NextRequest) {
           }
         }
         if (!hasExplicitLight) {
-          console.log(`[character-extract] Option B override: ${name} "${skinTone}" → "${_dominantSkin}" (story dominant context)`);
+          console.log(`[character-extract] Option B override: ${name} "${skinTone}" → "${_dominantSkin}" (strong story dominant context)`);
           skinTone = _dominantSkin;
         } else {
           console.log(`[character-extract] ${name} kept "${skinTone}" — story has explicit white/Caucasian near their name`);
         }
+      }
+
+      // ── Diversity rotation: no explicit per-character ethnicity AND no strong dominant ──
+      // Replaces the silent "everyone defaults to one tone" behavior with a rotating mix
+      // across the DIVERSITY_POOL. Only fires when skinTone is still blank or generic-light
+      // AND the story didn't anchor a strong dominance. Each character gets a different
+      // pool entry by index, so a 3-character cast spans 3 ethnicities.
+      // Henry 2026-06-08: complaint "show everyone black it does not also show white" — fix.
+      const skinIsBlankOrGenericLight = !skinTone || LIGHT_DEFAULT_PATTERN.test(skinTone);
+      if (skinIsBlankOrGenericLight && !_dominantIsStrong) {
+        const poolPick = DIVERSITY_POOL[i % DIVERSITY_POOL.length];
+        console.log(`[character-extract] Diversity rotation: ${name} → "${poolPick}" (no strong ethnic anchor in story)`);
+        skinTone = poolPick;
       }
 
       // Generate persistent character ID
