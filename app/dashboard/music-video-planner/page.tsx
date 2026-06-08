@@ -17,6 +17,7 @@ import { useProjectSettings } from "@/hooks/useProjectSettings";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import { SCENE_ENERGY_COLOR } from "@/lib/scene-constants";
+import CaptionsTab from "./tabs/CaptionsTab";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Music Video Planner — Dedicated deep planning for music videos
@@ -1670,38 +1671,12 @@ export default function MusicVideoPlannerPage() {
 
       {/* Captions tab */}
       {activeTab === "captions" && (
-        <div style={{ background: surface, border: "1px solid #1e2a35", borderRadius: 16, padding: 24 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 20 }}>Captions &amp; Lyrics</h2>
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Caption Display Mode</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["Full Lyrics", "Key Lines Only", "Subtitle Style", "No Captions"].map(m => (
-                <button key={m} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 11, cursor: "pointer" }}>{m}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Caption Position</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["Top", "Center", "Bottom"].map(p => (
-                <button key={p} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 11, cursor: "pointer" }}>{p}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Font Style</p>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["Bold Modern", "Clean Sans", "Italic Drama", "Worship Serif"].map(f => (
-                <button key={f} style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 11, cursor: "pointer" }}>{f}</button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <p style={{ fontSize: 10, fontWeight: 600, letterSpacing: 1.5, textTransform: "uppercase" as const, color: "#5a7080", marginBottom: 8 }}>Lyrics / Caption Text</p>
-            <textarea value={lyrics} onChange={e => setLyrics(e.target.value)} rows={6} placeholder="Paste or edit your lyrics here for timed captions..." style={{ width: "100%", background: "#080b10", border: "1px solid #1e2a35", borderRadius: 10, padding: "12px 14px", color: "#fff", fontSize: 13, outline: "none", fontFamily: "inherit", resize: "vertical" as const }} />
-          </div>
-          <button onClick={() => setActiveTab("storyboard")} style={{ padding: "12px 24px", borderRadius: 12, border: "none", background: "#ec4899", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>→ Go to Storyboard</button>
-        </div>
+        <CaptionsTab
+          lyrics={lyrics}
+          setLyrics={setLyrics}
+          setActiveTab={setActiveTab}
+          surface={surface}
+        />
       )}
 
       {/* Audio tab */}
