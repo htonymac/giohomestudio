@@ -991,17 +991,17 @@ function HybridModal({
       }
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
 
-      // ── Step 3: narration (Piper) ────────────────────────────────────────
-      // Henry 2026-06-07: Free Mode's Hybrid path was shipping silent video
-      // because this step was missing entirely (the pipeline jumped from images
-      // → music → assemble). New behavior:
+      // ── Step 3: narration ────────────────────────────────────────────────
+      // Henry 2026-06-08: previously hard-coded provider:"piper" so the user
+      // couldn't pick who narrated. Now we honor whatever the user selected in
+      // the HybridModal voice dropdown (voiceProvider state — defaulted to
+      // "piper" via initVoiceProvider). Empty string falls back to "piper" so
+      // the pipeline never breaks if the dropdown somehow renders blank.
+      //
+      // Pipeline shape unchanged:
       //   - Stitch every scene's title + text into one narration script.
-      //   - Hit /api/tts with provider: "piper" (FORCED — Henry's spec
-      //     "HYBRID IN FREE MODE DONT OF EDGE TTS JUST PIPER"). The UI selector
-      //     is intentionally bypassed for the Free Mode → Hybrid route so the
-      //     output is consistent.
-      //   - Best-effort. If TTS fails, we still ship a silent assembly rather
-      //     than throwing, because music + visuals are usable on their own.
+      //   - POST /api/tts with the picked provider + the per-mode speed.
+      //   - Best-effort. If TTS fails the assembly still ships (silent fall-back).
       setSteps(s => s.map((x, i) => i === 2 ? { ...x, status: "running" } : x));
       let narrationUrl: string | null = null;
       try {
@@ -1015,10 +1015,11 @@ function HybridModal({
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               text: narrationText.slice(0, 30000),
-              provider: "piper",                // FORCED per Henry — never Edge-TTS in Free Mode Hybrid.
+              // User-picked narrator. Falls back to piper if somehow empty.
+              provider: voiceProvider || "piper",
               // Per-mode narration speed: children = slower so young listeners
               // can follow; documentary = slightly slower for clarity; others
-              // = 1.0. Drives whatever pacing the Piper engine respects.
+              // = 1.0. Drives whatever pacing the chosen engine respects.
               speed: modeProfile.narrationSpeed,
             }),
           });

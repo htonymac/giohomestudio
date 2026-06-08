@@ -1,16 +1,14 @@
 // GET  /api/free-mode/sessions?sessionId=... — restore session messages
 // GET  /api/free-mode/sessions?sessionId=...&userKey=... — same
 // POST /api/free-mode/sessions — update session (intro/outro/characters)
+//
+// 2026-06-08: switched from IP-hash userKey to cookie-based identity. See
+// `lib/free-mode-user-key.ts` for the why + how. Old IP-hash sessions remain
+// in the DB; new sessions are tagged with the cookie userKey.
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { createHash } from "crypto";
-
-function getUserKey(req: NextRequest): string {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip        = forwarded?.split(",")[0].trim() ?? "unknown";
-  return createHash("sha256").update(ip + "-free-mode").digest("hex").slice(0, 32);
-}
+import { resolveUserKey } from "@/lib/free-mode-user-key";
 
 export async function GET(req: NextRequest) {
   try {
@@ -47,7 +45,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "sessionId required" }, { status: 400 });
     }
 
-    const userKey = getUserKey(req);
+    const { userKey, setCookieOnResponse } = resolveUserKey(req);
 
     const updated = await prisma.freeModeSession.upsert({
       where: { id: sessionId },
@@ -69,7 +67,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(updated);
+    const res = NextResponse.json(updated);
+    setCookieOnResponse(res);
+    return res;
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
