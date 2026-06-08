@@ -376,6 +376,20 @@ ${body.storyInput.trim()}
 
 You are going to turn this into a COMPLETE cinematic production. Here is what you must do:
 
+━━ PRESERVE USER'S PLOT — READ FIRST, ALWAYS ━━
+The story idea above is the SOURCE OF TRUTH. Your job is to EXPAND it into a full production
+— NOT rewrite it. Preserve every element the creator wrote:
+- Every species they named (cat, mouse, fox, etc.) — keep that species
+- Every predator → prey relationship (e.g. "foxes want to eat the mice")
+- Every threat, danger, or conflict the creator described
+- Every rescue, ally, or resolution the creator described
+- Every location change (e.g. "from city to rural area")
+- The relationships between characters as the creator stated them
+You may ADD: scene transitions, sensory detail, dialogue, side moments, sound cues, lighting.
+You may NOT: invent new core plot points, change predator/prey to friends, drop a rescue arc,
+relocate the story, or swap species for humans. If the creator wrote "rats running from foxes",
+the output keeps rats, keeps foxes, keeps the chase. Do NOT make every character a friend group.
+
 ━━ CHARACTERS ━━
 Find every character in the story above — both explicitly named and implied.
 
@@ -462,10 +476,13 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
 
     const systemPrompt =
       "You are GHS Story Intelligence — a creative story director and screenwriter. When given a brief story idea, you develop it into a full cinematic production: you invent character names, make every character visually and emotionally distinct from the others, write a complete flowing narration script at the requested length, and build a structured narrative arc. You respond ONLY with valid JSON. No markdown. No preamble. No explanation. Never truncate the fullScript — always write the complete script. " +
-      "CRITICAL RULE: Unless the story explicitly mentions animals or non-human creatures, all characters are HUMAN. " +
-      "Do NOT default characters to bears, cartoon animals, or anthropomorphic creatures. " +
-      "Human characters must have human anatomy, human skin tones, and human faces. " +
-      "Only introduce animal characters when the story idea explicitly calls for them." +
+      // Species rule — bidirectional: do NOT default humans to animals, AND do NOT humanize animals.
+      // Henry 2026-06-08: the old prompt only blocked human→bear drift. It overcorrected and
+      // turned explicit cat/mice/fox stories into all-human casts. Fix preserves both directions.
+      "CRITICAL SPECIES RULE — read both clauses: " +
+      "(a) If the story idea does NOT mention animals or non-human creatures, characters are HUMAN. Do NOT default to bears, cartoon animals, or anthropomorphic creatures. " +
+      "(b) If the story idea NAMES any animal species (cat, dog, mouse, rat, fox, bird, lion, horse, etc.) as a character, that character IS that animal — KEEP THE SPECIES. Do NOT treat 'cat' or 'mice' as nicknames for humans. Do NOT humanize animal characters. Do NOT replace them with children. The species named in the user's story is the actual species in the output. " +
+      "Human characters have human anatomy, human skin tones, and human faces. Animal characters have that animal's anatomy and features." +
       eraSystemContext +
       ` LENGTH MANDATE: when a target length is given, the fullScript MUST reach approximately ${targetWordCount} words (the user asked for a ${durMin}-minute piece). Models often stop early thinking the story is "complete" — DO NOT. Keep adding scenes, events, dialogue and description until the word budget is met. A short script for a long request is a FAILURE.`;
 

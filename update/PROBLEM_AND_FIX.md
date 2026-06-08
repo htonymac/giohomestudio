@@ -4,6 +4,60 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Free Mode Hybrid: per-scene narration + pacingEntries + real audio durations
+
+**Symptom (verbatim, Henry):** "free mode subtitle/naration/image none work — image and naration is 0/10 very bad — subtitle/naration 0/10 no one score — does not work in along with image and video".
+
+**Root cause (3 stacked):**
+
+1. **Subtitle stuck on per-scene caption** — `runHybrid` set `text: sceneCaption` on every slide of a scene (e.g. 3 slides × 1s = same caption for 3s) → frozen subtitle while narration moved through sentences.
+2. **Narration is ONE big audio for the whole video** — single `/api/tts` call with concatenated text → returned ONE URL. If real audio length ≠ total slide duration, the end drifted into silence or got cut. Subtitle PNG path had no idea what was being spoken at any moment.
+3. **No `pacingEntries` in assemble payload** — assemble's tight-sync subtitle path (ASS Dialogue lines with exact start/end ms) only fires when `pacingEntries` is present. Free Mode never sent it → fell back to arbitrary 1.6s/chunk fallback.
+
+Earlier PR #51 fixed proportional scene duration from text-length estimates (~13 chars/sec) but estimates drift from real Piper output, and per-scene captions still repeated across slides.
+
+**Fix applied:**
+
+1. **Reordered pipeline** — narration now runs BEFORE images. We need real audio durations to size image slots.
+2. **Per-scene narration** — `Promise.all(scenes.map(...))` fires one `/api/tts` call per scene in parallel. Each scene gets its own audio URL + server-returned `durationMs`. Falls back to text estimate when missing or TTS fails.
+3. **Built `narrationList`** — replaces single `narrationUrl`. Each entry = `{audioUrl, startTime, volume}` with `startTime` = cumulative prior scene durations.
+4. **Built `pacingEntries`** — split each scene's narration into sentence chunks (`/(?<=[.!?])\s+/`, max 8/scene), time-distribute across the scene's real duration. Assemble's ASS Dialogue path renders subtitles karaoke-tight.
+5. **Image durations now derived from real probed audio** — `scenePerSceneDuration = sceneNarrations.map(n => max(2, min(60, n.durationSec)))`. Images, narration, subtitles all align because all three come from the same source.
+
+**Prevention rule (locked):** Any pipeline pairing audio + timed visuals MUST drive all three timelines (images, audio, subtitles) from ONE source of truth — the actual audio durations. Estimates are a fallback only. And subtitle text MUST be sentence-level + time-coded via `pacingEntries`, never a frozen per-scene caption that repeats across slides.
+
+---
+
+## P-2026-06-08 — Hybrid: story drift + species drift + race homogenization (3 in 1)
+
+**Symptom (verbatim from Henry):** Typed into Hybrid: "A CAT AND 3 MICE TRAVELLED FROM A CITY TO A RULER AREA - ON THE RULER AREA THERE WAS A LOT OF BIGGER CAT AND FOX WHO WANT TO FEED ON THE RATS - AS TIME GOES ON THE CAT FOUND 3 MORE CAT WHO HELP THEM RESCUE AND PROTECT THE RATS AND FINALLY SEE THEM HOME". AI returned: "Whiskers, the clever gray cat, gathers his three brave mice companions: Squeaky, Nibbles, and Tiny..." then images rendered ALL CHARACTERS as Black human children with no cats, no mice, no foxes, no rescue arc.
+
+**Three distinct root causes — one report:**
+
+1. **Story rewrite** (`app/api/hybrid/story-expand/route.ts:372-456`) — user prompt told LLM to "build approximately N scenes across Act 1 setup, Act 2 conflict, Act 3 climax" with no rule to preserve the user's actual plot beats. LLM filled in a 3-act friendship adventure that ignored Henry's predator/prey arc.
+
+2. **Species drift** (`app/api/hybrid/story-expand/route.ts:465-468`) — system prompt's anti-bear rule ("Unless the story explicitly mentions animals... all characters are HUMAN") overcorrected. Even with explicit "cat and 3 mice" in user input, model interpreted animal species names (Whiskers/Squeaky/Nibbles) as nicknames for human children.
+
+3. **Race homogenization** (`app/api/hybrid/character-extract/route.ts:250-322`) — "Option B override" scanned story text for ANY ethnic word, computed ONE dominant skin tone, then forced EVERY character whose LLM-assigned tone matched "fair/light" to the dominant. Designed to fix "LLM made everyone Caucasian by default" but overshot: any African-context phrase = all characters become Black. The story explicitly had no ethnicity → fell through the gap.
+
+**Fix applied (3 API edits, zero Hybrid `.tsx` touched — hybrid lock respected):**
+
+1. story-expand system prompt — bidirectional species rule: "(a) If story doesn't mention animals, characters are HUMAN" (kept) + "(b) If story NAMES any animal as a character, KEEP THE SPECIES. Do NOT treat 'cat' or 'mice' as nicknames. Do NOT humanize animal characters."
+
+2. story-expand user prompt — added `━━ PRESERVE USER'S PLOT — READ FIRST, ALWAYS ━━` block: enumerate what to preserve (species, predator/prey relationships, threats, rescues, locations) and what's forbidden (inventing arcs, dropping rescue arcs, swapping species for humans).
+
+3. character-extract — added `_dominantIsStrong` check requiring 3+ ethnic word occurrences before Option B override fires. Added `DIVERSITY_POOL` (6 tones across continents) that rotates by character index when story has no strong ethnic anchor — so a 3-character cast spans 3 ethnicities instead of all Black.
+
+**Prevention rule (locked):** Any prompt that has an anti-default rule MUST be bidirectional. "Don't default to X" alone overcorrects → causes the opposite drift. State both clauses explicitly. And any "story-wide dominance" inference must require multiple supporting signals — one stray word doesn't anchor a cast.
+
+**Test cases the fix must pass:**
+- "Cat and 3 mice flee from foxes" → cat is a cat, mice are mice, foxes are foxes, rescue arc preserved
+- "3 students in a New York classroom" (no ethnicity) → mixed cast across DIVERSITY_POOL (not all Black, not all White)
+- "Nigerian family in Lagos" → all-Black cast (strong anchor: Nigerian + Lagos = 2+ explicit signals)
+- "Story about Black Malik and white Andre" → respects per-character ethnicity (already worked; preserved)
+
+---
+
 ## P-2026-06-08 — movie-planner Wave 2.3: Sound tab extracted to SoundTab.tsx
 
 **Symptom:** Movie planner page.tsx at 3,664 LOC after Wave 3 (AssemblyTab extraction). Sound tab was the only remaining inline block — 819 LOC in the middle of the file, packed with inline async closures (multi-cast dialogue, auto-lipsync, audition, freesound search, music tier picker). Hard to reason about and slow to type-check.
