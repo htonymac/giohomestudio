@@ -6,8 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { callLLM } from "@/lib/llm";
-import { headers } from "next/headers";
-import { createHash } from "crypto";
+import { resolveUserKey } from "@/lib/free-mode-user-key";
 
 const SCENE_SYSTEM = `You are a creative AI storyteller and script writer for GioHomeStudio Free Mode.
 
@@ -35,13 +34,6 @@ Rules:
 
 If the user edits a scene and asks you to refine the whole story, re-generate all scenes with the edits incorporated.`;
 
-function getUserKey(req: NextRequest): string {
-  const headersList = req.headers;
-  const forwarded  = headersList.get("x-forwarded-for");
-  const ip         = forwarded?.split(",")[0].trim() ?? "unknown";
-  return createHash("sha256").update(ip + "-free-mode").digest("hex").slice(0, 32);
-}
-
 export async function POST(req: NextRequest) {
   try {
     // H4 kill switch: emergency disable for Free Mode.
@@ -61,7 +53,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "sessionId and message required" }, { status: 400 });
     }
 
-    const userKey = getUserKey(req);
+    // Cookie-based userKey — must match /sessions + /sessions/list so the chat
+    // history sidebar can find sessions created here. Henry 2026-06-08: prior
+    // PR #49 migrated sessions+list but missed chat+messages → sessions saved
+    // under IP-hash were invisible to the cookie-keyed list.
+    const { userKey, setCookieOnResponse } = resolveUserKey(req);
 
     // Ensure session exists
     await prisma.freeModeSession.upsert({
@@ -132,12 +128,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       messageId: savedMessage.id,
       summary,
       scenes,
       assistantContent,
     });
+    setCookieOnResponse(res);
+    return res;
   } catch (err) {
     console.error("[free-mode/chat]", err);
     return NextResponse.json(
