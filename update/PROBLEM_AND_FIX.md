@@ -4,6 +4,36 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Hybrid: story drift + species drift + race homogenization (3 in 1)
+
+**Symptom (verbatim from Henry):** Typed into Hybrid: "A CAT AND 3 MICE TRAVELLED FROM A CITY TO A RULER AREA - ON THE RULER AREA THERE WAS A LOT OF BIGGER CAT AND FOX WHO WANT TO FEED ON THE RATS - AS TIME GOES ON THE CAT FOUND 3 MORE CAT WHO HELP THEM RESCUE AND PROTECT THE RATS AND FINALLY SEE THEM HOME". AI returned: "Whiskers, the clever gray cat, gathers his three brave mice companions: Squeaky, Nibbles, and Tiny..." then images rendered ALL CHARACTERS as Black human children with no cats, no mice, no foxes, no rescue arc.
+
+**Three distinct root causes — one report:**
+
+1. **Story rewrite** (`app/api/hybrid/story-expand/route.ts:372-456`) — user prompt told LLM to "build approximately N scenes across Act 1 setup, Act 2 conflict, Act 3 climax" with no rule to preserve the user's actual plot beats. LLM filled in a 3-act friendship adventure that ignored Henry's predator/prey arc.
+
+2. **Species drift** (`app/api/hybrid/story-expand/route.ts:465-468`) — system prompt's anti-bear rule ("Unless the story explicitly mentions animals... all characters are HUMAN") overcorrected. Even with explicit "cat and 3 mice" in user input, model interpreted animal species names (Whiskers/Squeaky/Nibbles) as nicknames for human children.
+
+3. **Race homogenization** (`app/api/hybrid/character-extract/route.ts:250-322`) — "Option B override" scanned story text for ANY ethnic word, computed ONE dominant skin tone, then forced EVERY character whose LLM-assigned tone matched "fair/light" to the dominant. Designed to fix "LLM made everyone Caucasian by default" but overshot: any African-context phrase = all characters become Black. The story explicitly had no ethnicity → fell through the gap.
+
+**Fix applied (3 API edits, zero Hybrid `.tsx` touched — hybrid lock respected):**
+
+1. story-expand system prompt — bidirectional species rule: "(a) If story doesn't mention animals, characters are HUMAN" (kept) + "(b) If story NAMES any animal as a character, KEEP THE SPECIES. Do NOT treat 'cat' or 'mice' as nicknames. Do NOT humanize animal characters."
+
+2. story-expand user prompt — added `━━ PRESERVE USER'S PLOT — READ FIRST, ALWAYS ━━` block: enumerate what to preserve (species, predator/prey relationships, threats, rescues, locations) and what's forbidden (inventing arcs, dropping rescue arcs, swapping species for humans).
+
+3. character-extract — added `_dominantIsStrong` check requiring 3+ ethnic word occurrences before Option B override fires. Added `DIVERSITY_POOL` (6 tones across continents) that rotates by character index when story has no strong ethnic anchor — so a 3-character cast spans 3 ethnicities instead of all Black.
+
+**Prevention rule (locked):** Any prompt that has an anti-default rule MUST be bidirectional. "Don't default to X" alone overcorrects → causes the opposite drift. State both clauses explicitly. And any "story-wide dominance" inference must require multiple supporting signals — one stray word doesn't anchor a cast.
+
+**Test cases the fix must pass:**
+- "Cat and 3 mice flee from foxes" → cat is a cat, mice are mice, foxes are foxes, rescue arc preserved
+- "3 students in a New York classroom" (no ethnicity) → mixed cast across DIVERSITY_POOL (not all Black, not all White)
+- "Nigerian family in Lagos" → all-Black cast (strong anchor: Nigerian + Lagos = 2+ explicit signals)
+- "Story about Black Malik and white Andre" → respects per-character ethnicity (already worked; preserved)
+
+---
+
 ## P-2026-06-08 — Server-side GHS Octogent: worker dispatch silent (SOPS missing)
 
 **Symptom:** `octogent terminal create --initial-prompt "..."` succeeds and returns a terminal ID, but `octogent channel list <id>` returns `"No messages for terminal-X"` indefinitely. The dispatched task never appears to run. Tested 2026-06-08 during the FIRE RAMP probe.
