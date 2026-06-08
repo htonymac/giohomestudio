@@ -4,6 +4,20 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Image gen filename collision under parallel requests
+
+**Symptom (verbatim, Henry):** "hybrid do not download a enough image for the roll so the old images keep repeating it self".
+
+**Root cause:** `app/api/generation/image/route.ts:94` computed the output path as `gen_${Date.now()}.png`. When Free Mode's hybrid pipeline fires N parallel image-gen requests via `Promise.all(...)` (one scene with 10s narration at 1s/image = 10 parallel requests), most resolved `Date.now()` to the same millisecond → same filename → each request overwrote the previous one's PNG → only the LAST successful write persisted → all N callers got the SAME `imagePath` URL back → FFmpeg assembled N "different" slides pointing to the same file → image looked frozen / repeated across the slideshow.
+
+**Fix:** Append 8 random hex chars from `crypto.randomBytes(4)` to the filename: `gen_${Date.now()}_${uniqSuffix}.png`. Every concurrent request now writes a distinct file; callers get distinct paths back.
+
+**Why it didn't show in single-scene-image flows (movie-planner / hybrid-planner per-scene "Gen Image" button):** those generate ONE image at a time so the millisecond-collision never fired. Only Free Mode's bulk-parallel pipeline triggered the collision pattern.
+
+**Prevention rule (locked):** Any route that writes a file with a timestamp-based name MUST also append a random suffix. `Date.now()` is NOT unique under concurrent load.
+
+---
+
 ## P-2026-06-08 — Free Mode Hybrid: per-scene narration + pacingEntries + real audio durations
 
 **Symptom (verbatim, Henry):** "free mode subtitle/naration/image none work — image and naration is 0/10 very bad — subtitle/naration 0/10 no one score — does not work in along with image and video".
