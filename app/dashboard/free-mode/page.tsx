@@ -650,16 +650,24 @@ interface FreeModeProfile {
 }
 
 const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModeProfile }> = {
+  // Henry 2026-06-08: the previous shotVariations read like PHOTOGRAPHY
+  // direction ("wide shot", "medium shot", "close-up", "low angle") so the
+  // image model produced POSED STILLS — characters standing for a portrait,
+  // products on a backdrop. Henry wants ACTION FRAMES from inside the scene,
+  // not catalogue photos. New variations describe what the characters are
+  // DOING + the camera CAPTURING MID-MOTION, plus the words "cinematic film
+  // still" and "candid in-action moment" to push the model away from its
+  // default portrait priors.
   children: {
     triggers: ["kid", "kids", "child", "children", "baby", "toddler", "preschool", "abc", "alphabet", "counting", "lullaby", "bedtime", "nursery", "rhyme", "playful", "cartoon"],
     profile: {
       narrationSpeed: 0.9, // slower so young listeners can follow
       musicPromptTemplate: (moods) => `Gentle children's storybook background music. Soft solo piano with delicate music box and warm light strings. Cheerful instrumental, no vocals, no heavy drums. Mood cues: ${moods}.`,
       shotVariations: [
-        "wide friendly establishing shot, soft lighting, warm colours",
-        "medium shot at child eye level, inviting expressions",
-        "close-up of expressive faces, gentle smiles",
-        "playful low angle, dynamic but safe composition",
+        "cinematic storybook frame, children mid-play, motion captured, warm soft light, candid not posed",
+        "animated film still, characters in mid-action reaching/running/laughing, dynamic body language",
+        "storybook illustration frame, scene unfolding with movement, warm colour palette, narrative beat",
+        "wide playful environment shot, characters interacting in motion, no portrait poses, alive scene",
       ],
       label: "Children",
     },
@@ -670,10 +678,10 @@ const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModePr
       narrationSpeed: 1.0,
       musicPromptTemplate: (moods) => `Driving music-video instrumental backing track. Modern beat, strong rhythm section, dynamic energy. Mood cues: ${moods}.`,
       shotVariations: [
-        "wide stage shot, dramatic lighting, audience silhouettes",
-        "medium tracking shot following motion, shallow depth of field",
-        "tight close-up syncing to the beat",
-        "low angle hero shot, cinematic colour grade",
+        "cinematic music video frame, performer mid-dance, motion blur on limbs, dramatic stage lighting",
+        "concert film still, mid-song performance moment, sweat and energy visible, candid not posed",
+        "tracking shot frozen mid-frame, subject moving toward camera, shallow depth of field, action beat",
+        "wide stage moment, performer in motion, crowd silhouettes, cinematic colour grade",
       ],
       label: "Music Video",
     },
@@ -684,10 +692,10 @@ const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModePr
       narrationSpeed: 1.0,
       musicPromptTemplate: (moods) => `Upbeat commercial background music. Bright energetic instrumental, hooks listener fast, broadcast-ready. Mood cues: ${moods}.`,
       shotVariations: [
-        "clean product hero shot, white-light backdrop",
-        "medium lifestyle shot of the product in use",
-        "close-up of product detail, premium feel",
-        "wide aspirational scene, cinematic colour",
+        "cinematic commercial frame, person USING the product mid-action, candid lifestyle moment",
+        "broadcast advert film still, product in motion (being picked up / opened / poured), dynamic",
+        "lifestyle scene mid-activity, product naturally integrated, real-world action, not catalogue photo",
+        "wide aspirational scene with subject in motion, cinematic colour, narrative moment not pose",
       ],
       label: "Commercial",
     },
@@ -698,10 +706,10 @@ const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModePr
       narrationSpeed: 1.0,
       musicPromptTemplate: (moods) => `Tense action movie score. Hybrid orchestral + electronic percussion, builds intensity, cinematic. Mood cues: ${moods}.`,
       shotVariations: [
-        "wide establishing shot, high contrast lighting",
-        "medium tracking shot of the action, shallow DOF",
-        "tight close-up of intense expressions",
-        "low angle dramatic hero shot, dynamic composition",
+        "action film still mid-explosion, motion blur, debris flying, dramatic backlighting, cinematic frame",
+        "tracking shot of running/fighting subject, dynamic motion blur, high-contrast lighting, candid",
+        "tight frame of action beat (strike, leap, dodge), frozen mid-motion, cinematic film still",
+        "wide action sequence frame, multiple subjects in motion, environmental storytelling, no posed shots",
       ],
       label: "Action",
     },
@@ -712,10 +720,10 @@ const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModePr
       narrationSpeed: 0.95,
       musicPromptTemplate: (moods) => `Subtle documentary background score. Restrained orchestral pads with light percussion, supports narration without overpowering. Mood cues: ${moods}.`,
       shotVariations: [
-        "wide establishing shot, natural lighting, documentary realism",
-        "medium interview-style framing, neutral background",
-        "close-up of meaningful detail, archive feel",
-        "observational handheld angle, intimate perspective",
+        "documentary film still, subject mid-task, natural lighting, candid not posed, photojournalism feel",
+        "handheld observational frame, real-life moment unfolding, environmental detail, in-action",
+        "fly-on-the-wall scene, subject doing the thing the narration describes, natural body language",
+        "wide environmental shot with subject in motion, documentary realism, evidence of action",
       ],
       label: "Documentary",
     },
@@ -726,10 +734,10 @@ const MODE_RULES: Record<FreeModeKind, { triggers: string[]; profile: FreeModePr
       narrationSpeed: 1.0,
       musicPromptTemplate: (moods) => `Cinematic instrumental background music for scenes: ${moods}. Rich, dynamic, supports the story.`,
       shotVariations: [
-        "wide establishing shot, cinematic framing",
-        "medium shot, eye-level perspective",
-        "close-up detail, soft depth of field",
-        "low angle dramatic shot, dynamic composition",
+        "cinematic film still, subject mid-action, motion captured, dramatic lighting, candid not posed",
+        "movie frame from a feature film, characters mid-gesture, narrative beat, environmental storytelling",
+        "wide cinematic scene with subject in motion, film grain, anamorphic feel, in-action moment",
+        "dynamic mid-action frame, motion blur on movement, dramatic composition, cinematic colour grade",
       ],
       label: "Cinematic",
     },
@@ -883,9 +891,13 @@ function HybridModal({
         // anchor; text adds setting / action; mood adds lighting + emotional cue.
         const sceneSubject = [sc.title, sc.text].filter(Boolean).join(" — ");
         const moodLine = sc.mood ? ` Mood: ${sc.mood}.` : "";
+        // Henry 2026-06-08: anti-pose anchor. Image models default to portrait
+        // priors (posed subjects facing camera) unless told otherwise. This tail
+        // forces a "movie frame" mindset for every shot, every mode.
+        const cinematicAnchor = " Cinematic film still, movie frame, scene in motion, NOT a posed portrait, NOT a studio photo, characters mid-action.";
         const basePrompt = charContext
-          ? `${stylePrefix} ${charContext}. ${sceneSubject}.${moodLine}`
-          : `${stylePrefix} ${sceneSubject}.${moodLine}`;
+          ? `${stylePrefix} ${charContext}. ${sceneSubject}.${moodLine}${cinematicAnchor}`
+          : `${stylePrefix} ${sceneSubject}.${moodLine}${cinematicAnchor}`;
 
         // Generate imagesPerScene images in parallel. Each one becomes its own
         // slide so the final video shows many visual beats per scene. We cycle

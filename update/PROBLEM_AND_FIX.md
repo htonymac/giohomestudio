@@ -4,6 +4,87 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-08 — Free Mode Hybrid: 9 distinct user-visible bugs (multi-PR sprint)
+
+**Symptom band (Henry's reports 2026-06-07/08):**
+
+1. Generated video plays silent — no narration audio
+2. Generated video plays with no background music
+3. Only ONE image per scene (90s lingering still on a 360s video)
+4. Voice dropdown silently fell through to Edge-TTS instead of Piper
+5. Auto-mode-select missing — every story got the same generic prompt
+6. 360s test: subtitle showed only the first ~2s, then nothing
+7. Subtitle showed a single short word (scene title) repeated identically on every slide
+8. Images flipped in sub-second "mini secs" instead of the 1s the user picked
+9. Generated images look like POSED PORTRAITS / catalogue model shots, not movie frames
+
+**Root causes:**
+
+| # | Cause |
+|---|---|
+| 1 | Hybrid pipeline never called `/api/tts`. Pipeline was: timings → images → text-overlays (no-op) → music → assemble. TTS step was missing entirely. |
+| 2 | Music gen step worked; the silent-video misdiagnosis confused this with #1. |
+| 3 | Hard cap `MAX_IMAGES_PER_SCENE = 4` regardless of scene length. |
+| 4 | UI selector value was ignored by the assembly call site (didn't matter pre-Hybrid-TTS-step). |
+| 5 | No classifier — pipeline ran one prompt template for every project. |
+| 6 | Caption text was set on slide 0 only: `text: slideIdx === 0 ? sc.title : ""`. |
+| 7 | Caption used `sc.title` (one-word scene heading) instead of `sc.text` (narration line). |
+| 8 | `perImageDuration = sceneDuration / imageResults.length` — could go sub-second when AI returned many short scenes. |
+| 9 | `SHOT_VARIATIONS` used PHOTOGRAPHY framing terms ("wide shot", "medium shot", "close-up", "low angle"). Image model treated these as portrait directions, posed subjects facing camera. No "cinematic film still / in-action / candid" anchor on the base prompt. |
+
+**Fixes (commits — chronological):**
+
+- **PR #43** (`523e8e0`) — Added narration step (Piper, hard-coded provider); upped images-per-scene to 4 in-built; passed `narrationUrl` in assembly payload; auto-mode-select prep.
+- **PR #45** (`9b66046`) — User-pick `seconds-per-image` (1s or 2s) with 60-image cap; subtitle text on every slide; `customDur` cap raised 300 → 600s; cherry-picked auto-mode-select banner UI.
+- **PR #48** — Caption uses `sc.text` not `sc.title`; `MIN_IMAGE_DURATION = 1.0s` clamp on `perImageDuration`; richer image prompt (`title + text + mood`).
+- **PR #49** (this commit) — Mode-specific shot variations rewritten to describe ACTION + MOTION + cinematic film stills; added anti-pose anchor (`"Cinematic film still, movie frame, scene in motion, NOT a posed portrait, NOT a studio photo"`) to every base prompt.
+
+**Prevention rules locked:**
+
+- Caption text per slide MUST be the narration line, not the scene heading. Heading is for UI not video output.
+- Per-image duration MUST be clamped to >= 1.0s. Sub-second flips look broken.
+- Image prompts MUST include explicit "cinematic film still / not posed" language when the target is movie output, not catalogue photography. Image models default to portrait priors.
+- Mode classifier shot variations describe what is HAPPENING (mid-action, motion captured), not where the camera IS (wide / medium / close-up).
+- Every new Hybrid pipeline step should be added to the visible `pipeline` array so the user sees it run.
+
+**Server deploy path for these fixes:**
+
+```bash
+# After PR merges to main:
+ssh -i C:/Users/USER/.ssh/work_server_ed25519 -p 58622 admin@185.2.100.210 \
+  "sudo -u ghs bash -c 'cd /home/ghs/giohomestudio && git pull origin main'"
+# Next dev hot-reload picks up the changes. No service restart needed.
+```
+
+---
+
+## P-2026-06-08 — Anonymous user sessions vanish when IP changes
+
+**Symptom:** Free Mode sidebar shows "No sessions yet — your chats will appear here" even though previous chats existed.
+
+**Root cause:** `app/api/free-mode/sessions/list/route.ts` derives the userKey via `sha256(ip + "-free-mode")` from `x-forwarded-for`. When the user's public IP rotates (ISP change, VPN toggle, mobile network, router restart), the new userKey doesn't match any previously-saved session.
+
+**Verified live (server DB query 2026-06-08):**
+```
+            userKey              | count
+---------------------------------+-------
+8eacea6eb25e89cacba2fcf5b9dbe231 |     3   <- user's old chats
+45f4a9b3591e21d0a58ee7b8a89f8df0 |     1
+829538fbbf6458a8ed46d842472509a7 |     1
+c60499b6d0888950af94e7aaa9760858 |     1
+384c24e4ab65d3701ad01a4e25adf7ef |     1
+```
+7 sessions total across 5 userKeys — sessions are saving fine, just orphaned from their original anonymous identity.
+
+**Fix path (planned — not yet shipped, Henry rejected localStorage approach):**
+- Server-set httpOnly cookie holds the userKey. HttpOnly = JS can't read it, so it cannot accidentally leak into scene/session payloads.
+- Server reads `ghs_freemode_user` cookie if present, falls back to IP hash if absent. Sets cookie on first hit.
+- One-time SQL migration to reassign existing sessions from the user's old IP-hash userKey to the new cookie-set userKey.
+
+**Prevention rule:** Anonymous user identity for persistence MUST NOT depend on properties that change naturally (IP, User-Agent). Cookie or signed session-token only.
+
+---
+
 ## P-2026-06-05 — TS variance error when extracting tab from god-file with literal-union state setter
 
 **Symptom (recurring across Wave 1.2 → 1.5):**

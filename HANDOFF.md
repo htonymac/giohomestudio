@@ -6180,3 +6180,7 @@ Total session shipped: **26 PRs merged + 1 tag pushed.** Karaoke architecture fi
   ```
    M HANDOFF.md
   ```
+
+## 2026-06-08 02:23 UTC — auto-checkpoint (new-commit)
+- branch: `fix/free-mode-subtitle-flip-prompt`
+- HEAD: `2475832 fix(free-mode): subtitle uses scene narration text, image flip min 1s, richer prompt`
