@@ -793,6 +793,10 @@ function HybridModal({
   const [musicTier,      setMusicTier]      = useState(initMusicTier ?? "stock");
   const [sfxSource,      setSfxSource]      = useState(initSfxSource ?? "auto");
   const [voiceProvider,  setVoiceProvider]  = useState(initVoiceProvider ?? "piper");
+  // Henry 2026-06-09: Edge-TTS supports many neural voices across regions —
+  // exposed as a sub-picker under the main provider dropdown when Edge-TTS is
+  // active. Default Nigerian Female (Ezinne) matches the prior hard-coded value.
+  const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
   const [subtitleStyle,  setSubtitleStyle]  = useState<SubtitleStyleKey>(initSubtitleStyle ?? "classic");
   const [steps, setSteps] = useState<{ label: string; status: "pending" | "running" | "done" | "error" }[]>([]);
   const [running, setRunning] = useState(false);
@@ -917,6 +921,9 @@ function HybridModal({
               text: narrText.slice(0, 8000),
               provider: voiceProvider || "piper",
               speed: modeProfile.narrationSpeed,
+              // Henry 2026-06-09: forward sub-picker selection for Edge-TTS
+              // (Nigerian / Kenyan / South African / US / UK neural voices).
+              voiceId: voiceProvider === "edge-tts" ? edgeTtsVoiceId : undefined,
             }),
           });
           if (ttsRes.ok) {
@@ -1378,6 +1385,40 @@ function HybridModal({
                       <option value="elevenlabs">ElevenLabs</option>
                     </optgroup>
                   </select>
+                  {/* Henry 2026-06-09: Edge-TTS voice sub-picker. Appears only when
+                      Edge-TTS is the active provider. Lets the user pick across
+                      Nigerian / Kenyan / South African / US / UK neural voices
+                      without leaving the main row. */}
+                  {voiceProvider === "edge-tts" && (
+                    <div style={{ marginTop: 6, display: "flex", flexWrap: "wrap" as const, gap: 4 }}>
+                      {[
+                        { id: "en-NG-EzinneNeural",    label: "NG · F" },
+                        { id: "en-NG-AbeoNeural",      label: "NG · M" },
+                        { id: "en-KE-AsiliaNeural",    label: "KE · F" },
+                        { id: "en-KE-ChilembaNeural",  label: "KE · M" },
+                        { id: "en-ZA-LeahNeural",      label: "ZA · F" },
+                        { id: "en-ZA-LukeNeural",      label: "ZA · M" },
+                        { id: "en-US-AriaNeural",      label: "US · F" },
+                        { id: "en-US-GuyNeural",       label: "US · M" },
+                        { id: "en-GB-SoniaNeural",     label: "UK · F" },
+                        { id: "en-GB-RyanNeural",      label: "UK · M" },
+                      ].map(v => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => setEdgeTtsVoiceId(v.id)}
+                          title={v.id}
+                          style={{
+                            padding: "3px 7px", borderRadius: 6, fontSize: 9,
+                            border: `1px solid ${edgeTtsVoiceId === v.id ? C.mint : C.line}`,
+                            background: edgeTtsVoiceId === v.id ? C.mint + "18" : "transparent",
+                            color: edgeTtsVoiceId === v.id ? C.mint : C.mute,
+                            cursor: "pointer", fontWeight: 700,
+                          }}
+                        >{v.label}</button>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: 700, color: C.mute2, marginBottom: 4 }}>💬 SUBTITLE</div>
