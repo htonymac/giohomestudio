@@ -338,12 +338,28 @@ export async function POST(req: NextRequest) {
           [antiAge, antiHeadwrap, antiHeavy, antiYoung].filter(Boolean).forEach(n => charNegatives.push(n));
         }
 
-        // Appearance-first ordering: description BEFORE name to fight name-stereotype bias
-        // (model sees physical description first, then "this person is named X" — not the reverse)
-        if (desc) {
-          return `${desc}${wardrobe}${hairstyle}${ageLock}${identityAnchor} (this character is named ${c.name})`;
+        // Henry 2026-06-09: age anchor used to come LATE in the per-character
+        // string. Diffusion gives early-position tokens more weight on key
+        // anatomy decisions; with ageLock at the tail, "8-year-old boy" lost to
+        // "tall muscular" earlier in the desc and the model rendered adults.
+        // Reorder: AGE LOCK now leads, then description, then identity anchor.
+        //
+        // Also strip stale adult-body words from `desc` when the character is a
+        // child. Old extractions saved phrases like "tall and muscular 8-year-old
+        // boy" — contradictory text the model resolves toward the adult side.
+        // Defensive sanitize: remove obviously adult-only anatomy when age=child.
+        let cleanDesc = desc;
+        if (c.age === "child" && cleanDesc) {
+          cleanDesc = cleanDesc
+            .replace(/\b(tall|muscular|broad-?shouldered|broad shoulders|chiseled|stubbled?|bearded|moustache|mustach[oe]d|wrinkled|aged|elderly|grizzled|mature(?:-looking)?|fully\s+grown|young\s+adult|middle-?aged|man|men|woman|women|gentleman|lady|guys?|fellow|build)\b/gi, "")
+            .replace(/\s{2,}/g, " ")
+            .trim();
         }
-        return `${c.name}: ${wardrobe.replace(", ", "")}${hairstyle}${ageLock}${identityAnchor}`;
+
+        if (cleanDesc) {
+          return `${ageLock ? ageLock.replace(/^,\s*/, "") + ". " : ""}${cleanDesc}${wardrobe}${hairstyle}${identityAnchor} (this character is named ${c.name})`;
+        }
+        return `${ageLock ? ageLock.replace(/^,\s*/, "") + ". " : ""}${c.name}: ${wardrobe.replace(", ", "")}${hairstyle}${identityAnchor}`;
       }).join(" | ");
       promptParts.push(identityBlock);
 
