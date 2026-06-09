@@ -49,6 +49,13 @@ export async function POST(req: NextRequest) {
       storyCulture,    // "Contemporary Lagos", "Victorian England", "Yoruba Kingdom", etc.
       wordOverlay,     // Henry 2026-05-31 (#8): burn teaching word onto generated image
       overlayText,     // the word/phrase to overlay (e.g. "BALL", "APPLE")
+      // Henry 2026-06-09: cross-scene character continuity. When SC2+ is being
+      // generated, the client can pass the URL of an EARLIER successful scene
+      // image (typically SC1) here. The route then uses it as the identity-lock
+      // reference so characters keep the same faces / build / style across the
+      // whole project. Overrides the normal multi-char PuLID-drop because the
+      // reference is a scene composition, not a per-character portrait.
+      previousSceneImageUrl,
     } = body;
 
     // Henry 2026-05-31 (#8): word overlay — typed defaults, safe for all callers that don't send these fields
@@ -686,10 +693,20 @@ export async function POST(req: NextRequest) {
       (!!location && location.length > 20 && cleanSceneText.length > 80)
       || (!!location && !!mood && !!timeOfDay)
     );
-    const willFaceLock = (hasPhotoImportChar || referenceImageUrls.length > 0)
-      && !isMultiChar
-      && !richLocation;
-    const dropReason = isMultiChar
+    // Henry 2026-06-09: when client passes previousSceneImageUrl, force face-lock
+    // ON regardless of multi-char or rich location — the reference is a scene
+    // composition (already has multiple characters posed in the same world), so
+    // PuLID locks to the entire image's identity tokens instead of just one face.
+    // This is how Henry asked for cross-scene character consistency: "scene one
+    // should inject scene 2 the same so character wont change".
+    const hasPriorScene = typeof previousSceneImageUrl === "string" && previousSceneImageUrl.length > 0;
+    const willFaceLock = hasPriorScene
+      || ((hasPhotoImportChar || referenceImageUrls.length > 0)
+          && !isMultiChar
+          && !richLocation);
+    const dropReason = hasPriorScene
+      ? " (face-lock ON — previousSceneImageUrl supplied)"
+      : isMultiChar
       ? " (PuLID dropped — multi-char scene)"
       : richLocation
       ? " (PuLID dropped — single char + rich location; FIX 7)"
@@ -720,7 +737,7 @@ export async function POST(req: NextRequest) {
       height: 720,
       seed: effectiveSeed,
       outputPath,
-      referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
+      referenceImageUrl: willFaceLock ? (hasPriorScene ? toPublicUrl(previousSceneImageUrl) : toPublicUrl(referenceImageUrls[0])) : undefined,
       // F4: skip identity lock for multi-character scenes — composition wins over face precision
       useIdentityLock: willFaceLock,
     });
@@ -743,7 +760,7 @@ export async function POST(req: NextRequest) {
             height: 720,
             seed: effectiveSeed,
             outputPath,
-            referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
+            referenceImageUrl: willFaceLock ? (hasPriorScene ? toPublicUrl(previousSceneImageUrl) : toPublicUrl(referenceImageUrls[0])) : undefined,
             useIdentityLock: willFaceLock,
           });
           if (!result.success && result.model) {
