@@ -97,13 +97,22 @@ Skin tone inference rules (use these when story doesn't say literally):
 - If story explicitly says skin color (e.g. "dark brown skin", "pale fair skin") → use that exact phrase
 - If story gives NO ethnicity clue at all → look at country/setting; otherwise default to story's dominant ethnic context
 
-Age inference rules:
-- "child/kid/boy/girl" → "child"
-- "teen/teenager/teenage/adolescent" → "teen"
-- "young/twenties/early thirties" → "young_adult"
-- "thirties/forties/middle-aged" → "adult"
-- "elder/old/elderly/grandmother/grandfather/sixties or older" → "elder"
-- If truly ambiguous → "adult"
+Age inference rules — READ CAREFULLY, age extraction is high-stakes:
+- EXPLICIT NUMERIC AGES in the story OVERRIDE everything else. Search the story for the character's name + nearby number-year phrases:
+  * "8 years old", "age 8", "8-year-old", "aged 8" → if the number is 1-12 → "child"
+  * 13-17 → "teen"
+  * 18-29 → "young_adult"
+  * 30-64 → "adult"
+  * 65+ → "elder"
+- If no explicit age number is near the character's name, use these word triggers:
+  * "child/kid/boy/girl/youngster/youth/little" → "child"
+  * "teen/teenager/teenage/adolescent/high school" → "teen"
+  * "young man/young woman/college/in his twenties" → "young_adult"
+  * "man/woman/middle-aged/thirties/forties" → "adult"
+  * "elder/old/elderly/grandmother/grandfather/sixties or older" → "elder"
+- If a character is described as a sibling of, parent of, or peer of a character with explicit age, match their age class.
+- If truly ambiguous after all the above → "adult"
+- DO NOT default to "adult" when the story has loud child cues like "his brothers", "his sister", "the kids", "schoolyard", "playground", "karate practice with friends", "the children". Match the cohort age.
 
 Rules:
 - Include EVERY character that speaks or is named
