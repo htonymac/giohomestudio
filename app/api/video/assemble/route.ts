@@ -289,7 +289,7 @@ export async function POST(req: NextRequest) {
               "-filter_complex",
               `[0:v]${vfParts.join(",")}[base];[base][2:v]overlay=0:0[out]`,
               "-map", "[out]", "-map", "1:a",
-              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22",
+              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k", "-maxrate", "6000k", "-bufsize", "12000k",
               "-c:a", "aac", "-b:a", "128k",
               "-pix_fmt", "yuv420p",
               "-t", String(dur),
@@ -300,7 +300,7 @@ export async function POST(req: NextRequest) {
               "-loop", "1", "-i", imagePath,
               "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
               "-vf", vfParts.join(","),
-              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22",
+              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k", "-maxrate", "6000k", "-bufsize", "12000k",
               "-c:a", "aac", "-b:a", "128k",
               "-pix_fmt", "yuv420p",
               "-t", String(dur),
@@ -315,7 +315,7 @@ export async function POST(req: NextRequest) {
               "-loop", "1", "-i", imagePath,
               "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
               "-vf", "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2:color=black,eq=brightness=0.06:contrast=1.1,fade=t=in:st=0:d=0.6,fade=t=out:st=" + Math.max(dur - 0.6, 0.5) + ":d=0.6",
-              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+              "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
               "-c:a", "aac", "-b:a", "128k",
               "-pix_fmt", "yuv420p",
               "-t", String(dur),
@@ -386,7 +386,7 @@ export async function POST(req: NextRequest) {
                 "-loop", "1", "-i", bgSubPng,
                 "-filter_complex", "[0:v]scale=1920:1080[base];[base][2:v]overlay=0:0[out]",
                 "-map", "[out]", "-map", "1:a",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
                 "-c:a", "aac", "-b:a", "128k",
                 "-pix_fmt", "yuv420p",
                 "-t", String(dur),
@@ -397,7 +397,7 @@ export async function POST(req: NextRequest) {
                 "-loop", "1", "-i", bgImageFile,
                 "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
                 "-vf", "scale=1920:1080",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
                 "-c:a", "aac", "-b:a", "128k",
                 "-pix_fmt", "yuv420p",
                 "-t", String(dur),
@@ -412,7 +412,7 @@ export async function POST(req: NextRequest) {
                 "-loop", "1", "-i", bgImageFile,
                 "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
                 "-vf", "scale=1920:1080",
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
                 "-c:a", "aac", "-b:a", "128k",
                 "-pix_fmt", "yuv420p",
                 "-t", String(dur),
@@ -465,7 +465,7 @@ export async function POST(req: NextRequest) {
             fallbackArgs.push("-vf", "scale=1920:1080", "-map", "0:v", "-map", "1:a");
           }
           fallbackArgs.push(
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
             "-c:a", "aac", "-b:a", "128k",
             "-pix_fmt", "yuv420p", "-movflags", "+faststart",
             "-t", String(dur), "-y", slideFile,
@@ -515,7 +515,7 @@ export async function POST(req: NextRequest) {
                 "-filter_complex", `[0:v][${subInputIdx}:v]overlay=0:0:format=auto[out]`,
                 "-map", "[out]",
                 "-map", hasAudio ? "0:a" : "1:a",
-                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
                 "-c:a", "aac", "-b:a", "128k", "-pix_fmt", "yuv420p",
                 "-shortest", "-movflags", "+faststart", "-y", normFile,
               );
@@ -619,7 +619,7 @@ export async function POST(req: NextRequest) {
         try {
           await execFileAsync(ffmpeg, [
             "-f", "concat", "-safe", "0", "-i", concatFile,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
             "-c:a", "aac", "-b:a", "128k",
             "-movflags", "+faststart", "-y", concatOutput,
           ], { timeout: 600000 });
@@ -652,7 +652,7 @@ export async function POST(req: NextRequest) {
             const extendedOutput = path.join(tempDir, "extended.mp4");
             await execFileAsync(ffmpeg, [
               "-stream_loop", "-1", "-i", concatOutput,
-              "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+              "-c:v", "libx264", "-preset", "fast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
               "-c:a", "aac", "-b:a", "128k",
               "-t", String(targetDur),
               "-movflags", "+faststart", "-y", extendedOutput,
@@ -1118,7 +1118,7 @@ ${dialogueLines.join("\n")}
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", `ass=${assArg}`,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
             "-c:a", "copy", "-y", captionOutput,
           ], { timeout: 600000 });
           finalPath = captionOutput;
@@ -1139,7 +1139,7 @@ ${dialogueLines.join("\n")}
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", richFilter,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
             "-c:a", "copy", "-y", captionOutput,
           ], { timeout: 300000 });
           finalPath = captionOutput;
@@ -1155,7 +1155,7 @@ ${dialogueLines.join("\n")}
           await execFileAsync(ffmpeg, [
             "-i", finalPath,
             "-vf", simpleFilter,
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
             "-c:a", "copy", "-y", captionOutput,
           ], { timeout: 300000 });
           finalPath = captionOutput;
@@ -1245,7 +1245,7 @@ ${dialogueLines.join("\n")}
             "-i", finalPath,
             "-vf", stickerFilters.join(","),
             "-c:a", "copy",
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "22",
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k", "-maxrate", "6000k", "-bufsize", "12000k",
             "-pix_fmt", "yuv420p",
             "-y", stickerOutput,
           ], { timeout: 180000 });
@@ -1289,7 +1289,7 @@ ${dialogueLines.join("\n")}
               // ultrafast is ~2x faster than fast with negligible quality difference at this step.
               await execFileAsync(ffmpeg, [
                 "-f", "concat", "-safe", "0", "-i", bumperConcat,
-                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23",
+                "-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-maxrate", "6000k", "-bufsize", "12000k",
                 "-c:a", "aac", "-b:a", "192k",
                 "-movflags", "+faststart", "-y", withBumpers,
               ], { timeout: 300000 });
