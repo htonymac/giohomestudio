@@ -430,6 +430,18 @@ export async function POST(req: NextRequest) {
     // getLateAnchor imported from @/lib/style/late-anchor (Phase B extraction)
     promptParts.push(getLateAnchor(styleId));
 
+    // ── CINEMATIC ACTION ANCHOR (Henry 2026-06-08) ──
+    // Hybrid Planner output was defaulting to posed, smiling portraits — model's
+    // prior on character images leans hard toward "subject facing camera, neutral
+    // expression, idle stance". Append a strong action/motion anchor at the very
+    // end of the prompt so the model treats every scene as an in-progress film
+    // moment, not a headshot. Same anchor Free Mode uses post-PR #56.
+    // Caller can opt OUT by setting body.isStillScene === true (for explicit
+    // portrait/establishing shots).
+    if (body.isStillScene !== true) {
+      promptParts.push("Cinematic film still, movie frame, scene captured mid-action, characters in motion expressing emotion, NOT a posed portrait, NOT a studio shot, NOT smiling at camera, dynamic composition");
+    }
+
     const rawPrompt = promptParts.join(". ");
     const structuredPrompt = rawPrompt.slice(0, 2000);
 
@@ -486,13 +498,16 @@ export async function POST(req: NextRequest) {
     // don't drift into literal fantasy imagery. Context = scene + character descs + culture.
     const fantasyContext = `${sceneText || ""} ${storyCulture || ""} ${resolvedCharacters.map(c => c.visualDescription || "").join(" ")}`;
     const antiFantasyNegative = getAntiFantasyNegative(fantasyContext);
-    // Henry 2026-06-04 (B): when client signals isActionScene=true, append
-    // strong anti-static negatives. Pushes model away from defaults like
-    // "smiling for camera" and "centered subject" toward actual motion.
-    const actionScene = body.isActionScene === true;
-    const antiStaticNegative = actionScene
-      ? ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless"
-      : "";
+    // Henry 2026-06-04 (B) → 2026-06-08 flipped default:
+    // Originally fired ONLY when client opted in via isActionScene=true.
+    // Hybrid Planner page.tsx is LOCKED so it never passes isActionScene → posed
+    // images were the default. Henry: "image are all pos and smiling not not action".
+    // Flip: anti-static fires UNLESS the caller explicitly says isStillScene=true
+    // (e.g. portrait/establishing-shot scenes). All other scenes get action push.
+    const isStillScene = body.isStillScene === true;
+    const antiStaticNegative = isStillScene
+      ? ""
+      : ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless";
     const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
