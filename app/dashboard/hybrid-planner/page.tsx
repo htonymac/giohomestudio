@@ -2119,6 +2119,23 @@ function HybridPlannerInner() {
       };
     });
     try {
+      // Henry 2026-06-09: cross-scene continuity. For ANY scene that isn't the
+      // first, send the earliest already-generated scene image as the identity
+      // anchor. Scene-image route's `previousSceneImageUrl` engages face-lock
+      // even on multi-char scenes so characters keep the same look across the
+      // project. Picks the LOWEST-numbered generated scene as the anchor — that
+      // way SC1's look propagates to SC2..SCN, not a chain that drifts.
+      const anchorEntry = (() => {
+        const entries = Object.entries(sceneImages);
+        if (entries.length === 0) return null;
+        // Pick the scene with the smallest scene number that isn't this one.
+        const sorted = entries
+          .map(([sid, url]) => ({ sid, url, num: scenes.find(s => s.sceneId === sid)?.scene ?? 999 }))
+          .filter(e => e.sid !== scene.sceneId && !!e.url)
+          .sort((a, b) => a.num - b.num);
+        return sorted[0]?.url ?? null;
+      })();
+
       const res = await fetch("/api/hybrid/scene-image", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2131,6 +2148,7 @@ function HybridPlannerInner() {
           seed: genSeed !== null ? genSeed : undefined,
           storyEra: storyEra || undefined,
           storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
+          previousSceneImageUrl: anchorEntry,
         }),
       });
       const data = await res.json();
