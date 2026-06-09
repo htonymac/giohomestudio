@@ -160,6 +160,12 @@ export async function POST(req: NextRequest) {
 
     const ffmpeg = env.ffmpegPath;
 
+    // Henry 2026-06-08: track aspectRatio at top level so subtitle PNG can size
+    // its canvas to match the video. Without this, 9:16 videos got 1920×1080
+    // subtitle overlays — text rendered centered at PNG midpoint x=960 landed
+    // off-frame on a 1080-wide video.
+    const subAspect: "16:9" | "9:16" | "1:1" = body.aspectRatio ?? "16:9";
+
     // Resolve subtitle: rich config takes priority over legacy style string
     const subtitleCfg: SubtitleConfig | SubtitleStyle = (body.subtitleConfig as SubtitleConfig | undefined) ?? (body.subtitleStyle ?? "classic") as SubtitleStyle;
     const subtitleEnabled = body.subtitleConfig
@@ -268,7 +274,7 @@ export async function POST(req: NextRequest) {
           const subText = buildSubtitleText(slideText);
           if (subText) {
             subPngFile = path.join(tempDir, `sub_${scene.scene}.png`);
-            try { await generateSubtitlePng(subText, subPngFile, "bottom", perSceneFontSize, subtitleCfg); }
+            try { await generateSubtitlePng(subText, subPngFile, "bottom", perSceneFontSize, subtitleCfg, subAspect); }
             catch { subPngFile = null; }
           }
         }
@@ -368,7 +374,7 @@ export async function POST(req: NextRequest) {
           let bgSubPng: string | null = null;
           if (bgSubText && perSceneSubtitleEnabled) {
             bgSubPng = path.join(tempDir, `bgsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", Math.max(perSceneFontSize, 64), subtitleCfg); }
+            try { await generateSubtitlePng(bgSubText, bgSubPng, "center", Math.max(perSceneFontSize, 64), subtitleCfg, subAspect); }
             catch { bgSubPng = null; }
           }
 
@@ -442,7 +448,7 @@ export async function POST(req: NextRequest) {
           let fallbackSubPng: string | null = null;
           if (fallbackSubText && perSceneSubtitleEnabled) {
             fallbackSubPng = path.join(tempDir, `fbsub_${scene.scene}.png`);
-            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", perSceneFontSize, subtitleCfg); }
+            try { await generateSubtitlePng(fallbackSubText, fallbackSubPng, "bottom", perSceneFontSize, subtitleCfg, subAspect); }
             catch { fallbackSubPng = null; }
           }
           const fallbackArgs: string[] = [
@@ -477,7 +483,7 @@ export async function POST(req: NextRequest) {
           if (subText && perSceneSubtitleEnabled) {
             vidSubPng = path.join(tempDir, `vsub_${scene.scene}.png`);
             try {
-              await generateSubtitlePng(subText, vidSubPng, "bottom", 52, subtitleCfg);
+              await generateSubtitlePng(subText, vidSubPng, "bottom", 52, subtitleCfg, subAspect);
               console.log(`[assemble] scene ${scene.scene} subtitle PNG OK: ${vidSubPng}`);
             } catch (subErr) {
               console.error(`[assemble] scene ${scene.scene} subtitle PNG FAILED:`, subErr);
@@ -1413,6 +1419,7 @@ async function generateSubtitlePng(
   position: "bottom" | "center",
   fontSize: number,
   style: SubtitleStyle | SubtitleConfig = "classic",
+  aspectRatio: "16:9" | "9:16" | "1:1" = "16:9",
 ): Promise<void> {
   // Resolve config: if style is a string, convert to SubtitleConfig
   const cfg: SubtitleConfig = (typeof style === "object")
@@ -1422,10 +1429,19 @@ async function generateSubtitlePng(
   if ((cfg.mode as string) === "none") return;
 
   const sharp = (await import("sharp")).default;
-  const W = 1920, H = 1080;
+  // Henry 2026-06-08: subtitle PNG was always 1920×1080 (landscape). When the
+  // video aspect was 9:16 (1080×1920 vertical), the FFmpeg overlay placed the
+  // PNG at native size — text rendered centered at x=960 (PNG midpoint) lands
+  // OFF the 1080-wide video, and the right ~840px of the PNG falls off-frame.
+  // User saw "subtitle overflowing the screen". Fix: size canvas to the video
+  // aspect so text fits in-frame and wrap-count adapts to the actual width.
+  const W = aspectRatio === "9:16" ? 1080 : aspectRatio === "1:1" ? 1080 : 1920;
+  const H = aspectRatio === "9:16" ? 1920 : aspectRatio === "1:1" ? 1080 : 1080;
   const fs_px = cfg.fontSize ?? fontSize;
   const lineH = Math.round(fs_px * 1.4);
-  const lines = wrapTextIntoLines(text, Math.round(52 * 48 / fs_px));
+  // maxChars scales with canvas width — 48 chars at W=1920 / fs_px=52 baseline.
+  const maxCharsForWidth = Math.max(20, Math.round(52 * 48 / fs_px * (W / 1920)));
+  const lines = wrapTextIntoLines(text, maxCharsForWidth);
   const numLines = Math.max(lines.length, 1);
   const boxH = Math.round(lineH * numLines + fs_px * 0.9);
   const pos = cfg.position ?? (position === "center" ? "center" : "bottom");
