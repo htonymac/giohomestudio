@@ -322,7 +322,11 @@ export async function POST(req: NextRequest) {
             ? `old ${c.name}, elderly ${c.name}, middle-aged ${c.name}, 40 year old ${c.name}, 50 year old ${c.name}, grey-haired ${c.name}, grey-bearded ${c.name}, wrinkled ${c.name}, aging ${c.name}`
             : c.age === "adult"
             ? `old ${c.name}, elderly ${c.name}, aged ${c.name}`
-            : c.age === "child" ? `adult ${c.name}, tall ${c.name}` : "";
+            // Henry 2026-06-08: child stories rendering as 30-40yo men. Two-word
+            // negative "adult, tall" wasn't enough — diffusion priors weight kids
+            // toward adult anatomy. Broader negative covers facial hair, build,
+            // age numbers, height — all the markers the model usually inserts.
+            : c.age === "child" ? `adult ${c.name}, tall ${c.name}, grown ${c.name}, man ${c.name}, woman ${c.name}, mustache on ${c.name}, beard on ${c.name}, facial hair on ${c.name}, muscular ${c.name}, broad shoulders on ${c.name}, mature face on ${c.name}, adult anatomy on ${c.name}, 20 year old ${c.name}, 30 year old ${c.name}, 40 year old ${c.name}` : "";
           const descLower = desc.toLowerCase();
           const antiHeadwrap = (!descLower.includes("headwrap") && !descLower.includes("gele") && !descLower.includes("head wrap"))
             ? `headwrap on ${c.name}, gele on ${c.name}, head covering on ${c.name}`
@@ -440,6 +444,18 @@ export async function POST(req: NextRequest) {
     // portrait/establishing shots).
     if (body.isStillScene !== true) {
       promptParts.push("Cinematic film still, movie frame, scene captured mid-action, characters in motion expressing emotion, NOT a posed portrait, NOT a studio shot, NOT smiling at camera, dynamic composition");
+    }
+
+    // ── GLOBAL CHILD ANCHOR (Henry 2026-06-08 round 2) ──
+    // When ANY scene character is a child, append a strong scene-wide child
+    // anchor at the late position so the diffusion model treats the whole frame
+    // as a child scene. Per-character ageLock alone wasn't enough — model still
+    // rendered adult anatomy even with the child anchor on individual characters.
+    // Late-position weighting is heavy in diffusion, so this scene-wide override
+    // pushes the entire frame's age estimation younger.
+    const sceneHasChildren = resolvedCharacters.some(c => c.age === "child");
+    if (sceneHasChildren) {
+      promptParts.push("Scene featuring CHILDREN — small bodies, young rounded faces, kid proportions, age 6-10. NOT adults, NOT teenagers, NOT grown people. No facial hair, no muscular adult builds, no mature anatomy. The cast is children.");
     }
 
     const rawPrompt = promptParts.join(". ");

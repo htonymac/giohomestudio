@@ -348,16 +348,29 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // ── Diversity rotation: no explicit per-character ethnicity AND no strong dominant ──
-      // Replaces the silent "everyone defaults to one tone" behavior with a rotating mix
-      // across the DIVERSITY_POOL. Only fires when skinTone is still blank or generic-light
-      // AND the story didn't anchor a strong dominance. Each character gets a different
-      // pool entry by index, so a 3-character cast spans 3 ethnicities.
-      // Henry 2026-06-08: complaint "show everyone black it does not also show white" — fix.
+      // ── Diversity rotation — Henry 2026-06-08 round 2 ──
+      // Round 1 (earlier today) only caught "LLM picked fair → rotate". Round 2
+      // catches "LLM picked dark with NO story signal → still rotate".
+      //
+      // Henry's "andrew is a smart boy 8 years old who likes karate" story has
+      // ZERO ethnic vocabulary. LLM still defaulted to "dark brown skin" for
+      // every character. Round 1 didn't fire because the picked tone wasn't
+      // "light". Result: all-Black cast even though story specified nothing.
+      //
+      // New rule: if `_dominantSkin` is empty (regex matched zero ethnic words
+      // across the entire story), the writer didn't intend ANY specific
+      // ethnicity. Rotate every character through DIVERSITY_POOL by index.
+      // 3-character story → 3 different backgrounds.
+      const noStorySignal = !_dominantSkin;
       const skinIsBlankOrGenericLight = !skinTone || LIGHT_DEFAULT_PATTERN.test(skinTone);
-      if (skinIsBlankOrGenericLight && !_dominantIsStrong) {
+      if (noStorySignal) {
         const poolPick = DIVERSITY_POOL[i % DIVERSITY_POOL.length];
-        console.log(`[character-extract] Diversity rotation: ${name} → "${poolPick}" (no strong ethnic anchor in story)`);
+        console.log(`[character-extract] Diversity rotation (no story signal): ${name} "${skinTone || "blank"}" → "${poolPick}"`);
+        skinTone = poolPick;
+      } else if (skinIsBlankOrGenericLight && !_dominantIsStrong) {
+        // Legacy path: weak signal + LLM-picked-light → still rotate.
+        const poolPick = DIVERSITY_POOL[i % DIVERSITY_POOL.length];
+        console.log(`[character-extract] Diversity rotation (weak signal, LLM-picked-light): ${name} → "${poolPick}"`);
         skinTone = poolPick;
       }
 
