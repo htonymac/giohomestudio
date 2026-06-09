@@ -287,7 +287,43 @@ export async function POST(req: NextRequest) {
     const charNegatives: string[] = [];
 
     const CHAR_DESC_LIMIT = 400;
-    if (resolvedCharacters.length > 0) {
+    // Henry 2026-06-09: MIRROR FREE MODE — lean prompt for multi-char scenes.
+    // Free Mode passes "Whiskers, Squeaky, Nibbles" + scene text (which the LLM
+    // wrote with full descriptions baked in) — model handles it cleanly. Hybrid
+    // Planner was building a 600-token per-character block with AGE LOCK +
+    // visualDescription + wardrobe + hairstyle + identityAnchor PER CHARACTER,
+    // joined with " | ". CLIP encoder caps at 77 tokens, T5 at 512 — half the
+    // prompt got truncated before the scene text was even read. The model fell
+    // back to its prior (smiling adults posing for camera).
+    //
+    // Multi-char scenes (>=2 chars) already drop PuLID (isMultiChar disables
+    // face-lock at line 632-634), so the heavy per-character anatomy block was
+    // wasted weight. New approach: lean name + age tag for multi-char, let the
+    // scene text carry character description. Single-char keeps the rich block
+    // because PuLID needs the wardrobe + identity anchor for face-lock.
+    const isMultiCharForPrompt = resolvedCharacters.length >= 2;
+    if (resolvedCharacters.length > 0 && isMultiCharForPrompt) {
+      // ── LEAN PATH (Free Mode mirror) ──
+      // Build per-character anti-stereotype negatives (still useful — kept) but
+      // collapse the positive identity into a one-liner.
+      for (const c of resolvedCharacters) {
+        const desc = (c.visualDescription || "");
+        if (c.imageUrl || desc) {
+          const antiAge = c.age === "child"
+            ? `adult ${c.name}, tall ${c.name}, grown ${c.name}, man ${c.name}, woman ${c.name}, mustache on ${c.name}, beard on ${c.name}, facial hair on ${c.name}, muscular ${c.name}, broad shoulders on ${c.name}, mature face on ${c.name}, 20 year old ${c.name}, 30 year old ${c.name}, 40 year old ${c.name}, elderly ${c.name}, old ${c.name}, grey-haired ${c.name}, wrinkled ${c.name}`
+            : c.age === "teen"
+            ? `adult ${c.name}, grown ${c.name}, 30 year old ${c.name}`
+            : c.age === "elder" ? `young ${c.name}, youthful ${c.name}` : "";
+          if (antiAge) charNegatives.push(antiAge);
+        }
+      }
+      const ageTagFor = (a?: string) => a === "child" ? " (age 6-10 child, small body, young face)"
+        : a === "teen" ? " (teenager, 13-17)"
+        : a === "elder" ? " (elder, 65+ grey hair)" : "";
+      const leanNames = resolvedCharacters.map(c => `${c.name}${ageTagFor(c.age ?? undefined)}`).join(", ");
+      promptParts.push(leanNames);
+    } else if (resolvedCharacters.length > 0) {
+      // ── SINGLE-CHAR PATH (original heavy block — PuLID needs it) ──
       const identityBlock = resolvedCharacters.map(c => {
         const desc = sanitizeStyleCollisions((c.visualDescription || "").slice(0, CHAR_DESC_LIMIT), styleId);
         // 3-C: Use lastSeenWardrobe for continuity when available; fall back to wardrobe default
@@ -363,29 +399,34 @@ export async function POST(req: NextRequest) {
       }).join(" | ");
       promptParts.push(identityBlock);
 
-      // ── CHARACTER ANATOMY SEPARATION (2026-05-09) ──
-      // ONLY uses explicit species from characterOverrides — never infers species from visual
-      // description text (that caused false-positive bear heads when desc had "bear" anywhere).
-      if (resolvedCharacters.length >= 2) {
-        const speciesByName: string[] = [];
-        for (const c of resolvedCharacters) {
-          const ovs = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
-            ?.find(o => o.name === c.name)?.species?.toLowerCase() ?? "";
-          // Only treat as animal if the species field EXPLICITLY names an animal
-          const isAnimal = ANIMAL_SPECIES.has(ovs);
-          if (isAnimal) {
-            speciesByName.push(`${c.name} is a ${ovs} (${ovs} face, ${ovs} body, ${ovs} anatomy — NOT human)`);
-          } else {
-            // GENESIS BEAR FIX (Henry 2026-05-30): positive prompt MUST NOT mention "bear"
-            // or "animal" — diffusion models prime on positive-side concept mentions even
-            // when negated. Stick to affirming "human" only.
-            speciesByName.push(`${c.name} is a fully human person (human face, human body, realistic human anatomy)`);
-          }
+    }
+
+    // ── CHARACTER ANATOMY SEPARATION (2026-05-09; restructured 2026-06-09) ──
+    // ONLY uses explicit species from characterOverrides — never infers species from
+    // visual description text (caused false-positive bear heads when desc had "bear").
+    // Henry 2026-06-09: now ONLY fires when there ARE animal characters in the scene.
+    // The old all-human repetition ("X is a fully human person. Y is a fully human person.")
+    // added 80+ tokens of redundant noise to every multi-char human scene → ate into the
+    // scene-text budget without telling the model anything new.
+    if (resolvedCharacters.length >= 2) {
+      const speciesByName: string[] = [];
+      let hasAnimalChar = false;
+      for (const c of resolvedCharacters) {
+        const ovs = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
+          ?.find(o => o.name === c.name)?.species?.toLowerCase() ?? "";
+        const isAnimal = ANIMAL_SPECIES.has(ovs);
+        if (isAnimal) {
+          hasAnimalChar = true;
+          speciesByName.push(`${c.name} is a ${ovs} (${ovs} face, ${ovs} body, ${ovs} anatomy — NOT human)`);
+        } else {
+          speciesByName.push(`${c.name} is a fully human person (human face, human body, realistic human anatomy)`);
         }
+      }
+      // Only push when there's actually species mixing to clarify (animal in cast).
+      if (hasAnimalChar) {
         promptParts.push(
-          `${resolvedCharacters.length} separate human characters, each with their own face and body. ` +
-          speciesByName.join(". ") + ". " +
-          "Each character has a fully human face and head with realistic human features."
+          `${resolvedCharacters.length} separate characters, each with their own face and body. ` +
+          speciesByName.join(". ") + "."
         );
       }
     }
