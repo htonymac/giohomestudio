@@ -728,19 +728,77 @@ export async function POST(req: NextRequest) {
         ? Number(seed)
         : (primaryChar ? stableSeedFrom(primaryChar.characterId || primaryChar.id || primaryChar.name) : undefined);
 
-    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${dropReason} closeup=${isCloseup} locLen=${(location || "").length} sceneLen=${cleanSceneText.length} seed=${effectiveSeed ?? "random"} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"}`);
-    let result = await generateImage({
-      modelId: modelId || undefined,
-      prompt: structuredPrompt,
-      negativePrompt: negativePrompt,
-      width: 1280,
-      height: 720,
-      seed: effectiveSeed,
-      outputPath,
-      referenceImageUrl: willFaceLock ? (hasPriorScene ? toPublicUrl(previousSceneImageUrl) : toPublicUrl(referenceImageUrls[0])) : undefined,
-      // F4: skip identity lock for multi-character scenes — composition wins over face precision
-      useIdentityLock: willFaceLock,
-    });
+    console.log(`[scene-image] sceneId=${sceneId} chars=${resolvedCharacters.length} ages=[${resolvedCharacters.map(c => c.age || "?").join(",")}] portraits=${referenceImageUrls.length} faceLock=${willFaceLock}${dropReason} closeup=${isCloseup} locLen=${(location || "").length} sceneLen=${cleanSceneText.length} seed=${effectiveSeed ?? "random"} firstPortrait=${referenceImageUrls[0]?.slice(0, 80) || "none"} priorScene=${hasPriorScene ? "yes" : "no"}`);
+
+    // Henry 2026-06-09 — TRUE cross-scene continuity via FLUX img2img.
+    // PR #68 wired previousSceneImageUrl → useIdentityLock → fal_flux_pulid,
+    // but PuLID only locks ONE face. For multi-char scenes, the new scene's
+    // characters morphed away from SC1's look. Switch path: when a prior
+    // scene URL is supplied, use FAL flux-img2img with the prior scene as
+    // the initial latent at strength 0.6. That preserves the prior scene's
+    // characters/lighting/composition while the prompt steers the new action.
+    let result: Awaited<ReturnType<typeof generateImage>>;
+    if (hasPriorScene && previousSceneImageUrl) {
+      try {
+        const { falFluxImg2Img } = await import("@/lib/providers/fal");
+        const fs = await import("fs");
+        // FAL needs a publicly-reachable URL OR a data URL. Convert the local
+        // /api/media/... path to a public URL via toPublicUrl (NEXT_PUBLIC_APP_URL).
+        // If the URL is already absolute, pass through.
+        const initImageUrl = /^https?:\/\//.test(previousSceneImageUrl)
+          ? previousSceneImageUrl
+          : toPublicUrl(previousSceneImageUrl);
+        console.log(`[scene-image] img2img mode — init=${initImageUrl.slice(0, 80)}`);
+        const i2i = await falFluxImg2Img({
+          prompt: structuredPrompt,
+          imageUrl: initImageUrl,
+          // 0.6 strength = 60% noise added back. Keeps character look + scene
+          // style from prior frame; lets the prompt steer composition + action.
+          strength: 0.6,
+          numInferenceSteps: 28,
+        });
+        if (i2i.ok && i2i.data.images?.[0]?.url) {
+          // Download the result to outputPath so the local URL works downstream.
+          const dl = await fetch(i2i.data.images[0].url);
+          if (dl.ok) {
+            const buf = Buffer.from(await dl.arrayBuffer());
+            fs.writeFileSync(outputPath, buf);
+            // Build a fake ImageGenerateResult shape matching generateImage's contract.
+            const { getModelById, getDefaultImageModel } = await import("@/lib/generation/model-registry");
+            const model = getModelById("fal_flux_dev_i2i") ?? getDefaultImageModel();
+            result = { success: true, imagePath: outputPath, imageUrl: i2i.data.images[0].url, model };
+          } else {
+            throw new Error(`Download failed: HTTP ${dl.status}`);
+          }
+        } else {
+          throw new Error(i2i.ok ? "FAL img2img returned no image" : (i2i as { ok: false; error: string }).error);
+        }
+      } catch (e) {
+        // Fall back to normal text2img generation if img2img fails — at least Henry gets an image.
+        console.warn(`[scene-image] img2img failed (${e instanceof Error ? e.message : "unknown"}) — falling back to text2img`);
+        result = await generateImage({
+          modelId: modelId || undefined,
+          prompt: structuredPrompt,
+          negativePrompt: negativePrompt,
+          width: 1280, height: 720, seed: effectiveSeed, outputPath,
+          referenceImageUrl: toPublicUrl(previousSceneImageUrl),
+          useIdentityLock: true,
+        });
+      }
+    } else {
+      result = await generateImage({
+        modelId: modelId || undefined,
+        prompt: structuredPrompt,
+        negativePrompt: negativePrompt,
+        width: 1280,
+        height: 720,
+        seed: effectiveSeed,
+        outputPath,
+        referenceImageUrl: willFaceLock ? toPublicUrl(referenceImageUrls[0]) : undefined,
+        // F4: skip identity lock for multi-character scenes — composition wins over face precision
+        useIdentityLock: willFaceLock,
+      });
+    }
 
     if (!result.success && result.model) {
       const errStr = result.error ?? "";
