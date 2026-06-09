@@ -6971,11 +6971,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               )}
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              {/* Clear ghost images */}
-              {Object.keys(sceneImages).length > 0 && (
+              {/* Clear ghost images — Henry 2026-06-08: also clears prevSceneImages
+                  (the "PREVIOUS VERSIONS" thumbnails). Previous code only cleared
+                  the active sceneImages; prevSceneImages kept up to 3 stale URLs
+                  per scene that re-appeared in scene-card "previous versions"
+                  strip — user clicked "Clear" but ghost images stayed visible. */}
+              {(Object.keys(sceneImages).length > 0 || Object.keys(prevSceneImages).length > 0) && (
                 <button
-                  onClick={() => { if (confirm("Clear all scene images from this board? Files are NOT deleted.")) setSceneImages({}); }}
-                  title="Remove all images from this scene board (does not delete files). Use if old images from another project are showing here."
+                  onClick={() => {
+                    if (confirm("Clear all scene images AND previous-version thumbnails from this board? Files are NOT deleted.")) {
+                      setSceneImages({});
+                      setPrevSceneImages({});
+                    }
+                  }}
+                  title="Remove all images + previous-version thumbnails from this scene board (does not delete files). Use if old images from another project are showing here."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   Clear Ghost Images
                 </button>

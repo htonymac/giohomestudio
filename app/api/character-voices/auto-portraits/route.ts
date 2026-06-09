@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const characters = await prisma.characterVoice.findMany({
     where,
-    select: { id: true, name: true, visualDescription: true, gender: true },
+    select: { id: true, name: true, visualDescription: true, gender: true, age: true },
     take: limit,
   });
 
@@ -38,7 +38,26 @@ export async function POST(req: NextRequest) {
     const genderHint = char.gender === "female" || char.gender === "girl" ? "female character, "
       : char.gender === "male" || char.gender === "boy" ? "male character, " : "";
 
-    const prompt = `character portrait, ${genderHint}${desc}, looking at camera, clean neutral background, photorealistic, high quality, sharp focus`;
+    // Henry 2026-06-08: portraits were rendering 8-year-olds as 30-40yo men
+    // because the prompt had no age anchor + visualDescription's "8-year-old"
+    // text wasn't weighted strongly enough by the diffusion model. Add explicit
+    // age tokens for each age bucket. char.age is "child|teen|young_adult|adult|elder".
+    const AGE_PORTRAIT_ANCHOR: Record<string, string> = {
+      child:       "young child age 6-10, small body, rounded baby face, child proportions, NOT an adult, NOT a teen, no facial hair, no muscular adult build, no mature features",
+      teen:        "teenager age 13-17, adolescent face, teen build, NOT an adult, NOT a child",
+      young_adult: "young adult in early-to-mid 20s, smooth youthful skin, full dark hair, clean-shaven or light stubble at most, NO grey hair, NO wrinkles, NOT middle-aged",
+      adult:       "adult age 30-45, mature face, full adult anatomy",
+      elder:       "elderly age 65+, grey or white hair, wrinkled face, aged posture",
+    };
+    const ageAnchor = char.age && AGE_PORTRAIT_ANCHOR[char.age] ? `, ${AGE_PORTRAIT_ANCHOR[char.age]}` : "";
+
+    // Henry 2026-06-08: also dropped the "looking at camera" anchor. That phrase
+    // was forcing posed/headshot output → smiling-into-lens portraits even on
+    // action stories. Replaced with neutral expression + 3/4 angle so PuLID
+    // face-lock still works for face recognition without dragging the smile
+    // into every scene. "clean neutral background" stays so the face isn't
+    // distracted by environment when reused as a reference.
+    const prompt = `character reference portrait, ${genderHint}${desc}${ageAnchor}, 3/4 angle face, neutral expression, NOT smiling at camera, clean neutral background, photorealistic, high quality, sharp focus on face`;
 
     try {
       // Migrated to providers/fal adapter (Henry 2026-05-30 task #28).
