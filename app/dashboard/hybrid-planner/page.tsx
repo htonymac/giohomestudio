@@ -688,6 +688,27 @@ function HybridPlannerInner() {
   const [charTabName, setCharTabName] = useState("");
   const [charTabCreating, setCharTabCreating] = useState(false);
 
+  // ── Pick Faces from SC1 — face-crop portal ──────────────────────────────────
+  // WHY: PuLID/img2img keeps scene composition but face identity tokens still
+  // drift when there are 2+ characters. Letting the user click each face in SC1
+  // and save a 512×512 crop as the character's imageUrl gives subsequent scenes
+  // an exact face anchor instead of relying on the diffusion model's memorization.
+  interface PickFacesState {
+    sceneId: string;        // which scene image is shown (always SC1 = scene.scene===1)
+    sceneImageUrl: string;  // /api/media/... URL
+    characters: Array<{ characterId: string; displayName: string }>;  // chars to anchor
+    currentIdx: number;     // which character we're waiting for the user to click
+    // clicks[i] = crop box for characters[i] (null = not yet clicked)
+    clicks: Array<{ x: number; y: number } | null>;
+    saving: boolean;
+    savedCount: number;
+    error: string | null;
+  }
+  const [pickFacesState, setPickFacesState] = useState<PickFacesState | null>(null);
+  // Natural (original) dimensions of the SC1 image — needed to convert display
+  // coordinates back to original pixel coordinates when sending the crop box.
+  const pickFacesImgRef = useRef<HTMLImageElement | null>(null);
+
   // ── Pre-flight check ──────────────────────────────────────────────────────
   interface HybridPreflightCheck { id: string; label: string; status: "ok" | "warn" | "error"; detail?: string; autoFixAvailable: boolean; autoFixAction?: string; }
   const [preflightResult, setPreflightResult] = useState<{ checks: HybridPreflightCheck[]; canAssemble: boolean; blockingErrors: number; warnings: number } | null>(null);
@@ -5869,6 +5890,247 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         </div>
       )}
 
+      {/* ── Pick Faces from SC1 Modal ──────────────────────────────────────────────
+          WHY: Face drift in multi-character scenes can't be solved by text prompts alone.
+          This modal lets the user click each character's face in the SC1 image and crops
+          it to 512×512, which is then persisted as that character's imageUrl. Subsequent
+          scene generation will use these SC1-extracted crops as identity references.
+          ───────────────────────────────────────────────────────────────────────────── */}
+      {pickFacesState && (
+        <div
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.94)", zIndex: 9999,
+            display: "flex", flexDirection: "column", alignItems: "center",
+            justifyContent: "flex-start", overflowY: "auto", padding: "20px 16px 40px",
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: "100%", maxWidth: 860, background: "#12121e",
+              border: "1px solid #2a2a40", borderRadius: 16, overflow: "hidden",
+              boxShadow: "0 0 60px rgba(0,0,0,0.8)",
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: "14px 18px", borderBottom: "1px solid #2a2a40", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Lock Faces from SC1</div>
+                <div style={{ fontSize: 10, color: muted, marginTop: 2 }}>
+                  Click each character's face in the image below. Each click saves a 256×256 crop as their portrait.
+                </div>
+              </div>
+              <button
+                onClick={() => setPickFacesState(null)}
+                style={{ width: 28, height: 28, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.1)", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+              >
+                <Icon.X style={{ width: 13, height: 13 }} />
+              </button>
+            </div>
+
+            {/* Progress indicator — which character to click next */}
+            <div style={{ padding: "10px 18px", borderBottom: "1px solid #2a2a40", display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
+              {pickFacesState.characters.map((c, i) => {
+                const isNext = i === pickFacesState.currentIdx && !pickFacesState.saving;
+                const isDone = pickFacesState.clicks[i] !== null;
+                return (
+                  <div key={c.characterId} style={{
+                    padding: "4px 12px", borderRadius: 20, fontSize: 10, fontWeight: 700,
+                    border: isNext ? "2px solid #22c55e" : isDone ? "1px solid #22c55e60" : "1px solid #2a2a40",
+                    background: isNext ? "#22c55e18" : isDone ? "#22c55e08" : "transparent",
+                    color: isNext ? "#22c55e" : isDone ? "#22c55e80" : muted,
+                    transition: "all 0.15s",
+                  }}>
+                    {isDone ? "✓ " : isNext ? "▶ " : ""}{c.displayName}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Instruction line */}
+            {!pickFacesState.saving && pickFacesState.currentIdx < pickFacesState.characters.length && (
+              <div style={{ padding: "8px 18px", background: "#22c55e0c", borderBottom: "1px solid #22c55e30", fontSize: 11, color: "#22c55e", fontWeight: 700 }}>
+                Now click {pickFacesState.characters[pickFacesState.currentIdx].displayName}'s face in the image below
+              </div>
+            )}
+            {pickFacesState.currentIdx >= pickFacesState.characters.length && !pickFacesState.saving && (
+              <div style={{ padding: "8px 18px", background: "#0084ff0c", borderBottom: "1px solid #0084ff30", fontSize: 11, color: "#0084ff", fontWeight: 700 }}>
+                All {pickFacesState.characters.length} face{pickFacesState.characters.length > 1 ? "s" : ""} marked. Click "Save Faces" to persist.
+              </div>
+            )}
+
+            {/* SC1 image — click to record face position */}
+            <div style={{ padding: "12px 18px" }}>
+              <div style={{ position: "relative" as const, display: "inline-block", width: "100%", maxWidth: 820, lineHeight: 0 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  ref={pickFacesImgRef}
+                  src={pickFacesState.sceneImageUrl}
+                  alt="SC1 scene"
+                  style={{
+                    width: "100%", maxHeight: 540, objectFit: "contain", borderRadius: 8,
+                    // Show crosshair only while still collecting clicks
+                    cursor: pickFacesState.currentIdx < pickFacesState.characters.length && !pickFacesState.saving ? "crosshair" : "default",
+                    display: "block",
+                  }}
+                  onClick={(e) => {
+                    if (pickFacesState.currentIdx >= pickFacesState.characters.length) return;
+                    if (pickFacesState.saving) return;
+
+                    const img = pickFacesImgRef.current;
+                    if (!img) return;
+
+                    // Convert click (display coords) → original image coords.
+                    // img.naturalWidth/Height = original px; img.getBoundingClientRect() = display px.
+                    const rect = img.getBoundingClientRect();
+                    const displayX = e.clientX - rect.left;
+                    const displayY = e.clientY - rect.top;
+                    const scaleX = img.naturalWidth / rect.width;
+                    const scaleY = img.naturalHeight / rect.height;
+                    const origX = Math.round(displayX * scaleX);
+                    const origY = Math.round(displayY * scaleY);
+
+                    // Record click and advance to next character
+                    setPickFacesState(prev => {
+                      if (!prev) return prev;
+                      const newClicks = [...prev.clicks];
+                      newClicks[prev.currentIdx] = { x: origX, y: origY };
+                      return { ...prev, clicks: newClicks, currentIdx: prev.currentIdx + 1 };
+                    });
+                  }}
+                />
+                {/* Dot markers for already-clicked faces — rendered in DISPLAY space */}
+                {pickFacesState.clicks.map((click, i) => {
+                  if (!click || !pickFacesImgRef.current) return null;
+                  const img = pickFacesImgRef.current;
+                  const rect = img.getBoundingClientRect();
+                  // Convert original coords back to display percentage for positioning
+                  const displayPctX = (click.x / img.naturalWidth) * 100;
+                  const displayPctY = (click.y / img.naturalHeight) * 100;
+                  return (
+                    <div key={i} style={{
+                      position: "absolute" as const,
+                      left: `${displayPctX}%`, top: `${displayPctY}%`,
+                      transform: "translate(-50%, -50%)",
+                      width: 28, height: 28, borderRadius: "50%",
+                      border: "2px solid #22c55e", background: "rgba(34,197,94,0.3)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 9, fontWeight: 700, color: "#22c55e",
+                      pointerEvents: "none",
+                      boxShadow: "0 0 8px #22c55e80",
+                    }}>
+                      {i + 1}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Error display */}
+            {pickFacesState.error && (
+              <div style={{ margin: "0 18px 12px", padding: "8px 12px", background: "#ef444420", border: "1px solid #ef444460", borderRadius: 8, fontSize: 10, color: "#ef4444" }}>
+                {pickFacesState.error}
+              </div>
+            )}
+
+            {/* Action buttons */}
+            <div style={{ padding: "12px 18px 16px", borderTop: "1px solid #2a2a40", display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              {/* Allow resetting clicks to start over */}
+              {pickFacesState.clicks.some(c => c !== null) && !pickFacesState.saving && (
+                <button
+                  onClick={() => setPickFacesState(prev => prev ? { ...prev, clicks: prev.characters.map(() => null), currentIdx: 0, error: null } : prev)}
+                  style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #2a2a40", background: "transparent", color: muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                >
+                  Reset Clicks
+                </button>
+              )}
+              <button
+                onClick={() => setPickFacesState(null)}
+                style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid #2a2a40", background: "transparent", color: muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              {/* Save button only active when all characters have been clicked */}
+              <button
+                disabled={pickFacesState.saving || pickFacesState.currentIdx < pickFacesState.characters.length}
+                onClick={async () => {
+                  if (!pickFacesState) return;
+
+                  setPickFacesState(prev => prev ? { ...prev, saving: true, error: null } : prev);
+
+                  // Crop size: 256px on each side of the click point, clamped by the API.
+                  // 256 half-size → 512×512 crop, which is what the auto-portraits route
+                  // also saves. Makes all portrait sizes consistent.
+                  const HALF = 256;
+
+                  let savedCount = 0;
+                  let lastError: string | null = null;
+
+                  for (let i = 0; i < pickFacesState.characters.length; i++) {
+                    const click = pickFacesState.clicks[i];
+                    const charEntry = pickFacesState.characters[i];
+                    if (!click) continue;
+
+                    const cropBox = {
+                      x: click.x - HALF,
+                      y: click.y - HALF,
+                      width: HALF * 2,
+                      height: HALF * 2,
+                    };
+
+                    try {
+                      const res = await fetch("/api/hybrid/character-portrait-from-scene", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          characterId: charEntry.characterId,
+                          sceneImageUrl: pickFacesState.sceneImageUrl,
+                          cropBox,
+                        }),
+                      });
+                      const data = await res.json() as { imageUrl?: string; error?: string };
+                      if (res.ok && data.imageUrl) {
+                        // Update local characters state so Characters tab reflects the new portrait immediately
+                        setCharacters(prev => prev.map(c =>
+                          (c.characterId === charEntry.characterId || c.dbId === charEntry.characterId)
+                            ? { ...c, imageUrl: data.imageUrl! }
+                            : c
+                        ));
+                        savedCount++;
+                      } else {
+                        lastError = data.error ?? `Failed to save ${charEntry.displayName}`;
+                      }
+                    } catch (err) {
+                      lastError = err instanceof Error ? err.message : "Network error";
+                    }
+                  }
+
+                  if (lastError) {
+                    setPickFacesState(prev => prev ? { ...prev, saving: false, savedCount, error: lastError } : prev);
+                  } else {
+                    // All saved — close modal
+                    setPickFacesState(null);
+                  }
+                }}
+                style={{
+                  padding: "7px 18px", borderRadius: 8, border: "none",
+                  background: (pickFacesState.saving || pickFacesState.currentIdx < pickFacesState.characters.length)
+                    ? "#2a2a40"
+                    : "linear-gradient(135deg,#22c55e,#16a34a)",
+                  color: (pickFacesState.saving || pickFacesState.currentIdx < pickFacesState.characters.length) ? muted : "#fff",
+                  fontSize: 10, fontWeight: 700,
+                  cursor: (pickFacesState.saving || pickFacesState.currentIdx < pickFacesState.characters.length) ? "not-allowed" : "pointer",
+                }}
+              >
+                {pickFacesState.saving
+                  ? `Saving... (${pickFacesState.savedCount}/${pickFacesState.characters.length})`
+                  : `Save Faces (${pickFacesState.characters.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── AI Model Picker with Style Adviser ── */}
       {showAidPicker && (() => {
         // ── All model data ──
@@ -7227,6 +7489,44 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                 {generatingVariations.has(scene.sceneId) ? "3×..." : "Gen 3"}
                               </button>
                             </div>
+                            {/* Lock Faces from SC1 — only show on the FIRST scene (scene.scene === 1)
+                                WHY: SC1 is the identity anchor. Faces picked here become PuLID refs
+                                for SC2-SCN. Showing on later scenes would cause confusion (which scene
+                                is the identity source?). If user regenerates SC1 they can re-run. */}
+                            {scene.scene === 1 && scene.characterIds.length > 0 && (() => {
+                              // Build the list of characters that actually appear in SC1
+                              const sc1Chars = scene.characterIds
+                                .map(id => characters.find(c => c.characterId === id))
+                                .filter((c): c is CharacterIdentity => !!c);
+                              if (sc1Chars.length === 0) return null;
+                              return (
+                                <div style={{ marginTop: 6 }}>
+                                  <button
+                                    onClick={() => {
+                                      setPickFacesState({
+                                        sceneId: scene.sceneId,
+                                        sceneImageUrl: sceneImages[scene.sceneId],
+                                        characters: sc1Chars.map(c => ({ characterId: c.dbId || c.characterId, displayName: c.displayName })),
+                                        currentIdx: 0,
+                                        clicks: sc1Chars.map(() => null),
+                                        saving: false,
+                                        savedCount: 0,
+                                        error: null,
+                                      });
+                                    }}
+                                    title="Click each character's face in SC1 to save it as their portrait — locks faces for consistent identity across all scenes"
+                                    style={{
+                                      width: "100%", padding: "5px 8px", borderRadius: 6,
+                                      border: "1px solid #22c55e60",
+                                      background: "#22c55e12",
+                                      color: "#22c55e",
+                                      fontSize: 9, fontWeight: 700, cursor: "pointer",
+                                    }}>
+                                    Lock Faces from SC1 ({sc1Chars.length} char{sc1Chars.length > 1 ? "s" : ""})
+                                  </button>
+                                </div>
+                              );
+                            })()}
                             {/* Gen Max — generate one image per action beat */}
                             {(() => {
                               const beats = splitIntoActionBeats(`${scene.title}. ${scene.description}`);

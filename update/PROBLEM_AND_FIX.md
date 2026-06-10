@@ -4,6 +4,28 @@ Use this file to record bugs, their root cause, and the fix applied. When the sa
 
 ---
 
+## P-2026-06-09 — feat(hybrid): Pick Faces from SC1 anchors character continuity
+
+**Symptom:** Characters drift between scenes despite img2img anchoring (PR #69). In multi-character scenes, face identity tokens get reallocated each generation — FLUX img2img preserves overall composition and style but not individual faces, because there is no hard per-character face anchor feeding into PuLID or identity-lock.
+
+**Root cause:** `img2img` with `strength=0.6` propagates the prior scene's composition/lighting/style effectively, but the face features are soft tokens in the latent space — they get re-sampled proportionally with the added noise. For multi-char scenes PuLID was already disabled (F4 FIX 2026-05-22) because locking one face faked the others. Result: faces drift per-scene with no hard lock at all.
+
+**Fix:** Manual crop-and-save UI (Pick Faces from SC1). After SC1 is generated:
+1. User clicks "Lock Faces from SC1" button on the SC1 image card (Image tab).
+2. A modal opens with the SC1 image at large size + a click-per-character workflow.
+3. Each click records the pixel coordinate in the original image. After all characters are clicked, "Save Faces" fires once per character.
+4. The new API route `/api/hybrid/character-portrait-from-scene` crops a 512×512 region centered on the click (clamped to image bounds) using `sharp`, saves it under `storage/characters/<dbId>/portrait_sc1_<ts>_<hex>.png`, and updates `CharacterVoice.imageUrl` in DB via Prisma.
+5. The Characters tab immediately reflects the new portrait (local state updated in-place).
+6. On SC2+ generation, the existing scene-image route already uses `referenceImageUrls` from `CharacterVoice.imageUrl` for PuLID face-lock → exact SC1 face now flows into all subsequent scenes.
+
+**Files changed:**
+- `app/api/hybrid/character-portrait-from-scene/route.ts` — NEW: crop API (sharp + Prisma update)
+- `app/dashboard/hybrid-planner/page.tsx` — "Lock Faces from SC1" button (SC1 image tab only) + modal + state
+
+**Prevention rule:** When characters need face consistency across multi-scene generation, text prompts + seed alone are insufficient — diffusion models reallocate face tokens under noise. The only reliable solution is a per-character portrait crop from the first successful scene, used as a hard reference image for all subsequent scenes. Always add a manual face-anchor UI for multi-character planners.
+
+---
+
 ## P-2026-06-08 — Subtitle PNG overflow on 9:16 video + Hybrid posed-image default
 
 **Symptom (verbatim, Henry):**
