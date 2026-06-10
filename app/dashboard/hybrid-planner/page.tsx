@@ -8207,41 +8207,48 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           Import
                         </button>
                       </div>
-                      {/* Lock Faces from SC1 — Grid view (Sonnet's PR #71 only added it
-                          to List view). Henry uses Grid. Same conditional: only show on
-                          scene 1, only when characters are present, and only after the
-                          image was generated (so faces are available to pick from). */}
-                      {scene.scene === 1 && hasImage && scene.characterIds.length > 0 && (() => {
-                        const sc1Chars = scene.characterIds
-                          .map(id => characters.find(c => c.characterId === id))
-                          .filter((c): c is CharacterIdentity => !!c);
-                        if (sc1Chars.length === 0) return null;
-                        return (
-                          <button
-                            onClick={() => {
-                              setPickFacesState({
-                                sceneId: scene.sceneId,
-                                sceneImageUrl: sceneImages[scene.sceneId],
-                                characters: sc1Chars.map(c => ({ characterId: c.dbId || c.characterId, displayName: c.displayName })),
-                                currentIdx: 0,
-                                clicks: sc1Chars.map(() => null),
-                                saving: false,
-                                savedCount: 0,
-                                error: null,
-                              });
-                            }}
-                            title="Click each character's face in SC1 to save it as their portrait — locks faces for consistent identity across all scenes"
-                            style={{
-                              marginTop: 6, width: "100%", padding: "8px 10px", borderRadius: 8,
-                              border: "1px solid #22c55e60",
-                              background: "linear-gradient(135deg, #22c55e22, #16a34a22)",
-                              color: "#22c55e",
-                              fontSize: 11, fontWeight: 700, cursor: "pointer",
-                            }}>
-                            🔒 Lock Faces from SC1 ({sc1Chars.length} char{sc1Chars.length > 1 ? "s" : ""})
-                          </button>
-                        );
-                      })()}
+                      {/* Lock Faces from SC1 — Grid view. Henry 2026-06-09 (round 3):
+                          drop the strict characterId filter. scene.characterIds may
+                          store display NAMES ("ANDREW") while characters[].characterId
+                          stores generated IDs ("US_ANDREW8BLACK"). Lookup at click
+                          time tries BOTH characterId and displayName match, so the
+                          button stays visible whenever a SC1 image exists. */}
+                      {scene.scene === 1 && hasImage && scene.characterIds.length > 0 && (
+                        <button
+                          onClick={() => {
+                            // Resolve scene.characterIds → characters[] by trying
+                            // characterId first, then displayName (case-insensitive),
+                            // then fall back to the raw ID as both the lookup key
+                            // AND the displayName.
+                            const resolved = scene.characterIds.map(id => {
+                              const byId = characters.find(c => c.characterId === id);
+                              if (byId) return { characterId: byId.dbId || byId.characterId, displayName: byId.displayName };
+                              const byName = characters.find(c => c.displayName?.toLowerCase() === id.toLowerCase());
+                              if (byName) return { characterId: byName.dbId || byName.characterId, displayName: byName.displayName };
+                              return { characterId: id, displayName: id };
+                            });
+                            setPickFacesState({
+                              sceneId: scene.sceneId,
+                              sceneImageUrl: sceneImages[scene.sceneId],
+                              characters: resolved,
+                              currentIdx: 0,
+                              clicks: resolved.map(() => null),
+                              saving: false,
+                              savedCount: 0,
+                              error: null,
+                            });
+                          }}
+                          title="Click each character's face in SC1 to save it as their portrait — locks faces for consistent identity across all scenes"
+                          style={{
+                            marginTop: 6, width: "100%", padding: "10px 12px", borderRadius: 8,
+                            border: "2px solid #22c55e",
+                            background: "linear-gradient(135deg, #22c55e35, #16a34a35)",
+                            color: "#22c55e",
+                            fontSize: 12, fontWeight: 700, cursor: "pointer",
+                          }}>
+                          🔒 Lock Faces from SC1 ({scene.characterIds.length} char{scene.characterIds.length > 1 ? "s" : ""})
+                        </button>
+                      )}
                       {/* Max image button — ALWAYS visible per Henry's spec.
                           Three states based on whether beats exist + opt-in:
                             A. Beats already generated AND user opted in    → "Max ON (M/N)"  (orange filled)
