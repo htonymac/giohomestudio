@@ -1225,6 +1225,13 @@ function HybridPlannerInner() {
       setExpandedSummary(storySummary);
       if (expandData.provider) setLastUsedAiProvider(expandData.provider);
       setFullScript(storyFullScript);
+      // Henry 2026-06-09: AI now returns a befitting movieTitle in the expansion.
+      // Auto-set the project title from it ONLY when the user is still on the
+      // default placeholder — don't overwrite a title the user typed themselves.
+      const aiTitle = typeof expandedObj.movieTitle === "string" ? expandedObj.movieTitle.trim() : "";
+      if (aiTitle && (!projectTitle || projectTitle === "Untitled Hybrid Project" || projectTitle.startsWith("Untitled"))) {
+        setProjectTitle(aiTitle);
+      }
       setProjectPhase("EXPANDED");
       setLastAction("Story expanded — extracting characters...");
 

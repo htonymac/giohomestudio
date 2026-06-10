@@ -55,6 +55,7 @@ interface LocationEntry {
 }
 
 interface ExpandedStory {
+  movieTitle?: string;
   summary: string;
   fullScript?: string;       // complete narration script scaled to target duration
   tone: string;
@@ -416,6 +417,7 @@ Build approximately ${targetSceneCount} scenes across:
 
 Return ONLY this JSON — no explanation, no markdown fences:
 {
+  "movieTitle": "A short evocative cinematic title — 2 to 6 words, no punctuation at the end. Examples: 'The Snake Hunter', 'Last Day at Lagos', 'Karate Brothers', 'Whispers of the Forest', 'Riverbend Rebellion'. Capture the SPECIFIC emotional/dramatic core of THIS story, not a generic phrase. NEVER return placeholders like 'Untitled', 'My Story', or just the protagonist's name.",
   "summary": "2-3 sentences summarising the complete story using all character names",
   "tone": "e.g. heartfelt adventure / warm comedy / dark thriller / whimsical family",
   "pacingDirection": "describe how pace builds across the story",
