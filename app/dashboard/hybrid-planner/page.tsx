@@ -2460,6 +2460,19 @@ function HybridPlannerInner() {
     // Failures before this fix were silently dropped — now we retry once with a fresh seed.
     const newUrls: string[] = [];
     let actualFailed = 0;
+    // Henry 2026-06-09: Gen Max needs the SC1 anchor too. Without it, beat
+    // images render without face-lock → characters morph between beats and
+    // age looks inconsistent. Pick the same SC1 anchor that single-Regen uses.
+    const genMaxAnchor = (() => {
+      const entries = Object.entries(sceneImages);
+      if (entries.length === 0) return null;
+      const sorted = entries
+        .map(([sid, url]) => ({ sid, url, num: scenes.find(s => s.sceneId === sid)?.scene ?? 999 }))
+        .filter(e => e.sid !== scene.sceneId && !!e.url)
+        .sort((a, b) => a.num - b.num);
+      return sorted[0]?.url ?? null;
+    })();
+
     async function genOnce(bi: number, retryAttempt: boolean): Promise<string | null> {
       try {
         const res = await fetch("/api/hybrid/scene-image", {
@@ -2480,6 +2493,7 @@ function HybridPlannerInner() {
             seed: Math.floor(Math.random() * 1e9),
             storyEra: storyEra || undefined,
             storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
+            previousSceneImageUrl: genMaxAnchor,
           }),
         });
         if (!res.ok) {
@@ -8240,13 +8254,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           }}
                           title="Click each character's face in SC1 to save it as their portrait — locks faces for consistent identity across all scenes"
                           style={{
-                            marginTop: 6, width: "100%", padding: "10px 12px", borderRadius: 8,
-                            border: "2px solid #22c55e",
-                            background: "linear-gradient(135deg, #22c55e35, #16a34a35)",
+                            marginTop: 6, padding: "4px 10px", borderRadius: 6,
+                            border: "1px solid #22c55e80",
+                            background: "rgba(34,197,94,0.15)",
                             color: "#22c55e",
-                            fontSize: 12, fontWeight: 700, cursor: "pointer",
+                            fontSize: 10, fontWeight: 700, cursor: "pointer",
+                            alignSelf: "flex-start" as const,
                           }}>
-                          🔒 Lock Faces from SC1 ({scene.characterIds.length} char{scene.characterIds.length > 1 ? "s" : ""})
+                          🔒 Lock Faces ({scene.characterIds.length})
                         </button>
                       )}
                       {/* Max image button — ALWAYS visible per Henry's spec.
