@@ -8147,6 +8147,41 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           Import
                         </button>
                       </div>
+                      {/* Lock Faces from SC1 — Grid view (Sonnet's PR #71 only added it
+                          to List view). Henry uses Grid. Same conditional: only show on
+                          scene 1, only when characters are present, and only after the
+                          image was generated (so faces are available to pick from). */}
+                      {scene.scene === 1 && hasImage && scene.characterIds.length > 0 && (() => {
+                        const sc1Chars = scene.characterIds
+                          .map(id => characters.find(c => c.characterId === id))
+                          .filter((c): c is CharacterIdentity => !!c);
+                        if (sc1Chars.length === 0) return null;
+                        return (
+                          <button
+                            onClick={() => {
+                              setPickFacesState({
+                                sceneId: scene.sceneId,
+                                sceneImageUrl: sceneImages[scene.sceneId],
+                                characters: sc1Chars.map(c => ({ characterId: c.dbId || c.characterId, displayName: c.displayName })),
+                                currentIdx: 0,
+                                clicks: sc1Chars.map(() => null),
+                                saving: false,
+                                savedCount: 0,
+                                error: null,
+                              });
+                            }}
+                            title="Click each character's face in SC1 to save it as their portrait — locks faces for consistent identity across all scenes"
+                            style={{
+                              marginTop: 6, width: "100%", padding: "8px 10px", borderRadius: 8,
+                              border: "1px solid #22c55e60",
+                              background: "linear-gradient(135deg, #22c55e22, #16a34a22)",
+                              color: "#22c55e",
+                              fontSize: 11, fontWeight: 700, cursor: "pointer",
+                            }}>
+                            🔒 Lock Faces from SC1 ({sc1Chars.length} char{sc1Chars.length > 1 ? "s" : ""})
+                          </button>
+                        );
+                      })()}
                       {/* Max image button — ALWAYS visible per Henry's spec.
                           Three states based on whether beats exist + opt-in:
                             A. Beats already generated AND user opted in    → "Max ON (M/N)"  (orange filled)
