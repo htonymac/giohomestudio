@@ -224,6 +224,12 @@ function HybridPlannerInner() {
   // ── Project ──
   const [projectId, setProjectId] = useState<string | null>(null);
   const [projectTitle, setProjectTitle] = useState("Untitled Hybrid Project");
+  // Henry 2026-06-09: tracks whether the user has manually typed in the title
+  // input. Once true, the AI movie-title auto-apply stops overwriting (user's
+  // choice wins). Reset to false if user clicks the refresh icon — they want AI
+  // back. Loaded as false on mount; flips on the input's onChange.
+  const [userEditedTitle, setUserEditedTitle] = useState(false);
+  const [refreshingTitle, setRefreshingTitle] = useState(false);
   const [projectPhase, setProjectPhase] = useState("STORY_INPUT");
   const [lastAction, setLastAction] = useState("Project created");
   const [saving, setSaving] = useState(false);
@@ -1225,11 +1231,13 @@ function HybridPlannerInner() {
       setExpandedSummary(storySummary);
       if (expandData.provider) setLastUsedAiProvider(expandData.provider);
       setFullScript(storyFullScript);
-      // Henry 2026-06-09: AI now returns a befitting movieTitle in the expansion.
-      // Auto-set the project title from it ONLY when the user is still on the
-      // default placeholder — don't overwrite a title the user typed themselves.
+      // Henry 2026-06-09 (round 2): always auto-apply AI movie title after
+      // Expand with AI — user CALLED Expand expecting things to update. Only
+      // skip when the current title was the user's own custom edit (tracked
+      // via userEditedTitle flag set by the input's onChange). Default and
+      // system-set titles like "Andio Hybrid Project" both get replaced.
       const aiTitle = typeof expandedObj.movieTitle === "string" ? expandedObj.movieTitle.trim() : "";
-      if (aiTitle && (!projectTitle || projectTitle === "Untitled Hybrid Project" || projectTitle.startsWith("Untitled"))) {
+      if (aiTitle && !userEditedTitle) {
         setProjectTitle(aiTitle);
       }
       setProjectPhase("EXPANDED");
@@ -6568,10 +6576,62 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
       <div style={{ padding: "24px 0 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
         <HeroTitle kicker="Production Workshop" title="Hybrid" italic="Planner" sub="Your production control center. Plan, create, review, and assemble." />
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-            <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
-              onBlur={() => flushCurrentProject()}
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none" }}
-              placeholder="Movie Title" />
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                value={projectTitle}
+                onChange={e => { setProjectTitle(e.target.value); setUserEditedTitle(true); }}
+                onBlur={() => flushCurrentProject()}
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none" }}
+                placeholder="Movie Title"
+              />
+              {/* Refresh title — re-asks the AI for a new movieTitle without re-
+                  expanding the whole story. Disabled until expansion has run at
+                  least once (otherwise nothing to title). Resets userEditedTitle
+                  so the new AI title actually applies. */}
+              <button
+                onClick={async () => {
+                  if (refreshingTitle || !idea.trim()) return;
+                  setRefreshingTitle(true);
+                  try {
+                    const res = await fetch("/api/hybrid/story-expand", {
+                      method: "POST", headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        storyInput: idea,
+                        targetDuration: 60, // short — we only need the title
+                        provider: storyAiProvider || "auto",
+                        // titleOnly hint — the route returns the full JSON anyway,
+                        // but a small target keeps the call cheap.
+                      }),
+                    });
+                    const data = await res.json();
+                    const newTitle = typeof data?.expandedStory?.movieTitle === "string" ? data.expandedStory.movieTitle.trim() : "";
+                    if (newTitle) {
+                      setProjectTitle(newTitle);
+                      setUserEditedTitle(false);
+                      setLastAction(`Title refreshed: ${newTitle}`);
+                    } else {
+                      setLastAction("Title refresh failed — AI returned no title");
+                    }
+                  } catch (e) {
+                    setLastAction(`Title refresh error: ${e instanceof Error ? e.message : "unknown"}`);
+                  } finally {
+                    setRefreshingTitle(false);
+                  }
+                }}
+                disabled={refreshingTitle || !idea.trim()}
+                title={!idea.trim() ? "Type a story idea first" : refreshingTitle ? "Generating new title..." : "Refresh AI movie title"}
+                style={{
+                  background: refreshingTitle ? "rgba(124,92,252,0.25)" : "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 10, padding: "8px 10px",
+                  color: refreshingTitle ? "#a78bfa" : "#fff",
+                  fontSize: 13, cursor: (refreshingTitle || !idea.trim()) ? "not-allowed" : "pointer",
+                  opacity: !idea.trim() ? 0.4 : 1,
+                }}
+              >
+                {refreshingTitle ? "⏳" : "🔄"}
+              </button>
+            </div>
             {/* ── Visual Style Picker — click to see what each style looks like ── */}
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowStylePicker(p => !p)}
