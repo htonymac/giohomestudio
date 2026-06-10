@@ -346,7 +346,12 @@ export async function POST(req: NextRequest) {
           : `, fully clothed in scene-appropriate everyday clothing — shirt, top, or jacket covering the torso`;
         const hairstyle = c.hairstyle ? `, hair: ${sanitizeStyleCollisions(c.hairstyle.slice(0, 60), styleId)}` : "";
         const AGE_VISUAL: Record<string, string> = {
-          child:       "6-10 year old child — small body, young face, child height and proportions. NOT a teen or adult.",
+          // Henry 2026-06-09: child anchor was rendering 4-5yo toddlers because
+          // "small body, young face" leaned too soft. Anchored to school-age
+          // (8-10yo) range with explicit anti-toddler language. Specifies real
+          // school-age proportions: taller than toddler, defined limbs, fully
+          // developed face shape — not a baby face.
+          child:       "8-10 year old SCHOOL-AGE child — proper school-age proportions, taller and more developed than a toddler, defined limbs, fully grown-out facial features (not a baby face). NOT a toddler. NOT a preschooler. NOT 4 or 5 years old. NOT a teen. NOT an adult.",
           teen:        "13-17 year old teenager — adolescent face, teenage build. NOT a young child or adult.",
           young_adult: "early-to-mid 20s young adult — smooth youthful skin, full dark hair, clean-shaven or light stubble at most, NO grey or white hair, NO deep wrinkles. NOT middle-aged, NOT 40s, NOT 50s.",
           adult:       "35-50 year old adult — fully mature face, adult proportions.",
@@ -519,7 +524,7 @@ export async function POST(req: NextRequest) {
     // pushes the entire frame's age estimation younger.
     const sceneHasChildren = resolvedCharacters.some(c => c.age === "child");
     if (sceneHasChildren) {
-      promptParts.push("Scene featuring CHILDREN — small bodies, young rounded faces, kid proportions, age 6-10. NOT adults, NOT teenagers, NOT grown people. No facial hair, no muscular adult builds, no mature anatomy. The cast is children.");
+      promptParts.push("Scene featuring SCHOOL-AGE CHILDREN ages 8-10 — proper grade-school proportions and faces, NOT toddlers, NOT preschoolers, NOT 4-5 year olds, NOT teens, NOT adults. The kids are old enough for sports and school activities — fully grown out of baby-faced phase. No facial hair, no muscular adult builds, no mature anatomy. The cast is school-age kids.");
     }
 
     const rawPrompt = promptParts.join(". ");
