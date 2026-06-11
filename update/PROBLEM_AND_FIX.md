@@ -3,6 +3,17 @@
 Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
 
 ---
+## P-2026-06-11b — Free Mode history "vanished AGAIN": browser minted a fresh cookie userKey, orphaning all sessions
+
+**Symptom (Henry):** "free mode history vanish again." Sidebar empty; chats gone.
+
+**Root cause:** Free-mode identity = random `ghs_freemode_user` cookie (P-2026-06-08 fix for the IP-hash version of this same bug). Cookie identity is fragile: cookie cleanup / profile switch / the first-load parallel-request race (multiple cookie-less requests each mint a DIFFERENT key; last Set-Cookie wins) silently orphans everything under the old key. Confirmed live via CDP on Henry's debug Chrome: browser cookie = `fd2bd080…` (minted ~06-10), but his 11 sessions sat under `a53199a5…` in `free_mode_sessions`. Data was never lost — just unreachable. (Also two older orphan keys with 1 session each = earlier occurrences of the same failure.)
+
+**Fix:** Site is single-user behind the ACCESS_CODE gate (middleware.ts). `resolveUserKey` now derives the identity from ACCESS_CODE itself — `sha256(ACCESS_CODE + "-freemode-owner")[:32]` — whenever ACCESS_CODE is set. Stable across cookie loss, browsers, devices, restarts. Cookie path kept for a future gate-less multi-user mode. One-time DB migration: all existing `free_mode_sessions` rows reassigned to the stable owner key.
+
+**Prevention:** An identity that gates data visibility must be at least as durable as the data. Random per-browser cookies are NOT durable identity — they are cache. When a product is single-user behind a shared secret, derive identity from the secret. When multi-user, identity must be claimable/recoverable (the /claim endpoint the 06-08 design note already proposed). Diagnostic shortcut for "my stuff vanished" + data-intact: GROUP BY the owner key column and compare with the client's current key BEFORE debugging the UI.
+
+---
 ## P-2026-06-11 — Gen Max storyboard: images ignored the scene's action (boy "standing with dog smiling" instead of jumping the fence; 8yo rendered as 42yo)
 
 **Symptom (Henry verbatim):** "scene said the boy jump high over the fence and landed in a pool of mud … but u do now the boy smiling taking some shot … the boy was 8 but now in picture is 42 jumping or a pitied old man … where story say the boy being chased by a dog jump the fence — generated picture show the boy standing with a dog smiling."

@@ -58,6 +58,27 @@ export interface ResolvedUserKey {
 }
 
 export function resolveUserKey(req: NextRequest): ResolvedUserKey {
+  // Henry 2026-06-11 — "free mode history vanish AGAIN".
+  // The cookie identity is fragile: any cookie loss (browser cleanup, profile
+  // switch, the first-load parallel-request race where several responses each
+  // mint a different key) silently orphans every session under the old key.
+  // Found live: Henry's browser carried key fd2bd080… while his 11 sessions
+  // sat under a53199a5… → sidebar empty, data intact.
+  //
+  // The whole site is single-user behind the ACCESS_CODE gate (middleware.ts),
+  // so when ACCESS_CODE is set the free-mode identity is DERIVED FROM IT —
+  // stable across cookie loss, browsers, devices, and restarts. Anyone who can
+  // reach these APIs has already passed the gate, so sharing one owner key is
+  // correct by construction. Cookie path below remains for a future
+  // ACCESS_CODE-less multi-user mode.
+  const accessCode = process.env.ACCESS_CODE;
+  if (accessCode) {
+    return {
+      userKey: createHash("sha256").update(accessCode + "-freemode-owner").digest("hex").slice(0, 32),
+      setCookieOnResponse: () => { /* no-op — identity is not cookie-bound */ },
+    };
+  }
+
   const cookieValue = req.cookies.get(COOKIE_NAME)?.value;
 
   if (cookieValue && /^[a-f0-9]{32}$/.test(cookieValue)) {
