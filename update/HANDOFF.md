@@ -1,5 +1,13 @@
-# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
+﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## 2026-06-11 — Gen Max STORYBOARD MODE shipped (PR #77)
+
+**Henry's complaint:** Gen Max images ignored the action — "boy smiling taking shots" instead of chased→jump fence→land in mud; 8yo drifting to 42yo/old man; wrong mood (smiling while chased).
+**Root causes:** (1) regex sentence-splitter = no temporal decomposition, N-1 slots were angle-spam of the same instant; (2) `toStaticFrame()` stripped action verbs from EVERY prompt — the jump never reached FLUX; (3) no per-frame age/expression restatement → FLUX prior (smiling adult) won. Full record: PROBLEM_AND_FIX P-2026-06-11.
+**Fix:** NEW `/api/hybrid/beat-decompose` (LLM storyboard, ollama→openai→claude) + Gen Max rewired (legacy splitter = fallback) + `actionFrame` mode in scene-image (skips toStaticFrame for decomposed frames, expression lock + smile-blocking negative). Deterministic server-side age+wardrobe append per frame — does NOT rely on LLM obedience.
+**Verified:** tsc + full build clean; live :3200 decompose test on 2 scenes — chronological frames, correct emotions, age/wardrobe restated every frame.
+**Deploy:** PR #77 → main → server pull + ghs.service restart (andiostudio.com).
+**Next:** Henry visual test — Gen Max on a real action scene; check the 6-frame sequence + child age holds in the actual FLUX renders (decompose verified; final image quality is the remaining judgment call).
 **Last updated:** 2026-06-06 (after PRs #37 + #38 merge) · **HEAD:** `main` post Wave 3 · **Live:** andiostudio.com (server :3200, systemd `ghs.service`, Next 16.2.1 running `next dev` — Turbopack prod chunk bug workaround active, `start:prod` script kept as escape hatch)
 
 ## 🔥 2026-06-05/06 — Children-planner segregation FULLY COMPLETE (Waves 1 + 2 + 3)
