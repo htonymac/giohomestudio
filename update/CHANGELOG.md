@@ -1,5 +1,11 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-11 — **FREE MODE: stable owner identity — history can never "vanish" again**
+
+**What:** `resolveUserKey` derives the free-mode identity from ACCESS_CODE (`sha256(code + "-freemode-owner")[:32]`) when the access gate is on; random-cookie path kept for future multi-user. One-time DB reassignment of all sessions to the owner key.
+**Why:** Henry's history "vanished" a THIRD time (IP-hash era, then cookie era twice) — browser held a freshly-minted cookie key while 11 sessions sat under the old one. PROBLEM_AND_FIX P-2026-06-11b.
+**Impact:** History survives cookie loss, browser/device switches, and restarts. Single-user-by-construction (everyone past the gate IS Henry).
+
 ## 2026-06-11 — **GEN MAX STORYBOARD MODE — images now follow the action like a human storyboard artist**
 
 **What:** New `/api/hybrid/beat-decompose` (LLM storyboard decomposition) + Gen Max rewired to use it + `actionFrame` mode in scene-image.
