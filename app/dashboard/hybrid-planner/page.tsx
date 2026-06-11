@@ -2416,7 +2416,9 @@ function HybridPlannerInner() {
       "atmospheric pull-back showing environment",
       "extreme close-up, eyes only",
     ];
-    const promptList: string[] = [];
+    // Henry 2026-06-11: this legacy list (sentence split + angle variations) is now the
+    // FALLBACK only — the storyboard decomposition below replaces it when the LLM is up.
+    let promptList: string[] = [];
     for (let i = 0; i < targetCount; i++) {
       if (naturalBeats.length > 1 && i < naturalBeats.length) {
         promptList.push(naturalBeats[i]);
@@ -2455,6 +2457,48 @@ function HybridPlannerInner() {
       };
     });
 
+    // ── STORYBOARD DECOMPOSITION (Henry 2026-06-11) ──────────────────────────
+    // Think like a human storyboard artist: break the scene's action into targetCount
+    // CHRONOLOGICAL frozen instants (boy about to jump → mid-leap → clearing the fence
+    // → descending → impact in the mud → sitting muddy), each restating the cast's
+    // exact age + wardrobe (stops 8yo → 42yo drift) and the situation-true expression
+    // (chased = terrified, never smiling). The legacy promptList above remains the
+    // fallback when the decompose LLM chain is down.
+    let frameMeta: Array<{ expression: string; camera: string }> | null = null;
+    try {
+      setMaxBeatsProgress(prev => ({ ...prev, [scene.sceneId]: `Storyboarding ${targetCount} frames…` }));
+      const dres = await fetch("/api/hybrid/beat-decompose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sceneText: fullDesc,
+          mood: scene.mood,
+          location: scene.location,
+          timeOfDay: scene.timeOfDay,
+          frameCount: targetCount,
+          characters: characterOverrides.map(c => ({
+            name: c.name,
+            age: c.age,
+            species: c.species,
+            wardrobe: c.wardrobe,
+            visualDescription: (c.visualDescription || "").slice(0, 160),
+          })),
+        }),
+      });
+      const ddata = await dres.json();
+      if (dres.ok && ddata?.ok && Array.isArray(ddata.frames) && ddata.frames.length > 0) {
+        const frames = ddata.frames as Array<{ moment: string; expression?: string; camera?: string }>;
+        promptList = frames.map((f, i) =>
+          `Storyboard frame ${i + 1} of ${frames.length} — one continuous action shown in chronological sequence. ${f.moment}`);
+        frameMeta = frames.map(f => ({ expression: f.expression || "", camera: f.camera || "" }));
+        console.log(`[makeSceneBeatImages] storyboard decompose OK — ${frames.length} frames via ${ddata.provider}`);
+      } else {
+        console.warn(`[makeSceneBeatImages] decompose unavailable (${ddata?.error || dres.status}) — using legacy beat split`);
+      }
+    } catch (derr) {
+      console.warn("[makeSceneBeatImages] decompose threw — using legacy beat split:", derr);
+    }
+
     // 2026-05-10 — single-attempt retry on failure (1 retry per slot) so 8/8 actually delivers.
     // Sequential calls; each scene-image takes 30-60s on FAL. 8 sequential = 4-8 min total.
     // Failures before this fix were silently dropped — now we retry once with a fresh seed.
@@ -2486,7 +2530,9 @@ function HybridPlannerInner() {
             location: scene.location,
             mood: scene.mood,
             timeOfDay: scene.timeOfDay,
-            cameraFraming: scene.shots[0]?.framingType,
+            // Per-frame camera from the storyboard when available — each instant gets
+            // the shot that shows it best, instead of one framing for all beats.
+            cameraFraming: frameMeta?.[bi]?.camera || scene.shots[0]?.framingType,
             projectStyle: sceneStyles[scene.sceneId] || effectiveProjectStyle,
             characterOverrides,
             modelId: effectiveImageModelId,
@@ -2494,6 +2540,10 @@ function HybridPlannerInner() {
             storyEra: storyEra || undefined,
             storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
             previousSceneImageUrl: genMaxAnchor,
+            // Storyboard mode: tells scene-image to keep the frame's action verbs
+            // (skip toStaticFrame) and lock the per-instant facial expression.
+            actionFrame: !!frameMeta,
+            frameExpression: frameMeta?.[bi]?.expression || undefined,
           }),
         });
         if (!res.ok) {

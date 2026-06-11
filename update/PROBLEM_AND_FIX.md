@@ -1,6 +1,23 @@
-# GioHomeStudio — Problems and Fixes Log
+﻿# GioHomeStudio — Problems and Fixes Log
 
 Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
+
+---
+## P-2026-06-11 — Gen Max storyboard: images ignored the scene's action (boy "standing with dog smiling" instead of jumping the fence; 8yo rendered as 42yo)
+
+**Symptom (Henry verbatim):** "scene said the boy jump high over the fence and landed in a pool of mud … but u do now the boy smiling taking some shot … the boy was 8 but now in picture is 42 jumping or a pitied old man … where story say the boy being chased by a dog jump the fence — generated picture show the boy standing with a dog smiling."
+
+**Root cause (3 stacked):**
+1. `splitIntoActionBeats()` is a regex SENTENCE splitter. A one-sentence action = 1 natural beat → the other N-1 Gen Max slots were the SAME full description + camera-angle spam ("close-up", "tight detail shot focused on hands or face") → posed glamour shots, zero temporal progression.
+2. `toStaticFrame()` in scene-image REMOVES action verbs from every prompt ("jumps over the fence" → static frame) → boy STANDING next to the fence. The action never reached the image model.
+3. No per-frame restatement of age/expression → FLUX prior takes over: smiling adult. The lean multi-char block + img2img anchor diluted the child cues further.
+
+**Fix (commit this session):**
+1. NEW `app/api/hybrid/beat-decompose/route.ts` — LLM storyboard artist (ollama→openai→claude chain, mirrors scene-edit). Breaks ONE scene action into N CHRONOLOGICAL frozen instants (about-to-jump → mid-leap → clearing the fence → descending → impact → muddy aftermath). Every frame restates each character's exact age phrase + wardrobe verbatim, the situation-true expression (chased = terrified, NEVER default smiling), and prop scale relative to the character ("fence as tall as the boy's chest"). Soft-fails to `frames: []`.
+2. `makeSceneBeatImages()` (hybrid page) calls beat-decompose first; legacy sentence-split + ANGLE_VARIATIONS retained as fallback only. Each frame passes its own `cameraFraming`, `actionFrame: true`, `frameExpression`.
+3. `scene-image/route.ts`: `actionFrame === true` SKIPS `toStaticFrame()` (a decomposed frame IS one frozen instant — its action verbs describe a single pose and must survive). Adds late-position Expression Lock + smile-blocking negative when the frame's emotion is non-happy. `toStaticFrame()` untouched for the normal path (PROTECTED doctrine intact).
+
+**Prevention:** Any "generate N images for one action" feature MUST decompose temporally (storyboard), never spatially (camera angles of the same instant). Any sanitizer that strips action verbs (toStaticFrame/stripPoseLanguage) must be GATED OFF for prompts that are already single-instant decompositions — otherwise the pipeline deletes the very thing the user asked to see.
 
 ---
 

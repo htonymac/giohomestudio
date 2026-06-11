@@ -56,6 +56,14 @@ export async function POST(req: NextRequest) {
       // whole project. Overrides the normal multi-char PuLID-drop because the
       // reference is a scene composition, not a per-character portrait.
       previousSceneImageUrl,
+      // Henry 2026-06-11: Gen Max storyboard frames. When actionFrame === true the
+      // sceneText is ALREADY one frozen instant produced by /api/hybrid/beat-decompose
+      // (pose + action included on purpose). In that mode we must NOT run toStaticFrame()
+      // — it strips the very action verbs the frame exists to depict ("jumps over the
+      // fence" → boy standing next to a fence). frameExpression carries the situation-
+      // true facial emotion for a late-position expression lock.
+      actionFrame,
+      frameExpression,
     } = body;
 
     // Henry 2026-05-31 (#8): word overlay — typed defaults, safe for all callers that don't send these fields
@@ -234,7 +242,14 @@ export async function POST(req: NextRequest) {
     const eraLock = buildFullLock(storyEra || "", storyCulture || "", styleId);
 
     // Convert scene text to a static cinematic frame (removes action verbs that cause chaos imagery)
-    const staticSceneText = toStaticFrame(cleanSceneText.slice(0, 300));
+    // Henry 2026-06-11: SKIPPED for storyboard action frames — a decomposed frame is
+    // already ONE frozen instant, so its action verbs describe a single pose ("mid-air
+    // above the fence, legs tucked") and must reach the model intact. toStaticFrame()
+    // stays untouched for the normal path (multi-action scene text DOES cause chaos).
+    const isActionFrame = actionFrame === true;
+    const staticSceneText = isActionFrame
+      ? `${cleanSceneText.slice(0, 450)} One single frozen instant of an action in progress, captured mid-motion.`
+      : toStaticFrame(cleanSceneText.slice(0, 300));
 
     // 2. Build structured image prompt
     // F2 (2026-05-21): location/action moved EARLY so FLUX commits to scene composition
@@ -515,6 +530,16 @@ export async function POST(req: NextRequest) {
       promptParts.push("Cinematic film still, movie frame, scene captured mid-action, characters in motion expressing emotion, NOT a posed portrait, NOT a studio shot, NOT smiling at camera, dynamic composition");
     }
 
+    // ── EXPRESSION LOCK (Henry 2026-06-11, storyboard action frames) ──
+    // The decomposed frame carries the situation-true emotion (chased = terrified).
+    // Diffusion's prior defaults faces to a smile; a late-position lock overrides it.
+    const frameExpressionStr = isActionFrame && typeof frameExpression === "string" && frameExpression.trim().length > 0
+      ? frameExpression.trim().slice(0, 120)
+      : "";
+    if (frameExpressionStr) {
+      promptParts.push(`Expression lock: every visible face shows ${frameExpressionStr} — the emotion of this exact instant, NOT a default smile.`);
+    }
+
     // ── GLOBAL CHILD ANCHOR (Henry 2026-06-08 round 2) ──
     // When ANY scene character is a child, append a strong scene-wide child
     // anchor at the late position so the diffusion model treats the whole frame
@@ -593,7 +618,13 @@ export async function POST(req: NextRequest) {
     const antiStaticNegative = isStillScene
       ? ""
       : ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative;
+    // Expression negative (Henry 2026-06-11): when an action frame declares a non-happy
+    // emotion, actively block the model's smile prior in the negative as well.
+    const frameExpressionIsHappy = /\b(smil|happy|joy|laugh|cheer|grin|delight|excit|triumph|relief|reliev)\w*/i.test(frameExpressionStr);
+    const expressionNegative = (frameExpressionStr && !frameExpressionIsHappy)
+      ? ", smiling, grinning, laughing, cheerful expression, happy face, relaxed casual expression"
+      : "";
+    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative + expressionNegative;
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {

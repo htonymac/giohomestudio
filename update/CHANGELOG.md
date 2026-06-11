@@ -1,4 +1,11 @@
-# GioHomeStudio — CHANGELOG
+﻿# GioHomeStudio — CHANGELOG
+
+## 2026-06-11 — **GEN MAX STORYBOARD MODE — images now follow the action like a human storyboard artist**
+
+**What:** New `/api/hybrid/beat-decompose` (LLM storyboard decomposition) + Gen Max rewired to use it + `actionFrame` mode in scene-image.
+**Why:** Henry: Gen Max images showed "boy smiling taking shots" / "8yo as 42yo" / "standing with the dog" instead of the chased-jump-fence-land-in-mud SEQUENCE. Root causes: regex beat splitter (no temporal decomposition), toStaticFrame stripping action verbs, no per-frame age/expression restatement. Full record in PROBLEM_AND_FIX P-2026-06-11.
+**Impact:** Gen Max now produces N chronological frozen instants of ONE continuous action — each with restated age + wardrobe + situation-true expression + per-instant camera. Legacy splitter kept as automatic fallback when LLM chain is down. Normal (non-storyboard) scene-image path byte-identical.
+**Risk:** Low — additive; actionFrame defaults off; decompose soft-fails to legacy path.
 
 ## 2026-06-05/06 — **CHILDREN-PLANNER SEGREGATION FULLY COMPLETE — Waves 2 + 3** (PRs #37 + #38 + #39, ~14 commits)
 
