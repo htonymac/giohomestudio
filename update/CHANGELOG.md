@@ -1,5 +1,15 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-12 — **CHARACTER EXTRACTION: story-truth overrides + species + culture lock** + Edge in narrator Model dropdown
+
+**What (Henry's Tobi test exposed 4 bugs):**
+1. **Story-truth overrides (code, not LLM obedience):** deterministic re-scan of the story per character — explicit numeric age near the name ("8-year-old" → child) + boy/girl gender + animal species ("Barker, a large shaggy dog" → species dog). Overrides BOTH the LLM and the characterList path (which bypassed all age rules and defaulted "adult").
+2. **Diversity-rotation guards:** animals never get human skin tones; planner Region/Culture (now passed from all 3 extract call sites) beats the by-index pool; NEW African name-hint signal (2+ hits of Tobi/Okafor/Lagos-class words) counts as culture when no literal ethnic word exists. Fixes Tobi→Latina / Okafor→Caucasian / dog→African-human.
+3. **Visual description leads with truth:** "8-10 year old boy, …" / "a dog (animal, NOT human), …" prepended before skin tone.
+4. **Edge in the GHS Sound Model dropdown** (both copies) + generateNarrationPiper routes edge:-picked models to /api/tts — "Piper takes control" flow fixed. Auto voice assignment is now country-aware: African characters default to Edge Ezinne/Abeo by gender.
+
+**Why:** Story said "Tobi is an 8-year-old boy"; extraction produced a 20yo Latina woman, Caucasian Mr. Okafor, and a HUMAN Barker (the dog). Piper-only model dropdown meant Edge never entered Henry's actual flow.
+
 ## 2026-06-12 — **HYBRID: Edge Neural voices PER CHARACTER** (follow-up to #79)
 
 **What:** Character Voices dropdowns (Sound section + Assembly quick-picker) gain an "Edge Neural (free)" group — 10 voices (Nigerian Ezinne/Abeo, Kenyan, South African, US, UK) selectable per character. Values use an `edge:` prefix in the same characterPiperVoices map; new `synthCharacterClip` helper branches edge→/api/tts, piper→narrate-piper for BOTH per-character and per-line generation.
