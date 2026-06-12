@@ -5437,15 +5437,28 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
         ? "Comic book illustration, bold ink outlines, vibrant flat colors, graphic novel style"
         : "3D animated film, Pixar/DreamWorks quality, volumetric lighting";
 
-    // Build age anchor — age must be FIRST tokens so image models honour it
-    const ageRaw = char.ageRange || char.ageAppearance || "";
-    const ageNum = parseInt(ageRaw);
+    // Build age anchor — age must be FIRST tokens so image models honour it.
+    // Henry 2026-06-12: ageRange is usually a CLASS WORD ("child"/"teen"/"elder"),
+    // and parseInt("child") is NaN — so the strong CHILD-NOT-ADULT anchor + the
+    // anti-adult negative NEVER fired for word-aged characters. That's why TOBI
+    // (ageRange "child") kept rendering as an adult. Numeric ageAppearance
+    // ("8 years old") wins; class words map to a representative number.
+    const AGE_WORD_TO_NUM: Record<string, number> = { child: 9, teen: 15, young_adult: 22, adult: 38, elder: 70 };
+    const ageRaw = char.ageAppearance || char.ageRange || "";
+    const ageNum = parseInt(ageRaw) || AGE_WORD_TO_NUM[(char.ageRange || "").toLowerCase().trim()] || 0;
     const isChild = ageNum > 0 && ageNum < 18;
-    const ageAnchor = ageRaw
+    const genderWord = (char.gender || "").toLowerCase() === "female"
+      ? (isChild ? "girl" : "woman")
+      : (char.gender || "").toLowerCase() === "male"
+      ? (isChild ? "boy" : "man")
+      : (isChild ? "child" : "person");
+    const ageAnchor = ageNum > 0
       ? isChild
-        ? `${ageNum}-year-old child, CHILD NOT ADULT, young face, child body proportions, age ${ageNum},`
-        : `${ageRaw},`
-      : "";
+        ? `${ageNum}-year-old ${genderWord}, CHILD NOT ADULT, young face, child body proportions, small child stature, age ${ageNum},`
+        : ageNum >= 65
+        ? `${ageNum}-year-old elderly ${genderWord}, grey hair, aged face,`
+        : `${ageNum}-year-old ${genderWord},`
+      : (ageRaw ? `${ageRaw},` : "");
 
     const isPhotoImport = char.tags?.includes("photo-import") && !!char.imageUrl;
     const referenceImageUrl = isPhotoImport ? char.imageUrl : undefined;
