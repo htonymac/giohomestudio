@@ -112,7 +112,21 @@ export async function POST(req: NextRequest) {
         send({ type: "progress", percent: 3, message: "Resolving model..." });
 
         // ── Resolve video model ──
-        const model = modelId ? getModelById(modelId) : getDefaultVideoModel();
+        let model = modelId ? getModelById(modelId) : getDefaultVideoModel();
+        // Henry 2026-06-12: "video shows 3D while my style is realistic". The default
+        // (segmind pruna, $0.005 draft tier) ignores photorealism prompts — it stylizes
+        // toward 3D animation no matter what the prompt says. When the project style is
+        // realistic/nollywood and the user didn't hand-pick a model, route to a true
+        // image-to-video model that PRESERVES the source image's look (the scene image
+        // is already realistic — i2v carries that through). Fixed price ~$0.02/clip.
+        const wantsRealism = /^(realistic|nollywood)$/i.test(projectStyle || "");
+        if (!modelId && wantsRealism && process.env.MUAPI_API_KEY) {
+          const realModel = getModelById(process.env.REALISTIC_VIDEO_MODEL || "muapi_seedance_lite");
+          if (realModel?.is_active) {
+            console.log(`[scene-video] realistic style → ${realModel.id} (draft model stylizes to 3D)`);
+            model = realModel;
+          }
+        }
         if (!model) {
           send({ type: "error", message: `Model not found: ${modelId}` });
           controller.close();
