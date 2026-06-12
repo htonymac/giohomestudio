@@ -196,6 +196,22 @@ const WORKSHOP_TABS: { id: WorkshopTab; label: string; step?: number }[] = [
   { id: "trends",     label: "Trends" },
 ];
 
+// Henry 2026-06-12: Edge Neural voices selectable PER CHARACTER (not just narrator).
+// Values carry an "edge:" prefix so the same characterPiperVoices map stores both
+// engines — generation branches on the prefix (Piper → narrate-piper, Edge → /api/tts).
+const EDGE_CHARACTER_VOICES = [
+  { id: "edge:en-NG-EzinneNeural",   label: "Ezinne (Nigerian Female)" },
+  { id: "edge:en-NG-AbeoNeural",     label: "Abeo (Nigerian Male)" },
+  { id: "edge:en-KE-AsiliaNeural",   label: "Asilia (Kenyan Female)" },
+  { id: "edge:en-KE-ChilembaNeural", label: "Chilemba (Kenyan Male)" },
+  { id: "edge:en-ZA-LeahNeural",     label: "Leah (South African Female)" },
+  { id: "edge:en-ZA-LukeNeural",     label: "Luke (South African Male)" },
+  { id: "edge:en-US-AriaNeural",     label: "Aria (US Female)" },
+  { id: "edge:en-US-GuyNeural",      label: "Guy (US Male)" },
+  { id: "edge:en-GB-SoniaNeural",    label: "Sonia (British Female)" },
+  { id: "edge:en-GB-RyanNeural",     label: "Ryan (British Male)" },
+];
+
 function defaultAudioPlan(): AudioPlan {
   return { narrationIntensity: "medium", musicMood: "", musicIntensity: "medium", sfxList: [], ambienceList: [], transitionAudio: "" };
 }
@@ -3615,6 +3631,27 @@ function HybridPlannerInner() {
     setGeneratingNarration(false);
   }
 
+  // Henry 2026-06-12: one synth helper for BOTH engines. Character voice values
+  // with an "edge:" prefix route to /api/tts (Edge Neural, free MS voices incl.
+  // Nigerian); everything else stays on the existing narrate-piper path. /api/tts
+  // itself falls back to Piper if edge-tts fails, so this can't lose audio.
+  async function synthCharacterClip(text: string, voiceModel: string, outputName: string): Promise<{ ok?: boolean; audioUrl?: string; durationMs?: number; error?: string }> {
+    if (voiceModel.startsWith("edge:")) {
+      const res = await fetch("/api/tts", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, provider: "edge-tts", voiceId: voiceModel.slice(5), speed: narratorPiperSpeed }),
+      });
+      const data = await res.json();
+      // /api/tts has no `ok` field — audioUrl presence is the success signal
+      return { ok: !!data.audioUrl, audioUrl: data.audioUrl, durationMs: data.durationMs, error: data.error };
+    }
+    const res = await fetch("/api/hybrid/narrate-piper", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, model: voiceModel, speed: narratorPiperSpeed, outputName }),
+    });
+    return await res.json();
+  }
+
   // ── Generate per-character dialogue audio with their assigned Piper voice ──
   async function generateCharacterVoices() {
     if (characters.length === 0) {
@@ -3692,16 +3729,7 @@ function HybridPlannerInner() {
       const piperModel = characterPiperVoices[char.characterId] || "en_US-lessac-medium";
       setCharVoiceLog(`Generating voice for ${char.displayName} (${piperModel})...`);
       try {
-        const res = await fetch("/api/hybrid/narrate-piper", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text,
-            model: piperModel,
-            speed: narratorPiperSpeed,
-            outputName: `char_${char.characterId}_${projectId || "draft"}_${Date.now()}`,
-          }),
-        });
-        const data = await res.json();
+        const data = await synthCharacterClip(text, piperModel, `char_${char.characterId}_${projectId || "draft"}_${Date.now()}`);
         if (data.ok && data.audioUrl) {
           newUrls[char.characterId] = data.audioUrl;
           setCharVoiceLog(`${char.displayName} done`);
@@ -3770,17 +3798,7 @@ function HybridPlannerInner() {
 
       setCharVoiceLog(`Generating line ${seg.idx + 1}/${scriptSegments.length}: "${seg.text.slice(0, 40)}…"`);
       try {
-        const res = await fetch("/api/hybrid/narrate-piper", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            text: seg.text,
-            model: piperModel,
-            speed: narratorPiperSpeed,
-            outputName: `line_${seg.idx}_${char?.characterId || "unknown"}_${projectId || "draft"}_${Date.now()}`,
-          }),
-        });
-        const data = await res.json();
+        const data = await synthCharacterClip(seg.text, piperModel, `line_${seg.idx}_${char?.characterId || "unknown"}_${projectId || "draft"}_${Date.now()}`);
         if (data.ok && data.audioUrl) {
           updatedSegments[seg.idx] = {
             ...updatedSegments[seg.idx],
@@ -11062,13 +11080,20 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                             value={assigned}
                             onChange={e => setCharacterPiperVoices(prev => ({ ...prev, [char.characterId]: e.target.value }))}
                             style={{ ...inputStyle, fontSize: 10, padding: "5px 8px", minWidth: 160 }}>
-                            <option value="en_US-lessac-medium">Lessac (Neutral Male)</option>
-                            <option value="en_US-ryan-high">Ryan (Clear Male)</option>
-                            <option value="en_US-amy-medium">Amy (Female)</option>
-                            <option value="en_US-hfc_female-medium">HFC (Female)</option>
-                            <option value="en_GB-alan-medium">Alan (British Male)</option>
-                            <option value="en_GB-cori-high">Cori (British Female)</option>
-                            <option value="en_US-libritts-high">LibriTTS (Narration)</option>
+                            <optgroup label="Piper (free)">
+                              <option value="en_US-lessac-medium">Lessac (Neutral Male)</option>
+                              <option value="en_US-ryan-high">Ryan (Clear Male)</option>
+                              <option value="en_US-amy-medium">Amy (Female)</option>
+                              <option value="en_US-hfc_female-medium">HFC (Female)</option>
+                              <option value="en_GB-alan-medium">Alan (British Male)</option>
+                              <option value="en_GB-cori-high">Cori (British Female)</option>
+                              <option value="en_US-libritts-high">LibriTTS (Narration)</option>
+                            </optgroup>
+                            <optgroup label="Edge Neural (free)">
+                              {EDGE_CHARACTER_VOICES.map(v => (
+                                <option key={v.id} value={v.id}>{v.label}</option>
+                              ))}
+                            </optgroup>
                           </select>
                           {/* Play if generated */}
                           {hasAudio && (
@@ -12867,6 +12892,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                                     <option value="en_US-hfc_female-medium">HFC</option>
                                     <option value="en_GB-cori-high">🇬🇧 Cori (British)</option>
                                     <option value="en_US-kristin-medium">Kristin</option>
+                                  </optgroup>
+                                  <optgroup label="Edge Neural (free)">
+                                    {EDGE_CHARACTER_VOICES.map(v => (
+                                      <option key={v.id} value={v.id}>{v.label}</option>
+                                    ))}
                                   </optgroup>
                                 </select>
                                 {hasAudio && <audio controls src={characterAudioUrls[char.characterId]} style={{ height: 24, width: 100 }} />}
