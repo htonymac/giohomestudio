@@ -1,5 +1,11 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-11 — **HYBRID: Edge Neural (free) TTS option** (port of free-mode PR #70)
+
+**What:** `edge-tts` added to Hybrid narrator override picker + per-provider panel (10 regional voice chips: NG/KE/ZA/US/UK × F/M, default en-NG-EzinneNeural) + Voice Layers dropdown. Generate path posts provider+voiceId to /api/tts (backend already supported it).
+**Why:** Henry: "hybrid dont have edge tts" — Edge-TTS shipped to free-mode only.
+**Impact:** Free Nigerian/regional neural narration in Hybrid. Falls back to Piper automatically on any edge-tts failure (existing /api/tts rule).
+
 ## 2026-06-11 — **FREE MODE: stable owner identity — history can never "vanish" again**
 
 **What:** `resolveUserKey` derives the free-mode identity from ACCESS_CODE (`sha256(code + "-freemode-owner")[:32]`) when the access gate is on; random-cookie path kept for future multi-user. One-time DB reassignment of all sessions to the owner key.
