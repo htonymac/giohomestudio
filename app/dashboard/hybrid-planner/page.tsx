@@ -10,6 +10,7 @@ import type { NarrationSettings } from "../../components/NarrationControls";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import { ds } from "../../../lib/designSystem";
+import { stripAppearanceFromNarration } from "@/lib/narration-clean";
 import { safeJson } from "../../../lib/api-utils";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
@@ -3502,7 +3503,10 @@ function HybridPlannerInner() {
             id: `seg_scene_${s.sceneId}`,
             type: "narration" as const,
             speaker: "narrator",
-            text: sceneTexts[i],
+            // Henry 2026-06-12: narration segments are CLEAN of appearance text —
+            // the narrator says "Tobi", not "Tobi, an 8-year-old boy with...".
+            // Scene descriptions themselves stay rich for image generation.
+            text: stripAppearanceFromNarration(sceneTexts[i]),
             lineIndex: i,
             sceneId: s.sceneId,
           }))
@@ -3533,8 +3537,13 @@ function HybridPlannerInner() {
       });
       const data = await res.json();
       if (data.ok && data.segments) {
-        // Enrich segments with characterId by matching speaker name to character list
-        const enriched = (data.segments as ScriptSegment[]).map(seg => {
+        // Enrich segments with characterId by matching speaker name to character list.
+        // Narration segments get the appearance-strip (Henry 2026-06-12) — dialogue
+        // is character speech and is left untouched.
+        const enriched = (data.segments as ScriptSegment[]).map(rawSeg => {
+          const seg = rawSeg.type === "narration"
+            ? { ...rawSeg, text: stripAppearanceFromNarration(rawSeg.text) }
+            : rawSeg;
           if (seg.type === "dialogue" && seg.speaker && seg.speaker !== "narrator") {
             const match = characters.find(c =>
               c.displayName.toLowerCase() === seg.speaker.toLowerCase() ||
@@ -3568,11 +3577,16 @@ function HybridPlannerInner() {
       .join(" ");
     const narratorSegments = scriptSegments.filter(s => s.type === "narration");
     const parsedNarrationText = narratorSegments.map(s => s.text).join(" ");
-    const narrationText = allScenesNarration.trim()
-      ? allScenesNarration
-      : parsedNarrationText.trim()
-        ? parsedNarrationText
-        : (fullScript || expandedSummary || idea);
+    // Henry 2026-06-12: strip APPEARANCE descriptors at the point of narration only.
+    // Scene descriptions keep their rich identity text (image gen needs it); the
+    // narrator just says "Tobi" — viewers can already see what he looks like.
+    const narrationText = stripAppearanceFromNarration(
+      allScenesNarration.trim()
+        ? allScenesNarration
+        : parsedNarrationText.trim()
+          ? parsedNarrationText
+          : (fullScript || expandedSummary || idea)
+    );
 
     if (!narrationText.trim()) { setUiError("No narration text found. Parse your script first."); return; }
     if (narratorVoice === "none") { setUiError("Narration is set to Off. Select a tier to enable."); return; }
@@ -4428,7 +4442,7 @@ function HybridPlannerInner() {
         // Build per-scene narration text lengths to compute proportional timestamps
         const sceneNarrTexts = scenesToAssemble.map(s => {
           const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-          return segText || s.narrationScript || s.description || s.title || "";
+          return stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "");
         });
         const totalNarrChars = sceneNarrTexts.reduce((sum, t) => sum + t.length, 0) || 1;
         // Use effectiveNarrDurMs (recovered narrator audio duration) as master clock
@@ -4527,7 +4541,7 @@ function HybridPlannerInner() {
       const totalStoryChars = (finalSceneListWithEstablishing as any[]).reduce((sum: number, s: { sceneId?: string; description?: string; title?: string; narrationScript?: string }) => {
         if (!s.sceneId) return sum;  // skip intro/outro cards
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-        const text = segText || s.narrationScript || s.description || s.title || "";
+        const text = stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "");
         return sum + Math.max(text.length, 20);
       }, 0) as number || 1;
 
@@ -4539,7 +4553,7 @@ function HybridPlannerInner() {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const s = (finalSceneListWithEstablishing as any[])[si] as { videoUrl?: string; imageUrl?: string; motionDuration?: number; duration?: number; sceneId?: string; scene?: number; narrationScript?: string; description?: string; title?: string };
         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-        const sceneText = segText || s.narrationScript || s.description || s.title || "";
+        const sceneText = stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "");
         const textFraction = Math.max(sceneText.length, 20) / totalStoryChars;
         // Intro/outro cards (no sceneId) keep their fixed duration — don't proportionally scale them.
         // Only main scene segments are scaled by narration proportion.
@@ -4633,7 +4647,7 @@ function HybridPlannerInner() {
       // Using full story text instead of per-scene narration is the #1 cause of subtitles not matching audio.
       const subtitleAllScenes = scenes
         .slice().sort((a: HybridScene, b: HybridScene) => a.scene - b.scene)
-        .map((s: HybridScene) => s.narrationScript || s.description || "")
+        .map((s: HybridScene) => stripAppearanceFromNarration(s.narrationScript || s.description || ""))
         .filter(Boolean)
         .join(" ");
       const subtitleParsedNarr = scriptSegments.filter(s => s.type === "narration").map(s => s.text).join(" ");
@@ -12596,7 +12610,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   setSubtitleMatchResult({ status: "checking", note: "Checking…" });
                   const narratorText = scenes
                     .slice().sort((a: HybridScene, b: HybridScene) => a.scene - b.scene)
-                    .map((s: HybridScene) => s.narrationScript || s.description || "")
+                    .map((s: HybridScene) => stripAppearanceFromNarration(s.narrationScript || s.description || ""))
                     .filter(Boolean)
                     .join(" ")
                     .trim();
@@ -13266,7 +13280,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       // P2-C: count reflects auto-expand (no optedIn gate)
                       const totalStoryCharsPreview = orderedScenes.reduce((sum, s) => {
                         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-                        return sum + Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        return sum + Math.max(stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "").length, 20);
                       }, 0);
                       const narrDurSec = narratorAudioDuration > 0 ? narratorAudioDuration / 1000 : 0;
 
@@ -13283,7 +13297,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         const sceneFlipSec = Math.max(1, s.flipOverride ?? effectiveFlipSeconds);
                         // How many images does the narration need for this scene?
                         const segText = scriptSegments.filter(seg => seg.sceneId === sid).map(seg => seg.text || "").join(" ");
-                        const sceneChars = Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        const sceneChars = Math.max(stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "").length, 20);
                         const sceneFrac = totalStoryCharsPreview > 0 ? sceneChars / totalStoryCharsPreview : 0;
                         const sceneNarrSec = narrDurSec > 0 ? sceneFrac * narrDurSec : 0;
                         const imgsNeeded = sceneNarrSec > 0 ? Math.ceil(sceneNarrSec / sceneFlipSec) : 0;
@@ -13340,12 +13354,12 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       const selectedScenes = scenes.filter(s => selectedSceneIds.includes(s.sceneId));
                       const totalChars = selectedScenes.reduce((sum, s) => {
                         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-                        return sum + Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        return sum + Math.max(stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "").length, 20);
                       }, 0);
                       const deficitRows = selectedScenes.map(s => {
                         if (sceneVideos[s.sceneId]) return null;  // video scenes skip
                         const segText = scriptSegments.filter(seg => seg.sceneId === s.sceneId).map(seg => seg.text || "").join(" ");
-                        const chars = Math.max((segText || s.narrationScript || s.description || s.title || "").length, 20);
+                        const chars = Math.max(stripAppearanceFromNarration(segText || s.narrationScript || s.description || s.title || "").length, 20);
                         const frac = totalChars > 0 ? chars / totalChars : 0;
                         const sceneNarrSec = frac * narrSec;
                         const sceneFlipSec = Math.max(1, s.flipOverride ?? effectiveFlipSeconds);

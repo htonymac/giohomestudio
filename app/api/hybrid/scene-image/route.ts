@@ -479,10 +479,16 @@ export async function POST(req: NextRequest) {
     const sceneHasCrowd = /\b(crowd|crowded|market|marketplace|party|audience|gathering|stadium|festival|wedding|concert|protest|rally|classroom|class|team|villagers|townspeople|guests|spectators|congregation|queue|busy street|group of|many people|onlookers|mob)\b/i.test(sceneText || "");
     let personCountActive = false;
     let personCountDirective = "";
-    if (resolvedCharacters.length >= 1 && resolvedCharacters.length <= 4 && !sceneHasCrowd && !explicitAnimal) {
+    // Henry 2026-06-12: count HUMANS, and no longer skip when an animal is in the
+    // cast — the old `!explicitAnimal` skip disabled people-protection in every
+    // boy+dog scene, which is exactly where extra people (a random man) and clone
+    // spam (7 Tobis) appeared. Animals are not "people"; the directive's "no other
+    // people" wording leaves them unaffected.
+    const humanCastForCount = resolvedCharacters.filter(c => !ANIMAL_SPECIES.has(speciesOfChar(c.name)));
+    if (humanCastForCount.length >= 1 && humanCastForCount.length <= 4 && !sceneHasCrowd) {
       personCountActive = true;
-      const n = resolvedCharacters.length;
-      const names = resolvedCharacters.map(c => c.name).join(", ");
+      const n = humanCastForCount.length;
+      const names = humanCastForCount.map(c => c.name).join(", ");
       personCountDirective = n === 1
         ? `EXACTLY ONE person in the entire frame: ${names}. A solo shot — no other people anywhere, no second person, no bystanders, no background figures.`
         : `EXACTLY ${n} people total in the entire frame and no more: ${names}. Each of these ${n} is a visually DISTINCT individual — do NOT duplicate, repeat, mirror or clone any of them, do NOT add a similar-looking extra person, no additional people, no bystanders, no background crowd.`;

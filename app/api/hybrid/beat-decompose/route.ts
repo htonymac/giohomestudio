@@ -191,19 +191,28 @@ export async function POST(req: NextRequest) {
         // multi-char casts apply only to characters actually named in the frame.
         const visible = cast.length === 1 || f.moment.toLowerCase().includes(c.name.toLowerCase());
         if (!visible) continue;
+        // Henry 2026-06-12 round 2: SEMANTIC dedup, not first-N-chars matching.
+        // The LLM often restates identity in its own words ("an 8-year-old boy
+        // with warm brown skin"); appending OUR phrasing on top double-described
+        // the character and FLUX rendered MULTIPLE copies of him (7 clone Tobis).
+        // Only restate an axis the frame doesn't already cover in ANY wording.
+        const ml = f.moment.toLowerCase();
+        const frameHasAge = /\b\d{1,2}[-\s]?(?:year|yr)s?[-\s]?old\b|\b(?:school-age|teenage[rd]?|toddler|elderly)\b/.test(ml);
+        const frameHasClothes = /\b(wearing|t-shirt|tshirt|shirt|shorts|dress|trousers|jeans|gown|jacket|uniform|outfit)\b/.test(ml);
+        const frameHasSkin = /\b(skin|melanated|complexion|african|asian|caucasian|latina|latino|hispanic|european|nigerian)\b/.test(ml);
         const phrase = agePhrase(c.age);
         const bits: string[] = [];
-        if (phrase && !f.moment.toLowerCase().includes(phrase.slice(0, 12).toLowerCase())) {
+        if (phrase && !frameHasAge) {
           bits.push(`${c.name} is ${phrase}`);
         }
         const wd = c.wardrobe ? String(c.wardrobe).slice(0, 100) : "";
-        if (wd && !f.moment.toLowerCase().includes(wd.slice(0, 15).toLowerCase())) {
+        if (wd && !frameHasClothes) {
           bits.push(`wearing ${wd}`);
         }
-        // Henry 2026-06-12: skin/ethnicity restated per frame too — without it the
-        // multi-entity frames drifted ethnicity ("black boy → Indian/Asian boy").
+        // skin/ethnicity restated per frame too — without it frames drifted
+        // ethnicity ("black boy → Indian/Asian boy").
         const st = c.skinTone ? String(c.skinTone).slice(0, 80) : "";
-        if (st && !f.moment.toLowerCase().includes(st.slice(0, 15).toLowerCase())) {
+        if (st && !frameHasSkin) {
           bits.push(`with ${st}`);
         }
         if (bits.length) additions.push(bits.join(", "));
