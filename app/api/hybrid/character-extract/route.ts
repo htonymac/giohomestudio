@@ -554,10 +554,17 @@ export async function POST(req: NextRequest) {
         // Henry 2026-06-12: story-truth CORRECTS stale records. Henry's first Tobi
         // run (pre-fix) stored TOBI as adult/Latina and BARKER as human; without
         // this, the wrong rows would win on every re-extract forever.
+        // Skin-conflict: stored visual carries a DIFFERENT ethnic family than the
+        // story-derived one (e.g. Okafor saved as "fair Caucasian" pre-fix while
+        // the name-hint culture says African). Both sides canonicalised through
+        // inferSkinToneFromText so they're comparable.
+        const existingSkinFamily = inferSkinToneFromText(existing.visualDescription || "");
+        const skinConflicts = !!skinTone && !!existingSkinFamily && existingSkinFamily !== skinTone;
         const truthDisagrees =
           (truth.ageClass && existing.age !== truth.ageClass) ||
           (truth.gender && existing.gender !== truth.gender) ||
-          (isAnimal && !/\b(animal|NOT human)\b/i.test(existing.visualDescription || ""));
+          (isAnimal && !/\b(animal|NOT human)\b/i.test(existing.visualDescription || "")) ||
+          skinConflicts;
         let outVisual = existing.visualDescription || "";
         let outAge = existing.age || age;
         let outGender = existing.gender || gender;
