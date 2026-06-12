@@ -134,19 +134,29 @@ ${story}`;
 
 const ANIMAL_WORDS = ["dog", "puppy", "cat", "kitten", "lion", "tiger", "bear", "wolf", "fox", "rabbit", "goat", "sheep", "cow", "horse", "donkey", "monkey", "elephant", "bird", "parrot", "chicken", "rooster", "hen", "duck", "goose", "pig", "rat", "mouse", "snake", "turtle", "fish", "frog", "squirrel", "deer", "leopard", "cheetah", "hyena", "zebra", "giraffe", "hippo", "crocodile"];
 
-// "Barker, a large shaggy dog ..." / "the dog Barker" → species "dog"
+// "Barker, a large shaggy dog ..." / "the dog Barker" / "a dog named Barker" → species "dog".
+// APPOSITIVE patterns only — a loose proximity window marked EVERY character in a
+// short chase story as "dog" because the animal word was near all names (2026-06-12).
 function speciesFromStory(name: string, story: string): string | null {
   const first = name.toLowerCase().split(/\s+/).filter(w => !["mr.", "mr", "mrs.", "mrs", "miss", "dr.", "dr"].includes(w))[0];
   if (!first) return null;
   const safe = first.replace(/[^a-z0-9]/g, "");
   if (!safe) return null;
-  const re = new RegExp(`\\b${safe}\\b`, "gi");
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(story)) !== null) {
-    const win = story.slice(Math.max(0, m.index - 60), m.index + 80).toLowerCase();
-    for (const a of ANIMAL_WORDS) {
-      if (new RegExp(`\\b${a}\\b`).test(win)) return a;
-    }
+  const animals = ANIMAL_WORDS.join("|");
+  const patterns = [
+    // "Barker, a large angry dog" — name, then appositive within a few words
+    new RegExp(`\\b${safe}\\b\\s*,\\s*(?:a|an|the)\\s+(?:\\w+\\s+){0,3}(${animals})\\b`, "i"),
+    // "a large dog named/called Barker"
+    new RegExp(`\\b(?:a|an|the)\\s+(?:\\w+\\s+){0,3}(${animals})\\s+(?:named|called)\\s+${safe}\\b`, "i"),
+    // "Barker the dog" / "the dog Barker"
+    new RegExp(`\\b${safe}\\s+the\\s+(${animals})\\b`, "i"),
+    new RegExp(`\\bthe\\s+(${animals})\\s+${safe}\\b`, "i"),
+    // "Barker is a dog"
+    new RegExp(`\\b${safe}\\b[^.!?]{0,30}\\bis\\s+(?:a|an)\\s+(?:\\w+\\s+){0,3}(${animals})\\b`, "i"),
+  ];
+  for (const p of patterns) {
+    const m = story.match(p);
+    if (m) return m[1].toLowerCase();
   }
   return null;
 }
@@ -193,6 +203,19 @@ function agePhraseFor(ageClass: string, gender: string): string {
     case "elder":       return `elderly 65+ ${gender === "female" ? "woman" : "man"}, grey hair`;
     default:            return "";
   }
+}
+
+// Shared builder — leads with story-truth (species / explicit age) before skin tone.
+function enrichedVisualDescriptionForTruth(isAnimal: boolean, species: string, age: string, gender: string, skinTone: string, visualDescription: string): string {
+  const descLower = (visualDescription || "").toLowerCase();
+  const alreadyHasSkin = /\b(skin|brown|dark|fair|pale|olive|melanated|complexion|black|white|asian|latina|latino|hispanic|african)\b/.test(descLower);
+  const agePrefix = !isAnimal ? agePhraseFor(age, gender) : "";
+  const parts: string[] = [];
+  if (isAnimal) parts.push(`a ${species} (animal, NOT human)`);
+  if (agePrefix) parts.push(agePrefix);
+  if (skinTone && !alreadyHasSkin && !isAnimal) parts.push(skinTone);
+  if (visualDescription) parts.push(visualDescription);
+  return parts.join(", ").replace(/,\s*$/, "") || skinTone || "";
 }
 
 // Belt-and-suspenders: if LLM returned blank skinTone, infer from visualDescription/personality text
@@ -527,19 +550,43 @@ export async function POST(req: NextRequest) {
       });
 
       if (existing) {
-        // Character already registered — use existing record
+        // Character already registered — use existing record.
+        // Henry 2026-06-12: story-truth CORRECTS stale records. Henry's first Tobi
+        // run (pre-fix) stored TOBI as adult/Latina and BARKER as human; without
+        // this, the wrong rows would win on every re-extract forever.
+        const truthDisagrees =
+          (truth.ageClass && existing.age !== truth.ageClass) ||
+          (truth.gender && existing.gender !== truth.gender) ||
+          (isAnimal && !/\b(animal|NOT human)\b/i.test(existing.visualDescription || ""));
+        let outVisual = existing.visualDescription || "";
+        let outAge = existing.age || age;
+        let outGender = existing.gender || gender;
+        if (truthDisagrees) {
+          outVisual = enrichedVisualDescriptionForTruth(isAnimal, species, age, gender, skinTone, visualDescription);
+          outAge = age;
+          outGender = gender;
+          console.log(`[character-extract] correcting stale record ${name}: age ${existing.age}→${age}, gender ${existing.gender}→${gender}, species=${species}`);
+          try {
+            await prisma.characterVoice.update({
+              where: { id: existing.id },
+              data: { age, gender, visualDescription: outVisual || null },
+            });
+          } catch (updErr) {
+            console.warn(`[character-extract] stale-record update failed for ${name}:`, updErr instanceof Error ? updErr.message : updErr);
+          }
+        }
         createdCharacters.push({
           characterId: existing.characterId || characterId,
           name: existing.name,
           role: existing.role || roleType,
-          gender: existing.gender || gender,
-          age: existing.age || age,
+          gender: outGender,
+          age: outAge,
           voiceId: existing.voiceId || voice.voiceId,
           voiceName: existing.voiceName || voice.voiceName,
           dbId: existing.id,
-          visualDescription: existing.visualDescription || "",
+          visualDescription: outVisual,
           skinTone: skinTone || "",
-          ageRange: existing.age || age,
+          ageRange: outAge,
           colorDescription: skinTone || "",
           species,
         });
@@ -549,18 +596,10 @@ export async function POST(req: NextRequest) {
       // Inject skinTone into visualDescription so image model sees ethnicity/skin first.
       // Only prepend when the description doesn't already mention skin/ethnicity terms,
       // so explicit story-text descriptions aren't duplicated.
-      const descLower = (visualDescription || "").toLowerCase();
-      const alreadyHasSkin = /\b(skin|brown|dark|fair|pale|olive|melanated|complexion|black|white|asian|latina|latino|hispanic|african)\b/.test(descLower);
       // Henry 2026-06-12: lead with story-truth — species for animals, explicit
       // age phrase for non-adults — BEFORE skin tone. "8-10 year old boy" at the
       // head of the description is what keeps portraits from rendering adults.
-      const agePrefix = !isAnimal ? agePhraseFor(age, gender) : "";
-      const parts: string[] = [];
-      if (isAnimal) parts.push(`a ${species} (animal, NOT human)`);
-      if (agePrefix) parts.push(agePrefix);
-      if (skinTone && !alreadyHasSkin && !isAnimal) parts.push(skinTone);
-      if (visualDescription) parts.push(visualDescription);
-      const enrichedVisualDescription = parts.join(", ").replace(/,\s*$/, "") || skinTone || "";
+      const enrichedVisualDescription = enrichedVisualDescriptionForTruth(isAnimal, species, age, gender, skinTone, visualDescription);
 
       // Create new CharacterVoice record in database
       const record = await prisma.characterVoice.create({
