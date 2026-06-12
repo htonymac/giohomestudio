@@ -632,7 +632,10 @@ function HybridPlannerInner() {
   // Actor/character voices on-off — user can deactivate actor voices anytime (Sound + Assembly).
   // When false, character dialogue clips are excluded from the assembly (narrator only). 2026-05-28
   const [actorVoicesEnabled, setActorVoicesEnabled] = useState(true);
-  const [narratorVoice, setNarratorVoice] = useState<"piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("piper");
+  const [narratorVoice, setNarratorVoice] = useState<"piper" | "edge-tts" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("piper");
+  // Henry 2026-06-11: Edge-TTS in Hybrid (port of free-mode PR #70). Free Microsoft
+  // Neural voices incl. Nigerian; sub-picker mirrors free-mode's 10 regional voices.
+  const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
   // GHS Sound Tier — drives both narration provider and music provider selection
   const [soundTier, setSoundTier] = useState<"ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium">("ghs-sound");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
@@ -648,7 +651,7 @@ function HybridPlannerInner() {
   // ── Voice Layers — multi-part narrator voice stacking ────────────────────
   // Each layer has its own provider + voiceId. Layer 1 = primary narrator.
   // Layers 2+ are secondary (mixing deferred to S14 assembly endpoint wiring).
-  interface VoiceLayer { layer: number; providerId: "piper" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno"; voiceId: string; }
+  interface VoiceLayer { layer: number; providerId: "piper" | "edge-tts" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno"; voiceId: string; }
   const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
   function addVoiceLayer() {
     setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
@@ -3543,9 +3546,9 @@ function HybridPlannerInner() {
     setGeneratingNarration(true);
     setPiperDownloading(false);
 
-    // FAL Narrator, FAL Pro, ElevenLabs, and Kie-Suno go directly to /api/tts with the provider field
-    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs" || narratorVoice === "kie-suno") {
-      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : narratorVoice === "kie-suno" ? "GHS Premium (Kie Suno)" : "ElevenLabs";
+    // FAL Narrator, FAL Pro, ElevenLabs, Edge-TTS, and Kie-Suno go directly to /api/tts with the provider field
+    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs" || narratorVoice === "kie-suno" || narratorVoice === "edge-tts") {
+      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : narratorVoice === "kie-suno" ? "GHS Premium (Kie Suno)" : narratorVoice === "edge-tts" ? "Edge Neural (free)" : "ElevenLabs";
       setLastAction(`Generating narrator audio via ${providerLabel}...`);
       try {
         const res = await fetch("/api/tts", {
@@ -3554,6 +3557,8 @@ function HybridPlannerInner() {
             text: narrationText,
             provider: narratorVoice,
             speed: narratorPiperSpeed,
+            // Edge-TTS regional voice from the sub-picker (free-mode parity)
+            voiceId: narratorVoice === "edge-tts" ? edgeTtsVoiceId : undefined,
           }),
         });
         const data = await res.json();
@@ -10889,6 +10894,41 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     </div>
                   )}
 
+                  {narratorVoice === "edge-tts" && (
+                    <div style={{ padding: "10px 12px", borderRadius: 8, background: "#34d39908", border: "1px solid #34d39920" }}>
+                      <p style={{ fontSize: 10, color: "#34d399", fontWeight: 600 }}>Edge Neural (free) — Microsoft neural voices</p>
+                      <p style={{ fontSize: 9, color: muted, marginTop: 3, marginBottom: 8 }}>Free natural voices including Nigerian. Needs edge-tts installed on the server; falls back to Piper automatically if it fails.</p>
+                      {/* Regional voice sub-picker — same 10 voices as free-mode (PR #70) */}
+                      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 4, marginBottom: 10 }}>
+                        {[
+                          { id: "en-NG-EzinneNeural",   label: "NG · F" },
+                          { id: "en-NG-AbeoNeural",     label: "NG · M" },
+                          { id: "en-KE-AsiliaNeural",   label: "KE · F" },
+                          { id: "en-KE-ChilembaNeural", label: "KE · M" },
+                          { id: "en-ZA-LeahNeural",     label: "ZA · F" },
+                          { id: "en-ZA-LukeNeural",     label: "ZA · M" },
+                          { id: "en-US-AriaNeural",     label: "US · F" },
+                          { id: "en-US-GuyNeural",      label: "US · M" },
+                          { id: "en-GB-SoniaNeural",    label: "UK · F" },
+                          { id: "en-GB-RyanNeural",     label: "UK · M" },
+                        ].map(v => (
+                          <button key={v.id} type="button" onClick={() => setEdgeTtsVoiceId(v.id)} title={v.id}
+                            style={{ padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer",
+                              border: `1px solid ${edgeTtsVoiceId === v.id ? "#34d399" : border}`,
+                              background: edgeTtsVoiceId === v.id ? "#34d39918" : "transparent",
+                              color: edgeTtsVoiceId === v.id ? "#34d399" : muted }}>
+                            {v.label}
+                          </button>
+                        ))}
+                      </div>
+                      <button onClick={generateNarrationPiper} disabled={generatingNarration}
+                        style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
+                          background: generatingNarration ? "#2a2a40" : "#34d399", color: "#000" }}>
+                        {generatingNarration ? "Working..." : narratorAudioUrl ? "Regenerate (Edge)" : "Generate via Edge Neural"}
+                      </button>
+                    </div>
+                  )}
+
                   {narratorVoice === "elevenlabs" && (
                     <div style={{ padding: "10px 12px", borderRadius: 8, background: `${purple}08`, border: `1px solid ${purple}20` }}>
                       <p style={{ fontSize: 10, color: purple, fontWeight: 600 }}>ElevenLabs narrator</p>
@@ -10964,13 +11004,14 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     <select value={layer.providerId} onChange={e => updateVoiceLayer(layer.layer, { providerId: e.target.value as VoiceLayer["providerId"] })}
                       style={{ ...inputStyle, flex: 1, fontSize: 10, padding: "5px 8px" }}>
                       <option value="piper" style={{ background: surface }}>Piper (free)</option>
+                      <option value="edge-tts" style={{ background: surface }}>Edge Neural (free)</option>
                       <option value="fal-narrator" style={{ background: surface }}>FAL Standard</option>
                       <option value="fal-narrator-gemini" style={{ background: surface }}>FAL Pro</option>
                       <option value="elevenlabs" style={{ background: surface }}>ElevenLabs</option>
                       <option value="karaoke" style={{ background: surface }}>Karaoke</option>
                     </select>
                     <input value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
-                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "fal-narrator" ? "af_sky" : layer.providerId === "fal-narrator-gemini" ? "af_sky" : "voice-id"}
+                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "edge-tts" ? "en-NG-EzinneNeural" : layer.providerId === "fal-narrator" ? "af_sky" : layer.providerId === "fal-narrator-gemini" ? "af_sky" : "voice-id"}
                       style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }} />
                     {layer.layer > 1 && (
                       <button onClick={() => removeVoiceLayer(layer.layer)}
@@ -11572,6 +11613,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
                 {([
                   { id: "piper",               label: "Piper TTS",   color: accent },
+                  { id: "edge-tts",            label: "Edge Neural (free)", color: "#34d399" },
                   { id: "karaoke",             label: "Karaoke",     color: gold },
                   { id: "kie-suno",            label: "Kie Suno",    color: purple },
                   { id: "fal-narrator",        label: "FAL Standard", color: blue },
