@@ -26,6 +26,7 @@ interface CharacterIn {
   species?: string | null;
   wardrobe?: string | null;
   visualDescription?: string | null;
+  skinTone?: string | null;     // e.g. "dark brown skin, African features, melanated" — restated per frame
 }
 
 interface DecomposeRequest {
@@ -198,6 +199,12 @@ export async function POST(req: NextRequest) {
         const wd = c.wardrobe ? String(c.wardrobe).slice(0, 100) : "";
         if (wd && !f.moment.toLowerCase().includes(wd.slice(0, 15).toLowerCase())) {
           bits.push(`wearing ${wd}`);
+        }
+        // Henry 2026-06-12: skin/ethnicity restated per frame too — without it the
+        // multi-entity frames drifted ethnicity ("black boy → Indian/Asian boy").
+        const st = c.skinTone ? String(c.skinTone).slice(0, 80) : "";
+        if (st && !f.moment.toLowerCase().includes(st.slice(0, 15).toLowerCase())) {
+          bits.push(`with ${st}`);
         }
         if (bits.length) additions.push(bits.join(", "));
       }

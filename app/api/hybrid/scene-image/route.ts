@@ -296,9 +296,20 @@ export async function POST(req: NextRequest) {
         if (ov.species) overrideSpecies.push(ov.species.toLowerCase());
       }
     }
-    const ANIMAL_SPECIES = new Set(["bear", "wolf", "lion", "fox", "rabbit", "dog", "cat", "tiger", "elephant", "monkey"]);
+    const ANIMAL_SPECIES = new Set(["bear", "wolf", "lion", "fox", "rabbit", "dog", "cat", "tiger", "elephant", "monkey", "goat", "sheep", "horse", "bird", "snake", "hyena", "leopard"]);
     const charSpeciesIsAnimal = overrideSpecies.some(s => ANIMAL_SPECIES.has(s));
     const explicitAnimal = charSpeciesIsAnimal; // scene text removed — too many verb false-positives
+
+    // Henry 2026-06-12: HUMAN count, not character count, drives the face-lock and
+    // lean-prompt decisions. A boy + his dog is ONE face to lock — counting the dog
+    // as a "second character" dropped PuLID exactly in the chase scenes, so Tobi's
+    // locked face was ignored where it mattered most (scenes 3/4 drift).
+    const speciesOfChar = (charName: string): string => {
+      const ov = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
+        ?.find(o => (o.name || "").toLowerCase() === (charName || "").toLowerCase());
+      return (ov?.species || "human").toLowerCase();
+    };
+    const humanCharCount = resolvedCharacters.filter(c => !ANIMAL_SPECIES.has(speciesOfChar(c.name))).length;
 
     // ── CHARACTER IDENTITY BLOCK ──
     // FAL/flux supports prompts up to ~2000 chars — allow full character descriptions.
@@ -323,7 +334,9 @@ export async function POST(req: NextRequest) {
     // wasted weight. New approach: lean name + age tag for multi-char, let the
     // scene text carry character description. Single-char keeps the rich block
     // because PuLID needs the wardrobe + identity anchor for face-lock.
-    const isMultiCharForPrompt = resolvedCharacters.length >= 2;
+    // Henry 2026-06-12: gate on HUMANS — one human + animals keeps the rich identity
+    // block (with AGE LOCK + skin tone) for the human instead of the lean name tag.
+    const isMultiCharForPrompt = humanCharCount >= 2;
     if (resolvedCharacters.length > 0 && isMultiCharForPrompt) {
       // ── LEAN PATH (Free Mode mirror) ──
       // Build per-character anti-stereotype negatives (still useful — kept) but
@@ -723,7 +736,8 @@ export async function POST(req: NextRequest) {
     // is rich enough to compose without face anchor. PuLID drags portrait composition
     // (standing pose, neutral background) into scenes that have detailed location.
     // Closeup/portrait framings still keep PuLID — those WANT the face anchor.
-    const isMultiChar = resolvedCharacters.length > 1;
+    // Henry 2026-06-12: humans only — a dog in the cast must not disable the face-lock.
+    const isMultiChar = humanCharCount > 1;
     const isCloseup = /\b(close\s*up|portrait\s+shot|headshot|head\s+shot|face\s+shot|tight\s+shot)\b/i.test(cameraFraming || "");
     const richLocation = !isCloseup && (
       (!!location && location.length > 20 && cleanSceneText.length > 80)
@@ -773,8 +787,17 @@ export async function POST(req: NextRequest) {
     // scene URL is supplied, use FAL flux-img2img with the prior scene as
     // the initial latent at strength 0.6. That preserves the prior scene's
     // characters/lighting/composition while the prompt steers the new action.
+    // Henry 2026-06-12: img2img at strength 0.6 REDRAWS faces from the prompt prior —
+    // that's the "Tobi turned Indian/Asian in scenes 3/4" drift. When this is a
+    // storyboard action frame with exactly ONE human and a locked face reference
+    // (Pick Faces crop / portrait), the PuLID face-lock path holds identity far
+    // better than img2img. Multi-human and no-reference cases keep img2img.
+    const preferFaceLockOverI2I = isActionFrame && humanCharCount === 1 && referenceImageUrls.length > 0;
+    if (preferFaceLockOverI2I) {
+      console.log(`[scene-image] action frame + single human + face ref — using PuLID face-lock instead of img2img`);
+    }
     let result: Awaited<ReturnType<typeof generateImage>>;
-    if (hasPriorScene && previousSceneImageUrl) {
+    if (hasPriorScene && previousSceneImageUrl && !preferFaceLockOverI2I) {
       try {
         const { falFluxImg2Img } = await import("@/lib/providers/fal");
         const fs = await import("fs");

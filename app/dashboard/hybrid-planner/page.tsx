@@ -2507,13 +2507,18 @@ function HybridPlannerInner() {
           location: scene.location,
           timeOfDay: scene.timeOfDay,
           frameCount: targetCount,
-          characters: characterOverrides.map(c => ({
-            name: c.name,
-            age: c.age,
-            species: c.species,
-            wardrobe: c.wardrobe,
-            visualDescription: (c.visualDescription || "").slice(0, 160),
-          })),
+          characters: characterOverrides.map(c => {
+            const src = characters.find(ch => ch.characterId === c.characterId);
+            return {
+              name: c.name,
+              age: c.age,
+              species: c.species,
+              wardrobe: c.wardrobe,
+              visualDescription: (c.visualDescription || "").slice(0, 160),
+              // skin/ethnicity restated in every storyboard frame (anti-drift)
+              skinTone: src?.colorDescription || src?.skinTone || null,
+            };
+          }),
         }),
       });
       const ddata = await dres.json();
