@@ -3,6 +3,11 @@
 Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
 
 ---
+## P-2026-06-12 — Character extraction inverted the story (age/ethnicity/species) — see CHANGELOG 2026-06-12 + global error_log
+
+Story-truth deterministic overrides + culture lock + appositive species detection + stale-row correction shipped in PRs #81–#83. Full prevention rules in ~/.claude/.../memory/error_log.md (2026-06-12 entry). Key rule for future agents: explicit story facts (numeric age, boy/girl, "NAME, a … dog") are enforced in CODE in character-extract/route.ts — do not remove the story-truth block; do not re-loosen speciesFromStory to proximity matching.
+
+---
 ## P-2026-06-11b — Free Mode history "vanished AGAIN": browser minted a fresh cookie userKey, orphaning all sessions
 
 **Symptom (Henry):** "free mode history vanish again." Sidebar empty; chats gone.
