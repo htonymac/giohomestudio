@@ -1270,6 +1270,9 @@ function HybridPlannerInner() {
         body: JSON.stringify({
           expandedStory: expandedObj,       // ← pass the full object, not a string
           projectId: projectId || undefined,
+          // Henry 2026-06-12: planner Region/Culture beats diversity rotation —
+          // Nigerian story → Nigerian cast, not by-index Latina/Caucasian spread.
+          storyCulture: storyCulture || REGION_TO_CULTURE[storyRegion] || undefined,
         }),
       });
       const charData = await charRes.json();
@@ -1298,7 +1301,9 @@ function HybridPlannerInner() {
             hasImage: false,
             // Visual fields — populated from extraction (ethnicity + age MUST flow through
             // so portrait gen prompts include them BEFORE auto-AI-Read can override)
-            species: "human",
+            // Henry 2026-06-12: species now comes from extraction (Barker the dog
+            // was hardcoded "human" here and rendered as a person).
+            species: (c.species as string) || "human",
             bodyBuild: "",
             colorDescription: (c.colorDescription as string) || (c.skinTone as string) || "",
             faceFeatures: "",
@@ -1317,13 +1322,19 @@ function HybridPlannerInner() {
           return true;
         });
         setCharacters(dedupedChars);
-        // Auto-assign Piper voices by gender — don't overwrite any the user already picked
+        // Auto-assign voices by gender — don't overwrite any the user already picked.
+        // Henry 2026-06-12: voice now matches the character's COUNTRY too — African
+        // story characters default to Edge Nigerian neural (Ezinne/Abeo) instead of
+        // US Piper, so "who speaks" sounds like the character.
         setCharacterPiperVoices(prev => {
           const auto: Record<string, string> = {};
           for (const c of dedupedChars) {
             if (prev[c.characterId]) continue;
             const g = (c.gender || "").toLowerCase();
-            if (g === "female") auto[c.characterId] = "en_US-amy-medium";
+            const isAfrican = /\b(african|nigerian|yoruba|igbo|hausa|melanated|kenyan|south african)\b/i.test(`${c.skinTone || ""} ${c.colorDescription || ""} ${storyCulture || ""} ${REGION_TO_CULTURE[storyRegion] || ""}`);
+            if (isAfrican && g === "female") auto[c.characterId] = "edge:en-NG-EzinneNeural";
+            else if (isAfrican && g === "male") auto[c.characterId] = "edge:en-NG-AbeoNeural";
+            else if (g === "female") auto[c.characterId] = "en_US-amy-medium";
             else if (g === "male" && /narrat/i.test(c.roleType)) auto[c.characterId] = "en_US-libritts-high";
             else if (g === "male") auto[c.characterId] = "en_US-ryan-high";
             else auto[c.characterId] = "en_US-lessac-medium";
@@ -1739,6 +1750,7 @@ function HybridPlannerInner() {
         body: JSON.stringify({
           expandedStory: { summary: text, characterList: [] },
           language: effectiveLanguage,
+          storyCulture: storyCulture || REGION_TO_CULTURE[storyRegion] || undefined,
         }),
       });
       const data = await res.json();
@@ -1961,7 +1973,7 @@ function HybridPlannerInner() {
         : { summary: storyRichText, characterList: [] };
       const detectRes = await fetch("/api/hybrid/character-extract", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ expandedStory: expandedPayload, language: effectiveLanguage }),
+        body: JSON.stringify({ expandedStory: expandedPayload, language: effectiveLanguage, storyCulture: storyCulture || REGION_TO_CULTURE[storyRegion] || undefined }),
       });
       const detectData = await detectRes.json();
       const detected: Array<{ name: string; description?: string }> = detectData.characters || detectData.names || [];
@@ -3562,19 +3574,23 @@ function HybridPlannerInner() {
     setGeneratingNarration(true);
     setPiperDownloading(false);
 
-    // FAL Narrator, FAL Pro, ElevenLabs, Edge-TTS, and Kie-Suno go directly to /api/tts with the provider field
-    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs" || narratorVoice === "kie-suno" || narratorVoice === "edge-tts") {
-      const providerLabel = narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : narratorVoice === "kie-suno" ? "GHS Premium (Kie Suno)" : narratorVoice === "edge-tts" ? "Edge Neural (free)" : "ElevenLabs";
+    // FAL Narrator, FAL Pro, ElevenLabs, Edge-TTS, and Kie-Suno go directly to /api/tts with the provider field.
+    // Henry 2026-06-12: picking an "edge:" voice in the GHS Sound MODEL dropdown also routes
+    // here — Piper no longer "takes control" just because the tier is GHS Sound.
+    const edgeModelPicked = narratorPiperModel.startsWith("edge:");
+    if (narratorVoice === "fal-narrator" || narratorVoice === "fal-narrator-gemini" || narratorVoice === "elevenlabs" || narratorVoice === "kie-suno" || narratorVoice === "edge-tts" || edgeModelPicked) {
+      const useEdge = narratorVoice === "edge-tts" || edgeModelPicked;
+      const providerLabel = useEdge ? "Edge Neural (free)" : narratorVoice === "fal-narrator" ? "FAL Standard" : narratorVoice === "fal-narrator-gemini" ? "FAL Pro" : narratorVoice === "kie-suno" ? "GHS Premium (Kie Suno)" : "ElevenLabs";
       setLastAction(`Generating narrator audio via ${providerLabel}...`);
       try {
         const res = await fetch("/api/tts", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: narrationText,
-            provider: narratorVoice,
+            provider: useEdge ? "edge-tts" : narratorVoice,
             speed: narratorPiperSpeed,
-            // Edge-TTS regional voice from the sub-picker (free-mode parity)
-            voiceId: narratorVoice === "edge-tts" ? edgeTtsVoiceId : undefined,
+            // Edge voice: the Model-dropdown pick wins; else the tier-panel sub-picker
+            voiceId: edgeModelPicked ? narratorPiperModel.slice(5) : (narratorVoice === "edge-tts" ? edgeTtsVoiceId : undefined),
           }),
         });
         const data = await res.json();
@@ -10862,9 +10878,16 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <p style={{ fontSize: 9, color: muted, marginBottom: 4 }}>Model</p>
                           <select value={narratorPiperModel} onChange={e => setNarratorPiperModel(e.target.value)}
                             style={{ ...inputStyle, fontSize: 11, padding: "7px 10px" }}>
-                            {["en_US-lessac-medium", "en_US-libritts-high", "en_US-amy-medium", "en_US-ryan-high", "en_GB-alan-medium"].map(m => (
-                              <option key={m} value={m} style={{ background: surface }}>{m}</option>
-                            ))}
+                            <optgroup label="Piper (free, local)">
+                              {["en_US-lessac-medium", "en_US-libritts-high", "en_US-amy-medium", "en_US-ryan-high", "en_GB-alan-medium"].map(m => (
+                                <option key={m} value={m} style={{ background: surface }}>{m}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Edge Neural (free)">
+                              {EDGE_CHARACTER_VOICES.map(v => (
+                                <option key={v.id} value={v.id} style={{ background: surface }}>{v.label}</option>
+                              ))}
+                            </optgroup>
                           </select>
                         </div>
                         <div>
@@ -12932,6 +12955,11 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           <option value="en_US-danny-low">⬛ Danny — Low Male</option>
                           <option value="en_GB-alan-medium">🇬🇧 Alan — British Male</option>
                           <option value="en_US-libritts-high">LibriTTS — Narration</option>
+                        </optgroup>
+                        <optgroup label="Edge Neural (free)">
+                          {EDGE_CHARACTER_VOICES.map(v => (
+                            <option key={v.id} value={v.id}>{v.label}</option>
+                          ))}
                         </optgroup>
                         <optgroup label="Female Voices">
                           <option value="en_US-amy-medium">Amy — Female</option>

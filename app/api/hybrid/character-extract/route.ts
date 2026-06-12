@@ -75,7 +75,8 @@ function buildExtractionPrompt(story: string): string {
 For each character, return a JSON array with objects containing:
 - name: character's full name (string)
 - roleType: one of "hero", "heroine", "villain", "narrator", "support", "elder", "child", "comic_relief"
-- gender: "male" or "female"
+- gender: "male" or "female" — MUST match story words: "boy/man/he/his" = male, "girl/woman/she/her" = female
+- species: REQUIRED — "human" for people; the ANIMAL TYPE for animal characters (e.g. "dog", "cat", "lion", "goat"). A character introduced as "a large shaggy dog" is species "dog", NEVER "human".
 - age: REQUIRED — "child", "teen", "young_adult", "adult", or "elder"
 - visualDescription: a brief visual description of appearance, clothing, and distinguishing features
 - speechStyle: "normal", "whisper", "emotional", "commanding", or "trembling"
@@ -122,6 +123,76 @@ Rules:
 
 Story:
 ${story}`;
+}
+
+// ── Deterministic story-truth corrections (Henry 2026-06-12) ─────────────────
+// The LLM (and the characterList path, which bypasses the LLM prompt entirely)
+// kept losing explicit story facts: "Tobi is an 8-year-old boy" extracted as a
+// 20-year-old woman; "Barker, a large shaggy dog" extracted as a human. These
+// helpers re-read the STORY TEXT and OVERRIDE the extraction when the story is
+// explicit. Code, not model obedience.
+
+const ANIMAL_WORDS = ["dog", "puppy", "cat", "kitten", "lion", "tiger", "bear", "wolf", "fox", "rabbit", "goat", "sheep", "cow", "horse", "donkey", "monkey", "elephant", "bird", "parrot", "chicken", "rooster", "hen", "duck", "goose", "pig", "rat", "mouse", "snake", "turtle", "fish", "frog", "squirrel", "deer", "leopard", "cheetah", "hyena", "zebra", "giraffe", "hippo", "crocodile"];
+
+// "Barker, a large shaggy dog ..." / "the dog Barker" → species "dog"
+function speciesFromStory(name: string, story: string): string | null {
+  const first = name.toLowerCase().split(/\s+/).filter(w => !["mr.", "mr", "mrs.", "mrs", "miss", "dr.", "dr"].includes(w))[0];
+  if (!first) return null;
+  const safe = first.replace(/[^a-z0-9]/g, "");
+  if (!safe) return null;
+  const re = new RegExp(`\\b${safe}\\b`, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(story)) !== null) {
+    const win = story.slice(Math.max(0, m.index - 60), m.index + 80).toLowerCase();
+    for (const a of ANIMAL_WORDS) {
+      if (new RegExp(`\\b${a}\\b`).test(win)) return a;
+    }
+  }
+  return null;
+}
+
+// "Tobi is an 8-year-old boy" → { ageClass: "child", gender: "male" }
+function explicitAgeGenderFromStory(name: string, story: string): { ageClass?: string; gender?: string } {
+  const first = name.toLowerCase().split(/\s+/).filter(w => !["mr.", "mr", "mrs.", "mrs", "miss", "dr.", "dr"].includes(w))[0];
+  const out: { ageClass?: string; gender?: string } = {};
+  if (!first) return out;
+  const safe = first.replace(/[^a-z0-9]/g, "");
+  if (!safe) return out;
+  const re = new RegExp(`\\b${safe}\\b`, "gi");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(story)) !== null) {
+    const win = story.slice(Math.max(0, m.index - 80), m.index + 120).toLowerCase();
+    if (!out.ageClass) {
+      const num = win.match(/\b(\d{1,2})[-\s]?(?:year|yr)s?[-\s]?old\b/) || win.match(/\bage[d]?\s+(\d{1,2})\b/);
+      if (num) {
+        const n = parseInt(num[1], 10);
+        out.ageClass = n <= 12 ? "child" : n <= 17 ? "teen" : n <= 29 ? "young_adult" : n <= 64 ? "adult" : "elder";
+      } else if (/\b(boy|girl|little kid|young child)\b/.test(win)) {
+        out.ageClass = "child";
+      } else if (/\b(grandma|grandmother|grandpa|grandfather|old man|old woman|elderly)\b/.test(win)) {
+        out.ageClass = "elder";
+      }
+    }
+    if (!out.gender) {
+      if (/\b(boy|man|male|father|dad|grandpa|grandfather|uncle|brother|son|mr\.?)\b/.test(win)) out.gender = "male";
+      else if (/\b(girl|woman|female|mother|mom|grandma|grandmother|aunt|sister|daughter|mrs\.?|miss)\b/.test(win)) out.gender = "female";
+    }
+    if (out.ageClass && out.gender) break;
+  }
+  return out;
+}
+
+// Human-visible age phrase prepended to the visual description so the image
+// model can't render a child as an adult (mirrors scene-image AGE_VISUAL).
+function agePhraseFor(ageClass: string, gender: string): string {
+  const g = gender === "female" ? "girl" : gender === "male" ? "boy" : "child";
+  switch (ageClass) {
+    case "child":       return `8-10 year old ${g}, school-age child proportions, NOT an adult`;
+    case "teen":        return `13-17 year old teenage ${gender === "female" ? "girl" : "boy"}`;
+    case "young_adult": return `young adult in their early 20s`;
+    case "elder":       return `elderly 65+ ${gender === "female" ? "woman" : "man"}, grey hair`;
+    default:            return "";
+  }
 }
 
 // Belt-and-suspenders: if LLM returned blank skinTone, infer from visualDescription/personality text
@@ -195,6 +266,10 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const { expandedStory, projectId } = body;
+    // Henry 2026-06-12: planner's Region/Culture selection. When set, it beats the
+    // diversity rotation — a story set in Nigeria gets Nigerian characters, not a
+    // by-index Latina/Caucasian/African spread.
+    const storyCulture: string = typeof body.storyCulture === "string" ? body.storyCulture : "";
 
     if (!expandedStory) {
       return NextResponse.json(
@@ -254,6 +329,7 @@ export async function POST(req: NextRequest) {
       skinTone: string;
       ageRange: string;
       colorDescription: string;
+      species: string;
     }> = [];
 
     // ── Option B: Story-wide dominant ethnicity ──
@@ -286,6 +362,10 @@ export async function POST(req: NextRequest) {
         _dominantIsStrong = ethnicMatches.length >= 3;
       }
     }
+    // Raw story text the story-truth helpers scan (lowercased by the walk above;
+    // helpers are case-insensitive). Falls back to a string expandedStory.
+    const _storyTextForTruth = _combinedStory || (typeof expandedStory === "string" ? (expandedStory as string).toLowerCase() : "");
+
     const LIGHT_DEFAULT_PATTERN = /\b(fair|pale|light\s+tan|light\s+skin|caucasian|peach|cream)\b/i;
     const dominantIsNonLight = _dominantSkin && !/\b(fair|pale|light|caucasian)\b/i.test(_dominantSkin);
     if (_dominantSkin) {
@@ -305,12 +385,46 @@ export async function POST(req: NextRequest) {
       "olive-tan skin, Middle Eastern features, dark hair, dark eyes",
     ];
 
+    // Culture-derived skin tone — used instead of the rotation pool when the
+    // planner told us where the story is set (Henry 2026-06-12).
+    // Fallback when no Region was picked: recognizably West-African names/places
+    // in the story (Tobi, Okafor, Lagos…) are a culture signal even though the
+    // story contains no literal word like "Nigerian" — 2+ distinct hits required
+    // so one ambiguous name can't flip a whole cast.
+    const AFRICAN_NAME_HINTS = ["tobi", "okafor", "okonkwo", "emeka", "ngozi", "chinedu", "adebayo", "tunde", "yusuf", "amina", "obi", "nneka", "folake", "segun", "femi", "bola", "chioma", "uche", "ifeanyi", "kelechi", "sade", "kemi", "wale", "dele", "sola", "taiwo", "kehinde", "eze", "nnamdi", "yemi", "lagos", "abuja", "ibadan", "kano", "naira", "danfo", "okada", "agbada", "ankara"];
+    let nameHintSkin = "";
+    {
+      const hits = new Set<string>();
+      for (const h of AFRICAN_NAME_HINTS) {
+        if (new RegExp(`\\b${h}\\b`, "i").test(_combinedStory)) hits.add(h);
+      }
+      if (hits.size >= 2) {
+        nameHintSkin = "dark brown skin, African features, melanated";
+        console.log(`[character-extract] African name-hint culture signal: ${[...hits].join(", ")}`);
+      }
+    }
+    const cultureSkin = (storyCulture ? inferSkinToneFromText(storyCulture) : "") || nameHintSkin;
+
     for (let i = 0; i < rawCharacters.length; i++) {
       const ch = rawCharacters[i];
       const name = (ch.name || `CHARACTER_${i + 1}`).toUpperCase().trim();
       const roleType = normalizeRole(ch.roleType || "support");
-      const gender = ch.gender || "male";
-      const age = ch.age || "adult";
+
+      // ── STORY-TRUTH OVERRIDES (Henry 2026-06-12) ──────────────────────────
+      // Re-read the raw story; explicit facts beat the LLM AND the characterList
+      // path (which bypasses the extraction prompt and defaulted everyone to
+      // "adult"). This is what stops "8-year-old boy Tobi" becoming a 20yo woman
+      // and "Barker, a large shaggy dog" becoming a human.
+      const truth = explicitAgeGenderFromStory(name, _storyTextForTruth);
+      const storySpecies = speciesFromStory(name, _storyTextForTruth);
+      const species = (storySpecies || ch.species || "human").toLowerCase();
+      const isAnimal = species !== "human" && species.length > 0;
+
+      const gender = truth.gender || ch.gender || "male";
+      const age = truth.ageClass || ch.age || "adult";
+      if (truth.ageClass || truth.gender || storySpecies) {
+        console.log(`[character-extract] story-truth override for ${name}: age=${truth.ageClass || "-"} gender=${truth.gender || "-"} species=${storySpecies || "-"}`);
+      }
       const visualDescription = ch.visualDescription || "";
       const speechStyle = ch.speechStyle || "normal";
       const country = ch.country || "";
@@ -370,15 +484,27 @@ export async function POST(req: NextRequest) {
       // across the entire story), the writer didn't intend ANY specific
       // ethnicity. Rotate every character through DIVERSITY_POOL by index.
       // 3-character story → 3 different backgrounds.
+      // Henry 2026-06-12 guards on rotation:
+      //   1. ANIMALS never get human skin tones — Barker the dog was being stamped
+      //      "dark brown skin, African features" by this very block.
+      //   2. When the planner provided a Region/Culture, USE IT instead of the
+      //      by-index pool — Tobi/Mr. Okafor in a Nigerian story were rotated to
+      //      Latina/Caucasian because the story had no LITERAL ethnicity word.
       const noStorySignal = !_dominantSkin;
       const skinIsBlankOrGenericLight = !skinTone || LIGHT_DEFAULT_PATTERN.test(skinTone);
-      if (noStorySignal) {
+      if (isAnimal) {
+        skinTone = "";
+        console.log(`[character-extract] ${name} is a ${species} — skipping skin tone / rotation entirely`);
+      } else if (noStorySignal && cultureSkin) {
+        console.log(`[character-extract] Culture lock (${storyCulture}): ${name} "${skinTone || "blank"}" → "${cultureSkin}"`);
+        skinTone = cultureSkin;
+      } else if (noStorySignal) {
         const poolPick = DIVERSITY_POOL[i % DIVERSITY_POOL.length];
         console.log(`[character-extract] Diversity rotation (no story signal): ${name} "${skinTone || "blank"}" → "${poolPick}"`);
         skinTone = poolPick;
       } else if (skinIsBlankOrGenericLight && !_dominantIsStrong) {
-        // Legacy path: weak signal + LLM-picked-light → still rotate.
-        const poolPick = DIVERSITY_POOL[i % DIVERSITY_POOL.length];
+        // Legacy path: weak signal + LLM-picked-light → rotate (culture first).
+        const poolPick = cultureSkin || DIVERSITY_POOL[i % DIVERSITY_POOL.length];
         console.log(`[character-extract] Diversity rotation (weak signal, LLM-picked-light): ${name} → "${poolPick}"`);
         skinTone = poolPick;
       }
@@ -415,6 +541,7 @@ export async function POST(req: NextRequest) {
           skinTone: skinTone || "",
           ageRange: existing.age || age,
           colorDescription: skinTone || "",
+          species,
         });
         continue;
       }
@@ -424,9 +551,16 @@ export async function POST(req: NextRequest) {
       // so explicit story-text descriptions aren't duplicated.
       const descLower = (visualDescription || "").toLowerCase();
       const alreadyHasSkin = /\b(skin|brown|dark|fair|pale|olive|melanated|complexion|black|white|asian|latina|latino|hispanic|african)\b/.test(descLower);
-      const enrichedVisualDescription = (skinTone && !alreadyHasSkin)
-        ? `${skinTone}, ${visualDescription}`.replace(/,\s*$/, "")
-        : (visualDescription || skinTone || "");
+      // Henry 2026-06-12: lead with story-truth — species for animals, explicit
+      // age phrase for non-adults — BEFORE skin tone. "8-10 year old boy" at the
+      // head of the description is what keeps portraits from rendering adults.
+      const agePrefix = !isAnimal ? agePhraseFor(age, gender) : "";
+      const parts: string[] = [];
+      if (isAnimal) parts.push(`a ${species} (animal, NOT human)`);
+      if (agePrefix) parts.push(agePrefix);
+      if (skinTone && !alreadyHasSkin && !isAnimal) parts.push(skinTone);
+      if (visualDescription) parts.push(visualDescription);
+      const enrichedVisualDescription = parts.join(", ").replace(/,\s*$/, "") || skinTone || "";
 
       // Create new CharacterVoice record in database
       const record = await prisma.characterVoice.create({
@@ -465,6 +599,7 @@ export async function POST(req: NextRequest) {
         skinTone: skinTone || "",
         ageRange: age,
         colorDescription: skinTone || "",  // mirror so client's buildVisualDescription sees ethnicity
+        species,
       });
     }
 
