@@ -1,5 +1,11 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-12 — **HYBRID: Edge Neural voices PER CHARACTER** (follow-up to #79)
+
+**What:** Character Voices dropdowns (Sound section + Assembly quick-picker) gain an "Edge Neural (free)" group — 10 voices (Nigerian Ezinne/Abeo, Kenyan, South African, US, UK) selectable per character. Values use an `edge:` prefix in the same characterPiperVoices map; new `synthCharacterClip` helper branches edge→/api/tts, piper→narrate-piper for BOTH per-character and per-line generation.
+**Why:** Henry: "edge tts is not active and piper still covers it as edge dont have character to select from" — Edge existed only for the narrator; all dialogue was forced Piper.
+**Impact:** Characters can speak with Nigerian/regional neural voices. Edge failure still auto-falls back to Piper inside /api/tts.
+
 ## 2026-06-11 — **HYBRID: Edge Neural (free) TTS option** (port of free-mode PR #70)
 
 **What:** `edge-tts` added to Hybrid narrator override picker + per-provider panel (10 regional voice chips: NG/KE/ZA/US/UK × F/M, default en-NG-EzinneNeural) + Voice Layers dropdown. Generate path posts provider+voiceId to /api/tts (backend already supported it).
