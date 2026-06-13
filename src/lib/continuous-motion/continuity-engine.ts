@@ -187,9 +187,13 @@ export async function assembleClips(
     }
   }
 
-  // Write concat list file
+  // Write concat list file.
+  // Henry 2026-06-13: paths MUST be absolute — ffmpeg's concat demuxer resolves
+  // relative entries against the LIST FILE's directory, so a relative storagePath
+  // ("storage/...") doubled into storage/videos/.../storage/videos/... → assembly
+  // failed right after the first-ever successful segment generation.
   const concatListPath = outputPath.replace(/\.mp4$/, "_list.txt");
-  const listContent = localPaths.map(p => `file '${p.replace(/'/g, "'\\''")}'`).join("\n");
+  const listContent = localPaths.map(p => `file '${path.resolve(p).replace(/'/g, "'\\''")}'`).join("\n");
   await writeFile(concatListPath, listContent, "utf8");
 
   try {
