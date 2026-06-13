@@ -10,9 +10,12 @@ import type {
   VideoProviderAdapter,
 } from "../provider-router";
 
-// fal.ai endpoint identifiers for Wan 2.5
-const WAN_T2V_ENDPOINT = "fal-ai/wan/v2.5/text-to-video";
-const WAN_I2V_ENDPOINT = "fal-ai/wan/v2.5/image-to-video";
+// fal.ai endpoint identifiers for Wan.
+// Henry 2026-06-13: "v2.5" paths DO NOT EXIST on FAL — queue accepted the submit
+// but the result returned 404 {"detail":"Path /v2.5/text-to-video not found"}.
+// v2.2-a14b is the current live Wan app (verified on fal.ai model pages).
+const WAN_T2V_ENDPOINT = "fal-ai/wan/v2.2-a14b/text-to-video";
+const WAN_I2V_ENDPOINT = "fal-ai/wan/v2.2-a14b/image-to-video";
 
 export class FalWanAdapter implements VideoProviderAdapter {
   /**
