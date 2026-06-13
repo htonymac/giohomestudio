@@ -108,9 +108,11 @@ Rules:
 
   try {
     // Provider cascade — first success wins; ALL fail → deterministic fallback splitter.
+    // Order: claude (fails FAST when key is at $0) → openai (~3s) → ollama (slow CPU
+    // local, last resort). Ollama-first made planning take 2+ minutes per run.
     let text = "";
     const errors: string[] = [];
-    for (const p of ["ollama", "openai", "claude"] as const) {
+    for (const p of ["claude", "openai", "ollama"] as const) {
       try {
         const r = await callLLM(userPrompt, system, { forceProvider: p, role: p === "claude" ? "fast" : "assistant", maxTokens: 800 });
         if (r.ok && r.text?.trim()) { text = r.text.trim(); console.log(`[motion-planner] split via ${p}`); break; }
