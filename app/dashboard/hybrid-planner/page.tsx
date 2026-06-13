@@ -650,7 +650,10 @@ function HybridPlannerInner() {
   // Actor/character voices on-off — user can deactivate actor voices anytime (Sound + Assembly).
   // When false, character dialogue clips are excluded from the assembly (narrator only). 2026-05-28
   const [actorVoicesEnabled, setActorVoicesEnabled] = useState(true);
-  const [narratorVoice, setNarratorVoice] = useState<"piper" | "edge-tts" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("piper");
+  // Henry 2026-06-13: Edge Neural (free) is the DEFAULT narrator now — natural
+  // neural voice + real word timestamps for subtitle sync. Falls back to Piper
+  // automatically inside /api/tts if Edge ever fails, so this is safe to default.
+  const [narratorVoice, setNarratorVoice] = useState<"piper" | "edge-tts" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno" | "none">("edge-tts");
   // Henry 2026-06-11: Edge-TTS in Hybrid (port of free-mode PR #70). Free Microsoft
   // Neural voices incl. Nigerian; sub-picker mirrors free-mode's 10 regional voices.
   const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
@@ -10876,7 +10879,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {scriptSegments.length > 0 && (storyMode === "narration-only" || storyMode === "mixed") && (
                 <div style={{ padding: "12px 14px", borderRadius: 10, background: "#ffffff05", border: `1px solid ${border}`, marginBottom: 12 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: muted, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 6 }}>Sound Tier</p>
-                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>GHS Sound = Piper TTS (free). GHS Plus/Pro = Karaoke pipeline. GHS Premium = Kie Suno V5 (KIE_AI_API_KEY). Set tier in Sound tab for full control.</p>
+                  <p style={{ fontSize: 9, color: muted, marginBottom: 10 }}>GHS Sound = Edge Neural (free, natural voice, word-timed subtitles; auto-falls back to Piper). GHS Plus/Pro = Karaoke pipeline. GHS Premium = Kie Suno V5 (KIE_AI_API_KEY). Set tier in Sound tab for full control.</p>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 6, marginBottom: 12 }}>
                     {([
                       { id: "ghs-sound",   label: "GHS Sound",   color: accent },
@@ -10889,7 +10892,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         onClick={() => {
                           setSoundTier(tier.id);
                           patchProjectSettings({ soundTier: tier.id }).catch(() => {});
-                          if (tier.id === "ghs-sound") setNarratorVoice("piper");
+                          if (tier.id === "ghs-sound") setNarratorVoice("edge-tts"); // Henry 2026-06-13: GHS Sound = Edge Neural default (free, word-timed)
                           else if (tier.id === "ghs-plus") setNarratorVoice("karaoke");
                           else if (tier.id === "ghs-pro") setNarratorVoice("karaoke");
                           else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
@@ -11655,7 +11658,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 8, marginBottom: 12 }}>
               {([
-                { id: "ghs-sound",   label: "GHS Sound",   sub: "Piper · Free",         color: accent },
+                { id: "ghs-sound",   label: "GHS Sound",   sub: "Edge Neural · Free",   color: accent },
                 { id: "ghs-plus",    label: "GHS Plus",    sub: "Karaoke · Built-in",   color: gold },
                 { id: "ghs-pro",     label: "GHS Pro",     sub: "Karaoke + FAL",        color: blue },
                 { id: "ghs-premium", label: "GHS Premium", sub: "Kie Suno V5",          color: purple },
@@ -11667,7 +11670,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                     setSoundTier(tier.id);
                     patchProjectSettings({ soundTier: tier.id }).catch(() => {});
                     // Sync narratorVoice to the tier's narration provider
-                    if (tier.id === "ghs-sound") setNarratorVoice("piper");
+                    if (tier.id === "ghs-sound") setNarratorVoice("edge-tts"); // Henry 2026-06-13: GHS Sound = Edge Neural default (free, word-timed)
                     else if (tier.id === "ghs-plus" || tier.id === "ghs-pro") setNarratorVoice("karaoke");
                     else if (tier.id === "ghs-premium") setNarratorVoice("kie-suno");
                   }}
@@ -11695,7 +11698,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               <summary style={{ fontSize: 9, color: muted, cursor: "pointer", marginBottom: 8, userSelect: "none" as const }}>
                 Advanced: override narration provider
               </summary>
-              <p style={{ fontSize: 9, color: muted, marginBottom: 8, marginTop: 6 }}>Override the tier&apos;s default narration provider. GHS Sound = Piper TTS (free). GHS Plus/Pro = GHS Karaoke. GHS Premium = Kie Suno + Piper fallback. ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
+              <p style={{ fontSize: 9, color: muted, marginBottom: 8, marginTop: 6 }}>Override the tier&apos;s default narration provider. GHS Sound = Edge Neural (free, auto-falls back to Piper). GHS Plus/Pro = GHS Karaoke. GHS Premium = Kie Suno + Piper fallback. ElevenLabs = premium (ELEVENLABS_API_KEY).</p>
               <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
                 {([
                   { id: "piper",               label: "Piper TTS",   color: accent },
