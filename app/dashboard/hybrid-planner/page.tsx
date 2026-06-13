@@ -240,6 +240,10 @@ function NarrationPreview({ audioUrl, wordTimings, text, height = 36 }: {
   const [activeIdx, setActiveIdx] = useState(-1);
   const hasTimings = Array.isArray(wordTimings) && wordTimings.length > 0;
 
+  // Sourcery PR #96: reset the highlight when narration is regenerated (new audio
+  // or new timings) so a stale word doesn't stay highlighted.
+  useEffect(() => { setActiveIdx(-1); }, [audioUrl, wordTimings]);
+
   useEffect(() => {
     const el = audioRef.current;
     if (!el || !hasTimings) return;
