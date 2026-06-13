@@ -1,12 +1,15 @@
 // GioHomeStudio — Continuous Motion Planner (Session 3)
 // Splits a long scene prompt by physical motion, not punctuation.
-// Uses Claude Haiku 4.5 for intelligent splitting.
+// Henry 2026-06-13: was Claude-direct only — with the Anthropic key at $0 every
+// run fell back to the dumb splitter. Now uses the house callLLM cascade
+// (ollama → openai → claude) like scene-edit, so a free local model handles
+// splitting when paid keys are dry.
 //
 // Functions:
-//   planMotionUnits(prompt, totalDuration, segmentMaxDuration) — Claude splits prompt by action
+//   planMotionUnits(prompt, totalDuration, segmentMaxDuration) — LLM splits prompt by action
 //   planSegmentDurations(units, providerMaxDuration) — maps units to per-segment durations
 
-import Anthropic from "@anthropic-ai/sdk";
+import { callLLM } from "@/lib/llm";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -34,7 +37,7 @@ export interface MotionPlan {
 
 // ── Claude model ──────────────────────────────────────────────────────────
 
-const HAIKU_MODEL = "claude-haiku-4-5-20251001";
+// (model choice now lives in the callLLM cascade — see planMotionUnits)
 
 // ── Fallback splitter (no API key) ────────────────────────────────────────
 
@@ -83,22 +86,9 @@ export async function planMotionUnits(
   totalDuration: number,
   segmentMaxDuration: number
 ): Promise<MotionUnit[]> {
-  const key = process.env.ANTHROPIC_API_KEY;
-
-  if (!key) {
-    console.log("[motion-planner] No API key — using fallback splitter");
-    return fallbackSplitByMotion(prompt, totalDuration, segmentMaxDuration);
-  }
-
   const segmentCount = Math.ceil(totalDuration / segmentMaxDuration);
 
-  try {
-    const client = new Anthropic({ apiKey: key });
-
-    const msg = await client.messages.create({
-      model: HAIKU_MODEL,
-      max_tokens: 800,
-      system: `You split a video scene prompt into physical motion units for AI video generation.
+  const system = `You split a video scene prompt into physical motion units for AI video generation.
 Each unit should describe ONE distinct physical action or camera state change.
 Split by PHYSICAL ACTION, not by punctuation or sentence length.
 Target exactly ${segmentCount} units for a ${totalDuration}-second scene.
@@ -113,20 +103,26 @@ Rules:
 - Each action should be 3-15 words
 - Duration per unit: max ${segmentMaxDuration}s, last unit may be shorter
 - All durations must sum to exactly ${totalDuration}s
-- No markdown, no code fences. JSON array only.`,
-      messages: [
-        {
-          role: "user",
-          content: `Scene prompt: "${prompt}"\nTotal duration: ${totalDuration}s\nTarget segments: ${segmentCount}`,
-        },
-      ],
-    });
+- No markdown, no code fences. JSON array only.`;
+  const userPrompt = `Scene prompt: "${prompt}"\nTotal duration: ${totalDuration}s\nTarget segments: ${segmentCount}`;
 
-    const text = msg.content
-      .filter(b => b.type === "text")
-      .map(b => (b as { type: "text"; text: string }).text)
-      .join("")
-      .trim();
+  try {
+    // Provider cascade — first success wins; ALL fail → deterministic fallback splitter.
+    let text = "";
+    const errors: string[] = [];
+    for (const p of ["ollama", "openai", "claude"] as const) {
+      try {
+        const r = await callLLM(userPrompt, system, { forceProvider: p, role: p === "claude" ? "fast" : "assistant", maxTokens: 800 });
+        if (r.ok && r.text?.trim()) { text = r.text.trim(); console.log(`[motion-planner] split via ${p}`); break; }
+        errors.push(`${p}: ${(!r.ok && r.error) || "empty"}`);
+      } catch (e) {
+        errors.push(`${p}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    if (!text) {
+      console.warn(`[motion-planner] all LLM providers failed (${errors.join(" | ")}) — using fallback splitter`);
+      return fallbackSplitByMotion(prompt, totalDuration, segmentMaxDuration);
+    }
 
     const start = text.indexOf("[");
     const end = text.lastIndexOf("]");
