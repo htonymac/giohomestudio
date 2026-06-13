@@ -299,10 +299,21 @@ export async function runContinuityChain(options: ChainRunOptions): Promise<Chai
       await writeFile(clipPath, clipBuffer);
       clipPaths.push(clipPath);
 
-      // Extract anchor for next segment
+      // Extract anchor for next segment.
+      // Henry 2026-06-13: the anchor must be a URL FAL can actually fetch — passing
+      // the local file path caused 422 on every continuation segment. Upload the
+      // frame to FAL's CDN (same pattern as scene-video's Runway/Kling branches).
       const anchor = await extractMotionAnchor(clipPath, outputDir, segNum);
       anchorPaths.push(anchor.anchorPath);
-      prevAnchorUrl = anchor.anchorPath;
+      if (i < segments.length - 1) {
+        const { uploadImageToFal } = await import("../generation/gateways/fal");
+        const { readFile } = await import("fs/promises");
+        const anchorBuf = await readFile(anchor.anchorPath);
+        prevAnchorUrl = await uploadImageToFal(anchorBuf, "image/jpeg");
+        console.log(`[continuity-engine] anchor ${segNum} uploaded to FAL CDN`);
+      } else {
+        prevAnchorUrl = anchor.anchorPath;
+      }
 
       console.log(`[continuity-engine] Segment ${segNum}/${segments.length} complete`);
     } catch (err) {
