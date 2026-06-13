@@ -545,7 +545,8 @@ function HybridPlannerInner() {
   const [sceneSfxAudioUrls, setSceneSfxAudioUrls] = useState<Record<string, string[]>>({});
   // Per-scene music loading state
   const [generatingSceneMusic, setGeneratingSceneMusic] = useState<Set<string>>(new Set());
-  const [cmProvider, setCmProvider] = useState<"wan" | "kling_std">("wan");
+  // Henry 2026-06-13: all 7 registered continuous-motion engines exposed (was only 2).
+  const [cmProvider, setCmProvider] = useState<"wan" | "kling_std" | "kling_pro" | "hailuo" | "runway" | "veo" | "seedance">("wan");
   const [cmRunning, setCmRunning] = useState(false);
   const [cmStatus, setCmStatus] = useState<string | null>(null);
   const [cmSceneId, setCmSceneId] = useState<string | null>(null);
@@ -7268,10 +7269,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   </div>
                   <div>
                     <label style={{ ...labelStyle, fontSize: 9 }}>Video Provider</label>
-                    <select value={cmProvider} onChange={e => setCmProvider(e.target.value as "wan" | "kling_std")}
+                    <select value={cmProvider} onChange={e => setCmProvider(e.target.value as typeof cmProvider)}
                       style={{ ...inputStyle, fontSize: 12 }}>
-                      <option value="wan">Wan 2.5</option>
-                      <option value="kling_std">Kling Standard</option>
+                      <option value="wan">Wan 2.5 — $0.07/sec</option>
+                      <option value="kling_std">Kling Standard — $0.07/sec</option>
+                      <option value="kling_pro">Kling Pro — $0.07/sec</option>
+                      <option value="seedance">Seedance 2.0 — $0.05/sec</option>
+                      <option value="runway">Runway Gen-4 — $0.05/sec</option>
+                      <option value="hailuo">Hailuo MiniMax — $0.10/sec</option>
+                      <option value="veo">Veo 3.1 — ⚠️ $0.50/sec (10× others)</option>
                     </select>
                   </div>
                 </div>

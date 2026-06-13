@@ -26,8 +26,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { planScene } from "../../../../src/lib/continuous-motion/motion-planner";
 import { runContinuityChain } from "../../../../src/lib/continuous-motion/continuity-engine";
 import { getAdapter } from "../../../../src/lib/continuous-motion/provider-router";
+import { env } from "@/config/env";
 import path from "path";
-import os from "os";
 
 function errorResponse(msg: string, status = 400) {
   return NextResponse.json({ error: msg }, { status });
@@ -101,82 +101,107 @@ export async function POST(req: NextRequest) {
     } catch { /* non-fatal */ }
   }
 
-  // ── 5. Run the full continuity chain ─────────────────────────────────────
-  const outputDir = path.join(os.tmpdir(), "ghs-cm", sceneId);
-  const chainResult = await runContinuityChain({
-    segments: plan.segments.map(s => ({ motionAction: s.action, duration: s.duration })),
-    basePrompt: prompt,
-    providerAdapter: adapter,
-    seed,
-    sceneId,
-    outputDir,
-  });
+  // ── 5. Run the full continuity chain — AS A BACKGROUND JOB (Henry 2026-06-13) ──
+  // Two root causes fixed here:
+  //   a) os.tmpdir() — the live server process had a BROKEN /tmp (stale systemd
+  //      private-tmp namespace), so the chain's first mkdir died silently and every
+  //      run hung at GENERATING forever. Output now lives under storagePath like
+  //      every other feature that works (scene videos, images, tts).
+  //   b) The whole multi-minute chain ran INSIDE the POST — a dropped connection
+  //      killed it. Now the route answers immediately after the scene record is
+  //      created and the chain runs detached; the client already polls
+  //      /api/continuous-motion/scene/<id> for status.
+  const outputDir = path.join(env.storagePath, "videos", "continuous", sceneId);
+  const toMediaUrl = (p: string | null): string | null => {
+    if (!p) return null;
+    // Sourcery PR #89: derive from env.storagePath, not a brittle "storage/" regex.
+    const rel = path.relative(env.storagePath, p).replace(/\\/g, "/");
+    if (rel.startsWith("..")) return null; // outside storage — not servable
+    return `/api/media/${rel}`;
+  };
 
-  // ── 6. Persist segments and anchors ──────────────────────────────────────
-  if (dbAvailable && prisma && chainResult.completedSegments > 0) {
+  const segmentsForChain = plan.segments.map(s => ({ motionAction: s.action, duration: s.duration }));
+  console.log(`[continuous-motion/plan] ${sceneId}: launching background chain — ${segmentsForChain.length} segment(s), provider=${providerKey}, out=${outputDir}`);
+
+  void (async () => {
     try {
-      for (let i = 0; i < chainResult.completedSegments; i++) {
-        const seg = plan.segments[i];
-        if (!seg) continue;
-        await prisma.motionSegment.create({
-          data: {
-            sceneId,
-            segmentNumber: i + 1,
-            motionAction: seg.action,
-            continuationPrompt: prompt,
-            durationSeconds: seg.duration,
-            startTimeSeconds: Math.round(seg.startTime),
-            endTimeSeconds: Math.round(seg.endTime),
-            anchorImageUrl: chainResult.anchorPaths[i] ?? null,
-            clipUrl: chainResult.clipPaths[i] ?? null,
-            status: "COMPLETE",
-          },
-        });
+      const chainResult = await runContinuityChain({
+        segments: segmentsForChain,
+        basePrompt: prompt,
+        providerAdapter: adapter,
+        seed,
+        sceneId,
+        outputDir,
+      });
+      console.log(`[continuous-motion/plan] ${sceneId}: chain done — completed=${chainResult.completedSegments}/${segmentsForChain.length} failedAt=${chainResult.failedAt ?? "-"} err=${chainResult.error ?? "-"}`);
 
-        if (chainResult.anchorPaths[i]) {
-          await prisma.motionAnchor.create({
-            data: {
-              sceneId,
-              segmentNumber: i + 1,
-              anchorImagePath: chainResult.anchorPaths[i],
-            },
-          });
+      // ── 6. Persist segments and anchors ──────────────────────────────────
+      if (dbAvailable && prisma && chainResult.completedSegments > 0) {
+        try {
+          for (let i = 0; i < chainResult.completedSegments; i++) {
+            const seg = plan.segments[i];
+            if (!seg) continue;
+            await prisma.motionSegment.create({
+              data: {
+                sceneId,
+                segmentNumber: i + 1,
+                motionAction: seg.action,
+                continuationPrompt: prompt,
+                durationSeconds: seg.duration,
+                startTimeSeconds: Math.round(seg.startTime),
+                endTimeSeconds: Math.round(seg.endTime),
+                anchorImageUrl: toMediaUrl(chainResult.anchorPaths[i] ?? null),
+                clipUrl: toMediaUrl(chainResult.clipPaths[i] ?? null),
+                status: "COMPLETE",
+              },
+            });
+            if (chainResult.anchorPaths[i]) {
+              await prisma.motionAnchor.create({
+                data: { sceneId, segmentNumber: i + 1, anchorImagePath: chainResult.anchorPaths[i] },
+              });
+            }
+          }
+        } catch (err) {
+          console.warn("[continuous-motion/plan] Segment persistence failed:", err);
         }
       }
-    } catch (err) {
-      console.warn("[continuous-motion/plan] Segment persistence failed:", err);
+
+      // ── 7. Update final status ────────────────────────────────────────────
+      const finalStatus = chainResult.failedAt
+        ? "FAILED"
+        : chainResult.finalVideoPath
+          ? "COMPLETE"
+          : chainResult.error?.includes("FAL_KEY") || chainResult.error?.includes("skipped")
+            ? "PLANNING"
+            : "FAILED";
+      if (dbAvailable && prisma) {
+        try {
+          await prisma.continuousScene.update({
+            where: { id: sceneId },
+            data: { status: finalStatus, finalVideoUrl: toMediaUrl(chainResult.finalVideoPath) },
+          });
+        } catch { /* non-fatal */ }
+      }
+      console.log(`[continuous-motion/plan] ${sceneId}: final status ${finalStatus} url=${toMediaUrl(chainResult.finalVideoPath) ?? "-"}`);
+    } catch (bgErr) {
+      // The chain threw outright — never leave the scene stuck at GENERATING.
+      console.error(`[continuous-motion/plan] ${sceneId}: background chain threw:`, bgErr);
+      if (dbAvailable && prisma) {
+        try {
+          await prisma.continuousScene.update({ where: { id: sceneId }, data: { status: "FAILED" } });
+        } catch { /* non-fatal */ }
+      }
     }
-  }
+  })();
 
-  // ── 7. Update final status ────────────────────────────────────────────────
-  const finalStatus = chainResult.failedAt
-    ? "FAILED"
-    : chainResult.finalVideoPath
-      ? "COMPLETE"
-      : chainResult.error?.includes("FAL_KEY") || chainResult.error?.includes("skipped")
-        ? "PLANNING" // plan-only mode (no FAL_KEY)
-        : "ASSEMBLING";
-
-  if (dbAvailable && prisma) {
-    try {
-      await prisma.continuousScene.update({
-        where: { id: sceneId },
-        data: {
-          status: finalStatus,
-          finalVideoUrl: chainResult.finalVideoPath ?? null,
-        },
-      });
-    } catch { /* non-fatal */ }
-  }
-
-  // ── 8. Return response ────────────────────────────────────────────────────
+  // ── 8. Return immediately — client polls /api/continuous-motion/scene/<id> ──
   return NextResponse.json({
     plan,
     sceneId,
-    status: finalStatus,
-    finalVideoUrl: chainResult.finalVideoPath ?? null,
-    completedSegments: chainResult.completedSegments,
+    status: "GENERATING",
+    finalVideoUrl: null,
+    completedSegments: 0,
     totalSegments: plan.segmentCount,
-    error: chainResult.error ?? null,
+    error: null,
   });
 }
