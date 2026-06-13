@@ -114,7 +114,9 @@ export async function POST(req: NextRequest) {
   const outputDir = path.join(env.storagePath, "videos", "continuous", sceneId);
   const toMediaUrl = (p: string | null): string | null => {
     if (!p) return null;
-    const rel = p.replace(/\\/g, "/").replace(/^.*?storage\//, "");
+    // Sourcery PR #89: derive from env.storagePath, not a brittle "storage/" regex.
+    const rel = path.relative(env.storagePath, p).replace(/\\/g, "/");
+    if (rel.startsWith("..")) return null; // outside storage — not servable
     return `/api/media/${rel}`;
   };
 
