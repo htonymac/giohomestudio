@@ -1578,6 +1578,11 @@ function ChildrenPlannerInner() {
           storyCulture: storyCulture || undefined,
           wordOverlay: wordOverlayEnabled,
           overlayText: extractTeachingWord(scene.title),
+          // Henry 2026-06-13: teaching modes (word/phonics) + word-overlay scenes are
+          // OBJECT-CLEAR lessons ("A is for Apple") — tell scene-image to skip the
+          // action/anti-pose push so the learning pattern stays calm and clear.
+          // Storybook/poem/sentence children scenes still get the action treatment.
+          isStillScene: wordOverlayEnabled || learningMode === "word" || learningMode === "phonics",
         }),
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
