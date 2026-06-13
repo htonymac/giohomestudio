@@ -22,6 +22,16 @@ import { env } from "@/config/env";
 import * as path from "path";
 import * as fs from "fs";
 
+// Mood → face-expression cue for normal (non-action-frame) scenes. Module-level
+// (Sourcery PR #94) — pure data, no need to reallocate per request.
+const MOOD_FACE: Record<string, string> = {
+  tense: "tense, alert, on-edge faces", dramatic: "intense, determined faces",
+  dark: "fearful, wary faces", sad: "sorrowful, downcast faces",
+  mysterious: "cautious, watchful faces", scary: "frightened faces",
+  heroic: "fierce, resolute faces", angry: "angry, hardened faces",
+  suspense: "anxious, focused faces",
+};
+
 export async function POST(req: NextRequest) {
   // Closure-scoped collector for unresolved character IDs (soft-skip).
   // Surfaced in the response's `warning` field so caller can show a non-blocking toast.
@@ -585,14 +595,7 @@ export async function POST(req: NextRequest) {
       // to the scene's mood. Tense/scared/angry/sad scenes were rendering smiling
       // kids because nothing connected mood→expression on the standard gen path.
       const m = String(mood).toLowerCase();
-      const moodFace: Record<string, string> = {
-        tense: "tense, alert, on-edge faces", dramatic: "intense, determined faces",
-        dark: "fearful, wary faces", sad: "sorrowful, downcast faces",
-        mysterious: "cautious, watchful faces", scary: "frightened faces",
-        heroic: "fierce, resolute faces", angry: "angry, hardened faces",
-        suspense: "anxious, focused faces",
-      };
-      const faceCue = moodFace[m];
+      const faceCue = MOOD_FACE[m];
       if (faceCue) {
         promptParts.push(`Faces match the ${m} mood: ${faceCue} — NOT smiling, NOT a cheerful default expression.`);
       }
