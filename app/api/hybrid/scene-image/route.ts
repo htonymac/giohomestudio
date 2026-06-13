@@ -22,6 +22,16 @@ import { env } from "@/config/env";
 import * as path from "path";
 import * as fs from "fs";
 
+// Mood → face-expression cue for normal (non-action-frame) scenes. Module-level
+// (Sourcery PR #94) — pure data, no need to reallocate per request.
+const MOOD_FACE: Record<string, string> = {
+  tense: "tense, alert, on-edge faces", dramatic: "intense, determined faces",
+  dark: "fearful, wary faces", sad: "sorrowful, downcast faces",
+  mysterious: "cautious, watchful faces", scary: "frightened faces",
+  heroic: "fierce, resolute faces", angry: "angry, hardened faces",
+  suspense: "anxious, focused faces",
+};
+
 export async function POST(req: NextRequest) {
   // Closure-scoped collector for unresolved character IDs (soft-skip).
   // Surfaced in the response's `warning` field so caller can show a non-blocking toast.
@@ -275,11 +285,29 @@ export async function POST(req: NextRequest) {
     if (mood) promptParts.push(`${mood} mood`);
     if (cameraFraming) promptParts.push(cameraFraming);
 
-    // ── F3: Anti-portrait directive (only for realistic-family styles) ──
     const isRealisticFamily = styleId === "realistic" || styleId === "nollywood" || styleId === "3d-cinematic";
-    if (isRealisticFamily) {
+    // ── Anti-portrait / pro-action directive — ALL styles (Henry 2026-06-13) ──
+    // Was realistic-only, which left comic/cartoon/anime/storybook with NO anti-pose
+    // guard — exactly the styles that default hardest to static hero poses + smiles.
+    // Henry's comic project rendered every scene as kids standing/smiling because
+    // this (and the anti-portrait negative below) never fired. Now every style gets it.
+    // Realistic family keeps its photo-specific wording; drawn styles get a phrasing
+    // that still allows their art convention but forbids the lineup/portrait pose.
+    // Henry 2026-06-13 (children-safe): SKIP the action/anti-pose push for teaching
+    // scenes — children ABC/word/counting frames must show a CLEAR, calm object
+    // ("A is for Apple"), not a dynamic action panel. The caller signals this with
+    // isStillScene:true (establishing/portrait shots) or wordOverlay:true (teaching
+    // word burned in). Storybook/story children scenes still get the action push.
+    const skipActionPush = body.isStillScene === true || enableWordOverlay === true;
+    if (skipActionPush) {
+      // no action/anti-pose directive — keep the composition clean and object-clear
+    } else if (isRealisticFamily) {
       promptParts.push(
         "cinematic scene shot, environmental composition, background fully visible, characters integrated into location, action moment with the environment, NOT a portrait, NOT a character reference sheet, NOT a character lineup",
+      );
+    } else {
+      promptParts.push(
+        "dynamic action panel, characters mid-motion inside the full environment, captured at the peak of the action, NOT a portrait, NOT a character lineup, NOT characters standing in a row facing the viewer, NOT a posed cover shot",
       );
     }
 
@@ -545,8 +573,13 @@ export async function POST(req: NextRequest) {
     // moment, not a headshot. Same anchor Free Mode uses post-PR #56.
     // Caller can opt OUT by setting body.isStillScene === true (for explicit
     // portrait/establishing shots).
-    if (body.isStillScene !== true) {
-      promptParts.push("Cinematic film still, movie frame, scene captured mid-action, characters in motion expressing emotion, NOT a posed portrait, NOT a studio shot, NOT smiling at camera, dynamic composition");
+    if (!skipActionPush) {
+      // Henry 2026-06-13: dropped the words "film still / movie frame / at camera /
+      // studio shot" — those NOUNS prime the model to draw a literal film camera +
+      // cameraman in the scene ("when u say camera, AI generates a man holding a
+      // camera"). Same anti-pose intent, phrased as an in-world candid moment with
+      // no equipment vocabulary.
+      promptParts.push("captured mid-action as a candid in-world moment, characters in motion expressing real emotion, NOT a posed portrait, NOT smiling for a photo, dynamic asymmetric composition");
     }
 
     // ── EXPRESSION LOCK (Henry 2026-06-11, storyboard action frames) ──
@@ -557,6 +590,15 @@ export async function POST(req: NextRequest) {
       : "";
     if (frameExpressionStr) {
       promptParts.push(`Expression lock: every visible face shows ${frameExpressionStr} — the emotion of this exact instant, NOT a default smile.`);
+    } else if (!isActionFrame && !skipActionPush && mood) {
+      // Henry 2026-06-13: normal scenes (not just Gen Max frames) now tie the FACE
+      // to the scene's mood. Tense/scared/angry/sad scenes were rendering smiling
+      // kids because nothing connected mood→expression on the standard gen path.
+      const m = String(mood).toLowerCase();
+      const faceCue = MOOD_FACE[m];
+      if (faceCue) {
+        promptParts.push(`Faces match the ${m} mood: ${faceCue} — NOT smiling, NOT a cheerful default expression.`);
+      }
     }
 
     // ── GLOBAL CHILD ANCHOR (Henry 2026-06-08 round 2) ──
@@ -589,13 +631,13 @@ export async function POST(req: NextRequest) {
     const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
     const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
 
-    // F3: Anti-portrait negative — fires only for realistic-family styles where the
-    // model otherwise defaults to character-reference-sheet compositions (3 people
-    // standing in a row, plain backdrop). Skip for cartoon/storybook where simpler
-    // compositions are sometimes correct.
+    // Anti-portrait negative — Henry 2026-06-13: now ALL styles (was realistic-only).
+    // The photo-specific words (studio lighting, mugshot, headshot) only make sense
+    // for realistic; drawn styles get the composition half (lineup/standing-in-a-row/
+    // posed) which is what made comic scenes look like static character sheets.
     const antiPortraitNegative = isRealisticFamily
       ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row, models posing for camera, fashion shoot composition, all characters facing camera, group photo composition, static standing still, hands at sides motionless"
-      : "";
+      : ", character reference sheet, character lineup, characters standing in a row, posed standing, neutral pose, all characters facing the viewer, group photo composition, static standing still, hands at sides motionless, cover pose";
 
     // Nudity / shirtless negative — fires unless the scene explicitly calls for it (beach,
     // shower, swim, etc.). Stops the model defaulting to shirtless fitness-style portraits,
@@ -617,10 +659,14 @@ export async function POST(req: NextRequest) {
     // frame" language was making the model render a LITERAL film camera + cameraman in the
     // scene (Henry's workshop render had a camera operator between the two characters).
     // Suppress film-set equipment unless the scene is actually about filming. (2026-05-28)
-    const sceneIsFilmmaking = /\b(film(ing|maker)?|movie set|on set|film set|camera crew|cinematographer|director(ing)?|shoot(ing)? a (movie|film|video|scene)|recording a video|video shoot|photo ?shoot|behind the scenes)\b/i.test(sceneText || "");
+    // Henry 2026-06-13: only exempt when the scene is EXPLICITLY about a film/video
+    // shoot (the camera is the subject). Narrowed the trigger — words like "director"
+    // or generic "shooting" were wrongly exempting normal scenes and letting a
+    // cameraman through. Default = always block film equipment.
+    const sceneIsFilmmaking = /\b(movie set|on a film set|film set|camera crew|cinematographer|behind the scenes|shooting a (movie|film|video)|video shoot|photo ?shoot)\b/i.test(sceneText || "");
     const filmCrewNegative = sceneIsFilmmaking
       ? ""
-      : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame";
+      : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame, dslr, tripod";
 
     // Anti-fantasy guard — block angel/fairy wings, halos, divine glow, mythical beings in
     // non-fantasy stories so ambiguous words ("plane wings", "soar", "masterpiece glows")
@@ -633,8 +679,9 @@ export async function POST(req: NextRequest) {
     // images were the default. Henry: "image are all pos and smiling not not action".
     // Flip: anti-static fires UNLESS the caller explicitly says isStillScene=true
     // (e.g. portrait/establishing-shot scenes). All other scenes get action push.
-    const isStillScene = body.isStillScene === true;
-    const antiStaticNegative = isStillScene
+    // Henry 2026-06-13: also skip on teaching/word scenes (skipActionPush) so a
+    // calm "A is for Apple" frame isn't fighting an anti-static negative.
+    const antiStaticNegative = skipActionPush
       ? ""
       : ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless";
     // Expression negative (Henry 2026-06-11): when an action frame declares a non-happy

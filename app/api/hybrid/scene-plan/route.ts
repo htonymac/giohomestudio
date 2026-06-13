@@ -72,21 +72,22 @@ Rules:
   * audio-bridge: sound/narration only, no visual (time jumps, transitions)
   * hybrid: mix of still and motion within the scene
 - Use the character IDs from the list above in characterIds
-- description must be a vivid, visual sentence describing exactly what is seen in this scene (AI uses this directly for image generation)
-- CRITICAL CHARACTER RULE: Every scene description MUST explicitly name the character AND state their age, gender, and skin tone. Example: "Baba Sule, a 45-year-old Nigerian man with dark skin and grey hair, stands in a rural compound wearing traditional attire." Never write "a man" or "he" — always use the character's name and physical identity.
+- description must be an ACTION-FIRST visual sentence describing what is HAPPENING in this scene (AI uses this directly for image generation)
+- CRITICAL ACTION RULE (Henry 2026-06-13): every description MUST be built around a specific PHYSICAL ACTION VERB — running, leaping, lunging, ducking, swinging, grabbing, blocking, falling, hurling, dodging, climbing, reaching. NEVER write "stands", "stands firm", "looks at", "scanning", "gathers", "poses", or any static/idle phrasing. Capture the character MID-MOTION at the most dramatic instant of the beat. A fight scene shows a strike landing; a chase shows legs mid-stride and the pursuer closing; a discovery shows the body recoiling in shock. Show reaction and emotion through the body, not a calm pose.
+- CRITICAL CHARACTER RULE: name the character by their EXACT name (so the image engine can resolve them) — but DO NOT write out their age, skin tone, or hair in the description. Those come from the character database automatically and are injected separately; repeating them here only crowds out the action and leaks into narration. Write "Bryan vaults the fallen log, fists clenched" — NOT "Bryan, a ten-year-old boy with warm brown skin and dark hair, stands by a log." Never write a bare "a man" or "he" — always the name.
 - If cost preference is "efficient", prefer image-led. If "premium", use more video-led.
 - CRITICAL: Use the EXACT character names from the CHARACTERS list above in your scene descriptions and titles. Never rename characters or refer to them as "the villain" or "the hero" when a name is given.
 - CRITICAL: Do NOT combine characters who are separate individuals into a group. If "Vex" is one character and "Bryan" is another, they appear separately unless the story says they're together.
 - Scene titles must name a specific story event (e.g. "Vex Breaks Into the System", "Bryan's Last Stand"), not generic labels (e.g. "Scene 3", "The Confrontation").
 - Scenes must follow the story's actual narrative order — do not invent new plot beats or skip major story events.
-- Scene descriptions must describe what is SEEN visually — use character names, their physical appearance, and culturally authentic locations from the story.
+- Scene descriptions describe the ACTION + the environment + the emotion — use character names and culturally authentic locations from the story. Lead with the verb, not the appearance.
 
 Return ONLY a valid JSON array, no markdown:
 [
   {
     "sceneId": "SC01",
     "title": "Short scene title",
-    "description": "Vivid visual description of what is seen in this scene — used directly for image generation",
+    "description": "ACTION-FIRST visual description — what the character is DOING mid-motion (e.g. 'Bryan sprints between the trees, swinging a glowing branch at the lunging monster'). Name the character; never their age/skin/hair; never 'stands' or 'looks at'.",
     "location": "Where the scene takes place",
     "timeOfDay": "morning|afternoon|evening|night|dawn|dusk",
     "mood": "tense|calm|joyful|sad|mysterious|dramatic|hopeful|dark|comedic",
