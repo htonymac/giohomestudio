@@ -226,6 +226,71 @@ function normalizeImageUrl(url: string | null | undefined): string {
   return `/api/media/${cleaned}`;
 }
 
+// Henry 2026-06-13: narration play button WITH a synced subtitle strip, so the
+// user can TEST narration + subtitle together before assembly. When Edge word
+// timings are present the current word highlights in time with the voice; with
+// no timings (Piper) it shows the line statically as a caption preview.
+function NarrationPreview({ audioUrl, wordTimings, text, height = 36 }: {
+  audioUrl: string;
+  wordTimings: Array<{ word: string; startMs: number; endMs: number }> | null;
+  text: string;
+  height?: number;
+}) {
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const hasTimings = Array.isArray(wordTimings) && wordTimings.length > 0;
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el || !hasTimings) return;
+    const onTime = () => {
+      const ms = el.currentTime * 1000;
+      // linear scan is fine — narration word counts are small (hundreds)
+      let idx = -1;
+      for (let i = 0; i < wordTimings!.length; i++) {
+        if (ms >= wordTimings![i].startMs && ms < wordTimings![i].endMs) { idx = i; break; }
+        if (ms >= wordTimings![i].startMs) idx = i; // past the start — keep last spoken
+      }
+      setActiveIdx(idx);
+    };
+    el.addEventListener("timeupdate", onTime);
+    el.addEventListener("seeked", onTime);
+    return () => { el.removeEventListener("timeupdate", onTime); el.removeEventListener("seeked", onTime); };
+  }, [hasTimings, wordTimings]);
+
+  return (
+    <div>
+      <audio ref={audioRef} controls src={audioUrl} style={{ width: "100%", height }} />
+      {(hasTimings || text) && (
+        <div style={{
+          marginTop: 6, padding: "8px 12px", borderRadius: 8,
+          background: "rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.08)",
+          fontSize: 13, lineHeight: 1.5, color: "#cbd5e1", maxHeight: 90, overflowY: "auto",
+        }}>
+          {hasTimings ? (
+            <span>
+              {wordTimings!.map((w, i) => (
+                <span key={i} style={{
+                  color: i === activeIdx ? "#000" : "#cbd5e1",
+                  background: i === activeIdx ? "#fbbf24" : "transparent",
+                  borderRadius: 3, padding: i === activeIdx ? "1px 3px" : 0, transition: "background 80ms",
+                }}>{w.word}{" "}</span>
+              ))}
+            </span>
+          ) : (
+            <span style={{ fontStyle: "italic" }}>
+              {text}
+              <span style={{ display: "block", marginTop: 4, fontSize: 9, color: "#94a3b8" }}>
+                (static preview — Edge voice gives word-by-word highlight; this voice has no word timing)
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function HybridPlannerPage() {
   return <Suspense fallback={<div style={{ padding: 40, color: "#5a7080" }}>Loading workshop...</div>}><HybridPlannerInner /></Suspense>;
 }
@@ -667,6 +732,11 @@ function HybridPlannerInner() {
   const [generatingNarration, setGeneratingNarration] = useState(false);
   const [narratorAudioUrl, setNarratorAudioUrl] = useState<string | null>(null);
   const [narratorAudioDuration, setNarratorAudioDuration] = useState<number>(0);
+  // Henry 2026-06-13: keep Edge's real word-level timestamps (was dropped) so the
+  // narration play button can show the subtitle highlighting IN SYNC with the voice
+  // — lets the user test narration+subtitle together before assembly.
+  const [narratorWordTimings, setNarratorWordTimings] = useState<Array<{ word: string; startMs: number; endMs: number }> | null>(null);
+  const [narratorSubText, setNarratorSubText] = useState<string>("");
   const [piperNotInstalled, setPiperNotInstalled] = useState(false);
   const [piperDownloading, setPiperDownloading] = useState(false);
   // ── Voice Layers — multi-part narrator voice stacking ────────────────────
@@ -3619,6 +3689,9 @@ function HybridPlannerInner() {
         const data = await res.json();
         if (data.audioUrl) {
           setNarratorAudioUrl(data.audioUrl);
+          // Keep word timings + the spoken text for the in-sync subtitle preview.
+          setNarratorWordTimings(Array.isArray(data.pacingEntries) && data.pacingEntries.length > 0 ? data.pacingEntries : null);
+          setNarratorSubText(narrationText);
           setLastAction(`Narrator audio ready via ${data.engine || narratorVoice}`);
           // Measure duration so assembly clock is correct (these providers don't return durationMs)
           try {
@@ -3662,6 +3735,10 @@ function HybridPlannerInner() {
       } else if (data.ok && data.audioUrl) {
         setNarratorAudioUrl(data.audioUrl);
         setNarratorAudioDuration(data.durationMs || 0);
+        // Piper path: store word timings if the endpoint returned them, else null
+        // (the subtitle strip then shows the line statically instead of highlighting).
+        setNarratorWordTimings(Array.isArray(data.pacingEntries) && data.pacingEntries.length > 0 ? data.pacingEntries : null);
+        setNarratorSubText(narrationText);
         setLastAction(`Narrator audio ready — ${Math.round((data.durationMs || 0) / 1000)}s`);
       } else {
         setUiError(data.error || "Piper narration failed");
@@ -11062,7 +11139,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <p style={{ fontSize: 9, color: muted, marginBottom: 6, textTransform: "uppercase" as const, letterSpacing: 1 }}>
                         Narrator Audio {narratorAudioDuration > 0 && `— ${Math.round(narratorAudioDuration / 1000)}s`}
                       </p>
-                      <audio controls src={narratorAudioUrl} style={{ width: "100%", height: 36 }} />
+                      <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={36} />
                     </div>
                   )}
                 </div>
@@ -12586,7 +12663,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div>
                   <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Narration</p>
                   {narratorAudioUrl
-                    ? <audio controls src={narratorAudioUrl} style={{ width: "100%", height: 32 }} />
+                    ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={32} />
                     : <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Not generated yet</p>}
                   <button onClick={generateNarrationPiper} disabled={generatingNarration || !(fullScript || expandedSummary || idea)}
                     style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6 }}>
@@ -13017,7 +13094,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       </div>
                       {stepBtn(generatingNarration ? "Generating..." : done5 ? "Regenerate" : "Generate Narrator", generateNarrationPiper, generatingNarration || !done1, accent)}
                     </div>
-                    {done5 && <audio controls src={narratorAudioUrl!} style={{ width: "100%", height: 36 }} />}
+                    {done5 && <NarrationPreview audioUrl={narratorAudioUrl!} wordTimings={narratorWordTimings} text={narratorSubText} height={36} />}
                     {done5 && <p style={{ fontSize: 10, color: "#22c55e", marginTop: 8 }}>Narrator ready — move to Step 6</p>}
                   </div>
                 )}
