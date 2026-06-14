@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 // ── Shared SubtitleConfig type ────────────────────────────────────────────────
 // Exported so children-planner, movie-planner, and assemble route can share it.
@@ -63,7 +64,9 @@ const FONTS: Array<{ id: SubtitleConfig["fontFamily"]; label: string; css: strin
 
 const ANIMATIONS: SubtitleConfig["animation"][] = ["none", "fade", "pop", "bounce", "slide", "karaoke", "dance"];
 
-// ── Dance animation keyframes injected once ──────────────────────────────────
+// ── Subtitle preview animation keyframes injected once (Henry 2026-06-13) ──────
+// Each picker mode previews its REAL effect so styles are visibly distinct
+// ("not effective" → now every mode demos itself; dance actually dances).
 const DANCE_STYLE = `
 @keyframes ghs-dance-word {
   0%,100% { transform: translateY(0) rotate(0deg) scale(1); }
@@ -71,6 +74,31 @@ const DANCE_STYLE = `
   40%      { transform: translateY(2px) rotate(3deg) scale(0.95); }
   60%      { transform: translateY(-4px) rotate(-2deg) scale(1.08); }
   80%      { transform: translateY(1px) rotate(2deg) scale(0.97); }
+}
+@keyframes ghs-bubble-pop {
+  0%   { transform: scale(0.2); opacity: 0; }
+  60%  { transform: scale(1.18); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes ghs-rainbow-cycle {
+  0%   { color: #ff3b3b; } 17% { color: #ff9f1c; } 34% { color: #ffe600; }
+  50%  { color: #2ecc71; } 67% { color: #00b4d8; } 84% { color: #b15cff; } 100% { color: #ff3b3b; }
+}
+@keyframes ghs-glow-pulse {
+  0%,100% { text-shadow: 0 0 4px currentColor, 0 0 8px currentColor; }
+  50%     { text-shadow: 0 0 10px currentColor, 0 0 22px currentColor; }
+}
+@keyframes ghs-mrbeast-pop {
+  0%,100% { transform: scale(1); }
+  50%     { transform: scale(1.22); }
+}
+@keyframes ghs-sweep-word {
+  0%,100% { background-size: 0% 100%; }
+  50%     { background-size: 100% 100%; }
+}
+@keyframes ghs-type-reveal {
+  0%, 10% { opacity: 0; transform: translateY(2px); }
+  20%,100% { opacity: 1; transform: translateY(0); }
 }
 `;
 let danceStyleInjected = false;
@@ -83,35 +111,106 @@ function injectDanceStyle() {
 }
 
 // ── Mini preview component ───────────────────────────────────────────────────
+// Henry 2026-06-13: every mode previews its REAL effect (animated), keyed off
+// cfg.MODE (not cfg.animation), mirroring the ASS render so the picker shows
+// exactly what the video will do.
 function MiniPreview({ cfg }: { cfg: SubtitleConfig }) {
   const fontEntry = FONTS.find(f => f.id === cfg.fontFamily)!;
   const bgAlpha = `rgba(0,0,0,${cfg.bgOpacity})`;
-  const isKids = cfg.mode === "kids";
-  const isDramatic = cfg.mode === "dramatic";
-  const isHighlight = cfg.mode === "highlight";
-  const isDance = cfg.animation === "dance";
+  injectDanceStyle(); // injects all preview keyframes (once)
 
-  if (isDance) injectDanceStyle();
-
+  const mode = cfg.mode;
+  const isKids = mode === "kids";
+  const isDramatic = mode === "dramatic";
   const sampleText = isKids ? "🎵 La la la, here we go!" : isDramatic ? "A HERO IS BORN" : "The story begins here today.";
   const words = sampleText.split(" ");
+  const baseFont = fontEntry.css;
+
+  // Per-word animated renderer used by several modes
+  const wordRow = (renderWord: (w: string, i: number) => CSSProperties, gap = 3) => (
+    <span style={{ display: "inline-flex", gap, flexWrap: "wrap" as const, justifyContent: "center" }}>
+      {words.map((w, i) => (
+        <span key={i} style={{ fontFamily: baseFont, fontSize: 11, fontWeight: 800, display: "inline-block", ...renderWord(w, i) }}>{w}</span>
+      ))}
+    </span>
+  );
+
+  let content: ReactNode;
+  if (mode === "dance_word" || mode === "social" || cfg.animation === "dance") {
+    // bouncing words, staggered — actually dancing
+    content = wordRow((_w, i) => ({
+      color: i % 2 === 0 ? cfg.textColor : cfg.highlightColor,
+      animation: "ghs-dance-word 0.7s ease-in-out infinite",
+      animationDelay: `${i * 0.12}s`,
+      textShadow: `0 0 6px ${cfg.highlightColor}80`,
+    }));
+  } else if (mode === "rainbow") {
+    content = wordRow((_w, i) => ({
+      animation: "ghs-rainbow-cycle 2.4s linear infinite",
+      animationDelay: `${i * 0.2}s`,
+      WebkitTextStroke: "0.4px rgba(0,0,0,0.6)",
+    }));
+  } else if (mode === "bubble_pop" || isKids) {
+    content = wordRow((_w, i) => ({
+      color: isKids ? cfg.highlightColor : cfg.textColor,
+      animation: "ghs-bubble-pop 1.8s ease-in-out infinite",
+      animationDelay: `${i * 0.18}s`,
+      textShadow: "0 0 8px rgba(0,0,0,0.8)",
+    }));
+  } else if (mode === "mrbeast_single") {
+    content = (
+      <span style={{ fontFamily: "Impact, sans-serif", fontSize: 22, fontWeight: 900, color: cfg.textColor,
+        WebkitTextStroke: "1px #000", animation: "ghs-mrbeast-pop 0.9s ease-in-out infinite", display: "inline-block" }}>
+        STORY
+      </span>
+    );
+  } else if (mode === "glow_pop" || mode === "dramatic") {
+    content = (
+      <span style={{ fontFamily: baseFont, fontSize: isDramatic ? 10 : 12, fontWeight: isDramatic ? 400 : 800,
+        letterSpacing: isDramatic ? 4 : 0.5, textTransform: isDramatic ? "uppercase" as const : "none",
+        color: mode === "glow_pop" ? (cfg.highlightColor || "#22d3ee") : cfg.textColor,
+        animation: "ghs-glow-pulse 1.6s ease-in-out infinite", display: "inline-block" }}>
+        {sampleText}
+      </span>
+    );
+  } else if (mode === "highlight" || mode === "yellow_sweep") {
+    // sweep/highlight the current word, cycling
+    content = wordRow((_w, i) => ({
+      color: "#000",
+      background: cfg.highlightColor,
+      borderRadius: 2,
+      padding: "0 2px",
+      animation: "ghs-sweep-word 2.1s ease-in-out infinite",
+      animationDelay: `${i * 0.25}s`,
+    }));
+  } else if (mode === "typewriter") {
+    content = wordRow((_w, i) => ({
+      fontFamily: "'Courier New', monospace",
+      color: cfg.textColor,
+      animation: "ghs-type-reveal 2.2s steps(1) infinite",
+      animationDelay: `${i * 0.3}s`,
+    }));
+  } else if (mode === "big_friendly") {
+    content = (
+      <span style={{ fontFamily: "'Arial Black', sans-serif", fontSize: 14, fontWeight: 900, color: cfg.textColor,
+        WebkitTextStroke: `2px ${cfg.highlightColor || "#fbbf24"}` }}>
+        {sampleText}
+      </span>
+    );
+  } else {
+    // dialogue / default — clean
+    content = <span style={{ fontFamily: baseFont, fontSize: 11, color: cfg.textColor, fontWeight: 700 }}>{sampleText}</span>;
+  }
 
   return (
     <div style={{
-      position: "relative",
-      width: "100%",
-      height: 80,
+      position: "relative", width: "100%", height: 80,
       background: "linear-gradient(135deg, #1a1a2e, #16213e)",
-      borderRadius: 8,
-      overflow: "hidden",
-      border: "1px solid rgba(255,255,255,0.1)",
+      borderRadius: 8, overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)",
     }}>
-      {/* Fake video frame content */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0d1b3e 0%, #1a0a3a 50%, #0d2412 100%)", opacity: 0.8 }} />
-      {/* Subtitle bar */}
       <div style={{
-        position: "absolute",
-        left: 0, right: 0,
+        position: "absolute", left: 0, right: 0,
         ...(cfg.position === "bottom" ? { bottom: 4 } : cfg.position === "top" ? { top: 4 } : { top: "50%", transform: "translateY(-50%)" }),
         padding: "4px 10px",
         background: cfg.bgBox ? bgAlpha : "transparent",
@@ -119,40 +218,7 @@ function MiniPreview({ cfg }: { cfg: SubtitleConfig }) {
         borderRadius: isKids ? 12 : isDramatic ? 0 : 4,
         border: isKids ? "2px solid rgba(255,255,255,0.3)" : "none",
       }}>
-        {isDance ? (
-          <span style={{ display: "inline-flex", gap: 3, flexWrap: "wrap" as const, justifyContent: "center" }}>
-            {words.map((w, i) => (
-              <span key={i} style={{
-                fontFamily: fontEntry.css,
-                fontSize: 11,
-                fontWeight: 800,
-                color: i % 2 === 0 ? cfg.textColor : cfg.highlightColor,
-                display: "inline-block",
-                animation: `ghs-dance-word 0.6s ease-in-out infinite`,
-                animationDelay: `${i * 0.1}s`,
-                textShadow: `0 0 6px ${cfg.highlightColor}80`,
-              }}>{w}</span>
-            ))}
-          </span>
-        ) : isHighlight ? (
-          <span style={{ fontFamily: fontEntry.css, fontSize: 11, color: cfg.textColor, letterSpacing: 0.5 }}>
-            The{" "}
-            <span style={{ background: cfg.highlightColor, color: "#000", borderRadius: 2, padding: "0 2px", fontWeight: 700 }}>story</span>
-            {" "}begins here today.
-          </span>
-        ) : isKids ? (
-          <span style={{ fontFamily: "'Arial Rounded MT Bold', Arial, sans-serif", fontSize: 11, color: cfg.highlightColor, fontWeight: 800, textShadow: "0 0 8px rgba(0,0,0,0.9)", letterSpacing: 0.5 }}>
-            {sampleText}
-          </span>
-        ) : isDramatic ? (
-          <span style={{ fontFamily: fontEntry.css, fontSize: 10, color: cfg.textColor, fontWeight: 400, letterSpacing: 4, textTransform: "uppercase" as const }}>
-            {sampleText}
-          </span>
-        ) : (
-          <span style={{ fontFamily: fontEntry.css, fontSize: 11, color: cfg.textColor, fontWeight: cfg.mode === "social" ? 800 : 700 }}>
-            {cfg.mode === "social" ? <span style={{ textShadow: `0 0 8px ${cfg.highlightColor}` }}>{sampleText}</span> : sampleText}
-          </span>
-        )}
+        {content}
       </div>
     </div>
   );
