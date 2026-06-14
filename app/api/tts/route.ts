@@ -93,6 +93,11 @@ export async function POST(req: NextRequest) {
         const pythonBin = process.env.PYTHON_BIN || "python3";
         const wrapperPath = process.env.EDGE_TTS_WRAPPER
           || path.join(process.cwd(), "scripts", "edge_tts_word.py");
+        // Henry 2026-06-13: narration speed for Edge. `speed` is a multiplier
+        // (1.0 = normal). Edge wants a signed percent rate. Clamp to a safe band.
+        const spd = Math.max(0.5, Math.min(2, Number(speed) || 1));
+        const ratePct = Math.round((spd - 1) * 100);
+        const edgeRate = `${ratePct >= 0 ? "+" : ""}${ratePct}%`;
         await new Promise<void>((resolve, reject) => {
           const proc = spawn(pythonBin, [
             wrapperPath,
@@ -100,6 +105,7 @@ export async function POST(req: NextRequest) {
             "--text", speakText,
             "--out-audio", outFile,
             "--out-words", wordFile,
+            "--rate", edgeRate,
           ]);
           let stderr = "";
           proc.stderr?.on("data", c => { stderr += c.toString(); });

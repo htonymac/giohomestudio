@@ -24,10 +24,12 @@ import sys
 import edge_tts
 
 
-async def synthesize(voice: str, text: str, out_audio: str, out_words: str) -> int:
+async def synthesize(voice: str, text: str, out_audio: str, out_words: str, rate: str = "+0%") -> int:
     # edge-tts 7.x defaults to SentenceBoundary; explicit WordBoundary unlocks
     # per-word timing (which the engine internally knows). Fixed 2026-06-05.
-    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
+    # rate: speaking speed as a signed percent ("+20%" faster, "-15%" slower).
+    # Henry 2026-06-13: restore the narration speed control for Edge voices.
+    communicate = edge_tts.Communicate(text, voice, rate=rate, boundary="WordBoundary")
     words = []
     last_end_ms = 0
 
@@ -55,9 +57,10 @@ def main() -> int:
     ap.add_argument("--text", required=True)
     ap.add_argument("--out-audio", required=True)
     ap.add_argument("--out-words", required=True)
+    ap.add_argument("--rate", default="+0%")
     args = ap.parse_args()
     try:
-        return asyncio.run(synthesize(args.voice, args.text, args.out_audio, args.out_words))
+        return asyncio.run(synthesize(args.voice, args.text, args.out_audio, args.out_words, args.rate))
     except Exception as e:
         sys.stderr.write(f"edge_tts_word.py error: {e}\n")
         return 1
