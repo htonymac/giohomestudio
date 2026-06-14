@@ -496,7 +496,7 @@ export default function AssemblyTab(props: AssemblyTabProps) {
                   </button>
                 </div>
                 {narratorAudioUrl
-                  ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={28} />
+                  ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={28} subtitleMode={effectiveSubtitleConfig.mode} highlightColor={effectiveSubtitleConfig.highlightColor} />
                   : <p style={{ fontSize: 9, color: "#555", fontStyle: "italic" }}>Not generated yet</p>}
               </div>
               {/* Music */}

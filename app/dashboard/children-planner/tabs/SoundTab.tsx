@@ -26,6 +26,8 @@ export interface SoundTabProps {
   childAccent: string;
   childSafe: string;
   C4: string;
+  // Subtitle config — drives live styled subtitle on NarrationPreview
+  effectiveSubtitleConfig: import("../../../components/SubtitleStyler").SubtitleConfig;
   // Sound model
   SOUND_TIERS: ReadonlyArray<SoundTierEntry>;
   effectiveSoundTier: string;
@@ -78,6 +80,7 @@ export interface SoundTabProps {
 export default function SoundTab(props: SoundTabProps) {
   const {
     cardStyle, muted, childAccent, childSafe, C4,
+    effectiveSubtitleConfig,
     SOUND_TIERS, effectiveSoundTier, setSoundTier, setModelSettings, patchProjectSettings,
     scriptSegments, setActiveTab,
     voiceTierConfig, setVoiceTierConfig, userVoiceTier, getVoiceById, setNarrationProvider,
@@ -175,6 +178,8 @@ export default function SoundTab(props: SoundTabProps) {
               wordTimings={narratorWordTimings}
               text={narratorSubText}
               height={32}
+              subtitleMode={effectiveSubtitleConfig.mode}
+              highlightColor={effectiveSubtitleConfig.highlightColor}
             />
           </div>
         )}

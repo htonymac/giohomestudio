@@ -244,6 +244,9 @@ export interface SoundTabProps {
   setNarrationSettings: React.Dispatch<React.SetStateAction<Record<number, NarrationSettings>>>;
   setErrorMsg: React.Dispatch<React.SetStateAction<string | null>>;
 
+  // ── Subtitle config — drives live styled subtitle on NarrationPreview ──
+  effectiveSubtitleConfig: import("../../../components/SubtitleStyler").SubtitleConfig;
+
   // ── Style / color tokens (parent passes — keeps theme central). ──
   cardStyle: React.CSSProperties;
   inputStyle: React.CSSProperties;
@@ -299,6 +302,7 @@ export default function SoundTab(props: SoundTabProps) {
     polishingScene, handlePolishScene, handleSceneOp,
     narrationTexts, setNarrationTexts, narrationSettings, setNarrationSettings,
     setErrorMsg,
+    effectiveSubtitleConfig,
     cardStyle, inputStyle, btnPrimary, badgeStyle, methodColors,
     accent, blue, gold, purple, green, red, muted, border, s2,
   } = props;
@@ -1059,6 +1063,8 @@ export default function SoundTab(props: SoundTabProps) {
                   wordTimings={sceneNarrationWordTimings[scene.scene] ?? null}
                   text={scene.dialogue || ""}
                   height={28}
+                  subtitleMode={effectiveSubtitleConfig.mode}
+                  highlightColor={effectiveSubtitleConfig.highlightColor}
                 />
               </div>
             )}
