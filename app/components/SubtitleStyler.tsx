@@ -300,7 +300,12 @@ export default function SubtitleStyler({ value, onChange, accentColor = "#a78bfa
                     textAlign: "left" as const,
                   }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: value.mode === m.id ? accentColor : "#fff", margin: "0 0 2px" }}>{m.label}</p>
-                  <p style={{ fontSize: 8, color: muted, margin: 0 }}>{m.desc}</p>
+                  <p style={{ fontSize: 8, color: muted, margin: "0 0 6px" }}>{m.desc}</p>
+                  {/* Henry 2026-06-13: LIVE animated preview ON each card so you see
+                      every style move while choosing — not just the selected one. */}
+                  <div style={{ pointerEvents: "none" }}>
+                    <MiniPreview cfg={{ ...value, mode: m.id, animation: m.id === "dance_word" ? "dance" : value.animation }} />
+                  </div>
                 </button>
               ))}
             </div>
