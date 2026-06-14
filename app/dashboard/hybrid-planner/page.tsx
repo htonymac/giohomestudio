@@ -10289,6 +10289,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               style={{ ...btnPrimary, width: "100%", background: (!idea.trim() || expanding) ? "#2a2a40" : accent, cursor: (!idea.trim() || expanding) ? "not-allowed" : "pointer", marginTop: 8 }}>
               {expanding ? "AI is expanding your story..." : "Expand with AI Intelligence"}
             </button>
+
+            {/* ── Subtitle Style — pick once here, used everywhere (Assembly + video render) ── */}
+            <div style={{ marginTop: 16, borderTop: `1px solid ${border}`, paddingTop: 14 }}>
+              <p style={{ fontSize: 9, color: accent, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8 }}>Subtitle Style</p>
+              <SubtitleStyler value={effectiveSubtitleConfig} onChange={newCfg => {
+                setSubtitleConfig(newCfg);
+                if (newCfg.mode === "none") setSubtitleStyle("none");
+                else if (subtitleStyle === "none") setSubtitleStyle("classic");
+                patchProjectSettings({ subtitleMode: newCfg.mode, subtitleHighlight: newCfg.highlightColor, subtitleEnabled: newCfg.mode !== "none" }).catch(() => {});
+              }} accentColor={accent} />
+            </div>
           </div>
 
           {/* ── Story Review — shown after AI expansion ── */}
@@ -11135,7 +11146,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <p style={{ fontSize: 9, color: muted, marginBottom: 6, textTransform: "uppercase" as const, letterSpacing: 1 }}>
                         Narrator Audio {narratorAudioDuration > 0 && `— ${Math.round(narratorAudioDuration / 1000)}s`}
                       </p>
-                      <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={36} />
+                      <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={36} subtitleMode={effectiveSubtitleConfig?.mode ?? subtitleConfig.mode} highlightColor={subtitleConfig.highlightColor} />
                     </div>
                   )}
                 </div>
@@ -12672,7 +12683,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div>
                   <p style={{ fontSize: 10, color: muted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Narration</p>
                   {narratorAudioUrl
-                    ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={32} />
+                    ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={32} subtitleMode={effectiveSubtitleConfig?.mode ?? subtitleConfig.mode} highlightColor={subtitleConfig.highlightColor} />
                     : <p style={{ fontSize: 11, color: muted, marginBottom: 8 }}>Not generated yet</p>}
                   <button onClick={generateNarrationPiper} disabled={generatingNarration || !(fullScript || expandedSummary || idea)}
                     style={{ padding: "6px 14px", borderRadius: 8, border: "none", background: accent, color: "#fff", fontSize: 11, fontWeight: 700, cursor: "pointer", marginTop: 6 }}>
