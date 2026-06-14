@@ -105,7 +105,10 @@ export async function POST(req: NextRequest) {
             "--text", speakText,
             "--out-audio", outFile,
             "--out-words", wordFile,
-            "--rate", edgeRate,
+            // Henry 2026-06-14: MUST be `--rate=VALUE` joined. A negative rate from
+            // slow speeds ("-40%") passed as two args makes argparse read "-40%" as a
+            // flag → edge fails → Piper fallback → word-highlight lost (the 0.60× bug).
+            `--rate=${edgeRate}`,
           ]);
           let stderr = "";
           proc.stderr?.on("data", c => { stderr += c.toString(); });
