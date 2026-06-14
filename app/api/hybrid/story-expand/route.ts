@@ -418,6 +418,8 @@ Build approximately ${targetSceneCount} scenes across:
 Return ONLY this JSON — no explanation, no markdown fences:
 {
   "movieTitle": "A short evocative cinematic title — 2 to 6 words, no punctuation at the end. Examples: 'The Snake Hunter', 'Last Day at Lagos', 'Karate Brothers', 'Whispers of the Forest', 'Riverbend Rebellion'. Capture the SPECIFIC emotional/dramatic core of THIS story, not a generic phrase. NEVER return placeholders like 'Untitled', 'My Story', or just the protagonist's name.",
+  "inferredEra": "REQUIRED — the historical era / time period this story takes place in, inferred from its content (props, clothing cues, technology, names, setting). Be specific: 'Viking Age (~900 AD)', '18th century', '1990s', 'Contemporary 2024', 'Ancient Egypt', 'Medieval Europe', 'Feudal Japan', 'Wild West 1870s'. Vikings/longboats/axes → 'Viking Age (~900 AD)'. Default to 'Contemporary' ONLY if the story is clearly present-day. NEVER leave blank.",
+  "inferredCulture": "REQUIRED — the cultural / regional setting inferred from the story: 'Norse / Scandinavian', 'Victorian England', 'Yoruba Kingdom', 'Contemporary Lagos', 'Edo Japan', 'American Frontier', etc. NEVER leave blank.",
   "summary": "2-3 sentences summarising the complete story using all character names",
   "tone": "e.g. heartfelt adventure / warm comedy / dark thriller / whimsical family",
   "pacingDirection": "describe how pace builds across the story",

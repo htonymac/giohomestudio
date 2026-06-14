@@ -1332,8 +1332,24 @@ function HybridPlannerInner() {
       if (aiTitle && !userEditedTitle) {
         setProjectTitle(aiTitle);
       }
+
+      // Henry 2026-06-14: the app sets the PERIOD itself. If the user left Era/
+      // Culture blank, take the AI-inferred values so the era/culture lock fires
+      // (period-accurate clothing/props, modern items blocked) — no more 21st-
+      // century clothes on an 18th-century / Viking story. Compute LOCAL effective
+      // values too, because setState won't update this run's scene-plan call.
+      const inferredEra = typeof expandedObj.inferredEra === "string" ? expandedObj.inferredEra.trim() : "";
+      const inferredCulture = typeof expandedObj.inferredCulture === "string" ? expandedObj.inferredCulture.trim() : "";
+      const effEra = (storyEra && storyEra.trim()) || inferredEra;
+      const effCulture = (storyCulture && storyCulture.trim()) || inferredCulture;
+      if (!storyEra?.trim() && inferredEra) setStoryEra(inferredEra);
+      if (!storyCulture?.trim() && inferredCulture) setStoryCulture(inferredCulture);
+      if (inferredEra || inferredCulture) {
+        console.log(`[expand] auto-period: era="${effEra}" culture="${effCulture}" (inferred=${!storyEra?.trim()})`);
+      }
+
       setProjectPhase("EXPANDED");
-      setLastAction("Story expanded — extracting characters...");
+      setLastAction(`Story expanded${effEra ? ` · era: ${effEra}` : ""} — extracting characters...`);
 
       // ── STEP 2: Character Extraction ─────────────────────────────────────────
       // API expects { expandedStory: object } — NOT { story: string }
@@ -1343,9 +1359,9 @@ function HybridPlannerInner() {
         body: JSON.stringify({
           expandedStory: expandedObj,       // ← pass the full object, not a string
           projectId: projectId || undefined,
-          // Henry 2026-06-12: planner Region/Culture beats diversity rotation —
-          // Nigerian story → Nigerian cast, not by-index Latina/Caucasian spread.
-          storyCulture: storyCulture || REGION_TO_CULTURE[storyRegion] || undefined,
+          // Henry 2026-06-12/14: planner Region/Culture (or AI-inferred) beats
+          // diversity rotation — Nigerian story → Nigerian cast, etc.
+          storyCulture: effCulture || REGION_TO_CULTURE[storyRegion] || undefined,
         }),
       });
       const charData = await charRes.json();
@@ -1463,8 +1479,10 @@ function HybridPlannerInner() {
         })),
         genre: genre || undefined,
         tone: tone || undefined,
-        storyEra: storyEra || undefined,
-        storyCulture: (storyCulture || REGION_TO_CULTURE[storyRegion] || undefined),
+        // Henry 2026-06-14: use AI-inferred era/culture so scene-plan + the image
+        // era-lock are period-accurate even when the user set nothing.
+        storyEra: effEra || undefined,
+        storyCulture: (effCulture || REGION_TO_CULTURE[storyRegion] || undefined),
         costPreference,
         targetDuration,
         projectId: projectId || undefined,
