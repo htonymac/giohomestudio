@@ -11067,6 +11067,15 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           </button>
                         ))}
                       </div>
+                      {/* Henry 2026-06-13: narration SPEED bar restored — works for Edge
+                          (mapped to edge rate%). 1.0 = normal; slower ← → faster. */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <span style={{ fontSize: 9, color: muted, minWidth: 42 }}>Speed</span>
+                        <input type="range" min={0.5} max={2} step={0.05} value={narratorPiperSpeed}
+                          onChange={e => setNarratorPiperSpeed(Number(e.target.value))}
+                          style={{ flex: 1, accentColor: "#34d399" }} />
+                        <span style={{ fontSize: 10, color: "#34d399", fontWeight: 700, minWidth: 34, textAlign: "right" }}>{narratorPiperSpeed.toFixed(2)}×</span>
+                      </div>
                       <button onClick={generateNarrationPiper} disabled={generatingNarration}
                         style={{ padding: "8px 18px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: generatingNarration ? "not-allowed" : "pointer",
                           background: generatingNarration ? "#2a2a40" : "#34d399", color: "#000" }}>
