@@ -747,16 +747,57 @@ function HybridPlannerInner() {
   // Each layer has its own provider + voiceId. Layer 1 = primary narrator.
   // Layers 2+ are secondary (mixing deferred to S14 assembly endpoint wiring).
   interface VoiceLayer { layer: number; providerId: "piper" | "edge-tts" | "fal-narrator" | "fal-narrator-gemini" | "elevenlabs" | "karaoke" | "kie-suno"; voiceId: string; }
-  const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
+  // Henry 2026-06-13: Edge is the DEFAULT engine for voice layers too (was Piper
+  // lessac). The layer's voiceId must match its engine — a Piper id under an Edge
+  // provider just falls back to Piper. defaultVoiceForProvider keeps them in sync.
+  function defaultVoiceForProvider(p: VoiceLayer["providerId"]): string {
+    switch (p) {
+      case "edge-tts": return "en-NG-EzinneNeural";
+      case "fal-narrator":
+      case "fal-narrator-gemini": return "af_sky";
+      case "piper": return "en_US-lessac-medium";
+      default: return "";
+    }
+  }
+  const [voiceLayers, setVoiceLayers] = useState<VoiceLayer[]>([{ layer: 1, providerId: "edge-tts", voiceId: "en-NG-EzinneNeural" }]);
   function addVoiceLayer() {
-    setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "piper", voiceId: "en_US-lessac-medium" }]);
+    setVoiceLayers(prev => [...prev, { layer: prev.length + 1, providerId: "edge-tts", voiceId: "en-NG-EzinneNeural" }]);
   }
   function updateVoiceLayer(layer: number, updates: Partial<VoiceLayer>) {
-    setVoiceLayers(prev => prev.map(l => l.layer === layer ? { ...l, ...updates } : l));
+    setVoiceLayers(prev => prev.map(l => {
+      if (l.layer !== layer) return l;
+      const merged = { ...l, ...updates };
+      // When the engine changes, snap the voiceId to that engine's default so an
+      // Edge layer never keeps a Piper voice id (the exact bug Henry hit).
+      if (updates.providerId && updates.providerId !== l.providerId && updates.voiceId === undefined) {
+        merged.voiceId = defaultVoiceForProvider(updates.providerId);
+      }
+      return merged;
+    }));
   }
   function removeVoiceLayer(layer: number) {
     if (layer === 1) return; // can't remove primary
     setVoiceLayers(prev => prev.filter(l => l.layer !== layer).map((l, i) => ({ ...l, layer: i + 1 })));
+  }
+
+  // ── AI voice-casting for actors (Henry 2026-06-13) ────────────────────────
+  // "AI should choose voice by story line, default for actors." Picks an EDGE
+  // neural voice (free, word-timed) per character from the story's own signals:
+  // gender + region/ethnicity (+ a touch of role). Returns an "edge:"-prefixed id
+  // for the characterPiperVoices map (which carries both engines; synthCharacterClip
+  // routes the edge: prefix to /api/tts). No more Piper-by-default for actors.
+  function pickActorVoice(c: { gender?: string; roleType?: string; skinTone?: string; colorDescription?: string; distinctiveFeatures?: string; ageRange?: string }): string {
+    const g = (c.gender || "").toLowerCase();
+    const txt = `${c.skinTone || ""} ${c.colorDescription || ""} ${c.distinctiveFeatures || ""} ${storyCulture || ""} ${REGION_TO_CULTURE[storyRegion] || ""}`.toLowerCase();
+    const isAfrican = /\b(african|nigeri|yoruba|igbo|hausa|melanated|kenya|south\s*african|lagos|abuja)\b/.test(txt);
+    const isBritish = /\b(british|england|london|victorian|english|scottish|irish)\b/.test(txt);
+    let f: string, m: string;
+    if (isAfrican) { f = "edge:en-NG-EzinneNeural"; m = "edge:en-NG-AbeoNeural"; }
+    else if (isBritish) { f = "edge:en-GB-SoniaNeural"; m = "edge:en-GB-RyanNeural"; }
+    else { f = "edge:en-US-AriaNeural"; m = "edge:en-US-GuyNeural"; }
+    if (g === "male") return m;
+    if (g === "female") return f;
+    return f; // unknown → female default
   }
 
   // ── Per-character Piper voice assignment ─────────────────────────────────
@@ -1401,22 +1442,14 @@ function HybridPlannerInner() {
           return true;
         });
         setCharacters(dedupedChars);
-        // Auto-assign voices by gender — don't overwrite any the user already picked.
-        // Henry 2026-06-12: voice now matches the character's COUNTRY too — African
-        // story characters default to Edge Nigerian neural (Ezinne/Abeo) instead of
-        // US Piper, so "who speaks" sounds like the character.
+        // Henry 2026-06-13: AI casts an EDGE voice per actor from the story (gender +
+        // region/ethnicity). Default is Edge for everyone now, not Piper. User picks
+        // still win (we never overwrite an existing choice).
         setCharacterPiperVoices(prev => {
           const auto: Record<string, string> = {};
           for (const c of dedupedChars) {
             if (prev[c.characterId]) continue;
-            const g = (c.gender || "").toLowerCase();
-            const isAfrican = /\b(african|nigerian|yoruba|igbo|hausa|melanated|kenyan|south african)\b/i.test(`${c.skinTone || ""} ${c.colorDescription || ""} ${storyCulture || ""} ${REGION_TO_CULTURE[storyRegion] || ""}`);
-            if (isAfrican && g === "female") auto[c.characterId] = "edge:en-NG-EzinneNeural";
-            else if (isAfrican && g === "male") auto[c.characterId] = "edge:en-NG-AbeoNeural";
-            else if (g === "female") auto[c.characterId] = "en_US-amy-medium";
-            else if (g === "male" && /narrat/i.test(c.roleType)) auto[c.characterId] = "en_US-libritts-high";
-            else if (g === "male") auto[c.characterId] = "en_US-ryan-high";
-            else auto[c.characterId] = "en_US-lessac-medium";
+            auto[c.characterId] = pickActorVoice(c);
           }
           return { ...auto, ...prev };
         });
@@ -1439,15 +1472,12 @@ function HybridPlannerInner() {
           });
         });
         setCharacters(extractedChars);
+        // Henry 2026-06-13: same Edge AI voice-casting on the fallback path.
         setCharacterPiperVoices(prev => {
           const auto: Record<string, string> = {};
           for (const c of extractedChars) {
             if (prev[c.characterId]) continue;
-            const g = (c.gender || "").toLowerCase();
-            if (g === "female") auto[c.characterId] = "en_US-amy-medium";
-            else if (g === "male" && /narrat/i.test(c.roleType)) auto[c.characterId] = "en_US-libritts-high";
-            else if (g === "male") auto[c.characterId] = "en_US-ryan-high";
-            else auto[c.characterId] = "en_US-lessac-medium";
+            auto[c.characterId] = pickActorVoice(c);
           }
           return { ...auto, ...prev };
         });
@@ -10919,7 +10949,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       ? storyMode === "narration-only" ? "Narrator only — no character dialogue detected"
                         : storyMode === "actors-only" ? "Actors only — no narration passages detected"
                         : `Mixed — ${scriptSegments.filter(s => s.type === "narration").length} narrator + ${scriptSegments.filter(s => s.type === "dialogue").length} dialogue segments`
-                      : "Parse Script splits your story into narrator lines vs character dialogue, then lets you generate narration audio with Piper TTS."}
+                      : "Parse Script splits your story into narrator lines vs character dialogue, then lets you generate narration audio (Edge Neural by default)."}
                   </p>
                 </div>
                 <button onClick={parseScript} disabled={parsingScript}
