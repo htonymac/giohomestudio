@@ -726,6 +726,10 @@ function HybridPlannerInner() {
   // Henry 2026-06-11: Edge-TTS in Hybrid (port of free-mode PR #70). Free Microsoft
   // Neural voices incl. Nigerian; sub-picker mirrors free-mode's 10 regional voices.
   const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
+  // Henry 2026-06-13: narrator voice follows the STORY REGION (European story → UK
+  // narrator, African → NG, etc.) instead of a fixed Nigerian default. Once the user
+  // hand-picks a narrator voice, this ref stops the region auto-default from overriding it.
+  const narratorVoiceManualRef = useRef(false);
   // GHS Sound Tier — drives both narration provider and music provider selection
   const [soundTier, setSoundTier] = useState<"ghs-sound" | "ghs-plus" | "ghs-pro" | "ghs-premium">("ghs-sound");
   const [narratorPiperModel, setNarratorPiperModel] = useState("en_US-lessac-medium");
@@ -799,6 +803,23 @@ function HybridPlannerInner() {
     if (g === "female") return f;
     return f; // unknown → female default
   }
+
+  // Narrator voice by story REGION (raw Edge id, for the narrator picker + L1 layer).
+  function regionNarratorVoice(): string {
+    const txt = `${storyCulture || ""} ${REGION_TO_CULTURE[storyRegion] || ""} ${storyRegion || ""}`.toLowerCase();
+    if (/\b(african|nigeri|yoruba|igbo|hausa|kenya|south\s*african|lagos|abuja)\b/.test(txt)) return "en-NG-EzinneNeural";
+    if (/(europ|british|english|england|london|victorian|scottish|irish|norse|viking|medieval|french|spanish|german|italian|russian|nordic|scandinav)/.test(txt)) return "en-GB-SoniaNeural";
+    return "en-US-AriaNeural";
+  }
+  // When the story region/culture changes, snap the narrator (Edge) voice to that
+  // region — unless the user has manually chosen a narrator voice.
+  useEffect(() => {
+    if (narratorVoiceManualRef.current) return;
+    const v = regionNarratorVoice();
+    setEdgeTtsVoiceId(v);
+    setVoiceLayers(prev => prev.map(l => (l.layer === 1 && l.providerId === "edge-tts" ? { ...l, voiceId: v } : l)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyRegion, storyCulture]);
 
   // ── Per-character Piper voice assignment ─────────────────────────────────
   // Maps characterId → piper model name (e.g. "en_US-ryan-high")
@@ -11105,7 +11126,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                           { id: "en-GB-SoniaNeural",    label: "UK · F" },
                           { id: "en-GB-RyanNeural",     label: "UK · M" },
                         ].map(v => (
-                          <button key={v.id} type="button" onClick={() => setEdgeTtsVoiceId(v.id)} title={v.id}
+                          <button key={v.id} type="button" onClick={() => { narratorVoiceManualRef.current = true; setEdgeTtsVoiceId(v.id); }} title={v.id}
                             style={{ padding: "3px 7px", borderRadius: 6, fontSize: 9, fontWeight: 700, cursor: "pointer",
                               border: `1px solid ${edgeTtsVoiceId === v.id ? "#34d399" : border}`,
                               background: edgeTtsVoiceId === v.id ? "#34d39918" : "transparent",
@@ -11203,9 +11224,22 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       <option value="elevenlabs" style={{ background: surface }}>ElevenLabs</option>
                       <option value="karaoke" style={{ background: surface }}>Karaoke</option>
                     </select>
-                    <input value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
-                      placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "edge-tts" ? "en-NG-EzinneNeural" : layer.providerId === "fal-narrator" ? "af_sky" : layer.providerId === "fal-narrator-gemini" ? "af_sky" : "voice-id"}
-                      style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }} />
+                    {/* Henry 2026-06-13: Edge layers get a VOICE DROPDOWN (was raw text,
+                        which let a Nigerian voice sit on a European story). Other engines
+                        keep the free-text id field. */}
+                    {layer.providerId === "edge-tts" ? (
+                      <select value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
+                        style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }}>
+                        {EDGE_CHARACTER_VOICES.map(v => {
+                          const raw = v.id.replace(/^edge:/, "");
+                          return <option key={raw} value={raw} style={{ background: surface }}>{v.label}</option>;
+                        })}
+                      </select>
+                    ) : (
+                      <input value={layer.voiceId} onChange={e => updateVoiceLayer(layer.layer, { voiceId: e.target.value })}
+                        placeholder={layer.providerId === "piper" ? "en_US-lessac-medium" : layer.providerId === "fal-narrator" ? "af_sky" : layer.providerId === "fal-narrator-gemini" ? "af_sky" : "voice-id"}
+                        style={{ ...inputStyle, flex: 2, fontSize: 10, padding: "5px 8px" }} />
+                    )}
                     {layer.layer > 1 && (
                       <button onClick={() => removeVoiceLayer(layer.layer)}
                         style={{ padding: "4px 8px", borderRadius: 6, border: `1px solid #ef444430`, background: "#ef444408", color: red, fontSize: 10, cursor: "pointer", fontWeight: 700 }}>
@@ -11221,7 +11255,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 <div style={{ marginTop: 14, padding: "14px 16px", borderRadius: 12, background: `${purple}08`, border: `1px solid ${purple}25` }}>
                   <p style={{ fontSize: 11, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Character Voices</p>
                   <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>
-                    Pick a Piper voice for each character. Their dialogue lines will be spoken in their assigned voice when you click Generate.
+                    AI casts an Edge voice per character from the story; override any below. Their dialogue lines will be spoken in their assigned voice when you click Generate.
                   </p>
 
                   {/* Voice picker per character */}
