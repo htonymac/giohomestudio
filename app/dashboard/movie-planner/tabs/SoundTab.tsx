@@ -129,6 +129,14 @@ export interface SoundTabProps {
   setNarrationProvider: React.Dispatch<React.SetStateAction<NarrationProvider>>;
   /** Persists settings to the DB via patcher. Fire-and-forget. */
   patchProjectSettings: (patch: Record<string, unknown>) => Promise<unknown>;
+  // ── Edge Neural narrator voice (2026-06-13) ──
+  /** Raw Edge voice id for narrator (no "edge:" prefix). Used when effectiveNarrationProvider === "edge-tts". */
+  edgeTtsVoiceId: string;
+  setEdgeTtsVoiceId: React.Dispatch<React.SetStateAction<string>>;
+  /** Ref that flips to true when the user manually picks a narrator voice. Prevents region auto-snap from overriding. */
+  narratorVoiceManualRef: React.RefObject<boolean>;
+  /** Edge narrator voice list for the sub-picker dropdown. */
+  edgeNarratorVoices: ReadonlyArray<{ id: string; label: string }>;
 
   // ── Character voice assignments ──
   /** Cast = ordered list of cast members + role. */
@@ -256,6 +264,7 @@ export default function SoundTab(props: SoundTabProps) {
     parseScript, parsingScript, screenplay,
     moviePlan, tone, updateScene, setLastAction,
     effectiveNarrationProvider, setNarrationProvider, patchProjectSettings,
+    edgeTtsVoiceId, setEdgeTtsVoiceId, narratorVoiceManualRef, edgeNarratorVoices,
     selectedCast, savedCharacters, castVoiceMap, setCastVoiceMap,
     generatingPerLineVoices, setGeneratingPerLineVoices,
     scenes, projectId, effectiveSoundTier,
@@ -329,14 +338,19 @@ export default function SoundTab(props: SoundTabProps) {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
           {GHS_SOUND_TIERS.map((tier) => {
             const tierColor = tier.id === "ghs-sound" ? accent : tier.id === "ghs-plus" ? blue : tier.id === "ghs-pro" ? purple : gold;
-            const isSelected = effectiveNarrationProvider === tier.provider || (tier.id === "ghs-sound" && effectiveNarrationProvider === "piper");
+            // 2026-06-13: ghs-sound = edge-tts (was piper). Keep piper as legacy fallback match too.
+            const isSelected = effectiveNarrationProvider === tier.provider
+              || (tier.id === "ghs-sound" && (effectiveNarrationProvider === "edge-tts" || effectiveNarrationProvider === "piper"));
             return (
               <button key={tier.id} onClick={() => {
                 // Map tier → narration provider.
-                const provMap: Record<string, "piper" | "fal-narrator" | "elevenlabs" | "karaoke"> = {
-                  "ghs-sound": "piper", "ghs-plus": "karaoke", "ghs-pro": "karaoke", "ghs-premium": "karaoke",
+                // 2026-06-13: ghs-sound now defaults to edge-tts (free Edge Neural),
+                // not piper — mirrors hybrid-planner. User can still switch to piper
+                // via the Narration Provider pill row below.
+                const provMap: Record<string, "edge-tts" | "piper" | "fal-narrator" | "elevenlabs" | "karaoke"> = {
+                  "ghs-sound": "edge-tts", "ghs-plus": "karaoke", "ghs-pro": "karaoke", "ghs-premium": "karaoke",
                 };
-                const resolvedProvider = provMap[tier.id] ?? "piper";
+                const resolvedProvider = provMap[tier.id] ?? "edge-tts";
                 setNarrationProvider(resolvedProvider);
                 patchProjectSettings({ narrationProvider: resolvedProvider }).catch(() => {});
                 setLastAction(`Sound tier: ${tier.label}`);
@@ -727,16 +741,19 @@ export default function SoundTab(props: SoundTabProps) {
         <p style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Narration Provider</p>
         <p style={{ fontSize: 10, color: muted, marginBottom: 12 }}>Select the TTS engine for all scene narrations in this project.</p>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>
-          {/* Henry H9 (2026-06-05): added GHS Standard+ (NG) / Premium / Best to pill row for movie-planner. */}
+          {/* 2026-06-13: Edge Neural is now the default (GHS Standard row). GHS Standard (Piper) kept as fallback. */}
           {([
-            { id: "piper",        label: "GHS Standard",        color: accent },
-            { id: "edge-tts",     label: "GHS Standard+ (NG)",  color: "#10b981" },
+            { id: "edge-tts",     label: "Edge Neural (free)",  color: "#10b981" },
+            { id: "piper",        label: "Piper (fallback)",    color: accent },
             { id: "fal-narrator", label: "FAL Narrator",        color: blue },
             { id: "gemini",       label: "GHS Premium",         color: "#00d4ff" },
             { id: "elevenlabs",   label: "GHS Best",            color: purple },
             { id: "karaoke",      label: "Karaoke",             color: gold },
           ] as const).map(p => (
-            <button key={p.id} onClick={() => { setNarrationProvider(p.id); patchProjectSettings({ narrationProvider: p.id }).catch(() => {}); }}
+            <button key={p.id} onClick={() => {
+              setNarrationProvider(p.id);
+              patchProjectSettings({ narrationProvider: p.id }).catch(() => {});
+            }}
               style={{ padding: "7px 14px", borderRadius: 10, border: `1px solid ${effectiveNarrationProvider === p.id ? p.color : border}`,
                 background: effectiveNarrationProvider === p.id ? `${p.color}12` : "transparent",
                 color: effectiveNarrationProvider === p.id ? p.color : muted, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
@@ -744,6 +761,27 @@ export default function SoundTab(props: SoundTabProps) {
             </button>
           ))}
         </div>
+        {/* Edge Neural sub-picker — shown when edge-tts is the active provider (2026-06-13). */}
+        {effectiveNarrationProvider === "edge-tts" && (
+          <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+            <p style={{ fontSize: 10, fontWeight: 600, color: "#10b981", marginBottom: 6 }}>Edge Narrator Voice</p>
+            <p style={{ fontSize: 9, color: muted, marginBottom: 8 }}>Free Microsoft Neural voices. Auto-snaps to story region unless you pick manually.</p>
+            <select
+              value={edgeTtsVoiceId}
+              onChange={e => {
+                // User is manually picking — stop region auto-snap.
+                if (narratorVoiceManualRef && narratorVoiceManualRef.current !== undefined) {
+                  (narratorVoiceManualRef as React.MutableRefObject<boolean>).current = true;
+                }
+                setEdgeTtsVoiceId(e.target.value);
+              }}
+              style={{ width: "100%", background: "#12121e", border: "1px solid rgba(16,185,129,0.3)", borderRadius: 8, padding: "8px 10px", color: "#fff", fontSize: 12, outline: "none" }}>
+              {edgeNarratorVoices.map(v => (
+                <option key={v.id} value={v.id} style={{ background: "#12121e" }}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* ── Auto SFX toggle ── */}

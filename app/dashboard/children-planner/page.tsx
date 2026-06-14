@@ -91,6 +91,22 @@ const NARRATION_STYLES = [
   { id: "classroom", label: "Classroom Guide", desc: "Structured, patient, step-by-step" },
 ];
 
+// Henry 2026-06-13: Edge Neural voices for narrator + character auto-cast.
+// Mirrors hybrid-planner's EDGE_CHARACTER_VOICES. "edge:" prefix for character map;
+// narrator uses raw ids (en-NG-EzinneNeural etc.) sent to /api/tts provider:"edge-tts".
+const EDGE_CHARACTER_VOICES = [
+  { id: "edge:en-NG-EzinneNeural",   label: "Ezinne (Nigerian Female)" },
+  { id: "edge:en-NG-AbeoNeural",     label: "Abeo (Nigerian Male)" },
+  { id: "edge:en-KE-AsiliaNeural",   label: "Asilia (Kenyan Female)" },
+  { id: "edge:en-KE-ChilembaNeural", label: "Chilemba (Kenyan Male)" },
+  { id: "edge:en-ZA-LeahNeural",     label: "Leah (South African Female)" },
+  { id: "edge:en-ZA-LukeNeural",     label: "Luke (South African Male)" },
+  { id: "edge:en-US-AriaNeural",     label: "Aria (US Female)" },
+  { id: "edge:en-US-GuyNeural",      label: "Guy (US Male)" },
+  { id: "edge:en-GB-SoniaNeural",    label: "Sonia (British Female)" },
+  { id: "edge:en-GB-RyanNeural",     label: "Ryan (British Male)" },
+];
+
 const MUSIC_CHOICES = [
   { id: "none", label: "No Music" },
   { id: "soft_story", label: "Soft Storybook" },
@@ -283,9 +299,20 @@ function ChildrenPlannerInner() {
   // new TTS branches (edge-tts, gtts, fal-f5, fal-xtts, fal-bark, gemini). The
   // VoiceTierSelector emits a VoiceTierConfig; we derive narrationProvider from
   // that on every change so the existing /api/tts call sites don't change.
+  // Henry 2026-06-13: default changed piper→edge-tts for storybook/narration.
+  // Learning modes (phonics/word/video_lesson/read_along) keep Piper via
+  // pickPiperVoice() — edge-tts only wins on the NARRATOR path, not on the
+  // per-character character-voice dropdown (those stay Piper-keyed).
   const [narrationProvider, setNarrationProvider] = useState<
     "piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gtts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark"
-  >("piper");
+  >("edge-tts");
+  // Henry 2026-06-13: Edge-TTS narrator voice id (mirrors hybrid-planner).
+  // Defaults to Nigerian female (en-NG-EzinneNeural); snaps to story culture
+  // via regionNarratorVoice() useEffect unless user has manually picked.
+  const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
+  // True once the user manually picks a narrator voice — prevents the region
+  // useEffect from overwriting their explicit choice.
+  const narratorVoiceManualRef = useRef(false);
   // Henry 2026-06-05: random voice on init (never deterministic). useState's
   // lazy initializer runs once per project mount → user gets a fresh voice each
   // new project but it doesn't reshuffle on re-render.
@@ -574,6 +601,7 @@ function ChildrenPlannerInner() {
     };
     return learningVoices[learningMode] || storyVoices[learningMode] || "en_US-amy-medium";
   };
+
   const [productionSystem, setProductionSystem] = useState<"hybrid" | "movie">("hybrid");
 
   // Movie mode options
@@ -642,6 +670,41 @@ function ChildrenPlannerInner() {
   // ── Era & Culture Lock ────────────────────────────────────────────────────
   const [storyEra, setStoryEra] = useState("");
   const [storyCulture, setStoryCulture] = useState("");
+
+  // Henry 2026-06-13: Actor voice auto-cast by gender + story culture (mirrors hybrid).
+  // Returns an "edge:" prefixed voice id for character voiceId field.
+  // Called as FALLBACK when character-build API returns no voiceId.
+  // NEVER affects learning-mode voices — those remain Piper via pickPiperVoice().
+  function pickActorVoice(c: { gender?: string; skinTone?: string; colorDescription?: string; distinctiveFeatures?: string }): string {
+    const g = (c.gender || "").toLowerCase();
+    const txt = `${c.skinTone || ""} ${c.colorDescription || ""} ${c.distinctiveFeatures || ""} ${storyCulture || ""}`.toLowerCase();
+    const isAfrican = /\b(african|nigeri|yoruba|igbo|hausa|melanated|kenya|south\s*african|lagos|abuja)\b/.test(txt);
+    const isBritish = /\b(british|england|london|victorian|english|scottish|irish)\b/.test(txt);
+    let f: string, m: string;
+    if (isAfrican) { f = "edge:en-NG-EzinneNeural"; m = "edge:en-NG-AbeoNeural"; }
+    else if (isBritish) { f = "edge:en-GB-SoniaNeural"; m = "edge:en-GB-RyanNeural"; }
+    else { f = "edge:en-US-AriaNeural"; m = "edge:en-US-GuyNeural"; }
+    if (g === "male") return m;
+    if (g === "female") return f;
+    return f; // unknown → female default
+  }
+
+  // Narrator voice by story culture (raw Edge id — no "edge:" prefix).
+  // European/British → GB, African → NG, else US.
+  // ONLY used for storybook/narration path. Learning-mode voices remain Piper.
+  function regionNarratorVoice(): string {
+    const txt = (storyCulture || "").toLowerCase();
+    if (/\b(african|nigeri|yoruba|igbo|hausa|kenya|south\s*african|lagos|abuja)\b/.test(txt)) return "en-NG-EzinneNeural";
+    if (/(europ|british|english|england|london|victorian|scottish|irish|norse|viking|medieval|french|spanish|german|italian|russian|nordic|scandinav)/.test(txt)) return "en-GB-SoniaNeural";
+    return "en-US-AriaNeural";
+  }
+  // Snap narrator Edge voice to culture when storyCulture changes,
+  // unless the user has manually picked a narrator voice.
+  useEffect(() => {
+    if (narratorVoiceManualRef.current) return;
+    setEdgeTtsVoiceId(regionNarratorVoice());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyCulture]);
 
   // Final export
   const [finalVideoUrl, setFinalVideoUrl] = useState("");
@@ -856,15 +919,20 @@ function ChildrenPlannerInner() {
           if (data.ok && data.character) {
             const c = data.character;
             const newId = `CC_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`;
+            // Henry 2026-06-13: if API returns no voiceId, auto-cast an Edge Neural
+            // voice matching gender + story culture. Learning-mode voices are Piper
+            // (handled at TTS time via pickPiperVoice); this is only for character
+            // dialogue lines in storybook/narration contexts.
+            const autoVoiceId = c.voiceId || pickActorVoice({ gender: c.gender, skinTone: c.skinTone, colorDescription: c.colorDescription });
             const builtChar: CharacterIdentity = {
               characterId: newId, displayName: c.displayName || name,
               roleType: c.roleType || "supporting", gender: c.gender || "unknown",
               ageRange: c.ageRange || "child", skinTone: c.skinTone || "",
               hairStyle: "", wardrobeStyle: c.wardrobeStyle || "",
               speechStyle: c.speechStyle || "normal", accentType: "",
-              emotionProfile: c.emotionProfile || "", voiceId: c.voiceId || "",
+              emotionProfile: c.emotionProfile || "", voiceId: autoVoiceId,
               voiceType: c.voiceType || "childlike", intonation: c.intonation || "playful",
-              language: "English", tags: [], hasVoice: !!c.voiceId, hasImage: false,
+              language: "English", tags: [], hasVoice: !!autoVoiceId, hasImage: false,
               species: c.species || "", bodyBuild: c.bodyBuild || "",
               colorDescription: c.colorDescription || "", faceFeatures: c.faceFeatures || "",
               clothingDetails: c.clothingDetails || "", accessories: c.accessories || "",
@@ -911,15 +979,17 @@ function ChildrenPlannerInner() {
       if (data.ok && data.character) {
         const c = data.character;
         const newId = `CC${String(characters.length + 1).padStart(2, "0")}`;
+        // Henry 2026-06-13: fallback to Edge auto-cast when API returns no voiceId.
+        const autoVoiceIdInline = c.voiceId || pickActorVoice({ gender: c.gender, skinTone: c.skinTone, colorDescription: c.colorDescription });
         const built: CharacterIdentity = {
           characterId: newId, displayName: c.displayName || name,
           roleType: c.roleType || "supporting", gender: c.gender || "unknown",
           ageRange: c.ageRange || "child", skinTone: c.skinTone || "",
           hairStyle: "", wardrobeStyle: c.wardrobeStyle || "",
           speechStyle: c.speechStyle || "normal", accentType: "",
-          emotionProfile: c.emotionProfile || "", voiceId: c.voiceId || "",
+          emotionProfile: c.emotionProfile || "", voiceId: autoVoiceIdInline,
           voiceType: c.voiceType || "childlike", intonation: c.intonation || "playful",
-          language: "English", tags: [], hasVoice: !!c.voiceId, hasImage: false,
+          language: "English", tags: [], hasVoice: !!autoVoiceIdInline, hasImage: false,
           species: c.species || "", bodyBuild: c.bodyBuild || "",
           colorDescription: c.colorDescription || "", faceFeatures: c.faceFeatures || "",
           clothingDetails: c.clothingDetails || "", accessories: c.accessories || "",
@@ -2051,7 +2121,7 @@ function ChildrenPlannerInner() {
           const ttsRes = await fetch("/api/tts", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, voiceId: pickPiperVoice(), speed: 0.9 }),
+            body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: autoProvider, voiceId: autoProvider === "edge-tts" ? edgeTtsVoiceId : pickPiperVoice(), speed: 0.9 }),
           });
           if (ttsRes.ok) {
             const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
@@ -2323,7 +2393,7 @@ function ChildrenPlannerInner() {
             setLastAction(`Auto-generating narration (${effectiveNarrationProvider}, ${storyForTTS.length} chars ≈ ${Math.round(storyForTTS.length / 4 / 130)} min)...`);
             const ttsRes = await fetch("/api/tts", {
               method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, voiceId: pickPiperVoice(), speed: narrationSpeed }),
+              body: JSON.stringify({ text: storyForTTS.slice(0, 30000), provider: effectiveNarrationProvider, engine: effectiveNarrationProvider, voiceId: effectiveNarrationProvider === "edge-tts" ? edgeTtsVoiceId : pickPiperVoice(), speed: narrationSpeed }),
             });
             if (ttsRes.ok) {
               const ttsData = await ttsRes.json() as { audioUrl?: string; engine?: string };
@@ -2848,7 +2918,11 @@ function ChildrenPlannerInner() {
           provider: effectiveNarrationProvider,
           engine: effectiveNarrationProvider,
           speed: narrationSpeed,
-          voiceId: effectiveNarrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL" : pickPiperVoice(),
+          // Henry 2026-06-13: edge-tts uses edgeTtsVoiceId (regional); ElevenLabs
+          // uses its fixed starter voice; learning-mode Piper uses pickPiperVoice().
+          voiceId: effectiveNarrationProvider === "elevenlabs" ? "EXAVITQu4vr4xnSDxMaL"
+            : effectiveNarrationProvider === "edge-tts" ? edgeTtsVoiceId
+            : pickPiperVoice(),
         }),
       });
       if (!res.ok) {
