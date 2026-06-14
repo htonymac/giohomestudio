@@ -577,6 +577,9 @@ function ChildrenPlannerInner() {
   const [aiPickingMusic, setAiPickingMusic] = useState(false);
   const [aiMusicPickLog, setAiMusicPickLog] = useState("");
   const [narratorAudioUrl, setNarratorAudioUrl] = useState<string | null>(null);
+  // Henry 2026-06-13: word timings for NarrationPreview subtitle sync (Edge returns them; Piper returns none).
+  const [narratorWordTimings, setNarratorWordTimings] = useState<Array<{ word: string; startMs: number; endMs: number }> | null>(null);
+  const [narratorSubText, setNarratorSubText] = useState<string>("");
   const [previewScene, setPreviewScene] = useState<{ url: string; type: "image" | "video"; title: string } | null>(null);
 
   // Learning mode + production system
@@ -2929,7 +2932,7 @@ function ChildrenPlannerInner() {
         const errBody = await res.text().catch(() => res.statusText);
         throw new Error(`TTS error ${res.status}: ${errBody}`);
       }
-      const data = await res.json() as { audioUrl?: string; error?: string; engine?: string; message?: string };
+      const data = await res.json() as { audioUrl?: string; error?: string; engine?: string; message?: string; pacingEntries?: Array<{ word: string; startMs: number; endMs: number }> };
       if (data.error) throw new Error(data.error);
       // Henry 2026-06-03 (Sonnet C audit Fix #3): reject placeholder on the
       // manual Generate Narration button path.
@@ -2937,6 +2940,9 @@ function ChildrenPlannerInner() {
         setLastAction("Narration unavailable — TTS returned silent placeholder. Check Piper / FAL config.");
       } else if (data.audioUrl) {
         setNarratorAudioUrl(data.audioUrl);
+        // Store word timings + spoken text for NarrationPreview subtitle sync.
+        setNarratorWordTimings(Array.isArray(data.pacingEntries) && data.pacingEntries.length > 0 ? data.pacingEntries : null);
+        setNarratorSubText(text.slice(0, 30000));
         setLastAction(`Narration generated (${data.engine || effectiveNarrationProvider})`);
       } else if (data.engine === "browser-speech") {
         // Karaoke mode uses Web Speech API in-browser, no file generated.
@@ -4697,6 +4703,10 @@ Rules:
           effectiveNarrationProvider={effectiveNarrationProvider}
           narratorAudioUrl={narratorAudioUrl}
           setNarratorAudioUrl={setNarratorAudioUrl}
+          narratorWordTimings={narratorWordTimings}
+          narratorSubText={narratorSubText}
+          setNarratorWordTimings={setNarratorWordTimings}
+          setNarratorSubText={setNarratorSubText}
           setLastAction={setLastAction}
           setUiError={setUiError}
           tone={tone}
@@ -4826,6 +4836,8 @@ Rules:
           textContent={textContent}
           generateNarration={generateNarration}
           narratorAudioUrl={narratorAudioUrl}
+          narratorWordTimings={narratorWordTimings}
+          narratorSubText={narratorSubText}
           runningAudioPlan={runningAudioPlan}
           childScenes={childScenes}
           audioPlans={audioPlans}
