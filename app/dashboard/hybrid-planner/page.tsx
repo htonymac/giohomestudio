@@ -3507,7 +3507,11 @@ function HybridPlannerInner() {
             const perScene = sceneContinuousMotion[scene.sceneId];
             if (perScene?.enabled) return perScene.targetSec;
             if (continuousMotionEnabled) return 10;
-            return scene.motionDuration ?? 5;
+            // Henry 2026-06-14: scene videos were stuck at ~4s because the LLM's
+            // per-scene durationEstimate is short. Floor every clip at 8s so Pruna
+            // (and all engines, max 15s) produce a fuller clip. The per-scene
+            // duration input can still set higher; an explicit durationSecs wins.
+            return Math.max(8, scene.motionDuration ?? 8);
           })(),
           motionDescription: scene.shots[0]?.cameraMovement || "",
           modelId: effectiveVideoModelId !== "segmind_pruna_video" ? effectiveVideoModelId : undefined,
