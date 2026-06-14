@@ -199,6 +199,23 @@ function movieTierToGhsSoundTierId(id: SoundTierMovieId): GhsSoundTierId {
   }
 }
 
+// ── Edge Neural voices for narrator sub-picker (2026-06-13) ──────────────
+// Raw ids (no "edge:" prefix) — used for the narrator voice selector.
+// The "edge:" prefix convention is only for characterPiperVoices maps; narrator
+// always passes raw ids to /api/tts with provider:"edge-tts".
+const EDGE_NARRATOR_VOICES = [
+  { id: "en-NG-EzinneNeural",   label: "Ezinne (Nigerian Female)" },
+  { id: "en-NG-AbeoNeural",     label: "Abeo (Nigerian Male)" },
+  { id: "en-KE-AsiliaNeural",   label: "Asilia (Kenyan Female)" },
+  { id: "en-KE-ChilembaNeural", label: "Chilemba (Kenyan Male)" },
+  { id: "en-ZA-LeahNeural",     label: "Leah (South African Female)" },
+  { id: "en-ZA-LukeNeural",     label: "Luke (South African Male)" },
+  { id: "en-US-AriaNeural",     label: "Aria (US Female)" },
+  { id: "en-US-GuyNeural",      label: "Guy (US Male)" },
+  { id: "en-GB-SoniaNeural",    label: "Sonia (British Female)" },
+  { id: "en-GB-RyanNeural",     label: "Ryan (British Male)" },
+];
+
 // ── Workshop Tab Definitions ────────────────────────────────────────────
 
 type WorkshopTab = "design" | "story" | "script" | "sound" | "characters" | "scenes" | "assembly" | "overview";
@@ -288,7 +305,12 @@ function MoviePlannerInner() {
   const [narrationSettings, setNarrationSettings] = useState<Record<number, NarrationSettings>>({});
   const [narrationScene, setNarrationScene] = useState<number | null>(null);
   // H9: extend type to include new TTS branches wired in /api/tts.
-  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark" | "gtts">("piper");
+  // 2026-06-13: Edge Neural (free) is the DEFAULT narrator now — mirrors hybrid-planner.
+  const [narrationProvider, setNarrationProvider] = useState<"piper" | "fal-narrator" | "elevenlabs" | "karaoke" | "edge-tts" | "gemini" | "fal-f5" | "fal-xtts" | "fal-bark" | "gtts">("edge-tts");
+  // 2026-06-13: Edge-TTS voice id for narrator. Follows story culture/region unless
+  // user has manually picked a voice (narratorVoiceManualRef flips to true on manual pick).
+  const [edgeTtsVoiceId, setEdgeTtsVoiceId] = useState("en-NG-EzinneNeural");
+  const narratorVoiceManualRef = useRef(false);
   const [autoSfx, setAutoSfx] = useState(true);
   // ── Narration audio URLs (sceneNum → audioUrl) — populated when TTS is generated ──
   const [sceneNarrationAudioUrls, setSceneNarrationAudioUrls] = useState<Record<number, string>>({});
@@ -571,6 +593,24 @@ function MoviePlannerInner() {
         highlightColor: projectSettings.subtitleHighlight ?? subtitleConfig.highlightColor,
       }
     : subtitleConfig;
+
+  // ── Region-based narrator voice snap (2026-06-13) ─────────────────────────
+  // Mirrors hybrid-planner's regionNarratorVoice() + narratorVoiceManualRef.
+  // movie-planner has storyCulture but not a storyRegion dropdown — we derive
+  // from storyCulture alone (same signal, different source).
+  function regionNarratorVoice(): string {
+    const txt = (storyCulture || "").toLowerCase();
+    if (/\b(african|nigeri|yoruba|igbo|hausa|kenya|south\s*african|lagos|abuja)\b/.test(txt)) return "en-NG-EzinneNeural";
+    if (/(europ|british|english|england|london|victorian|scottish|irish|norse|viking|medieval|french|spanish|german|italian|russian|nordic|scandinav)/.test(txt)) return "en-GB-SoniaNeural";
+    return "en-US-AriaNeural";
+  }
+  // When storyCulture changes, snap the Edge narrator voice to that region —
+  // unless the user has already manually picked a narrator voice.
+  useEffect(() => {
+    if (narratorVoiceManualRef.current) return;
+    setEdgeTtsVoiceId(regionNarratorVoice());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storyCulture]);
 
   // BUG-15 pattern: guard while restoring from DB
   const isRestoringRef = useRef(true);
@@ -1955,12 +1995,20 @@ function MoviePlannerInner() {
     if (!text?.trim()) { setErrorMsg(`Scene ${scene.scene} has no narration text. Add text first.`); return; }
     setLastAction(`Generating narration audio for Scene ${scene.scene} via ${effectiveNarrationProvider}...`);
     try {
-      // Route to /api/tts for cloud providers, narrate-piper for local
-      const endpoint = (effectiveNarrationProvider === "fal-narrator" || effectiveNarrationProvider === "elevenlabs")
-        ? "/api/tts"
-        : "/api/hybrid/narrate-piper";
-      const payload = (effectiveNarrationProvider === "fal-narrator" || effectiveNarrationProvider === "elevenlabs")
-        ? { text, provider: effectiveNarrationProvider, speed: 0.85 }
+      // 2026-06-13: edge-tts and cloud providers go to /api/tts; Piper goes to narrate-piper.
+      const useApiTts = effectiveNarrationProvider === "fal-narrator"
+        || effectiveNarrationProvider === "elevenlabs"
+        || effectiveNarrationProvider === "edge-tts"
+        || effectiveNarrationProvider === "gemini";
+      const endpoint = useApiTts ? "/api/tts" : "/api/hybrid/narrate-piper";
+      const payload = useApiTts
+        ? {
+            text,
+            provider: effectiveNarrationProvider,
+            // For edge-tts, pass the selected Edge voice id so the region snap is honoured.
+            ...(effectiveNarrationProvider === "edge-tts" ? { voiceId: edgeTtsVoiceId } : {}),
+            speed: 0.85,
+          }
         : { text, sceneId: `SC${String(scene.scene).padStart(2, "0")}`, model: "en_US-lessac-medium", speed: 0.85, provider: effectiveNarrationProvider };
       const res = await fetch(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -2766,6 +2814,10 @@ function MoviePlannerInner() {
           effectiveNarrationProvider={effectiveNarrationProvider}
           setNarrationProvider={setNarrationProvider}
           patchProjectSettings={patchProjectSettings}
+          edgeTtsVoiceId={edgeTtsVoiceId}
+          setEdgeTtsVoiceId={setEdgeTtsVoiceId}
+          narratorVoiceManualRef={narratorVoiceManualRef}
+          edgeNarratorVoices={EDGE_NARRATOR_VOICES}
           selectedCast={selectedCast}
           savedCharacters={savedCharacters as unknown as Parameters<typeof SoundTab>[0]["savedCharacters"]}
           castVoiceMap={castVoiceMap}
