@@ -4818,6 +4818,7 @@ Rules:
           childAccent={childAccent}
           childSafe={childSafe}
           C4={C4}
+          effectiveSubtitleConfig={effectiveSubtitleConfig}
           SOUND_TIERS={SOUND_TIERS}
           effectiveSoundTier={effectiveSoundTier}
           setSoundTier={setSoundTier as unknown as (id: string) => void}

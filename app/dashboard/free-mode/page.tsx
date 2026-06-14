@@ -3465,6 +3465,8 @@ function FreeModeChat() {
                 wordTimings={fmWordTimings}
                 text={fmSubText}
                 height={32}
+                subtitleMode={effectiveSubtitleMode}
+                highlightColor="#fbbf24"
               />
               <button
                 onClick={() => { setFmNarrationAudioUrl(null); setFmWordTimings(null); setFmSubText(""); }}

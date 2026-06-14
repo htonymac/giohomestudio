@@ -2898,6 +2898,7 @@ function MoviePlannerInner() {
           narrationSettings={narrationSettings}
           setNarrationSettings={setNarrationSettings}
           setErrorMsg={setErrorMsg}
+          effectiveSubtitleConfig={effectiveSubtitleConfig}
           cardStyle={cardStyle}
           inputStyle={inputStyle}
           btnPrimary={btnPrimary}
