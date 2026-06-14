@@ -36,6 +36,7 @@ import * as Icon from "../../../components/icons";
 import NarrationControls, { type NarrationSettings } from "../../../components/NarrationControls";
 import { GHS_SOUND_TIERS, getSoundTier, soundTierToMCDConfig, type GhsSoundTierId } from "@/lib/ghs-sound-tiers";
 import type { MusicAsset } from "../../../utils/mediaUrl";
+import { NarrationPreview } from "../../../components/NarrationPreview";
 
 // ── Types kept local — these mirror the parent's interfaces. Duplicated on
 //    purpose so the tab file is readable in isolation by a junior dev. ──
@@ -230,6 +231,10 @@ export interface SoundTabProps {
   narrationScene: number | null;
   setNarrationScene: React.Dispatch<React.SetStateAction<number | null>>;
   generateSceneNarration: (scene: SceneCard) => void;
+  /** sceneNum → audioUrl — populated after "Generate Audio" is clicked per scene. */
+  sceneNarrationAudioUrls: Record<number, string>;
+  /** sceneNum → word timings (null for Piper). Drives NarrationPreview subtitle sync. */
+  sceneNarrationWordTimings: Record<number, Array<{ word: string; startMs: number; endMs: number }> | null>;
   polishingScene: string | null;
   handlePolishScene: (sceneId: string, currentText: string, action: "polish" | "upgrade" | "add-detail") => void;
   handleSceneOp: (sceneId: string, currentText: string, op: "add_action" | "intense" | "reduce_action" | "emotional" | "establish" | "qc") => void;
@@ -290,7 +295,8 @@ export default function SoundTab(props: SoundTabProps) {
     aiMusicPickLog, setAiMusicPickLog,
     assetToMediaUrl,
     totalScenes, narrationScene, setNarrationScene,
-    generateSceneNarration, polishingScene, handlePolishScene, handleSceneOp,
+    generateSceneNarration, sceneNarrationAudioUrls, sceneNarrationWordTimings,
+    polishingScene, handlePolishScene, handleSceneOp,
     narrationTexts, setNarrationTexts, narrationSettings, setNarrationSettings,
     setErrorMsg,
     cardStyle, inputStyle, btnPrimary, badgeStyle, methodColors,
@@ -1043,6 +1049,19 @@ export default function SoundTab(props: SoundTabProps) {
                 {polishingScene === sceneId ? "Polishing..." : "✨ Polish"}
               </button>
             </div>
+
+            {/* Narration audio preview — shown once TTS has been generated for this scene */}
+            {sceneNarrationAudioUrls[scene.scene] && (
+              <div style={{ marginTop: 8 }}>
+                <p style={{ fontSize: 8, color: accent, fontWeight: 700, textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 4 }}>Narrator Audio</p>
+                <NarrationPreview
+                  audioUrl={sceneNarrationAudioUrls[scene.scene]}
+                  wordTimings={sceneNarrationWordTimings[scene.scene] ?? null}
+                  text={scene.dialogue || ""}
+                  height={28}
+                />
+              </div>
+            )}
 
             {/* Hybrid-style scene editor row — 6 polish operations */}
             <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>

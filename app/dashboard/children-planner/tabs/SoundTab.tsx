@@ -7,6 +7,7 @@
 import * as React from "react";
 import { ds } from "../../../../lib/designSystem";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../../components/VoiceTierSelector";
+import { NarrationPreview } from "../../../components/NarrationPreview";
 
 // ── Structural types (kept inline; identical shape to parent's locals) ──
 export interface SoundTierEntry { id: string; label: string; desc: string; cost: string; providerKey: string }
@@ -47,6 +48,10 @@ export interface SoundTabProps {
   textContent: string;
   generateNarration: () => void | Promise<void>;
   narratorAudioUrl: string | null;
+  /** Word timings returned by Edge TTS — drives NarrationPreview subtitle sync. Null = Piper/static. */
+  narratorWordTimings: Array<{ word: string; startMs: number; endMs: number }> | null;
+  /** The spoken text stored at generation time — used as static caption when no timings. */
+  narratorSubText: string;
   // AI Audio Plan
   runningAudioPlan: boolean;
   childScenes: ChildSoundScene[];
@@ -77,6 +82,7 @@ export default function SoundTab(props: SoundTabProps) {
     scriptSegments, setActiveTab,
     voiceTierConfig, setVoiceTierConfig, userVoiceTier, getVoiceById, setNarrationProvider,
     narrationSpeed, setNarrationSpeed, narrationGenerating, textContent, generateNarration, narratorAudioUrl,
+    narratorWordTimings, narratorSubText,
     runningAudioPlan, childScenes, audioPlans, runChildrenAudioPlan,
     savedChars, selectedCharIds, characters, characterVoices, setCharacterVoices,
     musicTier, setMusicTier, musicGenerating, generateChildrenMusic, generatedMusicUrl, musicFallbackReason,
@@ -164,7 +170,12 @@ export default function SoundTab(props: SoundTabProps) {
         {narratorAudioUrl && (
           <div style={{ marginTop: 10 }}>
             <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Narrator audio:</p>
-            <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 32 }} />
+            <NarrationPreview
+              audioUrl={narratorAudioUrl}
+              wordTimings={narratorWordTimings}
+              text={narratorSubText}
+              height={32}
+            />
           </div>
         )}
       </div>

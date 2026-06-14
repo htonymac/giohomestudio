@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ds } from "../../../lib/designSystem";
 import { Folder, Settings, Wand, Mic, Film, Check, X, Plus } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
+import { NarrationPreview } from "../../components/NarrationPreview";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -315,6 +316,9 @@ function AdEditorInner() {
   const [ttsPitch, setTtsPitch] = useState<"low" | "medium" | "high">("medium");
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsResult, setTtsResult] = useState<string | null>(null);
+  // NarrationPreview subtitle sync — ad-editor uses Gemini TTS which returns no word timings.
+  // wordTimings stays null so NarrationPreview renders a static caption strip.
+  const ttsWordTimings = null as Array<{ word: string; startMs: number; endMs: number }> | null;
   const [bgGradient, setBgGradient] = useState<string | null>(null);
   const [aiMode, setAiMode] = useState<"ad" | "movie" | "banner" | "text_to_image">("ad");
   const [aiPrompt, setAiPrompt] = useState("");
@@ -1446,7 +1450,7 @@ function AdEditorInner() {
                 <p style={{ fontSize: 9, color: ds.color.mint, marginBottom: 6, display: "flex", alignItems: "center", gap: 4 }}>
                   <Check size={10} color={ds.color.mint} /> Voice-over ready
                 </p>
-                <audio controls src={ttsResult} style={{ width: "100%", height: 32 }} />
+                <NarrationPreview audioUrl={ttsResult} wordTimings={ttsWordTimings} text={ttsText} height={32} />
                 <a href={ttsResult} download style={{ display: "block", textAlign: "center", fontSize: 9, color: ds.color.sky, marginTop: 6, textDecoration: "none" }}>
                   Download Audio
                 </a>

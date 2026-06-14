@@ -314,6 +314,8 @@ function MoviePlannerInner() {
   const [autoSfx, setAutoSfx] = useState(true);
   // ── Narration audio URLs (sceneNum → audioUrl) — populated when TTS is generated ──
   const [sceneNarrationAudioUrls, setSceneNarrationAudioUrls] = useState<Record<number, string>>({});
+  // ── Narration word timings (sceneNum → pacingEntries|null) — for NarrationPreview subtitle sync ──
+  const [sceneNarrationWordTimings, setSceneNarrationWordTimings] = useState<Record<number, Array<{ word: string; startMs: number; endMs: number }> | null>>({});
 
   // ── Project persistence ──
   const [projectList, setProjectList] = useState<Array<{ id: string; title: string; genre: string | null; status: string; updatedAt: string; _count: { scenes: number } }>>([]);
@@ -2018,6 +2020,11 @@ function MoviePlannerInner() {
       if (data.audioUrl || data.filePath) {
         const audioUrl: string = data.audioUrl || `/api/media/${(data.filePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
         setSceneNarrationAudioUrls(prev => ({ ...prev, [scene.scene]: audioUrl }));
+        // Store word timings for synced subtitle preview (Edge returns pacingEntries; Piper returns none).
+        setSceneNarrationWordTimings(prev => ({
+          ...prev,
+          [scene.scene]: Array.isArray(data.pacingEntries) && data.pacingEntries.length > 0 ? data.pacingEntries : null,
+        }));
         setLastAction(`Scene ${scene.scene} narration audio ready`);
       } else {
         setErrorMsg(data.error || "Narration generation failed");
@@ -2881,6 +2888,8 @@ function MoviePlannerInner() {
           narrationScene={narrationScene}
           setNarrationScene={setNarrationScene}
           generateSceneNarration={generateSceneNarration}
+          sceneNarrationAudioUrls={sceneNarrationAudioUrls}
+          sceneNarrationWordTimings={sceneNarrationWordTimings}
           polishingScene={polishingScene}
           handlePolishScene={handlePolishScene}
           handleSceneOp={handleSceneOp}

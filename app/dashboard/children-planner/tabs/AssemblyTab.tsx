@@ -15,6 +15,7 @@ import SubtitleStyler, { type SubtitleConfig } from "../../../components/Subtitl
 import ChildrenKaraokeSubtitle from "../../../components/ChildrenKaraokeSubtitle";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import type { ChildrenPacingPlan } from "@/types/children";
+import { NarrationPreview } from "../../../components/NarrationPreview";
 
 export interface AssemblyScene { scene: number; title: string; visualDescription?: string; imageUrl?: string; variantUrls?: string[] }
 export interface AssemblyCharacter { displayName: string; voiceId: string }
@@ -63,6 +64,11 @@ export interface AssemblyTabProps {
   effectiveNarrationProvider: NarrationProvider;
   narratorAudioUrl: string | null;
   setNarratorAudioUrl: React.Dispatch<React.SetStateAction<string | null>>;
+  /** Word timings returned by Edge TTS. Null for Piper = static caption in NarrationPreview. */
+  narratorWordTimings: Array<{ word: string; startMs: number; endMs: number }> | null;
+  narratorSubText: string;
+  setNarratorWordTimings: React.Dispatch<React.SetStateAction<Array<{ word: string; startMs: number; endMs: number }> | null>>;
+  setNarratorSubText: React.Dispatch<React.SetStateAction<string>>;
   setLastAction: (s: string) => void;
   setUiError: React.Dispatch<React.SetStateAction<string | null>>;
   tone: string;
@@ -142,6 +148,7 @@ export default function AssemblyTab(props: AssemblyTabProps) {
     sceneMaxTarget, setSceneMaxTarget, sceneGenProgress, generatingSceneVideos, makeSceneVideo, setPreviewScene,
     assemblySelectedIds, setAssemblySelectedIds, assemblyMediaPrefs, setAssemblyMediaPrefs,
     resolveNarrationText, effectiveNarrationProvider, narratorAudioUrl, setNarratorAudioUrl,
+    narratorWordTimings, narratorSubText, setNarratorWordTimings, setNarratorSubText,
     setLastAction, setUiError,
     tone, SOUND_TIERS, effectiveSoundTier, selectedMusicUrl, setSelectedMusicUrl, generatedMusicUrl, setGeneratedMusicUrl,
     aiSupervisorReport, setAiSupervisorReport, aiSupervisorRunning, runAiSupervisor,
@@ -473,9 +480,14 @@ export default function AssemblyTab(props: AssemblyTabProps) {
                       setLastAction("Generating narration...");
                       try {
                         const r = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text.slice(0, 30000), provider: effectiveNarrationProvider || "piper", speed: 0.9 }) });
-                        const d = await r.json() as { audioUrl?: string; engine?: string };
+                        const d = await r.json() as { audioUrl?: string; engine?: string; pacingEntries?: Array<{ word: string; startMs: number; endMs: number }> };
                         if (d.engine === "placeholder") setLastAction("Narration unavailable — TTS placeholder. Check server logs.");
-                        else if (d.audioUrl) { setNarratorAudioUrl(d.audioUrl); setLastAction("Narration ready"); }
+                        else if (d.audioUrl) {
+                          setNarratorAudioUrl(d.audioUrl);
+                          setNarratorWordTimings(Array.isArray(d.pacingEntries) && d.pacingEntries.length > 0 ? d.pacingEntries : null);
+                          setNarratorSubText(text.slice(0, 30000));
+                          setLastAction("Narration ready");
+                        }
                         else setLastAction("Narration generation failed");
                       } catch { setLastAction("Narration error"); }
                     }}
@@ -484,7 +496,7 @@ export default function AssemblyTab(props: AssemblyTabProps) {
                   </button>
                 </div>
                 {narratorAudioUrl
-                  ? <audio src={narratorAudioUrl} controls style={{ width: "100%", height: 28 }} />
+                  ? <NarrationPreview audioUrl={narratorAudioUrl} wordTimings={narratorWordTimings} text={narratorSubText} height={28} />
                   : <p style={{ fontSize: 9, color: "#555", fontStyle: "italic" }}>Not generated yet</p>}
               </div>
               {/* Music */}
