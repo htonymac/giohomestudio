@@ -4219,6 +4219,14 @@ function HybridPlannerInner() {
     const storyReady = !!(fullScript || expandedSummary || idea?.trim());
     if (!storyReady) { setUiError("Write your story first before assembling."); return; }
     if (selectedSceneIds.length === 0) { setUiError("Select at least one scene to assemble."); return; }
+    // Henry 2026-06-14: intro/outro cards are AUTO (studio = Andio Studio, title = AI,
+    // cast = auto). The ONLY thing the system needs from the user is their name for the
+    // "Written by" line — ask once, here, when intro/outro is on and no name is set.
+    let runAuthor = screenplayAuthor.trim();
+    if ((introEnabled || outroEnabled) && !runAuthor) {
+      const nm = typeof window !== "undefined" ? window.prompt("Your name (shown as 'Written by' on the intro/credits):", "") : "";
+      if (nm && nm.trim()) { runAuthor = nm.trim(); setScreenplayAuthor(runAuthor); }
+    }
     try { await requireGate(); } catch { return; }
     setAssembling(true); setAssemblyComplete(false); setAssembledVideoUrl(null); setUiError(null);
     const progress: Record<number, string> = {};
@@ -4373,7 +4381,7 @@ function HybridPlannerInner() {
       // ── Generate intro / outro cards ──
       const cardPayload = {
         title: projectTitle,
-        author: screenplayAuthor,
+        author: runAuthor,
         studio: "Andio Studio",
         ideaFrom,
         genre,
