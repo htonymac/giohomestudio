@@ -251,15 +251,20 @@ export async function POST(req: NextRequest) {
     // ── ERA + CULTURE LOCK — computed once, used in prompt AND negative ──
     const eraLock = buildFullLock(storyEra || "", storyCulture || "", styleId);
 
-    // Convert scene text to a static cinematic frame (removes action verbs that cause chaos imagery)
-    // Henry 2026-06-11: SKIPPED for storyboard action frames — a decomposed frame is
-    // already ONE frozen instant, so its action verbs describe a single pose ("mid-air
-    // above the fence, legs tucked") and must reach the model intact. toStaticFrame()
-    // stays untouched for the normal path (multi-action scene text DOES cause chaos).
+    // Henry 2026-06-14 — THE "no action / posing for a photo" ROOT CAUSE.
+    // toStaticFrame() STRIPS action verbs and appends "Cinematic still frame.
+    // Single frozen moment." — so "Mara sprints and vaults a vent" became a person
+    // standing. It was running on EVERY normal Make-Image, overriding all the
+    // anti-pose work. Now it ONLY runs for EXPLICIT still/establishing shots
+    // (body.isStillScene === true). Every other scene KEEPS its action verbs +
+    // gets a mid-action framing so the picture shows the action actually happening.
     const isActionFrame = actionFrame === true;
+    const wantStillFrame = body.isStillScene === true;
     const staticSceneText = isActionFrame
       ? `${cleanSceneText.slice(0, 450)} One single frozen instant of an action in progress, captured mid-motion.`
-      : toStaticFrame(cleanSceneText.slice(0, 300));
+      : wantStillFrame
+        ? toStaticFrame(cleanSceneText.slice(0, 300))
+        : `${cleanSceneText.slice(0, 420)} Captured at the peak of this action, characters mid-movement and mid-gesture — NOT standing, NOT posing for a photo.`;
 
     // 2. Build structured image prompt
     // F2 (2026-05-21): location/action moved EARLY so FLUX commits to scene composition
