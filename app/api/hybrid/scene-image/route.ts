@@ -536,10 +536,13 @@ export async function POST(req: NextRequest) {
       personCountActive = true;
       const n = countNames.length;
       const names = countNames.join(", ");
-      const noPhones = " No bystanders, no onlookers, no people holding phones, no one looking at a phone in the background.";
+      // Henry 2026-06-14: free FLUX ignores negative "no bystanders" — it kept adding
+      // a crowd of phone-filmers. POSITIVE framing ("alone, deserted, empty background")
+      // is what weak models actually obey. Lead positive, keep the negative as backup.
+      const noPhones = " No bystanders, no onlookers, no spectators, no people holding phones, no one filming.";
       personCountDirective = n === 1
-        ? `EXACTLY ONE person in the entire frame: ${names}. A solo shot — no other people anywhere, no second person, no background figures.${noPhones}`
-        : `EXACTLY ${n} people total in the entire frame and no more: ${names}. Each of these ${n} is a visually DISTINCT individual — do NOT duplicate, repeat, mirror or clone any of them, do NOT add a similar-looking extra person, no additional people, no background crowd.${noPhones}`;
+        ? `${names} is COMPLETELY ALONE — the ONLY person in the entire frame, in an empty deserted location with an empty background and no other people anywhere.${noPhones}`
+        : `ONLY these ${n} people are in the frame, alone together in an otherwise empty deserted location: ${names}. Each is a visually DISTINCT individual — do NOT duplicate or clone them. Empty background, no other people.${noPhones}`;
       // Push it here (mid-prompt) AND repeat near the end (late anchor) — image models weight
       // both early and late tokens, and a single mid-prompt mention was being ignored when two
       // characters looked similar (model duplicated the archetype → phantom 3rd person).
