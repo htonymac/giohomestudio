@@ -2393,3 +2393,17 @@ Sync error: 100-500ms → 0-30ms (audio frame quantization only).
 **Verified:** regenerated Cobra rooftop-leap on live andiostudio.com via authenticated CDP fetch → real mid-air leap, realistic (not 3D), **no crew, no cameras, no phone-crowd**, correct identity. Residual: model still adds ~2 standing bystanders (lean intentionally drops the person-count lock, same as Free Mode) — not crew/crowd.
 
 **Prevention rule:** NEVER put equipment nouns ("camera", "lens", "tripod", "cinematography") in a positive image prompt to convey realism — they get rendered as objects. Use texture/lighting/film-stock language only ("film still", "photorealistic", "natural lighting"). Equipment words belong ONLY in the negative.
+
+---
+
+## 2026-06-14 — "Clear Ghost Images/Audio/Video" not effective (ghosts return on reload)
+
+**Symptom:** Clicking Clear Ghost Images / Clear Ghost Audio removed media from the board, but old/cross-project ghosts reappeared after reload.
+
+**Root cause:** The clear buttons wiped only a SUBSET of state.
+- **Images:** Gen Max beat images (`sceneBeatImages`/`selectedBeatImages`/`useMaxImageScenes`/`sceneMaxTarget`) persist in BOTH the DB save AND a separate localStorage backup `ghs_hybrid_genmax_<projectId>` (added because DB saves sometimes silently dropped Gen Max images). The button cleared `sceneImages`+`prevSceneImages` only, so on next mount the localStorage backup re-injected the beat images. Button was also hidden when only beat-image ghosts remained.
+- **Audio:** per-character narration audio (`characterAudioUrls`) is saved + reloaded from the DB but was never cleared → ghost actor voices leaked back into assembly.
+
+**Fix (#117, commit bbebd89):** Clear Ghost Images now wipes every image-state key (sceneImages, prevSceneImages, sceneBeatImages, selectedBeatImages, sceneMaxTarget, useMaxImageScenes, sceneDescHashes) AND `localStorage.removeItem` the Gen Max backup; shows when any of those have content. Clear Ghost Audio also clears `characterAudioUrls` + duration; shows when character audio exists. The existing autosave + localStorage-backup effects then persist the emptied state. Clear Ghost Videos already cleared sceneVideos+versions (both persisted) — unchanged.
+
+**Prevention rule:** A "clear" action must wipe EVERY persistence layer for that data type — React state, DB save object, AND any localStorage mirror. If a value is mirrored to localStorage for durability, every clear path must remove that key too, or it silently re-hydrates on reload.
