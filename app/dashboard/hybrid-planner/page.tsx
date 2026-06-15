@@ -7581,6 +7581,17 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       setSceneDescHashes({});
                       // Kill the localStorage Gen Max backup so it can't re-inject on reload.
                       try { if (activeProjLocalId) localStorage.removeItem(`ghs_hybrid_genmax_${activeProjLocalId}`); } catch { /* disabled/quota */ }
+                      // Henry 2026-06-15: persist the clear RELIABLY server-side. The big
+                      // debounced autosave sometimes silently fails (50KB+ POST) -> ghosts
+                      // returned on reload. This small atomic PATCH drops the image keys in
+                      // the DB directly, so the clear always sticks.
+                      if (activeProjLocalId) {
+                        fetch("/api/hybrid/saved-state", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ localId: activeProjLocalId, clear: ["images"] }),
+                        }).catch(() => { /* autosave is the fallback */ });
+                      }
                     }
                   }}
                   title="Remove ALL images (scene images, previous-version thumbnails, AND Gen Max beat images) from this scene board, including the localStorage backup that re-injects them on reload. Does not delete files. Use if old images from another project keep coming back."
@@ -7591,7 +7602,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
               {/* Clear ghost videos — removes any cross-project contamination */}
               {Object.keys(sceneVideos).length > 0 && (
                 <button
-                  onClick={() => { if (confirm("Clear all scene videos from this board? Files are NOT deleted.")) { setSceneVideos({}); setSceneVideoVersions({}); } }}
+                  onClick={() => { if (confirm("Clear all scene videos from this board? Files are NOT deleted.")) { setSceneVideos({}); setSceneVideoVersions({}); if (activeProjLocalId) { fetch("/api/hybrid/saved-state", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ localId: activeProjLocalId, clear: ["videos"] }) }).catch(() => {}); } } }}
                   title="Remove all videos from this scene board (does not delete files). Use if old videos from another project are showing here."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   Clear Ghost Videos
@@ -7612,6 +7623,13 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                       setSfxGeneratedUrl(null);
                       setSfxDesc("");
                       setCharacterAudioUrls({});
+                      if (activeProjLocalId) {
+                        fetch("/api/hybrid/saved-state", {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ localId: activeProjLocalId, clear: ["audio"] }),
+                        }).catch(() => { /* autosave is the fallback */ });
+                      }
                     }
                   }}
                   title="Remove narrator audio, per-character voices, music selection, and SFX from this session (does not delete files). Use if old audio from another project is leaking into assembly."

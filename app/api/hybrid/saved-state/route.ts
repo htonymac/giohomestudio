@@ -77,6 +77,39 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Henry 2026-06-15: PATCH /api/hybrid/saved-state — targeted, RELIABLE ghost-clear.
+// Body: { localId, clear: ("images"|"audio"|"videos")[] }
+// The client "Clear Ghost X" buttons used to depend on the debounced fire-and-forget
+// autosave (a 50KB+ JSON POST that "sometimes silently fails" — see the localStorage
+// Gen Max backup that exists for exactly that reason). When that save failed, the DB
+// still held the old media, so the ghosts came back on reload = "clear not firing".
+// This removes the relevant JSONB keys server-side in ONE small atomic UPDATE, so the
+// clear is guaranteed to persist regardless of the big autosave. jsonb `- text[]` drops
+// every listed key in a single op.
+const CLEAR_KEYS: Record<string, string[]> = {
+  images: ["sceneImages", "prevSceneImages", "sceneBeatImages", "selectedBeatImages", "sceneMaxTarget", "useMaxImageScenes", "sceneDescHashes"],
+  audio:  ["narratorAudioUrl", "narratorAudioDuration", "selectedMusicUrl", "selectedMusicName", "sfxGeneratedUrl", "sfxDesc", "characterAudioUrls"],
+  videos: ["sceneVideos", "sceneVideoVersions"],
+};
+export async function PATCH(req: NextRequest) {
+  try {
+    const { localId, clear } = await req.json();
+    if (!localId || !Array.isArray(clear) || clear.length === 0) {
+      return NextResponse.json({ error: "localId and non-empty clear[] required" }, { status: 400 });
+    }
+    const keys = [...new Set(clear.flatMap((c: string) => CLEAR_KEYS[c] || []))];
+    if (keys.length === 0) return NextResponse.json({ error: "no valid clear categories" }, { status: 400 });
+    await prisma.$executeRaw`
+      UPDATE hybrid_saved_states
+      SET data = data - ${keys}::text[], "updatedAt" = NOW()
+      WHERE "localId" = ${localId}
+    `;
+    return NextResponse.json({ ok: true, localId, cleared: keys });
+  } catch (e) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : "DB patch error" }, { status: 500 });
+  }
+}
+
 // Henry 2026-06-02: DELETE /api/hybrid/saved-state?localId=xxx — remove a
 // saved project from the DB. Used by the My Projects panel's per-card trash
 // button. Storage assets under storage/scenes/, storage/video/, etc. are
