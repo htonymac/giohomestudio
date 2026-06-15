@@ -2407,3 +2407,25 @@ Sync error: 100-500ms → 0-30ms (audio frame quantization only).
 **Fix (#117, commit bbebd89):** Clear Ghost Images now wipes every image-state key (sceneImages, prevSceneImages, sceneBeatImages, selectedBeatImages, sceneMaxTarget, useMaxImageScenes, sceneDescHashes) AND `localStorage.removeItem` the Gen Max backup; shows when any of those have content. Clear Ghost Audio also clears `characterAudioUrls` + duration; shows when character audio exists. The existing autosave + localStorage-backup effects then persist the emptied state. Clear Ghost Videos already cleared sceneVideos+versions (both persisted) — unchanged.
 
 **Prevention rule:** A "clear" action must wipe EVERY persistence layer for that data type — React state, DB save object, AND any localStorage mirror. If a value is mirrored to localStorage for durability, every clear path must remove that key too, or it silently re-hydrates on reload.
+
+---
+
+## 2026-06-14 — Hybrid scenes: crowd + posing + wrong gender vs Free Mode (lean prompt now mirrors Free Mode)
+
+**Symptom:** Story said "woman chasing Cobra the thief" (action chase). Hybrid scene image showed two people in corporate dress posing together with a phone in hand. Regenerated multi-char scene (SC03 "Mara tackles Cobra mid-air through glass skylight") rendered 5 men standing/posing, Mara as male, no tackle. Henry: "FREE MODE SHOW EXACTLY... CANT U MIRRO SOMEHTING FROM FREE MODE."
+
+**Diagnosis (side-by-side, same model/output-size):**
+- Hybrid recipe → 5 men, posing, Mara male.
+- Free Mode recipe (`/api/generation/image`, no refs, simple prompt) → exactly 2 people, real mid-air grapple through shattering glass.
+- NOT aspect ratio (Pruna outputs 1344x768 either way) and NOT reference images (already dropped for multi-char). The difference was the PROMPT.
+
+**Root cause:** Hybrid's lean prompt stacked directives that backfire on the base model:
+1. `Faces: <mood> faces` expression lock — the plural "Faces" spawned a CROWD of staring people.
+2. `...NOT standing, NOT posing for a photo` (from staticSceneText) + `not a posed portrait, not the subject standing still` — negation stacking + the nouns "photo/portrait/posing" INDUCED the posing they forbid.
+3. ALL-CAPS names (`MARA`) read as a label/acronym, not a person — contributed to wrong gender.
+
+**Fix (#119, commit 28a4438):** Lean path now builds Free Mode's exact string: `stylePrefix + proper-case names + (era hint ONLY for real period stories, skipped for TODAY) + raw cleanSceneText + mood + "Composition shows the full scene action, not just the subject"`. Dropped the Faces expression lock and the negation stack. Gen Max action frames + explicit still scenes keep their special framing. Heavy path (staticSceneText) untouched.
+
+**Verified:** regenerated SC03 on live → exactly 2 people, Mara female + Cobra male, dynamic confrontation (hands lunging), no phones, realistic. (Exact "crash through skylight mid-air" choreography is a base-model fidelity limit; scene + cast + action are correct.)
+
+**Prevention rule:** For the base image model, LESS prompt = more accurate. Never list "Faces:" (plural spawns crowds). Never stack negations with the nouns you're forbidding ("NOT posing for a photo" induces posing). Proper-case character names. The simple Free Mode recipe is the reference — when a Hybrid scene image misbehaves, compare its prompt to Free Mode's first.
