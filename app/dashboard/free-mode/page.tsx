@@ -778,6 +778,8 @@ function HybridModal({
   initSfxSource,
   initVoiceProvider,
   initSubtitleStyle,
+  writerName,
+  autoCards,
 }: {
   scenes: Scene[];
   onClose: () => void;
@@ -789,6 +791,8 @@ function HybridModal({
   initSfxSource?: string;
   initVoiceProvider?: string;
   initSubtitleStyle?: SubtitleStyleKey;
+  writerName?: string;
+  autoCards?: boolean;
 }) {
   const [totalDuration,  setTotalDuration]  = useState(30);
   const [customDur,      setCustomDur]      = useState("");
@@ -1109,6 +1113,87 @@ function HybridModal({
         throw new Error(`All scene images failed — ${sceneFailures[0]}`);
       }
       setSteps(s => s.map((x, i) => i === 1 ? { ...x, status: "done" } : x));
+
+      // ── Auto intro/outro title cards ──────────────────────────────────────
+      // When autoCards is on, generate an intro PNG (4s) and outro PNG (6s)
+      // via /api/hybrid/generate-card and prepend/append them as normal image
+      // slides — they ride through the existing assemble path untouched.
+      // The entire block is wrapped in try/catch so a card failure NEVER
+      // blocks the video. assemblyScenes is mutated in-place before the
+      // payload is built.
+      if (autoCards !== false) {
+        const cardTitle = scenes[0]?.title || "Untitled";
+        const cardAuthor = writerName?.trim() || "";
+        const cardCast = (characters ?? []).map(ch => ({
+          name: ch.name,
+          roleType: ch.role ?? "character",
+        }));
+        try {
+          // Generate intro + outro in parallel; fail silently per card.
+          const [introCardData, outroCardData] = await Promise.allSettled([
+            fetch("/api/hybrid/generate-card", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "intro",
+                title: cardTitle,
+                author: cardAuthor || undefined,
+                studio: "Andio Studio",
+                style: "cinematic",
+                cast: cardCast,
+              }),
+            }).then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`)),
+            fetch("/api/hybrid/generate-card", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                type: "outro",
+                title: cardTitle,
+                author: cardAuthor || undefined,
+                studio: "Andio Studio",
+                style: "cinematic",
+                cast: cardCast,
+              }),
+            }).then(r => r.ok ? r.json() : Promise.reject(`HTTP ${r.status}`)),
+          ]);
+
+          // Use imagePath (absolute server path) same as scene image slides —
+          // assemble's resolveMediaPath accepts absolute paths via fs.existsSync.
+          // assemblyScenes entry shape: { scene, videoUrl, duration, text, animation }
+          // videoUrl = "img:<path>" prefix so assemble renders it as a Ken Burns slide.
+
+          if (introCardData.status === "fulfilled" && introCardData.value?.imagePath) {
+            const introSlide: { scene: number; videoUrl: string; duration: number; text: string; animation: string } = {
+              scene: -1,            // unique sentinel — no real scene index
+              videoUrl: `img:${introCardData.value.imagePath}`,
+              duration: 4,
+              text: cardTitle,
+              animation: "fade_in",
+            };
+            assemblyScenes.unshift(introSlide);
+          } else {
+            const reason = introCardData.status === "rejected" ? introCardData.reason : "no imagePath";
+            console.warn("[hybrid] intro card skipped:", reason);
+          }
+
+          if (outroCardData.status === "fulfilled" && outroCardData.value?.imagePath) {
+            const outroSlide: { scene: number; videoUrl: string; duration: number; text: string; animation: string } = {
+              scene: -2,            // unique sentinel
+              videoUrl: `img:${outroCardData.value.imagePath}`,
+              duration: 6,
+              text: cardAuthor ? `Written by ${cardAuthor}` : "Andio Studio",
+              animation: "fade_in",
+            };
+            assemblyScenes.push(outroSlide);
+          } else {
+            const reason = outroCardData.status === "rejected" ? outroCardData.reason : "no imagePath";
+            console.warn("[hybrid] outro card skipped:", reason);
+          }
+        } catch (cardErr) {
+          // Card generation must never block the video — log and continue.
+          console.warn("[hybrid] card generation exception, continuing without cards:", cardErr);
+        }
+      }
 
       // ── Step 4: background music ──────────────────────────────────────────
       // (Step 3 = images, completed above. Step 2 = narration, done up-front.)
@@ -2078,6 +2163,15 @@ function FreeModeChat() {
   const [fmSubText,           setFmSubText]           = useState<string>("");
   const [fmNarrationRunning,  setFmNarrationRunning]  = useState(false);
 
+  // ── Auto intro/outro title cards (additive, 2026-06-14) ──
+  // fmWriterName: optional "Written by" credit shown on the outro card.
+  // fmAutoCards: default-ON toggle — when enabled, generate-card PNGs are
+  //              prepended (intro) and appended (outro) to assemblyScenes
+  //              before the assemble fetch. Try/catch inside HybridModal
+  //              ensures card failure never blocks the video.
+  const [fmWriterName,  setFmWriterName]  = useState<string>("");
+  const [fmAutoCards,   setFmAutoCards]   = useState<boolean>(true);
+
   // ── Visual style ──
   const [imageStyle, setImageStyle] = useState("realistic");
 
@@ -2756,6 +2850,8 @@ function FreeModeChat() {
           initSfxSource={sfxSource}
           initVoiceProvider={effectiveNarrationProvider}
           initSubtitleStyle={effectiveSubtitleMode as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"}
+          writerName={fmWriterName}
+          autoCards={fmAutoCards}
           onComplete={async (resultUrl, hybridScenes) => {
             // Save final hybrid video to chat history so it survives refresh.
             const sceneObj: Scene = {
@@ -3198,6 +3294,51 @@ function FreeModeChat() {
               </button>
             )}
           </div>
+
+          {/* ── Auto title cards row (additive, 2026-06-14) ─────────────────────
+                Shown only when there are scenes to assemble. Lets the user set
+                a writer name for the outro credit and toggle intro/outro cards.
+                State lives in fmWriterName / fmAutoCards; passed to HybridModal
+                which generates the PNGs and splices them into assemblyScenes. */}
+          {messages.some(m => m.scenes && m.scenes.length > 0) && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap",
+            }}>
+              <label style={{
+                display: "flex", alignItems: "center", gap: 5, cursor: "pointer",
+                fontSize: 10, fontWeight: 700, color: fmAutoCards ? C.mint : C.mute2,
+                userSelect: "none",
+              }}>
+                <input
+                  type="checkbox"
+                  checked={fmAutoCards}
+                  onChange={e => setFmAutoCards(e.target.checked)}
+                  style={{ accentColor: C.mint, cursor: "pointer", width: 12, height: 12 }}
+                />
+                Auto intro &amp; outro
+              </label>
+              {fmAutoCards && (
+                <input
+                  type="text"
+                  value={fmWriterName}
+                  onChange={e => setFmWriterName(e.target.value)}
+                  placeholder="Your name (writer)"
+                  maxLength={60}
+                  style={{
+                    padding: "3px 8px", borderRadius: 7, fontSize: 10, fontWeight: 600,
+                    border: `1px solid ${C.line}`, background: C.alert,
+                    color: C.ink, outline: "none", fontFamily: "inherit",
+                    width: 150,
+                  }}
+                />
+              )}
+              {fmAutoCards && (
+                <span style={{ fontSize: 9, color: C.mute2 }}>
+                  Studio: Andio Studio · Title: AI story title · adds 4s intro + 6s outro to Hybrid video
+                </span>
+              )}
+            </div>
+          )}
 
           {/* ── Toolbar Row 2: compact model selectors ── */}
           <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6, flexWrap: "wrap" }}>
