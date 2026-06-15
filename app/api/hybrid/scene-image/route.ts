@@ -709,7 +709,13 @@ export async function POST(req: NextRequest) {
       const leanSceneIsNudeContext = /\b(shirtless|bare\s*chest|topless|swim|swimming|beach|pool|shower|bathing|bath|sauna|gym|workout|fitness|sex|nude|naked|nudity)\b/i.test(sceneText || "");
       const leanNudityNeg = leanSceneIsNudeContext ? "" : ", shirtless, bare chested, topless, no shirt, half nude";
       const leanEraHintNeg = eraLock.negative ? `, ${eraLock.negative}` : "";
-      negativePrompt = `${stylePreset.negative}${leanNudityNeg}${leanEraHintNeg}, blurry, deformed, extra limbs, watermark`;
+      // Henry 2026-06-14: short crew/crowd guard in lean mode — without it the model
+      // added a film crew with cameras (primed by "cinema"/"film still") or a phone
+      // crowd. Skip the crew guard only when the scene is genuinely about filming.
+      const leanIsFilming = /\b(film(ing)?\s+(set|crew|shoot)|movie set|camera crew|on set|behind the scenes|photo ?shoot)\b/i.test(sceneText || "");
+      const leanCrewNeg = leanIsFilming ? "" : ", film crew, cameraman, camera operator, person holding a camera, movie camera, film camera, tripod, clapperboard, boom mic, photographer in frame";
+      const leanPhoneNeg = /\b(phone|smartphone|selfie|texting)\b/i.test(sceneText || "") ? "" : ", crowd of people holding phones, bystanders filming on phones, spectators with smartphones";
+      negativePrompt = `${stylePreset.negative}${leanNudityNeg}${leanEraHintNeg}${leanCrewNeg}${leanPhoneNeg}, blurry, deformed, extra limbs, watermark`;
 
     } else {
       // ── HEAVY PATH (opt-in via body.heavyPrompt === true) ────────────────────
