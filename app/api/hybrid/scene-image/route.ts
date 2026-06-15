@@ -517,14 +517,29 @@ export async function POST(req: NextRequest) {
     // boy+dog scene, which is exactly where extra people (a random man) and clone
     // spam (7 Tobis) appeared. Animals are not "people"; the directive's "no other
     // people" wording leaves them unaffected.
-    const humanCastForCount = resolvedCharacters.filter(c => !ANIMAL_SPECIES.has(speciesOfChar(c.name)));
-    if (humanCastForCount.length >= 1 && humanCastForCount.length <= 4 && !sceneHasCrowd) {
+    let countNames = resolvedCharacters
+      .filter(c => !ANIMAL_SPECIES.has(speciesOfChar(c.name)))
+      .map(c => c.name);
+    // Henry 2026-06-14: FALLBACK — when characters didn't resolve from the DB
+    // (name-only scene cast, e.g. characterIds:["COBRA"] with no saved record),
+    // resolvedCharacters is empty so the count lock never fired and the model
+    // filled the frame with phone-holding bystanders. Derive the human cast from
+    // characterOverrides / characterIds so the "EXACTLY N people" lock still fires.
+    if (countNames.length === 0) {
+      const ovNames = (characterOverrides as Array<{ name?: string; species?: string }> | undefined)
+        ?.filter(o => o?.name && !ANIMAL_SPECIES.has((o.species || "human").toLowerCase()))
+        .map(o => o!.name as string) ?? [];
+      const idNames = Array.isArray(characterIds) ? (characterIds as string[]).filter(Boolean) : [];
+      countNames = ovNames.length > 0 ? ovNames : idNames;
+    }
+    if (countNames.length >= 1 && countNames.length <= 4 && !sceneHasCrowd) {
       personCountActive = true;
-      const n = humanCastForCount.length;
-      const names = humanCastForCount.map(c => c.name).join(", ");
+      const n = countNames.length;
+      const names = countNames.join(", ");
+      const noPhones = " No bystanders, no onlookers, no people holding phones, no one looking at a phone in the background.";
       personCountDirective = n === 1
-        ? `EXACTLY ONE person in the entire frame: ${names}. A solo shot — no other people anywhere, no second person, no bystanders, no background figures.`
-        : `EXACTLY ${n} people total in the entire frame and no more: ${names}. Each of these ${n} is a visually DISTINCT individual — do NOT duplicate, repeat, mirror or clone any of them, do NOT add a similar-looking extra person, no additional people, no bystanders, no background crowd.`;
+        ? `EXACTLY ONE person in the entire frame: ${names}. A solo shot — no other people anywhere, no second person, no background figures.${noPhones}`
+        : `EXACTLY ${n} people total in the entire frame and no more: ${names}. Each of these ${n} is a visually DISTINCT individual — do NOT duplicate, repeat, mirror or clone any of them, do NOT add a similar-looking extra person, no additional people, no background crowd.${noPhones}`;
       // Push it here (mid-prompt) AND repeat near the end (late anchor) — image models weight
       // both early and late tokens, and a single mid-prompt mention was being ignored when two
       // characters looked similar (model duplicated the archetype → phantom 3rd person).
