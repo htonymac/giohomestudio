@@ -2375,3 +2375,21 @@ Sync error: 100-500ms → 0-30ms (audio frame quantization only).
 `VoiceTierSelector` dropdown now shows `"Christopher · US ♂ [bass] — Deep authoritative narrator"`.
 
 **Commit:** 4e05b28.
+
+---
+
+## 2026-06-14 — Hybrid scene images: film crew with cameras (lean-prompt mode)
+
+**Symptom:** After switching Hybrid to the lean Free-Mode-style prompt (#114), the no-action and phone-crowd bugs were gone, but regenerated scenes now showed a **film crew holding cameras** in frame (e.g. Cobra rooftop scene).
+
+**Root cause:** Two-part.
+1. `src/lib/style-presets.ts` realistic preset literally said **"professional cinema camera"** (prefix) and **"professional cinematography"** (suffix). FLUX read these as objects-in-scene → rendered actual cameras + camera operators. Same "camera facing → man holding a camera" trap Henry flagged before.
+2. Lean mode dropped the old heavy `filmCrewNegative`, so nothing suppressed the artifact.
+
+**Fix (#115, commit 73e633d):**
+- `style-presets.ts`: realistic prefix → "Live-action cinematic **film still**…" (dropped camera-equipment nouns, kept all real-photo cues: photorealistic, real skin texture, natural lighting, 8K). Suffix dropped "professional cinematography".
+- `app/api/hybrid/scene-image/route.ts` lean path: added short conditional crew negative (`film crew, cameraman, camera operator, person holding a camera, movie camera, tripod, clapperboard, boom mic…`) + phone-crowd negative, each auto-skipped when the scene is genuinely about filming/phones.
+
+**Verified:** regenerated Cobra rooftop-leap on live andiostudio.com via authenticated CDP fetch → real mid-air leap, realistic (not 3D), **no crew, no cameras, no phone-crowd**, correct identity. Residual: model still adds ~2 standing bystanders (lean intentionally drops the person-count lock, same as Free Mode) — not crew/crowd.
+
+**Prevention rule:** NEVER put equipment nouns ("camera", "lens", "tripod", "cinematography") in a positive image prompt to convey realism — they get rendered as objects. Use texture/lighting/film-stock language only ("film still", "photorealistic", "natural lighting"). Equipment words belong ONLY in the negative.
