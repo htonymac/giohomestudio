@@ -636,84 +636,122 @@ export async function POST(req: NextRequest) {
       promptParts.push("Scene featuring SCHOOL-AGE CHILDREN ages 8-10 — proper grade-school proportions and faces, NOT toddlers, NOT preschoolers, NOT 4-5 year olds, NOT teens, NOT adults. The kids are old enough for sports and school activities — fully grown out of baby-faced phase. No facial hair, no muscular adult builds, no mature anatomy. The cast is school-age kids.");
     }
 
-    const rawPrompt = promptParts.join(". ");
-    const structuredPrompt = rawPrompt.slice(0, 2000);
+    // ── LEAN vs HEAVY PROMPT GATE (2026-06-14) ──────────────────────────────────
+    // PROVEN: Free Mode's short clean prompt produces action-accurate scene images.
+    // The heavy path (2000-char wall with era-lock, person-count directives, giant
+    // per-character blocks, toStaticFrame) chokes free FLUX → crowds + poses.
+    //
+    // useLeanPrompt = true  (DEFAULT) — mirror Free Mode's clean structure.
+    //   Positive: stylePreset.prefix + charNames(+age tag) + sceneTitle + cleanSceneText + mood + cinematic anchor.
+    //   Negative: stylePreset.negative + nudity guard + "blurry, deformed, extra limbs".
+    //   Dropped: person-count "EXACTLY N people" wall, toStaticFrame on non-still scenes,
+    //            giant per-character wardrobe/skin/anchor block, anti-portrait walls,
+    //            film-crew negative wall, extra-people wall.
+    //   Kept: face-lock reference image path (referenceImageUrls / willFaceLock / img2img),
+    //         actionFrame branch (already handled by staticSceneText above),
+    //         SHORT era hint when storyEra/storyCulture set,
+    //         SHORT negative (stylePreset.negative + nudity + quality guard).
+    //
+    // useLeanPrompt = false (body.heavyPrompt === true) — keep existing heavy assembly
+    //   as an explicit opt-in fallback. All the promptParts[] built above are used as-is.
+    //
+    // The face-lock / img2img / generateImage call + CDN-download + response shape are
+    // IDENTICAL for both paths — only structuredPrompt + negativePrompt strings differ.
+    const useLeanPrompt = body.heavyPrompt !== true;
 
-    // bear-guard: hard negative — always block bear/animal features on human characters.
-    // GENESIS BEAR FIX (Henry 2026-05-30): trimmed from 12+ bear-words to a tighter phrase.
-    // Heavy negative repetition was paradoxically priming the model (a known diffusion
-    // anti-pattern). Combined with positive-side bear/animal mention removal above, this
-    // should kill the recurring bear-head defaults on human characters.
-    const bearNegative = explicitAnimal
-      ? ""
-      : ", animal head on human body, furry creature, snout, paws, animal face, anthropomorphic creature, non-human face, creature head";
-    // Hybrid-feature guard — always block species merging
-    const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body, animal head replacing human head";
+    let structuredPrompt: string;
+    let negativePrompt: string;
 
-    // Phone negative — unless scene description explicitly mentions phones/smartphones
-    const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
-    const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
+    if (useLeanPrompt) {
+      // ── LEAN POSITIVE — mirrors Free Mode genSceneImage ──────────────────────
+      // Pattern: {stylePrefix} {charNames}. {sceneTitle}. {cleanSceneText}. {mood} mood, cinematic atmosphere.
+      //          Composition shows the FULL SCENE ACTION mid-motion, not a posed portrait.
+      const leanAgeTagFor = (a?: string | null) =>
+        a === "child" ? " (8-10-year-old child)" :
+        a === "teen"  ? " (teenager)" :
+        a === "elder" ? " (elderly)" : "";
 
-    // Anti-portrait negative — Henry 2026-06-13: now ALL styles (was realistic-only).
-    // The photo-specific words (studio lighting, mugshot, headshot) only make sense
-    // for realistic; drawn styles get the composition half (lineup/standing-in-a-row/
-    // posed) which is what made comic scenes look like static character sheets.
-    const antiPortraitNegative = isRealisticFamily
-      ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row, models posing for camera, fashion shoot composition, all characters facing camera, group photo composition, static standing still, hands at sides motionless"
-      : ", character reference sheet, character lineup, characters standing in a row, posed standing, neutral pose, all characters facing the viewer, group photo composition, static standing still, hands at sides motionless, cover pose";
+      const leanCharNames = resolvedCharacters.length > 0
+        ? resolvedCharacters.map(c => `${c.name}${leanAgeTagFor(c.age)}`).join(", ") + ". "
+        : "";
 
-    // Nudity / shirtless negative — fires unless the scene explicitly calls for it (beach,
-    // shower, swim, etc.). Stops the model defaulting to shirtless fitness-style portraits,
-    // which is a strong bias for Black male characters when PuLID locks a shirtless portrait.
-    const sceneIsNudeContext = /\b(shirtless|bare\s*chest|topless|swim|swimming|beach|pool|shower|bathing|bath|sauna|gym|workout|fitness|sex|nude|naked|nudity)\b/i.test(sceneText || "");
-    const nudityNegative = sceneIsNudeContext ? "" : ", shirtless, bare chested, topless, no shirt, half nude, half naked, naked torso, fitness pose, athletic poster pose, swimwear, underwear, briefs, fully nude";
+      // Short era hint — one sentence, not the giant era-lock block.
+      const leanEraHint = (storyEra || storyCulture)
+        ? `Set in ${[storyEra, storyCulture].filter(Boolean).join(", ")}. `
+        : "";
 
-    // Style-collision negatives — extra muscle behind the negative when live-action is selected.
-    // getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
-    const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
-    const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
-    // Extra-people negative — pairs with the PERSON-COUNT LOCK above. Only when we pinned a
-    // known small cast (skipped for crowd scenes), so intended background crowds aren't removed.
-    const extraPeopleNegative = personCountActive
-      ? ", extra person, extra people, additional people, more people than described, duplicate character, cloned face, identical twins, repeated person, background crowd, bystanders, photobomber, extra figures in background, group of strangers"
-      : "";
+      const leanSceneTitle = (typeof sceneText === "string" && sceneText.slice(0, 80).trim())
+        ? ""   // sceneText IS the title in most callers; avoid double-stating it
+        : "";
 
-    // Film-crew negative — the prompt's "cinematic / camera framing / scene shot / still
-    // frame" language was making the model render a LITERAL film camera + cameraman in the
-    // scene (Henry's workshop render had a camera operator between the two characters).
-    // Suppress film-set equipment unless the scene is actually about filming. (2026-05-28)
-    // Henry 2026-06-13: only exempt when the scene is EXPLICITLY about a film/video
-    // shoot (the camera is the subject). Narrowed the trigger — words like "director"
-    // or generic "shooting" were wrongly exempting normal scenes and letting a
-    // cameraman through. Default = always block film equipment.
-    const sceneIsFilmmaking = /\b(movie set|on a film set|film set|camera crew|cinematographer|behind the scenes|shooting a (movie|film|video)|video shoot|photo ?shoot)\b/i.test(sceneText || "");
-    const filmCrewNegative = sceneIsFilmmaking
-      ? ""
-      : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame, dslr, tripod";
+      // Use the already-computed staticSceneText (which respects actionFrame / isStillScene).
+      const leanMoodLine = mood ? `, ${mood} mood, cinematic atmosphere` : ", cinematic atmosphere";
+      const leanActionAnchor = skipActionPush
+        ? ""
+        : ". Composition shows the FULL SCENE ACTION mid-motion, not a posed portrait, not the subject standing still";
 
-    // Anti-fantasy guard — block angel/fairy wings, halos, divine glow, mythical beings in
-    // non-fantasy stories so ambiguous words ("plane wings", "soar", "masterpiece glows")
-    // don't drift into literal fantasy imagery. Context = scene + character descs + culture.
-    const fantasyContext = `${sceneText || ""} ${storyCulture || ""} ${resolvedCharacters.map(c => c.visualDescription || "").join(" ")}`;
-    const antiFantasyNegative = getAntiFantasyNegative(fantasyContext);
-    // Henry 2026-06-04 (B) → 2026-06-08 flipped default:
-    // Originally fired ONLY when client opted in via isActionScene=true.
-    // Hybrid Planner page.tsx is LOCKED so it never passes isActionScene → posed
-    // images were the default. Henry: "image are all pos and smiling not not action".
-    // Flip: anti-static fires UNLESS the caller explicitly says isStillScene=true
-    // (e.g. portrait/establishing-shot scenes). All other scenes get action push.
-    // Henry 2026-06-13: also skip on teaching/word scenes (skipActionPush) so a
-    // calm "A is for Apple" frame isn't fighting an anti-static negative.
-    const antiStaticNegative = skipActionPush
-      ? ""
-      : ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless";
-    // Expression negative (Henry 2026-06-11): when an action frame declares a non-happy
-    // emotion, actively block the model's smile prior in the negative as well.
-    const frameExpressionIsHappy = /\b(smil|happy|joy|laugh|cheer|grin|delight|excit|triumph|relief|reliev)\w*/i.test(frameExpressionStr);
-    const expressionNegative = (frameExpressionStr && !frameExpressionIsHappy)
-      ? ", smiling, grinning, laughing, cheerful expression, happy face, relaxed casual expression"
-      : "";
-    const negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative + expressionNegative;
+      // Include expression lock for action frames (same as heavy path)
+      const leanExpressionLock = frameExpressionStr
+        ? `. Faces show ${frameExpressionStr}`
+        : (!isActionFrame && !skipActionPush && mood && MOOD_FACE[String(mood).toLowerCase()])
+          ? `. Faces: ${MOOD_FACE[String(mood).toLowerCase()]}`
+          : "";
+
+      structuredPrompt = (
+        `${stylePreset.prefix} ${leanCharNames}${leanEraHint}${staticSceneText}${leanMoodLine}${leanActionAnchor}${leanExpressionLock}`
+      ).replace(/\s{2,}/g, " ").slice(0, 900);
+
+      // ── LEAN NEGATIVE — style preset + nudity guard + quality floor ──────────
+      // DROP: person-count walls, anti-portrait walls, film-crew wall, extra-people wall.
+      // KEEP: stylePreset.negative (style-appropriate baseline),
+      //       nudity/shirtless guard (stops shirtless portrait bleed from PuLID lock),
+      //       "blurry, deformed, extra limbs" (quality floor).
+      const leanSceneIsNudeContext = /\b(shirtless|bare\s*chest|topless|swim|swimming|beach|pool|shower|bathing|bath|sauna|gym|workout|fitness|sex|nude|naked|nudity)\b/i.test(sceneText || "");
+      const leanNudityNeg = leanSceneIsNudeContext ? "" : ", shirtless, bare chested, topless, no shirt, half nude";
+      const leanEraHintNeg = eraLock.negative ? `, ${eraLock.negative}` : "";
+      negativePrompt = `${stylePreset.negative}${leanNudityNeg}${leanEraHintNeg}, blurry, deformed, extra limbs, watermark`;
+
+    } else {
+      // ── HEAVY PATH (opt-in via body.heavyPrompt === true) ────────────────────
+      // All the promptParts[] assembled above are used verbatim. This is the pre-existing
+      // heavy assembly — left intact as a fallback for callers that explicitly want it.
+      const rawPrompt = promptParts.join(". ");
+      structuredPrompt = rawPrompt.slice(0, 2000);
+
+      // Heavy negative (pre-existing full assembly)
+      const bearNegative = explicitAnimal
+        ? ""
+        : ", animal head on human body, furry creature, snout, paws, animal face, anthropomorphic creature, non-human face, creature head";
+      const hybridNegative = ", human face on animal, animal face on human, hybrid creature, fused characters, character merging, blended anatomy, chimera, anthropomorphic merge, mixed species body, animal head replacing human head";
+      const sceneHasPhone = /\b(phone|smartphone|mobile|cellphone|call|text|WhatsApp|screen)\b/i.test(sceneText || "");
+      const phoneNegative = sceneHasPhone ? "" : ", holding smartphones, holding phones, staring at phones, mobile phone in hand, cellphone, people on phones";
+      const antiPortraitNegative = isRealisticFamily
+        ? ", portrait style, character reference sheet, character lineup, characters standing in a row, plain studio background, blank backdrop, photo studio lighting, neutral pose, posed standing, character sheet, side by side portraits, mugshot style, headshot row, models posing for camera, fashion shoot composition, all characters facing camera, group photo composition, static standing still, hands at sides motionless"
+        : ", character reference sheet, character lineup, characters standing in a row, posed standing, neutral pose, all characters facing the viewer, group photo composition, static standing still, hands at sides motionless, cover pose";
+      const sceneIsNudeContext = /\b(shirtless|bare\s*chest|topless|swim|swimming|beach|pool|shower|bathing|bath|sauna|gym|workout|fitness|sex|nude|naked|nudity)\b/i.test(sceneText || "");
+      const nudityNegative = sceneIsNudeContext ? "" : ", shirtless, bare chested, topless, no shirt, half nude, half naked, naked torso, fitness pose, athletic poster pose, swimwear, underwear, briefs, fully nude";
+      const eraNegative = eraLock.negative ? `, ${eraLock.negative}` : "";
+      const charNegativeStr = charNegatives.length > 0 ? `, ${charNegatives.join(", ")}` : "";
+      const extraPeopleNegative = personCountActive
+        ? ", extra person, extra people, additional people, more people than described, duplicate character, cloned face, identical twins, repeated person, background crowd, bystanders, photobomber, extra figures in background, group of strangers"
+        : "";
+      const sceneIsFilmmaking = /\b(movie set|on a film set|film set|camera crew|cinematographer|behind the scenes|shooting a (movie|film|video)|video shoot|photo ?shoot)\b/i.test(sceneText || "");
+      const filmCrewNegative = sceneIsFilmmaking
+        ? ""
+        : ", film camera, movie camera, cinema camera, video camera, camcorder, cameraman, camera operator, film crew, boom microphone, boom mic, camera on tripod, film set equipment, clapperboard, studio camera rig, person holding a camera, person operating a camera, photographer in frame, dslr, tripod";
+      const fantasyContext = `${sceneText || ""} ${storyCulture || ""} ${resolvedCharacters.map(c => c.visualDescription || "").join(" ")}`;
+      const antiFantasyNegative = getAntiFantasyNegative(fantasyContext);
+      const antiStaticNegative = skipActionPush
+        ? ""
+        : ", static pose, standing still, posing for camera, smiling at camera, calm expression, idle stance, character lineup, characters standing in a row, posed portrait, balanced symmetric composition, hands at sides, neutral pose, frozen, motionless";
+      const frameExpressionIsHappy = /\b(smil|happy|joy|laugh|cheer|grin|delight|excit|triumph|relief|reliev)\w*/i.test(frameExpressionStr);
+      const expressionNegative = (frameExpressionStr && !frameExpressionIsHappy)
+        ? ", smiling, grinning, laughing, cheerful expression, happy face, relaxed casual expression"
+        : "";
+      negativePrompt = stylePreset.negative + bearNegative + hybridNegative + phoneNegative + nudityNegative + antiPortraitNegative + charNegativeStr + extraPeopleNegative + filmCrewNegative + antiFantasyNegative + getStyleCollisionNegative(styleId) + eraNegative + antiStaticNegative + expressionNegative;
+    }
+
+    console.log(`[scene-image] promptMode=${useLeanPrompt ? "lean" : "heavy"} promptLen=${structuredPrompt.length}`);
 
     // 3. Collect reference images from characters — normalize paths to /api/media/ URLs
     function normalizeRef(url: string): string {
