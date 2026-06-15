@@ -111,6 +111,15 @@ export async function GET(req: Request) {
 
     let catalog = [...freepd, ...bundled];
 
+    // Henry 2026-06-15: QUARANTINE unverified/blocked tracks. One of the bundled
+    // pre-2026-05 tracks (epic_orchestral.mp3, "Epic Orchestral") triggered a YouTube
+    // Content ID copyright claim on a published video. Those tracks have no documented
+    // provenance (stripped ID3 tags, generic names) = copyright risk. NEVER serve them
+    // to the picker. Only an explicit admin/debug flag can surface them.
+    // verificationStatus: freepd = "verified" (CC BY, legally clear), bundled = "pending".
+    const includeUnverified = searchParams.get("includeUnverified") === "true";
+    catalog = catalog.filter(t => !t.blocked && (includeUnverified || t.verificationStatus === "verified"));
+
     // Filters
     if (commercialOnly) {
       catalog = catalog.filter(t => t.commercialUseAllowed && !t.blocked);
@@ -132,6 +141,7 @@ export async function GET(req: Request) {
         policy: "/legal/sound-licensing",
         commercialUseRule: "Tracks marked commercialUseAllowed=false are SAFE for personal/free-tier video but require verification before monetised use. Attribution required for CC BY tracks (auto-text in track.attribution).",
         ccByAttributionRule: "When using any CC BY track in published content, include the track.attribution string verbatim in your credits.",
+        youtubeContentIdWarning: "IMPORTANT: even CC BY / public-domain library music (e.g. Kevin MacLeod) is widely registered in YouTube Content ID and will often trigger a monetisation claim (not a strike). For claim-free YouTube uploads, prefer AI-generated music (unique per video) or music you hold an explicit licence for.",
       },
     });
   } catch (err) {
