@@ -671,34 +671,47 @@ export async function POST(req: NextRequest) {
         a === "teen"  ? " (teenager)" :
         a === "elder" ? " (elderly)" : "";
 
+      // Henry 2026-06-14: proper-case names. Data stores them UPPERCASE ("MARA");
+      // Free Mode uses proper case ("Mara"). ALL-CAPS reads to the model as a
+      // label/acronym, not a person. Title-case any all-caps name; leave mixed case.
+      const properName = (n: string) =>
+        /^[A-Z][A-Z'’-]+$/.test(n) ? n.charAt(0) + n.slice(1).toLowerCase() : n;
       const leanCharNames = resolvedCharacters.length > 0
-        ? resolvedCharacters.map(c => `${c.name}${leanAgeTagFor(c.age)}`).join(", ") + ". "
+        ? resolvedCharacters.map(c => `${properName(c.name)}${leanAgeTagFor(c.age)}`).join(", ") + ". "
         : "";
 
-      // Short era hint — one sentence, not the giant era-lock block.
-      const leanEraHint = (storyEra || storyCulture)
+      // Short era hint — ONLY for genuine period/non-contemporary stories. For
+      // "TODAY"/contemporary/blank it is noise that Free Mode never adds, so skip it.
+      const eraIsContemporary = !storyEra
+        || /\b(today|present|contemporary|modern|current|now|202\d|21st)\b/i.test(String(storyEra));
+      const leanEraHint = (!eraIsContemporary || (storyCulture && !/contemporary|american|modern/i.test(String(storyCulture))))
         ? `Set in ${[storyEra, storyCulture].filter(Boolean).join(", ")}. `
         : "";
 
-      const leanSceneTitle = (typeof sceneText === "string" && sceneText.slice(0, 80).trim())
-        ? ""   // sceneText IS the title in most callers; avoid double-stating it
-        : "";
+      // Henry 2026-06-14: MIRROR FREE MODE EXACTLY. The lean path used to append
+      // staticSceneText's "...NOT standing, NOT posing for a photo" + a verbose
+      // "not a posed portrait, not the subject standing still" anchor + a
+      // "Faces: <mood> faces" lock. Side-by-side test (SC03 tackle) PROVED these
+      // BACKFIRE on the base model: the plural "Faces:" spawns a CROWD of staring
+      // people, and the stacked "photo/portrait/posing" negations induce the very
+      // posing they forbid. Free Mode (no face lock, no negation stack, gentle
+      // "not just the subject" anchor) rendered the exact 2-person action.
+      // So: normal scenes use the raw cleanSceneText; only Gen Max action frames
+      // and explicit still scenes keep their special framing.
+      const leanSceneBody = isActionFrame
+        ? `${cleanSceneText.slice(0, 450)} One single frozen instant of an action in progress, captured mid-motion.`
+        : wantStillFrame
+          ? toStaticFrame(cleanSceneText.slice(0, 300))
+          : cleanSceneText.slice(0, 420);
 
-      // Use the already-computed staticSceneText (which respects actionFrame / isStillScene).
       const leanMoodLine = mood ? `, ${mood} mood, cinematic atmosphere` : ", cinematic atmosphere";
+      // Free Mode's exact, gentle anchor — no negations, no "portrait" noun.
       const leanActionAnchor = skipActionPush
         ? ""
-        : ". Composition shows the FULL SCENE ACTION mid-motion, not a posed portrait, not the subject standing still";
-
-      // Include expression lock for action frames (same as heavy path)
-      const leanExpressionLock = frameExpressionStr
-        ? `. Faces show ${frameExpressionStr}`
-        : (!isActionFrame && !skipActionPush && mood && MOOD_FACE[String(mood).toLowerCase()])
-          ? `. Faces: ${MOOD_FACE[String(mood).toLowerCase()]}`
-          : "";
+        : ". Composition shows the full scene action, not just the subject";
 
       structuredPrompt = (
-        `${stylePreset.prefix} ${leanCharNames}${leanEraHint}${staticSceneText}${leanMoodLine}${leanActionAnchor}${leanExpressionLock}`
+        `${stylePreset.prefix} ${leanCharNames}${leanEraHint}${leanSceneBody}${leanMoodLine}${leanActionAnchor}`
       ).replace(/\s{2,}/g, " ").slice(0, 900);
 
       // ── LEAN NEGATIVE — style preset + nudity guard + quality floor ──────────
