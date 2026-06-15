@@ -2429,3 +2429,15 @@ Sync error: 100-500ms → 0-30ms (audio frame quantization only).
 **Verified:** regenerated SC03 on live → exactly 2 people, Mara female + Cobra male, dynamic confrontation (hands lunging), no phones, realistic. (Exact "crash through skylight mid-air" choreography is a base-model fidelity limit; scene + cast + action are correct.)
 
 **Prevention rule:** For the base image model, LESS prompt = more accurate. Never list "Faces:" (plural spawns crowds). Never stack negations with the nouns you're forbidding ("NOT posing for a photo" induces posing). Proper-case character names. The simple Free Mode recipe is the reference — when a Hybrid scene image misbehaves, compare its prompt to Free Mode's first.
+
+---
+
+## 2026-06-15 — "Clear Ghost still not firing" (round 2 — persistence layer)
+
+**Symptom:** After the 2026-06-14 fix (clearing all state keys + localStorage backup), Henry: "CLEAR GHOST IMAGE IS STILL NOT FIRING." Live probe confirmed the button renders and its confirm() fires with the new message — so the handler ran — yet ghosts persisted across reload.
+
+**Root cause:** The clear handlers reset React state and trusted the debounced fire-and-forget autosave (a 50KB+ JSON POST) to persist the emptied state. That autosave is documented in-code as "sometimes silently fails" (the localStorage Gen Max backup was added for exactly that reason). When it failed, the DB kept the old media → restore re-hydrated the ghosts on next load.
+
+**Fix (#121):** New `PATCH /api/hybrid/saved-state { localId, clear: ("images"|"audio"|"videos")[] }` drops the relevant JSONB keys in ONE small atomic UPDATE (`data - keys::text[]`). Each Clear Ghost button now fires this PATCH directly, so the clear sticks regardless of the big autosave. Verified against the live DB: seed {sceneImages, sceneBeatImages, sceneVideos} → PATCH clear:["images"] → GET shows only {projectTitle, sceneVideos} (image keys gone, videos preserved).
+
+**Prevention rule:** A destructive "clear/reset" must persist via a SMALL, dedicated, reliable write — never via the same large debounced autosave that's known to fail. State reset ≠ persisted clear.
