@@ -7561,15 +7561,29 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                   the active sceneImages; prevSceneImages kept up to 3 stale URLs
                   per scene that re-appeared in scene-card "previous versions"
                   strip — user clicked "Clear" but ghost images stayed visible. */}
-              {(Object.keys(sceneImages).length > 0 || Object.keys(prevSceneImages).length > 0) && (
+              {/* Henry 2026-06-14: ghost-clear was "not effective" because it only wiped
+                  sceneImages + prevSceneImages. The Gen Max beat images (sceneBeatImages
+                  etc.) live in BOTH the DB save AND a separate localStorage backup
+                  (ghs_hybrid_genmax_<id>) that RE-INJECTS them on the next reload. So the
+                  ghosts came right back. Now clear EVERY image-state key + delete the
+                  localStorage backup; the autosave + backup effects then persist the empty
+                  state. Also show the button when only beat-image ghosts remain. */}
+              {(Object.keys(sceneImages).length > 0 || Object.keys(prevSceneImages).length > 0 || Object.keys(sceneBeatImages).length > 0) && (
                 <button
                   onClick={() => {
-                    if (confirm("Clear all scene images AND previous-version thumbnails from this board? Files are NOT deleted.")) {
+                    if (confirm("Clear ALL scene images, previous-version thumbnails, and Gen Max beat images from this board? Files are NOT deleted.")) {
                       setSceneImages({});
                       setPrevSceneImages({});
+                      setSceneBeatImages({});
+                      setSelectedBeatImages({});
+                      setSceneMaxTarget({});
+                      setUseMaxImageScenes(new Set());
+                      setSceneDescHashes({});
+                      // Kill the localStorage Gen Max backup so it can't re-inject on reload.
+                      try { if (activeProjLocalId) localStorage.removeItem(`ghs_hybrid_genmax_${activeProjLocalId}`); } catch { /* disabled/quota */ }
                     }
                   }}
-                  title="Remove all images + previous-version thumbnails from this scene board (does not delete files). Use if old images from another project are showing here."
+                  title="Remove ALL images (scene images, previous-version thumbnails, AND Gen Max beat images) from this scene board, including the localStorage backup that re-injects them on reload. Does not delete files. Use if old images from another project keep coming back."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   Clear Ghost Images
                 </button>
@@ -7584,19 +7598,23 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                 </button>
               )}
               {/* Clear ghost audio — narrator + music + SFX state */}
-              {(narratorAudioUrl || selectedMusicUrl || sfxGeneratedUrl) && (
+              {/* Henry 2026-06-14: also clear per-character narration audio
+                  (characterAudioUrls) — it is saved + reloaded from the DB, so leaving it
+                  meant ghost actor voices leaked back into assembly after a "clear". */}
+              {(narratorAudioUrl || selectedMusicUrl || sfxGeneratedUrl || Object.keys(characterAudioUrls).length > 0) && (
                 <button
                   onClick={() => {
-                    if (confirm("Clear narrator voice, selected music, and SFX from this board? Files are NOT deleted.")) {
+                    if (confirm("Clear narrator voice, per-character voices, selected music, and SFX from this board? Files are NOT deleted.")) {
                       setNarratorAudioUrl(null);
                       setNarratorAudioDuration(0);
                       setSelectedMusicUrl(null);
                       setSelectedMusicName("");
                       setSfxGeneratedUrl(null);
                       setSfxDesc("");
+                      setCharacterAudioUrls({});
                     }
                   }}
-                  title="Remove narrator audio, music selection, and SFX from this session (does not delete files). Use if old audio from another project is leaking into assembly."
+                  title="Remove narrator audio, per-character voices, music selection, and SFX from this session (does not delete files). Use if old audio from another project is leaking into assembly."
                   style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid #ef444430", background: "#1a0d0d", color: "#ef4444", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                   Clear Ghost Audio
                 </button>
