@@ -5015,6 +5015,8 @@ Rules:
           setNarrationSpeed={setNarrationSpeed}
           narrationGenerating={narrationGenerating}
           textContent={textContent}
+          narrationText={narrationText}
+          setNarrationText={setNarrationText}
           generateNarration={generateNarration}
           narratorAudioUrl={narratorAudioUrl}
           narratorWordTimings={narratorWordTimings}
