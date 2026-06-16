@@ -74,6 +74,13 @@ export async function POST(req: NextRequest) {
       : getMusicProvider(providerKey as MusicProviderKey);
 
   let result;
+  // Henry 2026-06-15: the route used to SILENTLY fall back to a stock track on any
+  // provider error and return it as if AI generation succeeded. That hid a real
+  // problem (FAL "Exhausted balance" 403 → every AI request quietly served stock).
+  // Now we capture WHY the AI provider failed and surface it, classifying common
+  // billing/auth failures so the UI can tell the user the truth ("top up"), not "done".
+  let aiFailReason: string | undefined;
+  let aiFailKind: "billing" | "auth" | "unavailable" | "error" | undefined;
   try {
     result = await provider.generate(input);
   } catch (err) {
@@ -82,7 +89,15 @@ export async function POST(req: NextRequest) {
 
     // Hard fallback to stock on any provider error
     if (provider.name !== "stock") {
-      console.warn("[music/generate] Falling back to stock adapter");
+      aiFailReason = message;
+      aiFailKind = /exhausted balance|locked|top up|billing|insufficient|quota|payment/i.test(message)
+        ? "billing"
+        : /401|403|unauthor|forbidden|invalid.*key|api key/i.test(message)
+          ? "auth"
+          : /404|not found|unavailable|no longer|deprecat/i.test(message)
+            ? "unavailable"
+            : "error";
+      console.warn(`[music/generate] AI provider "${provider.name}" failed (${aiFailKind}) — falling back to stock library`);
       const { stockAdapter } = await import("@/modules/music-provider/adapters/stock.adapter");
       try {
         result = await stockAdapter.generate(input);
@@ -96,6 +111,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 503 });
     }
   }
+
+  // Whether the returned track is genuinely AI-generated (vs a stock fallback).
+  const aiGenerated = result.providerKey !== "stock";
 
   // Persist to DB (non-fatal)
   try {
@@ -122,6 +140,17 @@ export async function POST(req: NextRequest) {
     costUsd: result.costUsd,
     providerKey: result.providerKey,
     modelName: result.modelName,
+    // Honest signal to the UI: was this actually AI-generated, or a stock fallback?
+    aiGenerated,
+    ...(aiFailKind ? { aiFailKind } : {}),
+    ...(aiFailReason ? { aiFailReason } : {}),
+    ...(aiFailKind === "billing"
+      ? { userMessage: "AI music is temporarily unavailable (generation provider balance is exhausted). A royalty-free library track was used instead. Top up FAL at fal.ai/dashboard/billing to enable AI music." }
+      : aiFailKind === "auth"
+        ? { userMessage: "AI music provider key is missing or invalid — a royalty-free library track was used instead." }
+        : aiFailKind
+          ? { userMessage: "AI music generation failed — a royalty-free library track was used instead." }
+          : {}),
     ...(autoFallbackReason ? { fallbackReason: autoFallbackReason } : {}),
   });
 }
