@@ -5,6 +5,7 @@
 // so callers that know the characters but don't embed tokens still get visual descriptions.
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
+import * as fs from "fs";
 import { randomBytes } from "crypto";
 import { z } from "zod";
 import { env } from "@/config/env";
@@ -25,6 +26,10 @@ const schema = z.object({
   // sanitizer on the incoming prompt (strip "animated"/"cartoonish"/etc) and
   // strengthen the negative prompt. Backward-compat: omit to keep old behavior.
   projectStyle: z.string().optional(),
+  // Henry 2026-06-16: optional per-session/project folder so Free Mode (and others) store
+  // images under storage/images/{folder}/ instead of one shared flat folder. Each chat
+  // session = one folder. Sanitized to a safe slug; omit to keep the old flat behaviour.
+  folder: z.string().max(80).optional(),
 });
 
 // sanitizeStyleCollisions, getStyleCollisionNegative imported from @/lib/style/sanitizer (Phase B extraction)
@@ -98,10 +103,18 @@ export async function POST(req: NextRequest) {
   // last-write image instead of showing the gallery. Append 8 random hex
   // chars so every concurrent request gets a unique filename.
   const uniqSuffix = randomBytes(4).toString("hex");
-  const outputPath = path.join(env.storagePath, "images", `gen_${Date.now()}_${uniqSuffix}.png`);
+  // Henry 2026-06-16: per-session/project folder isolation. Sanitize to a safe slug so a
+  // session id like "free_169..." can't escape storage/images. No folder → flat (old behaviour).
+  const safeFolder = (parsed.data.folder || "").replace(/[^a-z0-9._-]/gi, "_").slice(0, 80);
+  const imagesBase = path.join(env.storagePath, "images");
+  const outDir = safeFolder ? path.join(imagesBase, safeFolder) : imagesBase;
+  try { fs.mkdirSync(outDir, { recursive: true }); } catch { /* exists */ }
+  const outputPath = path.join(outDir, `gen_${Date.now()}_${uniqSuffix}.png`);
 
+  // Don't pass `folder` through to generateImage (not part of its options).
+  const { folder: _folder, ...genOpts } = parsed.data;
   const result = await generateImage({
-    ...parsed.data,
+    ...genOpts,
     prompt: finalPrompt,
     negativePrompt: finalNegative || parsed.data.negativePrompt,
     outputPath,
