@@ -783,7 +783,27 @@ function ChildrenPlannerInner() {
     setChildScenes(scenes);
     setLearningMode("word");
     setWordOverlayEnabled(true);
-    setLastAction(`ABC builder: created ${scenes.length} flashcard scene(s). Open the Scene Board and generate images — each renders "A a / word" with the picture.`);
+
+    // Henry 2026-06-16 (#11): make ABC cards work in one rhythm — narration + subtitle + music.
+    // The cards each have narration text ("A is for Apple. A. Apple."). Set narrationText so
+    // narration can be generated (it was empty before → no narration → no subtitle), then
+    // auto-generate the narration (subtitle is burned from its word timings at assembly) and
+    // auto-pick a kid-safe music track. Each card then shows during its spoken line, with the
+    // word on screen and music underneath.
+    const abcNarration = scenes.map(s => s.narration).filter(Boolean).join(" ");
+    setNarrationText(abcNarration);
+    // Auto-narrate after state flushes (resolveNarrationText reads narrationText).
+    setTimeout(() => { generateNarration().catch(() => { /* user can retry from Voices tab */ }); }, 150);
+    // Auto-pick a kid-safe, copyright-free playful track (no CC-BY) for the bed.
+    fetch(`/api/music/stock?children=1&mood=playful`)
+      .then(r => r.json())
+      .then(d => {
+        const t = (d.tracks || [])[0];
+        if (t?.url) { setSelectedMusicUrl(t.url); setSelectedMusicName(t.description || t.id); }
+      })
+      .catch(() => { /* music optional */ });
+
+    setLastAction(`ABC builder: ${scenes.length} flashcard scene(s) created. Generating narration… then open the Scene Board and generate images — each card plays "${scenes[0]?.narration}" with the word on screen and music underneath.`);
   }
 
   // ── Expand content with AI ──
