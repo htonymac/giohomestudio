@@ -4331,6 +4331,19 @@ function HybridPlannerInner() {
         ? assemblyOrder.map(id => scenes.find(s => s.sceneId === id)).filter(id => id && selectedSceneIds.includes(id.sceneId)).filter(Boolean) as typeof scenes
         : scenes.filter(s => selectedSceneIds.includes(s.sceneId));
 
+      // Henry 2026-06-15: narration is the MASTER clock. The old code set each image's
+      // duration to motionDuration||5 with no relation to the narration audio — so when the
+      // images summed longer than the narration, the narration ended mid-way in silence while
+      // images kept playing ("narration finishes before images / stops midway"). Now each
+      // story scene's image shows for a slice of the narration proportional to that scene's
+      // narration text, so the image timeline sums to the narration length → narration,
+      // images and (word-timed) subtitles all end together. Falls back to motionDuration when
+      // there is no narration audio. Intro/outro cards are separate and unaffected.
+      const narrSecForTiming = effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : 0;
+      const sceneWordCount = (s: typeof scenesToAssemble[number]) =>
+        ((s.narrationScript || s.description || s.title || "").trim().split(/\s+/).filter(Boolean).length) || 1;
+      const totalNarrWords = scenesToAssemble.reduce((sum, s) => sum + sceneWordCount(s), 0);
+
       const assembleSceneList = scenesToAssemble.map((s, i) => {
         const videoUrl = sceneVideos[s.sceneId];   // generated video
         // BUG-16c: resolve imageUrl from runtime state (sceneImages is the authoritative store)
@@ -4367,7 +4380,11 @@ function HybridPlannerInner() {
           videoUrl: mediaUrl,
           imageUrl: imageUrl ?? undefined,
           mode: effectiveMode,
-          duration: s.motionDuration || 5,
+          // Narration-proportional image duration (see note above); 1.5s floor so a very
+          // short scene still reads, falls back to motionDuration when no narration audio.
+          duration: (narrSecForTiming > 0 && totalNarrWords > 0)
+            ? Math.max(Number((narrSecForTiming * (sceneWordCount(s) / totalNarrWords)).toFixed(2)), 1.5)
+            : (s.motionDuration || 5),
           motionDuration: s.motionDuration,
           narrationScript: s.narrationScript || "",
           description: s.description || "",
@@ -4689,20 +4706,29 @@ function HybridPlannerInner() {
         // s.mode === "video" means a Wan clip is available; s.videoUrl may still be "img:xxx" for image scenes
         const hasWanVideo = (s as { mode?: string }).mode === "video";
         if (!hasWanVideo && tickedBeats.length > 1) {
-          // Multi-image path: each image gets sceneFlipSec seconds exactly
+          // Multi-image (Gen Max) path. Henry 2026-06-15: each beat used to get a FIXED
+          // sceneFlipSec (~3s), so a scene with N beats spanned N×3s regardless of its
+          // narration — the #1 cause of "narration finishes before images / stops midway"
+          // (Gen Max is used heavily). Now, when narration is the master clock, the scene's
+          // beats SHARE its narration-proportional slice (sceneDur) so the whole image
+          // timeline still sums to the narration length. Without narration, keep the fixed
+          // flip pace. 0.8s floor so beats never flash imperceptibly.
+          const perBeat = effectiveNarrDurMs > 0
+            ? Math.max(Number((sceneDur / tickedBeats.length).toFixed(2)), 0.8)
+            : sceneFlipSec;
           for (let bi = 0; bi < tickedBeats.length; bi++) {
             assemblySegments.push({
               id: `seg_${segIdx++}`,
               type: "image",
               sourceUrl: tickedBeats[bi],
               startTime: segCursor,
-              endTime: segCursor + sceneFlipSec,
-              duration: sceneFlipSec,
+              endTime: segCursor + perBeat,
+              duration: perBeat,
               sceneId: s.sceneId!,
               transitionIn: assemblySegments.length === 0 ? "fade" : "cut",
               transitionOut: "cut",
             });
-            segCursor += sceneFlipSec;
+            segCursor += perBeat;
           }
         } else {
           // Single-image / video path.
