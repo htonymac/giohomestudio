@@ -4487,6 +4487,12 @@ function HybridPlannerInner() {
       //   actors-only    → character voices only, no narrator
       //   mixed          → both narrator (narration segments only) + character voices (dialogue segments)
       const narrationList: Array<{ audioUrl: string; startTime: number; volume: number }> = [];
+      // Henry 2026-06-16: when an intro CARD plays first (e.g. 5s title card), the story
+      // images start AFTER it — but narration/voices were hardcoded to start at 0, so they
+      // played OVER the intro card and finished ~intro-length before the story images ended
+      // ("narration finishes before the movie"). Offset all voice tracks past the intro so
+      // narration starts exactly when the story does and ends with it. No intro → offset 0.
+      const introOffsetSec = introScene ? (introScene.duration || 5) : 0;
 
       // 2. Character voice audio — only in actors-only or mixed mode
       // NEW: prefer per-line clips (scriptSegments[].audioUrl) over old per-character files
@@ -4501,12 +4507,13 @@ function HybridPlannerInner() {
       // (dialogue lines) are COMPLEMENTARY, not overlapping. Dropping the narrator meant
       // mixed videos lost ALL narration and played only character dialogue. Keep it.
       if (narratorAudioUrl && storyMode !== "actors-only") {
-        narrationList.push({ audioUrl: narratorAudioUrl, startTime: 0, volume: 1.0 });
+        narrationList.push({ audioUrl: narratorAudioUrl, startTime: introOffsetSec, volume: 1.0 });
       }
 
-      // Build scene start map — used for per-line timing
+      // Build scene start map — used for per-line timing. Starts AFTER the intro card so
+      // character dialogue clips line up with the story images (which also start post-intro).
       const sceneStartMapForChar: Record<string, number> = {};
-      let elapsedForChar = 0;
+      let elapsedForChar = introOffsetSec;
       for (const s of scenesToAssemble) {
         sceneStartMapForChar[s.sceneId] = elapsedForChar;
         const narText = scriptSegments.filter(seg => seg.sceneId === s.sceneId && seg.type === "narration").map(seg => seg.text || "").join(" ");
@@ -4802,8 +4809,8 @@ function HybridPlannerInner() {
       // Fallback: narrationList was empty — add narrator directly if not already covered
       if (assemblyNarration.length === 0 && narratorAudioUrl && !seenNarrUrls.has(narratorAudioUrl)) {
         assemblyNarration.push({
-          id: "nar_0", text: narratorSubtitleText, startTime: 0,
-          endTime: effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : narratorFallbackSec,
+          id: "nar_0", text: narratorSubtitleText, startTime: introOffsetSec,
+          endTime: introOffsetSec + (effectiveNarrDurMs > 0 ? effectiveNarrDurMs / 1000 : narratorFallbackSec),
           volume: narrationVolume ?? 1.0, speed: 1.0, audioUrl: narratorAudioUrl,
         });
       }
