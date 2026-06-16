@@ -3141,10 +3141,38 @@ function ChildrenPlannerInner() {
     setMusicGenerating(true);
     setUiError("");
     try {
-      const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "children" : "upbeat";
+      const musicMood = musicChoice === "soft_story" ? "calm" : musicChoice === "nursery" ? "playful" : "upbeat";
       // Resolve providerKey from the selected SOUND_TIERS entry
       const activeTier = SOUND_TIERS.find(t => t.id === effectiveSoundTier);
       const resolvedProviderKey = activeTier?.providerKey ?? "stock";
+
+      // Henry 2026-06-16: free/stock tier → pick a KID-APPROPRIATE track matching the chosen
+      // mood from the licensed catalog. (The old /api/music/generate path always returned the
+      // same track because the prompt "for a children's story" out-scored the mood.) AI tiers
+      // (stable_audio/kie) still generate via /api/music/generate below.
+      if (resolvedProviderKey === "stock") {
+        let tracks: Array<{ url: string; description?: string; id: string; license?: string }> = [];
+        try {
+          const r = await fetch(`/api/music/stock?children=1&mood=${encodeURIComponent(musicMood)}`);
+          tracks = (await r.json()).tracks ?? [];
+          if (tracks.length === 0) {
+            const r2 = await fetch(`/api/music/stock?children=1`);
+            tracks = (await r2.json()).tracks ?? [];
+          }
+        } catch { /* fall through to error below */ }
+        if (tracks.length === 0) {
+          throw new Error("No children music available yet. Add kid-friendly tracks in Music Studio → Upload (CC0 / Pixabay / Mixkit).");
+        }
+        const pick = tracks[Math.floor(Math.random() * tracks.length)];
+        setGeneratedMusicUrl(pick.url);
+        setSelectedMusicUrl(pick.url);
+        setSelectedMusicName(pick.description || pick.id);
+        setMusicFallbackReason(null);
+        setLastAction(`Children music: "${pick.description || pick.id}" (${musicMood}, ${pick.license || "CC0"})`);
+        setMusicGenerating(false);
+        return;
+      }
+
       const res = await fetch("/api/music/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
