@@ -1455,7 +1455,7 @@ function ChildrenPlannerInner() {
           tone: `${ageGroup} age-appropriate, friendly, educational`,
           costPreference: "budget",
           targetDuration: movieSceneDuration,
-          projectId: `children_${Date.now()}`,
+          projectId: activeProjectIdRef.current || "ghs_children_default",
           styleHint: styleLabel,
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
@@ -1522,7 +1522,8 @@ function ChildrenPlannerInner() {
     setSceneGenProgress(prev => ({ ...prev, [sceneId]: { percent: 2, message: "Connecting..." } }));
     setLastAction(`Generating video for Scene ${scene.scene}...`);
     try {
-      const projectId = `children_${Date.now()}`;
+      // Henry 2026-06-16: stable project id so scene videos isolate per project too.
+      const projectId = activeProjectIdRef.current || "ghs_children_default";
       const response = await fetch("/api/hybrid/scene-video", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1584,7 +1585,7 @@ function ChildrenPlannerInner() {
           totalDuration: cmTotalDuration,
           segmentDuration: Math.min(cmSegmentDuration, 10),
           providerKey: cmProvider,
-          projectId: `children_${contentParam || "story"}_${topicParam || "default"}`,
+          projectId: activeProjectIdRef.current || `children_${contentParam || "story"}_${topicParam || "default"}`,
         }),
       });
       const data = await res.json() as { sceneId?: string; status?: string; finalVideoUrl?: string; error?: string };
@@ -1623,7 +1624,7 @@ function ChildrenPlannerInner() {
       const res = await fetch("/api/hybrid/scene-plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storyText, characters: savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ characterId: c.characterId || c.id, name: c.name })), costPreference: "balanced", targetDuration: "2-5", projectId: `children_${Date.now()}`, styleHint: `${effectiveProjectStyle}, children's book illustration, age-appropriate, friendly, colorful` }),
+        body: JSON.stringify({ storyText, characters: savedChars.filter(c => selectedCharIds.includes(c.id)).map(c => ({ characterId: c.characterId || c.id, name: c.name })), costPreference: "balanced", targetDuration: "2-5", projectId: activeProjectIdRef.current || "ghs_children_default", styleHint: `${effectiveProjectStyle}, children's book illustration, age-appropriate, friendly, colorful` }),
       });
       const data = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(res, "scene-board-plan");
       const planned = (data.scenes || []).map((s, i) => ({
@@ -1687,6 +1688,13 @@ function ChildrenPlannerInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sceneId,
+          // Henry 2026-06-16 CRITICAL ISOLATION FIX: this call had NO projectId, so every
+          // generated image landed in the SHARED scenes/unlinked/{sceneId} folder and
+          // collided with other projects' same-named scenes (SC01 etc.) — projects saw each
+          // other's images. Use the STABLE project id so images are stored per-project under
+          // scenes/{projectId}/{sceneId}/. Existing unlinked images are untouched (no loss);
+          // they're still referenced by each project's saved-state.
+          projectId: activeProjectIdRef.current || "ghs_children_default",
           sceneText: sceneTextWithAction,
           characterIds: assignedChars,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
@@ -1816,6 +1824,8 @@ function ChildrenPlannerInner() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sceneId: `${sceneId}_b${bi}_${Date.now()}`,
+            // Henry 2026-06-16: per-project isolation (see genSceneBoardImage note).
+            projectId: activeProjectIdRef.current || "ghs_children_default",
             sceneText: `${childStylePrefix}${promptList[bi]}`,
             characterIds: assignedChars,
             projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
@@ -1899,6 +1909,8 @@ function ChildrenPlannerInner() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               sceneId,
+              // Henry 2026-06-16: per-project isolation (see genSceneBoardImage note).
+              projectId: activeProjectIdRef.current || "ghs_children_default",
               sceneText: `${childStylePrefix}${scene.title}. ${scene.visualDescription}`,
               characterIds: assignedChars,
               projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,
