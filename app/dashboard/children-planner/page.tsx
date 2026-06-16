@@ -168,6 +168,16 @@ const LEARNING_MODES = [
   { id: "video_lesson", label: "Video Lesson",   desc: "Educational structured lesson" },
 ];
 
+// Henry 2026-06-15: ABC builder default words — concrete, easy-to-picture, kid-friendly.
+// Each is swappable per letter in the UI.
+const ABC_DEFAULT_WORDS: Record<string, string> = {
+  A: "apple", B: "ball", C: "cat", D: "dog", E: "egg", F: "fish", G: "goat",
+  H: "hat", I: "igloo", J: "juice", K: "kite", L: "lion", M: "moon", N: "nest",
+  O: "orange", P: "pig", Q: "queen", R: "rabbit", S: "sun", T: "tree",
+  U: "umbrella", V: "van", W: "watch", X: "box", Y: "yo-yo", Z: "zebra",
+};
+const ABC_ALL_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+
 const MOVIE_GENRES = ["Adventure", "Fantasy", "Animals", "Space", "Ocean", "Jungle", "Fairytale"];
 const MOVIE_SCENE_COUNTS = [3, 5, 7, 10];
 const MOVIE_SCENE_DURATIONS = ["3s", "5s", "8s", "10s"];
@@ -398,6 +408,10 @@ function ChildrenPlannerInner() {
     imageUrl?: string;
     characters?: string[];
     variantUrls?: string[];
+    // Henry 2026-06-15: ABC flashcard scenes carry their letter + teaching word so
+    // scene-image can render the "A a / apple" flashcard overlay (perfect spelling).
+    letter?: string;
+    teachWord?: string;
   };
   const [childScenes, setChildScenes] = useState<ChildScene[]>([]);
   // ── AI Audio Plan (Henry 2026-05-30, task #12): per-scene audioPlan state +
@@ -658,6 +672,10 @@ function ChildrenPlannerInner() {
   const [photoImportLog, setPhotoImportLog] = useState("");
   // Henry 2026-05-31 (#8): toggle — burn the teaching word onto generated images
   const [wordOverlayEnabled, setWordOverlayEnabled] = useState(false);
+  // Henry 2026-06-15: ABC flashcard builder — pick letters, auto kid-friendly words
+  // (swappable), one flashcard scene per letter ("A is for Apple").
+  const [abcLetters, setAbcLetters] = useState<Set<string>>(new Set());
+  const [abcWords, setAbcWords] = useState<Record<string, string>>({});
   const [photoImportName, setPhotoImportName] = useState("");
   const [photoDragOver, setPhotoDragOver] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
@@ -732,6 +750,40 @@ function ChildrenPlannerInner() {
     const words = title.trim().split(/\s+/);
     const last = words[words.length - 1]?.replace(/[^a-zA-Z]/g, "");
     return last && last.length > 1 ? last.toUpperCase() : undefined;
+  }
+
+  // Henry 2026-06-15: ABC builder — turn the selected letters into one flashcard
+  // scene each ("A is for Apple"). Each scene carries letter + teachWord so the
+  // scene-image flashcard overlay draws "A a / apple" with perfect (code-drawn) spelling.
+  function abcWordFor(letter: string): string {
+    return (abcWords[letter]?.trim() || ABC_DEFAULT_WORDS[letter] || "").toLowerCase();
+  }
+  function generateAbcScenes() {
+    const letters = Array.from(abcLetters).sort();
+    if (letters.length === 0) {
+      setLastAction("ABC builder: tick at least one letter first.");
+      return;
+    }
+    if (childScenes.length > 0 &&
+        !confirm(`Replace the current ${childScenes.length} scene(s) with ${letters.length} ABC flashcard scene(s)? Generated images/files are not deleted.`)) {
+      return;
+    }
+    const scenes: ChildScene[] = letters.map((L, i) => {
+      const word = abcWordFor(L) || (ABC_DEFAULT_WORDS[L] || "").toLowerCase();
+      const cap = word.charAt(0).toUpperCase() + word.slice(1);
+      return {
+        scene: i + 1,
+        title: `${L} is for ${cap}`,
+        visualDescription: `a single big cute ${word}, centered, on a clean plain pastel background, simple bright children's flashcard illustration, no text, no words, no letters`,
+        narration: `${L} is for ${cap}. ${L}. ${cap}.`,
+        letter: L,
+        teachWord: word,
+      } as ChildScene;
+    });
+    setChildScenes(scenes);
+    setLearningMode("word");
+    setWordOverlayEnabled(true);
+    setLastAction(`ABC builder: created ${scenes.length} flashcard scene(s). Open the Scene Board and generate images — each renders "A a / word" with the picture.`);
   }
 
   // ── Expand content with AI ──
@@ -1649,8 +1701,12 @@ function ChildrenPlannerInner() {
           isActionScene: hasAction,
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
-          wordOverlay: wordOverlayEnabled,
-          overlayText: extractTeachingWord(scene.title),
+          // Henry 2026-06-15: ABC flashcard scenes force the word overlay ON and pass
+          // the letter so scene-image renders the "A a / apple" flashcard. Non-ABC
+          // scenes keep the existing word-overlay toggle behaviour.
+          wordOverlay: wordOverlayEnabled || !!scene.letter,
+          overlayText: scene.teachWord || extractTeachingWord(scene.title),
+          flashcardLetter: scene.letter || undefined,
           // Henry 2026-06-13: teaching modes (word/phonics) + word-overlay scenes are
           // OBJECT-CLEAR lessons ("A is for Apple") — tell scene-image to skip the
           // action/anti-pose push so the learning pattern stays calm and clear.
@@ -3853,6 +3909,49 @@ Rules:
               </div>
             ))}
           </div>
+        </div>
+
+        {/* Henry 2026-06-15: ABC Flashcard Builder — pick letters, auto words, one
+            flashcard scene per letter ("A is for Apple" with picture + perfect spelling). */}
+        <div style={{ ...cardStyle, marginBottom: 12 }}>
+          <span style={labelStyle}>ABC Flashcard Builder</span>
+          <p style={{ fontSize: 10, color: muted, marginTop: 4, marginBottom: 8 }}>
+            Tick letters → each makes a flashcard scene: big <b>A a</b> + a picture + the word spelled (e.g. <b>apple</b>). Words auto-fill and are editable. Narrator says &quot;A is for Apple&quot;.
+          </p>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setAbcLetters(new Set(ABC_ALL_LETTERS))}
+              style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 10, cursor: "pointer" }}>Select A–Z</button>
+            <button type="button" onClick={() => setAbcLetters(new Set())}
+              style={{ padding: "4px 10px", borderRadius: 8, border: `1px solid ${border}`, background: s2, color: muted, fontSize: 10, cursor: "pointer" }}>Clear</button>
+            <span style={{ fontSize: 10, color: muted, alignSelf: "center" }}>{abcLetters.size} selected</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(34px, 1fr))", gap: 4, marginBottom: 10 }}>
+            {ABC_ALL_LETTERS.map(L => {
+              const on = abcLetters.has(L);
+              return (
+                <button key={L} type="button"
+                  onClick={() => setAbcLetters(prev => { const n = new Set(prev); if (n.has(L)) n.delete(L); else n.add(L); return n; })}
+                  title={`${L} is for ${ABC_DEFAULT_WORDS[L]}`}
+                  style={{ padding: "6px 0", borderRadius: 8, border: `1px solid ${on ? childAccent : border}`, background: on ? `${childAccent}22` : s2, color: on ? childAccent : "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>{L}</button>
+              );
+            })}
+          </div>
+          {abcLetters.size > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 6, marginBottom: 10 }}>
+              {Array.from(abcLetters).sort().map(L => (
+                <div key={L} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontWeight: 700, color: childAccent, fontSize: 12, width: 16 }}>{L}</span>
+                  <input value={abcWords[L] ?? ABC_DEFAULT_WORDS[L]} maxLength={20}
+                    onChange={e => setAbcWords(prev => ({ ...prev, [L]: e.target.value }))}
+                    style={{ flex: 1, padding: "4px 8px", borderRadius: 6, border: `1px solid ${border}`, background: s2, color: "#fff", fontSize: 11 }} />
+                </div>
+              ))}
+            </div>
+          )}
+          <button type="button" onClick={generateAbcScenes} disabled={abcLetters.size === 0}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: abcLetters.size === 0 ? "#444" : childAccent, color: "#fff", fontWeight: 700, fontSize: 12, cursor: abcLetters.size === 0 ? "not-allowed" : "pointer" }}>
+            Generate {abcLetters.size > 0 ? abcLetters.size : ""} ABC Flashcard Scene{abcLetters.size === 1 ? "" : "s"}
+          </button>
         </div>
 
         {/* Production System */}
