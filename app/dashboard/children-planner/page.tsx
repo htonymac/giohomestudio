@@ -812,6 +812,25 @@ function ChildrenPlannerInner() {
     if (!rawText.trim()) return;
     setExpandingContent(true);
     try {
+      // Henry 2026-06-16 (AI-don't-listen fix): the story-expand route HAS a teaching branch
+      // (contentType "abc"/"3letter"/"counting" → teaching script, NOT a story) but expandContent
+      // never sent contentType, so ABC/phonics content was turned into a nonsense story with a
+      // villain. Derive contentType from (a) the URL ?content=, (b) the obvious teaching pattern
+      // in the pasted text ("A is for Apple", "starts with", "Can you say"), or (c) the learning
+      // mode. When it's teaching, the route keeps it a lesson and extends it A→Z.
+      const looksLikeTeaching = /\b[A-Za-z]\s+is\s+for\s+\w/i.test(rawText)
+        || /\bstarts with\b/i.test(rawText)
+        || /\bcan you say\b/i.test(rawText)
+        || /\b[A-Z],\s*[A-Z],/.test(rawText);
+      const looksLikeCounting = /\b(count|counting|number|1[\s,-]*2[\s,-]*3)\b/i.test(rawText);
+      const derivedContentType =
+        (contentParam && contentParam !== "story" && contentParam !== "storybook" ? contentParam : "")
+        || (looksLikeTeaching ? "abc" : "")
+        || (looksLikeCounting ? "counting" : "")
+        || (learningMode === "phonics" ? "abc"
+          : learningMode === "word" ? "3letter"
+          : "")
+        || undefined;
       const res = await fetch("/api/hybrid/story-expand", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -823,6 +842,8 @@ function ChildrenPlannerInner() {
           language: "English",
           storyEra: storyEra || undefined,
           storyCulture: storyCulture || undefined,
+          contentType: derivedContentType,
+          storyType: learningMode === "poem" ? "rhyming_poem" : undefined,
           childContext: {
             ageGroup,
             learningMode,

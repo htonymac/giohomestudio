@@ -337,12 +337,19 @@ stop early. Keep adding scenes and beats until you reach the word target.
     const ctype = (body.contentType || "").toLowerCase();
     if (ctype === "abc" || ctype === "alphabet" || ctype === "abc_song") {
       contentFormatRules = `\n\n━━ ALPHABET / ABC FORMAT — STRICT (this is NOT a story) ━━
-- Produce an ALPHABET teaching piece, NOT a narrative. Do NOT write a story like "X took his friend to learn abc".
-- Cover the letters requested (or the full A→Z if none given), IN ORDER. ONE letter per scene.
-- For EACH letter use the pattern: "<LETTER> is for <Word>." then ONE short cheerful sentence about that word.
-  e.g. "A is for Apple. A red apple is sweet and crunchy!"  /  "B is for Ball. The ball bounces up high!"
+- This is a TEACHING SCRIPT, absolutely NOT a narrative. There is NO plot, NO characters, NO
+  villain, NO journey. Do NOT invent a story. If you write a story you have FAILED this task.
+- Cover the FULL ALPHABET A→Z (all 26 letters), IN ORDER, ONE letter per scene — even if the
+  user's pasted text only shows a few letters. The user's text is a PATTERN/EXAMPLE to follow,
+  not the limit. Continue the SAME pattern through Z.
+- MIRROR THE USER'S PATTERN exactly if their pasted text shows one. For example, if they wrote:
+    "A is for Apple. / Look at the big red apple. / Apple starts with A. / A, A, Apple. /
+     The apple is sweet. / Can you say Apple? / Great job! A is for Apple."
+  then EVERY letter must follow that same multi-line shape (intro line, look-at line, "starts
+  with" line, "X, X, Word" chant, two describe lines, "Can you say" line, praise line).
+- If no pattern is given, use: "<LETTER> is for <Word>." + one short cheerful sentence.
 - Each scene's visualDescription MUST clearly depict that letter's object (apple, ball, cat ...).
-- Keep words concrete, common, age-appropriate. End with a short "Now you know your ABCs!" line.`;
+- Words must be concrete, common, age-appropriate. End with "Now you know your ABCs!"`;
     } else if (ctype === "3letter" || ctype === "spelling" || ctype === "cvc" || ctype === "words") {
       contentFormatRules = `\n\n━━ SPELLING / 3-LETTER WORD FORMAT — STRICT (NOT a story) ━━
 - Teach simple words by SPELLING them — not a narrative.
