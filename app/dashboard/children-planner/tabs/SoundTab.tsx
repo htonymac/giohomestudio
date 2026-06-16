@@ -48,6 +48,9 @@ export interface SoundTabProps {
   setNarrationSpeed: (v: number) => void;
   narrationGenerating: boolean;
   textContent: string;
+  // Henry 2026-06-16: editable narration — user can paste/edit the exact narration here and Generate.
+  narrationText: string;
+  setNarrationText: (v: string) => void;
   generateNarration: () => void | Promise<void>;
   narratorAudioUrl: string | null;
   /** Word timings returned by Edge TTS — drives NarrationPreview subtitle sync. Null = Piper/static. */
@@ -84,7 +87,7 @@ export default function SoundTab(props: SoundTabProps) {
     SOUND_TIERS, effectiveSoundTier, setSoundTier, setModelSettings, patchProjectSettings,
     scriptSegments, setActiveTab,
     voiceTierConfig, setVoiceTierConfig, userVoiceTier, getVoiceById, setNarrationProvider,
-    narrationSpeed, setNarrationSpeed, narrationGenerating, textContent, generateNarration, narratorAudioUrl,
+    narrationSpeed, setNarrationSpeed, narrationGenerating, textContent, narrationText, setNarrationText, generateNarration, narratorAudioUrl,
     narratorWordTimings, narratorSubText,
     runningAudioPlan, childScenes, audioPlans, runChildrenAudioPlan,
     savedChars, selectedCharIds, characters, characterVoices, setCharacterVoices,
@@ -166,10 +169,31 @@ export default function SoundTab(props: SoundTabProps) {
               style={{ width: "100%", accentColor: childSafe }} />
           </div>
         </div>
-        <button onClick={generateNarration} disabled={narrationGenerating || !textContent?.trim()}
-          style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: narrationGenerating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: (narrationGenerating || !textContent?.trim()) ? "not-allowed" : "pointer", opacity: !textContent?.trim() ? 0.5 : 1 }}>
-          {narrationGenerating ? "Generating narration..." : "Generate Narration"}
-        </button>
+        {/* Henry 2026-06-16: editable narration. User can paste/edit the EXACT words to narrate
+            (e.g. an ABC script A→Z) and Generate. Falls back to the story text if left empty.
+            Fixes "Generate Narration disabled" when there's no textContent (ABC/flashcard flow). */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+            <span style={{ fontSize: 10, color: muted }}>Narration script — paste or edit, then Generate</span>
+            <span style={{ fontSize: 9, color: muted }}>{(narrationText || "").trim().length} chars</span>
+          </div>
+          <textarea
+            value={narrationText}
+            onChange={e => setNarrationText(e.target.value)}
+            placeholder={"Paste exactly what the narrator should say…\nA is for Apple. Look at the big red apple. Apple starts with A. A, A, Apple. Can you say Apple?"}
+            rows={6}
+            style={{ width: "100%", resize: "vertical", padding: "8px 10px", borderRadius: 8, border: "1px solid #2a2040", background: "#0e0a18", color: "#fff", fontSize: 11, lineHeight: 1.5, fontFamily: "inherit" }}
+          />
+        </div>
+        {(() => {
+          const hasText = !!((narrationText || textContent || "").trim());
+          return (
+            <button onClick={generateNarration} disabled={narrationGenerating || !hasText}
+              style={{ padding: "8px 16px", borderRadius: 9, border: "none", background: narrationGenerating ? "#2a2040" : childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: (narrationGenerating || !hasText) ? "not-allowed" : "pointer", opacity: !hasText ? 0.5 : 1 }}>
+              {narrationGenerating ? "Generating narration..." : "Generate Narration"}
+            </button>
+          );
+        })()}
         {narratorAudioUrl && (
           <div style={{ marginTop: 10 }}>
             <p style={{ fontSize: 10, color: muted, marginBottom: 4 }}>Narrator audio:</p>
