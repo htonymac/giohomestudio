@@ -324,7 +324,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "calm"
   },
   {
     "id": "ia_ambient_piano_strings",
@@ -345,7 +347,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "calm"
   },
   {
     "id": "ia_cancion_triste",
@@ -471,7 +475,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "calm"
   },
   {
     "id": "ia_emotional_epic_trailer",
@@ -597,7 +603,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "upbeat"
   },
   {
     "id": "ia_just_kidding",
@@ -618,7 +626,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "playful"
   },
   {
     "id": "ia_modular_ambient_01",
@@ -660,7 +670,9 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "playful"
   },
   {
     "id": "ia_silent_descent",
@@ -702,6 +714,8 @@
     "blocked": false,
     "acquiredAt": "2026-05-31",
     "verificationStatus": "verified",
-    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution."
+    "verificationNote": "Internet Archive public-domain music (cloud-music collection), added 2026-05-31. CC0 - free commercial use, no attribution.",
+    "childrenSafe": true,
+    "childMood": "calm"
   }
 ]

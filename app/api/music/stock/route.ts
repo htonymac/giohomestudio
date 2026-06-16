@@ -39,6 +39,10 @@ interface CatalogTrack {
   commercialUseAllowed: boolean;
   blocked: boolean;
   verificationStatus: string;
+  // Henry 2026-06-16: kid-appropriate tag so the Children planner can pull only safe,
+  // child-friendly music, matched by childMood (calm / playful / upbeat).
+  childrenSafe?: boolean;
+  childMood?: string | null;
 }
 
 function loadManifest(file: string): Map<string, Partial<CatalogTrack>> {
@@ -79,6 +83,8 @@ function scanDir(dir: string, urlPrefix: string, manifest: Map<string, Partial<C
       commercialUseAllowed: meta.commercialUseAllowed === true || defaults.commercialUseAllowed === true,
       blocked: meta.blocked === true || defaults.blocked === true,
       verificationStatus: String(meta.verificationStatus ?? defaults.verificationStatus ?? "pending"),
+      childrenSafe: meta.childrenSafe === true,
+      childMood: (meta.childMood as string | null) ?? null,
     });
   }
   return tracks;
@@ -128,6 +134,15 @@ export async function GET(req: Request) {
     // verificationStatus: freepd = "verified" (CC BY, legally clear), bundled = "pending".
     const includeUnverified = searchParams.get("includeUnverified") === "true";
     catalog = catalog.filter(t => !t.blocked && (includeUnverified || t.verificationStatus === "verified"));
+
+    // Henry 2026-06-16: children filter — only kid-appropriate tracks, optionally matched
+    // by childMood (calm / playful / upbeat). Used by the Children planner so its music is
+    // always child-safe and mood-correct (was returning the same track for every mood).
+    if (searchParams.get("children") === "1") {
+      const cm = mood; // reuse mood param as the child mood when children=1
+      catalog = catalog.filter(t => t.childrenSafe && (!cm || (t.childMood || "").toLowerCase() === cm || t.mood.toLowerCase().includes(cm)));
+      return NextResponse.json({ count: catalog.length, children: true, mood: cm ?? null, tracks: catalog });
+    }
 
     // Filters
     if (commercialOnly) {
