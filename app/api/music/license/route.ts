@@ -124,6 +124,17 @@ ${row("Note", r.note)}
 }
 
 export async function GET(req: NextRequest) {
+  // List mode: all registry records (AI-generated / karaoke / uploaded music) for the Music Library.
+  if (req.nextUrl.searchParams.get("list") === "1") {
+    const musicDir = path.resolve(env.storagePath, "music");
+    const registry = readJson<LicenseRecord[]>(path.join(musicDir, "license-registry.json"), []);
+    const tracks = registry.map(r => ({
+      ...r,
+      url: r.filename ? `/api/media/music/uploads/${r.filename}` : null,
+    }));
+    return NextResponse.json({ tracks });
+  }
+
   const id = req.nextUrl.searchParams.get("id") || req.nextUrl.searchParams.get("filename");
   if (!id) return NextResponse.json({ error: "id (track id or filename) required" }, { status: 400 });
 

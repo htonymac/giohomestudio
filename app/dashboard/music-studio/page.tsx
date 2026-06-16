@@ -26,6 +26,7 @@ interface LicensedTrack {
   source: string;
   licenseUrl?: string | null;
   commercialUseAllowed: boolean;
+  playPath?: string;  // storage-relative path for the player
 }
 
 export default function MusicStudioPage() {
@@ -75,12 +76,58 @@ export default function MusicStudioPage() {
   const [playing, setPlaying] = useState<string | null>(null);
 
   const [libraryTracks, setLibraryTracks] = useState<LicensedTrack[]>([]);
+  function loadLibrary() {
+    // Merge the stock catalog (CC0 IA etc.) with the registry (uploaded / AI / karaoke
+    // music) so the Music Library shows everything the user can use, each with a licence.
+    Promise.all([
+      fetch("/api/music/stock").then(r => r.json()).catch(() => ({ tracks: [] })),
+      fetch("/api/music/license?list=1").then(r => r.json()).catch(() => ({ tracks: [] })),
+    ]).then(([stock, reg]) => {
+      const stockTracks: LicensedTrack[] = (stock.tracks ?? []).map((t: LicensedTrack) => ({ ...t, playPath: `storage/music/stock/${t.filename}` }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const regTracks: LicensedTrack[] = (reg.tracks ?? []).map((r: any) => ({
+        id: r.id, filename: r.filename ?? r.id, url: r.url ?? "", mood: r.provider ? "ai" : "uploaded",
+        description: r.title, license: r.license, licenseType: r.licenseType, source: r.source,
+        licenseUrl: r.licenseUrl ?? null, commercialUseAllowed: r.commercialUseAllowed !== false,
+        playPath: r.filename ? `storage/music/uploads/${r.filename}` : undefined,
+      }));
+      setLibraryTracks([...regTracks, ...stockTracks]);
+    });
+  }
   useEffect(() => {
     fetch("/api/music/library").then(r => r.json()).then(d => setTracks(d.tracks ?? []));
     // Henry 2026-06-15: licensed catalog (CC0 / Pixabay / Mixkit only — no CC-BY) with
     // per-track licence + downloadable certificate.
-    fetch("/api/music/stock").then(r => r.json()).then(d => setLibraryTracks(d.tracks ?? [])).catch(() => {});
+    loadLibrary();
   }, []);
+
+  // ── Royalty-free / own-music upload with licence capture (Henry 2026-06-15) ──
+  const [upFile, setUpFile] = useState<File | null>(null);
+  const [upLicenseType, setUpLicenseType] = useState("CC0");
+  const [upSource, setUpSource] = useState("");
+  const [upSourceUrl, setUpSourceUrl] = useState("");
+  const [upTitle, setUpTitle] = useState("");
+  const [upBusy, setUpBusy] = useState(false);
+  const [upResult, setUpResult] = useState<{ ok?: boolean; error?: string; license?: string; licenseCertificate?: string } | null>(null);
+  async function handleUpload() {
+    if (!upFile) { setUpResult({ error: "Choose an audio file first." }); return; }
+    setUpBusy(true); setUpResult(null);
+    try {
+      const fd = new FormData();
+      fd.append("file", upFile);
+      fd.append("licenseType", upLicenseType);
+      if (upTitle) fd.append("title", upTitle);
+      if (upSource) fd.append("source", upSource);
+      if (upSourceUrl) fd.append("sourceUrl", upSourceUrl);
+      const res = await fetch("/api/music/upload", { method: "POST", body: fd });
+      const d = await res.json();
+      setUpResult(d);
+      if (d.ok) { setUpFile(null); setUpTitle(""); setUpSource(""); setUpSourceUrl(""); loadLibrary(); }
+    } catch (e) {
+      setUpResult({ error: e instanceof Error ? e.message : "Upload failed" });
+    }
+    setUpBusy(false);
+  }
 
   function playTrack(path: string) {
     if (playing === path) {
@@ -363,10 +410,10 @@ export default function MusicStudioPage() {
             {libraryTracks.map(t => (
               <div key={t.id} style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                 <button
-                  onClick={() => playTrack(`storage/music/stock/${t.filename}`)}
+                  onClick={() => playTrack(t.playPath || `storage/music/stock/${t.filename}`)}
                   style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: `${ds.color.lilac}25`, color: ds.color.lilac, border: "none", cursor: "pointer", flexShrink: 0, fontSize: 12 }}
                 >
-                  {playing === `storage/music/stock/${t.filename}` ? "II" : ">"}
+                  {playing === (t.playPath || `storage/music/stock/${t.filename}`) ? "II" : ">"}
                 </button>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.description || t.filename}</p>
@@ -533,9 +580,37 @@ export default function MusicStudioPage() {
         <div style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.md, padding: 24 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: ds.color.ink, marginBottom: 16 }}>Upload Your Own Music</h2>
 
-          <div style={{ border: `2px dashed ${ds.color.line2}`, borderRadius: ds.radius.md, padding: 32, textAlign: "center", cursor: "pointer", marginBottom: 16 }}>
-            <p style={{ color: ds.color.mute, fontSize: 13, marginBottom: 6 }}>Drag & drop audio files here</p>
-            <p style={{ color: ds.color.mute2, fontSize: 11 }}>Supports MP3, WAV, AAC</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <input type="file" accept=".mp3,.wav,.m4a,.ogg,audio/*"
+              onChange={e => { setUpFile(e.target.files?.[0] ?? null); setUpResult(null); }}
+              style={{ fontSize: 12, color: ds.color.ink }} />
+            <input value={upTitle} onChange={e => setUpTitle(e.target.value)} placeholder="Title (optional)"
+              style={{ fontSize: 12, padding: "8px 10px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.alert, color: ds.color.ink }} />
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <select value={upLicenseType} onChange={e => setUpLicenseType(e.target.value)}
+                style={{ fontSize: 12, padding: "8px 10px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.alert, color: ds.color.ink }}>
+                <option value="CC0">CC0 / Public Domain</option>
+                <option value="PUBLIC_DOMAIN">Public Domain</option>
+                <option value="PIXABAY">Pixabay License</option>
+                <option value="MIXKIT">Mixkit License</option>
+                <option value="USER_OWNED">I own / am licensed for this</option>
+              </select>
+              <input value={upSource} onChange={e => setUpSource(e.target.value)} placeholder="Source (e.g. Pixabay, Mixkit)"
+                style={{ flex: 1, minWidth: 140, fontSize: 12, padding: "8px 10px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.alert, color: ds.color.ink }} />
+            </div>
+            <input value={upSourceUrl} onChange={e => setUpSourceUrl(e.target.value)} placeholder="Source URL (recommended — your dispute proof)"
+              style={{ fontSize: 12, padding: "8px 10px", borderRadius: ds.radius.xs, border: `1px solid ${ds.color.line2}`, background: ds.color.alert, color: ds.color.ink }} />
+            <p style={{ fontSize: 9, color: ds.color.mute2, margin: 0 }}>Only CC0 / Pixabay / Mixkit / your-own music is accepted — never CC-BY (attribution) or commercial songs.</p>
+            <button onClick={handleUpload} disabled={upBusy || !upFile}
+              style={{ alignSelf: "flex-start", fontSize: 12, fontWeight: 700, padding: "8px 18px", borderRadius: ds.radius.xs, border: "none", background: (upBusy || !upFile) ? ds.color.line2 : ds.color.lilac, color: "#fff", cursor: (upBusy || !upFile) ? "not-allowed" : "pointer" }}>
+              {upBusy ? "Uploading…" : "Upload + record licence"}
+            </button>
+            {upResult?.ok && (
+              <p style={{ fontSize: 11, color: ds.color.mint }}>
+                Uploaded ({upResult.license}). <a href={upResult.licenseCertificate} target="_blank" rel="noreferrer" style={{ color: ds.color.lilac }}>Download licence certificate</a> — it&apos;s also in your Music Library.
+              </p>
+            )}
+            {upResult?.error && <p style={{ fontSize: 11, color: ds.color.coral }}>{upResult.error}</p>}
           </div>
 
           {/* Legal disclaimer */}
