@@ -150,6 +150,34 @@ export async function POST(req: NextRequest) {
       console.warn("[karaoke/generate-music] MusicGeneration log failed (non-fatal):", logErr);
     }
 
+    // Henry 2026-06-15: when karaoke music was genuinely AI-generated (premium provider,
+    // not the stock fallback), record its licence so it shows in the Music Library with a
+    // certificate. Stock tracks already carry their own manifest licence.
+    if (providerKey !== "stock") {
+      try {
+        const { appendLicenseRecord } = await import("@/lib/music-license-registry");
+        const ts = Date.now();
+        appendLicenseRecord({
+          id: `karaoke_${recordingId}_${ts}`,
+          title: promptText.slice(0, 60) || "Karaoke track",
+          source: `AI-generated for karaoke (${providerKey})`,
+          sourceUrl: null,
+          license: "AI-generated — provider commercial licence",
+          licenseType: "AI_GENERATED",
+          licenseUrl: providerKey === "stable_audio" ? "https://fal.ai/terms" : null,
+          commercialUseAllowed: true,
+          attributionRequired: false,
+          provider: providerKey,
+          model: musicResult.modelName || providerKey,
+          acquiredAt: new Date(ts).toISOString().slice(0, 10),
+          verificationStatus: "provider-licensed",
+          note: "AI-generated karaoke music. Commercial use per the provider's current terms — verify your provider plan before monetised publication.",
+        });
+      } catch (e) {
+        console.warn("[karaoke/generate-music] licence record write failed:", e instanceof Error ? e.message : e);
+      }
+    }
+
     // Henry 2026-05-31: surface genre-match quality so UI can warn the user when their
     // requested genre (e.g. afrobeats) could not be matched and we fell back to a
     // generic track. modelName suffix is appended by the stock adapter.
