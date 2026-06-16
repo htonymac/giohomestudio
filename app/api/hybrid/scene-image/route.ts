@@ -683,8 +683,27 @@ export async function POST(req: NextRequest) {
       // label/acronym, not a person. Title-case any all-caps name; leave mixed case.
       const properName = (n: string) =>
         /^[A-Z][A-Z'’-]+$/.test(n) ? n.charAt(0) + n.slice(1).toLowerCase() : n;
+
+      // Henry 2026-06-15: the lean prompt dropped per-character descriptions, so a name
+      // that is also a common noun ("Cobra", "Fox", "Rose") rendered as the LITERAL thing
+      // (Cobra → a real snake!) and gender drifted. Re-add a SHORT identity clause — the
+      // first ≤12 words of visualDescription — enough to lock human/gender/species WITHOUT
+      // the heavy per-character wall that caused crowds (crowds came from person-count walls,
+      // portrait refs and the plural "Faces:" cue, NOT from a brief identity phrase).
+      const ANIMAL_OR_OBJECT_NAME = /^(cobra|viper|python|adder|fox|wolf|bear|lion|tiger|hawk|eagle|raven|crow|rose|lily|jade|ruby|pearl|river|brook|storm|rain|ace|king|queen|duke|earl|shadow|ghost|snake|panther|falcon|stone|steel|blade|ash|hunter|fisher)$/i;
+      const leanIdentityHint = (c: { name: string; visualDescription: string | null }) => {
+        const vd = (c.visualDescription || "").trim();
+        if (vd) {
+          const brief = vd.split(/[.;\n]/)[0].split(/\s+/).slice(0, 12).join(" ").trim();
+          if (brief.length > 2) return ` (${brief})`;
+        }
+        // No description + the name is a dictionary animal/object word → in a story this is
+        // almost always a HUMAN codename (Cobra the thief), not a literal animal. Lock human.
+        if (ANIMAL_OR_OBJECT_NAME.test(c.name.trim())) return " (a person, human character)";
+        return "";
+      };
       const leanCharNames = resolvedCharacters.length > 0
-        ? resolvedCharacters.map(c => `${properName(c.name)}${leanAgeTagFor(c.age)}`).join(", ") + ". "
+        ? resolvedCharacters.map(c => `${properName(c.name)}${leanAgeTagFor(c.age)}${leanIdentityHint(c)}`).join(", ") + ". "
         : "";
 
       // Short era hint — ONLY for genuine period/non-contemporary stories. For
