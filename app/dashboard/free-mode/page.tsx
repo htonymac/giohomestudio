@@ -780,6 +780,7 @@ function HybridModal({
   initSubtitleStyle,
   writerName,
   autoCards,
+  sessionId,
 }: {
   scenes: Scene[];
   onClose: () => void;
@@ -793,6 +794,7 @@ function HybridModal({
   initSubtitleStyle?: SubtitleStyleKey;
   writerName?: string;
   autoCards?: boolean;
+  sessionId?: string;
 }) {
   const [totalDuration,  setTotalDuration]  = useState(30);
   const [customDur,      setCustomDur]      = useState("");
@@ -1038,6 +1040,8 @@ function HybridModal({
                 prompt,
                 modelId: imageModel || "segmind_flux",
                 width: 832, height: 1472,
+                // Henry 2026-06-16: one folder per chat session (passed from parent).
+                folder: sessionId,
               }),
             });
             if (!imgRes.ok) {
@@ -2602,6 +2606,9 @@ function FreeModeChat() {
           prompt:  richPrompt,
           modelId: usedModel,
           width:   832, height: 1472,
+          // Henry 2026-06-16: one folder per chat session — images store under
+          // storage/images/{sessionId}/ instead of the shared flat folder.
+          folder:  sessionId,
         }),
       });
       if (imgRes.ok) {
@@ -2852,6 +2859,7 @@ function FreeModeChat() {
           initSubtitleStyle={effectiveSubtitleMode as "classic" | "cinema" | "neon" | "minimal" | "bold" | "none"}
           writerName={fmWriterName}
           autoCards={fmAutoCards}
+          sessionId={sessionId}
           onComplete={async (resultUrl, hybridScenes) => {
             // Save final hybrid video to chat history so it survives refresh.
             const sceneObj: Scene = {
