@@ -13,6 +13,21 @@ interface StockTrack {
   mood: string;
 }
 
+// Henry 2026-06-15: licensed library track — carries the licence so each track shows its
+// source/licence and a downloadable certificate (dispute evidence for YouTube claims).
+interface LicensedTrack {
+  id: string;
+  filename: string;
+  url: string;
+  mood: string;
+  description?: string;
+  license: string;
+  licenseType: string;
+  source: string;
+  licenseUrl?: string | null;
+  commercialUseAllowed: boolean;
+}
+
 export default function MusicStudioPage() {
   const [tab, setTab] = useState<"generate" | "library" | "sfx" | "dj" | "upload">("generate");
   // DJ Tools state
@@ -59,8 +74,12 @@ export default function MusicStudioPage() {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState<string | null>(null);
 
+  const [libraryTracks, setLibraryTracks] = useState<LicensedTrack[]>([]);
   useEffect(() => {
     fetch("/api/music/library").then(r => r.json()).then(d => setTracks(d.tracks ?? []));
+    // Henry 2026-06-15: licensed catalog (CC0 / Pixabay / Mixkit only — no CC-BY) with
+    // per-track licence + downloadable certificate.
+    fetch("/api/music/stock").then(r => r.json()).then(d => setLibraryTracks(d.tracks ?? [])).catch(() => {});
   }, []);
 
   function playTrack(path: string) {
@@ -145,7 +164,7 @@ export default function MusicStudioPage() {
       <div style={{ display: "flex", gap: 4, marginBottom: 24, borderBottom: `1px solid ${ds.color.line}` }}>
         {[
           { id: "generate" as const, label: "AI Generate" },
-          { id: "library" as const, label: "Stock Library" },
+          { id: "library" as const, label: "Music Library" },
           { id: "sfx" as const, label: "Sound FX" },
           { id: "dj" as const, label: "DJ Tools" },
           { id: "upload" as const, label: "Upload" },
@@ -334,9 +353,15 @@ export default function MusicStudioPage() {
               </button>
             ))}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px,1fr))", gap: 8 }}>
-            {tracks.map(t => (
-              <div key={t.filename} style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+          <p style={{ fontSize: 10, color: ds.color.mute, margin: 0 }}>
+            Every track is cleared for commercial use (CC0 / Pixabay / Mixkit — no attribution). Click <b>Licence</b> on any track to view &amp; download a certificate you can keep as proof if a video is ever flagged.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px,1fr))", gap: 8 }}>
+            {libraryTracks.length === 0 && (
+              <p style={{ fontSize: 11, color: ds.color.mute }}>No licensed tracks yet.</p>
+            )}
+            {libraryTracks.map(t => (
+              <div key={t.id} style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: ds.radius.sm, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
                 <button
                   onClick={() => playTrack(`storage/music/stock/${t.filename}`)}
                   style={{ width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: `${ds.color.lilac}25`, color: ds.color.lilac, border: "none", cursor: "pointer", flexShrink: 0, fontSize: 12 }}
@@ -344,9 +369,19 @@ export default function MusicStudioPage() {
                   {playing === `storage/music/stock/${t.filename}` ? "II" : ">"}
                 </button>
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.label}</p>
-                  <p style={{ fontSize: 9, color: ds.color.mute, textTransform: "capitalize" }}>{t.mood}</p>
+                  <p style={{ fontSize: 11, color: ds.color.ink, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.description || t.filename}</p>
+                  <p style={{ fontSize: 9, color: ds.color.mute }}>
+                    <span style={{ textTransform: "capitalize" }}>{t.mood}</span> · {t.source?.split("(")[0]?.trim() || t.source}
+                  </p>
+                  <span style={{ display: "inline-block", marginTop: 3, fontSize: 8, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: `${ds.color.mint}22`, color: ds.color.mint }}>
+                    {t.license} · commercial OK
+                  </span>
                 </div>
+                <a href={`/api/music/license?id=${encodeURIComponent(t.id)}&download=1`} target="_blank" rel="noreferrer"
+                  title="View & download this track's licence certificate"
+                  style={{ fontSize: 9, fontWeight: 700, color: ds.color.lilac, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.xs, padding: "4px 8px", textDecoration: "none", flexShrink: 0, whiteSpace: "nowrap" }}>
+                  Licence ⤓
+                </a>
               </div>
             ))}
           </div>
