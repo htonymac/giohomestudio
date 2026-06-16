@@ -934,7 +934,9 @@ function MoviePlannerInner() {
       const res = await fetch("/api/hybrid/scene-image", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sceneId, projectId, sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
+          // Henry 2026-06-16: per-project isolation — stable id so a null projectId no
+          // longer falls back to scenes/unlinked and mixes with other projects.
+          sceneId, projectId: projectId || urlProjectId || "movie_default", sceneText: `${scene.title}. ${scene.visualDescription || scene.goal}`,
           characterIds: scene.characters || [], mood: scene.musicCue,
           cameraFraming: scene.cameraDirection,
           projectStyle: sceneStyles[sceneId] || effectiveProjectStyle,

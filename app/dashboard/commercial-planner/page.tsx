@@ -513,6 +513,10 @@ function CommercialPlannerInner() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Henry 2026-06-16: per-project isolation — was missing projectId+sceneId so
+          // images dumped to scenes/unlinked/unknown and mixed across projects.
+          projectId: projectId || "comm_default",
+          sceneId: scene.sceneId,
           sceneText: prompt,
           projectStyle: sceneStyles[scene.sceneId] || projectStyle,
           sceneType: scene.sceneType === "video" ? "video-led" : "image-led",

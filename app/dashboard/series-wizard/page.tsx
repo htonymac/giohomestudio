@@ -459,7 +459,7 @@ function SeriesPlannerInner() {
       const chars = characters.filter(c => scene.characterIds.includes(c.characterId));
       const charRefs = chars.map(c => `[${c.characterId}] ${c.displayName}: ${c.colorDescription || ""} ${c.clothingDetails || ""}`).join(", ");
       const prompt = `Scene: ${scene.title}. ${scene.description}. Location: ${scene.location}. Mood: ${scene.mood}. Time: ${scene.timeOfDay}. Characters: ${charRefs || "no specific characters"}. Style: ${visualStyle}. Series genre: ${genre}.`;
-      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneText: prompt, projectStyle: sceneStyles[scene.sceneId] || projectStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
+      const res = await fetch("/api/hybrid/scene-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ sceneText: prompt, sceneId: scene.sceneId, /* Henry 2026-06-16: per-project isolation — was missing projectId+sceneId so images dumped to scenes/unlinked/unknown and mixed across projects. */ projectId: projectId || "series_default", projectStyle: sceneStyles[scene.sceneId] || projectStyle, sceneType: scene.sceneType, characterRefs: chars.map(c => ({ id: c.characterId, imageUrl: c.imageUrl, locked: c.imageLocked })), seed: genSeed !== null ? genSeed : undefined }) });
       const d = await res.json();
       if (d.imageUrl) {
         setSceneImages(prev => ({ ...prev, [scene.sceneId]: d.imageUrl }));

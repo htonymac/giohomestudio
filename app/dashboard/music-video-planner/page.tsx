@@ -661,6 +661,10 @@ export default function MusicVideoPlannerPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // Henry 2026-06-16: per-project isolation — was missing projectId+sceneId so
+          // images dumped to scenes/unlinked/unknown and mixed across projects.
+          projectId: projectId || "mv_default",
+          sceneId: `mv_sc${scene.scene}`,
           sceneText: `${scene.prompt}. Style: ${scene.style}. Music video for: ${songTitle} by ${artistName || "artist"}. Mood: ${analysis?.mood || "cinematic"}.`,
           projectStyle: effectiveProjectStyle,
           sceneType: scene.genMethod === "video-led" ? "video-led" : "image-led",
