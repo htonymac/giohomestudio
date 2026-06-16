@@ -30,6 +30,11 @@ interface CatalogTrack {
   license: string;
   licenseType: string;
   source: string;
+  // Henry 2026-06-15: surfaced for the per-track license certificate (dispute evidence).
+  sourceUrl?: string | null;
+  licenseUrl?: string | null;
+  acquiredAt?: string | null;
+  attributionRequired?: boolean;
   attribution: string | null;
   commercialUseAllowed: boolean;
   blocked: boolean;
@@ -66,6 +71,10 @@ function scanDir(dir: string, urlPrefix: string, manifest: Map<string, Partial<C
       license: String(meta.license ?? defaults.license ?? "UNVERIFIED"),
       licenseType: String(meta.licenseType ?? defaults.licenseType ?? "UNKNOWN"),
       source: String(meta.source ?? defaults.source ?? "ghs-bundled"),
+      sourceUrl: (meta.sourceUrl as string | null) ?? defaults.sourceUrl ?? null,
+      licenseUrl: (meta.licenseUrl as string | null) ?? defaults.licenseUrl ?? null,
+      acquiredAt: (meta.acquiredAt as string | null) ?? defaults.acquiredAt ?? null,
+      attributionRequired: meta.attributionRequired === true || defaults.attributionRequired === true,
       attribution: (meta.attribution as string | null) ?? defaults.attribution ?? null,
       commercialUseAllowed: meta.commercialUseAllowed === true || defaults.commercialUseAllowed === true,
       blocked: meta.blocked === true || defaults.blocked === true,
