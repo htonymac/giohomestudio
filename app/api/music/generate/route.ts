@@ -134,6 +134,34 @@ export async function POST(req: NextRequest) {
     console.warn("[music/generate] DB persist failed:", dbErr);
   }
 
+  // Henry 2026-06-15: AI-generated music must carry a licence record so it shows in the
+  // Music Library with a downloadable certificate. The track's licence = the provider's
+  // commercial-use terms (AI_GENERATED). Stock fallbacks already have manifest records.
+  if (aiGenerated) {
+    try {
+      const { appendLicenseRecord } = await import("@/lib/music-license-registry");
+      const ts = Date.now();
+      appendLicenseRecord({
+        id: `ai_${ts}`,
+        title: prompt.slice(0, 60),
+        source: `AI-generated (${result.providerKey})`,
+        sourceUrl: null,
+        license: "AI-generated — provider commercial licence",
+        licenseType: "AI_GENERATED",
+        licenseUrl: result.providerKey === "stable_audio" ? "https://fal.ai/terms" : null,
+        commercialUseAllowed: true,
+        attributionRequired: false,
+        provider: result.providerKey,
+        model: result.modelName,
+        acquiredAt: new Date(ts).toISOString().slice(0, 10),
+        verificationStatus: "provider-licensed",
+        note: "Uniquely AI-generated for this account. Commercial use per the provider's current terms — verify your provider plan before monetised publication.",
+      });
+    } catch (e) {
+      console.warn("[music/generate] licence record write failed:", e instanceof Error ? e.message : e);
+    }
+  }
+
   return NextResponse.json({
     audioUrl: result.audioUrl,
     durationSeconds: result.durationSeconds,
