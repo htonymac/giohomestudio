@@ -81,6 +81,13 @@ export async function POST(req: NextRequest) {
     const overlayWord = (typeof body.overlayText === "string" && body.overlayText.trim().length > 0 && body.overlayText.length < 40)
       ? body.overlayText.trim().toUpperCase()
       : null;
+    // Henry 2026-06-15: ABC flashcard mode. When a single letter is supplied, the overlay
+    // renders a children's flashcard — big "A a" at the top + the word at the bottom —
+    // instead of just the word. Text is code-drawn (Sharp/SVG) so spelling is always
+    // perfect (diffusion models cannot spell). Only the FIRST alpha char is used.
+    const flashcardLetter = (typeof body.flashcardLetter === "string" && /[a-zA-Z]/.test(body.flashcardLetter))
+      ? body.flashcardLetter.trim().charAt(0).toUpperCase()
+      : null;
 
     // ── VISUAL STYLE DIRECTIVE — shared from src/lib/style-presets.ts ──
     const stylePreset = getStylePreset(projectStyle);
@@ -303,7 +310,7 @@ export async function POST(req: NextRequest) {
     // ("A is for Apple"), not a dynamic action panel. The caller signals this with
     // isStillScene:true (establishing/portrait shots) or wordOverlay:true (teaching
     // word burned in). Storybook/story children scenes still get the action push.
-    const skipActionPush = body.isStillScene === true || enableWordOverlay === true;
+    const skipActionPush = body.isStillScene === true || enableWordOverlay === true || flashcardLetter !== null;
     if (skipActionPush) {
       // no action/anti-pose directive — keep the composition clean and object-clear
     } else if (isRealisticFamily) {
@@ -1108,15 +1115,46 @@ export async function POST(req: NextRequest) {
     // Henry 2026-05-31 (#8): word overlay — burn the teaching word onto the image
     // using sharp's text composite. Keeps the original image as a backup at <name>.orig.png
     // so user can disable later.
-    if (enableWordOverlay && overlayWord) {
+    if ((enableWordOverlay && overlayWord) || (flashcardLetter && overlayWord)) {
       try {
         const sharp = (await import("sharp")).default;
         const meta = await sharp(outputPath).metadata();
         const W = meta.width || 1024;
         const H = meta.height || 1024;
-        const fontSize = Math.round(H * 0.16); // 16% of height
-        // Cartoon-friendly: white text + thick black outline, drop shadow.
-        const svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+        const esc = (s: string) => s.replace(/[<>&]/g, "");
+        let svg: string;
+        if (flashcardLetter) {
+          // ── ABC FLASHCARD (Henry 2026-06-15) ──
+          // Big "A a" (upper+lower) on a translucent band at the TOP; the word on a
+          // translucent band at the BOTTOM. Bands guarantee readability over any image,
+          // and code-drawn text guarantees perfect spelling.
+          const letterPair = `${flashcardLetter} ${flashcardLetter.toLowerCase()}`;
+          const word = esc(overlayWord);
+          const letterSize = Math.round(H * 0.20);
+          const wordSize = Math.round(H * 0.13);
+          const topBandH = Math.round(H * 0.26);
+          const botBandH = Math.round(H * 0.20);
+          svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="5" dy="5" stdDeviation="3" flood-color="black" flood-opacity="0.55"/>
+        </filter>
+      </defs>
+      <rect x="0" y="0" width="${W}" height="${topBandH}" fill="#000000" opacity="0.32"/>
+      <rect x="0" y="${H - botBandH}" width="${W}" height="${botBandH}" fill="#000000" opacity="0.32"/>
+      <text x="50%" y="${Math.round(topBandH * 0.74)}" text-anchor="middle"
+            font-family="Arial Black, Impact, sans-serif" font-size="${letterSize}"
+            font-weight="900" fill="#FFD54A" stroke="#000000" stroke-width="${Math.round(letterSize / 16)}"
+            paint-order="stroke" filter="url(#shadow)">${esc(letterPair)}</text>
+      <text x="50%" y="${Math.round(H - botBandH * 0.32)}" text-anchor="middle"
+            font-family="Arial Black, Impact, sans-serif" font-size="${wordSize}"
+            font-weight="900" fill="#FFFFFF" stroke="#000000" stroke-width="${Math.round(wordSize / 14)}"
+            paint-order="stroke" filter="url(#shadow)">${word}</text>
+    </svg>`;
+        } else {
+          const fontSize = Math.round(H * 0.16); // 16% of height
+          // Cartoon-friendly: white text + thick black outline, drop shadow.
+          svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
           <feDropShadow dx="6" dy="6" stdDeviation="3" flood-color="black" flood-opacity="0.6"/>
@@ -1125,8 +1163,9 @@ export async function POST(req: NextRequest) {
       <text x="50%" y="${Math.round(H * 0.88)}" text-anchor="middle"
             font-family="Arial Black, Impact, sans-serif" font-size="${fontSize}"
             font-weight="900" fill="#FFFFFF" stroke="#000000" stroke-width="${Math.round(fontSize / 14)}"
-            paint-order="stroke" filter="url(#shadow)">${overlayWord.replace(/[<>&]/g, "")}</text>
+            paint-order="stroke" filter="url(#shadow)">${esc(overlayWord)}</text>
     </svg>`;
+        }
         const overlayBuf = Buffer.from(svg);
         const outBuf = await sharp(outputPath)
           .composite([{ input: overlayBuf, top: 0, left: 0 }])
