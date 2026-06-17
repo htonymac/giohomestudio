@@ -63,6 +63,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/budget",   label: "Budget & Credits",  icon: Wallet,   tint: "c9" },
   { href: "/dashboard/models",   label: "AI Models",         icon: Cpu,      tint: "c10" },
   { href: "/dashboard/settings", label: "Settings",          icon: Settings, tint: "c11" },
+  { href: "/dashboard/settings/storage", label: "Storage & Videos", icon: Folder, tint: "c9" },
 ];
 
 // Grouped for the accordion nav
