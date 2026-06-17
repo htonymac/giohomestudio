@@ -423,7 +423,7 @@ function HybridPlannerInner() {
   const [aidMode, setAidMode] = useState<"video" | "image">("video");
   const [aidStyle, setAidStyle] = useState<"all" | "2d" | "3d" | "cartoon" | "realistic">("all");
   const [aidSort, setAidSort] = useState<"cheapest" | "quality" | "expensive">("cheapest");
-  const [selectedImageModelId, setSelectedImageModelId] = useState<string>("fal_flux_schnell");
+  const [selectedImageModelId, setSelectedImageModelId] = useState<string>("segmind_pruna"); // Henry 2026-06-16 cost fix: off FAL (was fal_flux_schnell)
   const [transparentBg, setTransparentBg] = useState(false); // Ideogram V3 transparent PNG mode
   const [genSeed, setGenSeed] = useState<number | null>(null);
   const [aiTier, setAiTier] = useState<AITier>("standard"); // GHS AI tier for story expansion

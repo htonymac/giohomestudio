@@ -459,7 +459,7 @@ function MoviePlannerInner() {
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState("segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState("fal_flux_schnell");
+  const [selectedImageModelId, setSelectedImageModelId] = useState("segmind_pruna"); // Henry 2026-06-16 cost fix: off FAL (was fal_flux_schnell)
   const [transparentBg, setTransparentBg] = useState(false);
   const [aiTier, setAiTier] = useState<AITier>("standard");
   const [showAidPicker, setShowAidPicker] = useState(false);

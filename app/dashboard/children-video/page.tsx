@@ -420,7 +420,7 @@ export default function ChildrenVideoPage() {
   const [secondLang, setSecondLang] = useState("");
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [videoModel, setVideoModel] = useState("fal_wan_lite");
-  const [imageModel, setImageModel] = useState("fal_flux_schnell");
+  const [imageModel, setImageModel] = useState("segmind_pruna"); // Henry 2026-06-16 cost fix: off FAL (was fal_flux_schnell)
   const [duration, setDuration] = useState("60 sec");
   const [showCurriculum, setShowCurriculum] = useState(false);
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);

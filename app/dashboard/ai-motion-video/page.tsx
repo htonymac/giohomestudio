@@ -101,7 +101,7 @@ export default function AiMotionVideoPage() {
   // AI + model selection
   const [aiTier, setAiTier] = useState<AITier>("pro");
   const [videoModel, setVideoModel] = useState("muapi_seedance_v2");
-  const [imageModel, setImageModel] = useState("fal_flux_dev");
+  const [imageModel, setImageModel] = useState("segmind_pruna"); // Henry 2026-06-16 cost fix: off FAL (was fal_flux_dev $0.025)
 
   // Generation state
   const [generating, setGenerating] = useState(false);
