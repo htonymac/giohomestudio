@@ -166,6 +166,18 @@ export default function VoiceTierSelector({ value, onChange, compact, userTier =
             {TIER_BADGES[currentTier]}
           </span>
           <span style={{ fontSize: 9, color: muted }}>{selectedVoice.country}</span>
+          {/* Henry 2026-06-16: show the actual ENGINE so it's clear whether a voice is free
+              (Edge/Piper) or PAID (ElevenLabs) — he couldn't tell, and paid voices cost money. */}
+          {(() => {
+            const p = String(selectedVoice.provider || "");
+            const paid = p === "elevenlabs" || p.startsWith("fal");
+            const name = p === "edge-tts" ? "Edge" : p === "elevenlabs" ? "ElevenLabs" : p === "piper" ? "Piper" : p === "gtts" ? "Google" : p.startsWith("fal") ? "FAL voice" : (p || "engine");
+            return (
+              <span style={{ fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 4, background: paid ? "#7a2a2a" : "#1d3a2a", color: paid ? "#ffb4b4" : "#9be8b4" }}>
+                {name}{paid ? " (paid)" : " (free)"}
+              </span>
+            );
+          })()}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <select
@@ -195,15 +207,20 @@ export default function VoiceTierSelector({ value, onChange, compact, userTier =
             style={{ width: "100%", background: s2, border: `1px solid ${border}`, borderRadius: 6, padding: "6px 10px", color: "#e0e8f0", fontSize: 11 }}
           >
             {tierVoices.map(v => {
-              const gender = v.gender === "female" ? "♀" : v.gender === "male" ? "♂" : "";
-              // Henry 2026-06-05: show tone + age so user picks BEFORE listening.
+              // Henry 2026-06-16: PLAIN ENGLISH labels only — the ♀/♂/·/—/👶 symbols read as
+              // "unicode words, not English". Use words, then strip any remaining non-ASCII.
+              const gender = v.gender === "female" ? "Female" : v.gender === "male" ? "Male" : "";
               const tone = v.tone ? ` [${v.tone}]` : "";
               const age = v.ageType && v.ageType !== "adult" ? ` (${v.ageType})` : "";
-              const note = v.notes ? ` — ${v.notes}` : "";
+              const note = v.notes ? ` - ${v.notes}` : "";
+              const label = `${v.displayName} - ${v.country} ${gender}${tone}${age}${note}`
+                .replace(/[‐-―]/g, "-")            // unicode dashes → hyphen
+                .replace(/[‘’“”]/g, "'")  // smart quotes → straight
+                .replace(/[·•]/g, "-")             // middot/bullet → hyphen
+                .replace(/[^\x20-\x7E]+/g, "")               // drop any other non-ASCII (emoji, ♀♂)
+                .replace(/\s{2,}/g, " ").replace(/\s-\s-/g, " -").trim();
               return (
-                <option key={v.id} value={v.id}>
-                  {v.displayName} · {v.country} {gender}{tone}{age}{note}
-                </option>
+                <option key={v.id} value={v.id}>{label}</option>
               );
             })}
           </select>
