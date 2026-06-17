@@ -1,5 +1,17 @@
 ﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## ➡️ LATEST: 2026-06-16/17 session — see `update/SESSION_HANDOFF_06172026.md` (read it first)
+PRs #115–#144 merged & live. Headlines: images moved OFF FAL to Segmind Pruna (cost fix #143);
+PuLID/img2img now opt-in; children ABC = teaching script not a story (#141); ABC narration+subtitle+
+music in rhythm (#139); children music kid-by-mood (#135); per-project/per-session image isolation
+(#136/#137/#138); music licensing system (CC0/Pixabay/Mixkit only, NO CC-BY) + per-track certificate +
+upload-with-licence (#129/#131/#132); voice labels plain-English + engine free/paid badge (#144).
+LOCKED RULES: no CC-BY music; don't lose/move images; one folder per project/session; manifest.json is
+git-tracked (server edits wiped by deploy); DON'T deploy while Henry renders (restart kills assembly).
+OPEN: #8 Mara/Cobra swap (confirm on regen), #14 flashcard-builder→children-video + add-more-topics,
+FAL music funding NOT needed. Brain (app=ghs) fully back-filled — 18 topics listed in the session doc.
+
+
 ## 2026-06-11 — Gen Max STORYBOARD MODE shipped (PR #77)
 
 **Henry's complaint:** Gen Max images ignored the action — "boy smiling taking shots" instead of chased→jump fence→land in mud; 8yo drifting to 42yo/old man; wrong mood (smiling while chased).
