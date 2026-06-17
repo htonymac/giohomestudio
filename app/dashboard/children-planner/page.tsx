@@ -354,7 +354,10 @@ function ChildrenPlannerInner() {
 
   // ── AID model picker ──
   const [selectedVideoModelId, setSelectedVideoModelId] = useState(videoModelParam || "segmind_pruna_video");
-  const [selectedImageModelId, setSelectedImageModelId] = useState(imageModelParam || "fal_flux_schnell");
+  // Henry 2026-06-16 COST FIX: default was fal_flux_schnell — that runs on FAL ($0.003 ea),
+  // so every children image (and each Gen Max beat) drained the FAL balance. Switched to
+  // segmind_pruna (Segmind gateway, off FAL) — the "Pruna" Henry believed he was already on.
+  const [selectedImageModelId, setSelectedImageModelId] = useState(imageModelParam || "segmind_pruna");
   const [genSeed, setGenSeed] = useState<number | null>(null);
   const [showAidPicker, setShowAidPicker] = useState(false);
   const [aidMode, setAidMode] = useState<"video"|"image">("video");

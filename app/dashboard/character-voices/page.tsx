@@ -1115,7 +1115,7 @@ function SmartBuilderModal({ onClose, onCreated, returnUrl }: { onClose: () => v
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState("");
   const [result, setResult] = useState<SmartBuilderResult | null>(null);
-  const [imageModelId, setImageModelId] = useState("fal_flux_schnell");
+  const [imageModelId, setImageModelId] = useState("segmind_pruna"); // Henry 2026-06-16 cost fix: off FAL (was fal_flux_schnell)
 
   const setField = (key: string, val: string) => setGuidedFields(f => ({ ...f, [key]: val }));
 

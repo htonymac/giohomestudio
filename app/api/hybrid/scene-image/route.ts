@@ -908,11 +908,18 @@ export async function POST(req: NextRequest) {
     // PuLID locks to the entire image's identity tokens instead of just one face.
     // This is how Henry asked for cross-scene character consistency: "scene one
     // should inject scene 2 the same so character wont change".
-    const hasPriorScene = typeof previousSceneImageUrl === "string" && previousSceneImageUrl.length > 0;
-    const willFaceLock = hasPriorScene
+    // Henry 2026-06-16 COST FIX: PuLID/img2img run on FAL fal_flux_pulid at $0.05/image —
+    // 10× the $0.005 Segmind Pruna — and Gen Max fires one per beat, draining FAL fast even
+    // when Henry thinks he's doing cheap Pruna images. The code's own note says PuLID is a
+    // "PREMIUM exact-face-lock upgrade for when FAL is funded" — so it must be OPT-IN, not
+    // auto. Default OFF → all images use Pruna text2img with the free stable-seed consistency.
+    // Callers turn it on explicitly with faceLock:true (or identityLock:true).
+    const faceLockOptIn = body.faceLock === true || body.identityLock === true;
+    const hasPriorScene = faceLockOptIn && typeof previousSceneImageUrl === "string" && previousSceneImageUrl.length > 0;
+    const willFaceLock = faceLockOptIn && (hasPriorScene
       || ((hasPhotoImportChar || referenceImageUrls.length > 0)
           && !isMultiChar
-          && !richLocation);
+          && !richLocation));
     const dropReason = hasPriorScene
       ? " (face-lock ON — previousSceneImageUrl supplied)"
       : isMultiChar
