@@ -37,6 +37,18 @@ export default function StoragePage() {
     setCleaning(false);
   }
 
+  async function deleteVideo(name: string) {
+    if (!confirm(`Permanently delete this video from the server?\n${name}\nThis frees disk space and cannot be undone.`)) return;
+    setMsg("");
+    try {
+      const r = await fetch("/api/admin/storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-video", name }) });
+      const d = await r.json();
+      setMsg(d.ok ? `Deleted — freed ${d.freedMB} MB.` : (d.error || "Delete failed"));
+      // remove from view immediately
+      setInfo(prev => prev ? { ...prev, recentVideos: prev.recentVideos.filter(v => v.name !== name) } : prev);
+    } catch { setMsg("Delete failed."); }
+  }
+
   const card: React.CSSProperties = { background: "#12101c", border: "1px solid #2a2440", borderRadius: 12, padding: 16 };
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24, color: "#e8e8f0" }}>
@@ -80,9 +92,15 @@ export default function StoragePage() {
                 <video src={v.url} poster={v.thumbnailUrl ?? undefined} controls preload="none"
                   style={{ width: "100%", borderRadius: 8, background: "#000", aspectRatio: "16/9" }} />
                 <p style={{ fontSize: 10, color: "#c8c8d8", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</p>
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                   <span style={{ fontSize: 9, color: "#9a9ab0" }}>{v.sizeMB} MB</span>
-                  <a href={v.url} download style={{ fontSize: 9, color: "#7c5cff", textDecoration: "none" }}>Download</a>
+                  <span style={{ display: "flex", gap: 8 }}>
+                    <a href={v.url} download style={{ fontSize: 9, color: "#7c5cff", textDecoration: "none" }}>Download</a>
+                    <button onClick={() => deleteVideo(v.name)}
+                      style={{ fontSize: 9, color: "#ff8a8a", background: "none", border: "1px solid #5a2a2a", borderRadius: 5, padding: "2px 8px", cursor: "pointer", fontWeight: 700 }}>
+                      Delete
+                    </button>
+                  </span>
                 </div>
               </div>
             ))}
