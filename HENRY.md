@@ -11,6 +11,10 @@ Terry writes here when something is genuinely blocked on you. Read on return, cl
   - then tell me "redis ready" and I'll install BullMQ, build the queue + worker (concurrency cap 2, retries+backoff, survives restart), wire the ~10 synchronous `/api/video/assemble` planners behind a flag, and verify.
 - Until then #2 stays parked; I'm doing the unblocked TODOs (#3 done, then #5/#4/#6).
 
+### #4 — Move off `next dev` to a real prod build — NEEDS A SUPERVISED SESSION
+- **Why parked:** flipping the live serving model dev→prod (a) breaks the current deploy path (git pull + `next dev` hot-reload — prod needs a rebuild + service restart), (b) a restart **kills any in-flight render**, and (c) hits the known Turbopack prod-chunk bug that's the reason GHS is on `next dev`. Too high-blast-radius to flip unsupervised in a loop.
+- **To do it:** pick a window with no active renders, with you around. I'll attempt the prod build, fix the Turbopack chunk issue, verify locally, then flip + restart + browser-verify. Say "do prod build" when ready.
+
 ### #7 — Mara/Cobra subject-object swap — NEEDS YOUR REGEN-CONFIRM
 - The handcuff/tackle scene swap fix shipped earlier; needs you to regenerate that scene and confirm it no longer swaps. If it still swaps, I'll escalate to per-scene doer/receiver fields or a 2-image composite.
 

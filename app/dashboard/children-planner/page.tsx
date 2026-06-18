@@ -2332,6 +2332,13 @@ function ChildrenPlannerInner() {
   }
 
   // ── assembleMovie ──
+  // TODO #5: single source of truth for the resume-marker localStorage key, so the
+  // submit path and the resume effect can never build it two slightly different ways.
+  function assembleJobKey() {
+    const pid = urlProjectId || `children_${contentParam || "story"}_${topicParam || "default"}`;
+    return `ghs_assemble_job_${pid}`;
+  }
+
   async function assembleMovie() {
     const scenesToAssemble = childScenes.filter(s => {
       const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
@@ -2642,6 +2649,11 @@ function ChildrenPlannerInner() {
         return;
       }
       const jobId = startData.jobId;
+      // Henry 2026-06-18 (TODO #5 — resumable jobs): persist the jobId per project
+      // so that if the user navigates away or closes the tab while the render runs,
+      // the resume effect on next load can re-attach and show the finished video
+      // (instead of the render silently finishing into the void).
+      try { localStorage.setItem(assembleJobKey(), JSON.stringify({ jobId, startedAt: Date.now() })); } catch { /* storage unavailable — non-fatal */ }
       setLastAction(`Assembling… (job ${jobId.slice(0, 8)})`);
 
       // Poll status every 4 seconds; cap at 20 minutes (300 polls).
@@ -2695,6 +2707,8 @@ function ChildrenPlannerInner() {
       }
 
       if (jobError) {
+        // TODO #5: terminal failure — drop the resume marker so we don't re-nag on reload.
+        try { localStorage.removeItem(assembleJobKey()); } catch { /* non-fatal */ }
         setAssemblyError(jobError);
         setAssemblePercent(0);
         setLastAction(`Assembly error: ${jobError.slice(0, 200)}`);
@@ -2715,6 +2729,8 @@ function ChildrenPlannerInner() {
       }
       setAssembledUrl(outputUrl);
       setGeneratedVideoUrl(outputUrl);
+      // TODO #5: render finished and shown — drop the resume marker.
+      try { localStorage.removeItem(assembleJobKey()); } catch { /* non-fatal */ }
       try {
         await fetch("/api/assets", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -3480,6 +3496,53 @@ function ChildrenPlannerInner() {
     if (assemblySelectedIds.length > 0) return;
     setAssemblySelectedIds(childScenes.map(s => `child_sc${String(s.scene).padStart(2, "0")}`));
   }, [childScenes, assemblySelectedIds.length]);
+
+  // ── TODO #5 (resumable jobs): re-attach to a render that finished while away ──
+  // If the user submitted an assemble job then left/closed the tab, the jobId was
+  // persisted to localStorage. On return we check that job ONCE: if it finished,
+  // surface the video; if it's genuinely still running, say so; if it failed or is
+  // long-gone, drop the marker. (job-status already turns a dead/stale "running"
+  // worker into "error", so a "running" status here is genuinely alive.)
+  const resumeCheckedRef = useRef(false);
+  useEffect(() => {
+    if (resumeCheckedRef.current || typeof window === "undefined") return;
+    resumeCheckedRef.current = true;
+    const key = assembleJobKey();
+    let raw: string | null = null;
+    try { raw = localStorage.getItem(key); } catch { return; }
+    if (!raw) return;
+    const clear = () => { try { localStorage.removeItem(key); } catch { /* non-fatal */ } };
+    let jobId: string | undefined, startedAt = 0;
+    try { const p = JSON.parse(raw) as { jobId?: string; startedAt?: number }; jobId = p.jobId; startedAt = p.startedAt ?? 0; }
+    catch { clear(); return; }
+    if (!jobId) { clear(); return; }
+    (async () => {
+      try {
+        const res = await fetch(`/api/video/job-status?jobId=${encodeURIComponent(jobId!)}`);
+        if (res.status === 404) {
+          // status file gone — clear only if the job is old enough to certainly be done/lost
+          if (startedAt && Date.now() - startedAt > 30 * 60 * 1000) clear();
+          return;
+        }
+        const s = await res.json() as { status?: string; outputUrl?: string };
+        if (s.status === "done" && s.outputUrl) {
+          setAssembledUrl(s.outputUrl);
+          setGeneratedVideoUrl(s.outputUrl);
+          setAssemblyComplete(true);
+          setAssemblePercent(100);
+          setLastAction("Your earlier render finished — the video is ready below.");
+          clear();
+        } else if (s.status === "error") {
+          clear();
+        } else if (s.status === "running") {
+          setLastAction("A render for this project is still in progress — it'll appear in All Content when it finishes.");
+        } else {
+          // Unexpected status (neither done/error/running) — don't silently sit in limbo.
+          console.warn(`[children-planner] resume: unexpected job status "${s.status}" for ${jobId} — leaving marker for retry`);
+        }
+      } catch { /* network blip — leave the marker for the next load */ }
+    })();
+  }, [urlProjectId, contentParam, topicParam]);
 
   // ── BACKFILL empty visualDescription from narration (Henry 2026-05-31) ──
   // INFINITE-LOOP FIX (Henry 2026-05-31): the old version called

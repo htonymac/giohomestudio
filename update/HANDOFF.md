@@ -1,5 +1,13 @@
 ﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## ➡️ 2026-06-18 — TODO #5 DONE: resumable assemble jobs
+children-planner persists assemble jobId per project to localStorage on start, clears on terminal.
+Resume-on-load effect: finished-while-away render → surfaces the video; still-running → informs; failed/
+long-gone → drops marker. Verified real-browser (Playwright): done→marker cleared+state set, 404/recent→
+marker kept. tsc clean. **Loop status:** #1 done, #2 PARKED (Redis password — HENRY.md), #3 done, #5 done.
+#4 (prod build) PARKED for Henry — flipping dev→prod breaks the git-pull+hot-reload deploy path, needs a
+restart (kills renders), and hits the Turbopack prod-chunk bug; do it in a supervised session. NEXT: #6 flashcard builder.
+
 ## ➡️ 2026-06-18 — TODO #3 DONE: temp-bloat sweeper + source leak fix
 `scripts/sweep_temp.mjs` (daily, removes orphaned `storage/video/temp/assembly_*` >3h old; STORAGE_PATH +
 TEMP_SWEEP_MAX_AGE_HOURS env). Catches restart/OOM/SIGKILL orphans no in-process cleanup can. Plus
