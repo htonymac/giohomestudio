@@ -1,5 +1,12 @@
 ﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## ➡️ 2026-06-18 — TODO #3 DONE: temp-bloat sweeper + source leak fix
+`scripts/sweep_temp.mjs` (daily, removes orphaned `storage/video/temp/assembly_*` >3h old; STORAGE_PATH +
+TEMP_SWEEP_MAX_AGE_HOURS env). Catches restart/OOM/SIGKILL orphans no in-process cleanup can. Plus
+`/api/video/assemble` now calls cleanTemp in its outer catch (was leaking on thrown renders). Verified: sweeper
+unit test + tsc clean. Wired as daily ghs crontab on server. **#2 (BullMQ queue) PARKED — needs Redis
+password (Redis is up but NOAUTH; see HENRY.md).** NEXT unblocked: #5 resumable jobs → #4 prod build → #6 flashcard builder.
+
 ## ➡️ 2026-06-18 — TODO #1 DONE: assemble idempotency key (commit `92497b8`)
 `/api/video/assemble-async` dedups identical in-flight renders (key = projectId + sha256(full body);
 running+fresh ≤180s → return existing jobId `deduped:true`; done/error/dead → fresh re-render allowed).

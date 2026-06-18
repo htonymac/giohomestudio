@@ -139,6 +139,13 @@ function getTextAnimationFilter(animation: string | undefined, dur: number, anim
 }
 
 export async function POST(req: NextRequest) {
+  // Henry 2026-06-18 (TODO #3): a cleanup handle so the outer catch can remove
+  // the temp dir on ANY unexpected throw (previously only the success + 2 error
+  // paths called cleanTemp; everything else orphaned an assembly_<ts> folder →
+  // temp bloat). null until the dir is created, so the early "no scenes" return
+  // leaks nothing. Kept separate from the in-scope `const tempDir` (string) so
+  // downstream path.join() calls stay type-narrowed.
+  let tempDirToClean: string | null = null;
   try {
     // H4 kill switch: emergency disable for video assembly.
     const { isFlagEnabled, flagDisabledResponse } = await import("@/lib/feature-flags");
@@ -157,6 +164,7 @@ export async function POST(req: NextRequest) {
 
     const tempDir = path.join(env.storagePath, "video", "temp", `assembly_${Date.now()}`);
     fs.mkdirSync(tempDir, { recursive: true });
+    tempDirToClean = tempDir; // hand the path to the outer catch for failure cleanup
 
     const ffmpeg = env.ffmpegPath;
 
@@ -1401,6 +1409,9 @@ ${dialogueLines.join("\n")}
       ...(narrationWarning ? { warning: narrationWarning } : {}),
     });
   } catch (e: unknown) {
+    // Henry 2026-06-18 (TODO #3): clean the temp dir on any unexpected failure
+    // so a thrown render doesn't leave an orphaned assembly_<ts> folder behind.
+    if (tempDirToClean) cleanTemp(tempDirToClean);
     return NextResponse.json({ error: e instanceof Error ? e.message : "Unknown error" }, { status: 500 });
   }
 }

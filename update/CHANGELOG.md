@@ -1,5 +1,15 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-18 — **Temp-bloat sweeper (TODO #3) — auto-clean orphaned render temp folders**
+
+**What:** (a) New `scripts/sweep_temp.mjs` — a daily sweeper that removes `storage/video/temp/assembly_*` folders older than a cutoff (default 3h, well past the 15-min render cap; configurable via `TEMP_SWEEP_MAX_AGE_HOURS`). Mops up orphans no in-process cleanup can ever catch (renders killed by a server restart / OOM / SIGKILL). Wired on the server as a daily ghs crontab. (b) Tightened the leak at source: `/api/video/assemble` now calls `cleanTemp` in its outer `catch`, so a thrown render no longer orphans its `assembly_<ts>` folder (previously only the success path + 2 of N error paths cleaned up).
+
+**Why:** storage-temp-bloat — temp folders accumulated from every failed/interrupted render. The existing manual "Clean temp" button (#146) helped, but nothing ran automatically.
+
+**Risk:** very low. Sweeper only touches `assembly_*` dirs older than the cutoff (an in-flight render is never harmed) and is a standalone script (zero change to the assembly hot path). The source fix is cleanup-only in an existing catch — no ffmpeg logic touched.
+
+**Verified:** sweeper unit test (old `assembly_*` removed, recent one + non-`assembly_` dir kept); tsc clean.
+
 ## 2026-06-18 — **Assembly idempotency key (TODO #1) — stops duplicate render pile-up**
 
 **What:** `/api/video/assemble-async` now dedups in-flight renders. Each request is keyed on `projectId + sha256(full body)`. If an identical payload is already rendering (status `running`, worker fresh within 180s) the route returns the existing `jobId` with `deduped:true` instead of spawning a second detached ffmpeg worker. A completed / failed / dead-worker job does NOT block a fresh re-render.
