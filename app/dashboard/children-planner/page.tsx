@@ -2332,6 +2332,13 @@ function ChildrenPlannerInner() {
   }
 
   // ── assembleMovie ──
+  // TODO #5: single source of truth for the resume-marker localStorage key, so the
+  // submit path and the resume effect can never build it two slightly different ways.
+  function assembleJobKey() {
+    const pid = urlProjectId || `children_${contentParam || "story"}_${topicParam || "default"}`;
+    return `ghs_assemble_job_${pid}`;
+  }
+
   async function assembleMovie() {
     const scenesToAssemble = childScenes.filter(s => {
       const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
@@ -2646,7 +2653,7 @@ function ChildrenPlannerInner() {
       // so that if the user navigates away or closes the tab while the render runs,
       // the resume effect on next load can re-attach and show the finished video
       // (instead of the render silently finishing into the void).
-      try { localStorage.setItem(`ghs_assemble_job_${assembleProjectId}`, JSON.stringify({ jobId, startedAt: Date.now() })); } catch { /* storage unavailable — non-fatal */ }
+      try { localStorage.setItem(assembleJobKey(), JSON.stringify({ jobId, startedAt: Date.now() })); } catch { /* storage unavailable — non-fatal */ }
       setLastAction(`Assembling… (job ${jobId.slice(0, 8)})`);
 
       // Poll status every 4 seconds; cap at 20 minutes (300 polls).
@@ -2701,7 +2708,7 @@ function ChildrenPlannerInner() {
 
       if (jobError) {
         // TODO #5: terminal failure — drop the resume marker so we don't re-nag on reload.
-        try { localStorage.removeItem(`ghs_assemble_job_${assembleProjectId}`); } catch { /* non-fatal */ }
+        try { localStorage.removeItem(assembleJobKey()); } catch { /* non-fatal */ }
         setAssemblyError(jobError);
         setAssemblePercent(0);
         setLastAction(`Assembly error: ${jobError.slice(0, 200)}`);
@@ -2723,7 +2730,7 @@ function ChildrenPlannerInner() {
       setAssembledUrl(outputUrl);
       setGeneratedVideoUrl(outputUrl);
       // TODO #5: render finished and shown — drop the resume marker.
-      try { localStorage.removeItem(`ghs_assemble_job_${assembleProjectId}`); } catch { /* non-fatal */ }
+      try { localStorage.removeItem(assembleJobKey()); } catch { /* non-fatal */ }
       try {
         await fetch("/api/assets", {
           method: "POST", headers: { "Content-Type": "application/json" },
@@ -3500,8 +3507,7 @@ function ChildrenPlannerInner() {
   useEffect(() => {
     if (resumeCheckedRef.current || typeof window === "undefined") return;
     resumeCheckedRef.current = true;
-    const projectId = urlProjectId || `children_${contentParam || "story"}_${topicParam || "default"}`;
-    const key = `ghs_assemble_job_${projectId}`;
+    const key = assembleJobKey();
     let raw: string | null = null;
     try { raw = localStorage.getItem(key); } catch { return; }
     if (!raw) return;
@@ -3530,6 +3536,9 @@ function ChildrenPlannerInner() {
           clear();
         } else if (s.status === "running") {
           setLastAction("A render for this project is still in progress — it'll appear in All Content when it finishes.");
+        } else {
+          // Unexpected status (neither done/error/running) — don't silently sit in limbo.
+          console.warn(`[children-planner] resume: unexpected job status "${s.status}" for ${jobId} — leaving marker for retry`);
         }
       } catch { /* network blip — leave the marker for the next load */ }
     })();
