@@ -1,5 +1,13 @@
 ﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## ➡️ 2026-06-18 — TODO #1 DONE: assemble idempotency key (commit `92497b8`)
+`/api/video/assemble-async` dedups identical in-flight renders (key = projectId + sha256(full body);
+running+fresh ≤180s → return existing jobId `deduped:true`; done/error/dead → fresh re-render allowed).
+Kills the duplicate-render pile-up at the source. Verified 7/7 logic tests + live route test; tsc clean.
+Server checked clear (no active renders) before deploy. **NEXT: TODO #2 — BullMQ+Redis queue (concurrency
+cap ~2)** for the synchronous `/api/video/assemble` path used by the other ~10 planners.
+
+
 ## ➡️ LATEST: 2026-06-16/17 session — see `update/SESSION_HANDOFF_06172026.md` (read it first)
 PRs #115–#144 merged & live. Headlines: images moved OFF FAL to Segmind Pruna (cost fix #143);
 PuLID/img2img now opt-in; children ABC = teaching script not a story (#141); ABC narration+subtitle+

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/config/env";
+import { DEAD_WORKER_THRESHOLD_MS } from "@/config/assemble-jobs";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
       // 3 min stale = certainly dead.
       if (data?.status === "running" && typeof data.updatedAt === "number") {
         const ageMs = Date.now() - data.updatedAt;
-        if (ageMs > 180_000) {
+        if (ageMs > DEAD_WORKER_THRESHOLD_MS) {
           return NextResponse.json({
             ...data,
             status: "error",
