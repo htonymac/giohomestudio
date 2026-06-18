@@ -4,7 +4,7 @@
 // See disk/temp usage, reclaim temp space (Clean temp — safely skips active renders),
 // and browse/play finished videos (the planner only shows a video if you watched it finish).
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 
 interface StorageInfo {
   disk: { totalGB: number; freeGB: number; usedPct: number | null };
@@ -19,6 +19,37 @@ export default function StoragePage() {
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
   const [msg, setMsg] = useState("");
+  // Henry 2026-06-17: multi-select for collective delete.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const lastIdxRef = useRef<number | null>(null);
+  // Click a checkbox: plain = toggle one; Shift+click = select the whole range from the last click.
+  function clickSelect(index: number, name: string, shift: boolean) {
+    const vids = info?.recentVideos ?? [];
+    if (shift && lastIdxRef.current !== null) {
+      const [a, b] = [lastIdxRef.current, index].sort((x, y) => x - y);
+      setSelected(prev => { const n = new Set(prev); for (let i = a; i <= b; i++) { const vn = vids[i]?.name; if (vn) n.add(vn); } return n; });
+    } else {
+      setSelected(prev => { const n = new Set(prev); if (n.has(name)) n.delete(name); else n.add(name); return n; });
+    }
+    lastIdxRef.current = index;
+  }
+  const selectAll = () => setSelected(new Set((info?.recentVideos ?? []).map(v => v.name)));
+  const clearSel = () => { setSelected(new Set()); lastIdxRef.current = null; };
+  async function deleteSelected() {
+    const names = Array.from(selected);
+    if (names.length === 0) return;
+    if (!confirm(`Permanently delete ${names.length} video(s) from the server? This frees disk and cannot be undone.`)) return;
+    setBulkDeleting(true); setMsg("");
+    try {
+      const r = await fetch("/api/admin/storage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete-video", names }) });
+      const d = await r.json();
+      setMsg(d.ok ? `Deleted ${d.deleted} video(s) — freed ${d.freedMB} MB.` : (d.error || "Delete failed"));
+      setInfo(prev => prev ? { ...prev, recentVideos: prev.recentVideos.filter(v => !selected.has(v.name)) } : prev);
+      clearSel();
+    } catch { setMsg("Bulk delete failed."); }
+    setBulkDeleting(false);
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -81,14 +112,30 @@ export default function StoragePage() {
           </div>
           {msg && <p style={{ fontSize: 12, color: "#9be8b4", marginBottom: 16 }}>{msg}</p>}
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
             <h2 style={{ fontSize: 15, fontWeight: 700 }}>Your finished videos ({info.recentVideos.length} most recent)</h2>
-            <button onClick={load} style={{ fontSize: 11, color: "#9a9ab0", background: "none", border: "1px solid #2a2440", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Refresh</button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button onClick={selectAll} style={{ fontSize: 11, color: "#9a9ab0", background: "none", border: "1px solid #2a2440", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Select all</button>
+              <button onClick={clearSel} style={{ fontSize: 11, color: "#9a9ab0", background: "none", border: "1px solid #2a2440", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Clear</button>
+              <button onClick={deleteSelected} disabled={selected.size === 0 || bulkDeleting}
+                style={{ fontSize: 11, fontWeight: 700, color: "#fff", background: selected.size === 0 ? "#3a2a2a" : "#c0392b", border: "none", borderRadius: 6, padding: "4px 12px", cursor: selected.size === 0 ? "not-allowed" : "pointer" }}>
+                {bulkDeleting ? "Deleting…" : `Delete selected (${selected.size})`}
+              </button>
+              <button onClick={load} style={{ fontSize: 11, color: "#9a9ab0", background: "none", border: "1px solid #2a2440", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Refresh</button>
+            </div>
           </div>
+          <p style={{ fontSize: 10, color: "#9a9ab0", marginBottom: 8 }}>Tick to select. Hold <b>Shift</b> and click to select a range. Then <b>Delete selected</b> removes them from the server.</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px,1fr))", gap: 12 }}>
             {info.recentVideos.length === 0 && <p style={{ fontSize: 12, color: "#9a9ab0" }}>No finished videos yet.</p>}
-            {info.recentVideos.map(v => (
-              <div key={v.name} style={card}>
+            {info.recentVideos.map((v, i) => {
+              const isSel = selected.has(v.name);
+              return (
+              <div key={v.name} style={{ ...card, border: isSel ? "1px solid #7c5cff" : "1px solid #2a2440", background: isSel ? "#1a1430" : "#12101c" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: "#c8c8d8", marginBottom: 6, cursor: "pointer", userSelect: "none" }}
+                  onClick={e => { e.preventDefault(); clickSelect(i, v.name, (e as React.MouseEvent).shiftKey); }}>
+                  <input type="checkbox" readOnly checked={isSel} style={{ accentColor: "#7c5cff", cursor: "pointer" }} />
+                  Select
+                </label>
                 <video src={v.url} poster={v.thumbnailUrl ?? undefined} controls preload="none"
                   style={{ width: "100%", borderRadius: 8, background: "#000", aspectRatio: "16/9" }} />
                 <p style={{ fontSize: 10, color: "#c8c8d8", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</p>
@@ -103,7 +150,8 @@ export default function StoragePage() {
                   </span>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </>
       )}
