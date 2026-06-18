@@ -139,6 +139,7 @@ export default function StoragePage() {
                 <video src={v.url} poster={v.thumbnailUrl ?? undefined} controls preload="none"
                   style={{ width: "100%", borderRadius: 8, background: "#000", aspectRatio: "16/9" }} />
                 <p style={{ fontSize: 10, color: "#c8c8d8", marginTop: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.name}</p>
+                <p style={{ fontSize: 9, color: "#8a8aa0", marginTop: 2 }}>{v.mtime ? new Date(v.mtime).toLocaleString() : ""}</p>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
                   <span style={{ fontSize: 9, color: "#9a9ab0" }}>{v.sizeMB} MB</span>
                   <span style={{ display: "flex", gap: 8 }}>
