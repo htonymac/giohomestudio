@@ -51,7 +51,7 @@ export async function GET() {
   const recent = assembledFiles
     .map(f => { const p = path.join(assembledDir, f); let st: fs.Stats | null = null; try { st = fs.statSync(p); } catch { /* */ } return { f, mtime: st?.mtimeMs ?? 0, size: st?.size ?? 0 }; })
     .sort((a, b) => b.mtime - a.mtime)
-    .slice(0, 60)
+    .slice(0, 300)
     .map(({ f, mtime, size }) => {
       // thumbnails are named loosely; best-effort match by timestamp substring, else none
       const tsMatch = f.match(/_(\d{10,})\./);
@@ -78,10 +78,34 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  let body: { action?: string } = {};
+  let body: { action?: string; name?: string; names?: string[] } = {};
   try { body = await req.json(); } catch { /* */ }
+
+  // Henry 2026-06-17: delete finished video(s) from the server to free disk. Sanitized to a
+  // bare filename inside storage/video/assembled — no path traversal. Removes the matching
+  // thumbnail too. Accepts a single `name` or a batch `names[]`.
+  if (body.action === "delete-video") {
+    const assembledDir = path.join(env.storagePath, "video", "assembled");
+    const thumbDir = path.join(env.storagePath, "thumbnails");
+    const targets = (body.names && body.names.length ? body.names : (body.name ? [body.name] : []))
+      .map(n => path.basename(String(n)))                       // strip any path components
+      .filter(n => /\.(mp4|webm|mov)$/i.test(n));
+    if (targets.length === 0) return NextResponse.json({ error: "name (a video filename) required" }, { status: 400 });
+    let deleted = 0, freed = 0;
+    for (const name of targets) {
+      const p = path.join(assembledDir, name);
+      if (!p.startsWith(assembledDir + path.sep)) continue;     // safety: stay inside the folder
+      try { freed += fs.statSync(p).size; } catch { /* */ }
+      try { fs.unlinkSync(p); deleted++; } catch { continue; }
+      // best-effort thumbnail removal (match by the trailing timestamp)
+      const ts = name.match(/_(\d{10,})\./)?.[1];
+      if (ts) { try { for (const t of fs.readdirSync(thumbDir)) if (t.includes(ts.slice(0, 8))) { try { fs.unlinkSync(path.join(thumbDir, t)); } catch { /* */ } } } catch { /* */ } }
+    }
+    return NextResponse.json({ ok: true, deleted, freedMB: Math.round(freed / 1e6) });
+  }
+
   if (body.action !== "clean-temp") {
-    return NextResponse.json({ error: "Unknown action. Use {action:'clean-temp'}." }, { status: 400 });
+    return NextResponse.json({ error: "Unknown action. Use {action:'clean-temp'|'delete-video'}." }, { status: 400 });
   }
   const tempDir = path.join(env.storagePath, "video", "temp");
   const cutoff = Date.now() - 60 * 60 * 1000; // 60 min — never touch active renders
