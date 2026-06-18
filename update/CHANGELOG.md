@@ -1,5 +1,18 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-18 — **Assembly idempotency key (TODO #1) — stops duplicate render pile-up**
+
+**What:** `/api/video/assemble-async` now dedups in-flight renders. Each request is keyed on `projectId + sha256(full body)`. If an identical payload is already rendering (status `running`, worker fresh within 180s) the route returns the existing `jobId` with `deduped:true` instead of spawning a second detached ffmpeg worker. A completed / failed / dead-worker job does NOT block a fresh re-render.
+
+**Why:** Henry retrying Assemble while one render was still in flight spawned a second job → load avg 17, the recurring pile-up pain. This closes it at the source (server-side), beyond the existing same-tab client guard — catches retry-while-running, cross-tab, and post-restart double-submits.
+
+**Risk:** very low. Hashing the whole body = zero false-positive dedup risk (two genuinely different renders can never collide). Fail-open on any read/parse error (→ fresh render = today's behavior). children-planner is the only caller of assemble-async.
+
+**Verified:** 7/7 dedup-logic unit tests + live route test on local dev (identical payload → same jobId+deduped; different payload → new jobId). tsc clean. Commit `92497b8`.
+
+**Next (TODO #2):** BullMQ + Redis queue with concurrency cap ~2 — the real fix for the synchronous `/api/video/assemble` path used by the other ~10 planners.
+
+
 ## 2026-06-12 — **CHARACTER EXTRACTION: story-truth overrides + species + culture lock** + Edge in narrator Model dropdown
 
 **What (Henry's Tobi test exposed 4 bugs):**
