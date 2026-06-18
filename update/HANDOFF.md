@@ -3,7 +3,7 @@
 ## ➡️ 2026-06-18 — TODO #3 DONE: temp-bloat sweeper + source leak fix
 `scripts/sweep_temp.mjs` (daily, removes orphaned `storage/video/temp/assembly_*` >3h old; STORAGE_PATH +
 TEMP_SWEEP_MAX_AGE_HOURS env). Catches restart/OOM/SIGKILL orphans no in-process cleanup can. Plus
-`/api/video/assemble` now cleanTemp's in its outer catch (was leaking on thrown renders). Verified: sweeper
+`/api/video/assemble` now calls cleanTemp in its outer catch (was leaking on thrown renders). Verified: sweeper
 unit test + tsc clean. Wired as daily ghs crontab on server. **#2 (BullMQ queue) PARKED — needs Redis
 password (Redis is up but NOAUTH; see HENRY.md).** NEXT unblocked: #5 resumable jobs → #4 prod build → #6 flashcard builder.
 

@@ -26,7 +26,11 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STORAGE = process.env.STORAGE_PATH || path.resolve(__dirname, "..", "storage");
-const MAX_AGE_HOURS = Number(process.env.TEMP_SWEEP_MAX_AGE_HOURS) || 3;
+// Clamp to a safe floor of 1h. A misconfigured 0/negative/NaN value must NEVER
+// push the cutoff into the future (which would delete active renders) — reject
+// anything below the 1h floor and fall back to the 3h default.
+const parsedAge = Number(process.env.TEMP_SWEEP_MAX_AGE_HOURS);
+const MAX_AGE_HOURS = Number.isFinite(parsedAge) && parsedAge >= 1 ? parsedAge : 3;
 const cutoff = Date.now() - MAX_AGE_HOURS * 60 * 60 * 1000;
 const tempDir = path.join(STORAGE, "video", "temp");
 
