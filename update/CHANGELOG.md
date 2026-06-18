@@ -1,5 +1,16 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-18 — **Resumable assemble jobs (TODO #5) — finished render shows when the user returns**
+
+**What:** The children-planner now persists the assemble `jobId` per project to `localStorage` (`ghs_assemble_job_<projectId>`) the moment a render starts, and clears it on a terminal outcome (done/error). A new resume-on-load effect checks that job once on mount: if it **finished while the user was away** it surfaces the video (`setAssembledUrl`/`setGeneratedVideoUrl`/`setAssemblyComplete`); if it's genuinely still running it says so; if it failed or is long-gone (404 + >30 min old) it drops the marker. (`job-status` already converts a dead/stale `running` worker into `error`, so a `running` seen here is genuinely alive.)
+
+**Why:** assembly-needs-browser-open — a render finishing after the user navigated away or closed the tab landed in the void; the planner had no way to re-attach. Pairs with #1 (idempotency) and #3 (temp sweeper) on assembly reliability.
+
+**Risk:** low — additive. Persist/clear are wrapped in try/catch (storage unavailable = no-op), the resume effect runs once (ref-guarded) and only reads/sets state. No change to the assemble hot path or ffmpeg.
+
+**Verified:** real-browser (Playwright) end-to-end — DONE job → effect fires, video state set, marker cleared; 404/recent (alive, no status file) → marker kept for retry. tsc clean.
+
+
 ## 2026-06-18 — **Temp-bloat sweeper (TODO #3) — auto-clean orphaned render temp folders**
 
 **What:** (a) New `scripts/sweep_temp.mjs` — a daily sweeper that removes `storage/video/temp/assembly_*` folders older than a cutoff (default 3h, well past the 15-min render cap; configurable via `TEMP_SWEEP_MAX_AGE_HOURS`). Mops up orphans no in-process cleanup can ever catch (renders killed by a server restart / OOM / SIGKILL). Wired on the server as a daily ghs crontab. (b) Tightened the leak at source: `/api/video/assemble` now calls `cleanTemp` in its outer `catch`, so a thrown render no longer orphans its `assembly_<ts>` folder (previously only the success path + 2 of N error paths cleaned up).
