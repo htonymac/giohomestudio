@@ -5,6 +5,7 @@ import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import ModelPicker from "../../components/ModelPicker";
 import DurationPicker from "../../components/DurationPicker";
 import { ds } from "../../../lib/designSystem";
+import { parseDurationToSeconds } from "@/lib/children/duration";
 import HeroTitle from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
@@ -1028,7 +1029,7 @@ export default function ChildrenVideoPage() {
             {/* Custom story takes priority over selected topic — same topicPrompt URL slot,
                 planner already wires topicPrompt → textContent → story-expand. Topic label
                 = "Custom Story" so the planner header shows what was chosen. */}
-            <a href={`/dashboard/children-planner?projectId=child_${Date.now()}_${Math.random().toString(36).slice(2,6)}&branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(customStory.trim() ? "Custom Story" : (selectedTopic?.topic || ""))}&topicPrompt=${encodeURIComponent(customStory.trim() || selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}`}
+            <a href={`/dashboard/children-planner?projectId=child_${Date.now()}_${Math.random().toString(36).slice(2,6)}&branch=${branch}&content=${contentType}&age=${ageGroup}&lang=${primaryLang}&lang2=${secondLang}&characters=${selectedCharacters.join(",")}&topic=${encodeURIComponent(customStory.trim() ? "Custom Story" : (selectedTopic?.topic || ""))}&topicPrompt=${encodeURIComponent(customStory.trim() || selectedTopic?.prompt || "")}&tier=${aiTier}&videoModel=${videoModel}&imageModel=${imageModel}&duration=${encodeURIComponent(duration)}&durationSec=${parseDurationToSeconds(duration)}`}
               style={{ textDecoration: "none" }}>
               <button disabled={!contentType || !ageGroup}
                 style={{ width: "100%", padding: 16, borderRadius: 14, border: "none", background: (contentType && ageGroup) ? childAccent : "#2a2a40", color: "#fff", fontSize: 16, fontWeight: 700, cursor: (contentType && ageGroup) ? "pointer" : "not-allowed", transition: "all 0.2s" }}>

@@ -29,6 +29,8 @@ import { safeJson } from "../../../lib/api-utils";
 import SupervisorStatusBar from "../../components/SupervisorStatusBar";
 import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "../../components/SubtitleStyler";
 import { estimateTextDuration } from "@/lib/auto-timestamp";
+import { parseDurationToSeconds } from "@/lib/children/duration";
+import { makeChildProjectTitle } from "@/lib/children/naming";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
 import { getVoiceById, randomVoiceAnyTier, type GhsVoiceTier } from "@/lib/voice-registry";
@@ -295,6 +297,9 @@ function ChildrenPlannerInner() {
   const [activeTab, setActiveTab] = useState<WorkshopTab>("design");
   const [lastAction, setLastAction] = useState("Workshop opened");
   const [projectTitle, setProjectTitle] = useState("Untitled Children Project");
+  // H1: once the user hand-edits the title, AI/auto-naming must not overwrite it.
+  const userEditedTitleRef = useRef(false);
+  const autoNamedRef = useRef(false);
   const [showProjects, setShowProjects] = useState(false);
   const [projectsList, setProjectsList] = useState<Array<{ id: string; title: string; style: string; lastModified: number; sceneCount: number; characterCount: number }>>([]);
   const [textContent, setTextContent] = useState(topicPromptParam || "");
@@ -387,9 +392,37 @@ function ChildrenPlannerInner() {
   // ── Design tab state ──
   const [ageGroup, setAgeGroup] = useState<"toddler" | "preschool" | "early" | "older">("preschool");
   const [safetyLevel, setSafetyLevel] = useState<"maximum" | "high" | "standard">("high");
-  // Story length picker — explicit duration target sent to story-expand.
-  // Without this the LLM writes a generic short kids story regardless of intent.
-  const [storyLengthMin, setStoryLengthMin] = useState<number>(5);
+  // Video length — ONE source of truth (seconds), initialized from the URL
+  // (durationSec from children-video, else the legacy "duration" label). The
+  // Story Length picker (minutes) is just a view of this. Replaces the old
+  // storyLengthMin state + the "5 min"->5 parse bug. (TODO #13 Phase 1)
+  const [targetSeconds, setTargetSeconds] = useState<number>(() => {
+    const ds = searchParams.get("durationSec");
+    const dl = searchParams.get("duration");
+    if (ds) return parseDurationToSeconds(ds);
+    if (dl) return parseDurationToSeconds(dl);
+    return 300;
+  });
+  const storyLengthMin = Math.max(1, Math.round(targetSeconds / 60));
+
+  // H1: name a FRESH project from the user's selection (e.g. "Word Family 7373")
+  // instead of "Untitled Children Project". Runs once; never overrides a restored
+  // saved title or a user edit. The 4-digit suffix keeps 100+ same-selection picks
+  // distinct in the My Projects list. (Narrative projects get an AI movieTitle on
+  // expand instead — see expandContent.)
+  useEffect(() => {
+    if (autoNamedRef.current) return;
+    autoNamedRef.current = true;
+    if (userEditedTitleRef.current) return;
+    if (!projectTitle.startsWith("Untitled")) return; // restored/real title already set
+    const selection =
+      topicParam && topicParam !== "Custom Story" ? topicParam
+      : contentParam && contentParam !== "story" && contentParam !== "storybook" ? contentParam
+      : "";
+    if (!selection) return;
+    setProjectTitle(makeChildProjectTitle(selection, Date.now()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topicParam, contentParam]);
   const [designComplete, setDesignComplete] = useState(false);
   const [expandingContent, setExpandingContent] = useState(false);
   const [expandedContent, setExpandedContent] = useState("");
@@ -1361,7 +1394,7 @@ function ChildrenPlannerInner() {
     // Story length: picker first, then text-cue overrides if user typed a duration
     // directly into the prompt ("39 min long", "very long", etc.)
     const lower = storyInput.toLowerCase();
-    let parsedDurationSec: number = storyLengthMin * 60;  // start from picker
+    let parsedDurationSec: number = targetSeconds;  // unified source of truth
     const minMatch = lower.match(/(\d+)\s*(?:-\s*\d+\s*)?\s*(?:min|minute)/);
     const hourMatch = lower.match(/(\d+)\s*hour/);
     if (hourMatch) parsedDurationSec = parseInt(hourMatch[1]) * 3600;
@@ -1407,7 +1440,20 @@ function ChildrenPlannerInner() {
           childContext: { ageGroup: effectiveAgeGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
         }),
       });
-      const expandData = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string }; summary?: string; fullScript?: string; wordCount?: number; warning?: string }>(expandRes, "story-expand");
+      const expandData = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string }; summary?: string; fullScript?: string; wordCount?: number; warning?: string; movieTitle?: string }>(expandRes, "story-expand");
+      // H1: for narrative children projects, adopt the AI-generated title (like the
+      // hybrid planner) instead of leaving "Untitled". Teaching content (abc/word/
+      // counting) keeps its deterministic "Word Family 7373" auto-name. Never
+      // override a user edit.
+      {
+        const isNarrative =
+          (!contentParam || contentParam === "story" || contentParam === "storybook") &&
+          learningMode !== "word" && learningMode !== "phonics";
+        const aiTitle = (expandData.movieTitle || "").trim();
+        if (isNarrative && aiTitle && !userEditedTitleRef.current && projectTitle.startsWith("Untitled")) {
+          setProjectTitle(aiTitle);
+        }
+      }
       // Henry 2026-05-31: narration was getting the 1-paragraph SUMMARY (blurb), not the
       // duration-scaled FULL SCRIPT. Result: 5-min target → 30-second TTS. fullScript is
       // the complete narrator-spoken text (~targetWordCount words). Use it if present;
@@ -2998,7 +3044,7 @@ function ChildrenPlannerInner() {
               language: "English",
               languageLevel: ageGroup === "toddler" || ageGroup === "preschool" ? "simple_english" : "normal_english",
               storyType: "story_book",
-              targetDuration: storyLengthMin * 60,
+              targetDuration: targetSeconds,
               targetDurationLabel: `${storyLengthMin} min`,
               tier: "pro",
               provider: storyAiProvider === "auto" ? undefined : storyAiProvider,
@@ -3700,8 +3746,7 @@ function ChildrenPlannerInner() {
     const base = topicPromptParam || textContent || "child story";
     // Henry 2026-05-31: respect duration URL param + use names from saved library
     // instead of inventing fantasy names. ~2.5 words/sec = ~150 wpm typical kid narration.
-    const durationStr = searchParams.get("duration") || "60";
-    const durationSec = parseInt(durationStr.replace(/[^0-9]/g, "")) || 60;
+    const durationSec = targetSeconds; // unified source (fixes "5 min"->5 parse bug)
     const targetWords = Math.max(40, Math.round(durationSec * 2.5));
     const targetSentences = Math.max(3, Math.round(targetWords / 18));
     const libraryNames = savedChars.length > 0
@@ -4032,7 +4077,7 @@ Rules:
               { min: 40, label: "40 min",  note: "Very long" },
               { min: 60, label: "60 min",  note: "Movie" },
             ].map(L => (
-              <div key={L.min} onClick={() => setStoryLengthMin(L.min)}
+              <div key={L.min} onClick={() => setTargetSeconds(L.min * 60)}
                 style={{ padding: 8, borderRadius: 8, border: `1px solid ${storyLengthMin === L.min ? childAccent : border}`, background: storyLengthMin === L.min ? `${childAccent}15` : s2, cursor: "pointer", textAlign: "center" as const }}>
                 <div style={{ color: storyLengthMin === L.min ? childAccent : "#fff", fontWeight: 700, fontSize: 12 }}>{L.label}</div>
                 <div style={{ color: muted, fontSize: 9 }}>{L.note}</div>
@@ -4493,7 +4538,7 @@ Rules:
 
       {/* ── Project toolbar ── */}
       <div style={{ padding: "12px 32px 0", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <input value={projectTitle} onChange={e => setProjectTitle(e.target.value)}
+        <input value={projectTitle} onChange={e => { userEditedTitleRef.current = true; setProjectTitle(e.target.value); }}
           onBlur={() => flushCurrentProject()}
           style={{ background: ds.color.card, border: `1px solid ${ds.color.line}`, borderRadius: 10, padding: "8px 14px", color: "#fff", fontSize: 12, width: 200, outline: "none", fontFamily: ds.font.sans }}
           placeholder="Project Title" />
