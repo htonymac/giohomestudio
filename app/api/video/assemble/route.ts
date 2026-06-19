@@ -9,6 +9,8 @@ import * as path from "path";
 import { env } from "@/config/env";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { getStorage } from "@/lib/storage";
+import { relKeyFor } from "@/lib/storage/writeMedia";
 
 const execFileAsync = promisify(execFile);
 
@@ -138,6 +140,28 @@ function getTextAnimationFilter(animation: string | undefined, dur: number, anim
   }
 }
 
+// No-op unless STORAGE_PROVIDER=r2. Downloads each referenced media object from R2 to its
+// local path BEFORE the (unchanged) ffmpeg pipeline so local-path reads succeed in hybrid mode.
+async function prestageR2Media(urls: (string | undefined | null)[]): Promise<void> {
+  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  const storage = getStorage();
+  const seen = new Set<string>();
+  for (const url of urls) {
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    const local = resolveMediaPath(url);
+    if (!local || fs.existsSync(local)) continue;
+    const key = relKeyFor(local);
+    if (!key) continue;
+    try {
+      if (await storage.exists(key)) {
+        fs.mkdirSync(path.dirname(local), { recursive: true });
+        fs.writeFileSync(local, await storage.get(key));
+      }
+    } catch (e) { console.warn(`[assemble] R2 prestage ${key}: ${e instanceof Error ? e.message : e}`); }
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Henry 2026-06-18 (TODO #3): a cleanup handle so the outer catch can remove
   // the temp dir on ANY unexpected throw (previously only the success + 2 error
@@ -165,6 +189,13 @@ export async function POST(req: NextRequest) {
     const tempDir = path.join(env.storagePath, "video", "temp", `assembly_${Date.now()}`);
     fs.mkdirSync(tempDir, { recursive: true });
     tempDirToClean = tempDir; // hand the path to the outer catch for failure cleanup
+
+    await prestageR2Media([
+      ...body.scenes.flatMap(s => [s.videoUrl, s.audioUrl, s.background]),
+      ...(body.narrationList?.map(n => n.audioUrl) ?? []),
+      body.narrationUrl, body.musicUrl, body.introUrl, body.outroUrl,
+      ...(body.sfx?.map(s => s.sourceUrl) ?? []),
+    ]);
 
     const ffmpeg = env.ffmpegPath;
 
@@ -1315,6 +1346,11 @@ ${dialogueLines.join("\n")}
     const finalFilename = `movie_${body.projectId ?? "export"}_${Date.now()}.mp4`;
     const outputPath = path.join(outDir, finalFilename);
     fs.copyFileSync(finalPath, outputPath);
+
+    if (process.env.STORAGE_PROVIDER === "r2") {
+      try { const k = relKeyFor(outputPath); if (k) await getStorage().put(k, fs.readFileSync(outputPath), { contentType: "video/mp4" }); }
+      catch (e) { console.warn(`[assemble] R2 output put: ${e instanceof Error ? e.message : e}`); }
+    }
 
     // ── Step 7: Get duration with ffprobe ──
     let totalDuration = 0;
