@@ -59,7 +59,7 @@ export async function POST(
   const result = await callLLM(
     `Write a ${d.duration}-second commercial voiceover script for this product/service:\n\nProduct: ${productLine || d.companyName}\n${featsLine}\n${offerLine}\n${priceLine}\n${websiteLine}\nBrand: ${d.companyName}\nCall to action: ${ctaLine}\n\nRules:\n- Natural spoken language only\n- No headers, no bullet points, no stage directions\n- Under ${wordLimit} words total\n- End with the call to action\n- Include 2-4 relevant emojis naturally placed in the text (e.g. 🔥 before offers, ✅ before benefits, 📞 before contact, 🏠 for property, 🍽️ for food)\n- Make it sound like a professional ad voiceover`,
     `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}. Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`,
-    { role: "creative", temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
+    { role: "creative", forceModel: "claude-haiku-4-5-20251001", temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
   );
 
   if (!result.ok) {

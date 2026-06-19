@@ -473,8 +473,10 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       }
       setWarn(data.warning ?? "");
       setStep("form");
-    } catch {
-      setWarn("Upload failed. Check connection.");
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error("[mode2-analyze] upload/parse error:", reason);
+      setWarn(`Upload failed: ${reason}`);
     } finally {
       setUploading(false);
       setAnalyzing(false);
@@ -513,14 +515,16 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       const res  = await fetch(`/api/commercial/projects/${createdProjId}/mode2/build-slides`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePaths: savedFiles.map(f => f.path), script }),
+        body: JSON.stringify({ filePaths: savedFiles.map(f => f.path), script, productName: form.productName, productType: form.productType }),
       });
       type BuildResult = CommercialProject & { slides: CommercialSlide[]; error?: string };
+      // safeJson throws on !res.ok, so data here is always a success payload
       const data = await safeJson<BuildResult>(res, "commercial-mode2-build-slides");
-      if (!res.ok) { setWarn(data.error ?? "Build failed"); return; }
       onOpenProject(data);
-    } catch {
-      setWarn("Network error during build");
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error("[mode2-build-slides] error:", reason);
+      setWarn(`Build failed: ${reason}`);
     } finally {
       setBuilding(false);
     }
@@ -934,16 +938,28 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
     setProject(prev => ({ ...prev, slides: [...prev.slides, ...pairs.map(p => p.slide)] }));
     setSelectedId(pairs[0].slide.id);
 
-    // Upload images in parallel — each pair carries its own file reference
-    const uploadResults = await Promise.all(
+    // Upload images in parallel — use allSettled so one failure doesn't abort the rest
+    const settled = await Promise.allSettled(
       pairs.map(async ({ slide, file }) => {
         const fd = new FormData();
         fd.append("image", file);
         const res = await fetch(`/api/commercial/projects/${project.id}/slides/${slide.id}/image`, { method: "POST", body: fd });
-        if (!res.ok) return null;
+        if (!res.ok) throw new Error(`HTTP ${res.status} for ${file.name}`);
         return { slideId: slide.id, ...(await res.json() as { imagePath: string; imageFileName: string }) };
       })
     );
+
+    // Surface any per-file failures without hiding the successful ones
+    const failed = settled
+      .map((r, i) => r.status === "rejected" ? `${pairs[i].file.name}: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}` : null)
+      .filter(Boolean) as string[];
+    if (failed.length > 0) {
+      console.error("[batch-import] upload failures:", failed);
+      setUploadError(`${failed.length} file(s) failed to upload: ${failed.join("; ")}`);
+    }
+
+    const uploadResults = settled
+      .map(r => r.status === "fulfilled" ? r.value : null);
 
     // Apply all upload results in one state update
     const updates = new Map(uploadResults.filter(Boolean).map(r => [r!.slideId, r!]));
@@ -3027,6 +3043,7 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
   // Step 2: AI-planned scenes
   const [plannedScenes, setPlannedScenes] = useState<CommercialScene[]>([]);
   const [planning, setPlanning] = useState(false);
+  const [planError, setPlanError] = useState<string | null>(null);
 
   // Step 4: Per-scene generation progress
   const [sceneProgress, setSceneProgress] = useState<Record<string, "pending" | "generating" | "done" | "error">>({});
@@ -3057,50 +3074,33 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
   // Step 2: AI Planning — generate scene blueprints
   const handlePlanScenes = async () => {
     setPlanning(true);
+    setPlanError(null);
     try {
-      const productDetails = [
-        flavorVariant && `Variant: ${flavorVariant}`,
-        packSize && `Pack size: ${packSize}`,
-        brandColors && `Brand colors: ${brandColors}`,
-        brandStyle && `Brand style: ${brandStyle}`,
-        allowedClaims && `Claims: ${allowedClaims}`,
-      ].filter(Boolean).join(". ");
-
-      const planPrompt = `Plan a 5-scene commercial video ad for: ${productName || "product"} (${productCategory || "general"}). Tagline: "${tagline || ""}". ${productDetails}. Price: ${price || "N/A"}. CTA: ${ctaText || "Order Now"}.
-
-Return EXACTLY 5 scenes in this JSON array format, no other text:
-[
-  {"purpose":"Hook","prompt":"..."},
-  {"purpose":"Features","prompt":"..."},
-  {"purpose":"Price Reveal","prompt":"..."},
-  {"purpose":"CTA","prompt":"..."},
-  {"purpose":"Location/Lifestyle","prompt":"..."}
-]
-
-Each prompt should be a detailed cinematic video generation prompt for the product. Keep the product as hero.`;
-
-      const res = await fetch("/api/enhance", {
+      const res = await fetch("/api/commercial/plan-scenes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: planPrompt, mode: "json" }),
+        body: JSON.stringify({
+          productName,
+          productCategory,
+          tagline,
+          price,
+          ctaText,
+          flavorVariant,
+          packSize,
+          brandColors,
+          brandStyle,
+          allowedClaims,
+        }),
       });
-      const data = await safeJson<{ enhanced?: string; result?: string; text?: string }>(res, "commercial-mode3-plan");
-      const raw = data.enhanced || data.result || data.text || "";
 
-      // Parse the JSON array from the response
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Array<{ purpose: string; prompt: string }>;
-        const scenes: CommercialScene[] = parsed.map((s, i) => ({
-          id: `scene_${i}_${Date.now()}`,
-          purpose: s.purpose || `Scene ${i + 1}`,
-          prompt: s.prompt || "",
-          approved: true,
-        }));
-        setPlannedScenes(scenes);
-        setStep(3);
-      } else {
-        // Fallback: generate default blueprint
+      let data: { scenes?: Array<{ purpose: string; prompt: string }>; error?: string; raw?: string };
+      try {
+        data = await safeJson<typeof data>(res, "commercial-mode3-plan");
+      } catch (parseErr) {
+        const reason = parseErr instanceof Error ? parseErr.message : String(parseErr);
+        console.error("[commercial-plan-scenes] parse error:", reason);
+        setPlanError(`Scene planning failed: ${reason}. Using default scenes.`);
+        setPlanning(false);
         const defaultScenes: CommercialScene[] = [
           { id: `scene_0_${Date.now()}`, purpose: "Hook", prompt: `Eye-catching opening shot of ${productName || "product"} with dramatic lighting, slow zoom in, premium feel.`, approved: true },
           { id: `scene_1_${Date.now()}`, purpose: "Features", prompt: `Close-up detail shots of ${productName || "product"} features, smooth camera rotation, highlighting quality and craftsmanship.`, approved: true },
@@ -3110,9 +3110,38 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
         ];
         setPlannedScenes(defaultScenes);
         setStep(3);
+        return;
       }
-    } catch {
-      // On error, use default blueprint
+
+      if (data.error || !data.scenes?.length) {
+        const reason = data.error ?? "No scenes returned";
+        console.error("[commercial-plan-scenes] API error:", reason, data.raw ?? "");
+        setPlanError(`AI planning returned an error: ${reason}. Using default scenes.`);
+        const defaultScenes: CommercialScene[] = [
+          { id: `scene_0_${Date.now()}`, purpose: "Hook", prompt: `Eye-catching opening shot of ${productName || "product"} with dramatic lighting, slow zoom in, premium feel.`, approved: true },
+          { id: `scene_1_${Date.now()}`, purpose: "Features", prompt: `Close-up detail shots of ${productName || "product"} features, smooth camera rotation, highlighting quality and craftsmanship.`, approved: true },
+          { id: `scene_2_${Date.now()}`, purpose: "Price Reveal", prompt: `Clean slate reveal showing ${productName || "product"} with price ${price || ""}, elegant typography animation, brand colors.`, approved: true },
+          { id: `scene_3_${Date.now()}`, purpose: "CTA", prompt: `Final call to action shot: "${ctaText}" with ${productName || "product"} center frame, ${whatsapp ? "WhatsApp contact visible" : "contact info overlay"}, urgency feel.`, approved: true },
+          { id: `scene_4_${Date.now()}`, purpose: "Location/Lifestyle", prompt: `Lifestyle shot showing ${productName || "product"} being used/enjoyed in real-world setting, warm tones, aspirational mood.`, approved: true },
+        ];
+        setPlannedScenes(defaultScenes);
+        setStep(3);
+        setPlanning(false);
+        return;
+      }
+
+      const scenes: CommercialScene[] = data.scenes.map((s, i) => ({
+        id: `scene_${i}_${Date.now()}`,
+        purpose: s.purpose || `Scene ${i + 1}`,
+        prompt: s.prompt || "",
+        approved: true,
+      }));
+      setPlannedScenes(scenes);
+      setStep(3);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      console.error("[commercial-plan-scenes] network error:", reason);
+      setPlanError(`Scene planning failed: ${reason}. Using default scenes.`);
       const defaultScenes: CommercialScene[] = [
         { id: `scene_0_${Date.now()}`, purpose: "Hook", prompt: `Eye-catching opening shot of ${productName || "product"} with dramatic lighting.`, approved: true },
         { id: `scene_1_${Date.now()}`, purpose: "Features", prompt: `Close-up detail shots of ${productName || "product"} features.`, approved: true },
@@ -3182,7 +3211,9 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
           body: JSON.stringify({
             prompt: fullPrompt,
             model: selectedModel,
-            sourceImage: productImageUrl,
+            // Pass product image as reference when identity is locked so FAL/Kie
+            // can use it as the first-frame / image-to-video reference.
+            imageUrl: (identityLocked && productImageUrl) ? productImageUrl : undefined,
             aspectRatio: "16:9",
           }),
         });
@@ -3394,6 +3425,12 @@ Each prompt should be a detailed cinematic video generation prompt for the produ
           )}
 
           <p style={{ fontSize: 11, color: "#5a7080", marginBottom: 16 }}>AI will generate a 5-scene commercial blueprint (Hook, Features, Price, CTA, Location) based on your product info. You can review and edit each scene before generating.</p>
+
+          {planError && (
+            <div style={{ marginBottom: 12, padding: "10px 14px", background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.3)", borderRadius: 10, fontSize: 11, color: "#fbbf24" }}>
+              {planError}
+            </div>
+          )}
 
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={() => setStep(1)} style={{ padding: "14px 24px", borderRadius: 14, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 14, cursor: "pointer" }}>Back</button>
