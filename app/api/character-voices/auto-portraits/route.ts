@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export async function POST(req: NextRequest) {
   const FAL_KEY = process.env.FAL_KEY ?? process.env.FAL_API_KEY;
@@ -82,7 +83,7 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(outDir, { recursive: true });
       const outFile = path.join(outDir, `portrait_${Date.now()}.jpg`);
       const imgRes = await fetch(imgUrl);
-      if (imgRes.ok) fs.writeFileSync(outFile, Buffer.from(await imgRes.arrayBuffer()));
+      if (imgRes.ok) await writeMedia(outFile, Buffer.from(await imgRes.arrayBuffer()));
 
       const relPath = outFile.replace(/\\/g, "/").replace(/^.*?storage\//, "");
       const localUrl = `/api/media/${relPath}`;

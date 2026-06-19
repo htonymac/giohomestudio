@@ -14,6 +14,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
 import { appendLicenseRecord, type MusicLicenseRecord } from "@/lib/music-license-registry";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const LICENSE_META: Record<string, { license: string; licenseUrl: string | null; source: string }> = {
   CC0:            { license: "CC0 / Public Domain", licenseUrl: "https://creativecommons.org/publicdomain/zero/1.0/", source: "CC0 source" },
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
   const filename = `up_${ts}_${safeBase}${ext}`;
   const filePath = path.join(uploadsDir, filename);
   try {
-    fs.writeFileSync(filePath, Buffer.from(await file.arrayBuffer()));
+    await writeMedia(filePath, Buffer.from(await file.arrayBuffer()));
   } catch (e) {
     return NextResponse.json({ error: `Failed to save file: ${e instanceof Error ? e.message : String(e)}` }, { status: 500 });
   }

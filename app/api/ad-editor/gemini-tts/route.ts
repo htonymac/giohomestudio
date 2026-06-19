@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export const maxDuration = 120;
 
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
   fs.mkdirSync(outDir, { recursive: true });
   const filename = `gemini_tts_${Date.now()}.wav`;
   const outPath = path.join(outDir, filename);
-  fs.writeFileSync(outPath, buf);
+  await writeMedia(outPath, buf);
 
   const outputUrl = `/api/media/audio/tts/${filename}`;
 

@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 // Scene mood → music style mapping
 const MOOD_MUSIC_MAP: Record<string, { style: string; lyrics: string }> = {
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     fs.mkdirSync(outDir, { recursive: true });
     const fileKey = sceneId ? sceneId.replace(/[^a-zA-Z0-9_-]/g, "") : `n${sceneNumber ?? "x"}`;
     const outPath = path.join(outDir, `scene_${fileKey}_${Date.now()}.mp3`);
-    fs.writeFileSync(outPath, Buffer.from(await audioRes.arrayBuffer()));
+    await writeMedia(outPath, Buffer.from(await audioRes.arrayBuffer()));
 
     const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
     return NextResponse.json({

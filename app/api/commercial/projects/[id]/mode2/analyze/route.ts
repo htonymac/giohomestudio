@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { callLLM } from "@/lib/llm";
 import { extractJSONFromLLM } from "@/lib/media-utils";
 
@@ -40,7 +41,7 @@ export async function POST(
     const ext  = file.name.split(".").pop() ?? "bin";
     const dest = path.join(uploadDir, `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`);
     const buf  = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(dest, buf);
+    await writeMedia(dest, buf);
     savedFiles.push({
       name: file.name,
       type: file.type.startsWith("video") ? "video" : "image",

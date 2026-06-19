@@ -23,6 +23,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const FAL_KEY = () => process.env.FAL_KEY || process.env.FAL_API_KEY || "";
 
@@ -167,7 +168,7 @@ async function saveVideo(videoUrl: string, prefix: string): Promise<string> {
   fs.mkdirSync(outDir, { recursive: true });
   const res = await fetch(videoUrl);
   const outPath = path.join(outDir, `${prefix}_${Date.now()}.mp4`);
-  fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+  await writeMedia(outPath, Buffer.from(await res.arrayBuffer()));
   return outPath;
 }
 

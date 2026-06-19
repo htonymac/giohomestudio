@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
         if (imgUrl) {
           const imgRes = await fetch(imgUrl);
           const outPath = path.join(outDir, `enhanced_${Date.now()}.png`);
-          fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
+          await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
           const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
           return NextResponse.json({
             outputUrl: `/api/media/${relPath}`,
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
 
       if (res.ok) {
         const outPath = path.join(outDir, `enhanced_${Date.now()}.png`);
-        fs.writeFileSync(outPath, Buffer.from(await res.arrayBuffer()));
+        await writeMedia(outPath, Buffer.from(await res.arrayBuffer()));
         const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
         return NextResponse.json({
           outputUrl: `/api/media/${relPath}`,

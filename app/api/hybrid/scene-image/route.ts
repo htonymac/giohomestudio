@@ -19,6 +19,8 @@ import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getModelById } from "@/lib/generation/model-registry";
 import { buildFullLock, toStaticFrame } from "@/lib/era-culture-lock";
 import { env } from "@/config/env";
+import { writeMedia, relKeyFor } from "@/lib/storage/writeMedia";
+import { getStorage } from "@/lib/storage";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -980,7 +982,6 @@ export async function POST(req: NextRequest) {
     if (hasPriorScene && previousSceneImageUrl && !preferFaceLockOverI2I) {
       try {
         const { falFluxImg2Img } = await import("@/lib/providers/fal");
-        const fs = await import("fs");
         // FAL needs a publicly-reachable URL OR a data URL. Convert the local
         // /api/media/... path to a public URL via toPublicUrl (NEXT_PUBLIC_APP_URL).
         // If the URL is already absolute, pass through.
@@ -1001,7 +1002,7 @@ export async function POST(req: NextRequest) {
           const dl = await fetch(i2i.data.images[0].url);
           if (dl.ok) {
             const buf = Buffer.from(await dl.arrayBuffer());
-            fs.writeFileSync(outputPath, buf);
+            await writeMedia(outputPath, buf);
             // Build a fake ImageGenerateResult shape matching generateImage's contract.
             const { getModelById, getDefaultImageModel } = await import("@/lib/generation/model-registry");
             const model = getModelById("fal_flux_dev_i2i") ?? getDefaultImageModel();
@@ -1086,7 +1087,7 @@ export async function POST(req: NextRequest) {
         const dl = await fetch(result.imageUrl);
         if (dl.ok) {
           const buf = Buffer.from(await dl.arrayBuffer());
-          fs.writeFileSync(outputPath, buf);
+          await writeMedia(outputPath, buf);
           result.imagePath = outputPath;
         } else {
           console.warn(`[scene-image] CDN download failed (HTTP ${dl.status}) — leaving result.imageUrl as-is; thumbnail may break when CDN expires`);
@@ -1207,6 +1208,13 @@ export async function POST(req: NextRequest) {
     </svg>`;
         }
         const overlayBuf = Buffer.from(svg);
+        // R2: the image was written to R2 above, not disk — stage it back so sharp can read it.
+        if (process.env.STORAGE_PROVIDER === "r2" && !fs.existsSync(outputPath)) {
+          try {
+            const _k = relKeyFor(outputPath);
+            if (_k) { fs.mkdirSync(path.dirname(outputPath), { recursive: true }); fs.writeFileSync(outputPath, await getStorage().get(_k)); }
+          } catch (e) { console.warn("[scene-image] R2 overlay stage failed:", e instanceof Error ? e.message : e); }
+        }
         const outBuf = await sharp(outputPath)
           .composite([{ input: overlayBuf, top: 0, left: 0 }])
           .png()
@@ -1214,7 +1222,9 @@ export async function POST(req: NextRequest) {
         // Back up original then overwrite
         const backupPath = outputPath.replace(/\.png$/i, ".orig.png");
         try { fs.copyFileSync(outputPath, backupPath); } catch {}
-        fs.writeFileSync(outputPath, outBuf);
+        // Stage-2 NOTE: sharp(outputPath) read + copyFileSync above are local-fs
+        // coupled — they need rework when STORAGE_PROVIDER=r2 (read via getStorage).
+        await writeMedia(outputPath, outBuf);
       } catch (overlayErr) {
         console.warn("[scene-image] word overlay failed:", overlayErr);
         // non-fatal — return the un-overlaid image

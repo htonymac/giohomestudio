@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
   const fileName = `logo_${Date.now()}${ext}`;
   const filePath = path.join(dir, fileName);
   const buf = Buffer.from(await file.arrayBuffer());
-  fs.writeFileSync(filePath, buf);
+  await writeMedia(filePath, buf);
 
   return NextResponse.json({ filePath, fileName, size: buf.length });
 }

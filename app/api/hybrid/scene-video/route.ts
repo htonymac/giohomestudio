@@ -20,6 +20,7 @@ import { sanitizeStyleCollisions } from "@/lib/style/sanitizer";
 import { getLateAnchor } from "@/lib/style/late-anchor";
 import { extractMotionAction } from "@/lib/scene/motion-extractor";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -216,7 +217,7 @@ export async function POST(req: NextRequest) {
           send({ type: "progress", percent: 96, message: "Downloading from Runway..." });
           const runwayBuffer = await downloadRunwayVideo(rr.videoUrl);
           send({ type: "progress", percent: 98, message: "Saving video..." });
-          fs.writeFileSync(outputPath, runwayBuffer);
+          await writeMedia(outputPath, runwayBuffer);
 
         } else if (model.gateway === "muapi") {
           // MuAPI — cheaper alternative for Seedance and Wan models
@@ -259,7 +260,7 @@ export async function POST(req: NextRequest) {
           send({ type: "progress", percent: 96, message: "Downloading from MuAPI..." });
           const muBuffer = await downloadMuApiVideo(mu.videoUrl);
           send({ type: "progress", percent: 98, message: "Saving video..." });
-          fs.writeFileSync(outputPath, muBuffer);
+          await writeMedia(outputPath, muBuffer);
 
         } else if (model.gateway === "segmind") {
           send({ type: "progress", percent: 15, message: "Fetching scene image..." });
@@ -297,7 +298,7 @@ export async function POST(req: NextRequest) {
             return;
           }
           send({ type: "progress", percent: 90, message: "Saving video..." });
-          fs.writeFileSync(outputPath, sr.data);
+          await writeMedia(outputPath, sr.data);
 
         } else if (model.gateway === "kling") {
           // Kling Direct — api.klingai.com (no FAL middleman)
@@ -346,7 +347,7 @@ export async function POST(req: NextRequest) {
           send({ type: "progress", percent: 94, message: "Downloading from Kling..." });
           const klingBuffer = await downloadKlingVideo(kr.videoUrl);
           send({ type: "progress", percent: 97, message: "Saving video..." });
-          fs.writeFileSync(outputPath, klingBuffer);
+          await writeMedia(outputPath, klingBuffer);
 
         } else {
           // FAL — upload image to FAL CDN first (FAL can't reach localhost URLs)
@@ -391,7 +392,7 @@ export async function POST(req: NextRequest) {
           send({ type: "progress", percent: 92, message: "Downloading video from FAL..." });
           const videoBuffer = await downloadFalMedia(fr.videoUrl);
           send({ type: "progress", percent: 96, message: "Saving video..." });
-          fs.writeFileSync(outputPath, videoBuffer);
+          await writeMedia(outputPath, videoBuffer);
         }
 
         // ── Verify file was saved ──

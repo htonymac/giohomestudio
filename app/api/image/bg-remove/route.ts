@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export async function POST(req: NextRequest) {
   try {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
           if (imgUrl) {
             const imgRes = await fetch(imgUrl);
             const outPath = path.join(outDir, `bria_nobg_${Date.now()}.png`);
-            fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
+            await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
             const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
             return NextResponse.json({ outputUrl: `/api/media/${relPath}`, provider: "Bria RMBG 2.0 (fal.ai)" });
           }
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
           if (imgUrl) {
             const imgRes = await fetch(imgUrl);
             const outPath = path.join(outDir, `birefnet_nobg_${Date.now()}.png`);
-            fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
+            await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
             const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
             return NextResponse.json({ outputUrl: `/api/media/${relPath}`, provider: "BiRefNet (fal.ai fallback)" });
           }

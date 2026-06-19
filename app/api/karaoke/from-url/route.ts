@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { prisma } from "@/lib/prisma";
 
 const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
@@ -81,7 +82,7 @@ export async function POST(req: NextRequest) {
     const karaokeDir = path.join(env.storagePath, "karaoke");
     fs.mkdirSync(karaokeDir, { recursive: true });
     const filePath = path.join(karaokeDir, fileName);
-    fs.writeFileSync(filePath, Buffer.from(buffer));
+    await writeMedia(filePath, Buffer.from(buffer));
 
     const fileUrl = `/api/media/karaoke/${fileName}`;
     const origName = path.basename(urlPath) || `from-url-${id}${ext}`;

@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const LANGUAGE_LABELS: Record<string, string> = {
   fr: "French", es: "Spanish", pt: "Portuguese", de: "German",
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest) {
           fs.mkdirSync(audioDir, { recursive: true });
           const outFile = path.join(audioDir, `translated_${sceneId || Date.now()}_${targetLanguage}.mp3`);
           const buffer = Buffer.from(await res.arrayBuffer());
-          fs.writeFileSync(outFile, buffer);
+          await writeMedia(outFile, buffer);
           audioUrl = `/api/media/audio/narration/${path.basename(outFile)}`;
         }
       } catch { /* ElevenLabs failed */ }

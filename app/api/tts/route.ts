@@ -10,6 +10,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { spawn, execSync } from "child_process";
 import { extractEmotion, elevenLabsSettingsFor, type Emotion } from "@/lib/dialogue-emotion";
 
@@ -349,7 +350,7 @@ export async function POST(req: NextRequest) {
           if (falAudioRes.ok) {
             const mp3File = outFile.replace(".wav", "_fal.mp3");
             const buffer = Buffer.from(await falAudioRes.arrayBuffer());
-            fs.writeFileSync(mp3File, buffer);
+            await writeMedia(mp3File, buffer);
             const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
             const durationMs = getAudioDurationMs(mp3File, "mp3");
             return NextResponse.json({ audioUrl: url, engine: "fal-narrator", text: text.slice(0, 100), durationMs });
@@ -389,7 +390,7 @@ export async function POST(req: NextRequest) {
           if (falAudioRes.ok) {
             const mp3File = outFile.replace(".wav", "_fal_pro.mp3");
             const buffer = Buffer.from(await falAudioRes.arrayBuffer());
-            fs.writeFileSync(mp3File, buffer);
+            await writeMedia(mp3File, buffer);
             const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
             const durationMs = getAudioDurationMs(mp3File, "mp3");
             return NextResponse.json({ audioUrl: url, engine: "fal-narrator-pro", text: text.slice(0, 100), durationMs });
@@ -435,7 +436,7 @@ export async function POST(req: NextRequest) {
 
         const mp3File = outFile.replace(".wav", ".mp3");
         const buffer = Buffer.from(await elevenLabsRes.arrayBuffer());
-        fs.writeFileSync(mp3File, buffer);
+        await writeMedia(mp3File, buffer);
         const url = `/api/media/audio/tts/${path.basename(mp3File)}`;
         const durationMs = getAudioDurationMs(mp3File, "mp3");
         return NextResponse.json({ audioUrl: url, engine: useV3 ? "elevenlabs-v3" : "elevenlabs", text: speakText.slice(0, 100), emotion: finalEmotion, durationMs });

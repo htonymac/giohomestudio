@@ -11,6 +11,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const schema = z.object({
   description: z.string().min(1).max(300),
@@ -147,7 +148,7 @@ export async function POST(req: NextRequest) {
             const filename = `fal_sfx_${Date.now()}.mp3`;
             const outPath = path.join(sfxOutDir, filename);
             const buffer = Buffer.from(await dlRes.arrayBuffer());
-            fs.writeFileSync(outPath, buffer);
+            await writeMedia(outPath, buffer);
 
             // Auto-save to asset library
             try {
@@ -207,7 +208,7 @@ export async function POST(req: NextRequest) {
         const sfxOutDir = path.resolve(env.storagePath, "sfx");
         fs.mkdirSync(sfxOutDir, { recursive: true });
         const outPath = path.join(sfxOutDir, `ai_${Date.now()}.mp3`);
-        fs.writeFileSync(outPath, Buffer.from(res.data));
+        await writeMedia(outPath, Buffer.from(res.data));
 
         // Auto-save to asset library
         try {

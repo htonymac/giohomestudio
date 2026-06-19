@@ -12,6 +12,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const FS_BASE = "https://freesound.org/apiv2";
 
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
   const sfxDir = path.resolve(env.storagePath, "sfx");
   fs.mkdirSync(sfxDir, { recursive: true });
   const filePath = path.join(sfxDir, fileName);
-  fs.writeFileSync(filePath, buf);
+  await writeMedia(filePath, buf);
 
   const fileUrl = `/api/media/sfx/${fileName}`;
 

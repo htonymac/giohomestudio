@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { falKokoroTts } from "@/lib/providers/fal";
 
 export async function POST(req: NextRequest) {
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Failed to download FAL audio: ${dlRes.status}` }, { status: 502 });
     }
     const buffer = Buffer.from(await dlRes.arrayBuffer());
-    fs.writeFileSync(localPath, buffer);
+    await writeMedia(localPath, buffer);
 
     const audioUrl = `/api/media/audio/tts/${filename}`;
     return NextResponse.json({ audioUrl, engine: "fal-narrator", text: text.slice(0, 100) });

@@ -9,6 +9,8 @@ import * as path from "path";
 import { env } from "@/config/env";
 import { execFile } from "child_process";
 import { promisify } from "util";
+import { getStorage } from "@/lib/storage";
+import { relKeyFor } from "@/lib/storage/writeMedia";
 
 const execFileAsync = promisify(execFile);
 export const maxDuration = 900;
@@ -52,6 +54,28 @@ function resolveMediaPath(url: string): string {
   return url;
 }
 
+// No-op unless STORAGE_PROVIDER=r2. Downloads each referenced media object from R2 to its
+// local path BEFORE the (unchanged) ffmpeg pipeline so local-path reads succeed in hybrid mode.
+async function prestageR2Media(urls: (string | undefined | null)[]): Promise<void> {
+  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  const storage = getStorage();
+  const seen = new Set<string>();
+  for (const url of urls) {
+    if (!url || seen.has(url)) continue;
+    seen.add(url);
+    const local = resolveMediaPath(url);
+    if (!local || local.startsWith("http") || fs.existsSync(local)) continue;
+    const key = relKeyFor(local);
+    if (!key) continue;
+    try {
+      if (await storage.exists(key)) {
+        fs.mkdirSync(path.dirname(local), { recursive: true });
+        fs.writeFileSync(local, await storage.get(key));
+      }
+    } catch (e) { console.warn(`[music-video/assemble] R2 prestage ${key}: ${e instanceof Error ? e.message : e}`); }
+  }
+}
+
 async function getVideoDuration(ffprobePath: string, filePath: string): Promise<number> {
   try {
     const { stdout } = await execFileAsync(ffprobePath, [
@@ -76,6 +100,11 @@ export async function POST(req: NextRequest) {
   const tempDir = path.join(env.storagePath, "video", "temp", `mv_${Date.now()}`);
   fs.mkdirSync(outDir, { recursive: true });
   fs.mkdirSync(tempDir, { recursive: true });
+
+  await prestageR2Media([
+    ...scenes.map(s => s.videoUrl),
+    songUrl, songPath, narrationUrl,
+  ]);
 
   try {
     // Build section-duration lookup
@@ -242,6 +271,11 @@ export async function POST(req: NextRequest) {
       await execFileAsync(ffmpeg, [
         "-i", concatFile, "-c", "copy", "-y", outFile,
       ], { timeout: 60000 });
+    }
+
+    if (process.env.STORAGE_PROVIDER === "r2") {
+      try { const k = relKeyFor(outFile); if (k) await getStorage().put(k, fs.readFileSync(outFile), { contentType: "video/mp4" }); }
+      catch (e) { console.warn(`[music-video/assemble] R2 output put: ${e instanceof Error ? e.message : e}`); }
     }
 
     // Cleanup temp

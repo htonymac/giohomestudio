@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { generateCharacterImage, isComfyUIOnline } from "@/modules/comfyui";
 import { VALID_ANGLES, ANGLE_LABELS } from "@/config/character-angles";
 
@@ -61,7 +62,7 @@ export async function POST(
     const dir      = path.join(env.storagePath, "characters", id);
     const filename = `${body.angle}.png`;
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, filename), result.imageBuffer);
+    await writeMedia(path.join(dir, filename), result.imageBuffer);
 
     const url = `/api/media/characters/${id}/${filename}`;
 

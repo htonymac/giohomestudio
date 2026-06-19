@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { generateTransparent } from "@/lib/generation/gateways/fal";
 
 interface IdeogramTransparentRequest {
@@ -47,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     const filename = `${uuidv4()}.png`;
     const outPath = path.join(outDir, filename);
-    fs.writeFileSync(outPath, Buffer.from(await imgRes.arrayBuffer()));
+    await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
 
     const outputUrl = `/api/media/images/generated/${filename}`;
     return NextResponse.json({ ok: true, outputUrl, transparent: true });
