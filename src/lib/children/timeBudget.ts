@@ -16,10 +16,10 @@ import type { Age, ChildMode, ItemPlan, TimeBudgetInput, TimeBudgetPlan } from "
 // slower pacing (longer holds). These are the knobs that decide "how many words
 // fill the time" — tune per age/mode after real review.
 const BASE_SECONDS_PER_ITEM: Record<Age, Record<ChildMode, number>> = {
-  toddler:   { spelling: 12, abc: 10, counting: 10, story: 6,   poem: 6   },
-  preschool: { spelling: 10, abc: 9,  counting: 8,  story: 6,   poem: 6   },
-  early:     { spelling: 8,  abc: 7,  counting: 6,  story: 5,   poem: 5   },
-  older:     { spelling: 6,  abc: 6,  counting: 5,  story: 4.5, poem: 4.5 },
+  toddler:   { spelling: 12, abc: 10, counting: 10, concept: 10, story: 6,   poem: 6   },
+  preschool: { spelling: 10, abc: 9,  counting: 8,  concept: 9,  story: 6,   poem: 6   },
+  early:     { spelling: 8,  abc: 7,  counting: 6,  concept: 7,  story: 5,   poem: 5   },
+  older:     { spelling: 6,  abc: 6,  counting: 5,  concept: 6,  story: 4.5, poem: 4.5 },
 };
 
 // Never produce fewer than this many items even for a very short target.
