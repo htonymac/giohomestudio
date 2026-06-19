@@ -1,5 +1,18 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-18 — **Children "by-time" engine (TODO #13 Phase 1) + AI project naming (H1)**
+
+**Phase 1 — duration unification + time-budget engine:**
+- New `src/lib/children/` brain (small single-purpose modules): `types.ts`, `duration.ts` (`parseDurationToSeconds` — fixes the `"5 min"→5` bug), `timeBudget.ts` (`buildTimePlan`: deterministic target-seconds → exact item/scene/image plan where `sum(onScreenSeconds) === target`).
+- children-planner now uses **one `targetSeconds` source of truth** (from the `durationSec` URL param), with `storyLengthMin` derived from it; the Story-Length picker sets `targetSeconds`; `expandContent`, `resolveNarrationText`, and prefill all read the unified value. children-video passes `&durationSec=<seconds>`. Ends the "two disconnected duration pickers" mismatch.
+- (The deterministic per-item time **guarantee** for spelling — per-item TTS + plan-driven scene durations — lands in Phase 2 with the word bank, where items exist.)
+
+**H1 — AI project title + unique naming:**
+- New `src/lib/children/naming.ts`. A fresh project from a selection is auto-named `"<Selection> <4-digit>"` (e.g. **"Word Family 7035"**) instead of "Untitled Children Project" — the suffix keeps 100+ same-selection picks distinct in My Projects. Narrative projects adopt the AI `movieTitle` from story-expand (like the hybrid planner). A `userEditedTitleRef` guard means hand-edits are never overwritten. Per-generation variety is already provided by random image seeds (genSeed defaults null → random).
+
+**Verified:** `timeBudget` 977/977 unit assertions; naming unit tests; tsc clean; real-browser (Playwright) — auto-name "Word Family 7035" + `durationSec=300` selects "5 min", 0 page errors. Protected FFmpeg untouched.
+
+
 ## 2026-06-18 — **Resumable assemble jobs (TODO #5) — finished render shows when the user returns**
 
 **What:** The children-planner now persists the assemble `jobId` per project to `localStorage` (`ghs_assemble_job_<projectId>`) the moment a render starts, and clears it on a terminal outcome (done/error). A new resume-on-load effect checks that job once on mount: if it **finished while the user was away** it surfaces the video (`setAssembledUrl`/`setGeneratedVideoUrl`/`setAssemblyComplete`); if it's genuinely still running it says so; if it failed or is long-gone (404 + >30 min old) it drops the marker. (`job-status` already converts a dead/stale `running` worker into `error`, so a `running` seen here is genuinely alive.)

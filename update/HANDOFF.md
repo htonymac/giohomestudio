@@ -1,5 +1,16 @@
 ﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
+## ➡️ 2026-06-18 — TODO #13 Phase 1 (children by-time) + H1 (AI naming)
+New `src/lib/children/` engine: duration.ts (parseDurationToSeconds, fixes "5 min"->5), timeBudget.ts
+(buildTimePlan: target -> exact items, sum==target, 977/977 tests), naming.ts (makeChildProjectTitle).
+children-planner: ONE targetSeconds source (from durationSec URL param), storyLengthMin derived, picker
+sets it; expand/narration/prefill unified. children-video passes &durationSec=. H1: fresh projects
+auto-named "Word Family 7035" (4-digit suffix, distinct in list) + narrative adopts AI movieTitle +
+userEditedTitleRef guard. Verified real-browser (Playwright) + tsc. **NEXT (after Henry reviews): Phase 2
+word-bank brain (src/lib/children/wordBank.ts) + spelling render via existing flashcard overlay + the
+per-item TTS time-guarantee; then Phase 3 safetyScanner.ts (hard-block/soften, auto at 3 gates).** Plan:
+C:\Users\USER\.claude\plans\delegated-wondering-turtle.md.
+
 ## ➡️ 2026-06-18 — TODO #5 DONE: resumable assemble jobs
 children-planner persists assemble jobId per project to localStorage on start, clears on terminal.
 Resume-on-load effect: finished-while-away render → surfaces the video; still-running → informs; failed/
