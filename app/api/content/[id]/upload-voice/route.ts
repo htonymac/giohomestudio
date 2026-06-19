@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { mergeMedia } from "@/modules/ffmpeg";
 import { updateContentItem } from "@/modules/content-registry";
 
@@ -26,7 +27,7 @@ export async function POST(
   const voicePath = path.join(voiceDir, voiceFileName);
 
   const arrayBuffer = await file.arrayBuffer();
-  fs.writeFileSync(voicePath, Buffer.from(arrayBuffer));
+  await writeMedia(voicePath, Buffer.from(arrayBuffer));
 
   await updateContentItem(id, { voicePath, voiceSource: "uploaded", voiceProvider: "manual" });
 

@@ -9,6 +9,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { prisma } from "@/lib/prisma";
 
 const ALLOWED_EXTS = new Set([".mp3", ".wav", ".m4a", ".aac", ".ogg", ".webm"]);
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const filePath = path.join(karaokeDir, fileName);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    await writeMedia(filePath, buffer);
 
     const fileUrl = `/api/media/karaoke/${fileName}`;
 

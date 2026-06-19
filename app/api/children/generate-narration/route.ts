@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import type { ChildrenPacingPlan, ChildrenNarrationTimingEntry } from "@/types/children";
 
 interface GenerateNarrationRequest {
@@ -110,7 +111,7 @@ export async function POST(req: NextRequest) {
       }
 
       const buffer = Buffer.from(await elevenRes.arrayBuffer());
-      fs.writeFileSync(outPath, buffer);
+      await writeMedia(outPath, buffer);
 
       return NextResponse.json({ ok: true, audioUrl, durationMs, timingMap });
     } catch (err) {
