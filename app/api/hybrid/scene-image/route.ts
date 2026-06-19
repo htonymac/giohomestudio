@@ -19,7 +19,8 @@ import { markBroken, pickHealthyAlternative } from "@/lib/provider-health";
 import { getModelById } from "@/lib/generation/model-registry";
 import { buildFullLock, toStaticFrame } from "@/lib/era-culture-lock";
 import { env } from "@/config/env";
-import { writeMedia } from "@/lib/storage/writeMedia";
+import { writeMedia, relKeyFor } from "@/lib/storage/writeMedia";
+import { getStorage } from "@/lib/storage";
 import * as path from "path";
 import * as fs from "fs";
 
@@ -1207,6 +1208,13 @@ export async function POST(req: NextRequest) {
     </svg>`;
         }
         const overlayBuf = Buffer.from(svg);
+        // R2: the image was written to R2 above, not disk — stage it back so sharp can read it.
+        if (process.env.STORAGE_PROVIDER === "r2" && !fs.existsSync(outputPath)) {
+          try {
+            const _k = relKeyFor(outputPath);
+            if (_k) { fs.mkdirSync(path.dirname(outputPath), { recursive: true }); fs.writeFileSync(outputPath, await getStorage().get(_k)); }
+          } catch (e) { console.warn("[scene-image] R2 overlay stage failed:", e instanceof Error ? e.message : e); }
+        }
         const outBuf = await sharp(outputPath)
           .composite([{ input: overlayBuf, top: 0, left: 0 }])
           .png()
