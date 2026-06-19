@@ -44,6 +44,10 @@ export interface StoryTabProps {
   setStoryCulture: (s: string) => void;
   // AI actions
   expandContent: () => void | Promise<void>;
+  // TODO #13 Phase 2: when a deterministic teaching type is selected (counting/
+  // spelling/abc/concept) the content is built from the time-budget brain, so the
+  // Expand button works WITHOUT typed text — the content type is the input.
+  deterministicBuild?: boolean;
   expandingContent: boolean;
   expandStory: () => void | Promise<void>;
   expanding: boolean;
@@ -84,7 +88,7 @@ export default function StoryTab(props: StoryTabProps) {
     topicParam, charactersParam, contentParam, langParam, lang2Param, isBilingual,
     textContent, setTextContent,
     storyEra, setStoryEra, storyCulture, setStoryCulture,
-    expandContent, expandingContent, expandStory, expanding,
+    expandContent, expandingContent, expandStory, expanding, deterministicBuild,
     modifyPrompt, modifyingPrompt, prefillPrompt, prefillingPrompt,
     devocarize, devocarizing, extractChildCharacters, extractingChars,
     storyAiProvider, setStoryAiProvider,
@@ -165,10 +169,16 @@ export default function StoryTab(props: StoryTabProps) {
 
       {/* AI Content Expansion + Modify buttons */}
       <div style={{ marginTop: 14, display: "flex", gap: 8, flexWrap: "wrap" as const, alignItems: "center" }}>
-        <button onClick={expandContent} disabled={expandingContent || !textContent.trim()}
-          style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childAccent}`, background: expandingContent ? `${childAccent}10` : `${childAccent}20`, color: (expandingContent || !textContent.trim()) ? muted : childAccent, fontSize: 12, fontWeight: 600, cursor: (expandingContent || !textContent.trim()) ? "not-allowed" : "pointer" }}>
-          {expandingContent ? "Expanding..." : "Expand with AI"}
-        </button>
+        {(() => {
+          const canBuild = !!deterministicBuild || !!textContent.trim();
+          const off = expandingContent || !canBuild;
+          return (
+            <button onClick={expandContent} disabled={off}
+              style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childAccent}`, background: expandingContent ? `${childAccent}10` : `${childAccent}20`, color: off ? muted : childAccent, fontSize: 12, fontWeight: 600, cursor: off ? "not-allowed" : "pointer" }}>
+              {expandingContent ? "Building..." : (deterministicBuild && !textContent.trim() ? "Build cards by time" : "Expand with AI")}
+            </button>
+          );
+        })()}
         <button onClick={expandStory} disabled={expanding || !textContent.trim()}
           style={{ padding: "9px 18px", borderRadius: 10, border: `1px solid ${childSafe}`, background: expanding ? `${childSafe}10` : `${childSafe}20`, color: (expanding || !textContent.trim()) ? muted : childSafe, fontSize: 12, fontWeight: 700, cursor: (expanding || !textContent.trim()) ? "not-allowed" : "pointer" }}>
           {expanding ? "Building..." : "Build Story with AI"}

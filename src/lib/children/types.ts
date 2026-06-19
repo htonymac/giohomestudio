@@ -4,9 +4,11 @@
 
 export type Age = "toddler" | "preschool" | "early" | "older";
 
-// Deterministic teaching modes go through the time-budget + word-bank brain.
+// Deterministic teaching modes go through the time-budget + bank brain:
+//   spelling (word banks) · abc (alphabet) · counting (numbers) · concept
+//   (colours/shapes/animals/feelings/body/first-words/actions/weather/helpers).
 // Narrative modes (story/poem) keep the existing LLM + narration-first path.
-export type ChildMode = "spelling" | "abc" | "counting" | "story" | "poem";
+export type ChildMode = "spelling" | "abc" | "counting" | "concept" | "story" | "poem";
 
 export type NarrationStrategy =
   | "per-item-tts" // one short clip per item, positioned — makes the timeline length == target

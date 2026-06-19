@@ -31,6 +31,7 @@ import SubtitleStyler, { type SubtitleConfig, DEFAULT_SUBTITLE_CONFIG } from "..
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { parseDurationToSeconds } from "@/lib/children/duration";
 import { makeChildProjectTitle } from "@/lib/children/naming";
+import { buildChildScenes, resolveChildMode, isDeterministicMode } from "@/lib/children/buildChildScenes";
 import { AID_VIDEO_MODELS, AID_IMAGE_MODELS } from "@/lib/aid-model-registry";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
 import { getVoiceById, randomVoiceAnyTier, type GhsVoiceTier } from "@/lib/voice-registry";
@@ -272,12 +273,16 @@ export default function ChildrenPlannerPage() {
 function ChildrenPlannerInner() {
   const searchParams = useSearchParams();
   const branch = searchParams.get("branch") ?? "hybrid";
-  const contentParam = searchParams.get("content") ?? "";
-  const ageParam = searchParams.get("age") ?? "";
+  // The restore effect rewrites the URL to just ?projectId=… (stripping the
+  // selection params), so capture the user's selection ONCE at mount — otherwise
+  // contentParam/age/topic become "" on the next render and the deterministic
+  // teaching build (TODO #13) + auto-naming (H1) silently stop working.
+  const [contentParam] = useState(() => searchParams.get("content") ?? "");
+  const [ageParam] = useState(() => searchParams.get("age") ?? "");
   const langParam = searchParams.get("lang") ?? "en";
   const lang2Param = searchParams.get("lang2") ?? "";
-  const topicParam = searchParams.get("topic") ?? "";
-  const topicPromptParam = searchParams.get("topicPrompt") ?? "";
+  const [topicParam] = useState(() => searchParams.get("topic") ?? "");
+  const [topicPromptParam] = useState(() => searchParams.get("topicPrompt") ?? "");
   const charactersParam = searchParams.get("characters") ?? "";
   const characterIdParam = searchParams.get("characterId") ?? "";
   // Henry 2026-05-30: thread children-video's tier + model choices into the planner so
@@ -390,7 +395,9 @@ function ChildrenPlannerInner() {
   const [showCutsPanel, setShowCutsPanel] = useState(false);
 
   // ── Design tab state ──
-  const [ageGroup, setAgeGroup] = useState<"toddler" | "preschool" | "early" | "older">("preschool");
+  const [ageGroup, setAgeGroup] = useState<"toddler" | "preschool" | "early" | "older">(
+    () => (ageParam === "toddler" || ageParam === "preschool" || ageParam === "early" || ageParam === "older") ? ageParam : "preschool"
+  );
   const [safetyLevel, setSafetyLevel] = useState<"maximum" | "high" | "standard">("high");
   // Video length — ONE source of truth (seconds), initialized from the URL
   // (durationSec from children-video, else the legacy "duration" label). The
@@ -844,6 +851,45 @@ function ChildrenPlannerInner() {
 
   // ── Expand content with AI ──
   async function expandContent() {
+    // TODO #13 Phase 2 — DETERMINISTIC "by-time" content for teaching types
+    // (counting / spelling / abc / concept: colours, shapes, animals, feelings,
+    // body, first-words, actions…). The time-budget brain decides HOW MANY items
+    // from the duration, so a 60s and a 600s video genuinely differ (600s gets ~10x
+    // the cards / counts higher / more rounds). No LLM, no typed text needed — the
+    // content type IS the input. Story/poem/unmapped types fall through to the LLM.
+    const detMode = resolveChildMode(contentParam, learningMode);
+    if (isDeterministicMode(detMode)) {
+      setExpandingContent(true);
+      try {
+        const wl = ageGroup === "toddler" ? 3 : ageGroup === "preschool" ? 4 : ageGroup === "early" ? 5 : 6;
+        const built = buildChildScenes({ mode: detMode, age: ageGroup, targetSeconds, wordLength: wl, contentTypeId: contentParam, seed: Date.now() });
+        if (built.scenes.length > 0) {
+          const newScenes = built.scenes.map((s, i) => ({
+            scene: i + 1,
+            title: s.overlayText,
+            visualDescription: s.imageNoun,
+            cameraDirection: "",
+            narration: s.narration,
+            letter: s.flashcardLetter,
+            teachWord: s.overlayText,
+          }));
+          setChildScenes(newScenes);
+          setAssemblySelectedIds(newScenes.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
+          const narration = built.scenes.map(s => s.narration).join(" ");
+          setNarrationText(narration);
+          setExpandedContent(narration);
+          setLastAction(`${built.itemCount} ${detMode} cards built for ${Math.round(targetSeconds)}s — content scales with time. Generating narration… then open Scene Board to make images.`);
+          setTimeout(() => { generateNarration().catch(() => { /* retry from Voices */ }); }, 150);
+          setExpandingContent(false);
+          return;
+        }
+      } catch (e) {
+        console.error("[children] deterministic build failed, falling back to LLM:", e);
+      }
+      setExpandingContent(false);
+      // deterministic build produced nothing → fall through to the LLM path below
+    }
+
     const rawText = readAlongText || textContent || "";
     if (!rawText.trim()) return;
     setExpandingContent(true);
@@ -4775,6 +4821,7 @@ Rules:
           storyCulture={storyCulture}
           setStoryCulture={setStoryCulture}
           expandContent={expandContent}
+          deterministicBuild={isDeterministicMode(resolveChildMode(contentParam, learningMode))}
           expandingContent={expandingContent}
           expandStory={expandStory}
           expanding={expanding}
