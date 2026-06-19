@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
 import * as fs from "fs";
+import { getStorage } from "@/lib/storage";
 
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_BASE_PATH ?? "./storage");
 
@@ -31,6 +32,17 @@ export async function GET(
 
   if (!absolute.startsWith(STORAGE_ROOT)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // R2 mode (Task #5): if the object lives in R2, 302-redirect to a presigned URL so
+  // bytes serve from R2/CDN (S3 presigned URLs honour Range, so video seeking works).
+  // Falls through to local disk when the object isn't in R2 yet (pre-backfill media).
+  if (process.env.STORAGE_PROVIDER === "r2") {
+    try {
+      if (await getStorage().exists(relative)) {
+        return NextResponse.redirect(await getStorage().signGet(relative), 302);
+      }
+    } catch { /* fall through to local disk */ }
   }
 
   if (!fs.existsSync(absolute)) {

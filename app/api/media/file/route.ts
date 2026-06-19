@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as path from "path";
 import * as fs from "fs";
+import { getStorage } from "@/lib/storage";
 
 const STORAGE_ROOT = path.resolve(process.env.STORAGE_BASE_PATH ?? "./storage");
 
@@ -26,6 +27,16 @@ export async function GET(req: NextRequest) {
   // Security: only serve files that are inside STORAGE_ROOT
   if (!resolved.startsWith(STORAGE_ROOT)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // R2 mode (Task #5): redirect to a presigned URL when the object is in R2; else local disk.
+  if (process.env.STORAGE_PROVIDER === "r2") {
+    const key = path.relative(STORAGE_ROOT, resolved).split(path.sep).join("/");
+    try {
+      if (await getStorage().exists(key)) {
+        return NextResponse.redirect(await getStorage().signGet(key), 302);
+      }
+    } catch { /* fall through to local disk */ }
   }
 
   const ext  = path.extname(resolved).toLowerCase();
