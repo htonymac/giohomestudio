@@ -11,6 +11,7 @@ import { getModelById, getDefaultImageModel, type ModelEntry } from "../model-re
 import { segmindGenerateImage } from "../gateways/segmind";
 import { falGenerateImage, downloadFalMedia, uploadImageToFal } from "../gateways/fal";
 import { kieGenerateImage } from "../gateways/kie";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 // Cache: "local /api/media/ URL @ file mtime" → FAL CDN public URL
 // Phase D fix (2026-05-22): cache key was URL-only. When user regenerates a portrait
@@ -160,12 +161,12 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
 
   if (!imageBuffer) return { success: false, error: "No image data returned", model };
 
-  // Save to file if outputPath provided
+  // Save to file if outputPath provided — routed through the storage abstraction
+  // (Task #5 R2 cutover). STORAGE_PROVIDER unset = byte-identical local write
+  // (LocalFsProvider writes the same path); STORAGE_PROVIDER=r2 lands in R2.
   let imagePath: string | undefined;
   if (req.outputPath) {
-    const dir = path.dirname(req.outputPath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(req.outputPath, imageBuffer);
+    await writeMedia(req.outputPath, imageBuffer);
     imagePath = req.outputPath;
   }
 

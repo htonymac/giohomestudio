@@ -6,6 +6,7 @@ import * as path from "path";
 import { getModelById, getDefaultVideoModel, type ModelEntry } from "../model-registry";
 import { segmindGenerateVideo } from "../gateways/segmind";
 import { falGenerateVideo, downloadFalMedia } from "../gateways/fal";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 export interface VideoGenerateRequest {
   modelId?: string;
@@ -65,11 +66,10 @@ export async function generateVideo(req: VideoGenerateRequest): Promise<VideoGen
 
   if (!videoBuffer) return { success: false, error: "No video data returned", model };
 
+  // Routed through the storage abstraction (Task #5). Flag-off = identical local write.
   let videoPath: string | undefined;
   if (req.outputPath) {
-    const dir = path.dirname(req.outputPath);
-    fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(req.outputPath, videoBuffer);
+    await writeMedia(req.outputPath, videoBuffer);
     videoPath = req.outputPath;
   }
 
