@@ -754,7 +754,21 @@ export async function POST(req: NextRequest) {
       const leanIsFilming = /\b(film(ing)?\s+(set|crew|shoot)|movie set|camera crew|on set|behind the scenes|photo ?shoot)\b/i.test(sceneText || "");
       const leanCrewNeg = leanIsFilming ? "" : ", film crew, cameraman, camera operator, person holding a camera, movie camera, film camera, tripod, clapperboard, boom mic, photographer in frame";
       const leanPhoneNeg = /\b(phone|smartphone|selfie|texting)\b/i.test(sceneText || "") ? "" : ", crowd of people holding phones, bystanders filming on phones, spectators with smartphones";
-      negativePrompt = `${stylePreset.negative}${leanNudityNeg}${leanEraHintNeg}${leanCrewNeg}${leanPhoneNeg}, blurry, deformed, extra limbs, watermark`;
+      // Phase 3 child-safety negatives: appended when the request carries any
+      // children-mode signal (childSafe, isStillScene/wordOverlay from teaching scenes,
+      // or learningMode from the children planner). Keeps existing nudity/clothing
+      // guards; adds violence/horror/weapon/gore/realistic-creature negatives.
+      // String concat only — no model change, no new API call.
+      const isChildSafeRequest =
+        body.childSafe === true ||
+        body.isStillScene === true ||
+        enableWordOverlay === true ||
+        flashcardLetter !== null ||
+        (typeof body.learningMode === "string" && !!body.learningMode);
+      const childSafeNeg = isChildSafeRequest
+        ? ", violence, blood, gore, weapon, gun, knife, sword, bomb, injury, wound, torture, horror, scary, frightening, realistic monster, creature horror, skull, death, dark lighting, gritty, realistic gore, body horror"
+        : "";
+      negativePrompt = `${stylePreset.negative}${leanNudityNeg}${leanEraHintNeg}${leanCrewNeg}${leanPhoneNeg}${childSafeNeg}, blurry, deformed, extra limbs, watermark`;
 
     } else {
       // ── HEAVY PATH (opt-in via body.heavyPrompt === true) ────────────────────
