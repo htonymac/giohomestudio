@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { execFile } from "child_process";
 import { promisify } from "util";
 
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     const filePath = path.join(uploadDir, fileName);
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    await writeMedia(filePath, buffer);
 
     // Get duration via ffprobe
     let duration = 0;
