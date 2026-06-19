@@ -104,6 +104,21 @@ function check(name: string, cond: boolean, detail = "") {
     `hardHits=${JSON.stringify(r.hardHits)}`);
 }
 
+// ── 6b) Sourcery fix — MULTI-WORD hard-block phrases must match ───────────
+{
+  for (const phrase of ["I want to kill myself", "she might cut myself", "this is about self harm"]) {
+    const r = scanText(phrase);
+    check(`multi-word "${phrase}" → block`, r.verdict === "block", `verdict=${r.verdict} hits=${JSON.stringify(r.hardHits)}`);
+  }
+}
+
+// ── 6c) Sourcery fix — "shoot" softens (not allowlisted) ──────────────────
+{
+  const r = scanText("They shoot the bad guy");
+  check("shoot → soften (not clean)", r.verdict === "soften", `verdict=${r.verdict}`);
+  check("shoot → replaced (zap)", /zap/i.test(r.cleanedText), `cleaned=${r.cleanedText}`);
+}
+
 {
   // "drug" → SOFTEN (in DEFAULT_REPLACEMENTS) NOT block
   const r = scanText("He took a drug");
