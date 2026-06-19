@@ -187,18 +187,15 @@ const SAFE_WORDS = new Set([
   "assist", "assistance", "asset", "associate",
   // "kill" allowlist
   "skill", "skills", "skilled", "skilful", "skillful", "skillset",
-  // "shoot" allowlist — "shoot" IS in SOFTEN for violent context but single
-  // "photo shoot" / "basketball shoot" would be caught; add phrase-level
-  // safe words here. We handle this via context check in scanText below.
   // "cum" false-positive
   "accumulate", "accumulation", "document", "documents",
   // "die" false-positives (German word, food colour, verb-die is already in SOFTEN)
   "diet", "dieting", "diets", "dinosaur", "diesel",
   // "rape" false-positives
   "drape", "drapes", "grape", "grapes",
-  // misc
-  "shoot" , // NOT blocked at token level; context-sensitivity handled in scanText
 ]);
+// Note: "shoot" is intentionally NOT allowlisted — it stays in SOFTEN (shoot→zap)
+// so violent "shoot" gets softened; a rare "photo shoot"→"photo zap" is acceptable.
 
 // ── LIGHT STEMMER ───────────────────────────────────────────────────────────
 // Strips common English suffixes before lookup in DEFAULT_REPLACEMENTS.
@@ -238,6 +235,17 @@ export function scanText(text: string): ScanResult {
 
   const hardHits: HardHit[] = [];
   const softHits: SoftHit[] = [];
+
+  // Multi-word hard-block phrases (e.g. "kill myself", "cut myself", "self harm")
+  // can never match the single-token loop below — scan the whole text for them
+  // first with a word-boundary phrase regex. Single-word terms are handled per-token.
+  for (const h of HARD_BLOCK_TERMS) {
+    if (!h.term.includes(" ")) continue;
+    const escaped = h.term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`\\b${escaped}\\b`, "i").test(text)) {
+      hardHits.push({ term: h.term, category: h.category });
+    }
+  }
 
   // Tokenise: extract word-boundary tokens (letters and hyphens only).
   // The regex \b..\b only works on \w chars; we split manually to handle
