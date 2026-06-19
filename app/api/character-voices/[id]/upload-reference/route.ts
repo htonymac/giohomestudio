@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 import { VALID_ANGLES, ANGLE_LABELS } from "@/config/character-angles";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -42,7 +43,7 @@ export async function POST(
   const filename = `${angle}${ext}`;
   const dir = path.join(env.storagePath, "characters", id);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  await writeMedia(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
 
   const url = `/api/media/characters/${id}/${filename}`;
 

@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { writeMedia } from "@/lib/storage/writeMedia";
 
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const EXT_MAP: Record<string, string> = {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
   const filename = `char_${Date.now()}_${Math.random().toString(36).slice(2)}${ext}`;
   const dir = path.join(env.storagePath, "characters");
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
+  await writeMedia(path.join(dir, filename), Buffer.from(await file.arrayBuffer()));
 
   return NextResponse.json({ url: `/api/media/characters/${filename}` });
 }
