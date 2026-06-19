@@ -41,6 +41,8 @@ import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
 import ChildrenKaraokeSubtitle from "../../components/ChildrenKaraokeSubtitle";
 import type { ChildrenPacingPlan, ChildrenNarrationTimingEntry } from "@/types/children";
+// Phase 3 safety scanner — deterministic, no React, no fetch (client+server importable).
+import { scanText } from "@/lib/children/safetyScanner";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Child Video Planner — PRODUCTION WORKSHOP
@@ -892,6 +894,23 @@ function ChildrenPlannerInner() {
 
     const rawText = readAlongText || textContent || "";
     if (!rawText.trim()) return;
+
+    // ── GATE (a): Phase 3 safety scan — user prompt before LLM path ──────────
+    // Scan the user's free-text input before sending it to the LLM story-expand
+    // route. Hard-block: refuse immediately. Soft-hits are acceptable — the LLM
+    // will receive slightly cleaned text and its own child-context instructions.
+    // NOTE: deterministic teaching content (abc/counting/spelling/concept) already
+    // returned above at the isDeterministicMode() branch — this gate only runs on
+    // the LLM / story path.
+    {
+      const promptScan = scanText(rawText);
+      if (promptScan.verdict === "block") {
+        const categories = [...new Set(promptScan.hardHits.map(h => h.category))].join(", ");
+        setLastAction(`Content blocked — unsafe input (${categories}). Please revise the prompt for a children audience.`);
+        return;
+      }
+    }
+
     setExpandingContent(true);
     try {
       // Henry 2026-06-16 (AI-don't-listen fix): the story-expand route HAS a teaching branch
@@ -1600,14 +1619,43 @@ function ChildrenPlannerInner() {
       const sceneData = await safeJson<{ scenes?: Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }> }>(sceneRes, "scene-plan");
       const planned = (sceneData.scenes || []) as Array<{ scene?: number; title?: string; visualDescription?: string; cameraDirection?: string }>;
       if (planned.length > 0) {
-        setChildScenes(planned.map((s, i) => ({
+        // ── GATE (b): Phase 3 safety scan — post-LLM scene scan ──────────────
+        // After the LLM returns scenes, scan each scene's visualDescription and
+        // narration field. Hard-block scenes are dropped with a visible flag;
+        // soften scenes get their cleanedText applied. The LLM already receives a
+        // children-context instruction but this is the deterministic backstop.
+        const safePlanned = planned
+          .map((s, i) => {
+            const sceneNum = s.scene ?? i + 1;
+            const descText = s.visualDescription || "";
+            if (!descText) return { ...s, scene: sceneNum };
+
+            const scanResult = scanText(descText);
+            if (scanResult.verdict === "block") {
+              // Drop this scene — log visibly so Henry can see what happened.
+              console.warn(
+                `[children-safety] Gate B: scene ${sceneNum} blocked — ` +
+                JSON.stringify(scanResult.hardHits),
+              );
+              return null; // filtered below
+            }
+            if (scanResult.verdict === "soften") {
+              return { ...s, scene: sceneNum, visualDescription: scanResult.cleanedText };
+            }
+            return { ...s, scene: sceneNum };
+          })
+          .filter((s): s is NonNullable<typeof s> => s !== null);
+
+        const blockedCount = planned.length - safePlanned.length;
+        setChildScenes(safePlanned.map((s, i) => ({
           scene: s.scene ?? i + 1,
           title: s.title || `Scene ${i + 1}`,
           visualDescription: s.visualDescription || "",
           cameraDirection: s.cameraDirection || "",
         })));
-        setLastAction(`Story built — ${planned.length} scenes planned`);
-        setAssemblySelectedIds(planned.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
+        const blockedNote = blockedCount > 0 ? ` (${blockedCount} scene${blockedCount > 1 ? "s" : ""} blocked by safety scanner)` : "";
+        setLastAction(`Story built — ${safePlanned.length} scenes planned${blockedNote}`);
+        setAssemblySelectedIds(safePlanned.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
         // auto-run scene intelligence after planning
         setTimeout(() => runSceneIntelligence(), 500);
       }
@@ -1856,6 +1904,9 @@ function ChildrenPlannerInner() {
           // action/anti-pose push so the learning pattern stays calm and clear.
           // Storybook/poem/sentence children scenes still get the action treatment.
           isStillScene: wordOverlayEnabled || learningMode === "word" || learningMode === "phonics",
+          // Phase 3: explicit children-safe flag — scene-image appends child-safety
+          // negatives (violence, gore, weapon, horror, etc.) to its negative prompt.
+          childSafe: true,
         }),
       });
       const data = await safeJson<{ imageUrl?: string; imagePath?: string; error?: string }>(res, "scene-board-image");
@@ -2686,7 +2737,27 @@ function ChildrenPlannerInner() {
       // visualDescription) instead of the SPOKEN narration. Now send body.caption =
       // narration text (or expandedContent fallback) so subtitle matches what's spoken,
       // not the scene topic. /api/video/assemble's chunked drawtext path consumes this.
-      const captionForSubs = (usableNarrationText || narrationText || expandedContent || "").trim() || undefined;
+      const rawCaption = (usableNarrationText || narrationText || expandedContent || "").trim() || undefined;
+
+      // ── GATE (c): Phase 3 safety scan — pre-assembly caption/subtitle text ──
+      // Last-resort scan before the caption is baked into subtitles. Hard-block
+      // aborts the assembly entirely with a clear message. Soften applies
+      // replacements so the subtitle text is clean even if earlier gates were
+      // bypassed (e.g. content restored from localStorage with old text).
+      let captionForSubs = rawCaption;
+      if (rawCaption) {
+        const captionScan = scanText(rawCaption);
+        if (captionScan.verdict === "block") {
+          const cats = [...new Set(captionScan.hardHits.map(h => h.category))].join(", ");
+          setAssemblyError(`Assembly blocked — subtitle text contains unsafe content (${cats}). Edit your story text and try again.`);
+          setLastAction(`Assembly blocked — unsafe subtitle text (${cats}).`);
+          setAssembling(false);
+          return;
+        }
+        if (captionScan.verdict === "soften") {
+          captionForSubs = captionScan.cleanedText;
+        }
+      }
       // Henry 2026-06-01: switched to fire-and-poll async pattern because Cloudflare
       // Tunnel's free-tier edge has a hard 100-second timeout, and 7-scene assemble +
       // auto-narration takes ~140s. /api/video/assemble-async returns a jobId immediately;
