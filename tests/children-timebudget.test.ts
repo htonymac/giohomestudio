@@ -74,7 +74,13 @@ for (const age of ages) {
   check("parse 60 sec", parseDurationToSeconds("60 sec") === 60);
   check("parse 5 min", parseDurationToSeconds("5 min") === 300);
   check("parse 1 hour", parseDurationToSeconds("1 hour") === 3600);
+  check("parse 1 hr", parseDurationToSeconds("1 hr") === 3600);
+  check("parse 2 hrs", parseDurationToSeconds("2 hrs") === 7200);
+  check("parse 2.5 min", parseDurationToSeconds("2.5 min") === 150);
   check("parse number 600", parseDurationToSeconds(600) === 600);
+  check("parse number 0 -> fallback", parseDurationToSeconds(0) === 60);
+  check("parse negative -> fallback", parseDurationToSeconds(-5) === 60);
+  check("parse NaN -> fallback", parseDurationToSeconds(NaN) === 60);
   check("parse junk->fallback", parseDurationToSeconds("abc") === 60);
   check("parse empty->fallback", parseDurationToSeconds("") === 60);
 }
