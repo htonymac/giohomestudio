@@ -11,6 +11,8 @@ import { env } from "@/config/env";
 import * as fs from "fs";
 import * as path from "path";
 import { execFile } from "child_process";
+import { getStorage } from "@/lib/storage";
+import { relKeyFor } from "@/lib/storage/writeMedia";
 import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
@@ -39,6 +41,35 @@ async function downloadToFile(url: string, destPath: string): Promise<boolean> {
     return fs.existsSync(destPath) && fs.statSync(destPath).size > 0;
   } catch {
     return false;
+  }
+}
+
+// ── Helper: pre-stage R2-backed media to local disk so ffmpeg can read it (Task #5) ──
+// No-op unless STORAGE_PROVIDER=r2. Downloads each referenced media object from R2 to its
+// canonical local path if not already on disk, so ALL downstream resolveMediaPath/ffmpeg
+// logic works UNCHANGED. The protected ffmpeg pipeline is never touched.
+async function prestageAllMedia(a: AssemblyJSON): Promise<void> {
+  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  const urls = new Set<string>();
+  for (const s of a.segments ?? []) if (s.sourceUrl) urls.add(s.sourceUrl);
+  for (const n of a.narration ?? []) if (n.audioUrl) urls.add(n.audioUrl);
+  for (const m of a.music ?? []) if (m.sourceUrl) urls.add(m.sourceUrl);
+  for (const s of a.sfx ?? []) if (s.sourceUrl) urls.add(s.sourceUrl);
+  const storage = getStorage();
+  for (const url of urls) {
+    const local = resolveMediaPath(url);
+    if (!local || fs.existsSync(local)) continue;
+    const key = relKeyFor(local);
+    if (!key) continue;
+    try {
+      if (await storage.exists(key)) {
+        fs.mkdirSync(path.dirname(local), { recursive: true });
+        fs.writeFileSync(local, await storage.get(key));
+        console.log(`[assembly] prestaged from R2: ${key}`);
+      }
+    } catch (e) {
+      console.warn(`[assembly] R2 prestage failed for ${key}: ${e instanceof Error ? e.message : e}`);
+    }
   }
 }
 
@@ -286,6 +317,10 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
     // ── Prepare output directory ──
     const outputDir = path.join(env.storagePath, "video", "assembly", `${assembly.projectId}_${Date.now()}`);
     fs.mkdirSync(outputDir, { recursive: true });
+
+    // Task #5: when on R2, pull all referenced media to local disk first so the
+    // (unchanged) ffmpeg pipeline below reads it normally. No-op when flag off.
+    await prestageAllMedia(assembly);
 
     // ── Preprocess: download externals + images → video clips ──
     console.log(`[assembly] Preprocessing ${assembly.segments.length} segments...`);
@@ -1021,6 +1056,16 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
     // Use subtitled output if burn-in succeeded, otherwise use raw final merge
     const finalOutputPath = subtitledOutputPath || finalStep?.outputPath || "";
     const outputExists = finalOutputPath && fs.existsSync(finalOutputPath);
+
+    // Task #5: upload the final deliverable to R2 so /api/media serves it from R2. No-op when flag off.
+    if (outputExists && process.env.STORAGE_PROVIDER === "r2") {
+      try {
+        const outKey = relKeyFor(finalOutputPath);
+        if (outKey) await getStorage().put(outKey, fs.readFileSync(finalOutputPath), { contentType: "video/mp4" });
+      } catch (e) {
+        console.warn(`[assembly] R2 output put failed: ${e instanceof Error ? e.message : e}`);
+      }
+    }
 
     // ── Get duration via ffprobe ──
     let finalDuration = assembly.totalDuration;
