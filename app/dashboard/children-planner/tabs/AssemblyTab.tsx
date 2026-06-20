@@ -131,6 +131,7 @@ export interface AssemblyTabProps {
   assembleMovie: () => void | Promise<void>;
   assembling: boolean;
   assembledUrl: string | null;
+  assembledDownloadName?: string;  // friendly traceable filename (age_title_number.mp4)
   assemblyElapsedSec: number;
   assemblePercent: number;
   assemblyError: string | null;
@@ -161,7 +162,7 @@ export default function AssemblyTab(props: AssemblyTabProps) {
     pacingPlan, buildingPacingPlan, buildPacingPlan, buildingPacingNarration, generatePacingNarration,
     pacingAudioUrl, pacingVideoUrl, assemblingPacingVideo, assemblePacingVideo,
     pacingActiveEntryIdx, setPacingActiveEntryIdx,
-    assembleMovie, assembling, assembledUrl, assemblyElapsedSec, assemblePercent, assemblyError, setAssemblyError,
+    assembleMovie, assembling, assembledUrl, assembledDownloadName, assemblyElapsedSec, assemblePercent, assemblyError, setAssemblyError,
     setActiveTab,
   } = props;
 
@@ -913,7 +914,14 @@ export default function AssemblyTab(props: AssemblyTabProps) {
                 <Icon.Check style={{ width: 14, height: 14 }} /> Your story video is ready!
               </p>
               <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 240, borderRadius: 10 }} />
+              {assembledDownloadName && (
+                <p style={{ fontSize: 10, color: muted, marginTop: 6, fontFamily: "monospace" }}>📁 {assembledDownloadName}</p>
+              )}
               <p style={{ fontSize: 10, color: muted, marginTop: 8 }}>Happy with the result? Go to <strong style={{ color: "#fff" }}>Final Check</strong> tab to review and approve it before exporting.</p>
+              <a href={assembledUrl} download={assembledDownloadName || "children_video.mp4"}
+                style={{ display: "inline-block", marginTop: 8, marginRight: 8, padding: "8px 18px", borderRadius: 10, background: childSafe, color: "#000", fontSize: 11, fontWeight: 700, textDecoration: "none" }}>
+                ⬇ Download
+              </a>
               <button onClick={() => setActiveTab("review2")}
                 style={{ marginTop: 8, padding: "8px 18px", borderRadius: 10, border: "none", background: childSafe, color: "#000", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
                 Go to Final Check

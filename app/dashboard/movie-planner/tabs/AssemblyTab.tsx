@@ -28,6 +28,7 @@
 import * as React from "react";
 import * as Icon from "../../../components/icons";
 import SubtitleStyler, { type SubtitleConfig } from "../../../components/SubtitleStyler";
+import { buildOutputName } from "@/lib/projectNaming";
 
 // Structural types — only this tab consumes them. Kept inline so the contract
 // is visible end-to-end.
@@ -375,8 +376,9 @@ export default function AssemblyTab(props: AssemblyTabProps) {
                 style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${green}15`, color: green, textDecoration: "none", fontWeight: 600 }}>
                 Watch Final Movie
               </a>
-              <a href={assembledUrl} download={`${title || "movie"}.mp4`}
-                style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${accent}15`, color: accent, textDecoration: "none", fontWeight: 600 }}>
+              <a href={assembledUrl} download={buildOutputName({ parts: [title], seed: title || "movie" })}
+                style={{ fontSize: 11, padding: "6px 14px", borderRadius: 8, background: `${accent}15`, color: accent, textDecoration: "none", fontWeight: 600 }}
+                title={buildOutputName({ parts: [title], seed: title || "movie" })}>
                 Download MP4
               </a>
             </div>

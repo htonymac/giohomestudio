@@ -9,6 +9,7 @@ import type { NarrationSettings } from "../../components/NarrationControls";
 import CharacterPicker from "../../components/CharacterPicker";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import { ds } from "../../../lib/designSystem";
+import { buildOutputName } from "@/lib/projectNaming";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
@@ -5171,6 +5172,7 @@ Rules:
           assembleMovie={assembleMovie}
           assembling={assembling}
           assembledUrl={assembledUrl}
+          assembledDownloadName={buildOutputName({ parts: [({ toddler: "2-3yrs", preschool: "3-5yrs", early: "5-8yrs", older: "8-12yrs" } as Record<string, string>)[ageGroup], projectTitle], seed: urlProjectId || projectTitle })}
           assemblyElapsedSec={assemblyElapsedSec}
           assemblePercent={assemblePercent}
           assemblyError={assemblyError}
