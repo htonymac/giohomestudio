@@ -1480,7 +1480,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 {project.slides.map((s, i) => {
                   const isActive = s.id === selectedId;
                   const total = project.slides.length;
-                  const spread = Math.min(46, 300 / Math.max(total, 1));
+                  const pw = (previewStyle.width as number) || 180;
+                  const spread = Math.min(pw * 0.62, 760 / Math.max(total, 1));
                   const offset = (i - (total - 1) / 2) * spread;
                   return (
                     <div

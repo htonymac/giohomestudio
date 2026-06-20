@@ -83,7 +83,7 @@ async function viaOllama(b64: string, brand?: string) {
   const res = await fetch(`${base}/api/chat`, {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model, messages: [{ role: "user", content: reviewPrompt(brand), images: [b64] }], stream: false, options: { temperature: 0.4, num_predict: 320 } }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(120_000), // CPU vision is slow — give local a fair chance before cheap-cloud fallback
   });
   if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
   const data = await res.json();
@@ -117,11 +117,12 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const s = loadLLMSettings();
   const errors: string[] = [];
 
+  // LOCAL-FIRST (Henry 2026-06-19: keep it free — use the server's Ollama vision model first;
+  // fall back to CHEAP cloud (Claude Haiku / GPT-4o-mini) only if local is unavailable/fails).
   const attempts: Array<[string, () => Promise<string>]> = [];
-  if (s.ANTHROPIC_API_KEY) attempts.push(["claude", () => viaAnthropic(b64, mt, brand)]);
-  if (s.OPENAI_API_KEY) attempts.push(["openai", () => viaOpenAILike(b64, mt, brand, s.OPENAI_API_KEY!, undefined, "gpt-4o-mini")]);
-  if (s.XAI_API_KEY) attempts.push(["grok", () => viaOpenAILike(b64, mt, brand, s.XAI_API_KEY!, "https://api.x.ai/v1", "grok-2-vision-1212")]);
   attempts.push(["ollama", () => viaOllama(b64, brand)]);
+  if (s.ANTHROPIC_API_KEY) attempts.push(["claude-haiku", () => viaAnthropic(b64, mt, brand)]);
+  if (s.OPENAI_API_KEY) attempts.push(["gpt-4o-mini", () => viaOpenAILike(b64, mt, brand, s.OPENAI_API_KEY!, undefined, "gpt-4o-mini")]);
 
   for (const [provider, fn] of attempts) {
     try {
