@@ -17,6 +17,7 @@ const updateSchema = z.object({
   ctaValueSecondary:    z.string().max(200).nullable().optional(),
   ctaLabel:             z.string().max(100).nullable().optional(),
   musicSource:          z.string().nullable().optional(),
+  musicPath:            z.string().max(500).nullable().optional(),
   musicVolume:          z.number().min(0).max(1).optional(),
   narrationVolume:      z.number().min(0).max(2).optional(),
   narrationScript:      z.string().nullable().optional(),
