@@ -2056,16 +2056,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </div>
 
                 {/* Caption style preset */}
-                <div className="flex items-center gap-1.5 mt-1">
+                <div className="flex flex-wrap items-center gap-1.5 mt-1">
                   <span className="text-[10px] text-[#6060a0] mr-1 flex-shrink-0">Style:</span>
-                  {(["realEstate", "luxury", "promo", "minimal"] as const).map(p => (
+                  {(["realEstate", "luxury", "promo", "minimal", "business", "corporate"] as const).map(p => (
                     <button key={p} type="button"
                       onClick={() => patchSlideEnhancement(selectedSlide.id, { captionPreset: p })}
                       className={`flex-1 py-0.5 rounded text-[9px] border transition-colors truncate ${
                         (selectedSlide.enhancementSettings?.captionPreset ?? "realEstate") === p
                           ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10"
                           : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
-                      }`}>{p === "realEstate" ? "Real Est." : p === "luxury" ? "Luxury" : p === "promo" ? "Promo" : "✦ Minimal"}</button>
+                      }`}>{({ realEstate: "Real Est.", luxury: "Luxury", promo: "Promo", minimal: "✦ Minimal", business: "Business", corporate: "Corporate" } as Record<string, string>)[p]}</button>
                   ))}
                 </div>
 
