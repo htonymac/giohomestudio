@@ -789,6 +789,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiReview, setAiReview] = useState<{ review: string; provider?: string } | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
+  const [captionLoading, setCaptionLoading] = useState(false);
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -1649,6 +1650,27 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </button>
                 {selectedSlide.imagePath && (
                   <button
+                    disabled={captionLoading}
+                    onClick={async () => {
+                      setCaptionLoading(true);
+                      try {
+                        const res = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/review-caption`, { method: "POST" });
+                        const data = await res.json();
+                        if (res.ok && data.caption) {
+                          await patchSlide(selectedSlide.id, { captionOriginal: data.caption, captionApproved: false } as never);
+                          setProject(prev => ({ ...prev, slides: prev.slides.map(s => s.id === selectedSlide.id ? { ...s, captionOriginal: data.caption, captionApproved: false } : s) }));
+                        }
+                      } catch { /* ignore */ }
+                      setCaptionLoading(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 disabled:opacity-40 transition-colors"
+                    title="AI writes a nice caption from this image — shows on the slide"
+                  >
+                    {captionLoading ? "Captioning…" : "✨ Caption"}
+                  </button>
+                )}
+                {selectedSlide.imagePath && (
+                  <button
                     disabled={reviewLoading}
                     onClick={async () => {
                       setReviewLoading(true); setAiReview(null);
@@ -1660,9 +1682,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                       setReviewLoading(false);
                     }}
                     className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-900/20 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40 transition-colors"
-                    title="AI marketing review of this image"
+                    title="Honest AI marketing critique (hook / sells / weak / angle / fix)"
                   >
-                    {reviewLoading ? "Reviewing…" : "✨ AI Review"}
+                    {reviewLoading ? "Reviewing…" : "📊 Marketing Review"}
                   </button>
                 )}
                 {aiReview && (

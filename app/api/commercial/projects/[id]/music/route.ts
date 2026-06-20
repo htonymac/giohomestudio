@@ -6,7 +6,6 @@ import * as path from "path";
 import * as fs from "fs";
 import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
-import { writeMedia } from "@/lib/storage/writeMedia";
 
 const ALLOWED_MIME = new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/x-wav", "audio/ogg", "audio/aac"]);
 const MAX_BYTES = 30 * 1024 * 1024; // 30 MB
@@ -43,7 +42,7 @@ export async function POST(
   const destPath = path.join(musicDir, fileName);
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  await writeMedia(destPath, buffer);
+  fs.writeFileSync(destPath, buffer);  // LOCAL: render reads project.musicPath from disk (not R2)
 
   await prisma.commercialProject.update({
     where: { id },
