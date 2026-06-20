@@ -6,12 +6,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
-import { execFile } from "child_process";
-import { promisify } from "util";
+import sharp from "sharp";
 import { env } from "@/config/env";
 import { prisma } from "@/lib/prisma";
-
-const execFileAsync = promisify(execFile);
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const EXT_MAP: Record<string, string> = {
@@ -23,16 +20,11 @@ const EXT_MAP: Record<string, string> = {
 // Re-encode image through FFmpeg to bake EXIF rotation into pixels.
 // Phone photos (especially portrait JPEGs) have Orientation tag but pixels stored in landscape —
 // without this, images appear upside-down or sideways in the slideshow.
-async function normalizeOrientation(srcPath: string, destPath: string): Promise<void> {
-  // FFmpeg reads with autorotate=1 by default, so re-encoding bakes the rotation into pixels.
-  // -map_metadata -1 strips EXIF so the stored file has no leftover Orientation tag.
-  await execFileAsync(env.ffmpegPath, [
-    "-y",
-    "-i", srcPath,
-    "-map_metadata", "-1",
-    "-q:v", "2",
-    destPath,
-  ]);
+async function normalizeOrientation(buffer: Buffer, destPath: string): Promise<void> {
+  // sharp.rotate() with NO angle auto-orients from the EXIF Orientation tag, then strips it.
+  // In-process (no ffmpeg spawn) → fast upload; and it leaves already-straight images UNCHANGED
+  // (no spurious rotation). Fixes "a straight image rotates itself" + "upload takes time".
+  await sharp(buffer).rotate().toFile(destPath);
 }
 
 export async function POST(
@@ -71,19 +63,12 @@ export async function POST(
   const imagePath = path.join(dir, `${slideId}${ext}`);
   const buffer = Buffer.from(await file.arrayBuffer());
 
-  // Write to a temp file, normalize orientation through FFmpeg, then move to final path.
-  // Temp lives in storage/tmp so it's visible alongside other media and cleaned on startup.
-  const tmpDir = path.join(env.storagePath, "tmp");
-  fs.mkdirSync(tmpDir, { recursive: true });
-  const tmpPath = path.join(tmpDir, `upload_${slideId}_${Date.now()}${ext}`);
+  // Auto-orient in-process via sharp (fast, no temp file, no ffmpeg spawn).
   try {
-    await fs.promises.writeFile(tmpPath, buffer);
-    await normalizeOrientation(tmpPath, imagePath);
+    await normalizeOrientation(buffer, imagePath);
   } catch (err) {
-    console.warn(`[Image upload:${slideId}] EXIF normalization failed — saving raw image:`, err instanceof Error ? err.message : String(err));
+    console.warn(`[Image upload:${slideId}] sharp auto-orient failed — saving raw image:`, err instanceof Error ? err.message : String(err));
     await fs.promises.writeFile(imagePath, buffer);
-  } finally {
-    try { fs.unlinkSync(tmpPath); } catch { /* ignore */ }
   }
 
   const updated = await prisma.commercialSlide.update({
