@@ -1473,42 +1473,57 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
         <div className="flex-1 flex flex-col items-center justify-center bg-[#0d0d1a] rounded-xl border border-[#2a2a40] overflow-hidden">
           {selectedSlide ? (
             <div className="flex flex-col items-center gap-4 p-4 w-full h-full">
-              <div className="relative rounded-lg bg-black border border-[#2a2a40] flex-shrink-0 flex items-center justify-center" style={{ ...previewStyle, overflow: "hidden" }}>
-                {selectedSlide.imagePath ? (
-                  <>
-                    <img
-                      src={`/api/media/file?path=${encodeURIComponent(selectedSlide.imagePath)}`}
-                      alt="Slide preview"
-                      className="w-full h-full object-cover"
-                    />
-                    {/* CaptionPreview mirrors the compositor HTML exactly — same CSS rules, same overflow constraints.
-                        Uses CSS transform:scale so preview matches export at any size. */}
-                    <CaptionPreview
-                      captionText={
-                        selectedSlide.captionApproved && selectedSlide.captionPolished
-                          ? selectedSlide.captionPolished
-                          : selectedSlide.captionOriginal
-                      }
-                      captionPosition={selectedSlide.enhancementSettings?.captionPosition ?? "bottom"}
-                      captionPreset={(selectedSlide.enhancementSettings?.captionPreset ?? "realEstate") as PresetName}
-                      fontOverride={selectedSlide.enhancementSettings?.fontFamily ?? null}
-                      aspectRatio={(project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1"}
-                      previewWidth={previewStyle.width as number}
-                      previewHeight={previewStyle.height as number}
-                    />
-                    {/* CTA badge indicator on last slide */}
-                    {selectedSlide.slideOrder === project.slides.length && project.ctaMethod && project.ctaValue && (
-                      <div className="absolute top-2 right-2">
-                        <span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded font-medium">CTA</span>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex flex-col items-center gap-2 cursor-pointer w-full h-full items-center justify-center" onClick={() => fileRef.current?.click()}>
-                    <div className="w-10 h-10 rounded-full bg-[#1a1a2e] border border-[#2a2a40] flex items-center justify-center text-[#6060a0] text-lg">+</div>
-                    <p className="text-xs text-[#6060a0]">Click to upload image</p>
-                  </div>
-                )}
+              {/* CASCADE: all slides stacked in the center, ACTIVE one floated to front (Henry 2026-06-19) */}
+              <div className="relative flex-shrink-0 flex items-center justify-center w-full" style={{ height: (previewStyle.height as number) + 70, minHeight: 260 }}>
+                {project.slides.map((s, i) => {
+                  const isActive = s.id === selectedId;
+                  const total = project.slides.length;
+                  const spread = Math.min(46, 300 / Math.max(total, 1));
+                  const offset = (i - (total - 1) / 2) * spread;
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => { if (isActive && !s.imagePath) { fileRef.current?.click(); } else { setSelectedId(s.id); } }}
+                      className="absolute rounded-lg bg-black border flex items-center justify-center cursor-pointer transition-all duration-300"
+                      style={{
+                        width: previewStyle.width,
+                        height: previewStyle.height,
+                        transform: `translateX(${offset}px) translateY(${isActive ? -12 : 0}px) scale(${isActive ? 1.06 : 0.85})`,
+                        zIndex: isActive ? 999 : i + 1,
+                        opacity: isActive ? 1 : 0.5,
+                        borderColor: isActive ? "#7c5cfc" : "#2a2a40",
+                        boxShadow: isActive ? "0 18px 55px rgba(124,92,252,0.55)" : "0 4px 14px rgba(0,0,0,0.45)",
+                        overflow: "hidden",
+                      }}
+                      title={`Slide ${i + 1}${isActive ? " (active)" : ""}`}
+                    >
+                      {s.imagePath ? (
+                        <>
+                          <img src={`/api/media/file?path=${encodeURIComponent(s.imagePath)}`} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
+                          {isActive && (
+                            <CaptionPreview
+                              captionText={s.captionApproved && s.captionPolished ? s.captionPolished : s.captionOriginal}
+                              captionPosition={s.enhancementSettings?.captionPosition ?? "bottom"}
+                              captionPreset={(s.enhancementSettings?.captionPreset ?? "realEstate") as PresetName}
+                              fontOverride={s.enhancementSettings?.fontFamily ?? null}
+                              aspectRatio={(project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1"}
+                              previewWidth={previewStyle.width as number}
+                              previewHeight={previewStyle.height as number}
+                            />
+                          )}
+                          {isActive && s.slideOrder === project.slides.length && project.ctaMethod && project.ctaValue && (
+                            <div className="absolute top-2 right-2"><span className="text-[9px] bg-black/70 text-white px-1.5 py-0.5 rounded font-medium">CTA</span></div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center gap-1.5 text-[#6060a0]">
+                          <div className="w-9 h-9 rounded-full bg-[#1a1a2e] border border-[#2a2a40] flex items-center justify-center text-base">{isActive ? "+" : i + 1}</div>
+                          <p className="text-[10px]">{isActive ? "Click to upload" : "No image"}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
 
               <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={async e => { const file = e.target.files?.[0]; if (file && selectedSlide) await handleImageUpload(file, selectedSlide.id); e.target.value = ""; }} />
@@ -1517,6 +1532,27 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 <button onClick={() => fileRef.current?.click()} disabled={uploading} className="px-4 py-1.5 text-xs font-medium rounded-lg border border-[#2a2a40] text-[#6060a0] hover:border-[#7c5cfc]/50 hover:text-white transition-colors">
                   {uploading ? "⏳ Uploading…" : selectedSlide.imagePath ? "Replace image" : "Upload image"}
                 </button>
+                {selectedSlide.imagePath && (
+                  <button
+                    disabled={aiImageLoading || uploading}
+                    onClick={async () => {
+                      if (!selectedSlide.imagePath) return;
+                      setAiImageLoading(true);
+                      try {
+                        const res = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/rotate`, { method: "POST" });
+                        const data = await res.json();
+                        if (res.ok && data.imagePath) {
+                          setProject(prev => ({ ...prev, slides: prev.slides.map(s => s.id === selectedSlide.id ? { ...s, imagePath: data.imagePath } : s) }));
+                        }
+                      } catch { /* ignore */ }
+                      setAiImageLoading(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#2a2a40] text-[#6060a0] hover:border-[#7c5cfc]/50 hover:text-white transition-colors disabled:opacity-40"
+                    title="Rotate image 90° clockwise"
+                  >
+                    ↻ Rotate
+                  </button>
+                )}
                 <button
                   disabled={aiImageLoading || !selectedSlide.captionOriginal?.trim()}
                   onClick={async () => {
