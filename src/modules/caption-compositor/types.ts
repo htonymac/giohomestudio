@@ -3,7 +3,7 @@
 
 export type AspectRatio = "9:16" | "16:9" | "1:1";
 export type CaptionPosition = "top" | "center" | "bottom";
-export type PresetName = "realEstate" | "luxury" | "promo" | "minimal";
+export type PresetName = "realEstate" | "luxury" | "promo" | "minimal" | "business" | "corporate";
 
 /** Output dimensions per aspect ratio — must match createSlideshowStatic DIMS2 */
 export const RENDER_DIMS: Record<AspectRatio, { w: number; h: number }> = {
