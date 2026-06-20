@@ -743,6 +743,33 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               className={`${inputCls} resize-vertical font-sans`}
               placeholder="Voiceover script will appear here…"
             />
+            {/* A9: one-tap punch-up — rewrite with strong action verbs (like children/hybrid) */}
+            <div className="flex gap-1.5 flex-wrap">
+              {[
+                { label: "✨ Interesting", style: "more interesting and curiosity-driving — open with a scroll-stopping hook" },
+                { label: "🔥 Intense",     style: "more intense and high-energy — bold, urgent, powerful" },
+                { label: "💎 Promising",   style: "more promising — paint the dream outcome and benefits vividly" },
+                { label: "🤩 Wow",         style: "more wow and jaw-dropping — surprising, exciting, unforgettable" },
+              ].map(b => (
+                <button key={b.label} disabled={generating || !script.trim()}
+                  onClick={async () => {
+                    setGenerating(true);
+                    try {
+                      const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ ...form, style: b.style, baseScript: script }),
+                      });
+                      const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-enhance-script");
+                      if (res.ok && data.script) setScript(data.script);
+                      else setWarn(data.error ?? "Enhance failed");
+                    } catch (err) { setWarn(err instanceof Error ? err.message : "Network error"); }
+                    finally { setGenerating(false); }
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-medium rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/30 disabled:opacity-40 transition-colors">
+                  {b.label}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
