@@ -19,6 +19,19 @@ import CaptionPreview from "./CaptionPreview";
 import type { PresetName } from "@/modules/caption-compositor/types";
 import { safeJson } from "../../../lib/api-utils";
 
+// N1/A8: a stable, human-friendly tracking NUMBER derived from the project id (no DB column needed —
+// same id → same number forever). Lets Henry / any AI look up + categorize a video.
+function projNumber(id: string): string {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return String(1_000_000_000 + (h % 9_000_000_000));
+}
+// N1: friendly output filename — "<ProductOrTitle>_<number>.mp4" (sanitised).
+function outputFileName(title: string, id: string): string {
+  const clean = (title || "ad").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 50) || "ad";
+  return `${clean}_${projNumber(id)}.mp4`;
+}
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 interface SlideEnhancement {
@@ -279,12 +292,19 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
                       src={`/api/media/${(p.renderedVideoPath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
                       controls autoPlay className="w-full rounded-lg" style={{ maxHeight: 220, background: "#000" }}
                     />
+                    <a href={`/api/media/${(p.renderedVideoPath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
+                      download={outputFileName(p.projectName, p.id)}
+                      className="block mt-1.5 text-center text-[10px] font-semibold py-1.5 rounded-lg"
+                      style={{ background: "rgba(34,197,94,0.15)", color: "#22c55e", border: "1px solid rgba(34,197,94,0.25)" }}>
+                      ⬇ Download — {outputFileName(p.projectName, p.id)}
+                    </a>
                   </div>
                 )}
 
                 {/* Info */}
                 <div className="p-4">
                   <p className="text-white font-bold text-sm mb-0.5">{p.projectName}</p>
+                  <p className="text-[9px] mb-0.5 font-mono" style={{ color: "#5a7080" }} title="Project number — use this to look up the video">#{projNumber(p.id)}</p>
                   <p className="text-[10px] mb-1" style={{ color: "#5a7080" }}>{p.aspectRatio} &middot; {ready}/{total} ready</p>
                   <p className="text-[9px] mb-3" style={{ color: "#3d5060" }}>
                     {p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
