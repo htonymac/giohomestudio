@@ -879,6 +879,10 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [aiReview, setAiReview] = useState<{ review: string; provider?: string } | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [captionLoading, setCaptionLoading] = useState(false);
+  const [captioningAll, setCaptioningAll] = useState(false);  // one-button: caption every image + narrate all
+  const [titleCardText, setTitleCardText] = useState("");
+  const [titleCardSub, setTitleCardSub] = useState("");
+  const [generatingTitleCard, setGeneratingTitleCard] = useState<"intro" | "outro" | null>(null);
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -2809,6 +2813,44 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             )}
           </div>
 
+          {/* ── Intro/Outro title cards — type text → AI colours → card slide (Henry 2026-06-20) ── */}
+          <div style={{ border: "1px solid rgba(124,92,252,0.25)", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+            <p className="text-xs font-semibold mb-1" style={{ color: "#b090ff" }}>Intro / Outro card</p>
+            <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Type a title — AI picks clean colours and makes a graphic card, added as a slide. e.g. &ldquo;Diolux — 2 Bed Serviced Apartment&rdquo;.</p>
+            <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Card title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
+            <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Now available in Lekki)" className={`${inputCls} mt-2`} />
+            <div className="flex gap-2 mt-2">
+              {(["intro", "outro"] as const).map(kind => (
+                <button key={kind} type="button" disabled={generatingTitleCard !== null || !titleCardText.trim()}
+                  onClick={async () => {
+                    setGeneratingTitleCard(kind);
+                    try {
+                      const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, {
+                        method: "POST", headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind }),
+                      });
+                      const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
+                      if (res.ok && data.slide) {
+                        const newSlide = data.slide;
+                        setProject(prev => {
+                          let slides = [...prev.slides];
+                          if (kind === "intro") { slides = slides.map(s => ({ ...s, slideOrder: (s.slideOrder ?? 0) + 1 })); slides.unshift(newSlide); }
+                          else slides.push(newSlide);
+                          return { ...prev, slides };
+                        });
+                        setSelectedId(newSlide.id);
+                      }
+                    } catch { /* ignore */ }
+                    setGeneratingTitleCard(null);
+                  }}
+                  className="flex-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                  style={{ background: "rgba(124,92,252,0.15)", color: "#b090ff", border: "1px solid rgba(124,92,252,0.4)" }}>
+                  {generatingTitleCard === kind ? "Making card…" : `+ ${kind === "intro" ? "Intro" : "Outro"} card`}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* ── AI Order — full narration with intro/outro contact ── */}
           <div style={{ border: "1px solid rgba(255,107,53,0.2)", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
             <div className="flex items-center justify-between mb-2">
@@ -2878,6 +2920,57 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>
               AI reads all slide images + captions, generates narration, and wraps with your intro/outro contact info.
             </p>
+            {/* ONE button: AI reads every uploaded image → writes a caption ON each → narration for the whole ad (Henry 2026-06-20) */}
+            <button
+              type="button"
+              disabled={captioningAll || aiOrdering || project.slides.length === 0}
+              onClick={async () => {
+                setCaptioningAll(true);
+                setNarrationEnhanceError(null);
+                try {
+                  // 1) Caption EVERY image (vision, local-first) — shows on each slide
+                  for (const s of project.slides) {
+                    if (!s.imagePath) continue;
+                    const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption`, { method: "POST" });
+                    const d = await r.json().catch(() => ({} as { caption?: string }));
+                    if (r.ok && d.caption) {
+                      await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
+                      setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
+                    }
+                  }
+                  // 2) Narration for ALL images (reuses enhance-narration + intro/outro contact)
+                  const imageUrls = project.slides.filter(s => s.imagePath).map(s => `/api/media/${(s.imagePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+                  const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, {
+                    method: "POST", headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imageUrls, includeImages: true }),
+                  });
+                  const data = await res.json().catch(() => ({} as { narration?: string; error?: string }));
+                  if (res.ok && data.narration) {
+                    const contactParts: string[] = [];
+                    if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
+                    if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
+                    const contactLine = contactParts.join(". ");
+                    const builtIntro = introText ? (contactLine ? `${introText} ${contactLine}.` : introText) : (contactLine ? `${contactLine}.` : "");
+                    const builtOutro = outroText ? (contactLine ? `${outroText} ${contactLine}.` : outroText) : (contactLine ? `${contactLine}.` : "");
+                    const fullNarration = [builtIntro, data.narration, builtOutro].filter(Boolean).join(" ");
+                    await patchProject({ narrationScript: fullNarration });
+                    const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                    for (let i = 0; i < project.slides.length; i++) {
+                      await patchSlide(project.slides[i].id, { narrationLine: sentences[i] ?? sentences[sentences.length - 1] ?? "" });
+                    }
+                  } else {
+                    setNarrationEnhanceError(data.error || "Narration step failed — captions still saved.");
+                  }
+                } catch (err) {
+                  setNarrationEnhanceError(err instanceof Error ? err.message : "Caption + Narrate failed");
+                }
+                setCaptioningAll(false);
+              }}
+              className="w-full mb-2 text-[11px] font-bold px-3 py-2 rounded-lg transition-colors disabled:opacity-40"
+              style={{ background: "rgba(124,92,252,0.18)", color: "#b090ff", border: "1px solid rgba(124,92,252,0.45)" }}
+            >
+              {captioningAll ? "Reading every image…" : "✨ AI: Caption every image + Narrate all"}
+            </button>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label className={labelCls}>Phone number</label>
