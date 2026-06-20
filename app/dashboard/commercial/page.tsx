@@ -814,6 +814,10 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [selectedPiperVoice, setSelectedPiperVoice] = useState("en_US-lessac-medium");
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
   const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
+  const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string }>>([]);
+  useEffect(() => {
+    fetch("/api/voices").then(r => r.json()).then(d => { if (Array.isArray(d?.voices)) setElevenVoices(d.voices); }).catch(() => {});
+  }, []);
   const [narrationSettings, setNarrationSettings] = useState<NarrationSettings>(DEFAULT_NARRATION_SETTINGS);
   const [narrationText, setNarrationText] = useState("");
   const [narrationControlsSettings, setNarrationControlsSettings] = useState<NarrationControlsSettings>({ mode: "commercial" } as NarrationControlsSettings);
@@ -2857,6 +2861,31 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               )}
             </div>
           </div>
+
+          {/* ElevenLabs premium voice picker — each is a specific named narrator (Henry: let users pick the voice). Selecting sets project.voiceId, which the render already uses for ElevenLabs. */}
+          {elevenVoices.length > 0 && (
+            <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+              <p className="text-xs font-semibold text-[#b090ff] mb-2">Premium Voice (ElevenLabs — pick a narrator)</p>
+              <p className="text-[10px] text-[#6060a0] mb-3">Specific premium narrators, used at render when ElevenLabs is available (needs API quota). Falls back to Piper otherwise.</p>
+              <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto">
+                {elevenVoices.map(v => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => { setProject(prev => ({ ...prev, voiceId: v.id })); patchProject({ voiceId: v.id }); }}
+                    className={`text-left p-2 rounded-lg border text-[11px] transition-colors ${
+                      project.voiceId === v.id
+                        ? "border-[#7c5cfc] bg-[#7c5cfc]/10 text-[#b090ff]"
+                        : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"
+                    }`}
+                  >
+                    <span className="font-medium">{v.name}</span>
+                    {(v.accent || v.category) && <span className="block text-[9px] text-[#6060a0]">{[v.category, v.accent].filter(Boolean).join(" · ")}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           <NarrationPanel
             value={narrationSettings}
