@@ -1120,10 +1120,10 @@ function AdEditorInner() {
               const canRemove = hasImageLayer || hasUrlBg;
               return (
                 <button onClick={handleBgRemove} disabled={bgRemoving || !canRemove}
-                  title={canRemove ? "Removes background using FAL Birefnet AI" : "Import or generate an image first"}
+                  title={canRemove ? "Removes the background inside the selected image (free, local AI) — then your canvas background shows through" : "Import or generate an image first"}
                   style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, opacity: bgRemoving || !canRemove ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                   <X size={11} color="currentColor" />
-                  {bgRemoving ? "Removing…" : "Remove Background (Birefnet)"}
+                  {bgRemoving ? "Removing…" : "Remove Image Background (free)"}
                 </button>
               );
             })()}
