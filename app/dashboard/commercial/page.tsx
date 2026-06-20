@@ -812,6 +812,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
     { id: "en_GB-alba-medium",     name: "Alba (British Female)" },
   ];
   const [selectedPiperVoice, setSelectedPiperVoice] = useState("en_US-lessac-medium");
+  const EDGE_VOICES = [
+    { id: "en-US-AriaNeural",   name: "Aria (US Female)" },
+    { id: "en-US-GuyNeural",    name: "Guy (US Male)" },
+    { id: "en-US-JennyNeural",  name: "Jenny (US Female)" },
+    { id: "en-GB-RyanNeural",   name: "Ryan (UK Male)" },
+    { id: "en-GB-SoniaNeural",  name: "Sonia (UK Female)" },
+    { id: "en-NG-AbeoNeural",   name: "Abeo (Nigerian Male)" },
+    { id: "en-NG-EzinneNeural", name: "Ezinne (Nigerian Female)" },
+  ];
+  const [voiceEngine, setVoiceEngine] = useState<"auto" | "piper" | "edge" | "elevenlabs">("auto");
+  const [selectedEdgeVoice, setSelectedEdgeVoice] = useState("en-US-AriaNeural");
   const [piperDemoLoading, setPiperDemoLoading] = useState(false);
   const [piperDemoUrl, setPiperDemoUrl] = useState<string | null>(null);
   const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string }>>([]);
@@ -1248,7 +1259,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
         voiceLanguage: project.voiceLanguage || null,
       });
       setProject(prev => ({ ...prev, renderStatus: "rendering" }));
-      const res  = await fetch(`/api/commercial/projects/${project.id}/render`, { method: "POST" });
+      const engineVoiceId = voiceEngine === "edge" ? selectedEdgeVoice
+        : voiceEngine === "piper" ? selectedPiperVoice
+        : (project.voiceId ?? undefined);
+      const res  = await fetch(`/api/commercial/projects/${project.id}/render`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ soundTier: voiceEngine, voiceId: engineVoiceId }),
+      });
       const data = await res.json();
       if (res.ok) {
         setRenderMsg(data.message ?? "Render started. Check Review when ready.");
@@ -2841,7 +2859,20 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             )}
           </div>
 
+          {/* Narrator engine selector (Henry: one dropdown → pick model → that model's voices appear) */}
+          <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+            <p className="text-xs font-semibold text-[#b090ff] mb-2">Narrator engine</p>
+            <select value={voiceEngine} onChange={e => setVoiceEngine(e.target.value as typeof voiceEngine)}
+              className="w-full text-xs rounded-lg bg-[#0d0d1a] border border-[#2a2a40] text-[#c0c0e0] px-2 py-1.5">
+              <option value="auto">Auto — best available (default)</option>
+              <option value="piper">Local · Piper (free)</option>
+              <option value="edge">Edge · Microsoft (free)</option>
+              <option value="elevenlabs">Premium · ElevenLabs</option>
+            </select>
+          </div>
+
           {/* Piper TTS local voice picker */}
+          {(voiceEngine === "auto" || voiceEngine === "piper") && (
           <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
             <p className="text-xs font-semibold text-[#b090ff] mb-2">Local Voice (Piper TTS — free)</p>
             <p className="text-[10px] text-[#6060a0] mb-3">Select a voice for narration. Works offline, no API key needed. Falls back here when ElevenLabs is unavailable.</p>
@@ -2893,9 +2924,26 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               )}
             </div>
           </div>
+          )}
+
+          {/* Edge TTS voices (free Microsoft neural voices) */}
+          {voiceEngine === "edge" && (
+            <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
+              <p className="text-xs font-semibold text-[#b090ff] mb-2">Edge Voice (Microsoft — free)</p>
+              <p className="text-[10px] text-[#6060a0] mb-3">Free high-quality neural voices, used at render when selected.</p>
+              <div className="grid grid-cols-2 gap-2">
+                {EDGE_VOICES.map(v => (
+                  <button key={v.id} type="button" onClick={() => setSelectedEdgeVoice(v.id)}
+                    className={`text-left p-2 rounded-lg border text-[11px] transition-colors ${selectedEdgeVoice === v.id ? "border-[#7c5cfc] bg-[#7c5cfc]/10 text-[#b090ff]" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>
+                    <span className="font-medium">{v.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ElevenLabs premium voice picker — each is a specific named narrator (Henry: let users pick the voice). Selecting sets project.voiceId, which the render already uses for ElevenLabs. */}
-          {elevenVoices.length > 0 && (
+          {voiceEngine === "elevenlabs" && elevenVoices.length > 0 && (
             <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
               <p className="text-xs font-semibold text-[#b090ff] mb-2">Premium Voice (ElevenLabs — pick a narrator)</p>
               <p className="text-[10px] text-[#6060a0] mb-3">Specific premium narrators, used at render when ElevenLabs is available (needs API quota). Falls back to Piper otherwise.</p>
