@@ -21,6 +21,7 @@ const schema = z.object({
   duration:      z.string().default("30"),       // any custom seconds (A3)
   style:         z.string().optional(),          // A9 punch-up directive (e.g. "more intense — strong action verbs")
   baseScript:    z.string().optional(),          // A9 current script to rewrite
+  model:         z.string().optional(),          // C1 selectable AI model ("auto" | "provider:model" | "ollama")
 });
 
 export async function POST(
@@ -61,10 +62,21 @@ export async function POST(
     ? `Rewrite and punch up this commercial voiceover script to be ${d.style}. Use strong ACTION VERBS, vivid punchy language, and short energetic sentences. Keep it under ${wordLimit} words, keep the brand "${d.companyName}" and the call to action, and keep relevant emojis naturally placed.\n\nCurrent script:\n${d.baseScript}`
     : `Write a ${secs}-second commercial voiceover script for this product/service:\n\nProduct: ${productLine || d.companyName}\n${featsLine}\n${offerLine}\n${priceLine}\n${websiteLine}\nBrand: ${d.companyName}\nCall to action: ${ctaLine}\n\nRules:\n- Natural spoken language only\n- No headers, no bullet points, no stage directions\n- Under ${wordLimit} words total\n- End with the call to action\n- Include 2-4 relevant emojis naturally placed in the text (e.g. 🔥 before offers, ✅ before benefits, 📞 before contact, 🏠 for property, 🍽️ for food)\n- Make it sound like a professional ad voiceover`;
 
+  // C1: optional user-selected model ("auto" | "provider:model" | "ollama"). Default = Haiku (fast/cheap).
+  let forceProvider: "claude" | "openai" | "grok" | "ollama" | undefined;
+  let forceModel: string | undefined = "claude-haiku-4-5-20251001";
+  const sel = d.model && d.model !== "auto" ? d.model : "";
+  if (sel === "ollama") { forceProvider = "ollama"; forceModel = undefined; }
+  else if (sel.includes(":")) {
+    const [prov, ...rest] = sel.split(":");
+    forceProvider = prov === "openai" ? "openai" : prov === "grok" ? "grok" : "claude";
+    forceModel = rest.join(":") || undefined;
+  }
+
   const result = await callLLM(
     userPrompt,
     `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}.${d.style ? " Emphasize strong action verbs and vivid, energetic language." : ""} Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`,
-    { role: "creative", forceModel: "claude-haiku-4-5-20251001", temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
+    { role: "creative", forceProvider, forceModel, temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
   );
 
   if (!result.ok) {

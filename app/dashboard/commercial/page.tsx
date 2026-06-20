@@ -449,6 +449,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
   const [analysis, setAnalysis]     = useState<Record<string, unknown> | null>(null);
   const [warn, setWarn]             = useState("");
   const [script, setScript]         = useState("");
+  const [aiModel, setAiModel]       = useState("auto");  // C1: selectable AI model for script generation
   const [generating, setGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -529,7 +530,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       const res  = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, model: aiModel }),
       });
       const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-generate-script");
       if (res.ok) {
@@ -763,6 +764,18 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               className={`${inputCls} resize-vertical font-sans`}
               placeholder="Voiceover script will appear here…"
             />
+            {/* C1: selectable AI model for the script */}
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-[#6060a0]">AI model:</span>
+              <select value={aiModel} onChange={e => setAiModel(e.target.value)}
+                className="flex-1 bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-2 py-1 text-white text-[11px] focus:outline-none focus:border-[#7c5cfc]">
+                <option value="auto">Auto — best available</option>
+                <option value="claude:claude-haiku-4-5-20251001">Claude Haiku — fast/cheap</option>
+                <option value="claude:claude-sonnet-4-6">Claude Sonnet — quality</option>
+                <option value="openai:gpt-4o-mini">GPT-4o mini — cheap</option>
+                <option value="ollama">Local (Ollama) — free</option>
+              </select>
+            </div>
             {/* A9: one-tap punch-up — rewrite with strong action verbs (like children/hybrid) */}
             <div className="flex gap-1.5 flex-wrap">
               {[
@@ -777,7 +790,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
                     try {
                       const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
                         method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ ...form, style: b.style, baseScript: script }),
+                        body: JSON.stringify({ ...form, style: b.style, baseScript: script, model: aiModel }),
                       });
                       const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-enhance-script");
                       if (res.ok && data.script) setScript(data.script);
@@ -797,7 +810,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
                   try {
                     const res = await fetch(`/api/commercial/projects/${createdProjId}/mode2/generate-script`, {
                       method: "POST", headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(form),
+                      body: JSON.stringify({ ...form, model: aiModel }),
                     });
                     const data = await safeJson<{ script?: string; error?: string }>(res, "commercial-mode2-regen-script");
                     if (res.ok) setScript(data.script ?? "");
