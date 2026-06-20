@@ -73,11 +73,17 @@ export async function POST(
     forceModel = rest.join(":") || undefined;
   }
 
-  const result = await callLLM(
+  const sysPrompt = `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}.${d.style ? " Emphasize strong action verbs and vivid, energetic language." : ""} Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`;
+  const timeoutMs = forceProvider === "ollama" ? 120_000 : 20_000;  // CPU-local text gen is slow
+  let result = await callLLM(
     userPrompt,
-    `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}.${d.style ? " Emphasize strong action verbs and vivid, energetic language." : ""} Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`,
-    { role: "creative", forceProvider, forceModel, temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
+    sysPrompt,
+    { role: "creative", forceProvider, forceModel, temperature: 0.6, maxTokens: 350, timeoutMs }
   );
+  // C1 robustness: a forced model that fails falls back to the default Haiku — never leave the user stuck.
+  if (!result.ok && sel) {
+    result = await callLLM(userPrompt, sysPrompt, { role: "creative", forceModel: "claude-haiku-4-5-20251001", temperature: 0.6, maxTokens: 350, timeoutMs: 20_000 });
+  }
 
   if (!result.ok) {
     return NextResponse.json(
