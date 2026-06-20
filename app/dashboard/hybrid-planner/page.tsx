@@ -10,6 +10,7 @@ import type { NarrationSettings } from "../../components/NarrationControls";
 import { assetToMediaUrl, type MusicAsset } from "../../utils/mediaUrl";
 import AITierSelector, { type AITier } from "../../components/AITierSelector";
 import { ds } from "../../../lib/designSystem";
+import { buildOutputName } from "@/lib/projectNaming";
 import { stripAppearanceFromNarration } from "@/lib/narration-clean";
 import { NarrationPreview } from "../../components/NarrationPreview";
 import { safeJson } from "../../../lib/api-utils";
@@ -13776,7 +13777,7 @@ Reply with ONLY a JSON object like this — no explanation, no markdown:
                         <p style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>Movie Ready!</p>
                         <video controls src={assembledVideoUrl} style={{ width: "100%", borderRadius: 12, background: "#000" }} />
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <a href={assembledVideoUrl} download style={{ flex: 1, textDecoration: "none" }}>
+                          <a href={assembledVideoUrl} download={buildOutputName({ parts: [projectTitle], seed: projectId || projectTitle })} title={buildOutputName({ parts: [projectTitle], seed: projectId || projectTitle })} style={{ flex: 1, textDecoration: "none" }}>
                             <button style={{ ...btnPrimary, width: "100%", background: accent }}>⬇ Download</button>
                           </a>
                           <a href={`/dashboard/video-editor?videoUrl=${encodeURIComponent(assembledVideoUrl)}`} style={{ flex: 1, textDecoration: "none" }}>

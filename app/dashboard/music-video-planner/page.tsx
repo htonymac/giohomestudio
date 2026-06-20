@@ -7,6 +7,7 @@ import type { NarrationSettings } from "../../components/NarrationControls";
 import type { SceneIntelligenceData } from "../../api/hybrid/scene-intelligence/route";
 import { ds } from "../../../lib/designSystem";
 import { safeJson } from "../../../lib/api-utils";
+import { buildOutputName } from "@/lib/projectNaming";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { HeroTitle } from "../../components/hero/HeroTitle";
 import * as Icon from "../../components/icons";
@@ -3037,7 +3038,8 @@ export default function MusicVideoPlannerPage() {
             {assembledUrl && (
               <div style={{ borderRadius: 8, overflow: "hidden", marginBottom: 12, border: `1px solid ${border}` }}>
                 <video src={assembledUrl} controls style={{ width: "100%", maxHeight: 280 }} />
-                <a href={assembledUrl} download={`${songTitle || "music-video"}.mp4`}
+                <a href={assembledUrl} download={buildOutputName({ parts: [songTitle, analysis?.genre, artistName], seed: projectId || songTitle || "music-video" })}
+                  title={buildOutputName({ parts: [songTitle, analysis?.genre, artistName], seed: projectId || songTitle || "music-video" })}
                   style={{ display: "block", textAlign: "center", padding: "10px 0", background: "rgba(0,212,255,0.08)", color: "#00d4ff", fontSize: 12, fontWeight: 700, textDecoration: "none", borderTop: `1px solid ${border}` }}>
                   ⬇ Download Music Video
                 </a>
