@@ -18,7 +18,9 @@ const schema = z.object({
   contact:       z.string().optional(),
   contactMethod: z.string().optional(),
   tone:          z.enum(["Luxury", "Professional", "Energetic", "Friendly", "Urgent"]).default("Professional"),
-  duration:      z.enum(["15", "30", "60", "90"]).default("30"),
+  duration:      z.string().default("30"),       // any custom seconds (A3)
+  style:         z.string().optional(),          // A9 punch-up directive (e.g. "more intense — strong action verbs")
+  baseScript:    z.string().optional(),          // A9 current script to rewrite
 });
 
 export async function POST(
@@ -43,10 +45,8 @@ export async function POST(
     ? `Contact ${d.companyName} via ${d.contactMethod ?? "phone"}: ${d.contact}.`
     : `Contact ${d.companyName} today.`;
 
-  const wordLimit = d.duration === "15" ? 30
-    : d.duration === "30" ? 60
-    : d.duration === "60" ? 120
-    : 180;
+  const secs = Math.max(5, Math.min(600, parseInt(d.duration, 10) || 30));
+  const wordLimit = Math.round(secs * 2);
 
   const toneMap: Record<string, string> = {
     Luxury:       "premium, aspirational, sophisticated — evoke desire and exclusivity",
@@ -56,9 +56,14 @@ export async function POST(
     Urgent:       "time-sensitive, action-driven — create FOMO and immediate action",
   };
 
+  // A9: punch-up mode — rewrite the CURRENT script with a style directive + strong action verbs.
+  const userPrompt = (d.style && d.baseScript)
+    ? `Rewrite and punch up this commercial voiceover script to be ${d.style}. Use strong ACTION VERBS, vivid punchy language, and short energetic sentences. Keep it under ${wordLimit} words, keep the brand "${d.companyName}" and the call to action, and keep relevant emojis naturally placed.\n\nCurrent script:\n${d.baseScript}`
+    : `Write a ${secs}-second commercial voiceover script for this product/service:\n\nProduct: ${productLine || d.companyName}\n${featsLine}\n${offerLine}\n${priceLine}\n${websiteLine}\nBrand: ${d.companyName}\nCall to action: ${ctaLine}\n\nRules:\n- Natural spoken language only\n- No headers, no bullet points, no stage directions\n- Under ${wordLimit} words total\n- End with the call to action\n- Include 2-4 relevant emojis naturally placed in the text (e.g. 🔥 before offers, ✅ before benefits, 📞 before contact, 🏠 for property, 🍽️ for food)\n- Make it sound like a professional ad voiceover`;
+
   const result = await callLLM(
-    `Write a ${d.duration}-second commercial voiceover script for this product/service:\n\nProduct: ${productLine || d.companyName}\n${featsLine}\n${offerLine}\n${priceLine}\n${websiteLine}\nBrand: ${d.companyName}\nCall to action: ${ctaLine}\n\nRules:\n- Natural spoken language only\n- No headers, no bullet points, no stage directions\n- Under ${wordLimit} words total\n- End with the call to action\n- Include 2-4 relevant emojis naturally placed in the text (e.g. 🔥 before offers, ✅ before benefits, 📞 before contact, 🏠 for property, 🍽️ for food)\n- Make it sound like a professional ad voiceover`,
-    `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}. Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`,
+    userPrompt,
+    `You are a commercial copywriter who writes voiceover scripts for video ads. Tone: ${toneMap[d.tone] ?? toneMap.Professional}.${d.style ? " Emphasize strong action verbs and vivid, energetic language." : ""} Output only the script text — no formatting, no labels, just the words with emojis naturally woven in.`,
     { role: "creative", forceModel: "claude-haiku-4-5-20251001", temperature: 0.6, maxTokens: 350, timeoutMs: 20000 }
   );
 
