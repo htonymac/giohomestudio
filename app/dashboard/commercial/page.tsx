@@ -436,7 +436,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
     productType: "", productName: "", features: "", offer: "", price: "",
     website: "", companyName: "", contact: "", contactMethod: "whatsapp",
     tone: "Professional" as "Luxury" | "Professional" | "Energetic" | "Friendly" | "Urgent",
-    duration: "30" as "15" | "30" | "60" | "90",
+    duration: "30",  // seconds — preset buttons OR any custom value
   });
 
   function setF(key: string, val: string) { setForm(prev => ({ ...prev, [key]: val })); }
@@ -632,6 +632,13 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
               {analysis && <span className="text-[10px] text-[#7c5cfc] font-medium">AI pre-filled ✅</span>}
             </div>
             <p className="text-xs text-[#6060a0]">️ {savedFiles.length} image{savedFiles.length !== 1 ? "s" : ""} uploaded ✅ — correct any details below.</p>
+            {savedFiles.length > 0 && (
+              <div className="flex gap-2 flex-wrap my-1">
+                {savedFiles.filter(f => f.type === "image").map((f, i) => (
+                  <img key={i} src={`/api/media/file?path=${encodeURIComponent(f.path)}`} alt={f.name} title={f.name} className="w-16 h-16 object-cover rounded-lg border border-[#2a2a40]" />
+                ))}
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -707,6 +714,10 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
                     {d}s
                   </button>
                 ))}
+              </div>
+              <div className="flex gap-2 items-center mt-2">
+                <input type="number" min={3} max={600} value={form.duration} onChange={e => setF("duration", e.target.value)} placeholder="custom" className="w-28 bg-[#0d0d1a] border border-[#2a2a40] rounded-lg px-3 py-1.5 text-white text-xs focus:outline-none focus:border-[#7c5cfc]" />
+                <span className="text-[10px] text-[#6060a0]">— or type any number of seconds</span>
               </div>
             </div>
           </div>
