@@ -447,9 +447,6 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
     setAnalyzing(true);
     setWarn("");
 
-    const fd = new FormData();
-    for (const f of Array.from(files)) fd.append("files", f);
-
     try {
       const createRes = await fetch("/api/commercial/projects", {
         method: "POST",
@@ -460,10 +457,31 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       const proj = await createRes.json() as { id: string };
       setCreatedProjId(proj.id);
 
-      const res  = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
-      const data = await safeJson<{ savedFiles?: typeof savedFiles; analysis?: Record<string, unknown>; warning?: string }>(res, "commercial-mode2-analyze");
+      // Upload images ONE AT A TIME (in selection order) so many/large files don't exceed the
+      // request body limit — the old single multi-file POST 500'd at 4+ images.
+      const fileArr = Array.from(files);
+      const collected: typeof savedFiles = [];
+      for (let i = 0; i < fileArr.length; i++) {
+        setWarn(`Uploading image ${i + 1} of ${fileArr.length}…`);
+        const fd = new FormData();
+        fd.append("files", fileArr[i]);
+        fd.append("saveOnly", "true");
+        const r = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
+        const d = await safeJson<{ savedFiles?: typeof savedFiles }>(r, "commercial-mode2-analyze");
+        if (d.savedFiles?.length) collected.push(...d.savedFiles);
+      }
+      setSavedFiles(collected);
+      if (collected.length === 0) { setWarn("No images uploaded. Use JPG/PNG/WEBP under 10MB each."); return; }
 
-      setSavedFiles(data.savedFiles ?? []);
+      // One cheap analysis pass over the file NAMES only (no image bytes).
+      setWarn("Analysing…");
+      const res  = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileNames: collected.map(s => s.name) }),
+      });
+      const data = await safeJson<{ analysis?: Record<string, unknown>; warning?: string }>(res, "commercial-mode2-analyze");
+
       if (data.analysis) {
         setAnalysis(data.analysis);
         if (data.analysis.productType) setF("productType", data.analysis.productType as string);

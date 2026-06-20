@@ -22,6 +22,25 @@ export async function POST(
   const project = await prisma.commercialProject.findUnique({ where: { id } });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
+  // Mode B — analyze-only (JSON): run the LLM on already-saved file NAMES (no upload).
+  // Lets the client upload large images one-by-one first (avoids the multi-file payload that 500s at 4+).
+  if ((req.headers.get("content-type") || "").includes("application/json")) {
+    const jbody = await req.json().catch(() => ({} as { fileNames?: string[] }));
+    const names: string[] = Array.isArray(jbody?.fileNames) ? (jbody.fileNames as unknown[]).filter((n): n is string => typeof n === "string") : [];
+    if (names.length === 0) return NextResponse.json({ analysis: null, warning: "No file names provided" });
+    const fileListJ = names.map((n, i) => `File ${i + 1}: ${n} (image)`).join("\n");
+    const brandJ = project.brandName ? `Company: ${project.brandName}.` : "";
+    const rJ = await callLLM(
+      `A business has uploaded these files to create a video ad:\n${fileListJ}\n\nBased on the file names and context, intelligently infer the product/service being advertised. Return ONLY valid JSON:\n{\n  "productType": "Software|Food|Real Estate|Fashion|Tech|Health|Service|Other",\n  "productName": "specific product or service name if detectable",\n  "features": ["key", "benefit", "or", "feature"],\n  "adTone": "Luxury|Professional|Energetic|Friendly|Urgent",\n  "analysisNotes": "Brief explanation of what was detected"\n}`,
+      `You are a marketing analyst. ${brandJ} Analyse uploaded file descriptions and infer what product or service is being promoted. Output only valid JSON.`,
+      { role: "quality", temperature: 0.3, maxTokens: 400, timeoutMs: 20000 }
+    );
+    if (!rJ.ok) return NextResponse.json({ analysis: null, warning: "AI analysis unavailable — fill the form manually." });
+    let analysisJ = null;
+    try { analysisJ = JSON.parse(extractJSONFromLLM(rJ.text)); } catch { /* ignore */ }
+    return NextResponse.json({ analysis: analysisJ });
+  }
+
   const form = await req.formData();
   const files = form.getAll("files") as File[];
 
@@ -50,6 +69,12 @@ export async function POST(
 
   if (savedFiles.length === 0) {
     return NextResponse.json({ error: "No valid files uploaded" }, { status: 400 });
+  }
+
+  // Save-only mode: client uploaded ONE file at a time (sequential) — return its path, skip the LLM
+  // (the client runs analyze once at the end via the JSON mode above). Fixes "4+ images fail".
+  if (String(form.get("saveOnly") || "") === "true") {
+    return NextResponse.json({ savedFiles });
   }
 
   // Build description context for Ollama
