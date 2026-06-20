@@ -32,6 +32,16 @@ function outputFileName(title: string, id: string): string {
   return `${clean}_${projNumber(id)}.mp4`;
 }
 
+// Intro/outro card colour themes — "AI auto" lets the LLM pick; the rest are user-chosen.
+const CARD_THEMES: Array<{ name: string; colors: { bg1: string; bg2: string; text: string; accent: string } | null }> = [
+  { name: "AI auto",      colors: null },
+  { name: "Navy/Gold",    colors: { bg1: "#0a1840", bg2: "#1e3a78", text: "#ffffff", accent: "#fbbf24" } },
+  { name: "Black/Gold",   colors: { bg1: "#0a0a0a", bg2: "#2a2118", text: "#ffffff", accent: "#d4af37" } },
+  { name: "White/Navy",   colors: { bg1: "#f5f5f5", bg2: "#dfe6f0", text: "#0a1840", accent: "#1e3a78" } },
+  { name: "Green/Cream",  colors: { bg1: "#0f3d2e", bg2: "#1a5c44", text: "#f5f0e1", accent: "#e8c547" } },
+  { name: "Purple/White", colors: { bg1: "#1a0a2e", bg2: "#3d1a6e", text: "#ffffff", accent: "#c9a8ff" } },
+];
+
 // ── Types ───────────────────────────────────────────────────────────────────
 
 interface SlideEnhancement {
@@ -883,6 +893,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [titleCardText, setTitleCardText] = useState("");
   const [titleCardSub, setTitleCardSub] = useState("");
   const [generatingTitleCard, setGeneratingTitleCard] = useState<"intro" | "outro" | null>(null);
+  const [cardTheme, setCardTheme] = useState(0);  // index into CARD_THEMES (0 = AI auto)
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -1760,6 +1771,30 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     title="AI writes a nice caption from this image — shows on the slide"
                   >
                     {captionLoading ? "Captioning…" : "✨ Caption"}
+                  </button>
+                )}
+                {project.slides.length > 1 && (
+                  <button
+                    disabled={captioningAll}
+                    onClick={async () => {
+                      setCaptioningAll(true);
+                      try {
+                        for (const s of project.slides) {
+                          if (!s.imagePath) continue;
+                          const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption`, { method: "POST" });
+                          const d = await r.json().catch(() => ({} as { caption?: string }));
+                          if (r.ok && d.caption) {
+                            await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
+                            setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
+                          }
+                        }
+                      } catch { /* ignore */ }
+                      setCaptioningAll(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#7c5cfc]/30 text-[#c9b6ff] hover:bg-[#7c5cfc]/45 disabled:opacity-40 transition-colors"
+                    title="AI loops through EVERY image and writes a caption for each one"
+                  >
+                    {captioningAll ? "Captioning all…" : "✨ Caption ALL"}
                   </button>
                 )}
                 {selectedSlide.imagePath && (
@@ -2819,6 +2854,15 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Type a title — AI picks clean colours and makes a graphic card, added as a slide. e.g. &ldquo;Diolux — 2 Bed Serviced Apartment&rdquo;.</p>
             <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Card title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
             <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Now available in Lekki)" className={`${inputCls} mt-2`} />
+            <div className="flex items-center gap-1 flex-wrap mt-2">
+              <span className="text-[10px] mr-1" style={{ color: "#5a7080" }}>Colours:</span>
+              {CARD_THEMES.map((t, i) => (
+                <button key={t.name} type="button" onClick={() => setCardTheme(i)}
+                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${cardTheme === i ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>
+                  {t.name}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2 mt-2">
               {(["intro", "outro"] as const).map(kind => (
                 <button key={kind} type="button" disabled={generatingTitleCard !== null || !titleCardText.trim()}
@@ -2827,7 +2871,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     try {
                       const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, {
                         method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind }),
+                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined }),
                       });
                       const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
                       if (res.ok && data.slide) {

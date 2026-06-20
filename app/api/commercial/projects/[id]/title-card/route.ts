@@ -19,6 +19,13 @@ const schema = z.object({
   text:     z.string().min(1).max(120),         // headline
   subtitle: z.string().max(160).optional(),
   kind:     z.enum(["intro", "outro"]).default("intro"),
+  // Optional USER-chosen colours — if any provided, we use them and skip the AI colour pick.
+  colors:   z.object({
+    bg1:    z.string().optional(),
+    bg2:    z.string().optional(),
+    text:   z.string().optional(),
+    accent: z.string().optional(),
+  }).optional(),
 });
 
 function esc(s: string): string {
@@ -61,9 +68,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!parsed.success) return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   const { text, subtitle, kind } = parsed.data;
 
-  // 1) AI picks a clean colour scheme (cheap/local; falls back to defaults on any failure).
+  // 1) Colours — USER's choice wins; else a cheap/local LLM picks; else defaults.
   let colors: CardColors = FALLBACK;
-  try {
+  const uc = parsed.data.colors;
+  const userPicked = uc && (isHex(uc.bg1) || isHex(uc.bg2) || isHex(uc.text) || isHex(uc.accent));
+  if (userPicked) {
+    colors = {
+      bg1: isHex(uc!.bg1) ? uc!.bg1! : FALLBACK.bg1,
+      bg2: isHex(uc!.bg2) ? uc!.bg2! : FALLBACK.bg2,
+      text: isHex(uc!.text) ? uc!.text! : FALLBACK.text,
+      accent: isHex(uc!.accent) ? uc!.accent! : FALLBACK.accent,
+    };
+  } else try {
     const r = await callLLM(
       `Pick a clean, professional, high-contrast colour scheme for a business video ${kind} title card.\nBrand: ${project.brandName ?? "(none)"}\nHeadline: "${text}"${subtitle ? `\nSubtitle: "${subtitle}"` : ""}\nReturn ONLY JSON: {"bg1":"#hex","bg2":"#hex","text":"#hex","accent":"#hex"}. bg1/bg2 = a tasteful gradient, text = readable on it, accent = a tasteful highlight.`,
       "You are a brand designer. Output only valid JSON hex colours.",
