@@ -832,6 +832,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const dragStateRef = useRef<{ startX: number; startW: number } | null>(null);
   const saveTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileRef       = useRef<HTMLInputElement>(null);
+  const swipeRef      = useRef<number | null>(null);
   const batchImportRef = useRef<HTMLInputElement>(null);
   const musicFileRef  = useRef<HTMLInputElement>(null);
   const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
@@ -1480,7 +1481,38 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           {selectedSlide ? (
             <div className="flex flex-col items-center gap-4 p-4 w-full h-full">
               {/* CASCADE: all slides stacked in the center, ACTIVE one floated to front (Henry 2026-06-19) */}
-              <div className="relative flex-shrink-0 flex items-center justify-center w-full" style={{ height: (previewStyle.height as number) + 70, minHeight: 260 }}>
+              {/* Book-style swipe: drag / swipe left→next, right→prev; ‹ › arrows too. */}
+              <div
+                className="relative flex-shrink-0 flex items-center justify-center w-full select-none"
+                style={{ height: (previewStyle.height as number) + 70, minHeight: 260 }}
+                onTouchStart={e => { swipeRef.current = e.touches[0]?.clientX ?? null; }}
+                onTouchEnd={e => {
+                  if (swipeRef.current == null) return;
+                  const dx = (e.changedTouches[0]?.clientX ?? swipeRef.current) - swipeRef.current; swipeRef.current = null;
+                  const ids = project.slides.map(s => s.id); const idx = ids.indexOf(selectedId ?? "");
+                  if (dx < -40 && idx < ids.length - 1) setSelectedId(ids[idx + 1]);
+                  else if (dx > 40 && idx > 0) setSelectedId(ids[idx - 1]);
+                }}
+                onMouseDown={e => { swipeRef.current = e.clientX; }}
+                onMouseUp={e => {
+                  if (swipeRef.current == null) return;
+                  const dx = e.clientX - swipeRef.current; swipeRef.current = null;
+                  if (Math.abs(dx) < 40) return; // a click — let the layer's onClick select it
+                  const ids = project.slides.map(s => s.id); const idx = ids.indexOf(selectedId ?? "");
+                  if (dx < 0 && idx < ids.length - 1) setSelectedId(ids[idx + 1]);
+                  else if (dx > 0 && idx > 0) setSelectedId(ids[idx - 1]);
+                }}
+              >
+                {project.slides.length > 1 && (
+                  <>
+                    <button type="button" title="Previous slide"
+                      onClick={() => { const ids = project.slides.map(s => s.id); const idx = ids.indexOf(selectedId ?? ""); if (idx > 0) setSelectedId(ids[idx - 1]); }}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-[1000] w-6 h-6 rounded-full bg-black/40 backdrop-blur-md border border-[#7c5cfc]/40 text-[#c9b6ff] text-xs leading-none hover:bg-[#7c5cfc]/40 hover:border-[#7c5cfc] hover:text-white flex items-center justify-center shadow-md transition-all">‹</button>
+                    <button type="button" title="Next slide"
+                      onClick={() => { const ids = project.slides.map(s => s.id); const idx = ids.indexOf(selectedId ?? ""); if (idx < ids.length - 1) setSelectedId(ids[idx + 1]); }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-[1000] w-6 h-6 rounded-full bg-black/40 backdrop-blur-md border border-[#7c5cfc]/40 text-[#c9b6ff] text-xs leading-none hover:bg-[#7c5cfc]/40 hover:border-[#7c5cfc] hover:text-white flex items-center justify-center shadow-md transition-all">›</button>
+                  </>
+                )}
                 {project.slides.map((s, i) => {
                   const isActive = s.id === selectedId;
                   const total = project.slides.length;
