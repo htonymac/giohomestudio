@@ -787,6 +787,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [uploadError, setUploadError] = useState("");
   const [batchImporting, setBatchImporting] = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
+  const [aiReview, setAiReview] = useState<{ review: string; provider?: string } | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -1590,6 +1592,33 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 >
                   Library
                 </button>
+                {selectedSlide.imagePath && (
+                  <button
+                    disabled={reviewLoading}
+                    onClick={async () => {
+                      setReviewLoading(true); setAiReview(null);
+                      try {
+                        const res = await fetch(`/api/commercial/projects/${project.id}/slides/${selectedSlide.id}/review-image`, { method: "POST" });
+                        const data = await res.json();
+                        setAiReview(res.ok && data.review ? { review: data.review, provider: data.provider } : { review: data.error || "Review unavailable" });
+                      } catch { setAiReview({ review: "Review failed — try again" }); }
+                      setReviewLoading(false);
+                    }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg bg-emerald-900/20 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40 transition-colors"
+                    title="AI marketing review of this image"
+                  >
+                    {reviewLoading ? "Reviewing…" : "✨ AI Review"}
+                  </button>
+                )}
+                {aiReview && (
+                  <div className="w-full max-w-md mx-auto rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-3 text-left">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-semibold text-emerald-300">✨ Marketing Review{aiReview.provider ? ` · ${aiReview.provider}` : ""}</span>
+                      <button onClick={() => setAiReview(null)} className="text-[10px] text-[#6060a0] hover:text-white">✕</button>
+                    </div>
+                    <pre className="text-[11px] text-[#c0c0e0] whitespace-pre-wrap font-sans leading-relaxed m-0">{aiReview.review}</pre>
+                  </div>
+                )}
                 <button
                   disabled={aiImageLoading || !selectedSlide.captionOriginal?.trim()}
                   onClick={async () => {
