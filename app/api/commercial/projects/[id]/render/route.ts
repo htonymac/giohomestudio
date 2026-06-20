@@ -44,7 +44,7 @@ function assembleNarrationText(project: ProjectWithSlides): string {
   );
 }
 
-async function renderCommercial(project: ProjectWithSlides, contentItemId: string) {
+async function renderCommercial(project: ProjectWithSlides, contentItemId: string, opts: { soundTier?: string; voiceId?: string } = {}) {
   await updateContentItem(contentItemId, { status: "GENERATING_VIDEO" });
 
   const aspectRatio = (project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1";
@@ -260,32 +260,61 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
 
   let voicePath: string | null = null;
   if (narrationText) {
-    const elevenKey = loadLLMSettings().ELEVENLABS_API_KEY || env.elevenlabs.apiKey;
-    // Priority: ElevenLabs (best quality) → Piper (local, free) → skip
-    const providers = elevenKey
-      ? [elevenLabsVoiceProvider, piperVoiceProvider]
-      : [piperVoiceProvider];
-    console.log(`[Commercial render:${contentItemId}] Voice: providers=[${providers.map(p => p.name).join(",")}], text=${narrationText.length} chars`);
-
+    const engine = opts.soundTier;                              // undefined = legacy behavior (unchanged)
+    const chosenVoiceId = opts.voiceId ?? project.voiceId ?? undefined;
     const voiceDir = path.resolve(env.storagePath, "voice");
     fs.mkdirSync(voiceDir, { recursive: true });
     const voiceOutPath = path.join(voiceDir, `commercial_${contentItemId}.mp3`);
 
-    for (const provider of providers) {
+    // FREE Edge TTS engine (opt-in): generate via the internal /api/tts edge path; falls back below on failure.
+    if (engine === "edge") {
       try {
-        const voiceResult = await provider.generate({
-          text: narrationText,
-          outputPath: voiceOutPath,
-          voiceId: provider.name === "elevenlabs" ? (project.voiceId ?? undefined) : undefined,
-          language: project.voiceLanguage ?? undefined,
+        const base = process.env.INTERNAL_LOCALHOST_URL || "http://127.0.0.1:3200";
+        const r = await fetch(`${base}/api/tts`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: narrationText, provider: "edge-tts", voiceId: chosenVoiceId }),
+          signal: AbortSignal.timeout(120000),
         });
-        console.log(`[Commercial render:${contentItemId}] Voice [${provider.name}]: status=${voiceResult.status}, error=${voiceResult.error ?? "none"}`);
-        if (voiceResult.status === "completed" && voiceResult.localPath) {
-          voicePath = voiceResult.localPath;
-          break; // success — stop trying providers
+        const d = await r.json().catch(() => ({} as { audioUrl?: string; engine?: string }));
+        const rel = typeof d?.audioUrl === "string" ? d.audioUrl.replace(/^\/api\/media\//, "") : "";
+        const local = rel ? path.join(env.storagePath, rel) : "";
+        if (r.ok && local && fs.existsSync(local)) {
+          voicePath = local;
+          console.log(`[Commercial render:${contentItemId}] Voice [edge] OK → ${local}`);
+        } else {
+          console.warn(`[Commercial render:${contentItemId}] Edge TTS unusable (engine=${d?.engine ?? "?"}) — falling back to chain`);
         }
       } catch (err) {
-        console.warn(`[Commercial render:${contentItemId}] Voice [${provider.name}] EXCEPTION: ${err}`);
+        console.warn(`[Commercial render:${contentItemId}] Voice [edge] EXCEPTION: ${err}`);
+      }
+    }
+
+    // Provider chain (used when not edge, or edge fell back). engine='piper' forces Piper-only;
+    // otherwise the legacy ElevenLabs→Piper chain (EXACTLY unchanged when no engine specified).
+    if (!voicePath) {
+      const elevenKey = loadLLMSettings().ELEVENLABS_API_KEY || env.elevenlabs.apiKey;
+      const providers = engine === "piper"
+        ? [piperVoiceProvider]
+        : (elevenKey ? [elevenLabsVoiceProvider, piperVoiceProvider] : [piperVoiceProvider]);
+      console.log(`[Commercial render:${contentItemId}] Voice: providers=[${providers.map(p => p.name).join(",")}], text=${narrationText.length} chars`);
+
+      for (const provider of providers) {
+        try {
+          const voiceResult = await provider.generate({
+            text: narrationText,
+            outputPath: voiceOutPath,
+            voiceId: provider.name === "elevenlabs" ? chosenVoiceId : undefined,
+            language: project.voiceLanguage ?? undefined,
+          });
+          console.log(`[Commercial render:${contentItemId}] Voice [${provider.name}]: status=${voiceResult.status}, error=${voiceResult.error ?? "none"}`);
+          if (voiceResult.status === "completed" && voiceResult.localPath) {
+            voicePath = voiceResult.localPath;
+            break; // success — stop trying providers
+          }
+        } catch (err) {
+          console.warn(`[Commercial render:${contentItemId}] Voice [${provider.name}] EXCEPTION: ${err}`);
+        }
       }
     }
     if (!voicePath) {
@@ -381,10 +410,16 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  // Optional render options (additive): engine + voice picked in the UI. Empty body = legacy behavior.
+  const body = await req.json().catch(() => ({} as Record<string, unknown>));
+  const renderOpts = {
+    soundTier: typeof body.soundTier === "string" ? body.soundTier : undefined,
+    voiceId:   typeof body.voiceId === "string" ? body.voiceId : undefined,
+  };
 
   const project = await prisma.commercialProject.findUnique({
     where: { id },
@@ -421,7 +456,7 @@ export async function POST(
   // Set contentItemId immediately so polling can track the new render's status.
   await prisma.commercialProject.update({ where: { id }, data: { contentItemId: contentItem.id } });
 
-  renderCommercial(project, contentItem.id).catch(async err => {
+  renderCommercial(project, contentItem.id, renderOpts).catch(async err => {
     console.error(`[Commercial render] Failed:`, err);
     await Promise.all([
       updateContentItem(contentItem.id, { status: "FAILED", notes: String(err) }),
