@@ -112,8 +112,8 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
     if (!result.success) {
       console.warn(`[ImageProvider] FAL failed (${result.error}) — falling back to Segmind p-image`);
       const segResult = await segmindGenerateImage({ endpoint: "p-image", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
-      if (!segResult.success) return { success: false, error: `FAL: ${result.error} | Segmind fallback: ${segResult.error}`, model };
-      imageBuffer = segResult.data;
+      if (segResult.success) imageBuffer = segResult.data;
+      else console.warn(`[ImageProvider] FAL+Segmind failed (${result.error} | ${segResult.error}) — trying free Pollinations`);
     } else {
       imageUrl = result.imageUrl;
       if (imageUrl) imageBuffer = await downloadFalMedia(imageUrl);
@@ -134,8 +134,8 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
       // Segmind failed — fall back to FAL flux/schnell
       console.warn(`[ImageProvider] Segmind failed (${result.error}) — falling back to FAL flux/schnell`);
       const falResult = await falGenerateImage({ endpoint: "fal-ai/flux/schnell", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
-      if (!falResult.success) return { success: false, error: falResult.error, model };
-      if (falResult.imageUrl) imageBuffer = await downloadFalMedia(falResult.imageUrl);
+      if (falResult.success && falResult.imageUrl) imageBuffer = await downloadFalMedia(falResult.imageUrl);
+      else console.warn(`[ImageProvider] Segmind+FAL failed — trying free Pollinations`);
     } else {
       imageBuffer = result.data;
     }
@@ -152,14 +152,27 @@ export async function generateImage(req: ImageGenerateRequest): Promise<ImageGen
       // Kie failed — fall back to FAL flux/schnell
       console.warn(`[ImageProvider] Kie failed (${result.error}) — falling back to FAL flux/schnell`);
       const falResult = await falGenerateImage({ endpoint: "fal-ai/flux/schnell", prompt: req.prompt, negativePrompt: req.negativePrompt, width: req.width, height: req.height, seed: req.seed });
-      if (!falResult.success) return { success: false, error: `Kie: ${result.error} | FAL fallback: ${falResult.error}`, model };
-      if (falResult.imageUrl) imageBuffer = await downloadFalMedia(falResult.imageUrl);
+      if (falResult.success && falResult.imageUrl) imageBuffer = await downloadFalMedia(falResult.imageUrl);
+      else console.warn(`[ImageProvider] Kie+FAL failed — trying free Pollinations`);
     } else {
       imageBuffer = result.data;
     }
   }
 
-  if (!imageBuffer) return { success: false, error: "No image data returned", model };
+  // FREE fallback — Pollinations.ai (no key/credits) so planners keep generating at $0 balance (Henry 2026-06-21).
+  if (!imageBuffer) {
+    try {
+      const w = req.width || 1024, h = req.height || 1024;
+      const purl = `https://image.pollinations.ai/prompt/${encodeURIComponent(req.prompt)}?width=${w}&height=${h}&nologo=true&model=flux${req.seed ? `&seed=${req.seed}` : ""}`;
+      const pres = await fetch(purl, { signal: AbortSignal.timeout(120_000) });
+      if (pres.ok && (pres.headers.get("content-type") || "").startsWith("image/")) {
+        const ab = await pres.arrayBuffer();
+        if (ab.byteLength > 1000) { imageBuffer = Buffer.from(ab); console.log("[ImageProvider] Pollinations free fallback OK"); }
+      }
+    } catch (e) { console.warn("[ImageProvider] Pollinations fallback failed:", e); }
+  }
+
+  if (!imageBuffer) return { success: false, error: "No image data returned (all providers incl. free Pollinations failed)", model };
 
   // Save to file if outputPath provided — routed through the storage abstraction
   // (Task #5 R2 cutover). STORAGE_PROVIDER unset = byte-identical local write
