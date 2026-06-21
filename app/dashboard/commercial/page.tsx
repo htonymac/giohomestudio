@@ -181,6 +181,34 @@ const labelCls = "block text-xs text-[#7b7b80] mb-1 font-medium";
 const sectionCls = "bg-[#151518] border border-[rgba(255,255,255,0.06)] rounded-lg p-3 space-y-3";
 const sectionTitle = "text-xs font-semibold text-[#7b7b80] uppercase tracking-widest";
 
+// Shared narration ordering (Henry 2026-06-21): intro text → FIRST slide, content across the
+// middle, contact + outro → LAST slide. Used by BOTH "AI Order" and "Caption + Narrate all"
+// so the outro never lands at the top. Contact lives ONLY in the outro.
+function buildOrderedNarration(opts: { content: string; introText: string; outroText: string; phone: string; whatsapp: string; slideCount: number }): { fullNarration: string; lines: string[] } {
+  const { content, introText, outroText, phone, whatsapp, slideCount: n } = opts;
+  const contactParts: string[] = [];
+  if (phone) contactParts.push(`Please contact us at ${phone}`);
+  if (whatsapp) contactParts.push(`or WhatsApp ${whatsapp}`);
+  const contactLine = contactParts.join(" ");
+  const builtIntro = (introText || "").trim();
+  const builtOutro = [(outroText || "").trim(), contactLine].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
+  const fullNarration = [builtIntro, content, builtOutro].filter(Boolean).join(" ");
+  const lines: string[] = Array.from({ length: n }, () => "");
+  if (n > 0) {
+    let firstIdx = 0, lastIdx = n - 1;
+    if (builtIntro) { lines[0] = builtIntro; firstIdx = 1; }
+    if (builtOutro && n >= 2) { lines[n - 1] = builtOutro; lastIdx = n - 2; }
+    else if (builtOutro) { lines[0] = [lines[0], builtOutro].filter(Boolean).join(" "); }
+    const contentSentences = content.split(/(?<=[.!?])\s+/).filter(Boolean);
+    const slots = Math.max(1, lastIdx - firstIdx + 1);
+    for (let i = 0; i < contentSentences.length; i++) {
+      const slot = firstIdx + Math.min(slots - 1, Math.floor((i * slots) / Math.max(1, contentSentences.length)));
+      lines[slot] = lines[slot] ? `${lines[slot]} ${contentSentences[i]}` : contentSentences[i];
+    }
+  }
+  return { fullNarration, lines };
+}
+
 // ── Project List ─────────────────────────────────────────────────────────────
 
 function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void; onNew: () => void }) {
@@ -2987,34 +3015,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     const data = await res.json() as { narration?: string; error?: string };
                     if (data.error) { setNarrationEnhanceError(data.error); setAiOrdering(false); return; }
                     if (data.narration) {
-                      // Intro = intro text ONLY (no contact at the top). Contact + outro go at the END
-                      // (Henry 2026-06-21: "ai order brought it up instead of down — contact belongs in the outro").
-                      const contactParts: string[] = [];
-                      if (introPhone) contactParts.push(`Please contact us at ${introPhone}`);
-                      if (introWhatsapp) contactParts.push(`or WhatsApp ${introWhatsapp}`);
-                      const contactLine = contactParts.join(" ");
-                      const builtIntro = introText.trim();
-                      const builtOutro = [outroText.trim(), contactLine].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
-                      const fullNarration = [builtIntro, data.narration, builtOutro].filter(Boolean).join(" ");
+                      // Intelligent ordering: intro first, content in the middle, contact+outro LAST.
+                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
                       await patchProject({ narrationScript: fullNarration });
-                      // Distribute: intro → FIRST slide, outro+contact → LAST slide, content across the middle.
-                      const slides = project.slides;
-                      const n = slides.length;
-                      const lines: string[] = slides.map(() => "");
-                      if (n > 0) {
-                        let firstIdx = 0, lastIdx = n - 1;
-                        if (builtIntro) { lines[0] = builtIntro; firstIdx = 1; }
-                        if (builtOutro && n >= 2) { lines[n - 1] = builtOutro; lastIdx = n - 2; }
-                        else if (builtOutro) { lines[0] = [lines[0], builtOutro].filter(Boolean).join(" "); }
-                        const contentSentences = data.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
-                        const slots = Math.max(1, lastIdx - firstIdx + 1);
-                        for (let i = 0; i < contentSentences.length; i++) {
-                          const slot = firstIdx + Math.min(slots - 1, Math.floor((i * slots) / Math.max(1, contentSentences.length)));
-                          lines[slot] = lines[slot] ? `${lines[slot]} ${contentSentences[i]}` : contentSentences[i];
-                        }
-                      }
-                      for (let i = 0; i < n; i++) {
-                        await patchSlide(slides[i].id, { narrationLine: lines[i] });
+                      for (let i = 0; i < project.slides.length; i++) {
+                        await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
                       }
                     } else {
                       setNarrationEnhanceError("AI Order returned no narration. Add slide content first.");
@@ -3056,21 +3061,15 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   const imageUrls = project.slides.filter(s => s.imagePath).map(s => `/api/media/${(s.imagePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
                   const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, {
                     method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ imageUrls, includeImages: true }),
+                    body: JSON.stringify({ imageUrls, includeImages: true, productInfo: productInfo.trim() || undefined }),
                   });
                   const data = await res.json().catch(() => ({} as { narration?: string; error?: string }));
                   if (res.ok && data.narration) {
-                    const contactParts: string[] = [];
-                    if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
-                    if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
-                    const contactLine = contactParts.join(". ");
-                    const builtIntro = introText ? (contactLine ? `${introText} ${contactLine}.` : introText) : (contactLine ? `${contactLine}.` : "");
-                    const builtOutro = outroText ? (contactLine ? `${outroText} ${contactLine}.` : outroText) : (contactLine ? `${contactLine}.` : "");
-                    const fullNarration = [builtIntro, data.narration, builtOutro].filter(Boolean).join(" ");
+                    // Same intelligent ordering as AI Order: intro first, contact+outro LAST.
+                    const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
                     await patchProject({ narrationScript: fullNarration });
-                    const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
                     for (let i = 0; i < project.slides.length; i++) {
-                      await patchSlide(project.slides[i].id, { narrationLine: sentences[i] ?? sentences[sentences.length - 1] ?? "" });
+                      await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
                     }
                   } else {
                     setNarrationEnhanceError(data.error || "Narration step failed — captions still saved.");
@@ -3123,7 +3122,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   setEnhancingNarration(true);
                   setNarrationEnhanceError(null);
                   try {
-                    const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, { method: "POST" });
+                    const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productInfo: productInfo.trim() || undefined }) });
                     if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
                       const txt = await res.text();
                       setNarrationEnhanceError(`Narration enhance failed: ${txt.slice(0, 200)}`);
@@ -3133,25 +3132,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     const data = await res.json() as { narration?: string; error?: string; provider?: string };
                     if (data.error) { setNarrationEnhanceError(data.error); setEnhancingNarration(false); return; }
                     if (data.narration) {
-                      // Build intro/outro contact lines if provided
-                      let fullNarration = data.narration;
-                      if (introPhone || introWhatsapp) {
-                        const contactParts: string[] = [];
-                        if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
-                        if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
-                        const contactLine = contactParts.join(". ");
-                        const builtIntro = introText ? `${introText} ${contactLine}.` : `${contactLine}.`;
-                        const builtOutro = outroText ? `${outroText} ${contactLine}.` : `${contactLine}.`;
-                        fullNarration = `${builtIntro} ${fullNarration} ${builtOutro}`;
-                      }
-                      // Save as project-level narration script
+                      // Intelligent ordering: intro first, content middle, contact+outro LAST.
+                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
                       await patchProject({ narrationScript: fullNarration });
-                      // Also distribute across slides for per-slide editing
-                      const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
-                      const slides = project.slides;
-                      for (let i = 0; i < slides.length; i++) {
-                        const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
-                        await patchSlide(slides[i].id, { narrationLine: line });
+                      for (let i = 0; i < project.slides.length; i++) {
+                        await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
                       }
                     } else {
                       setNarrationEnhanceError("No narration returned. Add captions or slide content first.");
