@@ -896,6 +896,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [importKind, setImportKind] = useState<"intro" | "outro" | null>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
   const [cardTheme, setCardTheme] = useState(0);  // index into CARD_THEMES (0 = AI auto)
+  const [cardFont, setCardFont] = useState("");   // intro/outro card font ("" = bold default)
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -2872,6 +2873,16 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </button>
               ))}
             </div>
+            <div className="flex items-center gap-1 flex-wrap mt-2">
+              <span className="text-[10px] mr-1" style={{ color: "#5a7080" }}>Font:</span>
+              {["", "Georgia", "Impact", "Verdana", "Trebuchet MS", "Courier New"].map(f => (
+                <button key={f || "default"} type="button" onClick={() => setCardFont(f)}
+                  className={`text-[10px] px-2 py-0.5 rounded border transition-colors ${cardFont === f ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}
+                  style={{ fontFamily: f || undefined }}>
+                  {f || "Bold"}
+                </button>
+              ))}
+            </div>
             <div className="flex gap-2 mt-2">
               {(["intro", "outro"] as const).map(kind => (
                 <button key={kind} type="button" disabled={generatingTitleCard !== null || !titleCardText.trim()}
@@ -2880,7 +2891,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     try {
                       const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, {
                         method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined }),
+                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined, font: cardFont || undefined }),
                       });
                       const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
                       if (res.ok && data.slide) {
