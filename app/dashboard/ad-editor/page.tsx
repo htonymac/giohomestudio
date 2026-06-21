@@ -961,12 +961,22 @@ function AdEditorInner() {
           {exporting ? "..." : "Download PNG"}
         </button>
         <button onClick={() => topUploadRef.current?.click()}
-          title="Upload a product image onto the canvas"
+          title="Upload an image as the FULL background (covers the whole canvas)"
           style={{ ...btnSm, fontSize: 10, background: ds.color.lilac, color: "#fff", borderColor: ds.color.lilac }}>
-          ⬆ Upload Image
+          ⬆ Upload Background
         </button>
         <input ref={topUploadRef} type="file" accept="image/*" className="hidden"
-          onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
+          onChange={async e => {
+            const f = e.target.files?.[0]; e.currentTarget.value = "";
+            if (!f) return;
+            const fd = new FormData(); fd.append("file", f);
+            const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+            if (!res.ok) { alert("Upload failed — try a smaller image."); return; }
+            const data = await res.json();
+            const url = `/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+            setBgGradient(null);
+            setCanvas(prev => ({ ...prev, background: `url(${url})` }));
+          }} />
         <button onClick={newProject} style={{ ...btnSm, fontSize: 10 }}>New</button>
         <button onClick={() => setShowProjectPicker(!showProjectPicker)} style={{ ...btnSm, fontSize: 10 }}>
           Projects ({projectList.length})
@@ -1499,6 +1509,7 @@ function AdEditorInner() {
             style={{
               width: displayW, height: displayH,
               background: bgGradient ?? canvas.background,
+              ...((!bgGradient && typeof canvas.background === "string" && canvas.background.startsWith("url(")) ? { backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : {}),
               position: "relative", overflow: "hidden",
               cursor: dragging ? "grabbing" : "default",
               boxShadow: "0 8px 40px rgba(0,0,0,0.5)",
@@ -1643,6 +1654,19 @@ function AdEditorInner() {
 
             {selectedLayer.type === "image" && (
               <div style={{ marginBottom: 12 }}>
+                <button onClick={() => {
+                    const probe = new window.Image();
+                    probe.onload = () => {
+                      const scale = Math.max(canvas.width / probe.naturalWidth, canvas.height / probe.naturalHeight);
+                      const w = Math.round(probe.naturalWidth * scale), h = Math.round(probe.naturalHeight * scale);
+                      updateLayer(selectedLayer.id, { position: { x: Math.round((canvas.width - w) / 2), y: Math.round((canvas.height - h) / 2) }, size: { width: w, height: h } });
+                    };
+                    probe.onerror = () => updateLayer(selectedLayer.id, { position: { x: 0, y: 0 }, size: { width: canvas.width, height: canvas.height } });
+                    probe.src = selectedLayer.content;
+                  }}
+                  style={{ ...btnSm, width: "100%", fontSize: 11, marginBottom: 6, background: ds.color.mint, color: ds.color.paper, borderColor: ds.color.mint }}>
+                  ⛶ Fill canvas (cover background)
+                </button>
                 <button onClick={handleBgRemove} disabled={bgRemoving}
                   style={{ ...btnSm, width: "100%", fontSize: 11, background: ds.color.lilac, color: "#fff", borderColor: ds.color.lilac, opacity: bgRemoving ? 0.5 : 1 }}>
                   {bgRemoving ? "Removing…" : "🪄 Remove Background (free)"}
