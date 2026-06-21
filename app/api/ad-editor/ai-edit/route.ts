@@ -113,6 +113,27 @@ export async function POST(req: NextRequest) {
       } catch (e) { errs.push(`Segmind: ${e instanceof Error ? e.message : String(e)}`); console.warn("[ai-edit] segmind gen failed:", e); }
     } else errs.push("Segmind: no key");
 
+    // FREE fallback — Pollinations.ai (no key, no credits) so generation works even at $0 balance (Henry 2026-06-21).
+    try {
+      const pw = mode === "banner" ? 1920 : 1080;
+      const ph = mode === "banner" ? 640 : 1080;
+      const purl = `https://image.pollinations.ai/prompt/${encodeURIComponent(plan.enhancedPrompt)}?width=${pw}&height=${ph}&nologo=true&model=flux`;
+      const pres = await fetch(purl, { signal: AbortSignal.timeout(120000) });
+      const pct = pres.headers.get("content-type") || "";
+      if (pres.ok && pct.startsWith("image/")) {
+        const ab = await pres.arrayBuffer();
+        if (ab.byteLength > 1000) {
+          const outPath = path.join(outDir, `gen_${Date.now()}.png`);
+          await writeMedia(outPath, Buffer.from(ab));
+          const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
+          const outputUrl = `/api/media/${relPath}`;
+          if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "pollinations_free", outputUrl);
+          return NextResponse.json({ outputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "pollinations_free" });
+        }
+      }
+      errs.push(`Pollinations: ${pres.status} ${pct}`);
+    } catch (e) { errs.push(`Pollinations: ${e instanceof Error ? e.message : String(e)}`); console.warn("[ai-edit] pollinations failed:", e); }
+
     console.warn("[ai-edit] generate failed:", errs.join(" | "));
     return NextResponse.json({ error: `Image generation failed — ${errs.join(" | ")}`.slice(0, 400) }, { status: 502 });
   }
