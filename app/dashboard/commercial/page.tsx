@@ -502,7 +502,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
         if (d.savedFiles?.length) collected.push(...d.savedFiles);
       }
       setSavedFiles(collected);
-      if (collected.length === 0) { setWarn("No images uploaded. Use JPG/PNG/WEBP under 10MB each."); return; }
+      if (collected.length === 0) { setWarn("Upload didn't go through — please retry (JPG/PNG/WEBP/HEIC; big photos are auto-resized)."); return; }
 
       // One cheap analysis pass over the file NAMES only (no image bytes).
       setWarn("Analysing…");

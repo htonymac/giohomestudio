@@ -10,8 +10,10 @@ import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
 import { callLLM } from "@/lib/llm";
 import { extractJSONFromLLM } from "@/lib/media-utils";
+import sharp from "sharp";
 
-const ALLOWED_MIME = new Set(["image/jpeg", "image/png", "image/webp", "video/mp4", "video/quicktime"]);
+const IMG_RE = /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif|tiff?)$/i;
+const VID_RE = /\.(mp4|mov|m4v|webm|avi|mkv)$/i;
 
 export async function POST(
   req: NextRequest,
@@ -55,16 +57,27 @@ export async function POST(
   const savedFiles: { name: string; type: "image" | "video"; path: string }[] = [];
 
   for (const file of files) {
-    if (!ALLOWED_MIME.has(file.type)) continue;
-    const ext  = file.name.split(".").pop() ?? "bin";
-    const dest = path.join(uploadDir, `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`);
-    const buf  = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(dest, buf);  // LOCAL: build-slides + render read these processing files from disk (not R2)
-    savedFiles.push({
-      name: file.name,
-      type: file.type.startsWith("video") ? "video" : "image",
-      path: dest,
-    });
+    // Accept ANY image/video (by mime OR extension) — strict mime list silently dropped HEIC/odd types (Henry 2026-06-21).
+    const isVid = (file.type || "").startsWith("video/") || VID_RE.test(file.name);
+    const isImg = (file.type || "").startsWith("image/") || IMG_RE.test(file.name);
+    if (!isImg && !isVid) continue;
+    const buf = Buffer.from(await file.arrayBuffer());
+    const base = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "");
+    if (isImg && !isVid) {
+      // Downscale + normalise large/any-format images so big phone photos & HEIC are accepted, fit, and stay clear.
+      const dest = path.join(uploadDir, `${Date.now()}_${base}.jpg`);
+      try {
+        await sharp(buf).rotate().resize({ width: 2000, height: 2000, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 86 }).toFile(dest);
+      } catch {
+        fs.writeFileSync(dest, buf);  // unreadable format — keep raw so nothing is lost
+      }
+      savedFiles.push({ name: file.name, type: "image", path: dest });
+    } else {
+      const ext = file.name.split(".").pop() ?? "mp4";
+      const dest = path.join(uploadDir, `${Date.now()}_${base}.${ext}`);
+      fs.writeFileSync(dest, buf);  // LOCAL: build-slides + render read these from disk (not R2)
+      savedFiles.push({ name: file.name, type: "video", path: dest });
+    }
   }
 
   if (savedFiles.length === 0) {
