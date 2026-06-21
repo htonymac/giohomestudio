@@ -952,6 +952,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const fileRef       = useRef<HTMLInputElement>(null);
   const swipeRef      = useRef<number | null>(null);
   const batchImportRef = useRef<HTMLInputElement>(null);
+  const introOutroRef = useRef<HTMLDivElement>(null);
   const musicFileRef  = useRef<HTMLInputElement>(null);
   const [mergedVideoPath, setMergedVideoPath] = useState<string | null>(null);
   const [musicUploading, setMusicUploading] = useState(false);
@@ -1555,6 +1556,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 {batchImporting ? "⏳ Importing…" : "⬆ Import"}
               </button>
               <button onClick={addSlide} className="text-xs text-[#7c5cfc] hover:text-[#9070ff] font-medium transition-colors">➕ Add</button>
+              <button onClick={() => introOutroRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                title="Add an intro or outro card — type a card (AI colours) or import your own image"
+                className="text-[10px] text-[#c9b6ff] hover:text-white font-medium transition-colors">🎬 Intro/Outro</button>
             </div>
           </div>
           <input ref={batchImportRef} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={e => { handleBatchImport(e.target.files); e.target.value = ""; }} />
@@ -2851,7 +2855,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           </div>
 
           {/* ── 🎬 Intro / Outro cards — 2 ways: type a card (AI colours) OR import your own image (Henry 2026-06-20) ── */}
-          <div style={{ border: "2px solid rgba(124,92,252,0.5)", borderRadius: 10, padding: "12px 14px", background: "linear-gradient(180deg,#17101f,#0f0f0f)" }}>
+          <div ref={introOutroRef} style={{ border: "2px solid rgba(124,92,252,0.5)", borderRadius: 10, padding: "12px 14px", background: "linear-gradient(180deg,#17101f,#0f0f0f)" }}>
             <p className="text-sm font-bold mb-0.5" style={{ color: "#c9b6ff" }}>🎬 Intro / Outro cards</p>
             <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Add a front (intro) or end (outro) card to your ad — two ways:</p>
 
