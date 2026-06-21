@@ -451,6 +451,12 @@ model CommercialProject {
   musicVolume          Float             @default(0.85)
   narrationVolume      Float             @default(1.0)   // voice level in final FFmpeg mix 0.0-2.0
   narrationScript      String?           // full narration text (assembled from slide narrationLines)
+  // Intro/Outro card + AI Order inputs — persisted so they survive refresh (Henry 2026-06-21)
+  introText            String?
+  outroText            String?
+  introPhone           String?
+  introWhatsapp        String?
+  productInfo          String?           // product/property details fed to AI Order narration
   enhancementPreset    String?           // "cinematic" | "hdr" | "natural" | "clean_social" | "warm_promo"
   enhancementLevel     Int?              // global enhancement level 1-100 (applied to all slides)
   renderStatus      String            @default("draft")  // "draft" | "rendering" | "ready" | "failed"
