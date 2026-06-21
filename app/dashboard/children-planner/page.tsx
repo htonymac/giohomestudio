@@ -860,7 +860,10 @@ function ChildrenPlannerInner() {
     // from the duration, so a 60s and a 600s video genuinely differ (600s gets ~10x
     // the cards / counts higher / more rounds). No LLM, no typed text needed — the
     // content type IS the input. Story/poem/unmapped types fall through to the LLM.
-    const detMode = resolveChildMode(contentParam, learningMode);
+    let detMode = resolveChildMode(contentParam, learningMode);
+    // Age guard (Henry 2026-06-21): ABC flashcards ("A for Apple") are toddler/preschool only —
+    // an 8+ child must never get them. Force early/older off the abc path → age-appropriate LLM content.
+    if (detMode === "abc" && (ageGroup === "early" || ageGroup === "older")) detMode = "story";
     if (isDeterministicMode(detMode)) {
       setExpandingContent(true);
       try {
