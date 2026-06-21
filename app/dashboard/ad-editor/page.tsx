@@ -304,6 +304,7 @@ function AdEditorInner() {
   const bgFileRef = useRef<HTMLInputElement>(null);
   const layerizeFileRef = useRef<HTMLInputElement>(null);
   const topUploadRef = useRef<HTMLInputElement>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);  // inline 2-click delete confirm (native confirm() gets suppressed)
 
   const [ideogramPrompt, setIdeogramPrompt] = useState("");
   const [ideogramLoading, setIdeogramLoading] = useState(false);
@@ -486,10 +487,11 @@ function AdEditorInner() {
 
   async function deleteProject(id: string) {
     try {
-      await fetch(`/api/ad-editor/project/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/ad-editor/project/${id}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(`Delete failed: ${d.error ?? res.status}`); return; }
       setProjectList(prev => prev.filter(p => p.id !== id));
       if (projectId === id) newProject();
-    } catch { /* ignore */ }
+    } catch (e) { alert(`Delete failed: ${e instanceof Error ? e.message : "network error"}`); }
   }
 
   async function handleBgRemove() {
@@ -1007,9 +1009,13 @@ function AdEditorInner() {
                     {p.canvasWidth}×{p.canvasHeight} · {p._count.layers} layers · {new Date(p.updatedAt).toLocaleDateString()}
                   </div>
                 </div>
-                <button onClick={e => { e.stopPropagation(); if (confirm(`Delete project "${p.name}"?`)) deleteProject(p.id); }}
-                  style={{ fontSize: 10, color: ds.color.coral, background: `${ds.color.coral}10`, border: `1px solid ${ds.color.coral}30`, cursor: "pointer", padding: "3px 8px", borderRadius: ds.radius.xs, flexShrink: 0, marginLeft: 8 }}>
-                  Delete
+                <button onClick={e => {
+                    e.stopPropagation();
+                    if (confirmDel === p.id) { setConfirmDel(null); deleteProject(p.id); }
+                    else { setConfirmDel(p.id); setTimeout(() => setConfirmDel(c => (c === p.id ? null : c)), 3000); }
+                  }}
+                  style={{ fontSize: 10, color: confirmDel === p.id ? "#fff" : ds.color.coral, background: confirmDel === p.id ? ds.color.coral : `${ds.color.coral}10`, border: `1px solid ${ds.color.coral}30`, cursor: "pointer", padding: "3px 8px", borderRadius: ds.radius.xs, flexShrink: 0, marginLeft: 8, fontWeight: confirmDel === p.id ? 700 : 400 }}>
+                  {confirmDel === p.id ? "Confirm?" : "Delete"}
                 </button>
               </div>
             ))}
