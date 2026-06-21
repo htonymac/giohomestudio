@@ -893,6 +893,8 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [titleCardText, setTitleCardText] = useState("");
   const [titleCardSub, setTitleCardSub] = useState("");
   const [generatingTitleCard, setGeneratingTitleCard] = useState<"intro" | "outro" | null>(null);
+  const [importKind, setImportKind] = useState<"intro" | "outro" | null>(null);
+  const cardImportRef = useRef<HTMLInputElement>(null);
   const [cardTheme, setCardTheme] = useState(0);  // index into CARD_THEMES (0 = AI auto)
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
@@ -2848,12 +2850,15 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             )}
           </div>
 
-          {/* ── Intro/Outro title cards — type text → AI colours → card slide (Henry 2026-06-20) ── */}
-          <div style={{ border: "1px solid rgba(124,92,252,0.25)", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
-            <p className="text-xs font-semibold mb-1" style={{ color: "#b090ff" }}>Intro / Outro card</p>
-            <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Type a title — AI picks clean colours and makes a graphic card, added as a slide. e.g. &ldquo;Diolux — 2 Bed Serviced Apartment&rdquo;.</p>
-            <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Card title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
-            <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Now available in Lekki)" className={`${inputCls} mt-2`} />
+          {/* ── 🎬 Intro / Outro cards — 2 ways: type a card (AI colours) OR import your own image (Henry 2026-06-20) ── */}
+          <div style={{ border: "2px solid rgba(124,92,252,0.5)", borderRadius: 10, padding: "12px 14px", background: "linear-gradient(180deg,#17101f,#0f0f0f)" }}>
+            <p className="text-sm font-bold mb-0.5" style={{ color: "#c9b6ff" }}>🎬 Intro / Outro cards</p>
+            <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Add a front (intro) or end (outro) card to your ad — two ways:</p>
+
+            {/* WAY 1 — type a card, AI colours */}
+            <p className="text-[10px] font-semibold mb-1" style={{ color: "#b090ff" }}>① Type a card — AI picks colours</p>
+            <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
+            <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Sangotedo · Ajah · Lekki)" className={`${inputCls} mt-2`} />
             <div className="flex items-center gap-1 flex-wrap mt-2">
               <span className="text-[10px] mr-1" style={{ color: "#5a7080" }}>Colours:</span>
               {CARD_THEMES.map((t, i) => (
@@ -2888,8 +2893,39 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     setGeneratingTitleCard(null);
                   }}
                   className="flex-1 text-[11px] font-semibold px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
-                  style={{ background: "rgba(124,92,252,0.15)", color: "#b090ff", border: "1px solid rgba(124,92,252,0.4)" }}>
+                  style={{ background: "rgba(124,92,252,0.18)", color: "#b090ff", border: "1px solid rgba(124,92,252,0.4)" }}>
                   {generatingTitleCard === kind ? "Making card…" : `+ ${kind === "intro" ? "Intro" : "Outro"} card`}
+                </button>
+              ))}
+            </div>
+
+            {/* WAY 2 — import your own image */}
+            <p className="text-[10px] font-semibold mt-3 mb-1" style={{ color: "#b090ff" }}>② Import your own image (from PC)</p>
+            <input ref={cardImportRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+              onChange={async e => {
+                const f = e.target.files?.[0]; e.target.value = "";
+                const k = importKind;
+                if (!f || !k) return;
+                setGeneratingTitleCard(k);
+                try {
+                  const fd = new FormData(); fd.append("file", f); fd.append("kind", k);
+                  const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, { method: "POST", body: fd });
+                  const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
+                  if (res.ok && data.slide) {
+                    const ns = data.slide;
+                    setProject(prev => { let slides = [...prev.slides]; if (k === "intro") { slides = slides.map(s => ({ ...s, slideOrder: (s.slideOrder ?? 0) + 1 })); slides.unshift(ns); } else slides.push(ns); return { ...prev, slides }; });
+                    setSelectedId(ns.id);
+                  }
+                } catch { /* ignore */ }
+                setGeneratingTitleCard(null);
+              }} />
+            <div className="flex gap-2 mt-1">
+              {(["intro", "outro"] as const).map(kind => (
+                <button key={kind} type="button" disabled={generatingTitleCard !== null}
+                  onClick={() => { setImportKind(kind); cardImportRef.current?.click(); }}
+                  className="flex-1 text-[11px] font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                  style={{ background: "rgba(255,255,255,0.04)", color: "#c0c0e0", border: "1px solid #2a2a40" }}>
+                  ⬆ Import {kind === "intro" ? "Intro" : "Outro"} image
                 </button>
               ))}
             </div>

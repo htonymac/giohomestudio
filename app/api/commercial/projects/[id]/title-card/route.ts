@@ -64,6 +64,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
+  // WAY 2 — IMPORT IMAGE (multipart): user uploads their own intro/outro card image (Henry 2026-06-20).
+  const ctype = req.headers.get("content-type") || "";
+  if (ctype.includes("multipart/form-data")) {
+    const form = await req.formData();
+    const file = form.get("file") as File | null;
+    const ikind = String(form.get("kind") || "intro") === "outro" ? "outro" : "intro";
+    if (!file) return NextResponse.json({ error: "No image file" }, { status: 400 });
+    const dir = path.join(env.storagePath, "commercial", id);
+    fs.mkdirSync(dir, { recursive: true });
+    const ext = file.type === "image/png" ? ".png" : file.type === "image/webp" ? ".webp" : ".jpg";
+    const dest = path.join(dir, `titlecard_${ikind}_${Date.now()}${ext}`);
+    fs.writeFileSync(dest, Buffer.from(await file.arrayBuffer()));  // LOCAL: render reads slide images from disk
+    const aggM = await prisma.commercialSlide.aggregate({ where: { projectId: id }, _max: { slideOrder: true } });
+    const maxM = aggM._max.slideOrder ?? 0;
+    if (ikind === "intro") await prisma.commercialSlide.updateMany({ where: { projectId: id }, data: { slideOrder: { increment: 1 } } });
+    const slideM = await prisma.commercialSlide.create({
+      data: { projectId: id, slideOrder: ikind === "intro" ? 0 : maxM + 1, status: "ready", imagePath: dest, imageFileName: path.basename(dest), captionOriginal: null },
+    });
+    return NextResponse.json({ slide: slideM, kind: ikind }, { status: 201 });
+  }
+
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400 });
   const { text, subtitle, kind } = parsed.data;
