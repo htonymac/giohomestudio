@@ -71,29 +71,28 @@ export async function POST(req: NextRequest) {
 
   // Text-to-image generation (no source image needed)
   if (plan.editType === "generate" || !imageBase64) {
+    const errs: string[] = [];
     if (FAL_KEY) {
       try {
-        // Migrated to providers/fal adapter (Henry 2026-05-30 task #24).
         const { falFluxSchnell } = await import("@/lib/providers/fal");
         const r = await falFluxSchnell({
           prompt: plan.enhancedPrompt,
           imageSize: mode === "banner" ? { width: 1920, height: 640 } : { width: 1080, height: 1080 },
           numInferenceSteps: 4,
         });
-        if (r.ok) {
-          const imgUrl = r.data.images?.[0]?.url;
-          if (imgUrl) {
-            const imgRes = await fetch(imgUrl);
-            const outPath = path.join(outDir, `gen_${Date.now()}.png`);
-            await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
-            const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
-            const outputUrl = `/api/media/${relPath}`;
-            if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "fal_ai", outputUrl);
-            return NextResponse.json({ outputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "fal_ai" });
-          }
+        const imgUrl = r.ok ? r.data.images?.[0]?.url : undefined;
+        if (imgUrl) {
+          const imgRes = await fetch(imgUrl);
+          const outPath = path.join(outDir, `gen_${Date.now()}.png`);
+          await writeMedia(outPath, Buffer.from(await imgRes.arrayBuffer()));
+          const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
+          const outputUrl = `/api/media/${relPath}`;
+          if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "fal_ai", outputUrl);
+          return NextResponse.json({ outputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "fal_ai" });
         }
-      } catch (e) { console.warn("[ai-edit] fal.ai gen failed:", e); }
-    }
+        errs.push(`FAL: ${r.ok ? "no image returned" : ("rejected — " + JSON.stringify(r).slice(0, 140))}`);
+      } catch (e) { errs.push(`FAL: ${e instanceof Error ? e.message : String(e)}`); console.warn("[ai-edit] fal.ai gen failed:", e); }
+    } else errs.push("FAL: no key");
 
     if (SEGMIND_KEY) {
       try {
@@ -110,10 +109,12 @@ export async function POST(req: NextRequest) {
           if (projectId) trackJob(projectId, mode, plan.editType, prompt, plan.enhancedPrompt, "segmind", segOutputUrl);
           return NextResponse.json({ outputUrl: segOutputUrl, editType: plan.editType, enhancedPrompt: plan.enhancedPrompt, provider: "segmind" });
         }
-      } catch (e) { console.warn("[ai-edit] segmind gen failed:", e); }
-    }
+        errs.push(`Segmind: ${res.status} ${(await res.text()).slice(0, 140)}`);
+      } catch (e) { errs.push(`Segmind: ${e instanceof Error ? e.message : String(e)}`); console.warn("[ai-edit] segmind gen failed:", e); }
+    } else errs.push("Segmind: no key");
 
-    return NextResponse.json({ error: "No image generation provider available. Set FAL_API_KEY or SEGMIND_API_KEY." }, { status: 503 });
+    console.warn("[ai-edit] generate failed:", errs.join(" | "));
+    return NextResponse.json({ error: `Image generation failed — ${errs.join(" | ")}`.slice(0, 400) }, { status: 502 });
   }
 
   // Image editing (has source image)
