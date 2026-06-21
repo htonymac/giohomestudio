@@ -303,6 +303,7 @@ function AdEditorInner() {
   const [aiBgType, setAiBgType] = useState<"ai" | "import" | "white">("ai");
   const bgFileRef = useRef<HTMLInputElement>(null);
   const layerizeFileRef = useRef<HTMLInputElement>(null);
+  const topUploadRef = useRef<HTMLInputElement>(null);
 
   const [ideogramPrompt, setIdeogramPrompt] = useState("");
   const [ideogramLoading, setIdeogramLoading] = useState(false);
@@ -957,6 +958,13 @@ function AdEditorInner() {
           style={{ ...btnSm, fontSize: 10, background: exporting ? ds.color.card : ds.color.mint, color: exporting ? ds.color.mute : ds.color.paper, borderColor: ds.color.mint }}>
           {exporting ? "..." : "Download PNG"}
         </button>
+        <button onClick={() => topUploadRef.current?.click()}
+          title="Upload a product image onto the canvas"
+          style={{ ...btnSm, fontSize: 10, background: ds.color.lilac, color: "#fff", borderColor: ds.color.lilac }}>
+          ⬆ Upload Image
+        </button>
+        <input ref={topUploadRef} type="file" accept="image/*" className="hidden"
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.currentTarget.value = ""; }} />
         <button onClick={newProject} style={{ ...btnSm, fontSize: 10 }}>New</button>
         <button onClick={() => setShowProjectPicker(!showProjectPicker)} style={{ ...btnSm, fontSize: 10 }}>
           Projects ({projectList.length})
@@ -1626,6 +1634,16 @@ function AdEditorInner() {
                 <input type="number" value={selectedLayer.size.height} onChange={e => updateLayer(selectedLayer.id, { size: { ...selectedLayer.size, height: Number(e.target.value) } })} style={{ ...inputSm, width: 70 }} />
               </div>
             </div>
+
+            {selectedLayer.type === "image" && (
+              <div style={{ marginBottom: 12 }}>
+                <button onClick={handleBgRemove} disabled={bgRemoving}
+                  style={{ ...btnSm, width: "100%", fontSize: 11, background: ds.color.lilac, color: "#fff", borderColor: ds.color.lilac, opacity: bgRemoving ? 0.5 : 1 }}>
+                  {bgRemoving ? "Removing…" : "🪄 Remove Background (free)"}
+                </button>
+                <p style={{ fontSize: 9, color: ds.color.mute, marginTop: 4 }}>Clears the background inside THIS image (free). Then pick a Canvas Background (Setup tab) to show behind it.</p>
+              </div>
+            )}
 
             {selectedLayer.type !== "image" && (
               <>
