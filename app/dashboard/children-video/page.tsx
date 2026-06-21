@@ -543,7 +543,7 @@ export default function ChildrenVideoPage() {
               AI-generated children illustrations
               <span style={{ flex: 1, height: 1, background: border }} />
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 8 }}>
               {[
                 { src: "/api/media/demo/child_abc.png", label: "ABC Letters" },
                 { src: "/api/media/demo/child_counting.png", label: "Counting" },
@@ -611,7 +611,7 @@ export default function ChildrenVideoPage() {
             <p style={{ fontSize: 11, fontWeight: 500, letterSpacing: 1.5, textTransform: "uppercase" as const, color: muted, marginBottom: 10 }}>
               Age Group (changes what you can create below)
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, marginBottom: 8 }}>
               {AGE_GROUPS.map(a => (
                 <button key={a.id} onClick={() => { setAgeGroup(a.id); setContentType(""); setSelectedTopic(null); setTopicFilter(""); setShowAgeInfo(true); }}
                   style={{ padding: "14px 10px", borderRadius: 12, border: `1px solid ${ageGroup === a.id ? childAccent : border}`, background: ageGroup === a.id ? `${childAccent}10` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
@@ -704,7 +704,7 @@ export default function ChildrenVideoPage() {
                 <p style={{ fontSize: 9, color: "#3d5060", marginBottom: 10 }}>
                   {currentContentTypes.length} content types based on {currentAgeConfig?.curriculum}
                 </p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, marginBottom: 20 }}>
                   {currentContentTypes.map(c => (
                     <button key={c.id} onClick={() => { setContentType(c.id); setSelectedTopic(null); setTopicFilter(""); }}
                       style={{ padding: "12px 10px", borderRadius: 12, border: `1px solid ${contentType === c.id ? childAccent : border}`, background: contentType === c.id ? `${childAccent}08` : "transparent", cursor: "pointer", textAlign: "center", transition: "all 0.2s" }}>
