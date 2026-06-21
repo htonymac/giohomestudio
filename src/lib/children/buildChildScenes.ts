@@ -160,7 +160,7 @@ export function buildChildScenes(input: BuildInput): BuiltContent {
       const a = ABC[i];
       scenes.push({
         index: i,
-        narration: `${a.sound}, ${a.sound}! ${a.letter} is for ${a.word}. ${a.sound}, ${a.word}!`,
+        narration: `${a.letter} is for ${a.word}. ${a.word} starts with the ${a.sound} sound!`,
         overlayText: a.word,
         flashcardLetter: a.letter,
         imageNoun: a.imageNoun,
