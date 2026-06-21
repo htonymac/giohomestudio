@@ -908,6 +908,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [introWhatsapp, setIntroWhatsapp] = useState("");
   const [introText, setIntroText]         = useState("");
   const [outroText, setOutroText]         = useState("");
+  const [productInfo, setProductInfo]     = useState("");  // name / type / specs / location — AI Order uses this over image guesses
   const [aiOrdering, setAiOrdering]       = useState(false);
 
   // Piper TTS voice selection
@@ -2975,7 +2976,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ imageUrls, includeImages: true }),
+                      body: JSON.stringify({ imageUrls, includeImages: true, productInfo: productInfo.trim() || undefined }),
                     });
                     if (!res.ok || !res.headers.get("content-type")?.includes("json")) {
                       const txt = await res.text();
@@ -2986,24 +2987,34 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     const data = await res.json() as { narration?: string; error?: string };
                     if (data.error) { setNarrationEnhanceError(data.error); setAiOrdering(false); return; }
                     if (data.narration) {
-                      // Build intro + outro with contact info
+                      // Intro = intro text ONLY (no contact at the top). Contact + outro go at the END
+                      // (Henry 2026-06-21: "ai order brought it up instead of down — contact belongs in the outro").
                       const contactParts: string[] = [];
-                      if (introPhone) contactParts.push(`PLEASE CONTACT US AT ${introPhone}`);
-                      if (introWhatsapp) contactParts.push(`WHATSAPP AT ${introWhatsapp}`);
-                      const contactLine = contactParts.join(". ");
-                      const builtIntro = introText
-                        ? (contactLine ? `${introText} ${contactLine}.` : introText)
-                        : (contactLine ? `${contactLine}.` : "");
-                      const builtOutro = outroText
-                        ? (contactLine ? `${outroText} ${contactLine}.` : outroText)
-                        : (contactLine ? `${contactLine}.` : "");
+                      if (introPhone) contactParts.push(`Please contact us at ${introPhone}`);
+                      if (introWhatsapp) contactParts.push(`or WhatsApp ${introWhatsapp}`);
+                      const contactLine = contactParts.join(" ");
+                      const builtIntro = introText.trim();
+                      const builtOutro = [outroText.trim(), contactLine].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
                       const fullNarration = [builtIntro, data.narration, builtOutro].filter(Boolean).join(" ");
                       await patchProject({ narrationScript: fullNarration });
-                      const sentences = fullNarration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                      // Distribute: intro → FIRST slide, outro+contact → LAST slide, content across the middle.
                       const slides = project.slides;
-                      for (let i = 0; i < slides.length; i++) {
-                        const line = sentences[i] ?? sentences[sentences.length - 1] ?? "";
-                        await patchSlide(slides[i].id, { narrationLine: line });
+                      const n = slides.length;
+                      const lines: string[] = slides.map(() => "");
+                      if (n > 0) {
+                        let firstIdx = 0, lastIdx = n - 1;
+                        if (builtIntro) { lines[0] = builtIntro; firstIdx = 1; }
+                        if (builtOutro && n >= 2) { lines[n - 1] = builtOutro; lastIdx = n - 2; }
+                        else if (builtOutro) { lines[0] = [lines[0], builtOutro].filter(Boolean).join(" "); }
+                        const contentSentences = data.narration.split(/(?<=[.!?])\s+/).filter(Boolean);
+                        const slots = Math.max(1, lastIdx - firstIdx + 1);
+                        for (let i = 0; i < contentSentences.length; i++) {
+                          const slot = firstIdx + Math.min(slots - 1, Math.floor((i * slots) / Math.max(1, contentSentences.length)));
+                          lines[slot] = lines[slot] ? `${lines[slot]} ${contentSentences[i]}` : contentSentences[i];
+                        }
+                      }
+                      for (let i = 0; i < n; i++) {
+                        await patchSlide(slides[i].id, { narrationLine: lines[i] });
                       }
                     } else {
                       setNarrationEnhanceError("AI Order returned no narration. Add slide content first.");
@@ -3074,6 +3085,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             >
               {captioningAll ? "Reading every image…" : "✨ AI: Caption every image + Narrate all"}
             </button>
+            <div className="mb-2">
+              <label className={labelCls}>Product / property details (name · type · specs · location)</label>
+              <textarea value={productInfo} onChange={e => setProductInfo(e.target.value)} rows={2}
+                placeholder="e.g. Diolux Serviced Apartments · 2-bed apartment · furnished, 24/7 power · Sangotedo, Ajah, Lekki"
+                className={inputCls} style={{ resize: "vertical" }} />
+              <p className="text-[9px] mt-0.5" style={{ color: "#5a7080" }}>AI Order uses these facts (says the real type like 2-bed apartment, not a guess like duplex).</p>
+            </div>
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label className={labelCls}>Phone number</label>
