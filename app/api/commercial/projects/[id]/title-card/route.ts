@@ -19,6 +19,7 @@ const schema = z.object({
   text:     z.string().min(1).max(120),         // headline
   subtitle: z.string().max(160).optional(),
   kind:     z.enum(["intro", "outro"]).default("intro"),
+  font:     z.string().max(40).optional(),       // card text font (system-safe)
   // Optional USER-chosen colours — if any provided, we use them and skip the AI colour pick.
   colors:   z.object({
     bg1:    z.string().optional(),
@@ -36,14 +37,14 @@ interface CardColors { bg1: string; bg2: string; text: string; accent: string }
 const FALLBACK: CardColors = { bg1: "#0a0f1e", bg2: "#1a1030", text: "#ffffff", accent: "#ff6b35" };
 const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v);
 
-function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number }): string {
+function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number; font?: string }): string {
   const { w, h, colors } = o;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{width:${w}px;height:${h}px;overflow:hidden}
     .card{width:${w}px;height:${h}px;display:flex;flex-direction:column;align-items:center;justify-content:center;
       background:linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%);
-      font-family:'Arial Black','Arial',sans-serif;text-align:center;padding:8% 9%}
+      font-family:${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Arial',sans-serif;text-align:center;padding:8% 9%}
     .brand{font-size:${Math.round(h * 0.028)}px;letter-spacing:.16em;text-transform:uppercase;color:${colors.accent};font-weight:700;margin-bottom:${Math.round(h * 0.03)}px}
     .title{font-size:${Math.round(h * 0.072)}px;font-weight:900;color:${colors.text};line-height:1.06;text-shadow:0 4px 24px rgba(0,0,0,.45)}
     .sub{font-size:${Math.round(h * 0.036)}px;font-weight:500;color:${colors.text};opacity:.9;margin-top:${Math.round(h * 0.035)}px}
@@ -124,7 +125,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   fs.mkdirSync(dir, { recursive: true });
   const pngPath = path.join(dir, `titlecard_${kind}_${Date.now()}.png`);
   try {
-    await renderCaptionsToPng([{ html: titleCardHtml({ title: text, subtitle, brand: project.brandName ?? undefined, colors, w, h }), outputPath: pngPath }], w, h);
+    await renderCaptionsToPng([{ html: titleCardHtml({ title: text, subtitle, brand: project.brandName ?? undefined, colors, w, h, font: parsed.data.font }), outputPath: pngPath }], w, h);
   } catch (err) {
     return NextResponse.json({ error: `Card render failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 });
   }
