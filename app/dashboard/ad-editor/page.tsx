@@ -569,8 +569,10 @@ function AdEditorInner() {
         setAiBgResult(data.outputUrl);
         setAiBgResultModelId(selectedBgModel);
         setCanvas(prev => ({ ...prev, background: `url(${data.outputUrl})` }));
+      } else {
+        setAiError(data.error || "Background generation failed — check AI keys/credits.");
       }
-    } catch { /* ignore */ }
+    } catch (e) { setAiError(e instanceof Error ? e.message : "Background generation failed"); }
     setAiBgLoading(false);
   }
 
@@ -629,14 +631,18 @@ function AdEditorInner() {
       });
       const data = await res.json();
       if (data.outputUrl) {
+        const s = Math.round(canvas.width * 0.9);
         addLayer({
           id: nextLayerId("img"), type: "image",
-          position: { x: 40, y: 40 }, size: { width: 500, height: 500 },
+          position: { x: Math.round((canvas.width - s) / 2), y: Math.round((canvas.height - s) / 2) },
+          size: { width: s, height: s },
           rotation: 0, zIndex: canvas.layers.length + 1, locked: false, visible: true,
           content: data.outputUrl, style: { opacity: 1 },
         });
+      } else {
+        setAiError(data.error || "Transparent PNG generation failed.");
       }
-    } catch { /* ignore */ }
+    } catch (e) { setAiError(e instanceof Error ? e.message : "Generation failed"); }
     setIdeogramLoading(false);
   }
 
@@ -800,12 +806,21 @@ function AdEditorInner() {
       if (!res.ok) return;
       const data = await res.json();
       const url = `/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
-      addLayer({
+      // Fit the imported image to the canvas (~90%, keep aspect ratio, centered) so it fills the editor.
+      const addFitted = (w: number, h: number) => addLayer({
         id: nextLayerId("img"), type: "image",
-        position: { x: 40, y: 40 }, size: { width: 400, height: 400 },
+        position: { x: Math.round((canvas.width - w) / 2), y: Math.round((canvas.height - h) / 2) },
+        size: { width: w, height: h },
         rotation: 0, zIndex: canvas.layers.length + 1, locked: false, visible: true,
         content: url, style: { opacity: 1 },
       });
+      const probe = new window.Image();
+      probe.onload = () => {
+        const scale = Math.min((canvas.width * 0.9) / probe.naturalWidth, (canvas.height * 0.9) / probe.naturalHeight, 1);
+        addFitted(Math.round(probe.naturalWidth * scale), Math.round(probe.naturalHeight * scale));
+      };
+      probe.onerror = () => { const s = Math.round(canvas.width * 0.9); addFitted(s, s); };
+      probe.src = url;
     } catch { /* ignore */ }
   }
 

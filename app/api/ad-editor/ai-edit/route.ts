@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   const outDir = path.join(env.storagePath, "ad-editor", "ai-edits");
   fs.mkdirSync(outDir, { recursive: true });
 
-  const FAL_KEY = process.env.FAL_API_KEY;
+  const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;  // server uses FAL_KEY (was the regression)
   const SEGMIND_KEY = process.env.SEGMIND_API_KEY;
 
   // Text-to-image generation (no source image needed)
