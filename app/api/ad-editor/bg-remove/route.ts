@@ -35,6 +35,31 @@ export async function POST(req: NextRequest) {
   const base64 = buf.toString("base64");
   const mime = file.type || "image/jpeg";
 
+  // Try LOCAL rembg FIRST — free, no API cost (Henry 2026-06-20). Falls through to paid providers on failure.
+  {
+    const rembgOut = path.join(outDir, `nobg_local_${Date.now()}.png`);
+    try {
+      const { execFile } = await import("child_process");
+      const { promisify } = await import("util");
+      const PY = "import sys; from rembg import remove; from PIL import Image; res = remove(Image.open(sys.argv[1])); res.save(sys.argv[2])";
+      await promisify(execFile)("python3", ["-c", PY, inputPath, rembgOut], { timeout: 180000 });
+      if (fs.existsSync(rembgOut) && fs.statSync(rembgOut).size > 100) {
+        const outBuf = fs.readFileSync(rembgOut);
+        const outPath = path.join(outDir, `nobg_${Date.now()}.png`);
+        await writeMedia(outPath, outBuf);
+        const relPath = outPath.replace(/\\/g, "/").replace(/^.*?storage\//, "");
+        const outputUrl = `/api/media/${relPath}`;
+        if (projectId) trackBgRemoveAsset(projectId, "rembg_local", outputUrl);
+        return NextResponse.json({ outputUrl, outputPath: outPath, provider: "rembg_local" });
+      }
+    } catch (e) {
+      console.warn("[bg-remove] local rembg failed:", e);
+    } finally {
+      // Always clean the temp output, regardless of success/size/failure (Sourcery bug_risk).
+      try { if (fs.existsSync(rembgOut)) fs.unlinkSync(rembgOut); } catch { /* temp */ }
+    }
+  }
+
   // Try fal.ai — migrated to providers/fal adapter (Henry 2026-05-30 task #27)
   const FAL_KEY = process.env.FAL_API_KEY || process.env.FAL_KEY;
   if (FAL_KEY) {

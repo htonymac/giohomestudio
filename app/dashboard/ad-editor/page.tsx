@@ -569,8 +569,10 @@ function AdEditorInner() {
         setAiBgResult(data.outputUrl);
         setAiBgResultModelId(selectedBgModel);
         setCanvas(prev => ({ ...prev, background: `url(${data.outputUrl})` }));
+      } else {
+        setAiError(data.error || "Background generation failed — check AI keys/credits.");
       }
-    } catch { /* ignore */ }
+    } catch (e) { setAiError(e instanceof Error ? e.message : "Background generation failed"); }
     setAiBgLoading(false);
   }
 
@@ -629,14 +631,18 @@ function AdEditorInner() {
       });
       const data = await res.json();
       if (data.outputUrl) {
+        const s = Math.round(canvas.width * 0.9);
         addLayer({
           id: nextLayerId("img"), type: "image",
-          position: { x: 40, y: 40 }, size: { width: 500, height: 500 },
+          position: { x: Math.round((canvas.width - s) / 2), y: Math.round((canvas.height - s) / 2) },
+          size: { width: s, height: s },
           rotation: 0, zIndex: canvas.layers.length + 1, locked: false, visible: true,
           content: data.outputUrl, style: { opacity: 1 },
         });
+      } else {
+        setAiError(data.error || "Transparent PNG generation failed.");
       }
-    } catch { /* ignore */ }
+    } catch (e) { setAiError(e instanceof Error ? e.message : "Generation failed"); }
     setIdeogramLoading(false);
   }
 
@@ -800,12 +806,21 @@ function AdEditorInner() {
       if (!res.ok) return;
       const data = await res.json();
       const url = `/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
-      addLayer({
+      // Fit the imported image to the canvas (~90%, keep aspect ratio, centered) so it fills the editor.
+      const addFitted = (w: number, h: number) => addLayer({
         id: nextLayerId("img"), type: "image",
-        position: { x: 40, y: 40 }, size: { width: 400, height: 400 },
+        position: { x: Math.round((canvas.width - w) / 2), y: Math.round((canvas.height - h) / 2) },
+        size: { width: w, height: h },
         rotation: 0, zIndex: canvas.layers.length + 1, locked: false, visible: true,
         content: url, style: { opacity: 1 },
       });
+      const probe = new window.Image();
+      probe.onload = () => {
+        const scale = Math.min((canvas.width * 0.9) / probe.naturalWidth, (canvas.height * 0.9) / probe.naturalHeight, 1);
+        addFitted(Math.round(probe.naturalWidth * scale), Math.round(probe.naturalHeight * scale));
+      };
+      probe.onerror = () => { const s = Math.round(canvas.width * 0.9); addFitted(s, s); };
+      probe.src = url;
     } catch { /* ignore */ }
   }
 
@@ -1120,10 +1135,10 @@ function AdEditorInner() {
               const canRemove = hasImageLayer || hasUrlBg;
               return (
                 <button onClick={handleBgRemove} disabled={bgRemoving || !canRemove}
-                  title={canRemove ? "Removes background using FAL Birefnet AI" : "Import or generate an image first"}
+                  title={canRemove ? "Removes the background inside the selected image (free, local AI) — then your canvas background shows through" : "Import or generate an image first"}
                   style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, opacity: bgRemoving || !canRemove ? 0.5 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                   <X size={11} color="currentColor" />
-                  {bgRemoving ? "Removing…" : "Remove Background (Birefnet)"}
+                  {bgRemoving ? "Removing…" : "Remove Image Background (free)"}
                 </button>
               );
             })()}
@@ -1614,6 +1629,18 @@ function AdEditorInner() {
 
             {selectedLayer.type !== "image" && (
               <>
+                <div style={{ marginBottom: 10 }}>
+                  {/* Load premium fonts for the preview (React hoists this <link> to <head>) */}
+                  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700;900&family=Poppins:wght@400;600;800&display=swap" />
+                  <label style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Font</label>
+                  <select value={selectedLayer.style.fontFamily ?? "Arial"}
+                    onChange={e => updateLayerStyle(selectedLayer.id, { fontFamily: e.target.value })}
+                    style={{ ...inputSm, width: "100%", marginTop: 4 }}>
+                    {["Arial", "Georgia", "Impact", "Montserrat", "Poppins", "Oswald", "Playfair Display", "Bebas Neue"].map(f => (
+                      <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
+                    ))}
+                  </select>
+                </div>
                 <div style={{ marginBottom: 10 }}>
                   <label style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Font Size</label>
                   <input type="number" value={selectedLayer.style.fontSize ?? 24} min={8} max={200}
