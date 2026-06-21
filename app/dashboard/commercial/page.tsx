@@ -959,6 +959,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [musicUploading, setMusicUploading] = useState(false);
   const [showMusicLibrary, setShowMusicLibrary] = useState(false);
   const [musicLibrary, setMusicLibrary] = useState<{ filename: string; label: string; mood: string }[]>([]);
+  const [musicPreview, setMusicPreview] = useState<string | null>(null);  // filename being previewed
   const [musicLibraryLoading, setMusicLibraryLoading] = useState(false);
   const [musicDownloadQuery, setMusicDownloadQuery] = useState("");
   const [musicDownloading, setMusicDownloading] = useState(false);
@@ -2623,16 +2624,19 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     <p className="text-[10px] text-[#6060a0]">No stock tracks yet — download some below ⬇️</p>
                   ) : (
                     <div className="max-h-40 overflow-y-auto space-y-1">
-                      {musicLibrary.map(t => (
-                        <button
-                          key={t.filename}
-                          onClick={() => handleMusicFromLibrary(t.filename)}
-                          className="w-full text-left flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#2a2a40] hover:border-[#7c5cfc]/50 hover:bg-[#7c5cfc]/5 transition-colors"
-                        >
+                      {musicLibrary.map(t => {
+                        const isPrev = musicPreview === t.filename;
+                        return (
+                        <div key={t.filename} className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg border border-[#2a2a40] hover:border-[#7c5cfc]/50 transition-colors">
+                          <button type="button" onClick={() => setMusicPreview(isPrev ? null : t.filename)} title="Preview track"
+                            className="w-6 h-6 shrink-0 rounded-full bg-[#7c5cfc]/20 text-[#b090ff] text-[11px] flex items-center justify-center hover:bg-[#7c5cfc]/35">{isPrev ? "⏸" : "▶"}</button>
                           <span className="text-[9px] px-1 py-0.5 rounded bg-[#2a2a40] text-[#6060a0] capitalize shrink-0">{t.mood}</span>
-                          <span className="text-[11px] text-white truncate">{t.label}</span>
-                        </button>
-                      ))}
+                          <button type="button" onClick={() => handleMusicFromLibrary(t.filename)} title="Use this track"
+                            className="text-[11px] text-white truncate flex-1 text-left hover:text-[#b090ff]">{t.label}</button>
+                          {isPrev && <audio src={`/api/media/music/stock/${t.filename}`} controls autoPlay className="h-7 shrink-0" style={{ maxWidth: 140 }} />}
+                        </div>
+                        );
+                      })}
                     </div>
                   )}
 
