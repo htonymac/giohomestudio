@@ -1786,20 +1786,23 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     onClick={async () => {
                       setCaptioningAll(true);
                       try {
-                        for (const s of project.slides) {
-                          if (!s.imagePath) continue;
-                          const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption`, { method: "POST" });
-                          const d = await r.json().catch(() => ({} as { caption?: string }));
-                          if (r.ok && d.caption) {
-                            await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
-                            setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
-                          }
-                        }
+                        // PARALLEL + fast cloud vision (Haiku ~2-3s) so all images caption in seconds, not minutes.
+                        const targets = project.slides.filter(s => s.imagePath);
+                        await Promise.all(targets.map(async s => {
+                          try {
+                            const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption?fast=1`, { method: "POST" });
+                            const d = await r.json().catch(() => ({} as { caption?: string }));
+                            if (r.ok && d.caption) {
+                              await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
+                              setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
+                            }
+                          } catch { /* skip this one */ }
+                        }));
                       } catch { /* ignore */ }
                       setCaptioningAll(false);
                     }}
                     className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#7c5cfc]/30 text-[#c9b6ff] hover:bg-[#7c5cfc]/45 disabled:opacity-40 transition-colors"
-                    title="AI loops through EVERY image and writes a caption for each one"
+                    title="AI captions EVERY image in seconds (fast cloud vision)"
                   >
                     {captioningAll ? "Captioning all…" : "✨ Caption ALL"}
                   </button>
@@ -3023,16 +3026,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 setCaptioningAll(true);
                 setNarrationEnhanceError(null);
                 try {
-                  // 1) Caption EVERY image (vision, local-first) — shows on each slide
-                  for (const s of project.slides) {
-                    if (!s.imagePath) continue;
-                    const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption`, { method: "POST" });
-                    const d = await r.json().catch(() => ({} as { caption?: string }));
-                    if (r.ok && d.caption) {
-                      await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
-                      setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
-                    }
-                  }
+                  // 1) Caption EVERY image — PARALLEL + fast cloud vision (seconds, not minutes)
+                  await Promise.all(project.slides.filter(s => s.imagePath).map(async s => {
+                    try {
+                      const r = await fetch(`/api/commercial/projects/${project.id}/slides/${s.id}/review-caption?fast=1`, { method: "POST" });
+                      const d = await r.json().catch(() => ({} as { caption?: string }));
+                      if (r.ok && d.caption) {
+                        await patchSlide(s.id, { captionOriginal: d.caption, captionApproved: false } as never);
+                        setProject(prev => ({ ...prev, slides: prev.slides.map(x => x.id === s.id ? { ...x, captionOriginal: d.caption!, captionApproved: false } : x) }));
+                      }
+                    } catch { /* skip */ }
+                  }));
                   // 2) Narration for ALL images (reuses enhance-narration + intro/outro contact)
                   const imageUrls = project.slides.filter(s => s.imagePath).map(s => `/api/media/${(s.imagePath as string).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
                   const res = await fetch(`/api/commercial/projects/${project.id}/enhance-narration`, {

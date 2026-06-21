@@ -78,7 +78,7 @@ async function viaOllama(b64: string, brand?: string) {
   return text;
 }
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string; slideId: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string; slideId: string }> }) {
   const { id, slideId } = await params;
   const slide = await prisma.commercialSlide.findUnique({
     where: { id: slideId },
@@ -104,9 +104,15 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const errors: string[] = [];
 
   const attempts: Array<[string, () => Promise<string>]> = [];
-  attempts.push(["ollama", () => viaOllama(b64, brand)]);
-  if (s.ANTHROPIC_API_KEY) attempts.push(["claude-haiku", () => viaAnthropic(b64, mt, brand)]);
-  if (s.OPENAI_API_KEY) attempts.push(["gpt-4o-mini", () => viaOpenAILike(b64, mt, brand, s.OPENAI_API_KEY!, undefined, "gpt-4o-mini")]);
+  // ?fast=1 → quick cheap cloud vision first (Haiku ~2-3s) instead of slow local llava (~70s on CPU).
+  // "Caption ALL" uses fast so bulk captioning is seconds, not minutes.
+  const fast = new URL(req.url).searchParams.get("fast") === "1";
+  const ollamaAttempt: [string, () => Promise<string>] = ["ollama", () => viaOllama(b64, brand)];
+  const cloud: Array<[string, () => Promise<string>]> = [];
+  if (s.ANTHROPIC_API_KEY) cloud.push(["claude-haiku", () => viaAnthropic(b64, mt, brand)]);
+  if (s.OPENAI_API_KEY) cloud.push(["gpt-4o-mini", () => viaOpenAILike(b64, mt, brand, s.OPENAI_API_KEY!, undefined, "gpt-4o-mini")]);
+  if (fast) attempts.push(...cloud, ollamaAttempt);
+  else attempts.push(ollamaAttempt, ...cloud);
 
   for (const [provider, fn] of attempts) {
     try {
