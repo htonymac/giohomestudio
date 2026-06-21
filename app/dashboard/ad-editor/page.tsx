@@ -1630,6 +1630,18 @@ function AdEditorInner() {
             {selectedLayer.type !== "image" && (
               <>
                 <div style={{ marginBottom: 10 }}>
+                  {/* Load premium fonts for the preview (React hoists this <link> to <head>) */}
+                  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;700;900&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700;900&family=Poppins:wght@400;600;800&display=swap" />
+                  <label style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Font</label>
+                  <select value={selectedLayer.style.fontFamily ?? "Arial"}
+                    onChange={e => updateLayerStyle(selectedLayer.id, { fontFamily: e.target.value })}
+                    style={{ ...inputSm, width: "100%", marginTop: 4 }}>
+                    {["Arial", "Georgia", "Impact", "Montserrat", "Poppins", "Oswald", "Playfair Display", "Bebas Neue"].map(f => (
+                      <option key={f} value={f} style={{ fontFamily: `'${f}', sans-serif` }}>{f}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ marginBottom: 10 }}>
                   <label style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>Font Size</label>
                   <input type="number" value={selectedLayer.style.fontSize ?? 24} min={8} max={200}
                     onChange={e => updateLayerStyle(selectedLayer.id, { fontSize: Number(e.target.value) })}
