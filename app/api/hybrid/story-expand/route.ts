@@ -311,6 +311,16 @@ stop early. Keep adding scenes and beats until you reach the word target.
     }
 
     // Poem / rhyme overlay — fires when user explicitly asked for a poem
+    // PHONICS narration (Henry 2026-06-21): when teaching letters/words, narrate SOUNDS not names.
+    const phonicsCtx = `${body.storyInput || ""} ${body.childContext?.learningMode || ""}`;
+    const isPhonics = !!body.childContext?.ageGroup && /\b(phonic|letter|sound|spell|spelling|reading|read|alphabet|abc|cvc|word)\b/i.test(phonicsCtx);
+    const phonicsRules = isPhonics ? `\n\n━━ PHONICS NARRATION — STRICT ━━
+When teaching a letter or word, the spoken narration MUST use the letter SOUND (phoneme), NOT the letter NAME.
+- Sound out each word letter-by-letter then blend it: "Pin. puh, ih, nnn. Pin!" (NOT "pee, eye, en"; NOT just "pin").
+- A single letter says its sound: S = "ssss", C = "kuh", A = "ah", M = "mmm".
+- Use exactly these sound spellings: A=ah B=buh C=kuh D=duh E=eh F=fff G=guh H=huh I=ih J=juh K=kuh L=lll M=mmm N=nnn O=oh P=puh Q=kwuh R=rrr S=sss T=tuh U=uh V=vvv W=wuh X=ksss Y=yuh Z=zzz.
+- Every word pattern: WORD → sounds (comma-separated) → WORD again. Example: "Cat. kuh, ah, tuh. Cat!"` : "";
+
     let poemRules = "";
     if (wantsPoem) {
       poemRules = `\n\n━━ POEM / RHYME FORMAT — STRICT ━━
@@ -366,7 +376,7 @@ stop early. Keep adding scenes and beats until you reach the word target.
 
     const controlBlock = (controlLines.length > 0
       ? `\n\nUser controls:\n${controlLines.join("\n")}`
-      : "") + childRules + poemRules + contentFormatRules + lengthEnforcement;
+      : "") + childRules + phonicsRules + poemRules + contentFormatRules + lengthEnforcement;
 
     // ── Name pool injection ───────────────────────────────────────────────
     const namePool = body.nameRegion ? buildNamePool(body.nameRegion) : null;
