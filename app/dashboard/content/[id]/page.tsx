@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content";
+import { buildOutputName } from "@/lib/projectNaming";
 import OverlayPanel from "../../../components/OverlayPanel";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import { ds } from "../../../../lib/designSystem";
@@ -776,7 +777,7 @@ export default function ContentDetailPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 <a
                   href={`/api/media/${item.mergedOutputPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`}
-                  download={`giohomestudio_${item.id.slice(0, 8)}.${item.mergedOutputPath.endsWith(".mp3") ? "mp3" : "mp4"}`}
+                  download={buildOutputName({ parts: [item.originalInput || item.mode], seed: item.id, ext: item.mergedOutputPath.endsWith(".mp3") ? "mp3" : "mp4" })}
                   className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg bg-[#7c5cfc]/15 text-[#b090ff] hover:bg-[#7c5cfc]/25 text-xs font-medium transition-colors"
                 >
                   ⬇️ Download
