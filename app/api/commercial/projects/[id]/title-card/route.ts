@@ -39,22 +39,46 @@ const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-fA-
 
 function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number; font?: string }): string {
   const { w, h, colors } = o;
+  const a = colors.accent;
+  const ff = `${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Helvetica Neue',Arial,sans-serif`;
+  const m = Math.min(w, h);
+  // Premium title card (Henry 2026-06-21: must look worth paying for): layered depth glows,
+  // vignette, inset frame with corner accents, kicker with flanking rules, elegant divider.
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{width:${w}px;height:${h}px;overflow:hidden}
-    .card{width:${w}px;height:${h}px;display:flex;flex-direction:column;align-items:center;justify-content:center;
-      background:linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%);
-      font-family:${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Arial',sans-serif;text-align:center;padding:8% 9%}
-    .brand{font-size:${Math.round(h * 0.028)}px;letter-spacing:.16em;text-transform:uppercase;color:${colors.accent};font-weight:700;margin-bottom:${Math.round(h * 0.03)}px}
-    .title{font-size:${Math.round(h * 0.072)}px;font-weight:900;color:${colors.text};line-height:1.06;text-shadow:0 4px 24px rgba(0,0,0,.45)}
-    .sub{font-size:${Math.round(h * 0.036)}px;font-weight:500;color:${colors.text};opacity:.9;margin-top:${Math.round(h * 0.035)}px}
-    .bar{width:${Math.round(w * 0.18)}px;height:6px;border-radius:3px;background:${colors.accent};margin-top:${Math.round(h * 0.04)}px}
-  </style></head><body><div class="card">
-    ${o.brand ? `<div class="brand">${esc(o.brand)}</div>` : ""}
-    <div class="title">${esc(o.title)}</div>
-    ${o.subtitle ? `<div class="sub">${esc(o.subtitle)}</div>` : ""}
-    <div class="bar"></div>
-  </div></body></html>`;
+    .card{position:relative;width:${w}px;height:${h}px;overflow:hidden;font-family:${ff};
+      background:
+        radial-gradient(circle at 27% 20%, ${a}2b, transparent 45%),
+        radial-gradient(circle at 80% 86%, ${a}1f, transparent 42%),
+        linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%);}
+    .vignette{position:absolute;inset:0;box-shadow:inset 0 0 ${Math.round(h*0.2)}px ${Math.round(h*0.07)}px rgba(0,0,0,.55);pointer-events:none}
+    .frame{position:absolute;inset:${Math.round(m*0.045)}px;border:1.5px solid ${a}55;border-radius:${Math.round(m*0.018)}px}
+    .corner{position:absolute;width:${Math.round(w*0.06)}px;height:${Math.round(w*0.06)}px;border:2.5px solid ${a}}
+    .corner.tl{top:-1px;left:-1px;border-right:0;border-bottom:0}
+    .corner.br{bottom:-1px;right:-1px;border-left:0;border-top:0}
+    .inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:${Math.round(m*0.1)}px}
+    .kicker{display:flex;align-items:center;gap:${Math.round(w*0.022)}px;margin-bottom:${Math.round(h*0.05)}px}
+    .kicker .ln{width:${Math.round(w*0.06)}px;height:2px;background:${a}}
+    .brand{font-size:${Math.round(h*0.026)}px;letter-spacing:.36em;text-transform:uppercase;color:${a};font-weight:700}
+    .title{font-size:${Math.round(h*0.08)}px;font-weight:900;color:${colors.text};line-height:1.03;letter-spacing:.004em;text-shadow:0 6px 36px rgba(0,0,0,.5)}
+    .divider{display:flex;align-items:center;justify-content:center;gap:${Math.round(w*0.016)}px;margin-top:${Math.round(h*0.052)}px}
+    .divider .ln{width:${Math.round(w*0.13)}px;height:2px;background:linear-gradient(90deg, transparent, ${a})}
+    .divider .ln.r{background:linear-gradient(90deg, ${a}, transparent)}
+    .divider .dot{width:${Math.round(h*0.016)}px;height:${Math.round(h*0.016)}px;background:${a};transform:rotate(45deg)}
+    .sub{font-size:${Math.round(h*0.034)}px;font-weight:500;color:${colors.text};opacity:.92;margin-top:${Math.round(h*0.04)}px;letter-spacing:.07em}
+  </style></head><body>
+    <div class="card">
+      <div class="vignette"></div>
+      <div class="frame"><span class="corner tl"></span><span class="corner br"></span></div>
+      <div class="inner">
+        ${o.brand ? `<div class="kicker"><span class="ln"></span><span class="brand">${esc(o.brand)}</span><span class="ln"></span></div>` : ""}
+        <div class="title">${esc(o.title)}</div>
+        ${o.subtitle ? `<div class="sub">${esc(o.subtitle)}</div>` : ""}
+        <div class="divider"><span class="ln"></span><span class="dot"></span><span class="ln r"></span></div>
+      </div>
+    </div>
+  </body></html>`;
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -40,7 +40,7 @@ function ProviderBadge({ name }: { name: string | null | undefined }) {
 // ── Media URL helper ─────────────────────────────────────────
 function toMediaUrl(p: string | null | undefined): string | null {
   if (!p) return null;
-  const clean = p.replace(/\\/g, "/").replace(/^(\.\/|\/)?storage\//, "");
+  const clean = p.replace(/\\/g, "/").replace(/^.*?storage\//, "");  // handles ABSOLUTE paths too — fixes blank video on content page
   return `/api/media/${clean}`;
 }
 

@@ -80,7 +80,7 @@ function ProviderBadge({ name }: { name: string | null | undefined }) {
 
 function toMediaUrl(p: string | null | undefined): string | null {
   if (!p) return null;
-  const clean = p.replace(/\\/g, "/").replace(/^(\.\/|\/)?storage\//, "");
+  const clean = p.replace(/\\/g, "/").replace(/^.*?storage\//, "");  // handles ABSOLUTE paths (/home/.../storage/...) too — fixes blank video on review
   return `/api/media/${clean}`;
 }
 
