@@ -68,6 +68,17 @@ export function isDeterministicMode(mode: ChildMode): boolean {
 function round2(n: number): number { return Math.round(n * 100) / 100; }
 function cap(s: string): string { return s ? s[0].toUpperCase() + s.slice(1) : s; }
 
+// PHONICS: letter → TTS-friendly SOUND (phoneme), not the letter NAME. So spelling teaches
+// "duh, oh, guh" → dog, not "dee, oh, jee" (Henry 2026-06-21). Used for all children spelling/abc.
+const LETTER_SOUNDS: Record<string, string> = {
+  a: "ah", b: "buh", c: "kuh", d: "duh", e: "eh", f: "fff", g: "guh", h: "huh", i: "ih",
+  j: "juh", k: "kuh", l: "lll", m: "mmm", n: "nnn", o: "oh", p: "puh", q: "kwuh", r: "rrr",
+  s: "sss", t: "tuh", u: "uh", v: "vvv", w: "wuh", x: "ksss", y: "yuh", z: "zzz",
+};
+function soundOut(word: string): string {
+  return word.toLowerCase().split("").map(ch => LETTER_SOUNDS[ch] ?? ch).join(", ");
+}
+
 // Even split with the last item absorbing the rounding remainder (sum == target).
 function distribute(target: number, itemCount: number, maxImages: boolean, secondsPerImage?: number): ItemPlan[] {
   const per = target / itemCount;
@@ -117,7 +128,7 @@ export function buildChildScenes(input: BuildInput): BuiltContent {
     const words = pickWords(age, wordLength, itemCount, seed);
     for (let i = 0; i < itemCount; i++) {
       const e = words[i];
-      const spelled = e.word.toUpperCase().split("").join(" — ");
+      const spelled = soundOut(e.word);  // phonics: sound out the letters, not their names
       scenes.push({
         index: i,
         narration: `${cap(e.word)}. ${spelled}. ${cap(e.word)}!`,
@@ -149,7 +160,7 @@ export function buildChildScenes(input: BuildInput): BuiltContent {
       const a = ABC[i];
       scenes.push({
         index: i,
-        narration: `${a.letter}. ${a.letter} is for ${a.word}. ${a.sound}, ${a.sound}, ${a.word}!`,
+        narration: `${a.sound}, ${a.sound}! ${a.letter} is for ${a.word}. ${a.sound}, ${a.word}!`,
         overlayText: a.word,
         flashcardLetter: a.letter,
         imageNoun: a.imageNoun,
