@@ -10,10 +10,12 @@ import { prisma } from "@/lib/prisma";
 import { callLLM } from "@/lib/llm";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  const body = await req.json().catch(() => ({})) as { productInfo?: string };
+  const productInfo = (body.productInfo || "").trim();
 
   const project = await prisma.commercialProject.findUnique({
     where: { id },
@@ -41,9 +43,12 @@ export async function POST(
   const brand = project.brandName ? `Brand: ${project.brandName}. ` : "";
   const title = project.projectName ? `Ad title: "${project.projectName}". ` : "";
 
+  const productBlock = productInfo
+    ? `\nIMPORTANT — the ACTUAL product/offer. Use these REAL details (name, type, specs, location) and do NOT guess the type from the images (e.g. do NOT say "duplex" if it is a "2 bed apartment"):\n${productInfo}\n`
+    : "";
   const prompt = `You are writing a voiceover narration for a commercial video ad.
 
-${brand}${title}
+${brand}${title}${productBlock}
 Total duration: ${totalDuration} (${slideCount} slides).
 
 Here is what each slide shows:

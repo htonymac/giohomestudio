@@ -184,15 +184,19 @@ export async function mergeMedia(input: MergeInput): Promise<MergeOutput> {
       mixInputs.push(mixLabel);
     }
 
+    // Output length = the VIDEO length (full slideshow), NOT the (shorter) voice — else the ad
+    // gets cut to ~voice length (Henry 2026-06-21: "60s ad stops at 30s"). amix=longest lets the
+    // looped music fill to video length; -t pins the output to the exact video duration.
+    const tailOpt = videoDurationSec ? `-t ${videoDurationSec.toFixed(3)}` : "-shortest";
     if (mixInputs.length >= 2) {
-      filters.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=first:dropout_transition=2:normalize=0[aout]`);
+      filters.push(`${mixInputs.join("")}amix=inputs=${mixInputs.length}:duration=longest:dropout_transition=2:normalize=0[aout]`);
       cmd
         .complexFilter(filters)
-        .outputOptions(["-map 0:v", "-map [aout]", "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", "-shortest"]);
+        .outputOptions(["-map 0:v", "-map [aout]", "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", tailOpt]);
     } else if (mixInputs.length === 1) {
       cmd
         .complexFilter(filters)
-        .outputOptions(["-map 0:v", `-map ${mixInputs[0]}`, "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", "-shortest"]);
+        .outputOptions(["-map 0:v", `-map ${mixInputs[0]}`, "-c:v copy", ...MOBILE_AUDIO_OPTS, "-movflags +faststart", tailOpt]);
     } else {
       cmd.outputOptions(["-c copy", "-movflags +faststart"]);
     }
