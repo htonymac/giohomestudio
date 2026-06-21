@@ -932,11 +932,12 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [narrationEnhanceError, setNarrationEnhanceError] = useState<string | null>(null);
 
   // ── Intro / Outro contact fields (AI Order) ──────────────────────────────
-  const [introPhone, setIntroPhone]       = useState("");
-  const [introWhatsapp, setIntroWhatsapp] = useState("");
-  const [introText, setIntroText]         = useState("");
-  const [outroText, setOutroText]         = useState("");
-  const [productInfo, setProductInfo]     = useState("");  // name / type / specs / location — AI Order uses this over image guesses
+  // Init from the saved project so they survive refresh (persisted via patchProject onBlur) — Henry 2026-06-21.
+  const [introPhone, setIntroPhone]       = useState((initialProject as { introPhone?: string }).introPhone ?? "");
+  const [introWhatsapp, setIntroWhatsapp] = useState((initialProject as { introWhatsapp?: string }).introWhatsapp ?? "");
+  const [introText, setIntroText]         = useState((initialProject as { introText?: string }).introText ?? "");
+  const [outroText, setOutroText]         = useState((initialProject as { outroText?: string }).outroText ?? "");
+  const [productInfo, setProductInfo]     = useState((initialProject as { productInfo?: string }).productInfo ?? "");  // name / type / specs / location — AI Order uses this over image guesses
   const [aiOrdering, setAiOrdering]       = useState(false);
 
   // Piper TTS voice selection
@@ -3086,7 +3087,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             </button>
             <div className="mb-2">
               <label className={labelCls}>Product / property details (name · type · specs · location)</label>
-              <textarea value={productInfo} onChange={e => setProductInfo(e.target.value)} rows={2}
+              <textarea value={productInfo} onChange={e => setProductInfo(e.target.value)} onBlur={() => patchProject({ productInfo })} rows={2}
                 placeholder="e.g. Diolux Serviced Apartments · 2-bed apartment · furnished, 24/7 power · Sangotedo, Ajah, Lekki"
                 className={inputCls} style={{ resize: "vertical" }} />
               <p className="text-[9px] mt-0.5" style={{ color: "#5a7080" }}>AI Order uses these facts (says the real type like 2-bed apartment, not a guess like duplex).</p>
@@ -3094,20 +3095,20 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <label className={labelCls}>Phone number</label>
-                <input type="text" value={introPhone} onChange={e => setIntroPhone(e.target.value)} placeholder="+234 xxx xxxx" className={inputCls} />
+                <input type="text" value={introPhone} onChange={e => setIntroPhone(e.target.value)} onBlur={() => patchProject({ introPhone })} placeholder="+234 xxx xxxx" className={inputCls} />
               </div>
               <div>
                 <label className={labelCls}>WhatsApp number</label>
-                <input type="text" value={introWhatsapp} onChange={e => setIntroWhatsapp(e.target.value)} placeholder="+234 xxx xxxx" className={inputCls} />
+                <input type="text" value={introWhatsapp} onChange={e => setIntroWhatsapp(e.target.value)} onBlur={() => patchProject({ introWhatsapp })} placeholder="+234 xxx xxxx" className={inputCls} />
               </div>
             </div>
             <div className="mb-2">
               <label className={labelCls}>Intro text (before narration)</label>
-              <input type="text" value={introText} onChange={e => setIntroText(e.target.value)} placeholder="e.g. Welcome! Check out our new product." className={inputCls} />
+              <input type="text" value={introText} onChange={e => setIntroText(e.target.value)} onBlur={() => patchProject({ introText })} placeholder="e.g. Welcome! Check out our new product." className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Outro text (after narration)</label>
-              <input type="text" value={outroText} onChange={e => setOutroText(e.target.value)} placeholder="e.g. Don't miss this offer. Contact us today!" className={inputCls} />
+              <input type="text" value={outroText} onChange={e => setOutroText(e.target.value)} onBlur={() => patchProject({ outroText })} placeholder="e.g. Don't miss this offer. Contact us today!" className={inputCls} />
             </div>
           </div>
 
