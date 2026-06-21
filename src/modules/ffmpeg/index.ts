@@ -457,11 +457,14 @@ export type RenderQuality = "draft" | "standard" | "high" | "cinema";
  *  NOTE: unsharp is intentionally NOT applied in the Ken Burns complex filter graph —
  *  positional unsharp params can cause parse failures in some FFmpeg builds.
  *  Sharpening is applied as a simple -vf in the caption overlay (final) pass instead. */
+// Presets tuned for a CPU-only server (Henry 2026-06-21: "render stuck at 25%" = the caption
+// overlay re-encode at preset=medium was minutes long). veryfast cuts encode time ~5-8x with
+// negligible visible quality loss for ad/screen viewing.
 const QUALITY_ENCODE: Record<RenderQuality, { crf: number; preset: string }> = {
-  draft:    { crf: 26, preset: "fast"   },
-  standard: { crf: 20, preset: "medium" },
-  high:     { crf: 16, preset: "medium" },
-  cinema:   { crf: 12, preset: "medium" },
+  draft:    { crf: 28, preset: "ultrafast" },
+  standard: { crf: 23, preset: "veryfast"  },
+  high:     { crf: 20, preset: "veryfast"  },
+  cinema:   { crf: 17, preset: "fast"      },
 };
 
 export async function createSlideshow(
