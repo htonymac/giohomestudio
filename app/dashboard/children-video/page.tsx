@@ -954,7 +954,13 @@ export default function ChildrenVideoPage() {
                           key={c.id}
                           type="button"
                           onClick={() => {
-                            const starter = `[${c.label}] ${c.desc}. Make a ${c.episodes}-episode-friendly children's video script for ${currentAgeConfig?.label || "this age"}, focused on this curriculum item. Use simple words and short sentences.`;
+                            // Real on-screen teaching content (not a meta "script about a video"). Seed exact items for known curricula. (Henry 2026-06-21)
+                            const seeds: Record<string, string> = {
+                              abc5: "Use exactly these letter→word pairs in order, one sound each: A-Apple, B-Ball, C-Cat, D-Dog, E-Egg, F-Fish, G-Goat, H-Hat, I-Igloo, J-Jam, K-Kite, L-Lion, M-Moon, N-Nest, O-Orange, P-Pig, Q-Queen, R-Rabbit, S-Sun, T-Tree, U-Umbrella, V-Van, W-Whale, X-Box, Y-Yo-yo, Z-Zebra.",
+                              numbers10: "Use the real numbers 1 to 20 in order, counting real objects (1 apple, 2 balls, 3 cats...).",
+                            };
+                            const seed = seeds[c.id] ? ` ${seeds[c.id]}` : "";
+                            const starter = `[${c.label}] Teach this to ${currentAgeConfig?.label || "young"} children: ${c.desc}. Write the REAL on-screen sing-along content itself — the actual letters, words, numbers and short lines a child sees and sings — across ${c.episodes} short episodes. Do NOT write a description or a "script about a video"; output the actual kid-facing words.${seed} Simple words, short sentences.`;
                             setCustomStory(starter);
                             setShowCustomStory(true);
                             setSelectedTopic(null);
