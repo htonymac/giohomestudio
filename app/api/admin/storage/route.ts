@@ -44,21 +44,27 @@ export async function GET() {
   // Counts + sizes
   const list = (d: string) => { try { return fs.readdirSync(d); } catch { return []; } };
   const assembledFiles = list(assembledDir).filter(f => /\.(mp4|webm|mov)$/i.test(f));
+  // Commercial renders land in storage/merged/ — include them so they show on the storage page (Henry 2026-06-21).
+  const mergedDir = path.join(env.storagePath, "merged");
+  const mergedFiles = list(mergedDir).filter(f => /\.(mp4|webm|mov)$/i.test(f));
   const tempDirs = (() => { try { return fs.readdirSync(tempDir, { withFileTypes: true }).filter(e => e.isDirectory()); } catch { return []; } })();
 
-  // Recent finished videos (newest 60) with size + matching thumbnail if present
+  // Recent finished videos (newest 300) with size + matching thumbnail if present
   const thumbs = new Set(list(thumbDir));
-  const recent = assembledFiles
-    .map(f => { const p = path.join(assembledDir, f); let st: fs.Stats | null = null; try { st = fs.statSync(p); } catch { /* */ } return { f, mtime: st?.mtimeMs ?? 0, size: st?.size ?? 0 }; })
+  const recent = [
+    ...assembledFiles.map(f => ({ f, dir: assembledDir, urlBase: "video/assembled" })),
+    ...mergedFiles.map(f => ({ f, dir: mergedDir, urlBase: "merged" })),
+  ]
+    .map(({ f, dir, urlBase }) => { const p = path.join(dir, f); let st: fs.Stats | null = null; try { st = fs.statSync(p); } catch { /* */ } return { f, urlBase, mtime: st?.mtimeMs ?? 0, size: st?.size ?? 0 }; })
     .sort((a, b) => b.mtime - a.mtime)
     .slice(0, 300)
-    .map(({ f, mtime, size }) => {
+    .map(({ f, urlBase, mtime, size }) => {
       // thumbnails are named loosely; best-effort match by timestamp substring, else none
       const tsMatch = f.match(/_(\d{10,})\./);
       const thumb = tsMatch ? [...thumbs].find(t => t.includes(tsMatch[1].slice(0, 8))) : undefined;
       return {
         name: f,
-        url: `/api/media/video/assembled/${encodeURIComponent(f)}`,
+        url: `/api/media/${urlBase}/${encodeURIComponent(f)}`,
         thumbnailUrl: thumb ? `/api/media/thumbnails/${encodeURIComponent(thumb)}` : null,
         sizeMB: Math.round(size / 1e6),
         mtime,
