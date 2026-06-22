@@ -43,6 +43,9 @@ function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; co
   const a = colors.accent;
   const ff = `${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Helvetica Neue',Arial,sans-serif`;
   const m = Math.min(w, h);
+  // Shrink the title for long text (e.g. phone numbers) so it never overflows the card (Henry 2026-06-21).
+  const tl = (o.title || "").length;
+  const titlePx = tl > 60 ? Math.round(h * 0.038) : tl > 44 ? Math.round(h * 0.046) : tl > 28 ? Math.round(h * 0.058) : Math.round(h * 0.078);
   // Premium title card (Henry 2026-06-21: must look worth paying for): layered depth glows,
   // vignette, inset frame with corner accents, kicker with flanking rules, elegant divider.
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
@@ -61,7 +64,7 @@ function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; co
     .kicker{display:flex;align-items:center;gap:${Math.round(w*0.022)}px;margin-bottom:${Math.round(h*0.05)}px}
     .kicker .ln{width:${Math.round(w*0.06)}px;height:2px;background:${a}}
     .brand{font-size:${Math.round(h*0.026)}px;letter-spacing:.36em;text-transform:uppercase;color:${a};font-weight:700}
-    .title{font-size:${Math.round(h*0.08)}px;font-weight:900;color:${colors.text};line-height:1.03;letter-spacing:.004em;text-shadow:0 6px 36px rgba(0,0,0,.5)}
+    .title{font-size:${titlePx}px;font-weight:900;color:${colors.text};line-height:1.1;letter-spacing:.004em;text-shadow:0 6px 36px rgba(0,0,0,.5);overflow-wrap:anywhere;word-break:break-word;max-width:100%}
     .divider{display:flex;align-items:center;justify-content:center;gap:${Math.round(w*0.016)}px;margin-top:${Math.round(h*0.052)}px}
     .divider .ln{width:${Math.round(w*0.13)}px;height:2px;background:linear-gradient(90deg, transparent, ${a})}
     .divider .ln.r{background:linear-gradient(90deg, ${a}, transparent)}
