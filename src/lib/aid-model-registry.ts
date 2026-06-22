@@ -40,6 +40,9 @@ export const AID_VIDEO_MODELS: Array<{
 // ── AID_IMAGE_MODELS — UI picker schema (name, price, network, color, desc) ──────────────────
 // Schema: id, name, price, network, res, color, desc
 export const AID_IMAGE_MODELS = [
+  // FREE options first (Henry 2026-06-21: must be selectable in children/all planners, not just children-video setup).
+  { id:"ideogram_free",          name:"Ideogram Free",        price:0.000, network:"FAL",     res:"1024px", color:"#34d399", desc:"Completely free. Good text rendering." },
+  { id:"segmind_flux",           name:"Flux Free",            price:0.0004,network:"Segmind", res:"1024px", color:"#6ee7b7", desc:"Free-tier Flux. Quick drafts." },
   { id:"segmind_pruna",          name:"Pruna P Image",        price:0.005, network:"Segmind", res:"1024px", color:"#22c55e", desc:"Cheapest image. Fast drafts." },
   { id:"fal_flux_schnell",       name:"Flux Schnell",         price:0.003, network:"FAL",     res:"1024px", color:"#4ade80", desc:"Fastest FAL image. Very cheap." },
   { id:"fal_flux_dev",           name:"Flux Dev",             price:0.025, network:"FAL",     res:"1024px", color:"#facc15", desc:"Better detail. Good balance." },
