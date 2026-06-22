@@ -3183,7 +3183,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               value={editScript ?? narrationScriptLines.join("\n")}
               onChange={e => setEditScript(e.target.value)}
               rows={10}
-              placeholder="No narration yet. Click ✨ Enhance Narration — then edit any line here and Apply."
+              placeholder="Write your OWN narration here (or click ✨ Enhance Narration), then Apply. Tip: keep [Slide N] labels to map a line to a slide; plain text is spread evenly."
               className="w-full text-xs text-[#c0c0e0] leading-snug rounded-lg bg-[#0d0d1a] border border-[#2a2a40] px-2 py-2"
               style={{ resize: "vertical", fontFamily: "inherit" }}
             />
@@ -3195,7 +3195,14 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   const re = /\[Slide\s+(\d+)\]\s*([\s\S]*?)(?=\[Slide\s+\d+\]|$)/gi;
                   let mt: RegExpExecArray | null; let any = false;
                   while ((mt = re.exec(txt)) !== null) { perSlide[parseInt(mt[1], 10) - 1] = (mt[2] || "").trim(); any = true; }
-                  if (!any) { setNarrationEnhanceError("Keep the [Slide N] labels so each line maps to its slide."); return; }
+                  if (!any) {
+                    // No [Slide N] labels → treat as free MANUAL narration: spread the prose across slides evenly.
+                    const sents = txt.split(/(?<=[.!?])\s+/).map(s => s.trim()).filter(Boolean);
+                    const n = project.slides.length;
+                    if (!n || !sents.length) { setNarrationEnhanceError("Type some narration first."); return; }
+                    const per = Math.max(1, Math.ceil(sents.length / n));
+                    for (let i = 0; i < n; i++) perSlide[i] = sents.slice(i * per, (i + 1) * per).join(" ");
+                  }
                   for (let i = 0; i < project.slides.length; i++) {
                     if (perSlide[i] !== undefined) await patchSlide(project.slides[i].id, { narrationLine: perSlide[i] } as never);
                   }
@@ -3207,7 +3214,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 ✓ Apply edits
               </button>
               {editScript !== null && <button type="button" onClick={() => setEditScript(null)} className="text-[10px] text-[#6060a0] hover:text-white">Cancel</button>}
-              <span className="text-[9px] text-[#5a7080]">Edit any line, keep the [Slide N] labels, then Apply.</span>
+              <span className="text-[9px] text-[#5a7080]">Type your own OR edit the AI's. [Slide N] labels map a line to that slide; plain text spreads evenly. Then Apply.</span>
             </div>
           </div>
 
