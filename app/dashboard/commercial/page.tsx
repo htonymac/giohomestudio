@@ -184,11 +184,12 @@ const sectionTitle = "text-xs font-semibold text-[#7b7b80] uppercase tracking-wi
 // Shared narration ordering (Henry 2026-06-21): intro text → FIRST slide, content across the
 // middle, contact + outro → LAST slide. Used by BOTH "AI Order" and "Caption + Narrate all"
 // so the outro never lands at the top. Contact lives ONLY in the outro.
-function buildOrderedNarration(opts: { content: string; introText: string; outroText: string; phone: string; whatsapp: string; slideCount: number }): { fullNarration: string; lines: string[] } {
-  const { content, introText, outroText, phone, whatsapp, slideCount: n } = opts;
+function buildOrderedNarration(opts: { content: string; introText: string; outroText: string; phone: string; whatsapp: string; website?: string; slideCount: number }): { fullNarration: string; lines: string[] } {
+  const { content, introText, outroText, phone, whatsapp, website, slideCount: n } = opts;
   const contactParts: string[] = [];
   if (phone) contactParts.push(`Please contact us at ${phone}`);
   if (whatsapp) contactParts.push(`or WhatsApp ${whatsapp}`);
+  if (website) contactParts.push(`or visit ${website}`);
   const contactLine = contactParts.join(" ");
   const builtIntro = (introText || "").trim();
   const builtOutro = [(outroText || "").trim(), contactLine].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
@@ -918,8 +919,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [reviewLoading, setReviewLoading] = useState(false);
   const [captionLoading, setCaptionLoading] = useState(false);
   const [captioningAll, setCaptioningAll] = useState(false);  // one-button: caption every image + narrate all
-  const [titleCardText, setTitleCardText] = useState("");
-  const [titleCardSub, setTitleCardSub] = useState("");
+  // Card inputs persisted on the project (Henry 2026-06-22: stay static across refresh)
+  const [titleCardText, setTitleCardText] = useState((initialProject as { titleCardText?: string }).titleCardText ?? "");
+  const [titleCardSub, setTitleCardSub] = useState((initialProject as { titleCardSub?: string }).titleCardSub ?? "");
+  const [outroCardText, setOutroCardText] = useState((initialProject as { outroCardText?: string }).outroCardText ?? "");
+  const [introWebsite, setIntroWebsite] = useState((initialProject as { introWebsite?: string }).introWebsite ?? "");
   const [generatingTitleCard, setGeneratingTitleCard] = useState<"intro" | "outro" | null>(null);
   const [importKind, setImportKind] = useState<"intro" | "outro" | null>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
@@ -2909,8 +2913,9 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               ))}
             </div>
             <p className="text-[9px] mb-2" style={{ color: "#5a7080" }}>{cardStyle === "on_image" ? "Your text prints on the FIRST ad image (intro) / LAST (outro)." : cardStyle === "ai_banner" ? "Free AI banner (no building) behind your text." : "A designed gradient card with your text."}</p>
-            <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
-            <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Sangotedo · Ajah · Lekki)" className={`${inputCls} mt-2`} />
+            <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} onBlur={() => patchProject({ titleCardText })} placeholder="Intro card title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
+            <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} onBlur={() => patchProject({ titleCardSub })} placeholder="Subtitle (optional, e.g. Sangotedo · Ajah · Lekki)" className={`${inputCls} mt-2`} />
+            <input type="text" value={outroCardText} onChange={e => setOutroCardText(e.target.value)} onBlur={() => patchProject({ outroCardText })} placeholder="Outro card text (e.g. Please call us at 0913… · Thank you)" className={`${inputCls} mt-2`} />
             <div className="flex items-center gap-1 flex-wrap mt-2">
               <span className="text-[10px] mr-1" style={{ color: "#5a7080" }}>Colours:</span>
               {CARD_THEMES.map((t, i) => (
@@ -2932,13 +2937,13 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             </div>
             <div className="flex gap-2 mt-2">
               {(["intro", "outro"] as const).map(kind => (
-                <button key={kind} type="button" disabled={generatingTitleCard !== null || !titleCardText.trim()}
+                <button key={kind} type="button" disabled={generatingTitleCard !== null || !((kind === "outro" ? (outroCardText || titleCardText) : titleCardText).trim())}
                   onClick={async () => {
                     setGeneratingTitleCard(kind);
                     try {
                       const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, {
                         method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined, font: cardFont || undefined, style: cardStyle }),
+                        body: JSON.stringify({ text: (kind === "outro" ? (outroCardText.trim() || titleCardText) : titleCardText), subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined, font: cardFont || undefined, style: cardStyle }),
                       });
                       const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
                       if (res.ok && data.slide) {
@@ -3027,7 +3032,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     if (data.error) { setNarrationEnhanceError(data.error); setAiOrdering(false); return; }
                     if (data.narration) {
                       // Intelligent ordering: intro first, content in the middle, contact+outro LAST.
-                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
+                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, website: introWebsite, slideCount: project.slides.length });
                       await patchProject({ narrationScript: fullNarration });
                       for (let i = 0; i < project.slides.length; i++) {
                         await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
@@ -3077,7 +3082,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   const data = await res.json().catch(() => ({} as { narration?: string; error?: string }));
                   if (res.ok && data.narration) {
                     // Same intelligent ordering as AI Order: intro first, contact+outro LAST.
-                    const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
+                    const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, website: introWebsite, slideCount: project.slides.length });
                     await patchProject({ narrationScript: fullNarration });
                     for (let i = 0; i < project.slides.length; i++) {
                       await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
@@ -3113,6 +3118,10 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
               </div>
             </div>
             <div className="mb-2">
+              <label className={labelCls}>Website / Maps link (optional)</label>
+              <input type="text" value={introWebsite} onChange={e => setIntroWebsite(e.target.value)} onBlur={() => patchProject({ introWebsite })} placeholder="e.g. diolux.com or goo.gl/maps/…" className={inputCls} />
+            </div>
+            <div className="mb-2">
               <label className={labelCls}>Intro text (before narration)</label>
               <input type="text" value={introText} onChange={e => setIntroText(e.target.value)} onBlur={() => patchProject({ introText })} placeholder="e.g. Welcome! Check out our new product." className={inputCls} />
             </div>
@@ -3144,7 +3153,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     if (data.error) { setNarrationEnhanceError(data.error); setEnhancingNarration(false); return; }
                     if (data.narration) {
                       // Intelligent ordering: intro first, content middle, contact+outro LAST.
-                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, slideCount: project.slides.length });
+                      const { fullNarration, lines } = buildOrderedNarration({ content: data.narration, introText, outroText, phone: introPhone, whatsapp: introWhatsapp, website: introWebsite, slideCount: project.slides.length });
                       await patchProject({ narrationScript: fullNarration });
                       for (let i = 0; i < project.slides.length; i++) {
                         await patchSlide(project.slides[i].id, { narrationLine: lines[i] });
