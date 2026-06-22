@@ -925,6 +925,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const cardImportRef = useRef<HTMLInputElement>(null);
   const [cardTheme, setCardTheme] = useState(0);  // index into CARD_THEMES (0 = AI auto)
   const [cardFont, setCardFont] = useState("");   // intro/outro card font ("" = bold default)
+  const [cardStyle, setCardStyle] = useState<"card" | "on_image" | "ai_banner">("card");  // 3 intro/outro looks
   const [assetPickerOpen, setAssetPickerOpen] = useState<"image" | "music" | null>(null);
   const [renderMsg, setRenderMsg] = useState("");
   const [narrationEnabled, setNarrationEnabled] = useState(true);
@@ -2897,8 +2898,17 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
             <p className="text-sm font-bold mb-0.5" style={{ color: "#c9b6ff" }}>🎬 Intro / Outro cards</p>
             <p className="text-[10px] mb-2" style={{ color: "#5a7080" }}>Add a front (intro) or end (outro) card to your ad — two ways:</p>
 
-            {/* WAY 1 — type a card, AI colours */}
-            <p className="text-[10px] font-semibold mb-1" style={{ color: "#b090ff" }}>① Type a card — AI picks colours</p>
+            {/* WAY 1 — type a card (3 styles) */}
+            <p className="text-[10px] font-semibold mb-1" style={{ color: "#b090ff" }}>① Type a card</p>
+            <div className="flex gap-1 mb-1">
+              {([["card", "Gradient card"], ["on_image", "On my ad image"], ["ai_banner", "AI banner"]] as const).map(([v, lbl]) => (
+                <button key={v} type="button" onClick={() => setCardStyle(v)}
+                  className={`flex-1 text-[9px] px-1 py-1 rounded border transition-colors ${cardStyle === v ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+            <p className="text-[9px] mb-2" style={{ color: "#5a7080" }}>{cardStyle === "on_image" ? "Your text prints on the FIRST ad image (intro) / LAST (outro)." : cardStyle === "ai_banner" ? "Free AI banner (no building) behind your text." : "A designed gradient card with your text."}</p>
             <input type="text" value={titleCardText} onChange={e => setTitleCardText(e.target.value)} placeholder="Title (e.g. Diolux — 2 Bed Serviced Apartment)" className={inputCls} />
             <input type="text" value={titleCardSub} onChange={e => setTitleCardSub(e.target.value)} placeholder="Subtitle (optional, e.g. Sangotedo · Ajah · Lekki)" className={`${inputCls} mt-2`} />
             <div className="flex items-center gap-1 flex-wrap mt-2">
@@ -2928,7 +2938,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                     try {
                       const res = await fetch(`/api/commercial/projects/${project.id}/title-card`, {
                         method: "POST", headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined, font: cardFont || undefined }),
+                        body: JSON.stringify({ text: titleCardText, subtitle: titleCardSub || undefined, kind, colors: CARD_THEMES[cardTheme].colors ?? undefined, font: cardFont || undefined, style: cardStyle }),
                       });
                       const data = await res.json().catch(() => ({})) as { slide?: (typeof project.slides)[number] };
                       if (res.ok && data.slide) {
