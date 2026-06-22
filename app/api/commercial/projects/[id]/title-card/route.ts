@@ -20,6 +20,7 @@ const schema = z.object({
   subtitle: z.string().max(160).optional(),
   kind:     z.enum(["intro", "outro"]).default("intro"),
   font:     z.string().max(40).optional(),       // card text font (system-safe)
+  style:    z.enum(["card", "on_image", "ai_banner"]).optional(),  // card=gradient | on_image=text on the ad image | ai_banner=AI generic banner
   // Optional USER-chosen colours — if any provided, we use them and skip the AI colour pick.
   colors:   z.object({
     bg1:    z.string().optional(),
@@ -37,7 +38,7 @@ interface CardColors { bg1: string; bg2: string; text: string; accent: string }
 const FALLBACK: CardColors = { bg1: "#0a0f1e", bg2: "#1a1030", text: "#ffffff", accent: "#ff6b35" };
 const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v);
 
-function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number; font?: string }): string {
+function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number; font?: string; bgImage?: string }): string {
   const { w, h, colors } = o;
   const a = colors.accent;
   const ff = `${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Helvetica Neue',Arial,sans-serif`;
@@ -48,10 +49,9 @@ function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; co
     *{margin:0;padding:0;box-sizing:border-box}
     html,body{width:${w}px;height:${h}px;overflow:hidden}
     .card{position:relative;width:${w}px;height:${h}px;overflow:hidden;font-family:${ff};
-      background:
-        radial-gradient(circle at 27% 20%, ${a}2b, transparent 45%),
-        radial-gradient(circle at 80% 86%, ${a}1f, transparent 42%),
-        linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%);}
+      background:${o.bgImage ? `#08080c` : `radial-gradient(circle at 27% 20%, ${a}2b, transparent 45%), radial-gradient(circle at 80% 86%, ${a}1f, transparent 42%), linear-gradient(135deg, ${colors.bg1} 0%, ${colors.bg2} 100%)`};}
+    ${o.bgImage ? `.bgimg{position:absolute;inset:0;background:url('${o.bgImage}') center/cover no-repeat}
+    .scrim{position:absolute;inset:0;background:linear-gradient(180deg, ${colors.bg1}b3 0%, rgba(0,0,0,.30) 40%, rgba(0,0,0,.38) 62%, ${colors.bg2}e6 100%)}` : ""}
     .vignette{position:absolute;inset:0;box-shadow:inset 0 0 ${Math.round(h*0.2)}px ${Math.round(h*0.07)}px rgba(0,0,0,.55);pointer-events:none}
     .frame{position:absolute;inset:${Math.round(m*0.045)}px;border:1.5px solid ${a}55;border-radius:${Math.round(m*0.018)}px}
     .corner{position:absolute;width:${Math.round(w*0.06)}px;height:${Math.round(w*0.06)}px;border:2.5px solid ${a}}
@@ -69,6 +69,7 @@ function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; co
     .sub{font-size:${Math.round(h*0.034)}px;font-weight:500;color:${colors.text};opacity:.92;margin-top:${Math.round(h*0.04)}px;letter-spacing:.07em}
   </style></head><body>
     <div class="card">
+      ${o.bgImage ? `<div class="bgimg"></div><div class="scrim"></div>` : ""}
       <div class="vignette"></div>
       <div class="frame"><span class="corner tl"></span><span class="corner br"></span></div>
       <div class="inner">
@@ -145,11 +146,40 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // 2) Render the full-frame card PNG (Playwright HTML→PNG).
   const aspectRatio = (project.aspectRatio as AspectRatio) ?? "9:16";
   const { w, h } = RENDER_DIMS[aspectRatio] ?? RENDER_DIMS["9:16"];
+
+  // 3 intro/outro styles (Henry 2026-06-21): "card" gradient | "on_image" = print text on the first
+  // (intro) / last (outro) AD image | "ai_banner" = free AI generic banner (no building/interior).
+  const style = parsed.data.style ?? "card";
+  let bgImage: string | undefined;
+  if (style === "on_image") {
+    const src = await prisma.commercialSlide.findFirst({
+      where: { projectId: id, imagePath: { not: null } },
+      orderBy: { slideOrder: kind === "intro" ? "asc" : "desc" },
+      select: { imagePath: true },
+    });
+    const abs = src?.imagePath ? path.resolve(src.imagePath) : null;
+    if (abs && fs.existsSync(abs)) {
+      const ext = path.extname(abs).toLowerCase();
+      const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+      bgImage = `data:${mime};base64,${fs.readFileSync(abs).toString("base64")}`;
+    }
+  } else if (style === "ai_banner") {
+    try {
+      const bp = `elegant abstract premium marketing banner background, soft gradient, subtle bokeh, ${colors.bg1} and ${colors.accent} tones, luxury decorative texture, NO building, NO house, NO room, NO interior, NO furniture, NO people`;
+      const purl = `https://image.pollinations.ai/prompt/${encodeURIComponent(bp)}?width=${w}&height=${h}&nologo=true&model=flux`;
+      const pres = await fetch(purl, { signal: AbortSignal.timeout(120_000) });
+      if (pres.ok && (pres.headers.get("content-type") || "").startsWith("image/")) {
+        const ab = await pres.arrayBuffer();
+        if (ab.byteLength > 1000) bgImage = `data:image/jpeg;base64,${Buffer.from(ab).toString("base64")}`;
+      }
+    } catch { /* fall back to gradient card */ }
+  }
+
   const dir = path.join(env.storagePath, "commercial", id);
   fs.mkdirSync(dir, { recursive: true });
   const pngPath = path.join(dir, `titlecard_${kind}_${Date.now()}.png`);
   try {
-    await renderCaptionsToPng([{ html: titleCardHtml({ title: text, subtitle, brand: project.brandName ?? undefined, colors, w, h, font: parsed.data.font }), outputPath: pngPath }], w, h);
+    await renderCaptionsToPng([{ html: titleCardHtml({ title: text, subtitle, brand: project.brandName ?? undefined, colors, w, h, font: parsed.data.font, bgImage }), outputPath: pngPath }], w, h);
   } catch (err) {
     return NextResponse.json({ error: `Card render failed: ${err instanceof Error ? err.message : String(err)}` }, { status: 500 });
   }
