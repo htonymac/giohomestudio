@@ -924,6 +924,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [titleCardSub, setTitleCardSub] = useState((initialProject as { titleCardSub?: string }).titleCardSub ?? "");
   const [outroCardText, setOutroCardText] = useState((initialProject as { outroCardText?: string }).outroCardText ?? "");
   const [introWebsite, setIntroWebsite] = useState((initialProject as { introWebsite?: string }).introWebsite ?? "");
+  const [editScript, setEditScript] = useState<string | null>(null);  // editable narration script (null = synced from slides)
   const [generatingTitleCard, setGeneratingTitleCard] = useState<"intro" | "outro" | null>(null);
   const [importKind, setImportKind] = useState<"intro" | "outro" | null>(null);
   const cardImportRef = useRef<HTMLInputElement>(null);
@@ -3178,15 +3179,36 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 <button onClick={() => setNarrationEnhanceError(null)} className="text-[#6060a0] hover:text-white text-xs shrink-0">✕</button>
               </div>
             )}
-            {narrationScriptLines.length > 0 ? (
-              <div className="space-y-1">
-                {narrationScriptLines.map((line, i) => (
-                  <p key={i} className="text-xs text-[#c0c0e0] leading-snug">{line}</p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-[10px] text-[#404060] italic">No narration lines yet. Click &quot;Enhance Narration&quot; or add narration to each slide.</p>
-            )}
+            <textarea
+              value={editScript ?? narrationScriptLines.join("\n")}
+              onChange={e => setEditScript(e.target.value)}
+              rows={10}
+              placeholder="No narration yet. Click ✨ Enhance Narration — then edit any line here and Apply."
+              className="w-full text-xs text-[#c0c0e0] leading-snug rounded-lg bg-[#0d0d1a] border border-[#2a2a40] px-2 py-2"
+              style={{ resize: "vertical", fontFamily: "inherit" }}
+            />
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <button type="button" disabled={editScript === null}
+                onClick={async () => {
+                  const txt = editScript ?? "";
+                  const perSlide: Record<number, string> = {};
+                  const re = /\[Slide\s+(\d+)\]\s*([\s\S]*?)(?=\[Slide\s+\d+\]|$)/gi;
+                  let mt: RegExpExecArray | null; let any = false;
+                  while ((mt = re.exec(txt)) !== null) { perSlide[parseInt(mt[1], 10) - 1] = (mt[2] || "").trim(); any = true; }
+                  if (!any) { setNarrationEnhanceError("Keep the [Slide N] labels so each line maps to its slide."); return; }
+                  for (let i = 0; i < project.slides.length; i++) {
+                    if (perSlide[i] !== undefined) await patchSlide(project.slides[i].id, { narrationLine: perSlide[i] } as never);
+                  }
+                  setProject(prev => ({ ...prev, slides: prev.slides.map((s, i) => perSlide[i] !== undefined ? { ...s, narrationLine: perSlide[i] } : s) }));
+                  await patchProject({ narrationScript: project.slides.map((_, i) => perSlide[i] ?? "").filter(Boolean).join(" ") });
+                  setEditScript(null);
+                }}
+                className="text-[10px] font-semibold px-3 py-1 rounded-lg bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e]/30 hover:bg-[#22c55e]/30 disabled:opacity-40 transition-colors">
+                ✓ Apply edits
+              </button>
+              {editScript !== null && <button type="button" onClick={() => setEditScript(null)} className="text-[10px] text-[#6060a0] hover:text-white">Cancel</button>}
+              <span className="text-[9px] text-[#5a7080]">Edit any line, keep the [Slide N] labels, then Apply.</span>
+            </div>
           </div>
 
           {/* Narrator engine selector (Henry: one dropdown → pick model → that model's voices appear) */}
