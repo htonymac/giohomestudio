@@ -46,24 +46,23 @@ export async function POST(
   const productBlock = productInfo
     ? `\nIMPORTANT — the ACTUAL product/offer. Use these REAL details (name, type, specs, location) and do NOT guess the type from the images (e.g. do NOT say "duplex" if it is a "2 bed apartment"):\n${productInfo}\n`
     : "";
-  const prompt = `You are writing a voiceover narration for a commercial video ad.
+  const prompt = `You are writing the voiceover for a ${slideCount}-slide commercial video ad.
 
 ${brand}${title}${productBlock}
-Total duration: ${totalDuration} (${slideCount} slides).
+Total duration: ${totalDuration}.
 
-Here is what each slide shows:
+Each slide and what it shows:
 ${slideDescriptions.join("\n")}
 
-Write a single, cohesive voiceover script that flows naturally across all ${slideCount} slides. The narration should:
-- Sound warm, professional, and conversational when spoken aloud
-- Reference what each slide shows in order (bedroom → kitchen → living room, etc.)
-- Build from introduction to a compelling close
-- Match the total duration (roughly ${Math.round(150 * parseInt(totalDuration) / 60)} words for ${totalDuration})
-- NOT use bullet points, headers, or slide numbers
-- NOT use generic marketing filler ("experience excellence", "discover quality")
-- Be specific to what's actually shown in the slides
+Write EXACTLY ONE short spoken line for EACH slide, IN ORDER. Line K MUST describe what SLIDE K actually shows (use its caption) — never describe a different room/scene than the slide's own image. The lines should still flow together as one smooth, warm voiceover.
 
-Output ONLY the spoken narration text. Nothing else.`;
+Rules:
+- Output EXACTLY ${slideCount} lines, each prefixed with its slide number in square brackets: [1] … then [2] … up to [${slideCount}].
+- Each line = ONE warm, natural spoken sentence about THAT slide's image. Match the image — do NOT mismatch.
+- Be specific to that slide. NO generic filler ("experience excellence", "discover quality").
+- Use the real product details above for facts (type/name/location) — never guess.
+
+Output ONLY the ${slideCount} numbered lines, nothing else.`;
 
   const systemPrompt = `You are an expert commercial voiceover scriptwriter. ${brand}Write narration that sounds natural when spoken aloud — like a premium property tour or product showcase. Be specific, warm, and persuasive. No filler.`;
 

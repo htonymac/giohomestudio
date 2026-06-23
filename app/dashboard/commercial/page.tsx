@@ -193,9 +193,21 @@ function buildOrderedNarration(opts: { content: string; introText: string; outro
   const contactLine = contactParts.join(" ");
   const builtIntro = (introText || "").trim();
   const builtOutro = [(outroText || "").trim(), contactLine].filter(Boolean).join(". ").replace(/\s+/g, " ").trim();
-  const fullNarration = [builtIntro, content, builtOutro].filter(Boolean).join(" ");
   const lines: string[] = Array.from({ length: n }, () => "");
-  if (n > 0) {
+
+  // Image↔narration MATCH (Henry 2026-06-22): if the AI returned per-slide [N] lines, assign them
+  // 1:1 so each line describes ITS slide's image. Otherwise spread sentences evenly (fallback).
+  const perSlide: Record<number, string> = {};
+  let markerCount = 0;
+  const markerRe = /\[(\d+)\]\s*([\s\S]*?)(?=\[\d+\]|$)/g;
+  let mt: RegExpExecArray | null;
+  while ((mt = markerRe.exec(content)) !== null) { const idx = parseInt(mt[1], 10) - 1; if (idx >= 0) { perSlide[idx] = (mt[2] || "").trim().replace(/\s+/g, " "); markerCount++; } }
+
+  if (n > 0 && markerCount >= Math.max(2, Math.ceil(n / 2))) {
+    for (let i = 0; i < n; i++) if (perSlide[i]) lines[i] = perSlide[i];
+    if (builtIntro) lines[0] = [builtIntro, lines[0]].filter(Boolean).join(" ");
+    if (builtOutro) lines[n - 1] = [lines[n - 1], builtOutro].filter(Boolean).join(" ");
+  } else if (n > 0) {
     let firstIdx = 0, lastIdx = n - 1;
     if (builtIntro) { lines[0] = builtIntro; firstIdx = 1; }
     if (builtOutro && n >= 2) { lines[n - 1] = builtOutro; lastIdx = n - 2; }
@@ -207,6 +219,7 @@ function buildOrderedNarration(opts: { content: string; introText: string; outro
       lines[slot] = lines[slot] ? `${lines[slot]} ${contentSentences[i]}` : contentSentences[i];
     }
   }
+  const fullNarration = lines.filter(Boolean).join(" ");
   return { fullNarration, lines };
 }
 
