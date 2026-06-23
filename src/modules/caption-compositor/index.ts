@@ -294,11 +294,13 @@ export async function overlayCaptionsOnVideo(
   outputPath: string,
   quality: OverlayQuality = "standard",
 ): Promise<{ success: boolean; outputPath: string; error?: string }> {
+  // CPU-fast presets (Henry 2026-06-22): this is the caption-overlay re-encode that was the REAL
+  // "render stuck at 25%" bottleneck (preset=medium = minutes). veryfast cuts it ~5-8x.
   const qualityMap: Record<OverlayQuality, { crf: number; preset: string }> = {
-    draft:    { crf: 26, preset: "fast"   },
-    standard: { crf: 20, preset: "medium" },
-    high:     { crf: 16, preset: "medium" },
-    cinema:   { crf: 12, preset: "medium" },
+    draft:    { crf: 28, preset: "ultrafast" },
+    standard: { crf: 23, preset: "veryfast"  },
+    high:     { crf: 20, preset: "veryfast"  },
+    cinema:   { crf: 17, preset: "fast"      },
   };
   const enc = qualityMap[quality] ?? qualityMap.standard;
   const valid = overlays.filter(o => isActualFile(o.pngPath));
