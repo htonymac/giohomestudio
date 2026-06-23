@@ -3,6 +3,25 @@
 Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
 
 ---
+## P-2026-06-21 — Rendered videos show BLACK / "no image" on /review, content page, /storage
+- **Symptom:** every rendered commercial video plays black (or audio-only); storage page empty.
+- **Root cause:** `toMediaUrl` used `replace(/^(\.\/|\/)?storage\//, "")` — only matches a *leading* `storage/`. The DB stores ABSOLUTE paths (`/home/ghs/.../storage/merged/x.mp4`), so the regex didn't match → URL became `/api/media//home/ghs/.../x.mp4` → 404. The files were valid the whole time.
+- **Fix:** `replace(/^.*?storage\//, "")` on `app/dashboard/review/page.tsx` + `app/dashboard/content/[id]/page.tsx`. Storage API also scans `storage/merged/`.
+- **Prevention:** there is ONE robust pattern (`^.*?storage[\\/]?`) used everywhere else — never reintroduce the leading-only variant.
+
+## P-2026-06-21 — Render "stuck at 25%" for minutes / interrupted renders corrupt (moov atom not found)
+- **Root cause A (slow):** caption-overlay re-encode in `src/modules/caption-compositor/index.ts` (`overlayCaptionsOnVideo`) had its OWN `qualityMap` at `crf16/preset=medium` — minutes on a CPU server. The progress bar is status-driven (`GENERATING_VIDEO`=25%) so it sits at 25% the whole encode. NOTE: there are TWO encode quality maps (this one + `QUALITY_ENCODE` in `src/modules/ffmpeg/index.ts`) — fix BOTH.
+- **Root cause B (corrupt):** `systemctl restart ghs.service` on deploy kills the in-flight ffmpeg child → truncated mp4 (`moov atom not found`) → black.
+- **Fix:** presets → `veryfast`; deploy checks `pgrep ffmpeg` and holds (render-guard).
+
+## P-2026-06-22 — Image upload fails ("Upload didn't go through") for normal 4–6MB photos
+- **Root cause:** public path is browser→Cloudflare→cloudflared tunnel→:3200 (nginx is NOT in the path — it's the default `try_files` page). The tunnel upload is ~150KB/s, so a 6.5MB photo took ~40s and timed out; `collected` ended empty. (Server endpoint itself is fine — localhost test = 200 in <1s.)
+- **Fix:** downscale images in-browser (canvas → 1920px JPEG ~400KB) before upload (`downscaleForUpload` in commercial page). Server still stores its own resized copy.
+
+## P-2026-06-22 — Children assembly "stays still / turns stale" unless the tab is active
+- **Root cause:** assembly is server-side (jobId, status persisted to `storage/jobs/assemble/<id>.json`), but the CLIENT poll is a `setTimeout` while-loop — backgrounded tabs throttle/suspend it, and a discarded tab kills it. A resume marker was written to localStorage but never READ.
+- **Fix:** resume-on-mount + on-`visibilitychange` effect that re-polls the persisted jobId and shows the finished video on return.
+
 ## P-2026-06-12 — Character extraction inverted the story (age/ethnicity/species) — see CHANGELOG 2026-06-12 + global error_log
 
 Story-truth deterministic overrides + culture lock + appositive species detection + stale-row correction shipped in PRs #81–#83. Full prevention rules in ~/.claude/.../memory/error_log.md (2026-06-12 entry). Key rule for future agents: explicit story facts (numeric age, boy/girl, "NAME, a … dog") are enforced in CODE in character-extract/route.ts — do not remove the story-truth block; do not re-loosen speciesFromStory to proximity matching.
