@@ -184,6 +184,29 @@ const sectionTitle = "text-xs font-semibold text-[#7b7b80] uppercase tracking-wi
 // Shared narration ordering (Henry 2026-06-21): intro text → FIRST slide, content across the
 // middle, contact + outro → LAST slide. Used by BOTH "AI Order" and "Caption + Narrate all"
 // so the outro never lands at the top. Contact lives ONLY in the outro.
+// Resize big photos IN THE BROWSER before upload so the payload is small (the cloudflared tunnel
+// upload is slow — ~150KB/s; a 6.5MB photo took ~40s and would time out). Server still stores a
+// clean JPEG. Falls back to the original on any failure (HEIC/odd formats). (Henry 2026-06-22)
+async function downscaleForUpload(file: File): Promise<{ blob: Blob; name: string }> {
+  if (!file.type.startsWith("image/") || file.size < 900_000) return { blob: file, name: file.name };
+  try {
+    const url = URL.createObjectURL(file);
+    const img = await new Promise<HTMLImageElement>((res, rej) => { const im = new window.Image(); im.onload = () => res(im); im.onerror = rej; im.src = url; });
+    const maxDim = 1920;
+    const scale = Math.min(1, maxDim / Math.max(img.naturalWidth || maxDim, img.naturalHeight || maxDim));
+    const w = Math.max(1, Math.round((img.naturalWidth || maxDim) * scale));
+    const h = Math.max(1, Math.round((img.naturalHeight || maxDim) * scale));
+    const canvas = document.createElement("canvas"); canvas.width = w; canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) { URL.revokeObjectURL(url); return { blob: file, name: file.name }; }
+    ctx.drawImage(img, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, "image/jpeg", 0.85));
+    if (blob && blob.size > 1000 && blob.size < file.size) return { blob, name: file.name.replace(/\.[^.]+$/, "") + ".jpg" };
+    return { blob: file, name: file.name };
+  } catch { return { blob: file, name: file.name }; }
+}
+
 function buildOrderedNarration(opts: { content: string; introText: string; outroText: string; phone: string; whatsapp: string; website?: string; slideCount: number }): { fullNarration: string; lines: string[] } {
   const { content, introText, outroText, phone, whatsapp, website, slideCount: n } = opts;
   const contactParts: string[] = [];
@@ -536,11 +559,15 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       const collected: typeof savedFiles = [];
       for (let i = 0; i < fileArr.length; i++) {
         setWarn(`Uploading image ${i + 1} of ${fileArr.length}…`);
+        const up = await downscaleForUpload(fileArr[i]);  // shrink in-browser → fast/reliable upload (slow tunnel)
         const fd = new FormData();
-        fd.append("files", fileArr[i]);
+        fd.append("files", up.blob, up.name);
         fd.append("saveOnly", "true");
-        const r = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
-        const d = await safeJson<{ savedFiles?: typeof savedFiles }>(r, "commercial-mode2-analyze");
+        let d: { savedFiles?: typeof savedFiles } = {};
+        try {
+          const r = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
+          d = await safeJson<{ savedFiles?: typeof savedFiles }>(r, "commercial-mode2-analyze");
+        } catch { /* network hiccup — skip this one, keep going */ }
         if (d.savedFiles?.length) collected.push(...d.savedFiles);
       }
       setSavedFiles(collected);
