@@ -539,6 +539,10 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
 
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
+    // SNAPSHOT the files NOW (before any await). The input's onChange does `e.target.value = ""`
+    // right after calling us, which empties the LIVE FileList during our awaits → Array.from later
+    // returned [] → "Upload failed — ?, 0KB". (Henry 2026-06-22 regression.)
+    const fileArr = Array.from(files);
     setUploading(true);
     setAnalyzing(true);
     setWarn("");
@@ -554,8 +558,7 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       setCreatedProjId(proj.id);
 
       // Upload images ONE AT A TIME (in selection order) so many/large files don't exceed the
-      // request body limit — the old single multi-file POST 500'd at 4+ images.
-      const fileArr = Array.from(files);
+      // request body limit — the old single multi-file POST 500'd at 4+ images. (fileArr snapshotted above.)
       const collected: typeof savedFiles = [];
       let lastErr = "";
       for (let i = 0; i < fileArr.length; i++) {
