@@ -557,21 +557,33 @@ function AiAdBuilder({ onBack, onOpenProject }: { onBack: () => void; onOpenProj
       // request body limit — the old single multi-file POST 500'd at 4+ images.
       const fileArr = Array.from(files);
       const collected: typeof savedFiles = [];
+      let lastErr = "";
       for (let i = 0; i < fileArr.length; i++) {
         setWarn(`Uploading image ${i + 1} of ${fileArr.length}…`);
         const up = await downscaleForUpload(fileArr[i]);  // shrink in-browser → fast/reliable upload (slow tunnel)
         const fd = new FormData();
         fd.append("files", up.blob, up.name);
         fd.append("saveOnly", "true");
-        let d: { savedFiles?: typeof savedFiles } = {};
         try {
           const r = await fetch(`/api/commercial/projects/${proj.id}/mode2/analyze`, { method: "POST", body: fd });
-          d = await safeJson<{ savedFiles?: typeof savedFiles }>(r, "commercial-mode2-analyze");
-        } catch { /* network hiccup — skip this one, keep going */ }
-        if (d.savedFiles?.length) collected.push(...d.savedFiles);
+          if (!r.ok) {
+            const body = await r.text().catch(() => "");
+            lastErr = `HTTP ${r.status}${r.status === 401 ? " — session expired, reload & re-enter access code" : r.status === 413 ? " — file too large for the gateway" : ""}${body ? " · " + body.replace(/<[^>]+>/g, " ").trim().slice(0, 120) : ""}`;
+            continue;
+          }
+          const d = await r.json().catch(() => ({})) as { savedFiles?: typeof savedFiles };
+          if (d.savedFiles?.length) collected.push(...d.savedFiles);
+          else lastErr = "server returned no savedFiles";
+        } catch (e) {
+          lastErr = `network — ${e instanceof Error ? e.message : String(e)}`;
+        }
       }
       setSavedFiles(collected);
-      if (collected.length === 0) { setWarn("Upload didn't go through — please retry (JPG/PNG/WEBP/HEIC; big photos are auto-resized)."); return; }
+      if (collected.length === 0) {
+        const f0 = fileArr[0];
+        setWarn(`Upload failed — ${lastErr || "unknown"}. (1st file: ${f0?.name ?? "?"}, ${Math.round((f0?.size || 0) / 1024)}KB.) Hard-refresh (Ctrl+Shift+R) or try fewer/smaller images.`);
+        return;
+      }
 
       // One cheap analysis pass over the file NAMES only (no image bytes).
       setWarn("Analysing…");
