@@ -1,5 +1,32 @@
 ﻿# GioHomeStudio — CHANGELOG
 
+## 2026-06-21/22 — **Commercial AI-ad + children polish marathon (PRs #181–#209)**
+
+**Render pipeline (the big ones):**
+- **Full duration fix** — `mergeMedia` used `amix=duration=first` + `-shortest`, cutting the ad to the (shorter) voice length ("60s stops at 30s"). Now `amix=longest` + `-t <videoDuration>` → plays the full slideshow. (`src/modules/ffmpeg/index.ts`)
+- **"Stuck at 25%" REAL fix** — the caption-overlay re-encode (`overlayCaptionsOnVideo` in `src/modules/caption-compositor/index.ts`) had its OWN quality map still at `crf16/preset=medium` (minutes on CPU). An earlier speedup edited the wrong module. Now `crf20/veryfast` (~5–8× faster). The 25% bar is status-driven (`GENERATING_VIDEO`); the slow encode kept it there.
+- **Render-guard** — deploys (`systemctl restart`) were killing in-progress ffmpeg renders → corrupt `moov atom not found` / black videos. Deploy now checks `pgrep ffmpeg` and holds.
+- Free image-gen fallback (Pollinations, no key) in shared `generateImage` + ad-editor ai-edit, so children/all planners keep generating at $0 FAL balance. Free models (`ideogram_free`, `segmind_flux`) added to the planner picker registry.
+
+**Video DISPLAY (root cause of "no image / black everywhere"):** `toMediaUrl` on /review + content pages only stripped a *leading* `storage/`, but the DB stores ABSOLUTE paths (`/home/.../storage/…`) → `/api/media//home/…` → 404. Fixed to `^.*?storage/`. Storage page now also lists commercial `merged/` videos. (Videos were valid all along.)
+
+**Commercial AI-ad creator:**
+- AI Order / Caption-Narrate-all / Enhance-Narration all route through one `buildOrderedNarration` helper: **intro→first slide, contact+outro→LAST slide** (was contact at the top + duplicated). Product **description box** feeds real facts (says "2 bed apartment", not image-guess "duplex").
+- **Narration↔image 1:1 match** — enhance-narration now writes one numbered `[N]` line per slide (each describing THAT slide); assigned 1:1 (fixes mismatch).
+- **Editable + manual narration** script box (was read-only): edit any line + Apply (`[Slide N]` maps to slides; plain prose spreads evenly).
+- Intro/Outro card: **premium redesign**, **font picker**, **3 styles** (gradient · text on the ad image · free AI banner), **text-overflow fix** (adaptive font + wrap for long numbers).
+- **Fast Caption ALL** (parallel + `?fast=1` cloud vision ~2s/img, was 70s/img local). **Music preview** (▶ per stock track).
+- **Persistence** (survive refresh): intro/outro/phone/whatsapp/website/productInfo + card title/subtitle/outro text on `CommercialProject` (new nullable columns, `prisma db push`).
+- **Fast upload** — cloudflared tunnel upload is ~150KB/s (6.5MB photo ≈ 40s → timeout). Images now downscaled in-browser to 1920px JPEG (~400KB) before upload.
+
+**Children:**
+- **Phonics** — sounds out letters by SOUND not name ("duh, oh, guh → Dog") in the deterministic engine AND the LLM narration; natural ABC phrasing ("Goat starts with the *guh* sound", not robotic "gug gug").
+- **Age guard** — 8+ (early/older) never get toddler "A for Apple" ABC.
+- **Tablet** — children-video fixed-column grids → `auto-fit/minmax` so they reflow on iPad/Fire tab.
+- **Assembly tab-stall fix** — assembly is server-side (jobId, status persisted), but the client poll died when the tab was backgrounded ("stays still / stale"). Added resume-on-mount + on-visibilitychange re-poll → recovers the finished video on return.
+
+**Ad-editor:** Upload Background (full cover), ⛶ Fill canvas, 🪄 Remove BG (free rembg), working Delete (inline confirm), cover-size url backgrounds.
+
 ## 2026-06-18 — **Children "by-time" engine (TODO #13 Phase 1) + AI project naming (H1)**
 
 **Phase 1 — duration unification + time-budget engine:**

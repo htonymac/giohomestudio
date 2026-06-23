@@ -2486,6 +2486,46 @@ function ChildrenPlannerInner() {
     return `ghs_assemble_job_${pid}`;
   }
 
+  // Assembly runs SERVER-SIDE (jobId, status persisted to disk). The only thing that broke when
+  // the tab was backgrounded/closed was the CLIENT poll (throttled/killed) — so it looked "stale".
+  // This resumes polling on mount AND every time the tab becomes visible again, reading the
+  // persisted job and showing the finished video even if you left and came back. (Henry 2026-06-22)
+  useEffect(() => {
+    let active = true;
+    let polling = false;
+    async function resume() {
+      if (polling || !active) return;
+      let jobId = "";
+      try { const raw = localStorage.getItem(assembleJobKey()); if (raw) jobId = JSON.parse(raw).jobId || ""; } catch { /* no marker */ }
+      if (!jobId) return;
+      polling = true;
+      setAssembling(true);
+      setLastAction(`Resuming assembly… (job ${jobId.slice(0, 8)})`);
+      for (let i = 0; i < 500 && active; i++) {
+        try {
+          const res = await fetch(`/api/video/job-status?jobId=${encodeURIComponent(jobId)}`);
+          if (res.ok) {
+            const s = await res.json() as { status?: string; outputUrl?: string; error?: string; note?: string };
+            if (s.status === "done" && s.outputUrl) {
+              setAssembledUrl(s.outputUrl); setGeneratedVideoUrl(s.outputUrl); setAssemblyComplete(true); setAssemblePercent(100); setAssembling(false);
+              setLastAction("Assembly finished — ready"); try { localStorage.removeItem(assembleJobKey()); } catch { /* */ }
+              polling = false; return;
+            }
+            if (s.status === "error") { setAssemblyError(s.error || "error"); setAssembling(false); try { localStorage.removeItem(assembleJobKey()); } catch { /* */ } polling = false; return; }
+            const m = (s.note || "").match(/(\d+)s elapsed/); if (m) setAssemblyElapsedSec(parseInt(m[1], 10));
+          }
+        } catch { /* keep polling */ }
+        await new Promise(r => setTimeout(r, 5000));
+      }
+      polling = false;
+    }
+    resume();
+    const onVis = () => { if (document.visibilityState === "visible") resume(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { active = false; document.removeEventListener("visibilitychange", onVis); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function assembleMovie() {
     const scenesToAssemble = childScenes.filter(s => {
       const sceneId = `child_sc${String(s.scene).padStart(2, "0")}`;
