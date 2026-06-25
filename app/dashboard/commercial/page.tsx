@@ -253,6 +253,7 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
   const [loading, setLoading] = useState(true);
   const [duplicating, setDuplicating] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);  // inline 2-click delete (native confirm() is suppressed by Chrome)
   const [playingVideo, setPlayingVideo] = useState<string | null>(null);
 
   function reload() {
@@ -417,16 +418,18 @@ function ProjectList({ onOpen, onNew }: { onOpen: (p: CommercialProject) => void
                       disabled={deleting === p.id}
                       onClick={async (e) => {
                         e.stopPropagation();
-                        if (!confirm(`Delete "${p.projectName}"?`)) return;
+                        if (confirmDel !== p.id) { setConfirmDel(p.id); setTimeout(() => setConfirmDel(c => (c === p.id ? null : c)), 3000); return; }
+                        setConfirmDel(null);
                         setDeleting(p.id);
                         try {
-                          await fetch(`/api/commercial/projects/${p.id}`, { method: "DELETE" });
-                          reload();
-                        } finally { setDeleting(null); }
+                          const res = await fetch(`/api/commercial/projects/${p.id}`, { method: "DELETE" });
+                          if (res.ok) reload(); else alert(`Delete failed (HTTP ${res.status}) — try again.`);
+                        } catch (err) { alert(`Delete failed — ${err instanceof Error ? err.message : "network"}`); }
+                        finally { setDeleting(null); }
                       }}
                       className="text-[10px] px-2.5 py-1.5 rounded-lg transition-colors"
-                      style={{ border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}>
-                      {deleting === p.id ? "..." : "Del"}
+                      style={{ border: "1px solid rgba(239,68,68,0.2)", color: confirmDel === p.id ? "#fff" : "#ef4444", background: confirmDel === p.id ? "rgba(239,68,68,0.85)" : "transparent" }}>
+                      {deleting === p.id ? "..." : confirmDel === p.id ? "Sure?" : "Del"}
                     </button>
                   </div>
                 </div>
