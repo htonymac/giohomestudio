@@ -1,4 +1,22 @@
-﻿# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
+﻿# GHS HANDOFF
+
+## ➡️ 2026-06-21/22 — Commercial AI-ad + children marathon (PRs #181–#212), all LIVE
+Prod = systemd `ghs.service` (`next start`, port 3200) behind cloudflared → andiostudio.com. Latest HEAD ≈ `5a545f7`+ (Del fix #212 last). Full detail in CHANGELOG (2026-06-21/22) + PROBLEM_AND_FIX (4 new class bugs).
+
+**Shipped + live this session (highlights):**
+- RENDER: full-duration (`amix=longest`+`-t`), REAL stuck-at-25% fix (caption-overlay `crf20/veryfast` — note TWO encode maps: `src/modules/ffmpeg/index.ts` AND `src/modules/caption-compositor/index.ts`), render-guard (don't `systemctl restart` while `pgrep ffmpeg`), free Pollinations image fallback.
+- DISPLAY: `toMediaUrl` absolute-path fix (`^.*?storage/`) on /review + content pages → videos finally show; storage page lists `merged/` too.
+- COMMERCIAL AI-AD: one `buildOrderedNarration` (intro→first, contact+outro→LAST) for all 3 narration buttons; product description box; narration↔image 1:1 (`[N]` per slide); editable+manual narration box; premium 3-style intro/outro card (gradient · on-ad-image · AI banner) + font + overflow fix; fast Caption-ALL (parallel cloud); music preview; persistence (intro/outro/phone/whatsapp/website/productInfo + card text — new `CommercialProject` columns via `prisma db push`); in-browser upload resize; **upload FileList-emptied-by-`e.target.value=''`-during-await race FIXED (snapshot before await)**; **Del button 2-click confirm (native confirm suppressed)**.
+- CHILDREN: phonics sound-out (engine + LLM), natural ABC, age-guard (8+ no toddler ABC), tablet `auto-fit` grids, free image models in planner picker, **assembly resume-on-mount + on-visibilitychange (tab-stall fix)**.
+
+**Open / next:**
+- Bouncing **always-on contact banner** (design confirmed: bounce-at-bottom) — NOT built yet. Inject into `overlayCaptionsOnVideo` (`src/modules/caption-compositor/index.ts`): render a small banner PNG, add a full-duration overlay with a new `bounce` animation (y = `H-h-margin+amp*sin(2*PI*t)`). Needs `CaptionAnimation` += `bounce` (`src/modules/caption-compositor/types.ts`) + project `persistentCta` field + UI.
+- Progress-bar creep for renders (cosmetic — bar sits at 25% during the now-fast encode).
+- The empty "AI Ad 6/22" 0-slide drafts in the list are from the upload bug creating a project before the upload failed — Del them with the new 2-click button.
+
+## ➡️ 2026-06-18 — TODO #13 Phase 1 (children by-time) + H1 (AI naming)
+(below: prior sessions)
+# GHS HANDOFF — Session 2026-06-05/06 (children-planner FULL segregation complete)
 
 ## ➡️ 2026-06-18 — TODO #13 Phase 1 (children by-time) + H1 (AI naming)
 New `src/lib/children/` engine: duration.ts (parseDurationToSeconds, fixes "5 min"->5), timeBudget.ts
