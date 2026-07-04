@@ -57,7 +57,7 @@ function classifyChunk(chunk: string): TopicKind | null {
 function parseWordLengths(c: string): { min?: number; max?: number } {
   const range = c.match(/(\d+)\s*(?:to|[-–—])\s*(\d+)\s*letters?/);
   if (range) return { min: parseInt(range[1]), max: parseInt(range[2]) };
-  const list = c.match(/((?:\d\s*,\s*)+\d)\s*letters?/);
+  const list = c.match(/((?:\d{1,2}\s*,\s*)+\d{1,2})\s*letters?/);
   if (list) {
     const nums = list[1].split(/\s*,\s*/).map(Number).filter(n => n >= 2 && n <= 9);
     if (nums.length) return { min: Math.min(...nums), max: Math.max(...nums) };
@@ -123,7 +123,8 @@ export function parseSceneOutlineToPlan(text: string): MultiTopicPlan | null {
     const kind = classifyChunk(label) || "play"; // unknown subject → LLM lesson on the user's words
     const seg: TopicSegment = { label, kind, targetSeconds: authoredSec };
     if (kind === "story") {
-      const count = label.toLowerCase().match(/(\d+)\s*stor/);
+      // "3 stories" AND "99 bed time stories" both carry the count.
+      const count = label.toLowerCase().match(/(\d+)\s*(?:bed\s*time\s*)?stor/);
       if (count) seg.storyCount = Math.max(1, Math.min(10, parseInt(count[1])));
     }
     if (kind === "spelling") {

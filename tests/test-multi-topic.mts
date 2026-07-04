@@ -100,6 +100,41 @@ if (outlinePlan) {
   assert(evenish, `segments share the hour sensibly (got ${outlinePlan.segments.map(s => s.targetSeconds).join(",")})`);
 }
 
+// ── Fixture 5b: word-length forms + storyCount clamp + compound edge (Sourcery) ──
+console.log("Fixture 5b: word-length forms + clamps");
+const rangeForm = parseMultiTopicInstruction(`20 min
+scene 1: spelling 2 to 5 letter words
+scene 2: bedtime story`);
+assert(rangeForm !== null, "range-form outline parses");
+if (rangeForm) {
+  const sp = rangeForm.segments.find(s => s.kind === "spelling")!;
+  assert(sp.wordLengthMin === 2 && sp.wordLengthMax === 5, `range '2 to 5 letter' → 2-5 (got ${sp.wordLengthMin}-${sp.wordLengthMax})`);
+}
+const singleForm = parseMultiTopicInstruction(`20 min
+scene 1: 3 letter words spelling
+scene 2: counting`);
+if (singleForm) {
+  const sp = singleForm.segments.find(s => s.kind === "spelling")!;
+  assert(sp.wordLengthMin === 3 && sp.wordLengthMax === 3, `single '3 letter' → 3-3 (got ${sp.wordLengthMin}-${sp.wordLengthMax})`);
+}
+const clampForm = parseMultiTopicInstruction(`30 min
+scene 1: counting
+scene 2: 99 bed time stories`);
+if (clampForm) {
+  const st = clampForm.segments.find(s => s.kind === "story")!;
+  assert(st.storyCount === 10, `storyCount clamps at 10 (got ${st.storyCount})`);
+}
+// Compound guard: a scene that is ONLY stories must NOT split a lesson out.
+const pureStories = parseMultiTopicInstruction(`30 min
+scene 1: math
+scene 2: stories for bedtime 3 stories`);
+if (pureStories) {
+  assert(
+    pureStories.segments.filter(s => s.kind === "story").length === 1 && pureStories.segments.length === 2,
+    `story-only scene stays one segment (got ${pureStories.segments.map(s => s.kind).join(",")})`
+  );
+}
+
 // ── Fixture 2: single-topic prompt must NOT be multi-topic ──
 console.log("Fixture 2: single topic guard");
 assert(
