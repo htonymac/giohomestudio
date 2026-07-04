@@ -270,6 +270,7 @@ export default function SupervisorStatusBar({
   return (
     <div
       data-testid="supervisor-status-bar"
+      className="gh-supervisor-bar"
       style={{
         background: "rgba(10,13,20,0.95)",
         borderTop: `2px solid ${barColor}30`,
@@ -290,7 +291,7 @@ export default function SupervisorStatusBar({
 
       {/* ── Next Tab Button — prominent CTA to guide users forward ── */}
       {nextTabLabel && onNextTab && (
-        <div style={{ padding: "10px 16px", borderBottom: "1px solid rgba(90,112,128,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div className="gh-next-row" style={{ padding: "10px 16px", borderBottom: "1px solid rgba(90,112,128,0.15)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <span style={{ color: "#5a7080", fontSize: 12 }}>
             {allGreen ? "All sections ready." : `${totalSections - completeSections} section${totalSections - completeSections !== 1 ? "s" : ""} remaining — you can continue.`}
           </span>
@@ -329,7 +330,7 @@ export default function SupervisorStatusBar({
         <Icon.Cpu size={13} style={{ color: barColor, flexShrink: 0 }} />
 
         {/* Section pills */}
-        <div style={{ display: "flex", gap: 4, flex: 1, flexWrap: "wrap" }}>
+        <div className="gh-chip-row" style={{ display: "flex", gap: 4, flex: 1, flexWrap: "wrap" }}>
           {sectionKeys.map(key => {
             const sec = sections[key];
             const isOk = sec.complete;
