@@ -474,4 +474,23 @@ a.nav-item::after { display: none !important; }
   .gh-grid-hero { grid-template-columns: 1fr !important; }
   .gh-grid-2 { grid-template-columns: 1fr !important; }
   .gh-grid-4 { grid-template-columns: repeat(2, 1fr) !important; }
+
+  /* Fixed-width side rails (story-bank 260/320, free-mode history 260,
+     commercial right panel) stack full-width on phone instead of forcing
+     horizontal overflow. Their flex parent wraps + scrolls vertically. */
+  .gh-side-rail {
+    width: 100% !important;
+    flex-shrink: 1 !important;
+    min-width: 0 !important;
+    max-height: 45vh;
+    border-left: none !important;
+    border-right: none !important;
+  }
+  div:has(> .gh-side-rail),
+  main:has(> .gh-side-rail) {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: 100vh;
+    overflow: auto !important;
+  }
 }
