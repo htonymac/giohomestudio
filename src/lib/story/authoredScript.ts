@@ -95,6 +95,7 @@ function parseTimeRange(headerLine: string): { start?: number; end?: number } {
 function cleanTitle(raw: string): string {
   return raw
     .replace(TIME_RANGE_RE, "") // drop the "X–Y Minutes" part
+    .replace(/\(\s*\)|\[\s*\]/g, "") // parens/brackets left empty by the range strip — "The Meeting ()"
     .replace(/[*_#>]+/g, "") // markdown emphasis
     .replace(/^[\s—–\-:.,]+|[\s—–\-:.,]+$/g, "") // stray separators
     .trim();
