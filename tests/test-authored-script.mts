@@ -81,6 +81,27 @@ const prose = `The little star loved the night sky. In one memorable scene 3 bir
 console.log("Fixture 3: prose false-positive guard");
 assert(!detectAuthoredScript(prose), "plain prose NOT detected as script");
 
+// ── Fixture 3b: non-ascending / noisy scene numbering must NOT be detected ──
+// Exercises the ascending-numbering heuristic directly: line-start "scene N"
+// mentions in random order are prose references, not an authored script.
+const noisyNumbers = `My notes on the edit so far.
+Scene 7 felt too slow when we watched it back yesterday evening.
+Scene 2 needs new music because the old track was CC-BY licensed.
+Scene 5 has the wrong caption font and needs the arial fix applied.
+Scene 1 is fine as shipped.`;
+console.log("Fixture 3b: noisy non-ascending numbering guard");
+assert(!detectAuthoredScript(noisyNumbers), "non-ascending scene mentions NOT detected as script");
+
+// Boundary: mostly-ascending WITH one out-of-order header still detects
+// (authors sometimes renumber a single inserted scene).
+const oneSwap = `Scene 1: The dawn breaks over the quiet village as farmers wake.
+Scene 2: The market fills with traders shouting their morning prices.
+Scene 4: The storm arrives and everyone runs for shelter fast.
+Scene 3: A child loses her basket in the crowded square today.
+Scene 5: The rainbow appears and calm returns to the village.`;
+console.log("Fixture 3c: single out-of-order header tolerated");
+assert(detectAuthoredScript(oneSwap), "mostly-ascending script with one swap still detected");
+
 // ── Fixture 4: short instruction (Henry's original brief) NOT a script ──
 const brief = `4 TOPIC - 60 MIN - SPELLING 2 TO 5 LETTER WORDS 20 MIN - ALPHABET WITH IMAGE 10 MIN - PLAY EDUCATION 15 MIN - BEDTIME STORIES 3 STORIES`;
 console.log("Fixture 4: instruction brief guard");
