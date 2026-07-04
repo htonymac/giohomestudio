@@ -64,6 +64,42 @@ if (hourBrief) {
   assert(hourBrief.totalSeconds === 4200, `over-assigned takes the sum (got ${hourBrief.totalSeconds}s)`);
 }
 
+// ── Fixture 5: Henry's 2026-07-04 SCENE OUTLINE (verbatim) — must become a
+// segmented plan, NOT be echoed verbatim by the authored-script path ──
+const henryOutline = `I need a 60 minute video with 6 scene of different subject and title for children of 4 to 7 years.
+scene 1: 4,5,6 letters words
+scene 2: story about a man on a long journey to  letter A to Z where each town he found  4 and 5 letter words for each letters
+scene 3: math
+scene 4: science
+scene 5: how machine works
+scene 6: why we need a doctor and 2 bed time story`;
+
+console.log("Fixture 5: Henry's scene outline (2026-07-04)");
+const outlinePlan = parseMultiTopicInstruction(henryOutline);
+assert(outlinePlan !== null, "outline detected as multi-topic plan");
+if (outlinePlan) {
+  assert(outlinePlan.totalSeconds === 3600, `total 60 min from preamble (got ${outlinePlan.totalSeconds}s)`);
+  // scene 6 splits into doctor-lesson + 2 stories → 7 segments
+  assert(outlinePlan.segments.length === 7, `7 segments incl. scene-6 split (got ${outlinePlan.segments.length})`);
+  const kinds = outlinePlan.segments.map(s => s.kind);
+  assert(kinds[0] === "spelling", `scene 1 → spelling (got ${kinds[0]})`);
+  const sp = outlinePlan.segments[0];
+  assert(sp.wordLengthMin === 4 && sp.wordLengthMax === 6, `"4,5,6 letters words" → lengths 4-6 (got ${sp.wordLengthMin}-${sp.wordLengthMax})`);
+  assert(kinds[1] === "story", `scene 2 → story (got ${kinds[1]})`);
+  assert(
+    outlinePlan.segments[1].label.includes("long journey"),
+    "scene 2 keeps the user's own story subject"
+  );
+  assert(kinds[2] === "counting", `scene 3 math → counting (got ${kinds[2]})`);
+  assert(kinds[3] === "play" && kinds[4] === "play", `science + machines → LLM lessons (got ${kinds[3]},${kinds[4]})`);
+  assert(kinds[5] === "play", `scene 6 doctor part → lesson (got ${kinds[5]})`);
+  const bed = outlinePlan.segments[6];
+  assert(bed.kind === "story" && bed.storyCount === 2, `scene 6 story part → 2 stories (got ${bed.kind}/${bed.storyCount})`);
+  // each of the 6 scenes shares the hour; scene 6's share is halved across its split
+  const evenish = outlinePlan.segments.every(s => s.targetSeconds >= 250 && s.targetSeconds <= 700);
+  assert(evenish, `segments share the hour sensibly (got ${outlinePlan.segments.map(s => s.targetSeconds).join(",")})`);
+}
+
 // ── Fixture 2: single-topic prompt must NOT be multi-topic ──
 console.log("Fixture 2: single topic guard");
 assert(

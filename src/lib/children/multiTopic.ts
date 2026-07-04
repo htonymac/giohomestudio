@@ -12,6 +12,8 @@
 // Deterministic + typo-tolerant (real input had "APHABET", "BED TIME STORE",
 // "EDUCTATION") — keyword stems, not exact words. Pure functions, no I/O.
 
+import { detectSceneOutline, parseAuthoredScript } from "../story/authoredScript";
+
 export type TopicKind = "spelling" | "abc" | "counting" | "concept" | "story" | "play";
 
 export interface TopicSegment {
@@ -43,12 +45,105 @@ function chunkSeconds(chunk: string): number {
 function classifyChunk(chunk: string): TopicKind | null {
   const c = chunk.toLowerCase();
   if (/bed\s*time|stor(?:y|ies|e|es)\b|tale/.test(c)) return "story";
-  if (/spell/.test(c)) return "spelling";
+  if (/spell|letters?\s*words?|\d\s*letters?\b/.test(c)) return "spelling";
   if (/alphabet|aphabet|\babc\b|phabet/.test(c)) return "abc";
-  if (/count|number/.test(c)) return "counting";
+  if (/count|number|\bmaths?\b/.test(c)) return "counting";
   if (/colou?r|shape|animal|feeling|body|first\s*word/.test(c)) return "concept";
   if (/play|school|teach|class|student|educat/.test(c)) return "play";
   return null;
+}
+
+// Spelling word-length spec: "2 to 5 letter", "4,5,6 letters", "4-5 letter".
+function parseWordLengths(c: string): { min?: number; max?: number } {
+  const range = c.match(/(\d+)\s*(?:to|[-–—])\s*(\d+)\s*letters?/);
+  if (range) return { min: parseInt(range[1]), max: parseInt(range[2]) };
+  const list = c.match(/((?:\d\s*,\s*)+\d)\s*letters?/);
+  if (list) {
+    const nums = list[1].split(/\s*,\s*/).map(Number).filter(n => n >= 2 && n <= 9);
+    if (nums.length) return { min: Math.min(...nums), max: Math.max(...nums) };
+  }
+  const single = c.match(/(\d)\s*letters?\b/);
+  if (single) return { min: parseInt(single[1]), max: parseInt(single[1]) };
+  return {};
+}
+
+/**
+ * Scene-by-scene OUTLINE → segmented plan (Henry 2026-07-04). Input like:
+ *   "I need a 60 minute video with 6 scenes …
+ *    scene 1: 4,5,6 letter words
+ *    scene 2: story about a man on a long journey A to Z …
+ *    scene 3: math …"
+ * Each outlined scene becomes a segment: teaching labels hit the deterministic
+ * card engines, "story …" labels become LLM stories (the user's own subject
+ * line is preserved as the story brief), everything else becomes an LLM
+ * lesson on the user's words. A compound scene ("why we need a doctor and
+ * 2 bed time story") splits into lesson + stories. Total duration comes from
+ * the preamble ("60 minute video"); scenes without their own time share it.
+ */
+export function parseSceneOutlineToPlan(text: string): MultiTopicPlan | null {
+  if (!detectSceneOutline(text)) return null;
+  const parsed = parseAuthoredScript(text);
+  if (parsed.scenes.length < 2) return null;
+
+  // Preamble = everything before the first "scene 1" header — holds the total.
+  const firstHeaderIdx = text.search(/scene\s+\d/i);
+  const preamble = firstHeaderIdx > 0 ? text.slice(0, firstHeaderIdx) : "";
+  const explicitTotal = chunkSeconds(preamble);
+
+  const segments: TopicSegment[] = [];
+  for (const sc of parsed.scenes) {
+    const label = [sc.title, sc.text].filter(Boolean).join(" ").trim();
+    if (!label) continue;
+    const authoredSec =
+      sc.endSeconds !== undefined && sc.startSeconds !== undefined && sc.endSeconds > sc.startSeconds
+        ? Math.round(sc.endSeconds - sc.startSeconds)
+        : chunkSeconds(label);
+
+    // Compound scene: "<lesson topic> and N (bed time) stories" → two segments.
+    const storyMention = label.match(/(\d+)\s*(?:bed\s*time\s*)?stor(?:y|ies|e|es)/i);
+    const beforeStory = storyMention ? label.slice(0, storyMention.index).replace(/\band\b\s*$/i, "").trim() : "";
+    if (storyMention && beforeStory.split(/\s+/).length >= 3 && !/^stor/i.test(beforeStory)) {
+      const half = authoredSec > 0 ? Math.round(authoredSec / 2) : 0;
+      const lessonKind = classifyChunk(beforeStory) || "play";
+      const lessonSeg: TopicSegment = { label: beforeStory, kind: lessonKind, targetSeconds: half };
+      if (lessonKind === "spelling") {
+        const wl = parseWordLengths(beforeStory.toLowerCase());
+        if (wl.min) { lessonSeg.wordLengthMin = wl.min; lessonSeg.wordLengthMax = wl.max ?? wl.min; }
+      }
+      segments.push(lessonSeg);
+      segments.push({
+        label: label.slice(storyMention.index || 0),
+        kind: "story",
+        targetSeconds: half,
+        storyCount: Math.max(1, Math.min(10, parseInt(storyMention[1]))),
+      });
+      continue;
+    }
+
+    const kind = classifyChunk(label) || "play"; // unknown subject → LLM lesson on the user's words
+    const seg: TopicSegment = { label, kind, targetSeconds: authoredSec };
+    if (kind === "story") {
+      const count = label.toLowerCase().match(/(\d+)\s*stor/);
+      if (count) seg.storyCount = Math.max(1, Math.min(10, parseInt(count[1])));
+    }
+    if (kind === "spelling") {
+      const wl = parseWordLengths(label.toLowerCase());
+      if (wl.min) { seg.wordLengthMin = wl.min; seg.wordLengthMax = wl.max ?? wl.min; }
+    }
+    segments.push(seg);
+  }
+  if (segments.length < 2) return null;
+
+  const assigned = segments.reduce((s, seg) => s + seg.targetSeconds, 0);
+  if (!explicitTotal && assigned === 0) return null;
+  const unassigned = segments.filter(s => s.targetSeconds === 0);
+  if (unassigned.length > 0) {
+    const pool = Math.max(0, (explicitTotal || assigned) - assigned);
+    const share = pool > 0 ? Math.round(pool / unassigned.length) : 300;
+    for (const seg of unassigned) seg.targetSeconds = share;
+  }
+  const total = Math.max(explicitTotal, segments.reduce((s, seg) => s + seg.targetSeconds, 0));
+  return { totalSeconds: total, segments };
 }
 
 /**
@@ -58,6 +153,11 @@ function classifyChunk(chunk: string): TopicKind | null {
  */
 export function parseMultiTopicInstruction(text: string): MultiTopicPlan | null {
   if (!text || text.length < 20) return null;
+
+  // Scene-by-scene outline form ("scene 1: math") takes precedence — the
+  // user demarcated the segments themselves, so honor that structure exactly.
+  const outline = parseSceneOutlineToPlan(text);
+  if (outline) return outline;
 
   // Chunks split on dash runs / newlines / semicolons — the natural separators
   // people use when listing topics ("A 20 MIN - B 10 MIN --- C 15 MIN").

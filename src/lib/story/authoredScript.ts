@@ -68,10 +68,46 @@ function findHeaders(text: string): HeaderHit[] {
   return hits;
 }
 
+// A scene body this short is a TOPIC LABEL ("math", "4,5,6 letter words"),
+// not written scene content. Median below this = the paste is an OUTLINE
+// that still needs generation, never a finished script to use verbatim.
+// Bias: when ambiguous, classifying as outline is SAFE (the scene lines get
+// expanded into real content); classifying an outline as script echoes the
+// user's labels back as junk scenes (Henry's 2026-07-04 bug).
+const MIN_SCRIPT_SCENE_WORDS = 12;
+
+function medianBodyWords(text: string): number {
+  const counts = parseAuthoredScript(text).scenes
+    .map(s => s.text.trim().split(/\s+/).filter(Boolean).length)
+    .sort((a, b) => a - b);
+  if (counts.length === 0) return 0;
+  return counts[Math.floor(counts.length / 2)];
+}
+
+/**
+ * True when the pasted text is a scene-by-scene OUTLINE: numbered scene
+ * headers whose bodies are short topic labels ("scene 3: math") rather than
+ * written content. Outlines must be GENERATED per scene, never used verbatim
+ * — Henry hit this 2026-07-04: his "60 minute video, scene 1: 4,5,6 letter
+ * words…" brief was echoed back as 6 junk scenes by the verbatim path.
+ */
+export function detectSceneOutline(text: string): boolean {
+  if (!text) return false;
+  const hits = findHeaders(text);
+  if (hits.length < 2) return false;
+  let ascending = 0;
+  for (let i = 1; i < hits.length; i++) {
+    if (hits[i].sceneNumber > hits[i - 1].sceneNumber) ascending++;
+  }
+  if (ascending < Math.max(1, Math.ceil((hits.length - 1) * 0.7))) return false;
+  return medianBodyWords(text) < MIN_SCRIPT_SCENE_WORDS;
+}
+
 /**
  * True when the pasted text is an already-authored scene script that must be
  * used verbatim (>=2 scene headers, mostly-ascending numbering so prose that
- * merely mentions "scene 3" once doesn't trip it).
+ * merely mentions "scene 3" once doesn't trip it, and scene bodies carry real
+ * written content — short-label OUTLINES are excluded, see detectSceneOutline).
  */
 export function detectAuthoredScript(text: string): boolean {
   if (!text || text.length < 80) return false;
@@ -82,7 +118,9 @@ export function detectAuthoredScript(text: string): boolean {
     if (hits[i].sceneNumber > hits[i - 1].sceneNumber) ascending++;
   }
   // e.g. 18 headers -> 17 gaps, need >=12 ascending; 2 headers need 1.
-  return ascending >= Math.max(1, Math.ceil((hits.length - 1) * 0.7));
+  if (ascending < Math.max(1, Math.ceil((hits.length - 1) * 0.7))) return false;
+  // Outline guard: header-per-scene but label-sized bodies → NOT a script.
+  return medianBodyWords(text) >= MIN_SCRIPT_SCENE_WORDS;
 }
 
 function parseTimeRange(headerLine: string): { start?: number; end?: number } {
