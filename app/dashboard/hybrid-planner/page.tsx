@@ -25,6 +25,7 @@ import SubtitleStyler, { DEFAULT_SUBTITLE_CONFIG, type SubtitleConfig } from "..
 import { estimateTextDuration } from "@/lib/auto-timestamp";
 import { splitIntoActionBeats } from "@/lib/scene/action-beats";
 import { useProjectSettings } from "@/hooks/useProjectSettings";
+import { detectAuthoredScript, parseAuthoredScript } from "@/lib/story/authoredScript";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Hybrid Planner — PRODUCTION WORKSHOP
@@ -1271,6 +1272,126 @@ function HybridPlannerInner() {
 
   async function expandStory() {
     if (!idea.trim()) return;
+
+    // ── AUTHORED-SCRIPT VERBATIM PATH (Henry 2026-07-03) ─────────────────────
+    // A pasted, already-written scene script ("**Scene 1 — Title, 0–4 Minutes:**
+    // one paragraph…") is used AS-IS: scene demarcation, per-scene text, and
+    // authored timings preserved. Before this, story-expand rewrote every paste
+    // as a "brief story idea" and scene-plan collapsed it to 5-10 scenes — an
+    // 18-scene 60-minute script became a ~2-minute story. No LLM rewrite here;
+    // characters still auto-extract from the authored text.
+    if (detectAuthoredScript(idea)) {
+      setExpanding(true);
+      setUiError(null);
+      try {
+        const script = parseAuthoredScript(idea.trim());
+        const joined = script.scenes.map(s => (s.title ? `${s.title}. ${s.text}` : s.text)).join("\n\n");
+        setExpandedSummary(joined.slice(0, 400));
+        setFullScript(joined);
+        setLastAction(`Script detected — using your ${script.scenes.length} scenes exactly as written (~${Math.round(script.totalSeconds / 60)} min). Extracting characters...`);
+
+        // Character extraction reads the authored text; it does not rewrite it.
+        let verbatimChars: CharacterIdentity[] = [];
+        try {
+          setLoadingCharacters(true);
+          const charRes = await fetch("/api/hybrid/character-extract", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              expandedStory: { summary: joined.slice(0, 6000), characterList: [] },
+              projectId: projectId || undefined,
+              storyCulture: storyCulture || REGION_TO_CULTURE[storyRegion] || undefined,
+            }),
+          });
+          const charData = await charRes.json();
+          if (charData.characters?.length > 0) {
+            const seen = new Set<string>();
+            charData.characters.forEach((c: Record<string, unknown>, i: number) => {
+              const name = (c.name as string) || (c.displayName as string) || `Character ${i + 1}`;
+              if (seen.has(name.toLowerCase())) return;
+              seen.add(name.toLowerCase());
+              verbatimChars.push({
+                characterId: (c.characterId as string) || `CH${String(i + 1).padStart(2, "0")}`,
+                displayName: name,
+                roleType: (c.role as string) || "supporting",
+                gender: (c.gender as string) || "unknown",
+                ageRange: (c.age as string) || (c.ageRange as string) || "adult",
+                skinTone: (c.skinTone as string) || "",
+                hairStyle: "", wardrobeStyle: (c.wardrobeStyle as string) || "",
+                speechStyle: (c.speechStyle as string) || "normal",
+                accentType: "", emotionProfile: (c.personality as string) || "",
+                voiceId: (c.voiceId as string) || "", language: effectiveLanguage,
+                tags: [], hasVoice: !!(c.voiceId as string), hasImage: false,
+                species: (c.species as string) || "human",
+                bodyBuild: "", colorDescription: (c.colorDescription as string) || (c.skinTone as string) || "",
+                faceFeatures: "", clothingDetails: "", accessories: "",
+                distinctiveFeatures: (c.visualDescription as string) || "",
+                ageAppearance: "",
+              });
+            });
+            setCharacters(verbatimChars);
+            setCharacterPiperVoices(prev => {
+              const auto: Record<string, string> = {};
+              for (const c of verbatimChars) {
+                if (prev[c.characterId]) continue;
+                auto[c.characterId] = pickActorVoice(c);
+              }
+              return { ...auto, ...prev };
+            });
+          }
+        } catch (charErr) {
+          console.error("[expand] verbatim character-extract failed:", charErr);
+        }
+        setLoadingCharacters(false);
+
+        // Scenes come straight from the authored script — text + timing intact.
+        const builtScenes: HybridScene[] = script.scenes.map((s, i) => ({
+          sceneId: `SC${String(i + 1).padStart(2, "0")}`,
+          scene: i + 1,
+          title: s.title || `Scene ${s.index}`,
+          description: s.text,
+          sceneType: "image-led",
+          narrationMode: "light", narrationStrength: "medium", narrationScript: "",
+          musicStyle: "", musicIntensity: "medium",
+          sfx: "", ambience: "",
+          motionDuration: s.durationSeconds, // authored "X–Y Minutes" → seconds
+          imageTreatment: "Static",
+          credits: SCENE_TYPES.find(t => t.id === "image-led")?.credits || 2,
+          reason: "", characterIds: [],
+          dialogueDensity: "low", emotionalWeight: "medium",
+          location: "", timeOfDay: "", mood: "",
+          shots: [],
+          audioPlan: {
+            narrationIntensity: "medium", musicMood: "cinematic", musicIntensity: "medium",
+            sfxList: [], ambienceList: [], transitionAudio: "crossfade",
+          },
+          costEstimate: 2,
+          status: "draft" as const,
+        }));
+        setSceneVideos({});
+        setSceneImages({});
+        setSceneVideoVersions({});
+        setSceneIntelligence({});
+        setSceneBeatImages({});
+        setSelectedBeatImages({});
+        setScenes(builtScenes);
+        setProjectPhase("SCENES_READY");
+        setLastAction(`Script used exactly as written — ${builtScenes.length} scenes · ~${Math.round(script.totalSeconds / 60)} min total · no AI rewrite. Review below.`);
+        runSceneIntelligence(
+          builtScenes.map(s => ({
+            sceneId: s.sceneId, title: s.title, description: s.description,
+            location: s.location, timeOfDay: s.timeOfDay, mood: s.mood,
+          })),
+          joined.slice(0, 800)
+        );
+        setActiveTab("story");
+      } catch (err) {
+        console.error("expandStory verbatim path failed:", err);
+        setUiError("Script parse failed: " + String(err));
+      }
+      setExpanding(false);
+      return;
+    }
+
     setExpanding(true);
     setUiError(null);
     setLastAction("AI is reading your story and building the full production plan...");

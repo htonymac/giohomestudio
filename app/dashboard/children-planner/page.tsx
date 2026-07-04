@@ -44,6 +44,7 @@ import ChildrenKaraokeSubtitle from "../../components/ChildrenKaraokeSubtitle";
 import type { ChildrenPacingPlan, ChildrenNarrationTimingEntry } from "@/types/children";
 // Phase 3 safety scanner — deterministic, no React, no fetch (client+server importable).
 import { scanText } from "@/lib/children/safetyScanner";
+import { detectAuthoredScript, parseAuthoredScript } from "@/lib/story/authoredScript";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Child Video Planner — PRODUCTION WORKSHOP
@@ -852,6 +853,55 @@ function ChildrenPlannerInner() {
     setLastAction(`ABC builder: ${scenes.length} flashcard scene(s) created. Generating narration… then open the Scene Board and generate images — each card plays "${scenes[0]?.narration}" with the word on screen and music underneath.`);
   }
 
+  // ── AUTHORED-SCRIPT VERBATIM PATH (Henry 2026-07-03) ──────────────────────
+  // A pasted, already-written scene script ("**Scene 1 — Title, 0–4 Minutes:**
+  // one paragraph…") must be used AS-IS: scene demarcation, per-scene text, and
+  // authored timings preserved. Before this, EVERY paste was rewritten by
+  // story-expand (which treats all input as a "brief story idea") and then
+  // collapsed by scene-plan's 5-10 scene cap — an 18-scene 60-minute script
+  // became a ~2-minute nonsense story. Children safety gates still apply:
+  // each authored scene is scanned; block → dropped, soften → cleaned.
+  // Returns true when the input was an authored script and has been applied.
+  function applyAuthoredScript(storyInput: string): boolean {
+    if (!detectAuthoredScript(storyInput)) return false;
+    const script = parseAuthoredScript(storyInput);
+    const safe = script.scenes
+      .map(s => {
+        const scan = scanText(`${s.title} ${s.text}`);
+        if (scan.verdict === "block") {
+          console.warn(`[children-safety] authored scene ${s.index} blocked:`, JSON.stringify(scan.hardHits));
+          return null;
+        }
+        return scan.verdict === "soften" ? { ...s, text: scan.cleanedText } : s;
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+    if (safe.length === 0) {
+      setLastAction("Script blocked — content is not suitable for a children audience.");
+      return true; // it WAS a script; never fall through to the LLM rewrite
+    }
+    const newScenes = safe.map((s, i) => ({
+      scene: i + 1,
+      title: s.title || `Scene ${s.index}`,
+      visualDescription: s.text,
+      cameraDirection: "",
+      narration: s.text,
+    }));
+    setChildScenes(newScenes);
+    setAssemblySelectedIds(newScenes.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
+    const narration = safe.map(s => s.text).join("\n\n");
+    setNarrationText(narration);
+    setExpandedContent(narration);
+    if (script.totalSeconds > 0) setTargetSeconds(script.totalSeconds);
+    const blocked = script.scenes.length - safe.length;
+    setLastAction(
+      `Script used exactly as written — ${safe.length} scenes, ~${Math.round(script.totalSeconds / 60)} min total, no AI rewrite` +
+      (blocked ? ` (${blocked} scene${blocked > 1 ? "s" : ""} blocked by safety scanner)` : "") +
+      ". Edit any scene's narration before generating voices."
+    );
+    setTimeout(() => runSceneIntelligence(), 500);
+    return true;
+  }
+
   // ── Expand content with AI ──
   async function expandContent() {
     // TODO #13 Phase 2 — DETERMINISTIC "by-time" content for teaching types
@@ -898,6 +948,10 @@ function ChildrenPlannerInner() {
 
     const rawText = readAlongText || textContent || "";
     if (!rawText.trim()) return;
+
+    // Pasted complete script → use verbatim, never rewrite (Henry 2026-07-03).
+    // applyAuthoredScript runs its own per-scene safety scan.
+    if (applyAuthoredScript(rawText)) return;
 
     // ── GATE (a): Phase 3 safety scan — user prompt before LLM path ──────────
     // Scan the user's free-text input before sending it to the LLM story-expand
@@ -949,6 +1003,11 @@ function ChildrenPlannerInner() {
           storyCulture: storyCulture || undefined,
           contentType: derivedContentType,
           storyType: learningMode === "poem" ? "rhyming_poem" : undefined,
+          // Henry 2026-07-03: this call sent NO duration, so the route fell back
+          // to its 120s default and a "60 min" request produced a ~40-second
+          // story. Send the planner's target so word/scene counts scale.
+          targetDuration: targetSeconds,
+          targetDurationLabel: `${Math.round(targetSeconds / 60)} min`,
           childContext: {
             ageGroup,
             learningMode,
@@ -959,12 +1018,20 @@ function ChildrenPlannerInner() {
         }),
       });
       const data = await res.json();
-      if (data.expandedStory?.summary || data.summary) {
-        const expanded = data.expandedStory?.summary || data.summary || "";
-        setExpandedContent(expanded);
-        setReadAlongText(prev => prev || expanded);
+      // Henry 2026-07-03: this path kept ONLY the 2-3 sentence summary and never
+      // set narrationText — narration was built from the blurb (~40s of audio).
+      // fullScript is the duration-scaled narrator text; summary is UI preview.
+      const fullScript = data.expandedStory?.fullScript || data.fullScript || "";
+      const summary = data.expandedStory?.summary || data.summary || "";
+      if (fullScript || summary) {
+        setExpandedContent(summary || fullScript);
+        setNarrationText(fullScript || summary);
+        setReadAlongText(prev => prev || summary || fullScript);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[children] expandContent LLM path failed:", err);
+      setLastAction("AI expand failed — try again.");
+    }
     setExpandingContent(false);
   }
 
@@ -1457,6 +1524,10 @@ function ChildrenPlannerInner() {
   async function expandStory() {
     const storyInput = textContent || readAlongText || "";
     if (!storyInput.trim()) { setLastAction("Enter content first"); return; }
+
+    // Pasted complete script → use verbatim, never rewrite (Henry 2026-07-03).
+    if (applyAuthoredScript(storyInput)) return;
+
     setExpanding(true);
     setLastAction("AI is building your children story...");
 
@@ -1464,7 +1535,9 @@ function ChildrenPlannerInner() {
     // directly into the prompt ("39 min long", "very long", etc.)
     const lower = storyInput.toLowerCase();
     let parsedDurationSec: number = targetSeconds;  // unified source of truth
-    const minMatch = lower.match(/(\d+)\s*(?:-\s*\d+\s*)?\s*(?:min|minute)/);
+    // En-dash tolerant (Henry 2026-07-03): ChatGPT writes ranges as "0–4 min";
+    // the old ASCII-hyphen-only group made the range's END read as the duration.
+    const minMatch = lower.match(/(\d+)\s*(?:[-–—]\s*\d+\s*)?\s*(?:min|minute)/);
     const hourMatch = lower.match(/(\d+)\s*hour/);
     if (hourMatch) parsedDurationSec = parseInt(hourMatch[1]) * 3600;
     else if (minMatch) parsedDurationSec = parseInt(minMatch[1]) * 60;
@@ -1613,7 +1686,10 @@ function ChildrenPlannerInner() {
           genre: "children",
           tone: `${ageGroup} age-appropriate, friendly, educational`,
           costPreference: "budget",
-          targetDuration: movieSceneDuration,
+          // Henry 2026-07-03: was movieSceneDuration ("5s" — a PER-SCENE picker
+          // value), so scene-plan never knew the real target. Send total seconds
+          // so its duration-aware scene budget fires.
+          targetDuration: parsedDurationSec,
           projectId: activeProjectIdRef.current || "ghs_children_default",
           styleHint: styleLabel,
           storyEra: storyEra || undefined,

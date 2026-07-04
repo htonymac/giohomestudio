@@ -605,12 +605,17 @@ Aim for: ~1 scene per ${Math.max(15, Math.round(durSec / 12))} seconds of story.
     //
     // Guards (fail-safe — never blocks or worsens the response):
     //   • only runs for long asks (target ≥ 400 words ≈ 3 min+)
-    //   • max 2 passes; stops early once 85% of target is reached
+    //   • passes scale with the ask (~1 per 1200 words needed, cap 8); stops early once 85% of target is reached
     //   • a failed pass, or one that adds < 40 words, just keeps the shorter story
     let fullScriptWords = (expandedStory.fullScript || "").trim().split(/\s+/).filter(Boolean).length;
     let lengthPasses = 0;
     const wantsLongFill = targetWordCount >= 400;
-    while (wantsLongFill && lengthPasses < 2 && fullScriptWords < targetWordCount * 0.85) {
+    // Henry 2026-07-03: 2 passes could never reach a long target — a 60-min ask
+    // is ~7800 words but one pass yields ~1-2k, so 2 passes topped out ~40% and
+    // "warned" instead of delivering. Scale passes with the ask: one pass per
+    // ~1200 words still needed, capped at 8 (a 60-min script ≈ 6-7 passes).
+    const maxLengthPasses = Math.min(8, Math.max(2, Math.ceil(targetWordCount / 1200)));
+    while (wantsLongFill && lengthPasses < maxLengthPasses && fullScriptWords < targetWordCount * 0.85) {
       lengthPasses++;
       const wordsStillNeeded = Math.max(150, targetWordCount - fullScriptWords);
       const tail = (expandedStory.fullScript || "").split(/\s+/).slice(-120).join(" "); // last ~120 words for continuity

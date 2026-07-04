@@ -38,7 +38,36 @@ function buildCharacterLine(c: CharacterInput): string {
   return `- ${c.displayName} (${c.role})${identity}${desc}`;
 }
 
-function buildPrompt(storyText: string, characters: CharacterInput[], costPreference: string, genre?: string, tone?: string, eraContext?: string): string {
+// targetDuration arrives as a NUMBER of seconds (children planner) or a picker
+// STRING like "2-3 min" / "10+ min" / "5s" (hybrid planner legacy). Normalize.
+function normalizeDurationSeconds(v: unknown): number {
+  if (typeof v === "number" && isFinite(v) && v > 0) return Math.round(v);
+  if (typeof v !== "string") return 0;
+  const s = v.toLowerCase().trim();
+  const custom = s.match(/(\d+)\s*m\s*(\d+)?\s*s?/); // "custom:60m0s" shape
+  if (s.includes("custom") && custom) return parseInt(custom[1]) * 60 + (custom[2] ? parseInt(custom[2]) : 0);
+  const range = s.match(/(\d+)\s*-\s*(\d+)\s*min/);
+  if (range) return Math.round(((parseInt(range[1]) + parseInt(range[2])) / 2) * 60);
+  const mins = s.match(/(\d+)\s*\+?\s*min/);
+  if (mins) return parseInt(mins[1]) * 60;
+  const secs = s.match(/(\d+)\s*s(?:ec)?/);
+  if (secs) return parseInt(secs[1]); // "5s" was a PER-SCENE picker value — treated as no total
+  return 0;
+}
+
+// Duration-aware scene budget (Henry 2026-07-03): the old prompt hardcoded
+// "Aim for 5-10 scenes" and NEVER read targetDuration — a 60-minute request
+// collapsed to 5-10 scenes × ~8s ≈ 2 minutes. Now scene count scales with the
+// requested duration (~1 scene per 40s, same rate story-expand uses) and each
+// scene carries its share of the budget as durationEstimate. Cap 40 scenes so
+// the JSON stays within LLM output limits; long videos get longer scenes.
+function sceneBudget(durSec: number): { count: number; perScene: number } | null {
+  if (!durSec || durSec < 60) return null; // shorts keep the LLM's own judgment
+  const count = Math.min(40, Math.max(4, Math.round(durSec / 40)));
+  return { count, perScene: Math.max(5, Math.round(durSec / count)) };
+}
+
+function buildPrompt(storyText: string, characters: CharacterInput[], costPreference: string, genre?: string, tone?: string, eraContext?: string, budget?: { count: number; perScene: number } | null): string {
   const charList = characters.length > 0
     ? characters.map(buildCharacterLine).join("\n")
     : "- No named characters yet";
@@ -53,7 +82,7 @@ Read the following story carefully and break it into individual scenes. Each sce
 
 STORY:
 """
-${storyText.slice(0, 8000)}
+${storyText.slice(0, budget ? 30000 : 8000)}
 """
 
 CHARACTERS:
@@ -64,7 +93,9 @@ COST PREFERENCE: ${costPreference || "balanced"}${genreBlock}${toneBlock}${eraBl
 ${genre ? `IMPORTANT: All scene descriptions, locations, clothing, and visual details MUST reflect the "${genre}" genre. Use culturally authentic settings, fashion, and context appropriate to this genre. Do NOT default to generic or Western settings if the genre implies a specific cultural context.` : ""}
 
 Rules:
-- Aim for 5-10 scenes depending on story length
+${budget
+    ? `- TARGET RUNTIME: this video must run ~${Math.round((budget.count * budget.perScene) / 60)} minutes. Produce ${budget.count} scenes covering the FULL story/script — do not merge, skip, or summarize sections to fit fewer scenes. Set each scene's durationEstimate to ~${budget.perScene} (seconds); vary ±30% by weight but the TOTAL of all durationEstimate values must be close to ${budget.count * budget.perScene}.`
+    : `- Aim for 5-10 scenes depending on story length`}
 - Each scene gets a sceneType based on what it needs:
   * image-led: static image + narration (establishing shots, emotional moments, dialogue)
   * video-led: full motion needed (chase, fight, physical action)
@@ -97,7 +128,7 @@ Return ONLY a valid JSON array, no markdown:
     "narrationIntensity": "low|medium|high",
     "dialogueDensity": "low|medium|high",
     "emotionalWeight": "low|medium|high",
-    "durationEstimate": 8,
+    "durationEstimate": ${budget ? budget.perScene : 8},
     "soundSuggestion": "ambient sounds for this scene",
     "musicSuggestion": "music style for this scene"
   }
@@ -107,11 +138,11 @@ Return ONLY a valid JSON array, no markdown:
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { storyText, characters = [], costPreference = "balanced", genre, tone, storyEra, storyCulture } = body as {
+    const { storyText, characters = [], costPreference = "balanced", genre, tone, storyEra, storyCulture, targetDuration } = body as {
       storyText?: string;
       characters?: CharacterInput[];
       costPreference?: string;
-      targetDuration?: string;
+      targetDuration?: string | number;
       projectId?: string;
       genre?: string;
       tone?: string;
@@ -124,11 +155,16 @@ export async function POST(req: NextRequest) {
     }
 
     const eraLock = buildFullLock(storyEra || "", storyCulture || "", genre || "");
-    const prompt = buildPrompt(storyText, characters, costPreference, genre, tone, eraLock.sceneContext || undefined);
+    // Duration-aware plan (Henry 2026-07-03): honor the requested runtime.
+    const durSec = normalizeDurationSeconds(targetDuration);
+    const budget = sceneBudget(durSec);
+    if (budget) console.log(`[scene-plan] duration-aware: ${durSec}s → ${budget.count} scenes × ~${budget.perScene}s`);
+    const prompt = buildPrompt(storyText, characters, costPreference, genre, tone, eraLock.sceneContext || undefined, budget);
     const llmResult = await callLLM(
       prompt,
       "You are a film scene planner. Return only valid JSON arrays. Be specific and visual in scene descriptions.",
-      { role: "quality" as const, maxTokens: 4000, temperature: 0.6 }
+      // 40 scenes of JSON don't fit in 4000 tokens — scale output room with the plan.
+      { role: "quality" as const, maxTokens: budget ? Math.max(4000, budget.count * 300) : 4000, temperature: 0.6 }
     );
 
     if (!llmResult.ok) {
