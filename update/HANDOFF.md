@@ -1,5 +1,18 @@
 ﻿# GHS HANDOFF
 
+## ➡️ 2026-07-03/04 — Story pipeline restructure + mobile viewport (PRs #213–#216), all LIVE
+Henry's two complaints: (1) story/draft stage broken — 60-min 4-topic brief → 40s nonsense, pasted 18-scene script → 2 min; (2) app unusable on phone. Both fixed + deployed (main `2701585`+, server rebuilt, restarted, browser-verified).
+
+**Shipped + live:**
+- **MOBILE (#213):** root cause = NO viewport meta anywhere → phones assumed ~980px; the existing ≤768px mobile shell never fired. `export const viewport` in layout.tsx + `.gh-side-rail` stacking (story-bank ×2, free-mode, commercial). LIVE-VERIFIED at 390px: hamburger ✓, zero horizontal overflow ✓, drawer opens ✓. Desktop untouched.
+- **VERBATIM SCRIPTS (#214):** NEW `src/lib/story/authoredScript.ts` — pasted "Scene N — Title, X–Y Minutes" scripts used AS-IS in children + hybrid (safety scan kept). LIVE-VERIFIED on hybrid: 3-scene authored script → "Story Expanded · 3 Scenes", text untouched, instant (no LLM). Also: children expandContent now sends duration + captures fullScript (the 40s bug); scene-plan duration-aware (~1 scene/40s, was hardcoded 5-10); story-expand continuation passes scale (cap 8); en-dash regexes.
+- **MULTI-TOPIC (#215):** NEW `src/lib/children/multiTopic.ts` + `buildMultiTopic` — "60 MIN - SPELLING 2-5 LETTER 20 MIN - ABC 10 MIN - PLAY 15 MIN - 3 BEDTIME STORIES" builds ONE segmented video (deterministic card rounds per word length; LLM story per bedtime story, demarcated; play segment; remainder split). 24/24 unit tests on Henry's verbatim typo'd brief. NOT live-driven (costs ~8 LLM calls) — Henry eyeball recommended.
+- **#216:** cosmetic — empty "()" stripped from scene titles (live-verify catch).
+
+**Deploy note:** hit the ORPHAN next-server trap again (8-day-old PID held :3200, service crash-looped "activating" while orphan served 200 — exact error_log 2026-06-19 entry). Killed by PID as ghs, restarted, fresh PID verified. ALWAYS check next-server etime after restart.
+
+**Open / next:** Henry hand-test: (a) paste his real 18-scene ChatGPT script into hybrid/children, (b) run his 4-topic brief in children (multi-topic), (c) phone check on real device. Parked items unchanged: R2 flip (`deploy r2 ok`), redis queue (`redis ready`), per-item tts, mara/cobra, flashcard.
+
 ## ➡️ 2026-06-21/22 — Commercial AI-ad + children marathon (PRs #181–#212), all LIVE
 Prod = systemd `ghs.service` (`next start`, port 3200) behind cloudflared → andiostudio.com. Latest HEAD ≈ `5a545f7`+ (Del fix #212 last). Full detail in CHANGELOG (2026-06-21/22) + PROBLEM_AND_FIX (4 new class bugs).
 

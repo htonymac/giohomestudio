@@ -70,6 +70,7 @@ assert(detectAuthoredScript(plainScript), "plain format detected");
 const p2 = parseAuthoredScript(plainScript);
 assert(p2.scenes.length === 3, `3 scenes (got ${p2.scenes.length})`);
 assert(p2.scenes[0].durationSeconds === 120, `hyphen range 0-2 min = 120s (got ${p2.scenes[0].durationSeconds})`);
+assert(p2.scenes[0].title === "The Meeting", `parenthesized time range leaves no empty "()" (got "${p2.scenes[0].title}")`);
 assert(
   p2.scenes[1].durationSeconds === estimateSceneSeconds(p2.scenes[1].text),
   "scene without range falls back to narration estimate"
