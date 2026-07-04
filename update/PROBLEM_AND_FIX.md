@@ -3,6 +3,17 @@
 Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
 
 ---
+## P-2026-07-03 — Story stage: "60-min request → 40-second nonsense; pasted 18-scene script → 2 minutes"
+- **Symptom (Henry):** a 60-min 4-topic instruction produced a ~40s nonsense story in children planner; pasting ChatGPT's complete 18-scene "Scene N — Title, X–Y Minutes:" script into children/hybrid rewrote it down to ~2 min. Same OpenAI API worked fine in ChatGPT.
+- **Root causes (four stacked):** (1) children `expandContent` sent NO targetDuration → story-expand defaulted `body.targetDuration || 120`, and kept ONLY the summary, never setting narrationText → ~40s audio. (2) NO verbatim path existed — every paste was rewritten by story-expand ("a creator has given you this brief story idea"). (3) `scene-plan` hardcoded "Aim for 5-10 scenes" and destructured-but-never-used targetDuration → any long script collapsed. (4) duration regex was ASCII-hyphen-only → ChatGPT en-dash ranges ("0–4 Minutes") mis-parsed; continuation passes hard-capped at 2 → long word targets unreachable.
+- **Fix (PRs #214 + #215):** `src/lib/story/authoredScript.ts` verbatim detect+parse wired into children (both expand fns, safety scan kept) + hybrid expandStory; expandContent sends duration + captures fullScript; scene-plan duration-aware budget; passes scale cap 8; en-dash regexes; `src/lib/children/multiTopic.ts` segmented builder for multi-topic briefs.
+- **Prevention:** any new "expand" entry point MUST (a) pass the user's target duration to the route, (b) capture `fullScript` not just `summary`, (c) check `detectAuthoredScript`/`parseMultiTopicInstruction` BEFORE sending user text to an LLM rewrite. A route that accepts `targetDuration` and ignores it is a bug — grep for destructured-unused params.
+
+## P-2026-07-03 — App unusable on phone (huge cards, unclickable buttons)
+- **Root cause:** NO viewport meta tag anywhere in the app → mobile browsers assume a ~980px layout viewport and shrink-to-fit the desktop layout. The entire ≤768px mobile shell in globals.css (drawer sidebar, hamburger, .gh-grid-* collapse) was already built but could never fire — a phone never reports ≤768px without the meta.
+- **Fix (PR #213):** `export const viewport: Viewport = { width: "device-width", initialScale: 1 }` in `app/layout.tsx` + `.gh-side-rail` phone stacking for the 4 fixed-width side rails.
+- **Prevention:** every new Next.js app: viewport export in the root layout is part of the scaffold, day 1. If "everything looks huge on phone" — check the viewport meta FIRST, before touching any CSS.
+
 ## P-2026-06-21 — Rendered videos show BLACK / "no image" on /review, content page, /storage
 - **Symptom:** every rendered commercial video plays black (or audio-only); storage page empty.
 - **Root cause:** `toMediaUrl` used `replace(/^(\.\/|\/)?storage\//, "")` — only matches a *leading* `storage/`. The DB stores ABSOLUTE paths (`/home/ghs/.../storage/merged/x.mp4`), so the regex didn't match → URL became `/api/media//home/ghs/.../x.mp4` → 404. The files were valid the whole time.

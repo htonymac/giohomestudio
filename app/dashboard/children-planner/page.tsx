@@ -45,6 +45,7 @@ import type { ChildrenPacingPlan, ChildrenNarrationTimingEntry } from "@/types/c
 // Phase 3 safety scanner — deterministic, no React, no fetch (client+server importable).
 import { scanText } from "@/lib/children/safetyScanner";
 import { detectAuthoredScript, parseAuthoredScript } from "@/lib/story/authoredScript";
+import { parseMultiTopicInstruction, type MultiTopicPlan } from "@/lib/children/multiTopic";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Child Video Planner — PRODUCTION WORKSHOP
@@ -902,8 +903,152 @@ function ChildrenPlannerInner() {
     return true;
   }
 
+  // ── MULTI-TOPIC BUILDER (Henry 2026-07-03, Fix Pack 2) ────────────────────
+  // Builds ONE video from a segmented instruction like "60 MIN - SPELLING
+  // 2 TO 5 LETTER WORDS 20 MIN - ALPHABET 10 MIN - PLAY EDUCATION 15 MIN -
+  // 3 BEDTIME STORIES". Before this, the data model carried a single mode +
+  // single duration, so multi-topic briefs fell into the generic LLM story
+  // path and produced nonsense. Teaching kinds use the deterministic card
+  // engine per segment; story/play kinds run story-expand + duration-aware
+  // scene-plan per story, so each bedtime story stays a separate, demarcated
+  // block. Safety: LLM scene descriptions go through scanText (block → drop,
+  // soften → clean) exactly like Gate (b).
+  async function buildMultiTopic(plan: MultiTopicPlan): Promise<void> {
+    setExpandingContent(true);
+    setExpanding(true);
+    const allScenes: ChildScene[] = [];
+    const narrationParts: string[] = [];
+    const wlDefault = ageGroup === "toddler" ? 3 : ageGroup === "preschool" ? 4 : ageGroup === "early" ? 5 : 6;
+    let segIdx = 0;
+    try {
+      for (const seg of plan.segments) {
+        segIdx++;
+        // Age guard (mirrors Henry 2026-06-21): ABC flashcards are toddler/
+        // preschool only — for older kids the segment runs as LLM play-teaching.
+        const kind = seg.kind === "abc" && (ageGroup === "early" || ageGroup === "older") ? "play" : seg.kind;
+        setLastAction(`Topic ${segIdx}/${plan.segments.length}: ${kind} (~${Math.round(seg.targetSeconds / 60)} min)…`);
+
+        if (kind === "spelling" || kind === "abc" || kind === "counting" || kind === "concept") {
+          // Deterministic card builders — same engine as single-topic teaching.
+          // A spelling range ("2 to 5 letter") becomes one round per word
+          // length, each with its share of the topic's time budget.
+          const rounds =
+            kind === "spelling" && seg.wordLengthMin && seg.wordLengthMax && seg.wordLengthMax >= seg.wordLengthMin
+              ? Array.from({ length: seg.wordLengthMax - seg.wordLengthMin + 1 }, (_, k) => (seg.wordLengthMin as number) + k)
+              : [wlDefault];
+          const perRound = Math.max(30, Math.round(seg.targetSeconds / rounds.length));
+          for (const wl of rounds) {
+            try {
+              const built = buildChildScenes({ mode: kind, age: ageGroup, targetSeconds: perRound, wordLength: wl, contentTypeId: contentParam, seed: Date.now() + wl });
+              for (const s of built.scenes) {
+                allScenes.push({
+                  scene: allScenes.length + 1,
+                  title: s.overlayText,
+                  visualDescription: s.imageNoun,
+                  cameraDirection: "",
+                  narration: s.narration,
+                  letter: s.flashcardLetter,
+                  teachWord: s.overlayText,
+                });
+              }
+              narrationParts.push(built.scenes.map(s => s.narration).join(" "));
+            } catch (err) {
+              console.error(`[children] multi-topic ${kind} round (wl=${wl}) failed:`, err);
+            }
+          }
+        } else {
+          // story / play → LLM story per block, then duration-aware scene-plan,
+          // so "3 bedtime stories" are three separate, complete stories.
+          const count = kind === "story" ? seg.storyCount || 1 : 1;
+          const perStory = Math.max(60, Math.round(seg.targetSeconds / count));
+          for (let i = 1; i <= count; i++) {
+            setLastAction(`Topic ${segIdx}/${plan.segments.length}: writing ${kind} ${i}/${count} (~${Math.round(perStory / 60)} min)…`);
+            const promptText = kind === "story"
+              ? `A complete, extremely meaningful bedtime story (story ${i} of ${count}) with a clear beginning, middle and gentle calm ending. Scene by scene, many physical action verbs.`
+              : `${seg.label}. A playful classroom teaching session — a warm teacher and school students learning through play, games and movement. Scene by scene, many physical action verbs.`;
+            try {
+              const res = await fetch("/api/hybrid/story-expand", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  storyInput: promptText,
+                  genre: "children",
+                  tone: kind === "story" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
+                  audience: AGE_AUDIENCE[ageGroup] || "children",
+                  language: "English",
+                  targetDuration: perStory,
+                  targetDurationLabel: `${Math.round(perStory / 60)} min`,
+                  tier: "pro",
+                  childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
+                }),
+              });
+              const data = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string } }>(res, "story-expand");
+              const script = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
+              if (!script) {
+                console.error(`[children] multi-topic ${kind} ${i}: story-expand returned no script`);
+                continue;
+              }
+              narrationParts.push(script);
+              const sceneRes = await fetch("/api/hybrid/scene-plan", {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  storyText: script,
+                  characters: [],
+                  genre: "children",
+                  tone: `${ageGroup} age-appropriate, friendly, educational`,
+                  costPreference: "budget",
+                  targetDuration: perStory,
+                }),
+              });
+              const sceneData = await safeJson<{ scenes?: Array<{ title?: string; description?: string }> }>(sceneRes, "scene-plan");
+              const label = kind === "story" ? `Bedtime Story ${i}` : "Play & Learn";
+              for (const s of sceneData.scenes || []) {
+                const desc = s.description || "";
+                if (!desc) continue;
+                const scan = scanText(desc);
+                if (scan.verdict === "block") {
+                  console.warn(`[children-safety] multi-topic scene blocked (${label}):`, JSON.stringify(scan.hardHits));
+                  continue;
+                }
+                allScenes.push({
+                  scene: allScenes.length + 1,
+                  title: `${label}: ${s.title || `Scene ${allScenes.length + 1}`}`,
+                  visualDescription: scan.verdict === "soften" ? scan.cleanedText : desc,
+                  cameraDirection: "",
+                });
+              }
+            } catch (err) {
+              console.error(`[children] multi-topic ${kind} ${i} failed:`, err);
+            }
+          }
+        }
+      }
+
+      if (allScenes.length === 0) {
+        setLastAction("Multi-topic build produced no scenes — try again or simplify the instruction.");
+      } else {
+        setChildScenes(allScenes);
+        setAssemblySelectedIds(allScenes.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
+        const narration = narrationParts.join("\n\n");
+        setNarrationText(narration);
+        setExpandedContent(narration);
+        setTargetSeconds(plan.totalSeconds);
+        setLastAction(`${plan.segments.length} topics built — ${allScenes.length} scenes, ~${Math.round(plan.totalSeconds / 60)} min total. Review the Scene Board, then generate narration and images.`);
+      }
+    } finally {
+      setExpandingContent(false);
+      setExpanding(false);
+    }
+  }
+
   // ── Expand content with AI ──
   async function expandContent() {
+    // Multi-topic brief wins over the URL content type — the user's typed
+    // instruction is the source of truth (Henry 2026-07-03).
+    {
+      const briefText = readAlongText || textContent || "";
+      const multi = briefText.trim() ? parseMultiTopicInstruction(briefText) : null;
+      if (multi) { await buildMultiTopic(multi); return; }
+    }
     // TODO #13 Phase 2 — DETERMINISTIC "by-time" content for teaching types
     // (counting / spelling / abc / concept: colours, shapes, animals, feelings,
     // body, first-words, actions…). The time-budget brain decides HOW MANY items
@@ -1527,6 +1672,12 @@ function ChildrenPlannerInner() {
 
     // Pasted complete script → use verbatim, never rewrite (Henry 2026-07-03).
     if (applyAuthoredScript(storyInput)) return;
+
+    // Multi-topic brief ("SPELLING 20 MIN - ABC 10 MIN - …") → segmented build.
+    {
+      const multi = parseMultiTopicInstruction(storyInput);
+      if (multi) { await buildMultiTopic(multi); return; }
+    }
 
     setExpanding(true);
     setLastAction("AI is building your children story...");
