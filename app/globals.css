@@ -498,7 +498,6 @@ a.nav-item::after { display: none !important; }
      wrapped section chips grew the bar to ~200px and covered the page.
      Chips become one horizontally-scrollable row; the Next-CTA row wraps
      so the button drops below the text instead of overlapping it. */
-  .gh-supervisor-bar { font-size: 11px; }
   .gh-supervisor-bar .gh-chip-row {
     flex-wrap: nowrap !important;
     overflow-x: auto;
