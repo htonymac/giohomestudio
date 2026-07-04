@@ -269,7 +269,7 @@ export default function StoryBankPage() {
     <div style={{ display: "flex", height: "100vh", background: ds.color.paper, fontFamily: ds.font.sans, overflow: "hidden" }}>
 
       {/* LEFT SIDEBAR */}
-      <div style={{ width: 260, background: ds.color.sidebar, borderRight: `1px solid ${ds.color.line2}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+      <div className="gh-side-rail" style={{ width: 260, background: ds.color.sidebar, borderRight: `1px solid ${ds.color.line2}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
         <div style={{ padding: "16px 16px 12px", borderBottom: `1px solid ${ds.color.line2}` }}>
           <HeroTitle kicker="Story Studio" title="Story" italic="Bank" />
           <button onClick={() => setShowNew(true)} style={{ ...gradBtn, width: "100%", padding: "8px 0", marginTop: 4, letterSpacing: 0.3, fontSize: 11 }}>
@@ -551,7 +551,7 @@ export default function StoryBankPage() {
 
           {/* BRAINSTORM PANEL */}
           {showChat && (
-            <div style={{ width: 320, background: ds.color.card, borderLeft: `1px solid ${ds.color.line2}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
+            <div className="gh-side-rail" style={{ width: 320, background: ds.color.card, borderLeft: `1px solid ${ds.color.line2}`, display: "flex", flexDirection: "column", flexShrink: 0 }}>
               <div style={{ padding: "12px 14px", borderBottom: `1px solid ${ds.color.line2}` }}>
                 <p style={{ fontSize: 12, fontWeight: 800, color: ds.color.lilac, margin: 0 }}>AI Brainstorm</p>
                 <p style={{ fontSize: 10, color: ds.color.mute, margin: "2px 0 0" }}>Ask anything about your story. Low cost — local AI.</p>

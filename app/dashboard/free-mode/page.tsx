@@ -2925,7 +2925,7 @@ function FreeModeChat() {
 
         {/* History sidebar */}
         {sidebarOpen ? (
-          <aside style={{
+          <aside className="gh-side-rail" style={{
             width: 260, flexShrink: 0, borderRight: `1px solid ${C.line}`,
             background: C.card, display: "flex", flexDirection: "column",
             overflow: "hidden",

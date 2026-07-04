@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import CommandPalette from "./components/CommandPalette";
@@ -8,6 +8,15 @@ import { CoordinatorProvider } from "./components/CoordinatorProvider";
 export const metadata: Metadata = {
   title: "GioHomeStudio",
   description: "AI-powered video content studio",
+};
+
+// Without this, phones assume a ~980px layout viewport and shrink-to-fit the
+// desktop layout — every card renders huge and unclickable. This one export
+// is what activates the entire mobile shell in globals.css (≤768px media
+// query: drawer sidebar, hamburger, grid collapse). Desktop is unaffected.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

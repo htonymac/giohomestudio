@@ -2124,7 +2124,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
         </div>
 
         {/* ── RIGHT: Slide + Project settings (resizable) ── */}
-        <div className="flex-shrink-0 overflow-y-auto overflow-x-hidden space-y-3 pl-2" style={{ width: rightPanelWidth }}>
+        <div className="gh-side-rail flex-shrink-0 overflow-y-auto overflow-x-hidden space-y-3 pl-2" style={{ width: rightPanelWidth }}>
           {selectedSlide ? (
             <>
               {/* Slide header */}
