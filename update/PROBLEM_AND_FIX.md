@@ -1,6 +1,6 @@
 ﻿# GioHomeStudio — Problems and Fixes Log
 
-Use this file to record bugs, their root cause, and the fix applied. When the same problem again, check here first before debugging from scratch.
+Use this file to record bugs, their root cause, and the fix applied. When the same problem happens again, check here first before debugging from scratch.
 
 ---
 ## P-2026-07-03 — Story stage: "60-min request → 40-second nonsense; pasted 18-scene script → 2 minutes"

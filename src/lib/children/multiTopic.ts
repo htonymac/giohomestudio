@@ -65,7 +65,10 @@ export function parseMultiTopicInstruction(text: string): MultiTopicPlan | null 
     .split(/\s+-{1,3}\s*|\s*-{2,3}\s+|\n+|;/)
     .map(c => c.trim())
     .filter(c => c.length > 0);
-  if (chunks.length < 3) return null; // meta + at least 2 topics
+  // At least 2 chunks — a meta header ("4 topics") is optional, so a bare
+  // "spelling 10 min - bedtime story 10 min" brief must not be rejected here;
+  // the segments.length < 2 guard below is the real multi-topic test.
+  if (chunks.length < 2) return null;
 
   let explicitTotal = 0;
   const segments: TopicSegment[] = [];

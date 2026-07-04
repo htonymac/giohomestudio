@@ -36,6 +36,34 @@ if (plan) {
   assert(story.targetSeconds === 900, `stories get the 15-min remainder (got ${story.targetSeconds}s)`);
 }
 
+// ── Fixture 1b: exact segment count + ORDER locked for the Henry brief ──
+console.log("Fixture 1b: segment count + ordering");
+if (plan) {
+  assert(plan.segments.length === 4, `exactly 4 segments (got ${plan.segments.length})`);
+  assert(
+    plan.segments.map(s => s.kind).join(">") === "spelling>abc>play>story",
+    `order preserved as authored (got ${plan.segments.map(s => s.kind).join(">")})`
+  );
+}
+
+// ── Fixture 1c: two-topic brief with NO meta header must parse (Sourcery) ──
+console.log("Fixture 1c: two topics, no meta header");
+const twoTopic = parseMultiTopicInstruction("spelling 3 letter words 10 min - bedtime story 10 min");
+assert(twoTopic !== null, "2-topic no-meta brief detected");
+if (twoTopic) {
+  assert(twoTopic.segments.length === 2, `2 segments (got ${twoTopic.segments.length})`);
+  assert(twoTopic.totalSeconds === 1200, `total 20 min from sum (got ${twoTopic.totalSeconds}s)`);
+}
+
+// ── Fixture 1d: hours + over-assigned durations ──
+console.log("Fixture 1d: hours + over-assigned");
+const hourBrief = parseMultiTopicInstruction("1 hour - counting 40 min - alphabet 30 min");
+assert(hourBrief !== null, "hour total detected");
+if (hourBrief) {
+  // Assigned (70 min) exceeds explicit total (60) → total = max(explicit, sum) = 4200s.
+  assert(hourBrief.totalSeconds === 4200, `over-assigned takes the sum (got ${hourBrief.totalSeconds}s)`);
+}
+
 // ── Fixture 2: single-topic prompt must NOT be multi-topic ──
 console.log("Fixture 2: single topic guard");
 assert(
