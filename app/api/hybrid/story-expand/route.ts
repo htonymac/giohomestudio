@@ -205,7 +205,41 @@ function isValidExpansion(obj: unknown): obj is ExpandedStory {
 
 // ── POST handler ─────────────────────────────────────────────────
 
+// ── CF 524 SHIELD (Henry 2026-07-04) ────────────────────────────────────────
+// andiostudio.com fronts this origin through a Cloudflare tunnel, and CF kills
+// any request whose FIRST BYTE takes >~100s (error 524). A story expansion can
+// legitimately run 100-200s (LLM generation + continuation passes) — live runs
+// lost EVERY long topic to 524s. Streaming fixes the class: we return 200
+// immediately and emit a whitespace keepalive byte every 8s while the real
+// handler works, then append the normal JSON body. Leading whitespace is valid
+// JSON, so response.json() on the client parses unchanged. Consequence: error
+// results (422/503) now arrive as 200 + {ok:false,…} in the body — all callers
+// already branch on data.ok / empty script, not on HTTP status.
 export async function POST(req: NextRequest) {
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const keepalive = setInterval(() => {
+        try { controller.enqueue(encoder.encode(" ")); } catch { /* stream closed */ }
+      }, 8000);
+      try {
+        const res = await handleStoryExpand(req); // original logic, untouched
+        controller.enqueue(encoder.encode(await res.text()));
+      } catch (err) {
+        controller.enqueue(encoder.encode(JSON.stringify({ ok: false, error: `story-expand crashed: ${String(err)}` })));
+      } finally {
+        clearInterval(keepalive);
+        try { controller.close(); } catch { /* already closed */ }
+      }
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+}
+
+async function handleStoryExpand(req: NextRequest) {
   try {
     const body = (await req.json()) as StoryExpandRequest;
 

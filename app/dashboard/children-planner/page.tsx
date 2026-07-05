@@ -953,10 +953,16 @@ function ChildrenPlannerInner() {
               childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
             }),
           });
-          const data = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string; scenes?: RichScene[] } }>(res, "story-expand");
+          const data = await safeJson<{ ok?: boolean; error?: string; expandedStory?: { summary?: string; fullScript?: string; scenes?: RichScene[] } }>(res, "story-expand");
           const partScript = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
+          const partScenes = data.expandedStory?.scenes || [];
+          // The 524-shield streams errors as 200 + {ok:false} — an empty part
+          // is a FAILURE (retry), never a silent skip.
+          if (data.ok === false || (!partScript && partScenes.length === 0)) {
+            throw new Error(data.error || "story-expand returned an empty part");
+          }
           script = script ? `${script}\n\n${partScript}` : partScript;
-          scenes.push(...(data.expandedStory?.scenes || []));
+          scenes.push(...partScenes);
           break;
         } catch (err) {
           console.warn(`[children] block part ${p}/${parts} attempt ${attempt} failed:`, err);
