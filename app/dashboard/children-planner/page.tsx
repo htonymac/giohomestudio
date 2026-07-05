@@ -1006,7 +1006,13 @@ function ChildrenPlannerInner() {
                 }),
               });
               const sceneData = await safeJson<{ scenes?: Array<{ title?: string; description?: string }> }>(sceneRes, "scene-plan");
-              const label = kind === "story" ? `Bedtime Story ${i}` : "Play & Learn";
+              // Label: only call it "Bedtime Story" when the user asked for
+              // bedtime; a user-described story ("man on a journey A to Z")
+              // is just "Story N" (live-verify catch 2026-07-04).
+              const isBedtime = /bed\s*time/i.test(seg.label);
+              const label = kind === "story"
+                ? (isBedtime ? `Bedtime Story ${i}` : `Story ${i}`)
+                : "Play & Learn";
               for (const s of sceneData.scenes || []) {
                 const desc = s.description || "";
                 if (!desc) continue;
