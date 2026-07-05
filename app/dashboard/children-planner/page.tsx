@@ -911,6 +911,63 @@ function ChildrenPlannerInner() {
   // scenes[]); flashcards only when the user's own words ask for cards.
   // Safety: LLM scene descriptions go through scanText (block → drop,
   // soften → clean) exactly like Gate (b). State commits per segment.
+  // Cloudflare's tunnel hard-caps any request at ~100s (524 origin timeout —
+  // hit live 2026-07-04 on an 8.5-min spelling block). Generate each topic in
+  // ≤4-minute PARTS: every story-expand call finishes well inside the cap.
+  // Stories stay coherent — each part gets the tail of the previous part and
+  // continues it. One retry per part; a twice-failed part throws to the
+  // caller's per-block catch (build continues with other topics).
+  type RichScene = { scene_number?: number; title?: string; video_prompt?: string; voiceover?: string };
+  async function expandBlockChunked(opts: {
+    basePrompt: string;
+    blockSec: number;
+    tone: string;
+    progress: (note: string) => void;
+  }): Promise<{ script: string; scenes: RichScene[] }> {
+    const CHUNK_SEC = 240;
+    const parts = Math.max(1, Math.ceil(opts.blockSec / CHUNK_SEC));
+    const perPart = Math.round(opts.blockSec / parts);
+    let script = "";
+    const scenes: RichScene[] = [];
+    for (let p = 1; p <= parts; p++) {
+      if (parts > 1) opts.progress(`part ${p}/${parts}`);
+      const tail = script.split(/\s+/).slice(-80).join(" ");
+      const prompt = parts === 1
+        ? opts.basePrompt
+        : p === 1
+          ? `${opts.basePrompt} This is PART 1 of ${parts} — begin the show; later parts continue it.`
+          : `${opts.basePrompt} This is PART ${p} of ${parts}. CONTINUE seamlessly from where part ${p - 1} stopped — its last lines were: "…${tail}". Do NOT repeat earlier scenes, words or moments; bring NEW content${p === parts ? " and close with a satisfying, gentle ending" : ""}.`;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const res = await fetch("/api/hybrid/story-expand", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              storyInput: prompt,
+              genre: "children",
+              tone: opts.tone,
+              audience: AGE_AUDIENCE[ageGroup] || "children",
+              language: "English",
+              targetDuration: perPart,
+              targetDurationLabel: `${Math.round(perPart / 60)} min`,
+              tier: "pro",
+              childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
+            }),
+          });
+          const data = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string; scenes?: RichScene[] } }>(res, "story-expand");
+          const partScript = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
+          script = script ? `${script}\n\n${partScript}` : partScript;
+          scenes.push(...(data.expandedStory?.scenes || []));
+          break;
+        } catch (err) {
+          console.warn(`[children] block part ${p}/${parts} attempt ${attempt} failed:`, err);
+          if (attempt === 2) throw err;
+          await new Promise(r => setTimeout(r, 4000)); // brief backoff, then one retry
+        }
+      }
+    }
+    return { script, scenes };
+  }
+
   async function buildMultiTopic(plan: MultiTopicPlan): Promise<void> {
     // REBUILT (Henry 2026-07-04, "this is not how a movie should be"): every
     // segment now renders as a SHOW STORYBOARD — one story-expand call per
@@ -1010,33 +1067,18 @@ function ChildrenPlannerInner() {
             promptText = `${seg.label}. A playful children's teaching SHOW about this subject — a warm teacher and school students learning through play, demonstrations, games and movement; each scene shows ONE clear moment where the idea is visible in the picture. Scene by scene, many physical action verbs.`;
           }
           try {
-            const res = await fetch("/api/hybrid/story-expand", {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                storyInput: promptText,
-                genre: "children",
-                tone: kind === "story" ? (isBedtime ? "warm, gentle, bedtime-friendly" : "warm, adventurous, meaningful") : "fun, playful, energetic",
-                audience: AGE_AUDIENCE[ageGroup] || "children",
-                language: "English",
-                targetDuration: perBlock,
-                targetDurationLabel: `${Math.round(perBlock / 60)} min`,
-                tier: "pro",
-                childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
-              }),
+            // Chunked generation dodges the CF ~100s request cap (524).
+            const { script, scenes: richAll } = await expandBlockChunked({
+              basePrompt: promptText,
+              blockSec: perBlock,
+              tone: kind === "story" ? (isBedtime ? "warm, gentle, bedtime-friendly" : "warm, adventurous, meaningful") : "fun, playful, energetic",
+              progress: note => setLastAction(`Topic ${segIdx}/${plan.segments.length}: writing ${seg.label.slice(0, 30)} — ${note}…`),
             });
-            const data = await safeJson<{
-              expandedStory?: {
-                summary?: string;
-                fullScript?: string;
-                scenes?: Array<{ scene_number?: number; title?: string; video_prompt?: string; voiceover?: string }>;
-              };
-            }>(res, "story-expand");
-            const script = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
             // Cap per-block scenes to ~1.5/min (the route's intended
             // targetSceneCount) so the route's length-enforcement beat
             // inflation can't balloon the board back into spam. [Opus MF-2]
             const sceneCap = Math.max(3, Math.round((perBlock / 60) * 1.5) + 4);
-            const rich = (data.expandedStory?.scenes || []).slice(0, sceneCap);
+            const rich = richAll.slice(0, sceneCap);
             const label = kind === "story"
               ? (isBedtime ? `Bedtime Story ${i}` : `Story ${i}`)
               : segTitle || "Lesson";
