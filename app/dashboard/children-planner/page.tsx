@@ -1066,10 +1066,26 @@ function ChildrenPlannerInner() {
                   narration: narrLine || undefined,
                 });
               }
-              narrationParts.push(script || rich.map(r => r.voiceover).filter(Boolean).join(" "));
+              // The block script feeds global narrationText (TTS) — scan it
+              // like every other child-facing text (block → fall back to the
+              // already-scanned voiceover lines; soften → cleaned). [Sourcery]
+              {
+                const rawNarr = script || rich.map(r => r.voiceover).filter(Boolean).join(" ");
+                const nScan = scanText(rawNarr);
+                if (nScan.verdict === "block") {
+                  console.warn(`[children-safety] multi-topic block narration blocked (${label}):`, JSON.stringify(nScan.hardHits));
+                  narrationParts.push(rich.map(r => r.voiceover).filter(Boolean).join(" "));
+                } else {
+                  narrationParts.push(nScan.verdict === "soften" ? nScan.cleanedText : rawNarr);
+                }
+              }
             } else if (script) {
               // Fallback when the model returned no scenes[]: scene-plan on the script.
-              narrationParts.push(script);
+              {
+                const nScan = scanText(script);
+                narrationParts.push(nScan.verdict === "soften" ? nScan.cleanedText : nScan.verdict === "block" ? "" : script);
+                if (nScan.verdict === "block") console.warn(`[children-safety] multi-topic fallback narration blocked (${label})`);
+              }
               const sceneRes = await fetch("/api/hybrid/scene-plan", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1086,7 +1102,10 @@ function ChildrenPlannerInner() {
                 const desc = s.description || "";
                 if (!desc) continue;
                 const scan = scanText(desc);
-                if (scan.verdict === "block") continue;
+                if (scan.verdict === "block") {
+                  console.warn(`[children-safety] multi-topic fallback scene blocked (${label}):`, JSON.stringify(scan.hardHits));
+                  continue;
+                }
                 allScenes.push({
                   scene: allScenes.length + 1,
                   title: `${label}: ${s.title || `Scene ${allScenes.length + 1}`}`,
