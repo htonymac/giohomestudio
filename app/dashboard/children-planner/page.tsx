@@ -906,32 +906,48 @@ function ChildrenPlannerInner() {
   // ── MULTI-TOPIC BUILDER (Henry 2026-07-03, Fix Pack 2) ────────────────────
   // Builds ONE video from a segmented instruction like "60 MIN - SPELLING
   // 2 TO 5 LETTER WORDS 20 MIN - ALPHABET 10 MIN - PLAY EDUCATION 15 MIN -
-  // 3 BEDTIME STORIES". Before this, the data model carried a single mode +
-  // single duration, so multi-topic briefs fell into the generic LLM story
-  // path and produced nonsense. Teaching kinds use the deterministic card
-  // engine per segment; story/play kinds run story-expand + duration-aware
-  // scene-plan per story, so each bedtime story stays a separate, demarcated
-  // block. Safety: LLM scene descriptions go through scanText (block → drop,
-  // soften → clean) exactly like Gate (b).
+  // 3 BEDTIME STORIES". Every segment renders as a SHOW STORYBOARD (one
+  // cinematic image + narrator line per scene, via story-expand's rich
+  // scenes[]); flashcards only when the user's own words ask for cards.
+  // Safety: LLM scene descriptions go through scanText (block → drop,
+  // soften → clean) exactly like Gate (b). State commits per segment.
   async function buildMultiTopic(plan: MultiTopicPlan): Promise<void> {
+    // REBUILT (Henry 2026-07-04, "this is not how a movie should be"): every
+    // segment now renders as a SHOW STORYBOARD — one story-expand call per
+    // block returns rich scenes[] (video_prompt + voiceover), i.e. one
+    // cinematic image + narrator line per scene, the exact shape of Henry's
+    // approved ChatGPT sample (teacher + children mid-action, content visible
+    // in the scene). Deterministic flashcards run ONLY when the user's own
+    // words ask for cards/flashcards/drill. State COMMITS after every segment
+    // so a failed block can never zero the whole build (his 07-04 run ended
+    // with 87 bare cards, no stories, no narration).
     setExpandingContent(true);
     setExpanding(true);
     const allScenes: ChildScene[] = [];
     const narrationParts: string[] = [];
     const wlDefault = ageGroup === "toddler" ? 3 : ageGroup === "preschool" ? 4 : ageGroup === "early" ? 5 : 6;
+    // Commit accumulated progress to state — called after EVERY segment.
+    const commit = () => {
+      if (allScenes.length === 0) return;
+      setChildScenes([...allScenes]);
+      setAssemblySelectedIds(allScenes.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
+      const narration = narrationParts.join("\n\n");
+      setNarrationText(narration);
+      setExpandedContent(narration);
+    };
     let segIdx = 0;
     try {
       for (const seg of plan.segments) {
         segIdx++;
-        // Age guard (mirrors Henry 2026-06-21): ABC flashcards are toddler/
-        // preschool only — for older kids the segment runs as LLM play-teaching.
         const kind = seg.kind === "abc" && (ageGroup === "early" || ageGroup === "older") ? "play" : seg.kind;
-        setLastAction(`Topic ${segIdx}/${plan.segments.length}: ${kind} (~${Math.round(seg.targetSeconds / 60)} min)…`);
+        setLastAction(`Topic ${segIdx}/${plan.segments.length}: ${seg.label.slice(0, 40)} (~${Math.round(seg.targetSeconds / 60)} min)…`);
 
-        if (kind === "spelling" || kind === "abc" || kind === "counting" || kind === "concept") {
-          // Deterministic card builders — same engine as single-topic teaching.
-          // A spelling range ("2 to 5 letter") becomes one round per word
-          // length, each with its share of the topic's time budget.
+        // Flashcards ONLY on explicit ask — a "video with scenes" brief means a
+        // show. Require card/drill INTENT: bare "card(s)" as a spelling example
+        // word ("words like card, dog, sun") must NOT trigger the deterministic
+        // flashcard engine (that IS the 87-bare-cards regression). [Opus MF-1]
+        const wantsCards = /flash\s*cards?|\bflashcards?\b|\bdrill\b|\bcard\s+mode\b/i.test(seg.label);
+        if (wantsCards && (kind === "spelling" || kind === "abc" || kind === "counting" || kind === "concept")) {
           const rounds =
             kind === "spelling" && seg.wordLengthMin && seg.wordLengthMax && seg.wordLengthMax >= seg.wordLengthMin
               ? Array.from({ length: seg.wordLengthMax - seg.wordLengthMin + 1 }, (_, k) => (seg.wordLengthMin as number) + k)
@@ -953,47 +969,123 @@ function ChildrenPlannerInner() {
               }
               narrationParts.push(built.scenes.map(s => s.narration).join(" "));
             } catch (err) {
-              console.error(`[children] multi-topic ${kind} round (wl=${wl}) failed:`, err);
+              console.error(`[children] multi-topic ${kind} card round (wl=${wl}) failed:`, err);
             }
           }
-        } else {
-          // story / play → LLM story per block, then duration-aware scene-plan,
-          // so "3 bedtime stories" are three separate, complete stories.
-          const count = kind === "story" ? seg.storyCount || 1 : 1;
-          const perStory = Math.max(60, Math.round(seg.targetSeconds / count));
-          for (let i = 1; i <= count; i++) {
-            setLastAction(`Topic ${segIdx}/${plan.segments.length}: writing ${kind} ${i}/${count} (~${Math.round(perStory / 60)} min)…`);
-            // When the user described the story themselves ("story about a man
-            // on a long journey A to Z…"), their words ARE the brief — never
-            // replace them with a generic bedtime prompt (Henry 2026-07-04).
-            const userSubject = seg.label.trim().split(/\s+/).length >= 5 ? seg.label.trim() : "";
-            const promptText = kind === "story"
-              ? (userSubject
-                  ? `${userSubject}. A complete, extremely meaningful children's story (story ${i} of ${count}) with a clear beginning, middle and gentle ending. Scene by scene, many physical action verbs.`
-                  : `A complete, extremely meaningful bedtime story (story ${i} of ${count}) with a clear beginning, middle and gentle calm ending. Scene by scene, many physical action verbs.`)
-              : `${seg.label}. A playful classroom teaching session — a warm teacher and school students learning through play, games and movement. Scene by scene, many physical action verbs.`;
-            try {
-              const res = await fetch("/api/hybrid/story-expand", {
-                method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  storyInput: promptText,
-                  genre: "children",
-                  tone: kind === "story" ? "warm, gentle, bedtime-friendly" : "fun, playful, energetic",
-                  audience: AGE_AUDIENCE[ageGroup] || "children",
-                  language: "English",
-                  targetDuration: perStory,
-                  targetDurationLabel: `${Math.round(perStory / 60)} min`,
-                  tier: "pro",
-                  childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
-                }),
-              });
-              const data = await safeJson<{ expandedStory?: { summary?: string; fullScript?: string } }>(res, "story-expand");
-              const script = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
-              if (!script) {
-                console.error(`[children] multi-topic ${kind} ${i}: story-expand returned no script`);
-                continue;
+          commit();
+          continue;
+        }
+
+        // ── SHOW path (default for every kind) ────────────────────────────
+        const count = kind === "story" ? seg.storyCount || 1 : 1;
+        const perBlock = Math.max(60, Math.round(seg.targetSeconds / count));
+        const isBedtime = /bed\s*time/i.test(seg.label);
+        const userSubject = seg.label.trim().split(/\s+/).length >= 5 ? seg.label.trim() : "";
+        // Segment label for scene titles: the user's own subject, shortened.
+        const segTitle = kind === "story"
+          ? ""
+          : seg.label.trim().split(/\s+/).slice(0, 4).join(" ");
+
+        for (let i = 1; i <= count; i++) {
+          setLastAction(`Topic ${segIdx}/${plan.segments.length}: writing ${seg.label.slice(0, 30)} ${count > 1 ? `${i}/${count} ` : ""}(~${Math.round(perBlock / 60)} min)…`);
+          // Show-style brief per kind — all of them describe a WATCHABLE show
+          // scene-by-scene: ONE image per scene, characters mid-action, the
+          // teaching content visible IN the scene (word on the board, objects
+          // being counted), never a bare flashcard.
+          let promptText: string;
+          if (kind === "story") {
+            promptText = userSubject
+              ? `${userSubject}. A complete, extremely meaningful children's story (story ${i} of ${count}) with a clear beginning, middle and gentle ending. Scene by scene, many physical action verbs.`
+              : `A complete, extremely meaningful bedtime story (story ${i} of ${count}) with a clear beginning, middle and gentle calm ending. Scene by scene, many physical action verbs.`;
+          } else if (kind === "spelling") {
+            const wlPhrase = seg.wordLengthMin
+              ? `${seg.wordLengthMin}${seg.wordLengthMax && seg.wordLengthMax !== seg.wordLengthMin ? ` to ${seg.wordLengthMax}` : ""}-letter`
+              : `${wlDefault}-letter`;
+            promptText = `${seg.label}. A children's classroom SHOW teaching ${wlPhrase} word spelling: a warm teacher and excited children learn through play — building words with big letter blocks, pointing to the matching real object, sounding letters out together, clapping and cheering when a word is complete. Each scene is ONE moment with the word AND its object clearly visible in the picture. Cover many different words. Scene by scene, many physical action verbs.`;
+          } else if (kind === "abc") {
+            promptText = `${seg.label}. A children's alphabet adventure SHOW from A to Z: a warm teacher and children move through a colorful alphabet world — each scene celebrates letters with their matching objects (A for Apple, B for Ball…), children touch, hold, name and play with the objects while the big letter is visible in the scene. Scene by scene, many physical action verbs.`;
+          } else if (kind === "counting") {
+            promptText = `${seg.label}. A playful children's math and counting SHOW: children count real things out loud — fruits, toys, animals — group them, add them, celebrate right answers with jumps and high-fives; each scene shows the objects AND the number clearly in the picture. Scene by scene, many physical action verbs.`;
+          } else {
+            promptText = `${seg.label}. A playful children's teaching SHOW about this subject — a warm teacher and school students learning through play, demonstrations, games and movement; each scene shows ONE clear moment where the idea is visible in the picture. Scene by scene, many physical action verbs.`;
+          }
+          try {
+            const res = await fetch("/api/hybrid/story-expand", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                storyInput: promptText,
+                genre: "children",
+                tone: kind === "story" ? (isBedtime ? "warm, gentle, bedtime-friendly" : "warm, adventurous, meaningful") : "fun, playful, energetic",
+                audience: AGE_AUDIENCE[ageGroup] || "children",
+                language: "English",
+                targetDuration: perBlock,
+                targetDurationLabel: `${Math.round(perBlock / 60)} min`,
+                tier: "pro",
+                childContext: { ageGroup, learningMode, safetyLevel, visualStyle: effectiveProjectStyle },
+              }),
+            });
+            const data = await safeJson<{
+              expandedStory?: {
+                summary?: string;
+                fullScript?: string;
+                scenes?: Array<{ scene_number?: number; title?: string; video_prompt?: string; voiceover?: string }>;
+              };
+            }>(res, "story-expand");
+            const script = data.expandedStory?.fullScript || data.expandedStory?.summary || "";
+            // Cap per-block scenes to ~1.5/min (the route's intended
+            // targetSceneCount) so the route's length-enforcement beat
+            // inflation can't balloon the board back into spam. [Opus MF-2]
+            const sceneCap = Math.max(3, Math.round((perBlock / 60) * 1.5) + 4);
+            const rich = (data.expandedStory?.scenes || []).slice(0, sceneCap);
+            const label = kind === "story"
+              ? (isBedtime ? `Bedtime Story ${i}` : `Story ${i}`)
+              : segTitle || "Lesson";
+
+            if (rich.length > 0) {
+              // Storyboard path: one cinematic image + narrator line per scene.
+              for (const rs of rich) {
+                const desc = (rs.video_prompt || "").trim();
+                if (!desc) continue;
+                const scan = scanText(desc);
+                if (scan.verdict === "block") {
+                  console.warn(`[children-safety] multi-topic scene blocked (${label}):`, JSON.stringify(scan.hardHits));
+                  continue;
+                }
+                // Narration is child-facing spoken text — scan it like the
+                // visual (block → drop the line, soften → cleaned). [Opus SF-1]
+                let narrLine = (rs.voiceover || "").trim();
+                if (narrLine) {
+                  const nScan = scanText(narrLine);
+                  narrLine = nScan.verdict === "block" ? "" : nScan.verdict === "soften" ? nScan.cleanedText : narrLine;
+                }
+                allScenes.push({
+                  scene: allScenes.length + 1,
+                  title: `${label}: ${rs.title || `Scene ${allScenes.length + 1}`}`,
+                  visualDescription: scan.verdict === "soften" ? scan.cleanedText : desc,
+                  cameraDirection: "",
+                  narration: narrLine || undefined,
+                });
               }
-              narrationParts.push(script);
+              // The block script feeds global narrationText (TTS) — scan it
+              // like every other child-facing text (block → fall back to the
+              // already-scanned voiceover lines; soften → cleaned). [Sourcery]
+              {
+                const rawNarr = script || rich.map(r => r.voiceover).filter(Boolean).join(" ");
+                const nScan = scanText(rawNarr);
+                if (nScan.verdict === "block") {
+                  console.warn(`[children-safety] multi-topic block narration blocked (${label}):`, JSON.stringify(nScan.hardHits));
+                  narrationParts.push(rich.map(r => r.voiceover).filter(Boolean).join(" "));
+                } else {
+                  narrationParts.push(nScan.verdict === "soften" ? nScan.cleanedText : rawNarr);
+                }
+              }
+            } else if (script) {
+              // Fallback when the model returned no scenes[]: scene-plan on the script.
+              {
+                const nScan = scanText(script);
+                narrationParts.push(nScan.verdict === "soften" ? nScan.cleanedText : nScan.verdict === "block" ? "" : script);
+                if (nScan.verdict === "block") console.warn(`[children-safety] multi-topic fallback narration blocked (${label})`);
+              }
               const sceneRes = await fetch("/api/hybrid/scene-plan", {
                 method: "POST", headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -1002,23 +1094,16 @@ function ChildrenPlannerInner() {
                   genre: "children",
                   tone: `${ageGroup} age-appropriate, friendly, educational`,
                   costPreference: "budget",
-                  targetDuration: perStory,
+                  targetDuration: perBlock,
                 }),
               });
               const sceneData = await safeJson<{ scenes?: Array<{ title?: string; description?: string }> }>(sceneRes, "scene-plan");
-              // Label: only call it "Bedtime Story" when the user asked for
-              // bedtime; a user-described story ("man on a journey A to Z")
-              // is just "Story N" (live-verify catch 2026-07-04).
-              const isBedtime = /bed\s*time/i.test(seg.label);
-              const label = kind === "story"
-                ? (isBedtime ? `Bedtime Story ${i}` : `Story ${i}`)
-                : "Play & Learn";
               for (const s of sceneData.scenes || []) {
                 const desc = s.description || "";
                 if (!desc) continue;
                 const scan = scanText(desc);
                 if (scan.verdict === "block") {
-                  console.warn(`[children-safety] multi-topic scene blocked (${label}):`, JSON.stringify(scan.hardHits));
+                  console.warn(`[children-safety] multi-topic fallback scene blocked (${label}):`, JSON.stringify(scan.hardHits));
                   continue;
                 }
                 allScenes.push({
@@ -1028,21 +1113,22 @@ function ChildrenPlannerInner() {
                   cameraDirection: "",
                 });
               }
-            } catch (err) {
-              console.error(`[children] multi-topic ${kind} ${i} failed:`, err);
+            } else {
+              console.error(`[children] multi-topic ${kind} ${i}: story-expand returned no script or scenes`);
+              setLastAction(`Topic ${segIdx}: "${seg.label.slice(0, 30)}" failed to generate — continuing with the rest.`);
             }
+          } catch (err) {
+            console.error(`[children] multi-topic ${kind} ${i} failed:`, err);
+            setLastAction(`Topic ${segIdx}: "${seg.label.slice(0, 30)}" failed (${String(err).slice(0, 60)}) — continuing.`);
           }
+          commit(); // progress survives even if a later block dies
         }
       }
 
       if (allScenes.length === 0) {
         setLastAction("Multi-topic build produced no scenes — try again or simplify the instruction.");
       } else {
-        setChildScenes(allScenes);
-        setAssemblySelectedIds(allScenes.map((_, i) => `child_sc${(i + 1).toString().padStart(2, "0")}`));
-        const narration = narrationParts.join("\n\n");
-        setNarrationText(narration);
-        setExpandedContent(narration);
+        commit();
         setTargetSeconds(plan.totalSeconds);
         setLastAction(`${plan.segments.length} topics built — ${allScenes.length} scenes, ~${Math.round(plan.totalSeconds / 60)} min total. Review the Scene Board, then generate narration and images.`);
       }
