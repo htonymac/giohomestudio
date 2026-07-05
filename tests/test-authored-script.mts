@@ -4,6 +4,7 @@
 // the same line after the colon.
 import {
   detectAuthoredScript,
+  detectSceneOutline,
   parseAuthoredScript,
   estimateSceneSeconds,
 } from "../src/lib/story/authoredScript";
@@ -57,13 +58,13 @@ assert(
 
 // ── Fixture 2: plain unformatted headers, ASCII hyphen, mixed case ──
 const plainScript = `scene 1 - The Meeting (0-2 minutes)
-Two friends meet at the market and greet each other warmly.
+Two friends meet at the busy market in the warm morning light and greet each other with wide smiles, clasping hands under the colorful stalls.
 
 SCENE 2: The Chase
-The thief grabs the basket and runs; Ade sprints after him through the stalls.
+The thief grabs the basket of fruit and runs; Ade sprints after him through the crowded stalls, leaping over crates while traders shout and point the way.
 
 Scene 3 - The Lesson (4-6 minutes)
-The elder explains why honesty matters while the children listen.`;
+The elder sits the children down in the shade and explains gently why honesty matters, while Ade returns the basket and everyone claps for him.`;
 
 console.log("Fixture 2: plain headers");
 assert(detectAuthoredScript(plainScript), "plain format detected");
@@ -95,11 +96,11 @@ assert(!detectAuthoredScript(noisyNumbers), "non-ascending scene mentions NOT de
 
 // Boundary: mostly-ascending WITH one out-of-order header still detects
 // (authors sometimes renumber a single inserted scene).
-const oneSwap = `Scene 1: The dawn breaks over the quiet village as farmers wake.
-Scene 2: The market fills with traders shouting their morning prices.
-Scene 4: The storm arrives and everyone runs for shelter fast.
-Scene 3: A child loses her basket in the crowded square today.
-Scene 5: The rainbow appears and calm returns to the village.`;
+const oneSwap = `Scene 1: The dawn breaks over the quiet village as farmers wake, stretch, and carry their hoes toward the green fields beyond the river.
+Scene 2: The market fills with traders shouting their morning prices while children weave between the stalls carrying baskets of bright fruit.
+Scene 4: The storm arrives with a roar and everyone runs for shelter, pulling tarpaulins over the goods as rain hammers the tin roofs.
+Scene 3: A child loses her basket in the crowded square and a kind stranger kneels to help her gather the scattered oranges.
+Scene 5: The rainbow appears over the wet rooftops and calm returns to the village as neighbors laugh and reopen their stalls.`;
 console.log("Fixture 3c: single out-of-order header tolerated");
 assert(detectAuthoredScript(oneSwap), "mostly-ascending script with one swap still detected");
 
@@ -107,6 +108,22 @@ assert(detectAuthoredScript(oneSwap), "mostly-ascending script with one swap sti
 const brief = `4 TOPIC - 60 MIN - SPELLING 2 TO 5 LETTER WORDS 20 MIN - ALPHABET WITH IMAGE 10 MIN - PLAY EDUCATION 15 MIN - BEDTIME STORIES 3 STORIES`;
 console.log("Fixture 4: instruction brief guard");
 assert(!detectAuthoredScript(brief), "topic instruction NOT detected as script");
+
+// ── Fixture 5: scene OUTLINE (short topic labels) must NOT be a script ──
+// Henry 2026-07-04: "scene 1: 4,5,6 letters words / scene 3: math" got used
+// verbatim as scene content. Outlines need generation, not verbatim use.
+const outline = `I need a 60 minute video with 6 scene of different subject and title for children of 4 to 7 years.
+scene 1: 4,5,6 letters words
+scene 2: story about a man on a long journey to letter A to Z where each town he found 4 and 5 letter words for each letters
+scene 3: math
+scene 4: science
+scene 5: how machine works
+scene 6: why we need a doctor and 2 bed time story`;
+console.log("Fixture 5: outline vs script discrimination");
+assert(!detectAuthoredScript(outline), "scene OUTLINE not detected as authored script");
+assert(detectSceneOutline(outline), "scene OUTLINE detected by detectSceneOutline");
+assert(!detectSceneOutline(henryScript), "real script NOT flagged as outline");
+assert(detectAuthoredScript(henryScript), "real script still detected as authored (regression)");
 
 console.log(failures === 0 ? "\nALL PASS" : `\n${failures} FAILURES`);
 process.exit(failures === 0 ? 0 : 1);

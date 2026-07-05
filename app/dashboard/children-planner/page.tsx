@@ -963,8 +963,14 @@ function ChildrenPlannerInner() {
           const perStory = Math.max(60, Math.round(seg.targetSeconds / count));
           for (let i = 1; i <= count; i++) {
             setLastAction(`Topic ${segIdx}/${plan.segments.length}: writing ${kind} ${i}/${count} (~${Math.round(perStory / 60)} min)…`);
+            // When the user described the story themselves ("story about a man
+            // on a long journey A to Z…"), their words ARE the brief — never
+            // replace them with a generic bedtime prompt (Henry 2026-07-04).
+            const userSubject = seg.label.trim().split(/\s+/).length >= 5 ? seg.label.trim() : "";
             const promptText = kind === "story"
-              ? `A complete, extremely meaningful bedtime story (story ${i} of ${count}) with a clear beginning, middle and gentle calm ending. Scene by scene, many physical action verbs.`
+              ? (userSubject
+                  ? `${userSubject}. A complete, extremely meaningful children's story (story ${i} of ${count}) with a clear beginning, middle and gentle ending. Scene by scene, many physical action verbs.`
+                  : `A complete, extremely meaningful bedtime story (story ${i} of ${count}) with a clear beginning, middle and gentle calm ending. Scene by scene, many physical action verbs.`)
               : `${seg.label}. A playful classroom teaching session — a warm teacher and school students learning through play, games and movement. Scene by scene, many physical action verbs.`;
             try {
               const res = await fetch("/api/hybrid/story-expand", {
@@ -1699,12 +1705,16 @@ function ChildrenPlannerInner() {
     const wantsPoem = /\b(poem|poetry|rhyme|rhyming|verse|song|musical)\b/i.test(storyInput);
     const storyType = wantsPoem ? "rhyming_poem" : "story_book";
 
-    // If user mentioned a specific age in their text ("3 and 4 year old", "5 year"),
-    // honor it over the dropdown — common case is they type the age in the prompt.
-    const ageInText = lower.match(/(\d+)\s*(?:and\s*\d+\s*)?\s*year[\s-]*old/);
+    // If user mentioned a specific age in their text ("3 and 4 year old", "5 year",
+    // "children of 4 to 7 years"), honor it over the dropdown — common case is
+    // they type the age in the prompt. Ranges use the midpoint.
+    const ageRange = lower.match(/(\d+)\s*(?:to|[-–—]|and)\s*(\d+)\s*years?/);
+    const ageInText = ageRange || lower.match(/(\d+)\s*(?:and\s*\d+\s*)?\s*year[\s-]*old/);
     let effectiveAgeGroup = ageGroup;
     if (ageInText) {
-      const n = parseInt(ageInText[1]);
+      const n = ageRange
+        ? Math.round((parseInt(ageRange[1]) + parseInt(ageRange[2])) / 2)
+        : parseInt(ageInText[1]);
       if (n <= 3) effectiveAgeGroup = "toddler";
       else if (n <= 5) effectiveAgeGroup = "preschool";
       else if (n <= 7) effectiveAgeGroup = "early";
