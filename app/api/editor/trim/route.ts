@@ -8,6 +8,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { resolveVideoPath } from "@/lib/resolve-video-path";
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,20 +51,6 @@ export async function POST(req: NextRequest) {
     console.error("[editor/trim]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-}
-
-function resolveVideoPath(videoUrl: string): string | null {
-  // If it's an /api/media/ URL, map to storage
-  const mediaMatch = videoUrl.match(/\/api\/media\/(.+)$/);
-  if (mediaMatch) {
-    return path.resolve(env.storagePath, mediaMatch[1].replace(/\//g, path.sep));
-  }
-  // If it's already an absolute path
-  if (path.isAbsolute(videoUrl)) return videoUrl;
-  // Try storage root
-  const storagePath = path.resolve(env.storagePath, videoUrl.replace(/^\//, ""));
-  if (fs.existsSync(storagePath)) return storagePath;
-  return null;
 }
 
 function runFFmpeg(args: string[]): Promise<void> {
