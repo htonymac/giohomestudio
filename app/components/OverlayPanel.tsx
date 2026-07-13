@@ -14,6 +14,8 @@ interface OverlayPanelProps {
   layers: OverlayLayer[];
   onChange: (layers: OverlayLayer[]) => void;
   onApplied?: (outputPath: string) => void;
+  /** Length of the loaded video in seconds — makes timing controls video-aware (defaults, clamps, "Whole video"). */
+  videoDurationSec?: number;
 }
 
 let layerCounter = 0;
@@ -29,14 +31,16 @@ const ANIMATION_OPTIONS: { value: AnimationEntrance; label: string }[] = [
   { value: "typewriter",   label: "Typewriter"    },
 ];
 
-function makeTextLayer(): TextLayer {
+function makeTextLayer(videoDurationSec?: number): TextLayer {
+  // Default: text shows over the WHOLE video, not an arbitrary 5s window.
+  const dur = videoDurationSec && videoDurationSec > 0 ? Math.round(videoDurationSec * 10) / 10 : 5;
   return {
     type: "text",
     id: `text_${Date.now()}_${++layerCounter}`,
     text: "Your text here",
     position: { zone: "bottom" },
     style: { fontSize: 48, fontWeight: "bold", color: "#FFFFFF", shadow: true, outline: false },
-    animation: { entrance: "none", startSec: 0, durationSec: 5 },
+    animation: { entrance: "none", startSec: 0, durationSec: dur },
   };
 }
 
@@ -57,6 +61,7 @@ export default function OverlayPanel({
   layers,
   onChange,
   onApplied,
+  videoDurationSec,
 }: OverlayPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -67,7 +72,7 @@ export default function OverlayPanel({
   const applyAbortRef = useRef<AbortController | null>(null);
 
   function addTextLayer() {
-    onChange([...layers, makeTextLayer()]);
+    onChange([...layers, makeTextLayer(videoDurationSec)]);
   }
 
   function addImageLayer() {
@@ -230,6 +235,7 @@ export default function OverlayPanel({
               {layer.type === "text" && (
                 <TextLayerEditor
                   layer={layer as TextLayer}
+                  videoDurationSec={videoDurationSec}
                   onTextChange={text => updateLayer(layer.id, { text })}
                   onPositionChange={position => updateLayer(layer.id, { position } as Partial<TextLayer>)}
                   onStyleChange={patch => updateTextStyle(layer.id, patch)}
@@ -240,6 +246,7 @@ export default function OverlayPanel({
               {layer.type === "image" && (
                 <ImageLayerEditor
                   layer={layer as ImageLayer}
+                  videoDurationSec={videoDurationSec}
                   onPathChange={imagePath => updateLayer(layer.id, { imagePath })}
                   onPositionChange={position => updateLayer(layer.id, { position } as Partial<ImageLayer>)}
                   onSizeChange={(width, height) => updateLayer(layer.id, { size: { width, height } })}
@@ -295,12 +302,14 @@ export default function OverlayPanel({
 
 function TextLayerEditor({
   layer,
+  videoDurationSec,
   onTextChange,
   onPositionChange,
   onStyleChange,
   onAnimationChange,
 }: {
   layer: TextLayer;
+  videoDurationSec?: number;
   onTextChange: (text: string) => void;
   onPositionChange: (position: TextLayer["position"]) => void;
   onStyleChange: (patch: Partial<TextLayer["style"]>) => void;
@@ -443,7 +452,7 @@ function TextLayerEditor({
           <span style={{ fontSize: 10, color: "#888" }}>radius</span>
         </FieldRow>
       )}
-      <AnimationRow animation={layer.animation} onChange={onAnimationChange} />
+      <AnimationRow animation={layer.animation} onChange={onAnimationChange} videoDurationSec={videoDurationSec} />
     </div>
   );
 }
@@ -452,12 +461,14 @@ function TextLayerEditor({
 
 function ImageLayerEditor({
   layer,
+  videoDurationSec,
   onPathChange,
   onPositionChange,
   onSizeChange,
   onAnimationChange,
 }: {
   layer: ImageLayer;
+  videoDurationSec?: number;
   onPathChange: (path: string) => void;
   onPositionChange: (position: ImageLayer["position"]) => void;
   onSizeChange: (w: number, h: number) => void;
@@ -532,7 +543,7 @@ function ImageLayerEditor({
           onChange={e => onSizeChange(layer.size.width, Number(e.target.value))}
           style={{ ...inputStyle, width: 70 }} placeholder="H" />
       </FieldRow>
-      <AnimationRow animation={layer.animation} onChange={onAnimationChange} />
+      <AnimationRow animation={layer.animation} onChange={onAnimationChange} videoDurationSec={videoDurationSec} />
     </div>
   );
 }
@@ -542,10 +553,17 @@ function ImageLayerEditor({
 function AnimationRow({
   animation,
   onChange,
+  videoDurationSec,
 }: {
   animation: { entrance: AnimationEntrance; startSec: number; durationSec: number };
   onChange: (patch: Partial<typeof animation>) => void;
+  videoDurationSec?: number;
 }) {
+  const vd = videoDurationSec && videoDurationSec > 0 ? Math.round(videoDurationSec * 10) / 10 : 0;
+  const fmt = (n: number) => (Math.round(n * 10) / 10).toString();
+  const end = animation.startSec + animation.durationSec;
+  const startsPastEnd = vd > 0 && animation.startSec >= vd;
+  const runsToEnd = vd > 0 && !startsPastEnd && end >= vd - 0.05;
   return (
     <>
       <FieldRow label="Animation">
@@ -555,15 +573,34 @@ function AnimationRow({
       </FieldRow>
       <FieldRow label="Timing">
         <span style={{ fontSize: 12, color: "#888" }}>Start</span>
-        <input type="number" min={0} step={0.5} value={animation.startSec}
-          onChange={e => onChange({ startSec: Number(e.target.value) })}
+        <input type="number" min={0} max={vd > 0 ? Math.max(0, vd - 0.5) : undefined} step={0.5} value={animation.startSec}
+          onChange={e => {
+            let v = Math.max(0, Number(e.target.value));
+            if (vd > 0) v = Math.min(v, Math.max(0, vd - 0.5)); // text starting after the video ends can never show
+            onChange({ startSec: v });
+          }}
           style={{ ...inputStyle, width: 60, margin: "0 8px" }} />
         <span style={{ fontSize: 12, color: "#888" }}>s &nbsp; Duration</span>
         <input type="number" min={0.5} step={0.5} value={animation.durationSec}
-          onChange={e => onChange({ durationSec: Number(e.target.value) })}
+          onChange={e => onChange({ durationSec: Math.max(0.5, Number(e.target.value)) })}
           style={{ ...inputStyle, width: 60, marginLeft: 8 }} />
         <span style={{ fontSize: 12, color: "#888", marginLeft: 4 }}>s</span>
       </FieldRow>
+      {vd > 0 && (
+        <FieldRow label="Shows">
+          <span style={{ fontSize: 11, color: startsPastEnd ? "#f87171" : "#9ca3af" }}>
+            {startsPastEnd
+              ? `⚠ starts at ${fmt(animation.startSec)}s but the video is only ${fmt(vd)}s — it will never appear`
+              : `on screen ${fmt(animation.startSec)}s → ${fmt(Math.min(end, vd))}s of the ${fmt(vd)}s video${runsToEnd ? " (to the end)" : ""}`}
+          </span>
+          <button
+            onClick={() => onChange({ startSec: 0, durationSec: Math.max(0.5, vd) })}
+            style={{ background: "none", border: "1px solid #333", borderRadius: 4, color: "#a78bfa", fontSize: 10, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Whole video
+          </button>
+        </FieldRow>
+      )}
     </>
   );
 }
