@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from "next/server";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { klingGenerateVideo } from "@/lib/generation/gateways/kling";
+import { uploadImageToFal } from "@/lib/generation/gateways/fal";
 
 // ── Provider + pricing config ───────────────────────────────────────────────
 
@@ -65,6 +67,9 @@ const MODEL_ROUTES: Record<string, ProviderRoute[]> = {
   ],
   "kling-direct": [
     { provider: "kling-direct", cost5s: 0.20 },
+  ],
+  "kling-direct-pro": [
+    { provider: "kling-direct", cost5s: 0.45 },
   ],
 };
 
@@ -363,9 +368,52 @@ async function generateRunway(prompt: string, durationSec: number): Promise<{ vi
 
 // ── Provider: Kling Direct ──────────────────────────────────────────────────
 
-async function generateKlingDirect(prompt: string, aspectRatio: string, durationSec: number): Promise<{ videoUrl: string } | null> {
+async function generateKlingDirect(prompt: string, aspectRatio: string, durationSec: number, imageUrl?: string, mode: "std" | "pro" = "std"): Promise<{ videoUrl: string } | null> {
   if (!env.kling.accessKey) return null;
 
+  // ── Image-to-video path — resolve imageUrl to a public URL, then call the kling gateway ──
+  if (imageUrl) {
+    let publicUrl: string;
+
+    if (/^https?:\/\//i.test(imageUrl)) {
+      publicUrl = imageUrl;
+    } else {
+      const relPath = imageUrl.startsWith("/api/media/") ? imageUrl.replace(/^\/api\/media\//, "") : null;
+      const localImgPath = relPath ? path.join(env.storagePath, relPath.replace(/\//g, path.sep)) : null;
+      if (localImgPath && fs.existsSync(localImgPath)) {
+        const imgBuffer = fs.readFileSync(localImgPath);
+        const ext = path.extname(localImgPath).toLowerCase();
+        const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+        publicUrl = await uploadImageToFal(imgBuffer, mime);
+      } else if (relPath) {
+        // R2-flipped media has no local file — fetch bytes via our own /api/media
+        // (middleware passes localhost through; the route 302s to the R2 presigned URL).
+        const base = process.env.INTERNAL_MEDIA_BASE_URL || `http://127.0.0.1:${process.env.PORT || "3200"}`;
+        const res = await fetch(`${base}/api/media/${relPath}`);
+        if (!res.ok) throw new Error(`Kling Direct: could not fetch image bytes (${res.status}) for ${imageUrl}`);
+        const imgBuffer = Buffer.from(await res.arrayBuffer());
+        const ext = path.extname(relPath).toLowerCase();
+        const mime = ext === ".png" ? "image/png" : ext === ".webp" ? "image/webp" : "image/jpeg";
+        publicUrl = await uploadImageToFal(imgBuffer, mime);
+      } else {
+        throw new Error("Kling Direct: could not resolve image to a public URL: " + imageUrl);
+      }
+    }
+
+    const result = await klingGenerateVideo({
+      model: "kling-v2-master",
+      prompt,
+      imageUrl: publicUrl,
+      duration: durationSec >= 10 ? 10 : 5,
+      aspectRatio: (aspectRatio === "9:16" || aspectRatio === "1:1") ? aspectRatio : "16:9",
+      mode,
+    });
+
+    if (result.success && result.videoUrl) return { videoUrl: result.videoUrl };
+    throw new Error("Kling Direct i2v failed: " + (result.error || "unknown"));
+  }
+
+  // ── Text-to-video path — unchanged ──
   const jwt = await import("jsonwebtoken");
   const makeToken = () => jwt.default.sign(
     { iss: env.kling.accessKey, exp: Math.floor(Date.now() / 1000) + 1800, nbf: Math.floor(Date.now() / 1000) - 5 },
@@ -425,6 +473,12 @@ const MODEL_ALIAS: Record<string, string> = {
   "muapi_seedance_v2_1080p":  "seedance",
   // Segmind / other
   "segmind_pruna_video":      "wan25",
+  // Free Mode picker IDs — were unmapped → silent 400 (2026-07-13)
+  "wan_2_5_lite":             "wan25",
+  "kling_v2_5_standard":      "kling-direct",
+  "kling_v2_5_pro":           "kling-direct-pro",
+  "hailuo_fast":              "hailuo-fast",
+  "runway_gen4":              "runway",
 };
 
 export async function POST(req: NextRequest) {
@@ -467,7 +521,7 @@ export async function POST(req: NextRequest) {
         } else if (route.provider === "runway") {
           result = await generateRunway(enrichedPrompt, dur);
         } else if (route.provider === "kling-direct") {
-          result = await generateKlingDirect(enrichedPrompt, ar, dur);
+          result = await generateKlingDirect(enrichedPrompt, ar, dur, effectiveImageUrl, modelId === "kling-direct-pro" ? "pro" : "std");
         } else if (route.provider === "muapi" && route.muapiModel) {
           result = await generateMuapi(enrichedPrompt, route.muapiModel, ar, dur);
         }
