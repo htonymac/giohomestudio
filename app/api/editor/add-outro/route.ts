@@ -8,6 +8,7 @@ import { spawn } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
+import { resolveVideoPath } from "@/lib/resolve-video-path";
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,13 +65,6 @@ export async function POST(req: NextRequest) {
     console.error("[editor/add-outro]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-}
-
-function resolveVideoPath(videoUrl: string): string | null {
-  const mediaMatch = videoUrl.match(/\/api\/media\/(.+)$/);
-  if (mediaMatch) return path.resolve(env.storagePath, mediaMatch[1].replace(/\//g, path.sep));
-  if (path.isAbsolute(videoUrl)) return videoUrl;
-  return null;
 }
 
 async function probeVideoSize(filePath: string): Promise<{ width: number; height: number }> {
