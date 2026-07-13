@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   // breaks React hydration — page renders SSR but client bundle never loads → no buttons fire.
   // Fix added 2026-05-24 after Henry reported "no buttons firing".
   allowedDevOrigins: ["andiostudio.com", "www.andiostudio.com"],
+  experimental: {
+    // Next.js 16 caps request bodies at 10 MB by default (config-shared.js
+    // proxyClientMaxBodySize: 10485760) — any upload over 10 MB got its body cut and
+    // req.formData() threw → "Invalid multipart form" on /api/v2v/upload. 512 MB
+    // covers the 500 MB route-level cap. Found 2026-07-13 (Henry's 13.6 MB Kling
+    // clip rejected; ≤10 MB files passed).
+    proxyClientMaxBodySize: 512 * 1024 * 1024,
+  },
 };
 
 // Sentry: wrap REMOVED 2026-06-05 — pnpm hoist trap caused next.config.compiled.js
