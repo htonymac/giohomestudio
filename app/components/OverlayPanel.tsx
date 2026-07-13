@@ -594,7 +594,7 @@ function AnimationRow({
               : `on screen ${fmt(animation.startSec)}s → ${fmt(Math.min(end, vd))}s of the ${fmt(vd)}s video${runsToEnd ? " (to the end)" : ""}`}
           </span>
           <button
-            onClick={() => onChange({ startSec: 0, durationSec: vd })}
+            onClick={() => onChange({ startSec: 0, durationSec: Math.max(0.5, vd) })}
             style={{ background: "none", border: "1px solid #333", borderRadius: 4, color: "#a78bfa", fontSize: 10, padding: "2px 8px", cursor: "pointer", whiteSpace: "nowrap" }}
           >
             Whole video
