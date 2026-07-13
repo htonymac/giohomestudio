@@ -21,6 +21,13 @@ function VideoEditorInner() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [overlayLayers, setOverlayLayers] = useState<OverlayLayer[]>([]);
 
+  // ── Video-aware timing (text should know how long the video is) ──
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [videoDims, setVideoDims] = useState({ w: 1920, h: 1080 });
+  const [currentTime, setCurrentTime] = useState(0);
+  // Default text window = the whole video (rounded to 0.1s); 5s fallback before metadata loads.
+  const wholeVideo = videoDuration > 0 ? Math.round(videoDuration * 10) / 10 : 5;
+
   // ── Post-assembly trim / intro / outro (FIX 3) ──
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(0);
@@ -315,13 +322,57 @@ function VideoEditorInner() {
         <div style={{ marginTop: 16 }}>
           {/* Video preview + quick actions */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
-            {/* Preview */}
+            {/* Preview — plays the video with a live approximation of the text overlays,
+                so you can SEE where the text sits and when it appears/disappears. */}
             <Card padding={0} style={{ overflow: "hidden" }}>
-              <video src={videoUrl ?? undefined} controls style={{ width: "100%", maxHeight: 380, background: "black" }} />
+              <div style={{ position: "relative", containerType: "inline-size", background: "black" }}>
+                <video
+                  src={videoUrl ?? undefined}
+                  controls
+                  onLoadedMetadata={e => {
+                    setVideoDuration(e.currentTarget.duration || 0);
+                    setVideoDims({ w: e.currentTarget.videoWidth || 1920, h: e.currentTarget.videoHeight || 1080 });
+                  }}
+                  onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+                  style={{ width: "100%", maxHeight: 380, background: "black", display: "block" }}
+                />
+                {overlayLayers.filter((l): l is Extract<OverlayLayer, { type: "text" }> => l.type === "text").map(l => {
+                  const start = l.animation?.startSec ?? 0;
+                  const dur = l.animation?.durationSec ?? 9999;
+                  if (currentTime < start || currentTime > start + dur) return null;
+                  const zone = l.position?.zone ?? "bottom";
+                  const pos: React.CSSProperties =
+                    zone === "top" ? { top: "8%", left: "50%", transform: "translateX(-50%)" } :
+                    zone === "center" ? { top: "50%", left: "50%", transform: "translate(-50%, -50%)" } :
+                    zone === "free" ? { top: `${l.position?.y ?? 50}%`, left: `${l.position?.x ?? 50}%`, transform: "translate(-50%, -50%)" } :
+                    { bottom: "14%", left: "50%", transform: "translateX(-50%)" };
+                  const bg = l.style?.bgColor ? l.style.bgColor.split("@") : null;
+                  return (
+                    <span key={l.id} style={{
+                      position: "absolute", ...pos, pointerEvents: "none", whiteSpace: "pre-wrap", textAlign: "center",
+                      maxWidth: "92%",
+                      fontSize: `${((l.style?.fontSize ?? 48) / videoDims.w) * 100}cqw`,
+                      fontWeight: l.style?.fontWeight === "bold" ? 700 : 400,
+                      fontStyle: l.style?.italic ? "italic" : "normal",
+                      fontFamily: l.style?.fontFamily || "inherit",
+                      textTransform: l.style?.uppercase ? "uppercase" : "none",
+                      color: l.style?.color ?? "#FFFFFF",
+                      textShadow: l.style?.shadow ? "0 2px 6px rgba(0,0,0,0.8)" : "none",
+                      WebkitTextStroke: l.style?.outline ? `${Math.max(1, (l.style?.outlineWidth ?? 2) / 2)}px ${l.style?.outlineColor ?? "#000"}` : undefined,
+                      background: bg ? bg[0] : "transparent",
+                      opacity: 1,
+                      padding: l.style?.bgPadding ? `${l.style.bgPadding / 2}px ${l.style.bgPadding}px` : undefined,
+                      borderRadius: l.style?.bgRadius ?? undefined,
+                    }}>{l.text}</span>
+                  );
+                })}
+              </div>
               <div style={{ padding: "8px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>{videoPath?.split(/[\\/]/).pop()}</span>
+                <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>
+                  {videoPath?.split(/[\\/]/).pop()}{videoDuration > 0 ? ` · ${(Math.round(videoDuration * 10) / 10)}s` : ""}
+                </span>
                 <button
-                  onClick={() => { setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); }}
+                  onClick={() => { setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); setVideoDuration(0); setCurrentTime(0); }}
                   style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}
                 >
                   <X size={11} color={ds.color.coral} /> Remove
@@ -336,19 +387,19 @@ function VideoEditorInner() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <ButtonPrimary
                     style={{ width: "100%", textAlign: "left", fontSize: 11, padding: "7px 12px" }}
-                    onClick={() => setOverlayLayers(prev => [...prev, { type: "text", id: `text_${Date.now()}`, text: "Your Text Here", position: { zone: "bottom" }, style: { fontSize: 48, fontWeight: "bold", color: "#FFFFFF", shadow: true, outline: true, outlineColor: "#000000", outlineWidth: 2 }, animation: { entrance: "fade_in", startSec: 0, durationSec: 5 } }])}
+                    onClick={() => setOverlayLayers(prev => [...prev, { type: "text", id: `text_${Date.now()}`, text: "Your Text Here", position: { zone: "bottom" }, style: { fontSize: 48, fontWeight: "bold", color: "#FFFFFF", shadow: true, outline: true, outlineColor: "#000000", outlineWidth: 2 }, animation: { entrance: "fade_in", startSec: 0, durationSec: wholeVideo } }])}
                   >
                     + Add Text Overlay
                   </ButtonPrimary>
                   <button
                     style={ghostBtn}
-                    onClick={() => setOverlayLayers(prev => [...prev, { type: "text", id: `headline_${Date.now()}`, text: "HEADLINE", position: { zone: "top" }, style: { fontSize: 56, fontWeight: "bold", color: "#FF0000", outline: true, outlineColor: "#FFFFFF", outlineWidth: 3, shadow: true, uppercase: true }, animation: { entrance: "fade_in", startSec: 0.5, durationSec: 99 } }])}
+                    onClick={() => setOverlayLayers(prev => [...prev, { type: "text", id: `headline_${Date.now()}`, text: "HEADLINE", position: { zone: "top" }, style: { fontSize: 56, fontWeight: "bold", color: "#FF0000", outline: true, outlineColor: "#FFFFFF", outlineWidth: 3, shadow: true, uppercase: true }, animation: { entrance: "fade_in", startSec: 0.5, durationSec: Math.max(1, wholeVideo - 0.5) } }])}
                   >
                     + Property Headline (Red)
                   </button>
                   <button
                     style={ghostBtn}
-                    onClick={() => setOverlayLayers(prev => [...prev, { type: "text", id: `price_${Date.now()}`, text: "₦60,000/night", position: { zone: "bottom" }, style: { fontSize: 36, fontWeight: "bold", color: "#FFFFFF", bgColor: "#22c55e@0.9", bgPadding: 14, shadow: false, outline: false }, animation: { entrance: "pop_in", startSec: 2, durationSec: 5 } }])}
+                    onClick={() => { const pStart = Math.min(2, Math.max(0, wholeVideo - 1)); setOverlayLayers(prev => [...prev, { type: "text", id: `price_${Date.now()}`, text: "₦60,000/night", position: { zone: "bottom" }, style: { fontSize: 36, fontWeight: "bold", color: "#FFFFFF", bgColor: "#22c55e@0.9", bgPadding: 14, shadow: false, outline: false }, animation: { entrance: "pop_in", startSec: pStart, durationSec: Math.max(1, wholeVideo - pStart) } }]); }}
                   >
                     + Price Tag
                   </button>
@@ -371,6 +422,9 @@ function VideoEditorInner() {
               <Card>
                 <label style={microLabel}>Caption Text</label>
                 <input value={captionText} onChange={e => setCaptionText(e.target.value)} placeholder="Bottom caption to burn into video…" style={inputSt} />
+                {captionText.trim() && (
+                  <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 4 }}>Shows at the bottom for the whole video{videoDuration > 0 ? ` (${Math.round(videoDuration * 10) / 10}s)` : ""}.</p>
+                )}
               </Card>
 
               {/* Voice */}
@@ -387,7 +441,7 @@ function VideoEditorInner() {
           </div>
 
           {/* Full overlay panel */}
-          <OverlayPanel videoPath={videoPath} layers={overlayLayers} onChange={setOverlayLayers} onApplied={() => {}} />
+          <OverlayPanel videoPath={videoPath} layers={overlayLayers} onChange={setOverlayLayers} onApplied={() => {}} videoDurationSec={videoDuration} />
 
           {/* SFX Library */}
           <Card style={{ marginTop: 10 }}>
