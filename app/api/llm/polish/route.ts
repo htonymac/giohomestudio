@@ -23,9 +23,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ polishedPrompt: prompt });
   }
 
-  // No API key → silent pass-through
+  // No API key → tell the caller instead of silently echoing the input back
   if (!process.env.ANTHROPIC_API_KEY) {
-    return NextResponse.json({ polishedPrompt: prompt });
+    console.error("[llm/polish] ANTHROPIC_API_KEY not set");
+    return NextResponse.json({ polishedPrompt: prompt, error: "AI assistant is not configured" }, { status: 503 });
   }
 
   try {
@@ -49,8 +50,13 @@ Keep the original intent intact. Do not add unrelated concepts. Be concise (unde
       .trim();
 
     return NextResponse.json({ polishedPrompt: polished || prompt });
-  } catch {
-    // Silent fallback — never break caller
-    return NextResponse.json({ polishedPrompt: prompt });
+  } catch (err) {
+    // Surface the real reason — a silent echo made "Polish" look broken with no clue why.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[llm/polish] Anthropic call failed:", msg.slice(0, 300));
+    const friendly = /credit balance/i.test(msg)
+      ? "AI assistant is out of credits — top up the Anthropic account"
+      : "AI assistant is unavailable right now";
+    return NextResponse.json({ polishedPrompt: prompt, error: friendly }, { status: 503 });
   }
 }
