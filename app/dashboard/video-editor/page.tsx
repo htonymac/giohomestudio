@@ -384,7 +384,8 @@ function VideoEditorInner() {
                         zone === "free" ? { top: `${l.position?.y ?? 50}%`, left: `${l.position?.x ?? 50}%`, transform: "translate(-50%, -50%)" } :
                         { top: "85%", left: "50%", transform: "translateX(-50%)" };
                       const bg = l.style?.bgColor ? l.style.bgColor.split("@") : null;
-                      const bgCss = bg ? `color-mix(in srgb, ${bg[0]} ${Math.round(Number(bg[1] ?? 1) * 100)}%, transparent)` : undefined;
+                      const bgAlpha = bg ? Math.min(1, Math.max(0, Number.isFinite(Number(bg[1])) ? Number(bg[1] ?? 1) : 1)) : 1;
+                      const bgCss = bg ? `color-mix(in srgb, ${bg[0]} ${Math.round(bgAlpha * 100)}%, transparent)` : undefined;
                       const pad = (l.style?.bgPadding ?? 0) * scale;
                       return (
                         <span key={l.id} style={{
