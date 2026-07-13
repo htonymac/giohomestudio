@@ -147,6 +147,7 @@ function VideoEditorInner() {
   const [promptInput, setPromptInput] = useState("");
   const [polishedPrompt, setPolishedPrompt] = useState("");
   const [polishing, setPolishing] = useState(false);
+  const [polishError, setPolishError] = useState<string | null>(null);
   const [voiceTier, setVoiceTier] = useState<VoiceTierConfig>({ tier: "standard" });
   const [captionText, setCaptionText] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -180,17 +181,24 @@ function VideoEditorInner() {
   async function handlePolish() {
     if (!promptInput.trim()) return;
     setPolishing(true);
+    setPolishError(null);
     try {
       const res = await fetch("/api/llm/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: promptInput }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.polishedPrompt) setPolishedPrompt(data.polishedPrompt);
+      const data = await res.json();
+      if (res.ok && data.polishedPrompt) {
+        setPolishedPrompt(data.polishedPrompt);
+      } else {
+        console.error("[video-editor] polish failed:", res.status, data.error);
+        setPolishError(data.error || `Polish failed (HTTP ${res.status})`);
       }
-    } catch { /* ignore */ } finally { setPolishing(false); }
+    } catch (err) {
+      console.error("[video-editor] polish failed:", err);
+      setPolishError("Polish failed: " + String(err));
+    } finally { setPolishing(false); }
   }
 
   async function handleExport() {
@@ -294,6 +302,9 @@ function VideoEditorInner() {
             {polishing ? "Polishing…" : "Polish"}
           </ButtonPrimary>
         </div>
+        {polishError && (
+          <p style={{ fontSize: 11, color: ds.color.coral, marginTop: 8, fontWeight: 600 }}>{polishError}</p>
+        )}
         {polishedPrompt && (
           <div style={{ marginTop: 8, background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", border: `1px solid ${ds.color.line2}` }}>
             <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, marginBottom: 4, fontFamily: ds.font.mono, letterSpacing: 1 }}>AI IMPROVED</p>
