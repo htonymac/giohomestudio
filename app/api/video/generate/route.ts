@@ -388,8 +388,8 @@ async function generateKlingDirect(prompt: string, aspectRatio: string, duration
       } else if (relPath) {
         // R2-flipped media has no local file — fetch bytes via our own /api/media
         // (middleware passes localhost through; the route 302s to the R2 presigned URL).
-        const port = process.env.PORT || "3200";
-        const res = await fetch(`http://127.0.0.1:${port}/api/media/${relPath}`);
+        const base = process.env.INTERNAL_MEDIA_BASE_URL || `http://127.0.0.1:${process.env.PORT || "3200"}`;
+        const res = await fetch(`${base}/api/media/${relPath}`);
         if (!res.ok) throw new Error(`Kling Direct: could not fetch image bytes (${res.status}) for ${imageUrl}`);
         const imgBuffer = Buffer.from(await res.arrayBuffer());
         const ext = path.extname(relPath).toLowerCase();
