@@ -15,6 +15,7 @@ interface Scene {
   mood:     string;
   imageUrl?: string;
   videoUrl?: string;
+  videoError?: string;
 }
 
 interface ChatMessage {
@@ -424,6 +425,12 @@ function SceneCard({
             controls
             style={{ width: "100%", borderRadius: 8, maxHeight: 180 }}
           />
+        </div>
+      )}
+
+      {scene.videoError && (
+        <div style={{ padding: "6px 12px 0", fontSize: 10, color: "#f87171", fontWeight: 600 }}>
+          ⚠ {scene.videoError}
         </div>
       )}
 
@@ -2644,6 +2651,13 @@ function FreeModeChat() {
     if (!scene || limits.videoRemaining <= 0) return;
 
     setGeneratingVideoSceneId(sceneId);
+    // Clear any previous error for this scene before retrying.
+    setMessages(prev => prev.map(m =>
+      m.id !== msgId ? m : {
+        ...m,
+        scenes: m.scenes?.map(s => s.id !== sceneId ? s : { ...s, videoError: undefined }),
+      }
+    ));
     try {
       const limitRes = await fetch("/api/free-mode/daily-limits", {
         method: "POST",
@@ -2682,7 +2696,7 @@ function FreeModeChat() {
               m.id !== msgId ? m : {
                 ...m,
                 scenes: m.scenes?.map(s =>
-                  s.id !== sceneId ? s : { ...s, videoUrl: url }
+                  s.id !== sceneId ? s : { ...s, videoUrl: url, videoError: undefined }
                 ),
               }
             );
@@ -2690,9 +2704,36 @@ function FreeModeChat() {
             if (updated?.scenes) persistMessageScenes(msgId, updated.scenes);
             return next;
           });
+        } else {
+          const errMsg = "Video generation failed (no URL in response)";
+          console.error("[free-mode] scene video failed:", errMsg, vidData);
+          setMessages(prev => prev.map(m =>
+            m.id !== msgId ? m : {
+              ...m,
+              scenes: m.scenes?.map(s => s.id !== sceneId ? s : { ...s, videoError: errMsg }),
+            }
+          ));
         }
+      } else {
+        const errData = await vidRes.json().catch(() => ({}));
+        const errMsg = errData.error || ("Video generation failed (HTTP " + vidRes.status + ")");
+        console.error("[free-mode] scene video failed:", errMsg);
+        setMessages(prev => prev.map(m =>
+          m.id !== msgId ? m : {
+            ...m,
+            scenes: m.scenes?.map(s => s.id !== sceneId ? s : { ...s, videoError: errMsg }),
+          }
+        ));
       }
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("[free-mode] scene video failed:", err);
+      setMessages(prev => prev.map(m =>
+        m.id !== msgId ? m : {
+          ...m,
+          scenes: m.scenes?.map(s => s.id !== sceneId ? s : { ...s, videoError: "Video generation failed: " + String(err) }),
+        }
+      ));
+    }
     setGeneratingVideoSceneId(null);
   }
 
