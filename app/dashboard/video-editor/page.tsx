@@ -18,6 +18,7 @@ function VideoEditorInner() {
   const [videoPath, setVideoPath] = useState<string | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [overlayLayers, setOverlayLayers] = useState<OverlayLayer[]>([]);
 
   // ── Post-assembly trim / intro / outro (FIX 3) ──
@@ -130,16 +131,24 @@ function VideoEditorInner() {
 
   async function handleUpload(file: File) {
     setUploading(true);
+    setUploadError(null);
     const fd = new FormData();
     fd.append("file", file);
     try {
       const res = await fetch("/api/v2v/upload", { method: "POST", body: fd });
-      if (res.ok) {
-        const data = await res.json();
-        setVideoPath(data.path);
-        setVideoUrl(`/api/media/${data.path.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+      const data = await res.json();
+      // API returns { filePath } — NOT { path }. Reading data.path here broke the whole editor silently.
+      if (res.ok && data.filePath) {
+        setVideoPath(data.filePath);
+        setVideoUrl(`/api/media/${data.filePath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+      } else {
+        console.error("[video-editor] upload rejected:", res.status, data.error);
+        setUploadError(data.error || `Upload failed (HTTP ${res.status})`);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("[video-editor] upload failed:", err);
+      setUploadError("Upload failed: " + String(err));
+    }
     setUploading(false);
   }
 
@@ -296,6 +305,9 @@ function VideoEditorInner() {
             {uploading ? "Uploading..." : "Drop a video here or click to upload"}
           </p>
           <p style={{ fontSize: 11, color: ds.color.mute, fontFamily: ds.font.mono }}>MP4, MOV, WebM</p>
+          {uploadError && (
+            <p style={{ fontSize: 12, color: ds.color.coral, marginTop: 10, fontWeight: 600 }}>{uploadError}</p>
+          )}
           <input ref={fileRef} type="file" accept="video/mp4,video/quicktime,video/webm" style={{ display: "none" }}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(f); }} />
         </div>
