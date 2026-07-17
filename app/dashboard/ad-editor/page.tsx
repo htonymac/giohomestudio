@@ -572,6 +572,12 @@ function AdEditorInner() {
         setAiBgResult(data.outputUrl);
         setAiBgResultModelId(selectedBgModel);
         setCanvas(prev => ({ ...prev, background: `url(${data.outputUrl})` }));
+        // Auto-remove the subject's OWN background so the new one actually shows —
+        // otherwise the photo keeps its original scene and the new bg only peeks at
+        // the edges (Henry 2026-07-17). The Import path already does this.
+        if (canvas.layers.some(l => l.type === "image")) {
+          await handleReplaceImageBg();
+        }
       } else {
         setAiError(data.error || "Background generation failed — check AI keys/credits.");
       }
@@ -1374,9 +1380,9 @@ function AdEditorInner() {
                   style={{ ...btnSm, width: "100%", fontSize: 9, borderRadius: 0 }}>Clear</button>
               </div>
             )}
-            {canvas.layers.some(l => l.type === "image") && canvas.background !== "#FFFFFF" && (
+            {canvas.layers.some(l => l.type === "image") && (
               <button onClick={handleReplaceImageBg} disabled={bgRemoving}
-                title="AI removes the existing background from your imported image so your new background shows through."
+                title="AI removes the existing background from your imported image so your new background (or white) shows through."
                 style={{ ...btnSm, width: "100%", marginTop: 8, fontSize: 10, color: ds.color.gold, borderColor: `${ds.color.gold}40`, display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
                 <Wand size={11} color="currentColor" />
                 {bgRemoving ? "Working..." : "Apply Background to Image"}
