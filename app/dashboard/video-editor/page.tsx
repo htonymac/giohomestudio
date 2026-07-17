@@ -64,6 +64,9 @@ function VideoEditorInner() {
   const [outroImageUrl, setOutroImageUrl] = useState<string | null>(null);
   const [outroImageName, setOutroImageName] = useState("");
   const [uploadingOutroImg, setUploadingOutroImg] = useState(false);
+  // Freeze-last-frame outro (Henry: end of the video becomes the outro background + branding)
+  const [outroHeadline, setOutroHeadline] = useState("");
+  const [outroSubline, setOutroSubline] = useState("");
 
   // ── Trim timeline preview: a thumbnail filmstrip + scrub-on-drag so the user SEES
   //    the exact frame at the cut and can review the kept range (not a blind bar). ──
@@ -206,6 +209,22 @@ function VideoEditorInner() {
       if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Product outro added"); }
       else setEditMsg(data.error || "Add image outro failed");
     } catch (err) { setEditMsg("Add image outro failed: " + String(err)); }
+    setAddingOutro(false);
+  }
+
+  async function handleAddFreezeOutro() {
+    if (!videoPath) { setEditMsg("Upload a video first"); return; }
+    if (!outroHeadline.trim() && !outroSubline.trim()) { setEditMsg("Enter outro text (e.g. Call Now …)"); return; }
+    setAddingOutro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-outro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, useLastFrame: true, headline: outroHeadline, subline: outroSubline, duration: outroDuration }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Outro added — plays at the end; scrub the player to review"); }
+      else setEditMsg(data.error || "Add freeze outro failed");
+    } catch (err) { setEditMsg("Add freeze outro failed: " + String(err)); }
     setAddingOutro(false);
   }
 
@@ -727,12 +746,34 @@ function VideoEditorInner() {
               </button>
             </div>
             {outroImageUrl && (
-              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <img src={outroImageUrl} alt="Outro" style={{ height: 54, borderRadius: 6, border: `1px solid ${ds.color.line2}` }} />
-                <button onClick={() => { setOutroImageUrl(null); setOutroImageName(""); }}
-                  style={{ fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Remove image</button>
+              <div style={{ marginTop: 8 }}>
+                <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>OUTRO PREVIEW (appended at your video's size)</span>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <img src={outroImageUrl} alt="Outro preview" style={{ maxHeight: 140, maxWidth: "60%", borderRadius: 6, border: `1px solid ${ds.color.line2}` }} />
+                  <button onClick={() => { setOutroImageUrl(null); setOutroImageName(""); }}
+                    style={{ fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Remove image</button>
+                </div>
               </div>
             )}
+
+            {/* Outro from the END of the video (freeze last frame) + branding — like a commercial end card */}
+            <label style={{ ...microLabel, marginTop: 16 }}>Freeze End of Video as Outro (+ text)</label>
+            <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>The last frame of your video becomes the outro background, with your text on top — like a commercial end card. No upload needed.</p>
+            <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+              <input value={outroHeadline} onChange={e => setOutroHeadline(e.target.value)} placeholder="Headline — e.g. Call Now 0902 514 7449" style={inputSt} />
+              <input value={outroSubline} onChange={e => setOutroSubline(e.target.value)} placeholder="Sub-line — e.g. Sangotedo . Ajah . Lekki" style={inputSt} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
+              <span style={{ fontSize: 10, color: ds.color.mute }}>Uses the video's final frame as the background.</span>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={15} value={outroDuration} onChange={e => setOutroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddFreezeOutro} disabled={addingOutro || !videoPath}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: addingOutro ? ds.color.card : ds.color.gold, color: "#000", fontSize: 12, fontWeight: 700, cursor: addingOutro ? "not-allowed" : "pointer" }}>
+                {addingOutro ? "..." : "Freeze + Add"}
+              </button>
+            </div>
           </Card>
 
           {/* Export / Assembly */}
