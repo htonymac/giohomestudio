@@ -117,24 +117,6 @@ function textXExpr(position: TextPosition, startSec?: number, entrance?: Animati
   return baseX;
 }
 
-function textYExpr(position: TextPosition, startSec: number, entrance: AnimationEntrance): string {
-  let baseY: string;
-  switch (position.zone) {
-    case "top":    baseY = "h*0.06"; break;
-    case "center": baseY = "(h-text_h)/2"; break;
-    case "bottom": baseY = "h*0.85"; break;
-    case "free":   baseY = `h*${(position.y ?? 50) / 100}-text_h/2`; break;
-  }
-  if (entrance === "slide_bottom") {
-    // Slides in from below over 0.5s
-    return `${baseY}+h*(1-min(1,(t-${startSec})/0.5))`;
-  }
-  if (entrance === "slide_top") {
-    return `${baseY}-h*(1-min(1,(t-${startSec})/0.5))`;
-  }
-  return baseY;
-}
-
 function imageXExpr(position: ImagePosition, width: number, startSec: number, entrance: AnimationEntrance): string {
   let baseX: string;
   switch (position.zone) {
@@ -173,9 +155,45 @@ function enableExpr(startSec: number, durationSec: number): string {
   return `between(t,${startSec},${endSec})`;
 }
 
+// ── Multi-line text ─────────────────────────────────────────────────────────
+// drawtext has NO auto-wrap, so long/one-line text overflows off-screen while the
+// on-screen preview wraps it. Break the text to fit the video width (honouring the
+// user's explicit line breaks first), then render one centred drawtext per line.
+function wrapLines(text: string, maxChars: number): string[] {
+  const out: string[] = [];
+  for (const seg of text.split(/\r?\n/)) {
+    const words = seg.split(/\s+/).filter(Boolean);
+    if (words.length === 0) { out.push(""); continue; }
+    let cur = "";
+    for (const w of words) {
+      const cand = cur ? `${cur} ${w}` : w;
+      if (cand.length > maxChars && cur) { out.push(cur); cur = w; }
+      else cur = cand;
+    }
+    if (cur) out.push(cur);
+  }
+  return out.length ? out : [""];
+}
+
+// Per-line Y so a multi-line block sits centred/anchored in its zone (and stays on
+// screen). Single line reduces to the original expressions — no regression.
+function lineYExpr(position: TextPosition, k: number, nLines: number, lineH: number, startSec: number, entrance: AnimationEntrance): string {
+  let baseTop: string;
+  switch (position.zone) {
+    case "top":    baseTop = "h*0.06"; break;
+    case "center": baseTop = `(h-${nLines * lineH})/2`; break;
+    case "bottom": baseTop = `h*0.85-${(nLines - 1) * lineH}`; break;
+    case "free":   baseTop = `h*${(position.y ?? 50) / 100}-${((nLines - 1) * lineH) / 2}`; break;
+  }
+  const y = `${baseTop}+${k * lineH}`;
+  if (entrance === "slide_bottom") return `${y}+h*(1-min(1,(t-${startSec})/0.5))`;
+  if (entrance === "slide_top" || entrance === "zoom_in") return `${y}-h*(1-min(1,(t-${startSec})/0.5))`;
+  return y;
+}
+
 // ── Main filter builder ─────────────────────────────────────────────────────
 
-export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilterResult {
+export function buildOverlayFilterComplex(layers: OverlayLayer[], videoWidth = 1280): OverlayFilterResult {
   // Pre-validate: drop image layers whose files don't exist so loop indices are stable
   const validLayers = layers.filter(layer =>
     layer.type !== "image" || isActualFile(layer.imagePath)
@@ -196,10 +214,7 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
 
     if (layer.type === "text") {
       const t = layer as TextLayer;
-      const safeText = escapeDrawtext(t.text);
       const fontColor = t.style.color.replace("#", "0x");
-      const xExpr = textXExpr(t.position, t.animation.startSec, t.animation.entrance);
-      const yExpr = textYExpr(t.position, t.animation.startSec, t.animation.entrance);
       const enableStr = enableExpr(t.animation.startSec, t.animation.durationSec);
 
       // fontfile= is required on Windows — Fontconfig is absent so name-based lookup
@@ -210,65 +225,55 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[]): OverlayFilter
         italic: t.style.italic,
       });
 
-      // Apply uppercase if requested
-      const displayText = t.style.uppercase ? safeText.toUpperCase() : safeText;
+      // Break the text to the video width (honours explicit newlines first), then
+      // render ONE drawtext per line so each line is centred and the block wraps.
+      const rawForWrap = t.style.uppercase ? t.text.toUpperCase() : t.text;
+      const maxChars = Math.max(8, Math.floor((videoWidth * 0.9) / (t.style.fontSize * 0.52)));
+      const lines = wrapLines(rawForWrap, maxChars);
+      const lineH = Math.round(t.style.fontSize * 1.3);
 
-      const parts = [
-        `fontfile=${escapeFontPath(fontFile)}`,
-        `text='${displayText}'`,
-        `fontsize=${t.style.fontSize}`,
-        `fontcolor=${fontColor}`,
-        `x=${xExpr}`,
-        `y=${yExpr}`,
-        `enable='${enableStr}'`,
-      ];
-
-      // Shadow
-      if (t.style.shadow) {
-        const sc = t.style.shadowColor ? t.style.shadowColor.replace("#", "0x") : "black@0.6";
-        parts.push(`shadowx=2:shadowy=2:shadowcolor=${sc}`);
-      }
-
-      // Outline / stroke
-      if (t.style.outline) {
-        const bw = t.style.outlineWidth ?? 2;
-        const bc = t.style.outlineColor ? t.style.outlineColor.replace("#", "0x") : "black@0.8";
-        parts.push(`borderw=${bw}:bordercolor=${bc}`);
-      }
-
-      // Background box / card
-      if (t.style.bgColor) {
-        const pad = t.style.bgPadding ?? 6;
-        parts.push(`box=1:boxcolor=${t.style.bgColor}:boxborderw=${pad}`);
-      }
-
-      // Animations
+      // Entrance alpha (shared by every line of this layer)
       const start = t.animation.startSec + (t.animation.delay ?? 0);
-      if (t.animation.entrance === "fade_in") {
-        parts.push(`alpha='min(1,(t-${start})/0.5)'`);
-      } else if (t.animation.entrance === "pop_in") {
-        // Pop-in: scale from 0 to 1 over 0.3s (simulated via alpha + slight y offset)
-        parts.push(`alpha='min(1,(t-${start})/0.3)'`);
-      } else if (t.animation.entrance === "typewriter") {
-        // Typewriter: reveal text character by character using textlen expression
-        // FFmpeg doesn't natively support typewriter, so we approximate with alpha fade
-        parts.push(`alpha='min(1,(t-${start})/0.3)'`);
-      } else if (t.animation.entrance === "zoom_in") {
-        // Zoom-in: alpha fade + font grows from ~60% to 100% over 0.4s
-        // Simulate grow by starting with smaller size via alpha + y offset nudge
-        parts.push(`alpha='min(1,(t-${start})/0.4)'`);
-        // Move text slightly down then settle: approaches final position from slightly higher
-        // (true font-size animation not possible in drawtext; fade+slide approximates zoom feel)
-        parts.push(`y='${textYExpr(t.position, t.animation.startSec, "slide_top")}'`);
-      } else if (t.animation.entrance === "pulse") {
-        // Pulse: rapid fade-in then sustain with slight alpha oscillation to simulate pulse
-        // alpha = clamp 0→1 in 0.2s then add gentle sine oscillation over lifetime
-        const endSec = t.animation.startSec + t.animation.durationSec;
-        parts.push(`alpha='min(1,(t-${start})/0.2)*max(0.7,0.85+0.15*sin(2*PI*(t-${start})*2)):enable=between(t,${start},${endSec})'`);
+      let alphaPart = "";
+      switch (t.animation.entrance) {
+        case "fade_in":    alphaPart = `alpha='min(1,(t-${start})/0.5)'`; break;
+        case "pop_in":
+        case "typewriter": alphaPart = `alpha='min(1,(t-${start})/0.3)'`; break;
+        case "zoom_in":    alphaPart = `alpha='min(1,(t-${start})/0.4)'`; break;
+        case "pulse":      alphaPart = `alpha='min(1,(t-${start})/0.2)*max(0.7,0.85+0.15*sin(2*PI*(t-${start})*2))'`; break;
       }
 
-      filterParts.push(`${currentVideoLabel}drawtext=${parts.join(":")}${outLabel}`);
-      currentVideoLabel = outLabel;
+      for (let k = 0; k < lines.length; k++) {
+        const xExpr = textXExpr(t.position, t.animation.startSec, t.animation.entrance);
+        const yExpr = lineYExpr(t.position, k, lines.length, lineH, t.animation.startSec, t.animation.entrance);
+        const parts = [
+          `fontfile=${escapeFontPath(fontFile)}`,
+          `text='${escapeDrawtext(lines[k])}'`,
+          `fontsize=${t.style.fontSize}`,
+          `fontcolor=${fontColor}`,
+          `x=${xExpr}`,
+          `y=${yExpr}`,
+          `enable='${enableStr}'`,
+        ];
+        if (t.style.shadow) {
+          const sc = t.style.shadowColor ? t.style.shadowColor.replace("#", "0x") : "black@0.6";
+          parts.push(`shadowx=2:shadowy=2:shadowcolor=${sc}`);
+        }
+        if (t.style.outline) {
+          const bw = t.style.outlineWidth ?? 2;
+          const bc = t.style.outlineColor ? t.style.outlineColor.replace("#", "0x") : "black@0.8";
+          parts.push(`borderw=${bw}:bordercolor=${bc}`);
+        }
+        if (t.style.bgColor) {
+          const pad = t.style.bgPadding ?? 6;
+          parts.push(`box=1:boxcolor=${t.style.bgColor}:boxborderw=${pad}`);
+        }
+        if (alphaPart) parts.push(alphaPart);
+
+        const lineOut = k === lines.length - 1 ? outLabel : `[v${i + 1}l${k}]`;
+        filterParts.push(`${currentVideoLabel}drawtext=${parts.join(":")}${lineOut}`);
+        currentVideoLabel = lineOut;
+      }
 
     } else if (layer.type === "image") {
       const img = layer as ImageLayer;
@@ -323,7 +328,15 @@ export async function applyOverlays(input: ApplyOverlaysInput): Promise<{ succes
       }))
     : input.layers;
 
-  const { filterComplex, outputMap, imageInputs } = buildOverlayFilterComplex(adjustedLayers as OverlayLayer[]);
+  // Probe the real video width so text wraps to THIS clip (portrait 720 vs landscape 1920).
+  const videoWidth = await new Promise<number>((res) => {
+    ffmpeg.ffprobe(toFFmpegPath(absInput), (_err, data) => {
+      const vs = data?.streams?.find((s) => (s.width ?? 0) > 0);
+      res(Number(vs?.width) || 1280);
+    });
+  });
+
+  const { filterComplex, outputMap, imageInputs } = buildOverlayFilterComplex(adjustedLayers as OverlayLayer[], videoWidth);
 
   return new Promise((resolve) => {
     let cmd = ffmpeg().input(toFFmpegPath(absInput));
