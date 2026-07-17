@@ -144,7 +144,7 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, startSec: trimStart, endSec: trimEnd }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setTrimResult(data.outputUrl); setVideoUrl(data.outputUrl); setEditMsg("Trim complete"); }
+      if (data.outputUrl) { setTrimResult(data.outputUrl); setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Trim complete"); }
       else setEditMsg(data.error || "Trim failed");
     } catch (err) { setEditMsg("Trim failed: " + String(err)); }
     setTrimming(false);

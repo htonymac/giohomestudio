@@ -11,6 +11,7 @@ import * as fs from "fs";
 import { applyOverlays, type OverlayLayer } from "@/modules/ffmpeg/overlay";
 import { createContentItem, updateContentItem } from "@/modules/content-registry";
 import { env } from "@/config/env";
+import { resolveVideoPath } from "@/lib/resolve-video-path";
 
 export async function POST(req: NextRequest) {
   let body: { videoPath?: string; layers?: OverlayLayer[]; title?: string };
@@ -25,9 +26,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing required fields: videoPath, layers" }, { status: 400 });
   }
 
-  const absVideoPath = path.resolve(videoPath);
-  if (!fs.existsSync(absVideoPath)) {
-    return NextResponse.json({ error: `Video file not found: ${absVideoPath}` }, { status: 400 });
+  // Use the shared resolver (like trim/add-intro/add-outro) so it accepts BOTH the
+  // storage-relative upload path AND the /api/media/… URL that edit steps produce —
+  // otherwise Export after an outro/trim 400'd with "Video file not found".
+  const absVideoPath = resolveVideoPath(videoPath);
+  if (!absVideoPath || !fs.existsSync(absVideoPath)) {
+    return NextResponse.json({ error: `Video file not found: ${videoPath}` }, { status: 400 });
   }
 
   const outputDir = path.join(env.storagePath, "outputs", "editor");
