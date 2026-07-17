@@ -60,6 +60,16 @@ function VideoEditorInner() {
   const [editMsg, setEditMsg] = useState<string | null>(null);
   const [aiEditPrompt, setAiEditPrompt] = useState("");
   const [aiEditing, setAiEditing] = useState(false);
+  // Product-image outro (Henry: append a branded product card as the outro)
+  const [outroImageUrl, setOutroImageUrl] = useState<string | null>(null);
+  const [outroImageName, setOutroImageName] = useState("");
+  const [uploadingOutroImg, setUploadingOutroImg] = useState(false);
+
+  // Keep the trim window sensible once the real duration is known: default the
+  // end handle to the full duration so the timeline shows the whole clip selected.
+  useEffect(() => {
+    if (videoDuration > 0 && trimEnd === 0) setTrimEnd(Math.round(videoDuration * 10) / 10);
+  }, [videoDuration]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load videoUrl from query param (?videoUrl=...)
   useEffect(() => {
@@ -112,6 +122,35 @@ function VideoEditorInner() {
       if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Outro added"); }
       else setEditMsg(data.error || "Add outro failed");
     } catch (err) { setEditMsg("Add outro failed: " + String(err)); }
+    setAddingOutro(false);
+  }
+
+  async function handleUploadOutroImage(file: File) {
+    setUploadingOutroImg(true); setEditMsg(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data.filePath) {
+        const url = `/api/media/${String(data.filePath).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        setOutroImageUrl(url); setOutroImageName(file.name);
+      } else setEditMsg(data.error || "Outro image upload failed");
+    } catch (err) { setEditMsg("Outro image upload failed: " + String(err)); }
+    setUploadingOutroImg(false);
+  }
+
+  async function handleAddOutroImage() {
+    if (!videoPath || !outroImageUrl) { setEditMsg("Upload a product image for the outro first"); return; }
+    setAddingOutro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-outro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, imageUrl: outroImageUrl, duration: outroDuration }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Product outro added"); }
+      else setEditMsg(data.error || "Add image outro failed");
+    } catch (err) { setEditMsg("Add image outro failed: " + String(err)); }
     setAddingOutro(false);
   }
 
@@ -514,8 +553,42 @@ function VideoEditorInner() {
               </button>
             </div>
 
-            {/* Trim */}
-            <label style={microLabel}>Trim</label>
+            {/* Trim — visual timeline */}
+            <label style={microLabel}>Trim Timeline — keep only what you want (drag the End back to cut off their outro)</label>
+            {videoDuration > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                {/* Track: green = kept, red = removed tail, purple line = playhead. Click to seek. */}
+                <div
+                  onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * videoDuration; if (videoRef.current) videoRef.current.currentTime = Math.max(0, Math.min(videoDuration, t)); }}
+                  style={{ position: "relative", height: 44, background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
+                  title="Click to move the playhead"
+                >
+                  {trimStart > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${(trimStart / videoDuration) * 100}%`, background: `${ds.color.coral}18` }} />}
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(trimStart / videoDuration) * 100}%`, width: `${(Math.max(0, trimEnd - trimStart) / videoDuration) * 100}%`, background: `${ds.color.mint}20`, borderLeft: `2px solid ${ds.color.mint}`, borderRight: `2px solid ${ds.color.mint}` }} />
+                  {trimEnd < videoDuration && <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: `${ds.color.coral}18` }} />}
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(Math.min(currentTime, videoDuration) / videoDuration) * 100}%`, width: 2, background: ds.color.lilac }} />
+                  <span style={{ position: "absolute", left: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.mint }}>keep {trimStart.toFixed(1)}–{trimEnd.toFixed(1)}s</span>
+                  {trimEnd < videoDuration && <span style={{ position: "absolute", right: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.coral }}>cut {(videoDuration - trimEnd).toFixed(1)}s tail</span>}
+                </div>
+                {/* Start + End handles */}
+                <div style={{ display: "grid", gridTemplateColumns: "34px 1fr", gap: 8, alignItems: "center", marginTop: 8 }}>
+                  <span style={{ fontSize: 9, color: ds.color.mint, fontFamily: ds.font.mono }}>START</span>
+                  <input type="range" min={0} max={videoDuration} step={0.1} value={trimStart}
+                    onChange={e => setTrimStart(Math.min(Number(e.target.value), Math.max(0, trimEnd - 0.1)))} style={{ width: "100%" }} />
+                  <span style={{ fontSize: 9, color: ds.color.coral, fontFamily: ds.font.mono }}>END</span>
+                  <input type="range" min={0} max={videoDuration} step={0.1} value={trimEnd}
+                    onChange={e => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.1))} style={{ width: "100%" }} />
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <button onClick={() => setTrimEnd(Math.round(Math.min(currentTime, videoDuration) * 10) / 10)}
+                    style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>⟵ Set END at playhead (cut here)</button>
+                  <button onClick={() => setTrimStart(Math.round(Math.min(currentTime, trimEnd - 0.1) * 10) / 10)}
+                    style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>Set START at playhead ⟶</button>
+                </div>
+              </div>
+            )}
+
+            {/* Trim — precise numbers + apply */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 16, alignItems: "end" }}>
               <div>
                 <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Start (seconds)</span>
@@ -558,6 +631,33 @@ function VideoEditorInner() {
                 {addingOutro ? "..." : "Add"}
               </button>
             </div>
+
+            {/* Outro from a product image (branded card) */}
+            <label style={{ ...microLabel, marginTop: 16 }}>Add Outro from Product Image</label>
+            <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Upload your branded product card (e.g. from Ad Tools) — it's appended as the end screen at your video's size.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
+              <label style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, cursor: uploadingOutroImg ? "wait" : "pointer" }}>
+                <Film size={11} color={ds.color.mute} />
+                {uploadingOutroImg ? "Uploading…" : outroImageName ? outroImageName.slice(0, 26) : "Choose product image"}
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadOutroImage(f); }} />
+              </label>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={15} value={outroDuration} onChange={e => setOutroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddOutroImage} disabled={addingOutro || !videoPath || !outroImageUrl}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: (addingOutro || !outroImageUrl) ? ds.color.card : ds.color.lilac, color: "#000", fontSize: 12, fontWeight: 700, cursor: (addingOutro || !outroImageUrl) ? "not-allowed" : "pointer" }}>
+                {addingOutro ? "..." : "Add Image"}
+              </button>
+            </div>
+            {outroImageUrl && (
+              <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <img src={outroImageUrl} alt="Outro" style={{ height: 54, borderRadius: 6, border: `1px solid ${ds.color.line2}` }} />
+                <button onClick={() => { setOutroImageUrl(null); setOutroImageName(""); }}
+                  style={{ fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Remove image</button>
+              </div>
+            )}
           </Card>
 
           {/* Export / Assembly */}
