@@ -65,6 +65,61 @@ function VideoEditorInner() {
   const [outroImageName, setOutroImageName] = useState("");
   const [uploadingOutroImg, setUploadingOutroImg] = useState(false);
 
+  // ── Trim timeline preview: a thumbnail filmstrip + scrub-on-drag so the user SEES
+  //    the exact frame at the cut and can review the kept range (not a blind bar). ──
+  const [filmstrip, setFilmstrip] = useState<string[]>([]);
+  const [previewingRange, setPreviewingRange] = useState(false);
+  const previewStopRef = useRef<number | null>(null);
+
+  // Scrub the visible preview to a timestamp so dragging a handle shows that frame.
+  function seekPreview(t: number) {
+    const v = videoRef.current;
+    if (v && Number.isFinite(t)) { v.pause(); v.currentTime = Math.max(0, Math.min(videoDuration || t, t)); }
+  }
+
+  // Play ONLY the kept range [trimStart, trimEnd] so the user can review the result.
+  function playKeptRange() {
+    const v = videoRef.current;
+    if (!v) return;
+    if (previewStopRef.current) { window.clearInterval(previewStopRef.current); previewStopRef.current = null; }
+    v.currentTime = trimStart;
+    v.play().then(() => setPreviewingRange(true)).catch(() => {});
+    previewStopRef.current = window.setInterval(() => {
+      if (!videoRef.current) return;
+      if (videoRef.current.currentTime >= trimEnd) {
+        videoRef.current.pause();
+        if (previewStopRef.current) { window.clearInterval(previewStopRef.current); previewStopRef.current = null; }
+        setPreviewingRange(false);
+      }
+    }, 120);
+  }
+  useEffect(() => () => { if (previewStopRef.current) window.clearInterval(previewStopRef.current); }, []);
+
+  // Build a thumbnail filmstrip from the loaded video (offscreen, same-origin so the
+  // canvas isn't tainted) — 10 evenly-spaced frames laid across the timeline track.
+  async function buildFilmstrip(src: string) {
+    try {
+      const v = document.createElement("video");
+      v.src = src; v.muted = true; v.preload = "auto";
+      await new Promise<void>((res, rej) => { v.onloadedmetadata = () => res(); v.onerror = () => rej(new Error("thumb load")); });
+      const dur = v.duration || 0;
+      if (!dur) return;
+      const N = 10;
+      const canvas = document.createElement("canvas");
+      const cw = 160;
+      canvas.width = cw;
+      canvas.height = Math.max(40, Math.round(cw * ((v.videoHeight || 9) / (v.videoWidth || 16))));
+      const ctx = canvas.getContext("2d");
+      const shots: string[] = [];
+      for (let i = 0; i < N; i++) {
+        const t = (dur * (i + 0.5)) / N;
+        await new Promise<void>((res) => { v.onseeked = () => res(); v.currentTime = t; });
+        if (ctx) { ctx.drawImage(v, 0, 0, canvas.width, canvas.height); shots.push(canvas.toDataURL("image/jpeg", 0.5)); }
+      }
+      setFilmstrip(shots);
+    } catch { /* filmstrip is a nicety; timeline still works without it */ }
+  }
+
   // Keep the trim window sensible once the real duration is known: default the
   // end handle to the full duration so the timeline shows the whole clip selected.
   useEffect(() => {
@@ -399,9 +454,14 @@ function VideoEditorInner() {
                   src={videoUrl ?? undefined}
                   controls
                   onLoadedMetadata={e => {
-                    setVideoDuration(e.currentTarget.duration || 0);
+                    const dur = e.currentTarget.duration || 0;
+                    setVideoDuration(dur);
                     setVideoDims({ w: e.currentTarget.videoWidth || 1920, h: e.currentTarget.videoHeight || 1080 });
                     requestAnimationFrame(measureVideoRect);
+                    // Reset the trim window to the whole new clip + regenerate the filmstrip.
+                    setTrimStart(0); setTrimEnd(Math.round(dur * 10) / 10);
+                    setFilmstrip([]);
+                    if (e.currentTarget.currentSrc) buildFilmstrip(e.currentTarget.currentSrc);
                   }}
                   onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
                   style={{ width: "100%", maxHeight: 380, background: "black", display: "block" }}
@@ -553,33 +613,48 @@ function VideoEditorInner() {
               </button>
             </div>
 
-            {/* Trim — visual timeline */}
-            <label style={microLabel}>Trim Timeline — keep only what you want (drag the End back to cut off their outro)</label>
+            {/* Trim — visual timeline with a thumbnail filmstrip + live scrub preview */}
+            <label style={microLabel}>Trim Timeline — the video above jumps to the exact frame as you drag</label>
             {videoDuration > 0 && (
               <div style={{ marginBottom: 12 }}>
-                {/* Track: green = kept, red = removed tail, purple line = playhead. Click to seek. */}
+                {/* Track shows real frames (filmstrip). Green = kept · dimmed = cut off ·
+                    purple line = current frame in the player. Click anywhere to jump there. */}
                 <div
-                  onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * videoDuration; if (videoRef.current) videoRef.current.currentTime = Math.max(0, Math.min(videoDuration, t)); }}
-                  style={{ position: "relative", height: 44, background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
-                  title="Click to move the playhead"
+                  onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * videoDuration; seekPreview(t); }}
+                  style={{ position: "relative", height: 60, background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
+                  title="Click to jump the player to this point"
                 >
-                  {trimStart > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${(trimStart / videoDuration) * 100}%`, background: `${ds.color.coral}18` }} />}
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(trimStart / videoDuration) * 100}%`, width: `${(Math.max(0, trimEnd - trimStart) / videoDuration) * 100}%`, background: `${ds.color.mint}20`, borderLeft: `2px solid ${ds.color.mint}`, borderRight: `2px solid ${ds.color.mint}` }} />
-                  {trimEnd < videoDuration && <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: `${ds.color.coral}18` }} />}
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(Math.min(currentTime, videoDuration) / videoDuration) * 100}%`, width: 2, background: ds.color.lilac }} />
-                  <span style={{ position: "absolute", left: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.mint }}>keep {trimStart.toFixed(1)}–{trimEnd.toFixed(1)}s</span>
-                  {trimEnd < videoDuration && <span style={{ position: "absolute", right: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.coral }}>cut {(videoDuration - trimEnd).toFixed(1)}s tail</span>}
+                  {/* Filmstrip */}
+                  <div style={{ position: "absolute", inset: 0, display: "flex" }}>
+                    {(filmstrip.length ? filmstrip : Array(10).fill("")).map((src: string, i: number) => (
+                      <div key={i} style={{ flex: 1, backgroundImage: src ? `url(${src})` : undefined, backgroundColor: src ? undefined : ds.color.paper, backgroundSize: "cover", backgroundPosition: "center", borderRight: i < 9 ? `1px solid ${ds.color.line2}55` : undefined }} />
+                    ))}
+                  </div>
+                  {/* Dim the removed head/tail so the KEPT region stands out over the frames */}
+                  {trimStart > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${(trimStart / videoDuration) * 100}%`, background: "rgba(0,0,0,0.6)" }} />}
+                  {trimEnd < videoDuration && <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: "rgba(0,0,0,0.6)" }} />}
+                  {/* Kept-region outline */}
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(trimStart / videoDuration) * 100}%`, width: `${(Math.max(0, trimEnd - trimStart) / videoDuration) * 100}%`, boxShadow: `inset 0 0 0 2px ${ds.color.mint}`, pointerEvents: "none" }} />
+                  {/* Playhead */}
+                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(Math.min(currentTime, videoDuration) / videoDuration) * 100}%`, width: 2, background: ds.color.lilac, boxShadow: "0 0 4px rgba(0,0,0,0.6)" }} />
+                  <span style={{ position: "absolute", left: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: "#fff", textShadow: "0 1px 2px #000" }}>keep {trimStart.toFixed(1)}–{trimEnd.toFixed(1)}s</span>
+                  {trimEnd < videoDuration && <span style={{ position: "absolute", right: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.coral, textShadow: "0 1px 2px #000" }}>cut {(videoDuration - trimEnd).toFixed(1)}s tail</span>}
                 </div>
-                {/* Start + End handles */}
+                {/* Start + End handles — dragging scrubs the player to that frame */}
                 <div style={{ display: "grid", gridTemplateColumns: "34px 1fr", gap: 8, alignItems: "center", marginTop: 8 }}>
                   <span style={{ fontSize: 9, color: ds.color.mint, fontFamily: ds.font.mono }}>START</span>
                   <input type="range" min={0} max={videoDuration} step={0.1} value={trimStart}
-                    onChange={e => setTrimStart(Math.min(Number(e.target.value), Math.max(0, trimEnd - 0.1)))} style={{ width: "100%" }} />
+                    onChange={e => { const val = Math.min(Number(e.target.value), Math.max(0, trimEnd - 0.1)); setTrimStart(val); seekPreview(val); }} style={{ width: "100%" }} />
                   <span style={{ fontSize: 9, color: ds.color.coral, fontFamily: ds.font.mono }}>END</span>
                   <input type="range" min={0} max={videoDuration} step={0.1} value={trimEnd}
-                    onChange={e => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.1))} style={{ width: "100%" }} />
+                    onChange={e => { const val = Math.max(Number(e.target.value), trimStart + 0.1); setTrimEnd(val); seekPreview(val); }} style={{ width: "100%" }} />
                 </div>
                 <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
+                  <button onClick={playKeptRange}
+                    style={{ ...ghostBtn, width: "auto", fontSize: 10, color: previewingRange ? ds.color.lilac : ds.color.mint, borderColor: ds.color.mint }}>
+                    {previewingRange ? "▶ Reviewing…" : "▶ Play kept range (review)"}
+                  </button>
+                  <button onClick={() => { seekPreview(trimEnd); }} style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>Jump to cut point</button>
                   <button onClick={() => setTrimEnd(Math.round(Math.min(currentTime, videoDuration) * 10) / 10)}
                     style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>⟵ Set END at playhead (cut here)</button>
                   <button onClick={() => setTrimStart(Math.round(Math.min(currentTime, trimEnd - 0.1) * 10) / 10)}
