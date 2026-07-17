@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const outDir = path.join(env.storagePath, "image", "enhanced");
   fs.mkdirSync(outDir, { recursive: true });
 
-  const FAL_KEY = process.env.FAL_API_KEY;
+  const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;  // server uses FAL_KEY
   const SEGMIND_KEY = process.env.SEGMIND_API_KEY;
 
   // ── fal.ai clarity upscaler ── migrated to providers/fal adapter (Henry 2026-05-30 task #29)

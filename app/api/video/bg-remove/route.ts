@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
 
     if (!file) return NextResponse.json({ error: "No video file provided" }, { status: 400 });
 
-    const FAL_KEY = process.env.FAL_API_KEY;
+    const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;  // server uses FAL_KEY
     if (!FAL_KEY) {
       return NextResponse.json({ error: "FAL_API_KEY not configured. Set it in .env to enable video background removal." }, { status: 503 });
     }

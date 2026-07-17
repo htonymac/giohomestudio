@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     const outDir = path.join(env.storagePath, "processed", "bg-removed");
     fs.mkdirSync(outDir, { recursive: true });
 
-    const FAL_KEY = process.env.FAL_API_KEY;
+    const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;  // server uses FAL_KEY
 
     // ── Provider 1: Bria RMBG 2.0 via fal.ai (Phase 1) ──
     // Migrated to providers/fal adapter (Henry 2026-05-30 task #27).

@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
 
 async function processMotionTransfer(itemId: string, imagePath: string, motionVideoPath: string) {
   // Try fal.ai motion transfer (supports image + motion reference)
-  const FAL_KEY = process.env.FAL_API_KEY;
+  const FAL_KEY = process.env.FAL_KEY || process.env.FAL_API_KEY;  // server uses FAL_KEY
   const SEGMIND_KEY = process.env.SEGMIND_API_KEY;
 
   if (FAL_KEY) {
