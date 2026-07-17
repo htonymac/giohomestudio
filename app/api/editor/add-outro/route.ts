@@ -16,18 +16,21 @@ import { resolveVideoPath } from "@/lib/resolve-video-path";
 
 export async function POST(req: NextRequest) {
   try {
-    const { videoUrl, imageUrl, text, duration = 3 } = await req.json() as {
+    const { videoUrl, imageUrl, useLastFrame, text, headline, subline, duration = 3 } = await req.json() as {
       videoUrl?: string;
       imageUrl?: string;
-      text?: string;
+      useLastFrame?: boolean;   // freeze the video's final frame as the outro background
+      text?: string;            // legacy text-on-black card
+      headline?: string;        // big line drawn on an image/freeze outro
+      subline?: string;         // smaller line under the headline
       duration?: number;
     };
 
     if (!videoUrl) {
       return NextResponse.json({ error: "videoUrl required" }, { status: 400 });
     }
-    if (!imageUrl && !text?.trim()) {
-      return NextResponse.json({ error: "Provide imageUrl (product outro) or text (text card)" }, { status: 400 });
+    if (!imageUrl && !useLastFrame && !text?.trim()) {
+      return NextResponse.json({ error: "Provide imageUrl, useLastFrame, or text" }, { status: 400 });
     }
 
     const inputPath = resolveVideoPath(videoUrl);
@@ -45,37 +48,72 @@ export async function POST(req: NextRequest) {
     const outName = `outro_${Date.now()}.mp4`;
     const outPath = path.join(outDir, outName);
 
-    // ── Product-image outro: single-pass concat FILTER (re-encode) so it works on
-    //    any imported codec/resolution, unlike the fragile demuxer -c copy path. ──
-    if (imageUrl) {
-      const imgPath = resolveVideoPath(imageUrl);
-      if (!imgPath || !fs.existsSync(imgPath)) {
-        return NextResponse.json({ error: `Outro image not found: ${imageUrl}` }, { status: 404 });
+    // ── Image / freeze-last-frame outro (with optional branded text) ──
+    //    Single-pass concat FILTER (re-encode) so it works on any imported codec.
+    if (imageUrl || useLastFrame) {
+      let bgPath: string;
+      let cleanupBg: string | null = null;
+      if (useLastFrame) {
+        // Grab the final frame of the video and freeze it as the background.
+        bgPath = path.join(outDir, `lastframe_${Date.now()}.png`);
+        await runFFmpeg(["-sseof", "-0.4", "-i", inputPath, "-update", "1", "-frames:v", "1", "-y", bgPath]);
+        if (!fs.existsSync(bgPath)) {
+          return NextResponse.json({ error: "Could not read the video's last frame" }, { status: 500 });
+        }
+        cleanupBg = bgPath;
+      } else {
+        const imgPath = resolveVideoPath(imageUrl!);
+        if (!imgPath || !fs.existsSync(imgPath)) {
+          return NextResponse.json({ error: `Outro image not found: ${imageUrl}` }, { status: 404 });
+        }
+        bgPath = imgPath;
       }
+
       const hasAudio = await probeHasAudio(inputPath);
-      const norm = (label: string) =>
-        `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p${label}`;
+      const font = pickFontFile();
+
+      // Branded text drawn on the outro frame. Auto-shrink each line to fit the
+      // width on ONE line (so "Call Now 0902…" never runs off the frame), on a
+      // dark scrim for readability.
+      const textFilters: string[] = [];
+      const hasText = !!(headline?.trim() || subline?.trim());
+      if (hasText) {
+        textFilters.push(`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.4:t=fill`);
+      }
+      if (headline?.trim()) {
+        const fs1 = fitFont(headline, w, 0.11);
+        textFilters.push(drawText(headline, fs1, "0xFFFFFF", `(h-text_h)/2-${Math.round(fs1 * 0.7)}`, font));
+      }
+      if (subline?.trim()) {
+        const fs2 = fitFont(subline, w, 0.055);
+        textFilters.push(drawText(subline, fs2, "0xF5D06B", `(h-text_h)/2+${Math.round((headline?.trim() ? fitFont(headline, w, 0.11) : 0) * 0.6 + fs2)}`, font));
+      }
+      const tail = textFilters.length ? `,${textFilters.join(",")}` : "";
+      const normV = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p`;
 
       const args: string[] = [
         "-i", inputPath,
-        "-loop", "1", "-t", String(dur), "-i", imgPath,
+        "-loop", "1", "-t", String(dur), "-i", bgPath,
       ];
       let filter: string;
       if (hasAudio) {
-        // silent audio bed for the image tail; concat video's real audio + silence
         args.push("-f", "lavfi", "-t", String(dur), "-i", "anullsrc=channel_layout=stereo:sample_rate=44100");
         filter =
-          `[0:v]${norm("[v0]")};[1:v]${norm("[v1]")};` +
+          `[0:v]${normV}[v0];[1:v]${normV}${tail}[v1];` +
           `[0:a]aformat=sample_rates=44100:channel_layouts=stereo[a0];` +
           `[v0][a0][v1][2:a]concat=n=2:v=1:a=1[outv][outa]`;
         args.push("-filter_complex", filter, "-map", "[outv]", "-map", "[outa]",
           "-c:v", "libx264", "-c:a", "aac", "-movflags", "+faststart", "-y", outPath);
       } else {
-        filter = `[0:v]${norm("[v0]")};[1:v]${norm("[v1]")};[v0][v1]concat=n=2:v=1:a=0[outv]`;
+        filter = `[0:v]${normV}[v0];[1:v]${normV}${tail}[v1];[v0][v1]concat=n=2:v=1:a=0[outv]`;
         args.push("-filter_complex", filter, "-map", "[outv]",
           "-c:v", "libx264", "-movflags", "+faststart", "-y", outPath);
       }
-      await runFFmpeg(args);
+      try {
+        await runFFmpeg(args);
+      } finally {
+        if (cleanupBg) { try { fs.unlinkSync(cleanupBg); } catch { /* temp */ } }
+      }
       return NextResponse.json({ ok: true, outputUrl: `/api/media/video/${outName}` });
     }
 
@@ -99,6 +137,43 @@ export async function POST(req: NextRequest) {
     console.error("[editor/add-outro]", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
+}
+
+// Pick a bold font that exists (Linux server first, then Windows dev). null → drawtext default.
+function pickFontFile(): string | null {
+  const candidates = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+    "C:/Windows/Fonts/arialbd.ttf",
+    "C:/Windows/Fonts/arial.ttf",
+  ];
+  for (const f of candidates) { try { if (fs.existsSync(f)) return f; } catch { /* skip */ } }
+  return null;
+}
+
+// Shrink a line's font so it fits on ONE line at this width (capped at maxFrac of width).
+function fitFont(text: string, w: number, maxFrac: number): number {
+  const max = Math.round(w * maxFrac);
+  const byWidth = Math.floor((w * 0.9) / Math.max(1, text.trim().length * 0.55));
+  return Math.max(18, Math.min(max, byWidth));
+}
+
+function escapeDT(s: string): string {
+  return s.replace(/\\/g, "\\\\").replace(/:/g, "\\:").replace(/'/g, "’").replace(/[\r\n]+/g, " ").slice(0, 120);
+}
+
+function drawText(text: string, fontsize: number, color: string, yExpr: string, font: string | null): string {
+  const parts = [
+    `text='${escapeDT(text)}'`,
+    `fontsize=${fontsize}`,
+    `fontcolor=${color}`,
+    `x=(w-text_w)/2`,
+    `y=${yExpr}`,
+    `borderw=${Math.max(2, Math.round(fontsize * 0.06))}:bordercolor=black@0.85`,
+    `shadowx=2:shadowy=2:shadowcolor=black@0.6`,
+  ];
+  if (font) parts.unshift(`fontfile=${font.replace(/\\/g, "/").replace(/:/g, "\\:")}`);
+  return `drawtext=${parts.join(":")}`;
 }
 
 async function probeVideoSize(filePath: string): Promise<{ width: number; height: number }> {
