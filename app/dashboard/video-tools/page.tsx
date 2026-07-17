@@ -607,7 +607,8 @@ function TimelineEditor() {
         const data = await res.json();
         setTempPath(data.tempPath ?? null);
         setStatusMsg(`Uploaded: ${(file.size / 1024 / 1024).toFixed(1)} MB`);
-        const d = data?.metadata?.duration;
+        // probeVideo returns { durationSec, ... } — read that first (was `.duration`, always undefined → no segments)
+        const d = data?.metadata?.durationSec ?? data?.metadata?.duration;
         if (typeof d === "number" && d > 0) {
           setDuration(d);
           const segs = generateSegments(d);
