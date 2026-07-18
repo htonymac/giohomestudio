@@ -75,11 +75,18 @@ export default function VideoFinishingPage() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
+      // /api/upload/logo is IMAGE-ONLY (rejects video with 400) — use the video
+      // upload endpoint, which returns { filePath } (storage-relative). Fixed 2026-07-18.
+      const res = await fetch("/api/v2v/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (data.url) setVideoUrl(data.url);
-      if (data.filePath) setVideoPath(data.filePath);
-    } catch { /* upload failed */ }
+      if (res.ok && data.filePath) {
+        const p = String(data.filePath);
+        setVideoPath(p);
+        setVideoUrl(`/api/media/${p.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+      } else {
+        console.error("[video-finishing] upload rejected:", res.status, data.error);
+      }
+    } catch (err) { console.error("[video-finishing] upload failed:", err); }
   }
 
   // ── AI model for tier ──
