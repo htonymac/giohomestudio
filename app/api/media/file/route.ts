@@ -3,6 +3,7 @@
 // Used by the Commercial Maker to preview uploaded slide images.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import * as path from "path";
 import * as fs from "fs";
 import { getStorage } from "@/lib/storage";
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   // R2 mode (Task #5): redirect to a presigned URL when the object is in R2; else local disk.
-  if (process.env.STORAGE_PROVIDER === "r2") {
+  if (getStorageProviderSetting() === "r2") {
     const key = path.relative(STORAGE_ROOT, resolved).split(path.sep).join("/");
     try {
       if (await getStorage().exists(key)) {

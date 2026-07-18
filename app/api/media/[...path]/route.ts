@@ -3,6 +3,7 @@
 // Range support is required for browsers to seek/stream MP4 video correctly.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import * as path from "path";
 import * as fs from "fs";
 import { getStorage } from "@/lib/storage";
@@ -37,7 +38,7 @@ export async function GET(
   // R2 mode (Task #5): if the object lives in R2, 302-redirect to a presigned URL so
   // bytes serve from R2/CDN (S3 presigned URLs honour Range, so video seeking works).
   // Falls through to local disk when the object isn't in R2 yet (pre-backfill media).
-  if (process.env.STORAGE_PROVIDER === "r2") {
+  if (getStorageProviderSetting() === "r2") {
     try {
       if (await getStorage().exists(relative)) {
         return NextResponse.redirect(await getStorage().signGet(relative), 302);

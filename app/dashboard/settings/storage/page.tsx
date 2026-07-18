@@ -12,6 +12,8 @@ interface StorageInfo {
   recentVideos: Array<{ name: string; url: string; thumbnailUrl: string | null; sizeMB: number; mtime: number }>;
 }
 
+type StorageProviderKind = "local" | "r2";
+
 const GB = (b: number) => (b / 1e9).toFixed(2) + " GB";
 
 export default function StoragePage() {
@@ -19,6 +21,40 @@ export default function StoragePage() {
   const [loading, setLoading] = useState(true);
   const [cleaning, setCleaning] = useState(false);
   const [msg, setMsg] = useState("");
+
+  // Henry 2026-07-17: in-app cloud storage (R2) on/off toggle — no .env edit, no redeploy.
+  // See src/lib/storage/index.ts getStorage() for the runtime selection logic.
+  const [provider, setProvider] = useState<StorageProviderKind | null>(null);
+  const [providerSaving, setProviderSaving] = useState<StorageProviderKind | null>(null);
+  const [providerMsg, setProviderMsg] = useState("");
+
+  useEffect(() => {
+    fetch("/api/settings/storage").then(r => r.json()).then(d => setProvider(d.provider)).catch(() => {});
+  }, []);
+
+  async function switchProvider(next: StorageProviderKind) {
+    if (next === provider || providerSaving) return;
+    setProviderSaving(next); setProviderMsg("");
+    try {
+      const r = await fetch("/api/settings/storage", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ provider: next }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setProviderMsg(d.error || "Failed to switch storage provider."); return; }
+      setProvider(d.provider);
+      setProviderMsg(
+        d.provider === "r2"
+          ? "Switched to Cloud (R2). New uploads go to R2 immediately — no restart needed."
+          : "Switched to Local disk. New uploads go to the server's local disk immediately — no restart needed."
+      );
+    } catch {
+      setProviderMsg("Network error — storage provider unchanged.");
+    } finally {
+      setProviderSaving(null);
+    }
+  }
   // Henry 2026-06-17: multi-select for collective delete.
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleting, setBulkDeleting] = useState(false);
@@ -85,6 +121,38 @@ export default function StoragePage() {
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24, color: "#e8e8f0" }}>
       <h1 style={{ fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Storage</h1>
       <p style={{ fontSize: 12, color: "#9a9ab0", marginBottom: 18 }}>Monitor disk usage, clear leftover render scraps, and browse your finished videos.</p>
+
+      <div style={{ ...card, marginBottom: 18 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, marginBottom: 2 }}>Storage location</p>
+        <p style={{ fontSize: 11, color: "#9a9ab0", marginBottom: 12 }}>
+          Where new uploads and generated media are written. Switching takes effect immediately — no restart.
+          {provider === "r2" && " If Cloudflare R2 credentials aren't set on the server, uploads will fail until they are."}
+        </p>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {(["local", "r2"] as const).map(kind => {
+            const active = provider === kind;
+            const isSavingThis = providerSaving === kind;
+            return (
+              <button
+                key={kind}
+                onClick={() => switchProvider(kind)}
+                disabled={provider === null || providerSaving !== null}
+                style={{
+                  padding: "9px 18px", borderRadius: 9, fontSize: 12, fontWeight: 700, cursor: provider === null || providerSaving !== null ? "not-allowed" : "pointer",
+                  background: active ? "#7c5cff" : "transparent",
+                  color: active ? "#fff" : "#c8c8d8",
+                  border: `1px solid ${active ? "#7c5cff" : "#2a2440"}`,
+                  opacity: providerSaving !== null && !isSavingThis ? 0.5 : 1,
+                }}
+              >
+                {kind === "local" ? "Local disk" : "Cloud (R2)"}{isSavingThis ? "…" : active ? " (active)" : ""}
+              </button>
+            );
+          })}
+          {provider === null && <span style={{ fontSize: 11, color: "#9a9ab0" }}>Loading…</span>}
+        </div>
+        {providerMsg && <p style={{ fontSize: 11, color: providerMsg.startsWith("Switched") ? "#9be8b4" : "#ff8a8a", marginTop: 10 }}>{providerMsg}</p>}
+      </div>
 
       {loading && <p style={{ color: "#9a9ab0" }}>Loading…</p>}
 

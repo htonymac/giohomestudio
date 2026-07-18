@@ -8,6 +8,7 @@
 // Source of truth: Henry's unified character→scene→image pipeline doctrine (2026-04-12)
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
 import { resolveCharacterTokens } from "@/lib/character-resolver";
 import { generateImage } from "@/lib/generation/selectors/image-provider";
@@ -1209,7 +1210,7 @@ export async function POST(req: NextRequest) {
         }
         const overlayBuf = Buffer.from(svg);
         // R2: the image was written to R2 above, not disk — stage it back so sharp can read it.
-        if (process.env.STORAGE_PROVIDER === "r2" && !fs.existsSync(outputPath)) {
+        if (getStorageProviderSetting() === "r2" && !fs.existsSync(outputPath)) {
           try {
             const _k = relKeyFor(outputPath);
             if (_k) { fs.mkdirSync(path.dirname(outputPath), { recursive: true }); fs.writeFileSync(outputPath, await getStorage().get(_k)); }
