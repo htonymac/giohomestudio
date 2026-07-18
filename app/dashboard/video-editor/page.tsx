@@ -131,6 +131,11 @@ function VideoEditorInner() {
   const [outroSubColor, setOutroSubColor] = useState("#F5D06B");
   const [outroScale, setOutroScale] = useState(1);
   const outroStyle = () => ({ fontFamily: outroFont || undefined, headlineColor: outroHeadColor, sublineColor: outroSubColor, scale: outroScale });
+  // CSS font-family for the live sample under the outro font select — mirrors Brand Kit's previewFont mapping.
+  const outroSampleFont =
+    outroFont === "Bebas Neue" ? "'Bebas Neue', Impact, sans-serif" :
+    outroFont === "Anton" ? "Anton, Impact, sans-serif" :
+    outroFont ? `${outroFont}, Arial, sans-serif` : undefined;
 
   // ── Trim timeline preview: a thumbnail filmstrip + scrub-on-drag so the user SEES
   //    the exact frame at the cut and can review the kept range (not a blind bar). ──
@@ -1157,6 +1162,9 @@ function VideoEditorInner() {
                 <input type="range" min={0.6} max={1.8} step={0.1} value={outroScale} onChange={e => setOutroScale(Number(e.target.value))} style={{ flex: 1 }} />
               </label>
             </div>
+            <span style={{ display: "block", marginBottom: 8, fontSize: 13, fontFamily: outroSampleFont, color: ds.color.ink2 }}>
+              {outroFont ? "AaBbCc 123 — Your headline" : "(Brand Kit font)"}
+            </span>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
               <span style={{ fontSize: 10, color: ds.color.mute }}>Uses the video's final frame as the background.</span>
               <div>
