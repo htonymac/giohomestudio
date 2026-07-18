@@ -650,6 +650,20 @@ enum AIEditStatus {
   FAILED
 }
 
+// Video Editor — server-side project save/resume (mirrors AdProject pattern).
+// state holds the full editor snapshot (videoPath, overlayLayers, trim/intro/outro, etc.)
+// as one JSON blob rather than normalized columns, since the editor state shape is
+// still evolving and doesn't need to be queried/filtered field-by-field.
+model VideoEditorProject {
+  id        String   @id @default(cuid())
+  name      String   @default("Untitled video project")
+  state     Json     @default("{}")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("video_editor_projects")
+}
+
 // ── Movie & Series Planner Models ───────────────────────────────────────────
 
 model MovieProject {

@@ -12,6 +12,7 @@ import Card from "../../components/ui/Card";
 import ButtonPrimary from "../../components/ui/ButtonPrimary";
 import { Folder, Wand, Film, Music, X, Check } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
+import { safeJson } from "../../../lib/api-utils";
 
 function VideoEditorInner() {
   const searchParams = useSearchParams();
@@ -147,7 +148,9 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, startSec: trimStart, endSec: trimEnd }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setTrimResult(data.outputUrl); setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Trim complete"); }
+      // This is a real edit output, not a project-restore reload — don't let a stale
+      // pendingRestoreRef (from a prior project load) apply its trim window here.
+      if (data.outputUrl) { pendingRestoreRef.current = null; setTrimResult(data.outputUrl); setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Trim complete"); }
       else setEditMsg(data.error || "Trim failed");
     } catch (err) { setEditMsg("Trim failed: " + String(err)); }
     setTrimming(false);
@@ -162,7 +165,7 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, text: introText, duration: introDuration }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Intro added"); }
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Intro added"); }
       else setEditMsg(data.error || "Add intro failed");
     } catch (err) { setEditMsg("Add intro failed: " + String(err)); }
     setAddingIntro(false);
@@ -177,7 +180,7 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, text: outroText, duration: outroDuration }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Outro added"); }
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Outro added"); }
       else setEditMsg(data.error || "Add outro failed");
     } catch (err) { setEditMsg("Add outro failed: " + String(err)); }
     setAddingOutro(false);
@@ -206,7 +209,7 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, imageUrl: outroImageUrl, duration: outroDuration }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Product outro added"); }
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Product outro added"); }
       else setEditMsg(data.error || "Add image outro failed");
     } catch (err) { setEditMsg("Add image outro failed: " + String(err)); }
     setAddingOutro(false);
@@ -222,7 +225,7 @@ function VideoEditorInner() {
         body: JSON.stringify({ videoUrl: videoPath, useLastFrame: true, headline: outroHeadline, subline: outroSubline, duration: outroDuration }),
       });
       const data = await res.json();
-      if (data.outputUrl) { setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Outro added — plays at the end; scrub the player to review"); }
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Outro added — plays at the end; scrub the player to review"); }
       else setEditMsg(data.error || "Add freeze outro failed");
     } catch (err) { setEditMsg("Add freeze outro failed: " + String(err)); }
     setAddingOutro(false);
@@ -268,7 +271,162 @@ function VideoEditorInner() {
   const [exportError, setExportError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // ── Server-side project save/resume (DB) — mirrors Ad Editor's pattern
+  //    (app/api/ad-editor/project) so a saved project survives a PC restart. ──
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [projectName, setProjectName] = useState("Untitled video project");
+  const [projectList, setProjectList] = useState<{ id: string; name: string; updatedAt: string }[]>([]);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [projectFilter, setProjectFilter] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The video element resets the trim window to the FULL clip on every onLoadedMetadata
+  // (that's correct for a fresh upload). When we load a saved project the <video> src also
+  // changes and re-fires onLoadedMetadata, which would silently wipe the restored trim
+  // points. This ref carries the restored trim window across that reload so it survives.
+  const pendingRestoreRef = useRef<{ trimStart: number; trimEnd: number } | null>(null);
+
+  function buildProjectState() {
+    return {
+      videoPath, videoUrl, overlayLayers, captionText,
+      trimStart, trimEnd, introText, introDuration,
+      outroText, outroDuration, outroHeadline, outroSubline, outroImageUrl,
+    };
+  }
+
+  // Small typed pluckers keep restoreProjectState to one line per field instead of a
+  // repeated `typeof state.x === "..." ? state.x : default` ternary for each one.
+  const strField = (v: unknown, fallback: string | null = ""): string | null => typeof v === "string" ? v : fallback;
+  const numField = (v: unknown, fallback = 0): number => typeof v === "number" ? v : fallback;
+
+  function restoreProjectState(state: Record<string, unknown>) {
+    setVideoPath(strField(state.videoPath, null));
+    setVideoUrl(strField(state.videoUrl, null));
+    setOverlayLayers(Array.isArray(state.overlayLayers) ? (state.overlayLayers as OverlayLayer[]) : []);
+    setCaptionText(strField(state.captionText) ?? "");
+    const ts = numField(state.trimStart);
+    const te = numField(state.trimEnd);
+    setTrimStart(ts);
+    setTrimEnd(te);
+    pendingRestoreRef.current = { trimStart: ts, trimEnd: te };
+    setIntroText(strField(state.introText) ?? "");
+    setIntroDuration(numField(state.introDuration, 3));
+    setOutroText(strField(state.outroText) ?? "");
+    setOutroDuration(numField(state.outroDuration, 3));
+    setOutroHeadline(strField(state.outroHeadline) ?? "");
+    setOutroSubline(strField(state.outroSubline) ?? "");
+    setOutroImageUrl(strField(state.outroImageUrl, null));
+    setVideoDuration(0);
+    setCurrentTime(0);
+    setFilmstrip([]);
+  }
+
+  async function refreshProjectList() {
+    try {
+      const res = await fetch("/api/video-editor/project");
+      const data = await safeJson<{ projects?: { id: string; name: string; updatedAt: string }[] }>(res, "video-editor project list");
+      if (data.projects) setProjectList(data.projects);
+    } catch { /* list refresh is a nicety; save/load still work without it */ }
+  }
+
+  useEffect(() => { refreshProjectList(); }, []);
+
+  // Load a project from ?project=<id> in the URL (e.g. linked in from Content Registry).
+  useEffect(() => {
+    const pid = searchParams.get("project");
+    if (!pid || projectId) return;
+    loadProject(pid);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  async function saveProject() {
+    setSaving(true);
+    try {
+      const payload = { id: projectId ?? undefined, name: projectName, state: buildProjectState() };
+      const res = await fetch("/api/video-editor/project", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const data = await safeJson<{ id?: string; error?: string }>(res, "video-editor save project");
+      if (data.id) {
+        const isNew = !projectId;
+        if (isNew) setProjectId(data.id);
+        const savedAt = new Date().toISOString();
+        setLastSaved(new Date(savedAt).toLocaleTimeString());
+        // Patch the cached list in place instead of refetching it on every autosave —
+        // the list only needs this project's name/updatedAt to stay current.
+        setProjectList(prev => {
+          const entry = { id: data.id!, name: projectName, updatedAt: savedAt };
+          const exists = prev.some(p => p.id === data.id);
+          return exists ? prev.map(p => (p.id === data.id ? entry : p)) : [entry, ...prev];
+        });
+      } else if (data.error) {
+        setEditMsg(`Save failed: ${data.error}`);
+      }
+    } catch (err) {
+      setEditMsg(`Save failed: ${err instanceof Error ? err.message : "network error"}`);
+    }
+    setSaving(false);
+  }
+
+  // Debounced autosave, same 3s pattern as Ad Editor — only once there's something worth
+  // saving (a video loaded, or an existing project already being edited). Depends on the
+  // serialized state (not a hand-maintained list of every field) so it can't drift from
+  // buildProjectState() as fields are added later.
+  const projectStateKey = JSON.stringify(buildProjectState());
+  useEffect(() => {
+    if (!videoPath && !projectId) return;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => { saveProject(); }, 3000);
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectStateKey, projectName]);
+
+  async function loadProject(id: string) {
+    try {
+      const res = await fetch(`/api/video-editor/project/${id}`);
+      const data = await safeJson<{ project?: { id: string; name: string; state: unknown }; error?: string }>(res, "video-editor load project");
+      if (data.project) {
+        setProjectId(data.project.id);
+        setProjectName(data.project.name);
+        restoreProjectState((data.project.state as Record<string, unknown>) ?? {});
+        setShowProjectPicker(false);
+        setLastSaved(null);
+      } else if (data.error) {
+        setEditMsg(`Load failed: ${data.error}`);
+      }
+    } catch (err) {
+      setEditMsg(`Load failed: ${err instanceof Error ? err.message : "network error"}`);
+    }
+  }
+
+  function newProject() {
+    pendingRestoreRef.current = null;
+    setProjectId(null);
+    setProjectName("Untitled video project");
+    setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); setCaptionText("");
+    setTrimStart(0); setTrimEnd(0); setIntroText(""); setIntroDuration(3);
+    setOutroText(""); setOutroDuration(3); setOutroHeadline(""); setOutroSubline("");
+    setOutroImageUrl(null); setOutroImageName("");
+    setVideoDuration(0); setCurrentTime(0); setFilmstrip([]);
+    setShowProjectPicker(false);
+    setLastSaved(null);
+  }
+
+  async function deleteProject(id: string) {
+    try {
+      const res = await fetch(`/api/video-editor/project/${id}`, { method: "DELETE" });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); alert(`Delete failed: ${d.error ?? res.status}`); return; }
+      setProjectList(prev => prev.filter(p => p.id !== id));
+      if (projectId === id) newProject();
+    } catch (err) { alert(`Delete failed: ${err instanceof Error ? err.message : "network error"}`); }
+  }
+
   async function handleUpload(file: File) {
+    pendingRestoreRef.current = null; // fresh upload — no restored trim window to honor
     setUploading(true);
     setUploadError(null);
     const fd = new FormData();
@@ -376,6 +534,9 @@ function VideoEditorInner() {
     width: "100%",
   };
 
+  // Inline (non-full-width) variant of ghostBtn for the project bar's row of buttons.
+  const btnSm: React.CSSProperties = { ...ghostBtn, width: "auto", textAlign: undefined, color: ds.color.ink2, fontWeight: 600 };
+
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto" }}>
       <HeroTitle
@@ -391,6 +552,74 @@ function VideoEditorInner() {
         <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: ds.radius.xs, background: `${ds.color.mint}10`, color: ds.color.mint, fontFamily: ds.font.mono }}>OverlayPanel</span>
         <span style={{ fontSize: 9, padding: "2px 8px", borderRadius: ds.radius.xs, background: `${ds.color.gold}10`, color: ds.color.gold, fontFamily: ds.font.mono }}>FFmpeg export</span>
       </div>
+
+      {/* ── Project bar — server-side (DB) save/resume, same pattern as Ad Editor.
+           Survives a PC restart because the state lives in the database, not localStorage. ── */}
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <input
+            value={projectName}
+            onChange={e => setProjectName(e.target.value)}
+            placeholder="Untitled video project"
+            style={{ ...inputSt, width: 220 }}
+          />
+          <ButtonPrimary onClick={saveProject} disabled={saving} style={{ fontSize: 11, padding: "7px 16px", whiteSpace: "nowrap" }}>
+            {saving ? "Saving…" : "Save Project"}
+          </ButtonPrimary>
+          <button onClick={newProject} style={btnSm}>New</button>
+          <button onClick={() => setShowProjectPicker(v => !v)} style={btnSm}>
+            Projects ({projectList.length})
+          </button>
+          {lastSaved && <span style={{ fontSize: 9, color: ds.color.mute, marginLeft: "auto", fontFamily: ds.font.mono }}>Saved {lastSaved}</span>}
+          {projectId && <span style={{ fontSize: 9, color: ds.color.mute, fontFamily: ds.font.mono, marginLeft: lastSaved ? 0 : "auto" }}>{projectId.slice(0, 8)}…</span>}
+        </div>
+
+        {showProjectPicker && (
+          <div style={{ marginTop: 12, borderTop: `1px solid ${ds.color.line2}`, paddingTop: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, gap: 8 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: ds.color.ink, textTransform: "uppercase", letterSpacing: "0.1em", fontFamily: ds.font.mono }}>
+                All Projects · {projectList.length}
+              </span>
+              <input
+                value={projectFilter}
+                onChange={e => setProjectFilter(e.target.value)}
+                placeholder="Search projects…"
+                style={{ flex: 1, maxWidth: 240, fontSize: 11, background: ds.color.paper, border: `1px solid ${ds.color.line2}`, color: ds.color.ink, padding: "4px 8px", borderRadius: ds.radius.xs, outline: "none" }}
+              />
+            </div>
+            <div style={{ maxHeight: 320, overflowY: "auto", paddingRight: 4 }}>
+              {projectList.length === 0 && (
+                <p style={{ fontSize: 11, color: ds.color.mute, padding: "16px 0", textAlign: "center" }}>
+                  No saved projects yet. Click <b>Save Project</b> to create one.
+                </p>
+              )}
+              {projectList
+                .filter(p => !projectFilter || p.name.toLowerCase().includes(projectFilter.toLowerCase()))
+                .map(p => (
+                <div key={p.id}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 10px", borderRadius: ds.radius.xs, marginBottom: 3, background: projectId === p.id ? `${ds.color.lilac}18` : "rgba(255,255,255,0.02)", cursor: "pointer", border: `1px solid ${projectId === p.id ? `${ds.color.lilac}40` : "transparent"}` }}
+                  onClick={() => loadProject(p.id)}
+                >
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 12, color: ds.color.ink, fontWeight: projectId === p.id ? 700 : 500, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                    <div style={{ fontSize: 9, color: ds.color.mute, marginTop: 2, fontFamily: ds.font.mono }}>{new Date(p.updatedAt).toLocaleString()}</div>
+                  </div>
+                  <button
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (confirmDel === p.id) { setConfirmDel(null); deleteProject(p.id); }
+                      else { setConfirmDel(p.id); setTimeout(() => setConfirmDel(c => (c === p.id ? null : c)), 3000); }
+                    }}
+                    style={{ fontSize: 10, color: confirmDel === p.id ? "#fff" : ds.color.coral, background: confirmDel === p.id ? ds.color.coral : `${ds.color.coral}10`, border: `1px solid ${ds.color.coral}30`, cursor: "pointer", padding: "3px 8px", borderRadius: ds.radius.xs, flexShrink: 0, marginLeft: 8, fontWeight: confirmDel === p.id ? 700 : 400 }}
+                  >
+                    {confirmDel === p.id ? "Confirm?" : "Delete"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       {/* AI Prompt Bar — always visible */}
       <Card style={{ marginBottom: 16 }}>
@@ -477,8 +706,17 @@ function VideoEditorInner() {
                     setVideoDuration(dur);
                     setVideoDims({ w: e.currentTarget.videoWidth || 1920, h: e.currentTarget.videoHeight || 1080 });
                     requestAnimationFrame(measureVideoRect);
-                    // Reset the trim window to the whole new clip + regenerate the filmstrip.
-                    setTrimStart(0); setTrimEnd(Math.round(dur * 10) / 10);
+                    // Reset the trim window to the whole new clip — UNLESS a saved project
+                    // just restored a specific trim window, in which case honor it instead
+                    // (see pendingRestoreRef above the state declarations).
+                    const pending = pendingRestoreRef.current;
+                    if (pending) {
+                      setTrimStart(pending.trimStart);
+                      setTrimEnd(pending.trimEnd || Math.round(dur * 10) / 10);
+                      pendingRestoreRef.current = null;
+                    } else {
+                      setTrimStart(0); setTrimEnd(Math.round(dur * 10) / 10);
+                    }
                     setFilmstrip([]);
                     if (e.currentTarget.currentSrc) buildFilmstrip(e.currentTarget.currentSrc);
                   }}
@@ -531,7 +769,7 @@ function VideoEditorInner() {
                   {videoPath?.split(/[\\/]/).pop()}{videoDuration > 0 ? ` · ${(Math.round(videoDuration * 10) / 10)}s` : ""}
                 </span>
                 <button
-                  onClick={() => { setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); setVideoDuration(0); setCurrentTime(0); }}
+                  onClick={() => { pendingRestoreRef.current = null; setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); setVideoDuration(0); setCurrentTime(0); }}
                   style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}
                 >
                   <X size={11} color={ds.color.coral} /> Remove
