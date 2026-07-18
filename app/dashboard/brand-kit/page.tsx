@@ -118,6 +118,9 @@ export default function BrandKitPage() {
                 </optgroup>
               ))}
             </select>
+            <span style={{ display: "block", marginTop: 6, fontSize: 15, fontFamily: previewFont, color: ds.color.ink2 }}>
+              AaBbCc 123 — Your headline
+            </span>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
