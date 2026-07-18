@@ -68,6 +68,12 @@ function VideoEditorInner() {
   // Freeze-last-frame outro (Henry: end of the video becomes the outro background + branding)
   const [outroHeadline, setOutroHeadline] = useState("");
   const [outroSubline, setOutroSubline] = useState("");
+  // Outro text decoration (overrides Brand Kit for this outro). "" font = Brand Kit default.
+  const [outroFont, setOutroFont] = useState("");
+  const [outroHeadColor, setOutroHeadColor] = useState("#FFFFFF");
+  const [outroSubColor, setOutroSubColor] = useState("#F5D06B");
+  const [outroScale, setOutroScale] = useState(1);
+  const outroStyle = () => ({ fontFamily: outroFont || undefined, headlineColor: outroHeadColor, sublineColor: outroSubColor, scale: outroScale });
 
   // ── Trim timeline preview: a thumbnail filmstrip + scrub-on-drag so the user SEES
   //    the exact frame at the cut and can review the kept range (not a blind bar). ──
@@ -206,7 +212,7 @@ function VideoEditorInner() {
     try {
       const res = await fetch("/api/editor/add-outro", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: videoPath, imageUrl: outroImageUrl, duration: outroDuration }),
+        body: JSON.stringify({ videoUrl: videoPath, imageUrl: outroImageUrl, duration: outroDuration, style: outroStyle() }),
       });
       const data = await res.json();
       if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Product outro added"); }
@@ -222,7 +228,7 @@ function VideoEditorInner() {
     try {
       const res = await fetch("/api/editor/add-outro", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: videoPath, useLastFrame: true, headline: outroHeadline, subline: outroSubline, duration: outroDuration }),
+        body: JSON.stringify({ videoUrl: videoPath, useLastFrame: true, headline: outroHeadline, subline: outroSubline, duration: outroDuration, style: outroStyle() }),
       });
       const data = await res.json();
       if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Outro added — plays at the end; scrub the player to review"); }
@@ -1059,6 +1065,26 @@ function VideoEditorInner() {
             <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
               <input value={outroHeadline} onChange={e => setOutroHeadline(e.target.value)} placeholder="Headline — e.g. Call Now 0902 514 7449" style={inputSt} />
               <input value={outroSubline} onChange={e => setOutroSubline(e.target.value)} placeholder="Sub-line — e.g. Sangotedo . Ajah . Lekki" style={inputSt} />
+            </div>
+            {/* Text decoration for this outro (overrides the Brand Kit) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr auto auto 1.1fr", gap: 8, alignItems: "center", marginBottom: 8 }}>
+              <select value={outroFont} onChange={e => setOutroFont(e.target.value)} style={{ ...inputSt, fontSize: 11 }} title="Font">
+                <option value="">Brand Kit font</option>
+                <option value="Poppins">Poppins</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Anton">Anton</option>
+                <option value="Arial">Arial</option>
+              </select>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: ds.color.mute }} title="Headline colour">Head
+                <input type="color" value={outroHeadColor} onChange={e => setOutroHeadColor(e.target.value)} style={{ width: 26, height: 26, border: "none", background: "none", cursor: "pointer" }} />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: ds.color.mute }} title="Sub-line colour">Sub
+                <input type="color" value={outroSubColor} onChange={e => setOutroSubColor(e.target.value)} style={{ width: 26, height: 26, border: "none", background: "none", cursor: "pointer" }} />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: ds.color.mute }} title="Text size">Size
+                <input type="range" min={0.6} max={1.8} step={0.1} value={outroScale} onChange={e => setOutroScale(Number(e.target.value))} style={{ flex: 1 }} />
+              </label>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
               <span style={{ fontSize: 10, color: ds.color.mute }}>Uses the video's final frame as the background.</span>
