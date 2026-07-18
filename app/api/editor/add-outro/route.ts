@@ -13,6 +13,26 @@ import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
 import { resolveVideoPath } from "@/lib/resolve-video-path";
+import { resolveFontFile } from "@/modules/ffmpeg/utils";
+
+// The outro pulls its font + colours from the saved Brand Kit so end cards match
+// the rest of the brand. Falls back to sensible defaults if none saved.
+function readBrandKit(): { fontFamily: string; headlineColor: string; bodyColor: string } {
+  const def = { fontFamily: "Poppins", headlineColor: "#FFFFFF", bodyColor: "#F5D06B" };
+  try {
+    const raw = fs.readFileSync(path.join(env.storagePath, "config", "brand-kit.json"), "utf8");
+    const k = JSON.parse(raw) as Partial<typeof def>;
+    return {
+      fontFamily: k.fontFamily || def.fontFamily,
+      headlineColor: k.headlineColor || def.headlineColor,
+      bodyColor: k.bodyColor || def.bodyColor,
+    };
+  } catch {
+    return def;
+  }
+}
+
+const hexToFF = (h: string) => `0x${h.replace("#", "")}`;
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,7 +90,8 @@ export async function POST(req: NextRequest) {
       }
 
       const hasAudio = await probeHasAudio(inputPath);
-      const font = pickFontFile();
+      const brand = readBrandKit();
+      const font = resolveFontFile({ fontFamily: brand.fontFamily, bold: true }) || pickFontFile();
 
       // Branded text drawn on the outro frame. Auto-shrink each line to fit the
       // width on ONE line (so "Call Now 0902…" never runs off the frame), on a
@@ -90,9 +111,9 @@ export async function POST(req: NextRequest) {
         const totalH = hlLines.length * hlH + gap + slLines.length * slH;
         const top = `(h-${totalH})/2`;
         let off = 0;
-        for (const line of hlLines) { textFilters.push(drawText(line, hlSize, "0xFFFFFF", `${top}+${off}`, font)); off += hlH; }
+        for (const line of hlLines) { textFilters.push(drawText(line, hlSize, hexToFF(brand.headlineColor), `${top}+${off}`, font)); off += hlH; }
         off += gap;
-        for (const line of slLines) { textFilters.push(drawText(line, slSize, "0xF5D06B", `${top}+${off}`, font)); off += slH; }
+        for (const line of slLines) { textFilters.push(drawText(line, slSize, hexToFF(brand.bodyColor), `${top}+${off}`, font)); off += slH; }
       }
       const tail = textFilters.length ? `,${textFilters.join(",")}` : "";
       const normV = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p`;
@@ -145,9 +166,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Pick a bold font that exists (Linux server first, then Windows dev). null → drawtext default.
+// Pick a bold, MODERN font for the outro card (Montserrat/Poppins bundled in the
+// repo → the social-media look), falling back to system fonts. null → drawtext default.
 function pickFontFile(): string | null {
+  const bundled = path.resolve("assets", "fonts");
   const candidates = [
+    path.join(bundled, "Montserrat-Bold.ttf"),
+    path.join(bundled, "Poppins-Bold.ttf"),
+    path.join(bundled, "Anton-Regular.ttf"),
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
     "C:/Windows/Fonts/arialbd.ttf",

@@ -43,6 +43,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/ad-editor",           label: "Ad / Image Editor",  icon: Image,  tint: "c3" },
   { href: "/dashboard/video-tools",         label: "Video Tools",        icon: Wand,   tint: "c4" },
   { href: "/dashboard/video-trimmer",       label: "Video Trimmer",      icon: ChevronRight, tint: "c5" },
+  { href: "/dashboard/brand-kit",           label: "Brand Kit",          icon: Image,  tint: "c3" },
   { href: "/dashboard/music-studio",        label: "Music & DJ",         icon: Music,  tint: "c6" },
   { href: "/dashboard/karaoke-studio",      label: "Karaoke Studio",     icon: Mic,    tint: "c7" },
   { href: "/dashboard/sfx-library",         label: "SFX Library",        icon: Mic,    tint: "c8" },
