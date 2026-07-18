@@ -21,6 +21,12 @@ export interface BrandKit {
   accentText: string;     // user's own accent/price badge text
   bgColor: string;        // hex — background behind the text (preview + outro scrim)
   bgOpacity: number;      // 0 (transparent) .. 1 (fully solid)
+  businessName: string;   // saved contact — business / brand name
+  phone: string;          // saved contact — phone number
+  whatsapp: string;       // saved contact — WhatsApp number
+  email: string;          // saved contact — business email
+  website: string;        // saved contact — website URL
+  address: string;        // saved contact — physical address
 }
 
 const DEFAULTS: BrandKit = {
@@ -37,6 +43,12 @@ const DEFAULTS: BrandKit = {
   accentText: "₦0 / night",
   bgColor: "#000000",
   bgOpacity: 0.4,
+  businessName: "",
+  phone: "",
+  whatsapp: "",
+  email: "",
+  website: "",
+  address: "",
 };
 
 function kitPath(): string {
@@ -73,6 +85,8 @@ export async function PUT(req: NextRequest) {
     typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v.trim()) ? v.trim() : fallback;
   const text = (v: unknown, fallback: string) =>
     typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : fallback;
+  const text200 = (v: unknown, fallback: string) =>
+    typeof v === "string" && v.trim() ? v.trim().slice(0, 200) : fallback;
   // 0..1 opacity clamp (clampNum floors at 8 — not usable for a 0..1 fraction).
   const clamp01 = (v: unknown, fallback: number) => {
     const n = Number(v);
@@ -93,6 +107,12 @@ export async function PUT(req: NextRequest) {
     accentText: text(body.accentText, cur.accentText),
     bgColor: hex(body.bgColor, cur.bgColor),
     bgOpacity: clamp01(body.bgOpacity, cur.bgOpacity),
+    businessName: text(body.businessName, cur.businessName),
+    phone: text(body.phone, cur.phone),
+    whatsapp: text(body.whatsapp, cur.whatsapp),
+    email: text(body.email, cur.email),
+    website: text(body.website, cur.website),
+    address: text200(body.address, cur.address),
   };
 
   try {
