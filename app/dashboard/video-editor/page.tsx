@@ -69,6 +69,62 @@ function VideoEditorInner() {
   // Freeze-last-frame outro (Henry: end of the video becomes the outro background + branding)
   const [outroHeadline, setOutroHeadline] = useState("");
   const [outroSubline, setOutroSubline] = useState("");
+  // Which outro field last had focus — "Insert" chips append into THIS field's setter.
+  const [lastOutroField, setLastOutroField] = useState<"headline" | "subline">("subline");
+  // Saved Brand Kit contact info (Henry: one-tap insert phone/WhatsApp/etc. instead of re-typing).
+  const [contact, setContact] = useState<{
+    businessName?: string; phone?: string; whatsapp?: string; email?: string; website?: string; address?: string;
+  } | null>(null);
+  useEffect(() => {
+    fetch("/api/brand-kit").then(r => r.json()).then(d => setContact(d.brandKit)).catch(() => {});
+  }, []);
+  // Contact chips available to insert (only fields that have a saved value).
+  const contactChips: { label: string; value: string }[] = [
+    { label: "Phone", value: contact?.phone ?? "" },
+    { label: "WhatsApp", value: contact?.whatsapp ?? "" },
+    { label: "Business name", value: contact?.businessName ?? "" },
+    { label: "Website", value: contact?.website ?? "" },
+    { label: "Email", value: contact?.email ?? "" },
+    { label: "Address", value: contact?.address ?? "" },
+  ].filter(c => c.value.trim());
+  // Append `addition` to `current` with a leading space if `current` already has text.
+  function appendText(current: string, addition: string): string {
+    return current.trim() ? `${current} ${addition}` : addition;
+  }
+  function insertIntoOutro(value: string) {
+    if (lastOutroField === "headline") setOutroHeadline(h => appendText(h, value));
+    else setOutroSubline(s => appendText(s, value));
+  }
+  // Shared "Insert:" chip row — renders saved-contact chips, or a hint pointing at Brand Kit if none saved yet.
+  function renderContactChips(onInsert: (value: string) => void) {
+    if (contactChips.length === 0) {
+      return (
+        <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 6 }}>
+          Save your phone/WhatsApp in Brand Kit to insert them here.
+        </p>
+      );
+    }
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, alignItems: "center" }}>
+        <span style={{ fontSize: 9, color: ds.color.mute, fontFamily: ds.font.mono }}>INSERT:</span>
+        {contactChips.map(c => (
+          <button
+            key={c.label}
+            type="button"
+            onClick={() => onInsert(c.value)}
+            title={c.value}
+            style={{
+              fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 999,
+              border: `1px solid ${ds.color.line2}`, background: "rgba(255,255,255,0.03)",
+              color: ds.color.ink2, cursor: "pointer",
+            }}
+          >
+            {c.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
   // Outro text decoration (overrides Brand Kit for this outro). "" font = Brand Kit default.
   const [outroFont, setOutroFont] = useState("");
   const [outroHeadColor, setOutroHeadColor] = useState("#FFFFFF");
@@ -709,6 +765,7 @@ function VideoEditorInner() {
             {polishing ? "Polishing…" : "Polish"}
           </ButtonPrimary>
         </div>
+        {renderContactChips(value => setPromptInput(p => appendText(p, value)))}
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
           <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono, letterSpacing: 0.5 }}>SAMPLES</span>
           {[1, 3, 5].map(n => (
@@ -1076,8 +1133,9 @@ function VideoEditorInner() {
             <label style={{ ...microLabel, marginTop: 16 }}>Freeze End of Video as Outro (+ text)</label>
             <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>The last frame of your video becomes the outro background, with your text on top — like a commercial end card. No upload needed.</p>
             <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
-              <input value={outroHeadline} onChange={e => setOutroHeadline(e.target.value)} placeholder="Headline — e.g. Call Now 0902 514 7449" style={inputSt} />
-              <input value={outroSubline} onChange={e => setOutroSubline(e.target.value)} placeholder="Sub-line — e.g. Sangotedo . Ajah . Lekki" style={inputSt} />
+              <input value={outroHeadline} onFocus={() => setLastOutroField("headline")} onChange={e => setOutroHeadline(e.target.value)} placeholder="Headline — e.g. Call Now 0902 514 7449" style={inputSt} />
+              <input value={outroSubline} onFocus={() => setLastOutroField("subline")} onChange={e => setOutroSubline(e.target.value)} placeholder="Sub-line — e.g. Sangotedo . Ajah . Lekki" style={inputSt} />
+              {renderContactChips(insertIntoOutro)}
             </div>
             {/* Text decoration for this outro (overrides the Brand Kit) */}
             <div style={{ display: "grid", gridTemplateColumns: "1.4fr auto auto 1.1fr", gap: 8, alignItems: "center", marginBottom: 8 }}>
