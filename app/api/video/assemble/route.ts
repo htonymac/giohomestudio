@@ -4,6 +4,7 @@
 // Returns: { outputUrl, duration, scenes } or { error }
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
@@ -143,7 +144,7 @@ function getTextAnimationFilter(animation: string | undefined, dur: number, anim
 // No-op unless STORAGE_PROVIDER=r2. Downloads each referenced media object from R2 to its
 // local path BEFORE the (unchanged) ffmpeg pipeline so local-path reads succeed in hybrid mode.
 async function prestageR2Media(urls: (string | undefined | null)[]): Promise<void> {
-  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  if (getStorageProviderSetting() !== "r2") return;
   const storage = getStorage();
   const seen = new Set<string>();
   for (const url of urls) {
@@ -1347,7 +1348,7 @@ ${dialogueLines.join("\n")}
     const outputPath = path.join(outDir, finalFilename);
     fs.copyFileSync(finalPath, outputPath);
 
-    if (process.env.STORAGE_PROVIDER === "r2") {
+    if (getStorageProviderSetting() === "r2") {
       try { const k = relKeyFor(outputPath); if (k) await getStorage().put(k, fs.readFileSync(outputPath), { contentType: "video/mp4" }); }
       catch (e) { console.warn(`[assemble] R2 output put: ${e instanceof Error ? e.message : e}`); }
     }

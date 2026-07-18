@@ -4,6 +4,7 @@
 // concatenates all clips and overlays the full song from 0:00.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import * as fs from "fs";
 import * as path from "path";
 import { env } from "@/config/env";
@@ -57,7 +58,7 @@ function resolveMediaPath(url: string): string {
 // No-op unless STORAGE_PROVIDER=r2. Downloads each referenced media object from R2 to its
 // local path BEFORE the (unchanged) ffmpeg pipeline so local-path reads succeed in hybrid mode.
 async function prestageR2Media(urls: (string | undefined | null)[]): Promise<void> {
-  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  if (getStorageProviderSetting() !== "r2") return;
   const storage = getStorage();
   const seen = new Set<string>();
   for (const url of urls) {
@@ -273,7 +274,7 @@ export async function POST(req: NextRequest) {
       ], { timeout: 60000 });
     }
 
-    if (process.env.STORAGE_PROVIDER === "r2") {
+    if (getStorageProviderSetting() === "r2") {
       try { const k = relKeyFor(outFile); if (k) await getStorage().put(k, fs.readFileSync(outFile), { contentType: "video/mp4" }); }
       catch (e) { console.warn(`[music-video/assemble] R2 output put: ${e instanceof Error ? e.message : e}`); }
     }

@@ -8,6 +8,7 @@
 // on local provider), then POSTs /api/asset/<id>/confirm-upload to flip status → READY.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getStorage, STORAGE_PREFIXES, buildKey, type StoragePrefix } from "@/lib/storage";
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest) {
         r2Key,
         sizeBytes: BigInt(sizeBytes),
         visibility: "private",
-        storageProvider: process.env.STORAGE_PROVIDER === "r2" ? "r2" : "local",
+        storageProvider: getStorageProviderSetting() === "r2" ? "r2" : "local",
       },
     });
 

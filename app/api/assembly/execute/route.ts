@@ -4,6 +4,7 @@
 // strips img: prefix, then runs the standard FFmpeg concat pipeline.
 
 import { NextRequest, NextResponse } from "next/server";
+import { getStorageProviderSetting } from "@/lib/storage";
 import { buildAssemblyPlan, estimateAssemblyCost, computeNarratorWindows } from "@/lib/assembly-builder";
 import type { AssemblyJSON, AssemblySegment } from "@/lib/assembly-schema";
 import { audit } from "@/lib/audit";
@@ -49,7 +50,7 @@ async function downloadToFile(url: string, destPath: string): Promise<boolean> {
 // canonical local path if not already on disk, so ALL downstream resolveMediaPath/ffmpeg
 // logic works UNCHANGED. The protected ffmpeg pipeline is never touched.
 async function prestageAllMedia(a: AssemblyJSON): Promise<void> {
-  if (process.env.STORAGE_PROVIDER !== "r2") return;
+  if (getStorageProviderSetting() !== "r2") return;
   const urls = new Set<string>();
   for (const s of a.segments ?? []) if (s.sourceUrl) urls.add(s.sourceUrl);
   for (const n of a.narration ?? []) if (n.audioUrl) urls.add(n.audioUrl);
@@ -1058,7 +1059,7 @@ async function runAssembly(body: { assembly: AssemblyJSON; skipApprovalCheck?: b
     const outputExists = finalOutputPath && fs.existsSync(finalOutputPath);
 
     // Task #5: upload the final deliverable to R2 so /api/media serves it from R2. No-op when flag off.
-    if (outputExists && process.env.STORAGE_PROVIDER === "r2") {
+    if (outputExists && getStorageProviderSetting() === "r2") {
       try {
         const outKey = relKeyFor(finalOutputPath);
         if (outKey) await getStorage().put(outKey, fs.readFileSync(finalOutputPath), { contentType: "video/mp4" });
