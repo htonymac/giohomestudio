@@ -264,6 +264,13 @@ function VideoEditorInner() {
   const [polishedPrompt, setPolishedPrompt] = useState("");
   const [polishing, setPolishing] = useState(false);
   const [polishError, setPolishError] = useState<string | null>(null);
+  // Local-AI (Ollama) assistant — polish/generate/URL-grounded, free, runs while
+  // Anthropic + FAL are out of credits. Separate state so it can't stomp the
+  // Anthropic "Polish" path above; both write into the same result card.
+  const [assisting, setAssisting] = useState(false);
+  const [assistError, setAssistError] = useState<string | null>(null);
+  const [assistModel, setAssistModel] = useState<string | null>(null);
+  const [assistUsedUrl, setAssistUsedUrl] = useState<string | null>(null);
   const [voiceTier, setVoiceTier] = useState<VoiceTierConfig>({ tier: "standard" });
   const [captionText, setCaptionText] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -472,6 +479,33 @@ function VideoEditorInner() {
     } finally { setPolishing(false); }
   }
 
+  async function handleAssist() {
+    if (!promptInput.trim()) return;
+    setAssisting(true);
+    setAssistError(null);
+    setAssistModel(null);
+    setAssistUsedUrl(null);
+    try {
+      const res = await fetch("/api/llm/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: promptInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.result) {
+        setPolishedPrompt(data.result);
+        setAssistModel(data.model || null);
+        setAssistUsedUrl(data.usedUrl || null);
+      } else {
+        console.error("[video-editor] assistant failed:", res.status, data.error);
+        setAssistError(data.error || `Local AI failed (HTTP ${res.status})`);
+      }
+    } catch (err) {
+      console.error("[video-editor] assistant failed:", err);
+      setAssistError("Local AI failed: " + String(err));
+    } finally { setAssisting(false); }
+  }
+
   async function handleExport() {
     if (!videoPath) return;
     setExporting(true);
@@ -632,10 +666,24 @@ function VideoEditorInner() {
         <div style={{ display: "flex", gap: 8 }}>
           <input
             value={promptInput}
-            onChange={e => { setPromptInput(e.target.value); setPolishedPrompt(""); }}
-            placeholder='Describe what you want to do: "add bold price tag at bottom, fade in title at top..."'
+            onChange={e => { setPromptInput(e.target.value); setPolishedPrompt(""); setAssistError(null); }}
+            placeholder='Try: "get info from dioluxapartments.com and write a bottom price line" or "nice overlay prompt for a luxury shortlet"'
             style={{ ...inputSt, flex: 1 }}
           />
+          <button
+            onClick={handleAssist}
+            disabled={assisting || !promptInput.trim()}
+            style={{
+              whiteSpace: "nowrap", fontSize: 11, fontWeight: 700, padding: "8px 16px",
+              borderRadius: ds.radius.xs, border: `1px solid ${ds.color.mint}55`,
+              background: `${ds.color.mint}18`, color: ds.color.mint,
+              cursor: assisting || !promptInput.trim() ? "not-allowed" : "pointer",
+              opacity: assisting || !promptInput.trim() ? 0.5 : 1,
+            }}
+            title="Free — runs on local AI (Ollama), no credits used"
+          >
+            {assisting ? "Thinking…" : "Ask AI (local)"}
+          </button>
           <ButtonPrimary
             onClick={handlePolish}
             disabled={polishing || !promptInput.trim()}
@@ -644,14 +692,25 @@ function VideoEditorInner() {
             {polishing ? "Polishing…" : "Polish"}
           </ButtonPrimary>
         </div>
+        <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 6 }}>
+          Local AI (free). Try: &quot;get info from dioluxapartments.com and write a bottom price line&quot; or &quot;nice overlay prompt for a luxury shortlet&quot;.
+        </p>
         {polishError && (
           <p style={{ fontSize: 11, color: ds.color.coral, marginTop: 8, fontWeight: 600 }}>{polishError}</p>
         )}
+        {assistError && (
+          <p style={{ fontSize: 11, color: ds.color.coral, marginTop: 8, fontWeight: 600 }}>{assistError}</p>
+        )}
         {polishedPrompt && (
           <div style={{ marginTop: 8, background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", border: `1px solid ${ds.color.line2}` }}>
-            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, marginBottom: 4, fontFamily: ds.font.mono, letterSpacing: 1 }}>AI IMPROVED</p>
+            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, marginBottom: 4, fontFamily: ds.font.mono, letterSpacing: 1 }}>
+              {assistModel ? `LOCAL AI (${assistModel})` : "AI IMPROVED"}
+            </p>
             <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.5 }}>{polishedPrompt}</p>
-            <button onClick={() => { setPromptInput(polishedPrompt); setPolishedPrompt(""); }}
+            {assistUsedUrl && (
+              <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 4 }}>Used site content from {assistUsedUrl}</p>
+            )}
+            <button onClick={() => { setPromptInput(polishedPrompt); setPolishedPrompt(""); setAssistModel(null); setAssistUsedUrl(null); }}
               style={{ marginTop: 5, fontSize: 10, color: ds.color.mint, background: "none", border: "none", cursor: "pointer" }}>
               Use this
             </button>
