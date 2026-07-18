@@ -228,7 +228,10 @@ export function buildOverlayFilterComplex(layers: OverlayLayer[], videoWidth = 1
       // Break the text to the video width (honours explicit newlines first), then
       // render ONE drawtext per line so each line is centred and the block wraps.
       const rawForWrap = t.style.uppercase ? t.text.toUpperCase() : t.text;
-      const maxChars = Math.max(8, Math.floor((videoWidth * 0.9) / (t.style.fontSize * 0.52)));
+      // Per-glyph width factor: UPPERCASE + bold glyphs are much wider, so a flat
+      // 0.52 under-wrapped them and lines ran off the frame (Henry 2026-07-18).
+      const glyphFactor = t.style.uppercase ? 0.64 : (t.style.fontWeight === "bold" ? 0.58 : 0.5);
+      const maxChars = Math.max(6, Math.floor((videoWidth * 0.88) / (t.style.fontSize * glyphFactor)));
       const lines = wrapLines(rawForWrap, maxChars);
       const lineH = Math.round(t.style.fontSize * 1.3);
 
