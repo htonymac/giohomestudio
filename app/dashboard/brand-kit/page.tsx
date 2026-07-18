@@ -24,6 +24,12 @@ interface BrandKit {
   accentText: string;
   bgColor: string;
   bgOpacity: number;
+  businessName: string;
+  phone: string;
+  whatsapp: string;
+  email: string;
+  website: string;
+  address: string;
 }
 
 // "#RRGGBB" + 0..1 opacity -> "rgba(r,g,b,a)" for the live preview background.
@@ -188,6 +194,40 @@ export default function BrandKitPage() {
           </p>
         </Card>
       </div>
+
+      {/* Business / Contact — saved once here, callable anywhere (editors, outros) */}
+      <Card radius={12} padding={20} style={{ marginTop: 20 }}>
+        <label style={{ ...label, fontSize: 11, marginBottom: 14 }}>Business / Contact</label>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+          <div>
+            <label style={label}>Business name</label>
+            <input type="text" maxLength={120} value={kit.businessName} onChange={e => set("businessName", e.target.value)} style={inputSt} placeholder="Gio Home Studio" />
+          </div>
+          <div>
+            <label style={label}>Phone</label>
+            <input type="tel" maxLength={120} value={kit.phone} onChange={e => set("phone", e.target.value)} style={inputSt} placeholder="0902 000 0000" />
+          </div>
+          <div>
+            <label style={label}>WhatsApp</label>
+            <input type="tel" maxLength={120} value={kit.whatsapp} onChange={e => set("whatsapp", e.target.value)} style={inputSt} placeholder="0902 000 0000" />
+          </div>
+          <div>
+            <label style={label}>Email</label>
+            <input type="email" maxLength={120} value={kit.email} onChange={e => set("email", e.target.value)} style={inputSt} placeholder="hello@giohomestudio.com" />
+          </div>
+          <div>
+            <label style={label}>Website</label>
+            <input type="url" maxLength={120} value={kit.website} onChange={e => set("website", e.target.value)} style={inputSt} placeholder="https://giohomestudio.com" />
+          </div>
+          <div>
+            <label style={label}>Address</label>
+            <input type="text" maxLength={200} value={kit.address} onChange={e => set("address", e.target.value)} style={inputSt} placeholder="Street, City, State" />
+          </div>
+        </div>
+        <p style={{ fontSize: 10, color: ds.color.mute2, marginTop: 12, fontFamily: ds.font.mono }}>
+          Saved here once — insertable in editors and outros wherever contact info is needed.
+        </p>
+      </Card>
     </div>
   );
 }
