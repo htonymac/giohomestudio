@@ -278,6 +278,9 @@ function VideoEditorInner() {
   const [assistError, setAssistError] = useState<string | null>(null);
   const [assistModel, setAssistModel] = useState<string | null>(null);
   const [assistUsedUrl, setAssistUsedUrl] = useState<string | null>(null);
+  const [assistCount, setAssistCount] = useState(1);
+  const [assistResults, setAssistResults] = useState<string[]>([]);
+  const [lastAssistMessage, setLastAssistMessage] = useState("");
   const [voiceTier, setVoiceTier] = useState<VoiceTierConfig>({ tier: "standard" });
   const [captionText, setCaptionText] = useState("");
   const [exporting, setExporting] = useState(false);
@@ -467,6 +470,7 @@ function VideoEditorInner() {
     if (!promptInput.trim()) return;
     setPolishing(true);
     setPolishError(null);
+    setAssistResults([]); // Anthropic polish result renders in its own box below, not the local-AI list
     try {
       const res = await fetch("/api/llm/polish", {
         method: "POST",
@@ -486,8 +490,12 @@ function VideoEditorInner() {
     } finally { setPolishing(false); }
   }
 
-  async function handleAssist() {
-    if (!promptInput.trim()) return;
+  // messageOverride lets "↻ More" re-run the SAME question that produced the current
+  // results (promptInput may have moved on after a "Use this" click on one option).
+  async function handleAssist(messageOverride?: string) {
+    const msg = (messageOverride ?? promptInput).trim();
+    if (!msg) return;
+    setLastAssistMessage(msg);
     setAssisting(true);
     setAssistError(null);
     setAssistModel(null);
@@ -496,11 +504,13 @@ function VideoEditorInner() {
       const res = await fetch("/api/llm/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: promptInput }),
+        body: JSON.stringify({ message: msg, count: assistCount }),
       });
       const data = await res.json();
-      if (res.ok && data.result) {
-        setPolishedPrompt(data.result);
+      const results: string[] = Array.isArray(data.results) ? data.results : (data.result ? [data.result] : []);
+      if (res.ok && results.length > 0) {
+        setAssistResults(results);
+        setPolishedPrompt(results[0]);
         setAssistModel(data.model || null);
         setAssistUsedUrl(data.usedUrl || null);
       } else {
@@ -673,12 +683,12 @@ function VideoEditorInner() {
         <div style={{ display: "flex", gap: 8 }}>
           <input
             value={promptInput}
-            onChange={e => { setPromptInput(e.target.value); setPolishedPrompt(""); setAssistError(null); }}
+            onChange={e => { setPromptInput(e.target.value); setPolishedPrompt(""); setAssistResults([]); setAssistError(null); }}
             placeholder='Try: "get info from dioluxapartments.com and write a bottom price line" or "nice overlay prompt for a luxury shortlet"'
             style={{ ...inputSt, flex: 1 }}
           />
           <button
-            onClick={handleAssist}
+            onClick={() => handleAssist()}
             disabled={assisting || !promptInput.trim()}
             style={{
               whiteSpace: "nowrap", fontSize: 11, fontWeight: 700, padding: "8px 16px",
@@ -699,6 +709,25 @@ function VideoEditorInner() {
             {polishing ? "Polishing…" : "Polish"}
           </ButtonPrimary>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
+          <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono, letterSpacing: 0.5 }}>SAMPLES</span>
+          {[1, 3, 5].map(n => (
+            <button
+              key={n}
+              onClick={() => setAssistCount(n)}
+              disabled={assisting}
+              style={{
+                fontSize: 10, fontWeight: 700, padding: "3px 10px",
+                borderRadius: ds.radius.xs, border: `1px solid ${assistCount === n ? ds.color.mint : ds.color.line2}`,
+                background: assistCount === n ? `${ds.color.mint}18` : "transparent",
+                color: assistCount === n ? ds.color.mint : ds.color.mute,
+                cursor: assisting ? "not-allowed" : "pointer",
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
         <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 6 }}>
           Local AI (free). Try: &quot;get info from dioluxapartments.com and write a bottom price line&quot; or &quot;nice overlay prompt for a luxury shortlet&quot;.
         </p>
@@ -708,16 +737,49 @@ function VideoEditorInner() {
         {assistError && (
           <p style={{ fontSize: 11, color: ds.color.coral, marginTop: 8, fontWeight: 600 }}>{assistError}</p>
         )}
-        {polishedPrompt && (
-          <div style={{ marginTop: 8, background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", border: `1px solid ${ds.color.line2}` }}>
-            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, marginBottom: 4, fontFamily: ds.font.mono, letterSpacing: 1 }}>
-              {assistModel ? `LOCAL AI (${assistModel})` : "AI IMPROVED"}
-            </p>
-            <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.5 }}>{polishedPrompt}</p>
+        {assistResults.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, fontFamily: ds.font.mono, letterSpacing: 1 }}>
+                {assistModel ? `LOCAL AI (${assistModel})` : "AI IMPROVED"}
+              </p>
+              <button
+                onClick={() => handleAssist(lastAssistMessage)}
+                disabled={assisting || !lastAssistMessage.trim()}
+                style={{
+                  fontSize: 10, fontWeight: 600, color: ds.color.mint, background: "none",
+                  border: "none", cursor: assisting ? "not-allowed" : "pointer", opacity: assisting ? 0.5 : 1,
+                }}
+                title="Generate fresh samples for the same request"
+              >
+                ↻ More
+              </button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {assistResults.map((opt, i) => (
+                <div key={i} style={{ background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", border: `1px solid ${ds.color.line2}` }}>
+                  <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.5 }}>{opt}</p>
+                  <button
+                    onClick={() => { setPromptInput(opt); setPolishedPrompt(""); setAssistResults([]); setAssistModel(null); setAssistUsedUrl(null); }}
+                    style={{ marginTop: 5, fontSize: 10, color: ds.color.mint, background: "none", border: "none", cursor: "pointer" }}
+                  >
+                    Use this
+                  </button>
+                </div>
+              ))}
+            </div>
             {assistUsedUrl && (
               <p style={{ fontSize: 10, color: ds.color.mute, marginTop: 4 }}>Used site content from {assistUsedUrl}</p>
             )}
-            <button onClick={() => { setPromptInput(polishedPrompt); setPolishedPrompt(""); setAssistModel(null); setAssistUsedUrl(null); }}
+          </div>
+        )}
+        {assistResults.length === 0 && polishedPrompt && (
+          <div style={{ marginTop: 8, background: ds.color.paper, borderRadius: ds.radius.xs, padding: "8px 12px", border: `1px solid ${ds.color.line2}` }}>
+            <p style={{ fontSize: 9, color: ds.color.lilac, fontWeight: 700, marginBottom: 4, fontFamily: ds.font.mono, letterSpacing: 1 }}>
+              AI IMPROVED
+            </p>
+            <p style={{ fontSize: 12, color: ds.color.ink2, lineHeight: 1.5 }}>{polishedPrompt}</p>
+            <button onClick={() => { setPromptInput(polishedPrompt); setPolishedPrompt(""); }}
               style={{ marginTop: 5, fontSize: 10, color: ds.color.mint, background: "none", border: "none", cursor: "pointer" }}>
               Use this
             </button>
