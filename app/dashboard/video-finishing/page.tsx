@@ -10,6 +10,7 @@ import { HeroTitle } from "../../components/hero/HeroTitle";
 import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { Folder, Mic, Music, Film, User, Check, X } from "../../components/icons";
+import EditorTimeline from "../components/EditorTimeline";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // GHS Video Finishing Studio
@@ -47,6 +48,10 @@ export default function VideoFinishingPage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState("");
+  // Server-side storage path for the imported video — separate from videoUrl
+  // because the /api/editor/* routes (used by EditorTimeline) run ffmpeg
+  // against a real file path, not a browser-facing URL string.
+  const [videoPath, setVideoPath] = useState("");
   const [projectTitle, setProjectTitle] = useState("");
   const [tier, setTier] = useState<"standard" | "pro" | "premium">("pro");
   const [analyzing, setAnalyzing] = useState(false);
@@ -70,10 +75,18 @@ export default function VideoFinishingPage() {
     const formData = new FormData();
     formData.append("file", file);
     try {
-      const res = await fetch("/api/upload/logo", { method: "POST", body: formData });
+      // /api/upload/logo is IMAGE-ONLY (rejects video with 400) — use the video
+      // upload endpoint, which returns { filePath } (storage-relative). Fixed 2026-07-18.
+      const res = await fetch("/api/v2v/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (data.url) setVideoUrl(data.url);
-    } catch { /* upload failed */ }
+      if (res.ok && data.filePath) {
+        const p = String(data.filePath);
+        setVideoPath(p);
+        setVideoUrl(`/api/media/${p.replace(/\\/g, "/").replace(/^.*?storage\//, "")}`);
+      } else {
+        console.error("[video-finishing] upload rejected:", res.status, data.error);
+      }
+    } catch (err) { console.error("[video-finishing] upload failed:", err); }
   }
 
   // ── AI model for tier ──
@@ -257,6 +270,22 @@ export default function VideoFinishingPage() {
           {videoUrl && (
             <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${ds.color.line2}`, marginBottom: 20 }}>
               <video src={videoUrl} controls style={{ width: "100%", maxHeight: 300 }} />
+            </div>
+          )}
+
+          {videoUrl && videoPath && (
+            <div style={{ marginBottom: 20 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink, marginBottom: 2 }}>
+                Advanced Timeline — cut a section out, insert a clip/image, undo
+              </p>
+              <p style={{ fontSize: 11, color: ds.color.mute, marginBottom: 8 }}>
+                Optional: fine-tune the video before analysis. Drag the two handles, cut a section out or keep only it, insert a clip/image at the playhead, undo/redo.
+              </p>
+              <EditorTimeline
+                initialVideoUrl={videoUrl}
+                initialVideoPath={videoPath}
+                onChange={(url, path) => { setVideoUrl(url); setVideoPath(path); }}
+              />
             </div>
           )}
 

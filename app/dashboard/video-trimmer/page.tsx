@@ -9,9 +9,11 @@ import { Card } from "../../components/ui/Card";
 import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { Image, Film, X, Check, Folder } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
+import EditorTimeline from "../components/EditorTimeline";
+import { assetToMediaUrl } from "../../utils/mediaUrl";
 
 type Step = "upload" | "instruct" | "review" | "done";
-type SideTab = "trim" | "bg_image" | "bg_video" | "object_remove" | "bg_change";
+type SideTab = "trim" | "bg_image" | "bg_video" | "object_remove" | "bg_change" | "advanced_edit";
 
 const COMMERCIAL_GOALS = ["shortlet ad", "product launch", "brand promo", "real estate", "custom"] as const;
 
@@ -269,6 +271,7 @@ export default function VideoTrimmerPage() {
 
   const SIDE_TABS: { id: SideTab; label: string; icon: React.ReactNode; provider: string; cost: string }[] = [
     { id: "trim",          label: "AI Trim",           icon: <Film size={12} />,  provider: "Claude / GPT", cost: "1 credit" },
+    { id: "advanced_edit", label: "Advanced Timeline", icon: <Film size={12} />,  provider: "FFmpeg (local)", cost: "free" },
     { id: "bg_image",      label: "Remove BG (Image)", icon: <Image size={12} />, provider: "Bria RMBG 2.0", cost: "~$0.01" },
     { id: "bg_video",      label: "Remove BG (Video)", icon: <Film size={12} />,  provider: "fal.ai (VEED)", cost: "~$0.10/sec" },
     { id: "bg_change",     label: "Change BG (Video)", icon: <Image size={12} />, provider: "fal.ai (VEED)", cost: "~$0.10/sec" },
@@ -483,6 +486,26 @@ export default function VideoTrimmerPage() {
             </Card>
           )}
         </>
+      )}
+
+      {/* ══ TAB: Advanced Timeline (cut / insert / undo) — mirrors /dashboard/video-editor ══ */}
+      {sideTab === "advanced_edit" && (
+        <Card radius={10} padding={24}>
+          <h2 style={{ fontSize: 15, fontWeight: 700, color: ds.color.ink, marginBottom: 4 }}>
+            Advanced Timeline — cut a section out, insert a clip/image, undo
+          </h2>
+          <p style={{ fontSize: 12, color: ds.color.mute, marginBottom: 14 }}>
+            Uses the video uploaded in the AI Trim tab. Drag the two handles to select a range, cut it out or keep only it, insert a clip or image at the playhead, and undo/redo any edit.
+          </p>
+          {tempPath ? (
+            <EditorTimeline
+              initialVideoUrl={assetToMediaUrl(tempPath)}
+              initialVideoPath={tempPath}
+            />
+          ) : (
+            <p style={{ fontSize: 12, color: ds.color.mute2 }}>Upload a video in the AI Trim tab first.</p>
+          )}
+        </Card>
       )}
 
       {/* ══ TAB: BG Image Removal ══ */}
