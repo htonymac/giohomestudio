@@ -79,14 +79,20 @@ export async function POST(req: NextRequest) {
       const hasText = !!(headline?.trim() || subline?.trim());
       if (hasText) {
         textFilters.push(`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.4:t=fill`);
-      }
-      if (headline?.trim()) {
-        const fs1 = fitFont(headline, w, 0.11);
-        textFilters.push(drawText(headline, fs1, "0xFFFFFF", `(h-text_h)/2-${Math.round(fs1 * 0.7)}`, font));
-      }
-      if (subline?.trim()) {
-        const fs2 = fitFont(subline, w, 0.055);
-        textFilters.push(drawText(subline, fs2, "0xF5D06B", `(h-text_h)/2+${Math.round((headline?.trim() ? fitFont(headline, w, 0.11) : 0) * 0.6 + fs2)}`, font));
+        // Readable fixed sizes that WRAP to multiple lines (not shrink-to-fit-one-line).
+        const hlSize = Math.round(w * 0.072);
+        const slSize = Math.round(w * 0.046);
+        const hlLines = headline?.trim() ? wrapText(headline, w, hlSize) : [];
+        const slLines = subline?.trim() ? wrapText(subline, w, slSize) : [];
+        const hlH = Math.round(hlSize * 1.25);
+        const slH = Math.round(slSize * 1.3);
+        const gap = slLines.length && hlLines.length ? Math.round(hlSize * 0.5) : 0;
+        const totalH = hlLines.length * hlH + gap + slLines.length * slH;
+        const top = `(h-${totalH})/2`;
+        let off = 0;
+        for (const line of hlLines) { textFilters.push(drawText(line, hlSize, "0xFFFFFF", `${top}+${off}`, font)); off += hlH; }
+        off += gap;
+        for (const line of slLines) { textFilters.push(drawText(line, slSize, "0xF5D06B", `${top}+${off}`, font)); off += slH; }
       }
       const tail = textFilters.length ? `,${textFilters.join(",")}` : "";
       const normV = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p`;
@@ -151,11 +157,21 @@ function pickFontFile(): string | null {
   return null;
 }
 
-// Shrink a line's font so it fits on ONE line at this width (capped at maxFrac of width).
-function fitFont(text: string, w: number, maxFrac: number): number {
-  const max = Math.round(w * maxFrac);
-  const byWidth = Math.floor((w * 0.9) / Math.max(1, text.trim().length * 0.55));
-  return Math.max(18, Math.min(max, byWidth));
+// Break text to fit the width (honours explicit newlines first) → multiple lines.
+function wrapText(text: string, w: number, fontsize: number): string[] {
+  const maxChars = Math.max(6, Math.floor((w * 0.88) / (fontsize * 0.5)));
+  const out: string[] = [];
+  for (const seg of text.split(/\r?\n/)) {
+    const words = seg.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    let cur = "";
+    for (const word of words) {
+      const cand = cur ? `${cur} ${word}` : word;
+      if (cand.length > maxChars && cur) { out.push(cur); cur = word; } else cur = cand;
+    }
+    if (cur) out.push(cur);
+  }
+  return out.length ? out : [text.trim()];
 }
 
 function escapeDT(s: string): string {
