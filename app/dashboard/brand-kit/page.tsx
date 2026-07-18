@@ -22,6 +22,18 @@ interface BrandKit {
   headlineText: string;
   sublineText: string;
   accentText: string;
+  bgColor: string;
+  bgOpacity: number;
+}
+
+// "#RRGGBB" + 0..1 opacity -> "rgba(r,g,b,a)" for the live preview background.
+function hexToRgba(hex: string, opacity: number): string {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map(c => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${Math.max(0, Math.min(1, opacity))})`;
 }
 
 const FONTS = [
@@ -132,6 +144,20 @@ export default function BrandKitPage() {
             </label>
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 18 }}>
+            <div>
+              <label style={label}>Background</label>
+              <input type="color" value={kit.bgColor} onChange={e => set("bgColor", e.target.value)}
+                style={{ width: "100%", height: 38, border: `1px solid ${ds.color.line2}`, borderRadius: ds.radius.sm, background: ds.color.card, cursor: "pointer" }} />
+            </div>
+            <div>
+              <label style={label}>Background opacity ({Math.round(kit.bgOpacity * 100)}%)</label>
+              <input type="range" min={0} max={1} step={0.05} value={kit.bgOpacity}
+                onChange={e => set("bgOpacity", Number(e.target.value))}
+                style={{ width: "100%", marginTop: 9 }} />
+            </div>
+          </div>
+
           {msg && <p style={{ fontSize: 12, color: msg.includes("saved") ? ds.color.mint : ds.color.coral, marginBottom: 10 }}>{msg}</p>}
           <ButtonPrimary onClick={save} disabled={saving} style={{ width: "100%" }}>
             {saving ? "Saving…" : "Save Brand Kit"}
@@ -140,7 +166,10 @@ export default function BrandKitPage() {
 
         {/* Live preview */}
         <Card radius={12} padding={0} style={{ overflow: "hidden" }}>
-          <div style={{ background: "#111", padding: "30px 18px", minHeight: 220, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center" }}>
+          <div style={{
+            background: `linear-gradient(${hexToRgba(kit.bgColor, kit.bgOpacity)}, ${hexToRgba(kit.bgColor, kit.bgOpacity)}), #111`,
+            padding: "30px 18px", minHeight: 220, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, textAlign: "center",
+          }}>
             <span style={{
               fontFamily: previewFont, fontWeight: kit.bold ? 800 : 500, color: kit.headlineColor,
               fontSize: Math.min(46, kit.headlineSize * 0.55), lineHeight: 1.1,
