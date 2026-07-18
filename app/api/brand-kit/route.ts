@@ -19,6 +19,8 @@ export interface BrandKit {
   headlineText: string;   // user's own headline / CTA copy (e.g. "Call Now 0902 000 0000")
   sublineText: string;    // user's own sub-text (e.g. locations served)
   accentText: string;     // user's own accent/price badge text
+  bgColor: string;        // hex — background behind the text (preview + outro scrim)
+  bgOpacity: number;      // 0 (transparent) .. 1 (fully solid)
 }
 
 const DEFAULTS: BrandKit = {
@@ -33,6 +35,8 @@ const DEFAULTS: BrandKit = {
   headlineText: "Call Now 0902 000 0000",
   sublineText: "Location . Location . Location",
   accentText: "₦0 / night",
+  bgColor: "#000000",
+  bgOpacity: 0.4,
 };
 
 function kitPath(): string {
@@ -69,6 +73,11 @@ export async function PUT(req: NextRequest) {
     typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v.trim()) ? v.trim() : fallback;
   const text = (v: unknown, fallback: string) =>
     typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : fallback;
+  // 0..1 opacity clamp (clampNum floors at 8 — not usable for a 0..1 fraction).
+  const clamp01 = (v: unknown, fallback: number) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? Math.max(0, Math.min(1, n)) : fallback;
+  };
 
   const next: BrandKit = {
     fontFamily: typeof body.fontFamily === "string" && body.fontFamily.trim() ? body.fontFamily.trim() : cur.fontFamily,
@@ -82,6 +91,8 @@ export async function PUT(req: NextRequest) {
     headlineText: text(body.headlineText, cur.headlineText),
     sublineText: text(body.sublineText, cur.sublineText),
     accentText: text(body.accentText, cur.accentText),
+    bgColor: hex(body.bgColor, cur.bgColor),
+    bgOpacity: clamp01(body.bgOpacity, cur.bgOpacity),
   };
 
   try {

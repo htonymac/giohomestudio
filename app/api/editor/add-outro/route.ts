@@ -17,8 +17,8 @@ import { resolveFontFile } from "@/modules/ffmpeg/utils";
 
 // The outro pulls its font + colours from the saved Brand Kit so end cards match
 // the rest of the brand. Falls back to sensible defaults if none saved.
-function readBrandKit(): { fontFamily: string; headlineColor: string; bodyColor: string } {
-  const def = { fontFamily: "Poppins", headlineColor: "#FFFFFF", bodyColor: "#F5D06B" };
+function readBrandKit(): { fontFamily: string; headlineColor: string; bodyColor: string; bgColor: string; bgOpacity: number } {
+  const def = { fontFamily: "Poppins", headlineColor: "#FFFFFF", bodyColor: "#F5D06B", bgColor: "#000000", bgOpacity: 0.4 };
   try {
     const raw = fs.readFileSync(path.join(env.storagePath, "config", "brand-kit.json"), "utf8");
     const k = JSON.parse(raw) as Partial<typeof def>;
@@ -26,6 +26,8 @@ function readBrandKit(): { fontFamily: string; headlineColor: string; bodyColor:
       fontFamily: k.fontFamily || def.fontFamily,
       headlineColor: k.headlineColor || def.headlineColor,
       bodyColor: k.bodyColor || def.bodyColor,
+      bgColor: k.bgColor || def.bgColor,
+      bgOpacity: Number.isFinite(k.bgOpacity) ? Math.max(0, Math.min(1, k.bgOpacity as number)) : def.bgOpacity,
     };
   } catch {
     return def;
@@ -111,7 +113,7 @@ export async function POST(req: NextRequest) {
       const textFilters: string[] = [];
       const hasText = !!(headline?.trim() || subline?.trim());
       if (hasText) {
-        textFilters.push(`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.4:t=fill`);
+        textFilters.push(`drawbox=x=0:y=0:w=iw:h=ih:color=${hexToFF(brand.bgColor)}@${brand.bgOpacity}:t=fill`);
         // Readable fixed sizes that WRAP to multiple lines (not shrink-to-fit-one-line).
         const hlSize = Math.round(w * 0.072 * scale);
         const slSize = Math.round(w * 0.046 * scale);
