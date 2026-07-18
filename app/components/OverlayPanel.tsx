@@ -396,12 +396,20 @@ function TextLayerEditor({
       <FieldRow label="Font family">
         <select value={layer.style.fontFamily ?? ""} onChange={e => onStyleChange({ fontFamily: e.target.value || undefined })} style={inputStyle}>
           <option value="">Default</option>
-          <option value="Arial">Arial</option>
-          <option value="Georgia">Georgia</option>
-          <option value="Impact">Impact</option>
-          <option value="Courier New">Courier New</option>
-          <option value="Verdana">Verdana</option>
-          <option value="Trebuchet MS">Trebuchet MS</option>
+          <optgroup label="Modern (social)">
+            <option value="Poppins">Poppins — clean modern</option>
+            <option value="Montserrat">Montserrat — bold modern</option>
+            <option value="Bebas Neue">Bebas Neue — tall headline</option>
+            <option value="Anton">Anton — heavy impact</option>
+          </optgroup>
+          <optgroup label="Classic">
+            <option value="Arial">Arial</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Impact">Impact</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Trebuchet MS">Trebuchet MS</option>
+          </optgroup>
         </select>
       </FieldRow>
       <FieldRow label="Style">

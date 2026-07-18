@@ -167,9 +167,17 @@ const FONT_VARIANTS: Record<string, { normal: string; bold: string; italic: stri
   "trebuchet ms":    { normal: "trebuc.ttf",   bold: "trebucbd.ttf", italic: "trebucit.ttf", boldItalic: "trebucbi.ttf" },
   "impact":          { normal: "impact.ttf",   bold: "impact.ttf",   italic: "impact.ttf",   boldItalic: "impact.ttf" },
   "courier new":     { normal: "cour.ttf",     bold: "courbd.ttf",   italic: "couri.ttf",    boldItalic: "courbi.ttf" },
+  // Modern social-media fonts (TikTok/IG/FB look) — bundled in assets/fonts/ (OFL, committed).
+  "poppins":         { normal: "Poppins-Regular.ttf",    bold: "Poppins-Bold.ttf",     italic: "Poppins-Regular.ttf",    boldItalic: "Poppins-Bold.ttf" },
+  "montserrat":      { normal: "Montserrat-Regular.ttf", bold: "Montserrat-Bold.ttf",  italic: "Montserrat-Regular.ttf", boldItalic: "Montserrat-Bold.ttf" },
+  "bebas neue":      { normal: "BebasNeue-Regular.ttf",  bold: "BebasNeue-Regular.ttf", italic: "BebasNeue-Regular.ttf", boldItalic: "BebasNeue-Regular.ttf" },
+  "anton":           { normal: "Anton-Regular.ttf",      bold: "Anton-Regular.ttf",    italic: "Anton-Regular.ttf",      boldItalic: "Anton-Regular.ttf" },
 };
 
-// Collect all unique Windows filenames so we know what to try copying.
+// Modern fonts are bundled in the repo (assets/fonts/); Windows fonts come from env.fontDir.
+const BUNDLED_FONTS_DIR = path.resolve("assets", "fonts");
+
+// Collect all unique font filenames so we know what to try copying.
 const ALL_FONT_FILES = new Set(
   Object.values(FONT_VARIANTS).flatMap(v => Object.values(v))
 );
@@ -186,8 +194,11 @@ function ensureFontsAvailable(): string {
     for (const file of ALL_FONT_FILES) {
       const dest = path.join(destDir, file);
       if (!fs.existsSync(dest)) {
-        const src = path.join(env.fontDir, file);
-        try { fs.copyFileSync(src, dest); } catch { /* font not installed — skip */ }
+        // Try the OS font dir first (Windows system fonts), then the repo-bundled
+        // modern fonts (assets/fonts/) — whichever has this file.
+        for (const src of [path.join(env.fontDir, file), path.join(BUNDLED_FONTS_DIR, file)]) {
+          try { fs.copyFileSync(src, dest); break; } catch { /* not here — try next */ }
+        }
       }
     }
     _fontsReady = true;
