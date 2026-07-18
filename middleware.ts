@@ -14,6 +14,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
+// Serve HTML pages with no-store so a new deploy shows up on a normal reload —
+// Next statically-optimises some pages with `s-maxage=31536000` (1 year), which
+// made every update require a hard-refresh (Henry 2026-07-17). Hashed assets
+// (/_next/static/*) and API routes keep their own caching — only PAGES are no-store.
+function pageResponse(req: NextRequest, res: NextResponse): NextResponse {
+  const { pathname } = req.nextUrl;
+  const isAssetOrApi =
+    pathname.startsWith("/_next") || pathname.startsWith("/api/") || /\.[a-z0-9]+$/i.test(pathname);
+  if (!isAssetOrApi) res.headers.set("Cache-Control", "no-store, must-revalidate");
+  return res;
+}
+
 const PASS_THROUGH = [
   "/_next",
   "/favicon",
@@ -26,7 +38,7 @@ const PASS_THROUGH = [
 export function middleware(req: NextRequest) {
   // No ACCESS_CODE = lock disabled.
   const code = process.env.ACCESS_CODE;
-  if (!code) return NextResponse.next();
+  if (!code) return pageResponse(req, NextResponse.next());
 
   const { pathname } = req.nextUrl;
   if (PASS_THROUGH.some(p => pathname.startsWith(p))) {
@@ -44,7 +56,7 @@ export function middleware(req: NextRequest) {
 
   const cookie = req.cookies.get("andio_access");
   if (cookie?.value === code) {
-    return NextResponse.next();
+    return pageResponse(req, NextResponse.next());
   }
 
   // Henry 2026-06-04: APIs return 401 JSON, pages get redirected. Was: APIs
