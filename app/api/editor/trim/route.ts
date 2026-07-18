@@ -36,11 +36,17 @@ export async function POST(req: NextRequest) {
     const outName = `trim_${Date.now()}.mp4`;
     const outPath = path.join(outDir, outName);
 
+    // Re-encode (not -c copy): AI clips (e.g. Kling) often have ONE keyframe for
+    // the whole clip, so a stream-copy trim that doesn't start on a keyframe plays
+    // back FROZEN in the browser (audio fine, picture stiff). Re-encoding with a
+    // fresh keyframe at the start fixes it. -ss before -i = fast seek, -t = duration.
     await runFFmpeg([
-      "-i", inputPath,
       "-ss", String(startSec),
-      "-to", String(endSec),
-      "-c", "copy",
+      "-i", inputPath,
+      "-t", String(Math.max(0.1, endSec - startSec)),
+      "-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-movflags", "+faststart",
       "-y",
       outPath,
     ]);
