@@ -36,7 +36,7 @@ const hexToFF = (h: string) => `0x${h.replace("#", "")}`;
 
 export async function POST(req: NextRequest) {
   try {
-    const { videoUrl, imageUrl, useLastFrame, text, headline, subline, duration = 3 } = await req.json() as {
+    const { videoUrl, imageUrl, useLastFrame, text, headline, subline, duration = 3, style } = await req.json() as {
       videoUrl?: string;
       imageUrl?: string;
       useLastFrame?: boolean;   // freeze the video's final frame as the outro background
@@ -44,6 +44,13 @@ export async function POST(req: NextRequest) {
       headline?: string;        // big line drawn on an image/freeze outro
       subline?: string;         // smaller line under the headline
       duration?: number;
+      // Per-outro text decoration (overrides the Brand Kit defaults when set).
+      style?: {
+        fontFamily?: string;      // "Poppins" | "Montserrat" | "Bebas Neue" | "Anton" | classic
+        headlineColor?: string;   // hex
+        sublineColor?: string;    // hex
+        scale?: number;           // multiplier on the default text size (0.6–1.8)
+      };
     };
 
     if (!videoUrl) {
@@ -91,7 +98,12 @@ export async function POST(req: NextRequest) {
 
       const hasAudio = await probeHasAudio(inputPath);
       const brand = readBrandKit();
-      const font = resolveFontFile({ fontFamily: brand.fontFamily, bold: true }) || pickFontFile();
+      // Per-outro overrides win over the Brand Kit defaults.
+      const fontFamily = style?.fontFamily?.trim() || brand.fontFamily;
+      const headlineColor = style?.headlineColor?.trim() || brand.headlineColor;
+      const sublineColor = style?.sublineColor?.trim() || brand.bodyColor;
+      const scale = Math.min(1.8, Math.max(0.6, Number(style?.scale) || 1));
+      const font = resolveFontFile({ fontFamily, bold: true }) || pickFontFile();
 
       // Branded text drawn on the outro frame. Auto-shrink each line to fit the
       // width on ONE line (so "Call Now 0902…" never runs off the frame), on a
@@ -101,8 +113,8 @@ export async function POST(req: NextRequest) {
       if (hasText) {
         textFilters.push(`drawbox=x=0:y=0:w=iw:h=ih:color=black@0.4:t=fill`);
         // Readable fixed sizes that WRAP to multiple lines (not shrink-to-fit-one-line).
-        const hlSize = Math.round(w * 0.072);
-        const slSize = Math.round(w * 0.046);
+        const hlSize = Math.round(w * 0.072 * scale);
+        const slSize = Math.round(w * 0.046 * scale);
         const hlLines = headline?.trim() ? wrapText(headline, w, hlSize) : [];
         const slLines = subline?.trim() ? wrapText(subline, w, slSize) : [];
         const hlH = Math.round(hlSize * 1.25);
@@ -111,9 +123,9 @@ export async function POST(req: NextRequest) {
         const totalH = hlLines.length * hlH + gap + slLines.length * slH;
         const top = `(h-${totalH})/2`;
         let off = 0;
-        for (const line of hlLines) { textFilters.push(drawText(line, hlSize, hexToFF(brand.headlineColor), `${top}+${off}`, font)); off += hlH; }
+        for (const line of hlLines) { textFilters.push(drawText(line, hlSize, hexToFF(headlineColor), `${top}+${off}`, font)); off += hlH; }
         off += gap;
-        for (const line of slLines) { textFilters.push(drawText(line, slSize, hexToFF(brand.bodyColor), `${top}+${off}`, font)); off += slH; }
+        for (const line of slLines) { textFilters.push(drawText(line, slSize, hexToFF(sublineColor), `${top}+${off}`, font)); off += slH; }
       }
       const tail = textFilters.length ? `,${textFilters.join(",")}` : "";
       const normV = `scale=${w}:${h}:force_original_aspect_ratio=decrease,pad=${w}:${h}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps=30,format=yuv420p`;
