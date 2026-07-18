@@ -39,12 +39,24 @@ export async function POST(req: NextRequest) {
     const outPath = path.join(outDir, `intro_${Date.now()}.mp4`);
     const listPath = path.join(outDir, `concat_intro_${Date.now()}.txt`);
 
-    // Generate intro card: black background + white centered text
-    const safeText = text.replace(/['"\\:]/g, " ").slice(0, 80);
+    // Generate intro card: black background + white centered text that WRAPS to
+    // the frame (was one fixed-60px line that ran off narrow/portrait videos).
+    const clean = text.replace(/['"\\:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 160);
+    const fontsize = Math.max(28, Math.round(w * 0.06));
+    const maxChars = Math.max(8, Math.floor((w * 0.86) / (fontsize * 0.6)));
+    const words = clean.split(" ");
+    const lines: string[] = [];
+    let cur = "";
+    for (const wd of words) {
+      const cand = cur ? `${cur} ${wd}` : wd;
+      if (cand.length > maxChars && cur) { lines.push(cur); cur = wd; } else cur = cand;
+    }
+    if (cur) lines.push(cur);
+    const drawTextValue = lines.join("\\n"); // literal \n → drawtext line break
     await runFFmpeg([
       "-f", "lavfi",
       "-i", `color=c=black:s=${w}x${h}:d=${duration}:r=24`,
-      "-vf", `drawtext=text='${safeText}':fontcolor=white:fontsize=60:x=(w-text_w)/2:y=(h-text_h)/2`,
+      "-vf", `drawtext=text='${drawTextValue}':fontcolor=white:fontsize=${fontsize}:line_spacing=12:x=(w-text_w)/2:y=(h-text_h)/2`,
       "-an",
       "-y", introPath,
     ]);
