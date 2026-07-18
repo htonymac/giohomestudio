@@ -45,14 +45,18 @@ export async function POST(req: NextRequest) {
     const outName = `cut_${Date.now()}.mp4`;
     const outPath = path.join(outDir, outName);
 
-    // Edge cases: removing the very head or the very tail degrades to a plain
-    // stream-copy trim (fast, lossless) — no filtergraph/re-encode needed.
+    // Edge cases: removing the very head or the very tail keeps one range.
+    // MUST re-encode (not -c copy): AI clips (e.g. Kling) often have a single
+    // keyframe for the whole clip, so a stream-copy cut that doesn't start on a
+    // keyframe plays back FROZEN in the browser (audio fine, picture stiff).
+    // Re-encoding forces a fresh keyframe at the start. (Henry 2026-07-18.)
+    const ENC = ["-c:v", "libx264", "-crf", "20", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-c:a", "aac", "-movflags", "+faststart"];
     if (startSec <= 0.05) {
       // Cutting off the head → keep [end, dur]
-      await runFFmpeg(["-i", inputPath, "-ss", String(endSec), "-c", "copy", "-y", outPath]);
+      await runFFmpeg(["-ss", String(endSec), "-i", inputPath, ...ENC, "-y", outPath]);
     } else if (endSec >= dur - 0.05) {
       // Cutting off the tail → keep [0, start]
-      await runFFmpeg(["-i", inputPath, "-ss", "0", "-to", String(startSec), "-c", "copy", "-y", outPath]);
+      await runFFmpeg(["-i", inputPath, "-t", String(startSec), ...ENC, "-y", outPath]);
     } else {
       // Cutting a MIDDLE section out → trim the two kept pieces and concat them
       // with a filter (re-encode required — stream copy can't join arbitrary cuts).
