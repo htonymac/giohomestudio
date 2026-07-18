@@ -19,6 +19,9 @@ interface BrandKit {
   bodySize: number;
   bold: boolean;
   outline: boolean;
+  headlineText: string;
+  sublineText: string;
+  accentText: string;
 }
 
 const FONTS = [
@@ -76,6 +79,19 @@ export default function BrandKitPage() {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginTop: 20 }}>
         <Card radius={12} padding={20}>
           <div style={{ marginBottom: 14 }}>
+            <label style={label}>Headline text</label>
+            <input type="text" maxLength={120} value={kit.headlineText} onChange={e => set("headlineText", e.target.value)} style={inputSt} placeholder="Call Now 0902 000 0000" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={label}>Sub-text</label>
+            <input type="text" maxLength={120} value={kit.sublineText} onChange={e => set("sublineText", e.target.value)} style={inputSt} placeholder="Location . Location . Location" />
+          </div>
+          <div style={{ marginBottom: 14 }}>
+            <label style={label}>Accent / price</label>
+            <input type="text" maxLength={120} value={kit.accentText} onChange={e => set("accentText", e.target.value)} style={inputSt} placeholder="₦0 / night" />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
             <label style={label}>Font</label>
             <select value={kit.fontFamily} onChange={e => set("fontFamily", e.target.value)} style={inputSt}>
               {FONTS.map(g => (
@@ -129,12 +145,13 @@ export default function BrandKitPage() {
               fontFamily: previewFont, fontWeight: kit.bold ? 800 : 500, color: kit.headlineColor,
               fontSize: Math.min(46, kit.headlineSize * 0.55), lineHeight: 1.1,
               WebkitTextStroke: kit.outline ? "1px rgba(0,0,0,0.85)" : undefined,
-            }}>Call Now 0902 514 7449</span>
-            <span style={{ fontFamily: previewFont, fontWeight: kit.bold ? 700 : 400, color: kit.bodyColor, fontSize: Math.min(28, kit.bodySize * 0.6) }}>
-              Sangotedo . Ajah . Lekki
+              maxWidth: "100%", overflowWrap: "break-word",
+            }}>{kit.headlineText}</span>
+            <span style={{ fontFamily: previewFont, fontWeight: kit.bold ? 700 : 400, color: kit.bodyColor, fontSize: Math.min(28, kit.bodySize * 0.6), maxWidth: "100%", overflowWrap: "break-word" }}>
+              {kit.sublineText}
             </span>
-            <span style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: "#000", background: kit.accentColor, padding: "5px 12px", borderRadius: 6 }}>
-              ₦60,000 / night
+            <span style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: "#000", background: kit.accentColor, padding: "5px 12px", borderRadius: 6, maxWidth: "100%", overflowWrap: "break-word" }}>
+              {kit.accentText}
             </span>
           </div>
           <p style={{ fontSize: 10, color: ds.color.mute2, padding: "10px 14px", fontFamily: ds.font.mono }}>

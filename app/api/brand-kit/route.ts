@@ -16,6 +16,9 @@ export interface BrandKit {
   bodySize: number;       // px
   bold: boolean;
   outline: boolean;
+  headlineText: string;   // user's own headline / CTA copy (e.g. "Call Now 0902 000 0000")
+  sublineText: string;    // user's own sub-text (e.g. locations served)
+  accentText: string;     // user's own accent/price badge text
 }
 
 const DEFAULTS: BrandKit = {
@@ -27,6 +30,9 @@ const DEFAULTS: BrandKit = {
   bodySize: 40,
   bold: true,
   outline: true,
+  headlineText: "Call Now 0902 000 0000",
+  sublineText: "Location . Location . Location",
+  accentText: "₦0 / night",
 };
 
 function kitPath(): string {
@@ -61,6 +67,8 @@ export async function PUT(req: NextRequest) {
   };
   const hex = (v: unknown, fallback: string) =>
     typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v.trim()) ? v.trim() : fallback;
+  const text = (v: unknown, fallback: string) =>
+    typeof v === "string" && v.trim() ? v.trim().slice(0, 120) : fallback;
 
   const next: BrandKit = {
     fontFamily: typeof body.fontFamily === "string" && body.fontFamily.trim() ? body.fontFamily.trim() : cur.fontFamily,
@@ -71,6 +79,9 @@ export async function PUT(req: NextRequest) {
     bodySize: clampNum(body.bodySize, cur.bodySize),
     bold: typeof body.bold === "boolean" ? body.bold : cur.bold,
     outline: typeof body.outline === "boolean" ? body.outline : cur.outline,
+    headlineText: text(body.headlineText, cur.headlineText),
+    sublineText: text(body.sublineText, cur.sublineText),
+    accentText: text(body.accentText, cur.accentText),
   };
 
   try {
