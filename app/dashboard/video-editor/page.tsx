@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import OverlayPanel from "../../components/OverlayPanel";
+import EditorTimeline from "../components/EditorTimeline";
 import SFXPicker from "../../components/SFXPicker";
 import VoiceTierSelector, { type VoiceTierConfig } from "../../components/VoiceTierSelector";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
@@ -912,9 +913,9 @@ function VideoEditorInner() {
             <SFXPicker onSelect={(event, path) => { console.log(`[SFX] ${event} → ${path}`); }} />
           </Card>
 
-          {/* ── Post-Assembly Tools: Trim / Intro / Outro / AI Edit (FIX 3) ── */}
+          {/* ── Post-Assembly Tools: AI Edit / Trim Timeline (EditorTimeline) / Intro / Outro (FIX 3) ── */}
           <Card style={{ marginTop: 10 }}>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2, marginBottom: 12 }}>Post-Assembly Tools</h3>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2, marginBottom: 12 }}>AI Edit</h3>
 
             {editMsg && (
               <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: trimResult ? `${ds.color.mint}10` : `${ds.color.coral}10`, border: `1px solid ${trimResult ? ds.color.mint : ds.color.coral}30`, fontSize: 11, color: trimResult ? ds.color.mint : ds.color.coral }}>
@@ -934,73 +935,23 @@ function VideoEditorInner() {
                 {aiEditing ? "Working..." : "Apply"}
               </button>
             </div>
+          </Card>
 
-            {/* Trim — visual timeline with a thumbnail filmstrip + live scrub preview */}
-            <label style={microLabel}>Trim Timeline — the video above jumps to the exact frame as you drag</label>
-            {videoDuration > 0 && (
-              <div style={{ marginBottom: 12 }}>
-                {/* Track shows real frames (filmstrip). Green = kept · dimmed = cut off ·
-                    purple line = current frame in the player. Click anywhere to jump there. */}
-                <div
-                  onClick={e => { const r = e.currentTarget.getBoundingClientRect(); const t = ((e.clientX - r.left) / r.width) * videoDuration; seekPreview(t); }}
-                  style={{ position: "relative", height: 60, background: ds.color.card, border: `1px solid ${ds.color.line2}`, borderRadius: 8, overflow: "hidden", cursor: "pointer" }}
-                  title="Click to jump the player to this point"
-                >
-                  {/* Filmstrip */}
-                  <div style={{ position: "absolute", inset: 0, display: "flex" }}>
-                    {(filmstrip.length ? filmstrip : Array(10).fill("")).map((src: string, i: number) => (
-                      <div key={i} style={{ flex: 1, backgroundImage: src ? `url(${src})` : undefined, backgroundColor: src ? undefined : ds.color.paper, backgroundSize: "cover", backgroundPosition: "center", borderRight: i < 9 ? `1px solid ${ds.color.line2}55` : undefined }} />
-                    ))}
-                  </div>
-                  {/* Dim the removed head/tail so the KEPT region stands out over the frames */}
-                  {trimStart > 0 && <div style={{ position: "absolute", top: 0, bottom: 0, left: 0, width: `${(trimStart / videoDuration) * 100}%`, background: "rgba(0,0,0,0.6)" }} />}
-                  {trimEnd < videoDuration && <div style={{ position: "absolute", top: 0, bottom: 0, right: 0, width: `${((videoDuration - trimEnd) / videoDuration) * 100}%`, background: "rgba(0,0,0,0.6)" }} />}
-                  {/* Kept-region outline */}
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(trimStart / videoDuration) * 100}%`, width: `${(Math.max(0, trimEnd - trimStart) / videoDuration) * 100}%`, boxShadow: `inset 0 0 0 2px ${ds.color.mint}`, pointerEvents: "none" }} />
-                  {/* Playhead */}
-                  <div style={{ position: "absolute", top: 0, bottom: 0, left: `${(Math.min(currentTime, videoDuration) / videoDuration) * 100}%`, width: 2, background: ds.color.lilac, boxShadow: "0 0 4px rgba(0,0,0,0.6)" }} />
-                  <span style={{ position: "absolute", left: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: "#fff", textShadow: "0 1px 2px #000" }}>keep {trimStart.toFixed(1)}–{trimEnd.toFixed(1)}s</span>
-                  {trimEnd < videoDuration && <span style={{ position: "absolute", right: 6, bottom: 3, fontSize: 9, fontFamily: ds.font.mono, color: ds.color.coral, textShadow: "0 1px 2px #000" }}>cut {(videoDuration - trimEnd).toFixed(1)}s tail</span>}
-                </div>
-                {/* Start + End handles — dragging scrubs the player to that frame */}
-                <div style={{ display: "grid", gridTemplateColumns: "34px 1fr", gap: 8, alignItems: "center", marginTop: 8 }}>
-                  <span style={{ fontSize: 9, color: ds.color.mint, fontFamily: ds.font.mono }}>START</span>
-                  <input type="range" min={0} max={videoDuration} step={0.1} value={trimStart}
-                    onChange={e => { const val = Math.min(Number(e.target.value), Math.max(0, trimEnd - 0.1)); setTrimStart(val); seekPreview(val); }} style={{ width: "100%" }} />
-                  <span style={{ fontSize: 9, color: ds.color.coral, fontFamily: ds.font.mono }}>END</span>
-                  <input type="range" min={0} max={videoDuration} step={0.1} value={trimEnd}
-                    onChange={e => { const val = Math.max(Number(e.target.value), trimStart + 0.1); setTrimEnd(val); seekPreview(val); }} style={{ width: "100%" }} />
-                </div>
-                <div style={{ display: "flex", gap: 8, marginTop: 8, flexWrap: "wrap" }}>
-                  <button onClick={playKeptRange}
-                    style={{ ...ghostBtn, width: "auto", fontSize: 10, color: previewingRange ? ds.color.lilac : ds.color.mint, borderColor: ds.color.mint }}>
-                    {previewingRange ? "▶ Reviewing…" : "▶ Play kept range (review)"}
-                  </button>
-                  <button onClick={() => { seekPreview(trimEnd); }} style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>Jump to cut point</button>
-                  <button onClick={() => setTrimEnd(Math.round(Math.min(currentTime, videoDuration) * 10) / 10)}
-                    style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>⟵ Set END at playhead (cut here)</button>
-                  <button onClick={() => setTrimStart(Math.round(Math.min(currentTime, trimEnd - 0.1) * 10) / 10)}
-                    style={{ ...ghostBtn, width: "auto", fontSize: 10 }}>Set START at playhead ⟶</button>
-                </div>
+          {/* Cut/keep a section, splice in a clip or image at the playhead, undo/redo —
+              fully self-contained, reusable by video-tools/video-finishing/video-trimmer. */}
+          <EditorTimeline
+            initialVideoUrl={videoUrl}
+            initialVideoPath={videoPath}
+            onChange={(u, p) => { setVideoUrl(u); setVideoPath(p); }}
+          />
+
+          <Card style={{ marginTop: 10 }}>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2, marginBottom: 12 }}>Intro / Outro</h3>
+            {editMsg && (
+              <div style={{ padding: "8px 12px", borderRadius: 8, marginBottom: 12, background: trimResult ? `${ds.color.mint}10` : `${ds.color.coral}10`, border: `1px solid ${trimResult ? ds.color.mint : ds.color.coral}30`, fontSize: 11, color: trimResult ? ds.color.mint : ds.color.coral }}>
+                {editMsg}
               </div>
             )}
-
-            {/* Trim — precise numbers + apply */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 8, marginBottom: 16, alignItems: "end" }}>
-              <div>
-                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Start (seconds)</span>
-                <input type="number" min={0} value={trimStart} onChange={e => setTrimStart(Number(e.target.value))} style={inputSt} />
-              </div>
-              <div>
-                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>End (seconds)</span>
-                <input type="number" min={0} value={trimEnd} onChange={e => setTrimEnd(Number(e.target.value))} style={inputSt} />
-              </div>
-              <button onClick={handleTrim} disabled={trimming || !videoPath}
-                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: trimming ? ds.color.card : ds.color.sky, color: "#000", fontSize: 12, fontWeight: 700, cursor: trimming ? "not-allowed" : "pointer" }}>
-                {trimming ? "..." : "Trim"}
-              </button>
-            </div>
-
             {/* Intro */}
             <label style={microLabel}>Add Intro Card</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, marginBottom: 16, alignItems: "end" }}>
