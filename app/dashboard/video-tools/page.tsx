@@ -9,6 +9,8 @@ import { ButtonPrimary } from "../../components/ui/ButtonPrimary";
 import { Film, Mic, Image, Folder, X, Check } from "../../components/icons";
 import ModelChip from "../../components/ModelChip";
 import { generateSegments, formatRange, type Segment } from "./segment-utils";
+import EditorTimeline from "../components/EditorTimeline";
+import { assetToMediaUrl } from "../../utils/mediaUrl";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -919,6 +921,22 @@ function TimelineEditor() {
             ))}
           </Card>
         </div>
+      )}
+
+      {videoSrc && tempPath && (
+        <Card radius={14} padding={22} style={{ marginTop: 16 }}>
+          <h3 style={{ color: ds.color.ink, fontWeight: 700, fontSize: 15, marginBottom: 2, fontFamily: ds.font.sans }}>
+            Advanced Timeline — cut a section out, insert a clip/image, undo
+          </h3>
+          <p style={{ color: ds.color.mute, fontSize: 12, marginBottom: 12 }}>
+            Same imported video as above. Drag the two handles to select a range, cut it out or keep only it, insert a clip or image at the playhead, and undo/redo any edit.
+          </p>
+          <EditorTimeline
+            initialVideoUrl={assetToMediaUrl(tempPath)}
+            initialVideoPath={tempPath}
+            onChange={(url, path) => { setVideoSrc(url); setTempPath(path); }}
+          />
+        </Card>
       )}
     </Card>
   );
