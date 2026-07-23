@@ -71,6 +71,15 @@ function VideoEditorInner() {
   const [outroSubline, setOutroSubline] = useState("");
   // Which outro field last had focus — "Insert" chips append into THIS field's setter.
   const [lastOutroField, setLastOutroField] = useState<"headline" | "subline">("subline");
+  // Product-image intro (Henry: prepend a branded intro card, same treatment as the outro)
+  const [introImageUrl, setIntroImageUrl] = useState<string | null>(null);
+  const [introImageName, setIntroImageName] = useState("");
+  const [uploadingIntroImg, setUploadingIntroImg] = useState(false);
+  // Freeze-first-frame intro (Henry: start of the video becomes the intro background + branding)
+  const [introHeadline, setIntroHeadline] = useState("");
+  const [introSubline, setIntroSubline] = useState("");
+  // Which intro field last had focus — "Insert" chips append into THIS field's setter.
+  const [lastIntroField, setLastIntroField] = useState<"headline" | "subline">("subline");
   // Saved Brand Kit contact info (Henry: one-tap insert phone/WhatsApp/etc. instead of re-typing).
   const [contact, setContact] = useState<{
     businessName?: string; phone?: string; whatsapp?: string; email?: string; website?: string; address?: string;
@@ -94,6 +103,10 @@ function VideoEditorInner() {
   function insertIntoOutro(value: string) {
     if (lastOutroField === "headline") setOutroHeadline(h => appendText(h, value));
     else setOutroSubline(s => appendText(s, value));
+  }
+  function insertIntoIntro(value: string) {
+    if (lastIntroField === "headline") setIntroHeadline(h => appendText(h, value));
+    else setIntroSubline(s => appendText(s, value));
   }
   // Shared "Insert:" chip row — renders saved-contact chips, or a hint pointing at Brand Kit if none saved yet.
   function renderContactChips(onInsert: (value: string) => void) {
@@ -136,6 +149,17 @@ function VideoEditorInner() {
     outroFont === "Bebas Neue" ? "'Bebas Neue', Impact, sans-serif" :
     outroFont === "Anton" ? "Anton, Impact, sans-serif" :
     outroFont ? `${outroFont}, Arial, sans-serif` : undefined;
+  // Intro text decoration (overrides Brand Kit for this intro). "" font = Brand Kit default.
+  const [introFont, setIntroFont] = useState("");
+  const [introHeadColor, setIntroHeadColor] = useState("#FFFFFF");
+  const [introSubColor, setIntroSubColor] = useState("#F5D06B");
+  const [introScale, setIntroScale] = useState(1);
+  const introStyle = () => ({ fontFamily: introFont || undefined, headlineColor: introHeadColor, sublineColor: introSubColor, scale: introScale });
+  // CSS font-family for the live sample under the intro font select — mirrors Brand Kit's previewFont mapping.
+  const introSampleFont =
+    introFont === "Bebas Neue" ? "'Bebas Neue', Impact, sans-serif" :
+    introFont === "Anton" ? "Anton, Impact, sans-serif" :
+    introFont ? `${introFont}, Arial, sans-serif` : undefined;
 
   // ── Trim timeline preview: a thumbnail filmstrip + scrub-on-drag so the user SEES
   //    the exact frame at the cut and can review the kept range (not a blind bar). ──
@@ -236,6 +260,51 @@ function VideoEditorInner() {
       if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setEditMsg("Intro added"); }
       else setEditMsg(data.error || "Add intro failed");
     } catch (err) { setEditMsg("Add intro failed: " + String(err)); }
+    setAddingIntro(false);
+  }
+
+  async function handleUploadIntroImage(file: File) {
+    setUploadingIntroImg(true); setEditMsg(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data.filePath) {
+        const url = `/api/media/${String(data.filePath).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        setIntroImageUrl(url); setIntroImageName(file.name);
+      } else setEditMsg(data.error || "Intro image upload failed");
+    } catch (err) { setEditMsg("Intro image upload failed: " + String(err)); }
+    setUploadingIntroImg(false);
+  }
+
+  async function handleAddIntroImage() {
+    if (!videoPath || !introImageUrl) { setEditMsg("Upload an image for the intro first"); return; }
+    setAddingIntro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-intro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, imageUrl: introImageUrl, duration: introDuration, style: introStyle() }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Image intro added"); }
+      else setEditMsg(data.error || "Add image intro failed");
+    } catch (err) { setEditMsg("Add image intro failed: " + String(err)); }
+    setAddingIntro(false);
+  }
+
+  async function handleAddFreezeIntro() {
+    if (!videoPath) { setEditMsg("Upload a video first"); return; }
+    if (!introHeadline.trim() && !introSubline.trim()) { setEditMsg("Enter intro text (e.g. Call Now …)"); return; }
+    setAddingIntro(true); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/add-intro", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, useFirstFrame: true, headline: introHeadline, subline: introSubline, duration: introDuration, style: introStyle() }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) { pendingRestoreRef.current = null; setVideoUrl(data.outputUrl); setVideoPath(data.outputUrl); setTrimResult(data.outputUrl); setEditMsg("Intro added — plays at the start; scrub the player to review"); }
+      else setEditMsg(data.error || "Add freeze intro failed");
+    } catch (err) { setEditMsg("Add freeze intro failed: " + String(err)); }
     setAddingIntro(false);
   }
 
@@ -370,6 +439,7 @@ function VideoEditorInner() {
     return {
       videoPath, videoUrl, overlayLayers, captionText,
       trimStart, trimEnd, introText, introDuration,
+      introHeadline, introSubline, introImageUrl,
       outroText, outroDuration, outroHeadline, outroSubline, outroImageUrl,
     };
   }
@@ -391,6 +461,9 @@ function VideoEditorInner() {
     pendingRestoreRef.current = { trimStart: ts, trimEnd: te };
     setIntroText(strField(state.introText) ?? "");
     setIntroDuration(numField(state.introDuration, 3));
+    setIntroHeadline(strField(state.introHeadline) ?? "");
+    setIntroSubline(strField(state.introSubline) ?? "");
+    setIntroImageUrl(strField(state.introImageUrl, null));
     setOutroText(strField(state.outroText) ?? "");
     setOutroDuration(numField(state.outroDuration, 3));
     setOutroHeadline(strField(state.outroHeadline) ?? "");
@@ -487,6 +560,7 @@ function VideoEditorInner() {
     setProjectName("Untitled video project");
     setVideoPath(null); setVideoUrl(null); setOverlayLayers([]); setCaptionText("");
     setTrimStart(0); setTrimEnd(0); setIntroText(""); setIntroDuration(3);
+    setIntroHeadline(""); setIntroSubline(""); setIntroImageUrl(null); setIntroImageName("");
     setOutroText(""); setOutroDuration(3); setOutroHeadline(""); setOutroSubline("");
     setOutroImageUrl(null); setOutroImageName("");
     setVideoDuration(0); setCurrentTime(0); setFilmstrip([]);
@@ -1087,6 +1161,79 @@ function VideoEditorInner() {
               <button onClick={handleAddIntro} disabled={addingIntro || !videoPath}
                 style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: addingIntro ? ds.color.card : ds.color.gold, color: "#000", fontSize: 12, fontWeight: 700, cursor: addingIntro ? "not-allowed" : "pointer" }}>
                 {addingIntro ? "..." : "Add"}
+              </button>
+            </div>
+
+            {/* Intro from a product image (branded card) */}
+            <label style={{ ...microLabel, marginTop: 16 }}>Intro from Product Image</label>
+            <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Upload your branded product card (e.g. from Ad Tools) — it's prepended as the opening screen at your video's size.</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
+              <label style={{ ...ghostBtn, display: "flex", alignItems: "center", gap: 6, cursor: uploadingIntroImg ? "wait" : "pointer" }}>
+                <Film size={11} color={ds.color.mute} />
+                {uploadingIntroImg ? "Uploading…" : introImageName ? introImageName.slice(0, 26) : "Choose product image"}
+                <input type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadIntroImage(f); }} />
+              </label>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={15} value={introDuration} onChange={e => setIntroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddIntroImage} disabled={addingIntro || !videoPath || !introImageUrl}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: (addingIntro || !introImageUrl) ? ds.color.card : ds.color.lilac, color: "#000", fontSize: 12, fontWeight: 700, cursor: (addingIntro || !introImageUrl) ? "not-allowed" : "pointer" }}>
+                {addingIntro ? "..." : "Add Image"}
+              </button>
+            </div>
+            {introImageUrl && (
+              <div style={{ marginTop: 8 }}>
+                <span style={{ fontSize: 10, color: ds.color.mute, fontFamily: ds.font.mono }}>INTRO PREVIEW (prepended at your video's size)</span>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "flex-start", gap: 8 }}>
+                  <img src={introImageUrl} alt="Intro preview" style={{ maxHeight: 140, maxWidth: "60%", borderRadius: 6, border: `1px solid ${ds.color.line2}` }} />
+                  <button onClick={() => { setIntroImageUrl(null); setIntroImageName(""); }}
+                    style={{ fontSize: 10, color: ds.color.coral, background: "none", border: "none", cursor: "pointer" }}>Remove image</button>
+                </div>
+              </div>
+            )}
+
+            {/* Intro from the START of the video (freeze first frame) + branding — like a commercial cold open */}
+            <label style={{ ...microLabel, marginTop: 16 }}>Freeze FIRST Frame as Intro (+ text)</label>
+            <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>The first frame of your video becomes the intro background, with your text on top — like a commercial cold open. No upload needed.</p>
+            <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+              <input value={introHeadline} onFocus={() => setLastIntroField("headline")} onChange={e => setIntroHeadline(e.target.value)} placeholder="Headline — e.g. Call Now 0902 514 7449" style={inputSt} />
+              <input value={introSubline} onFocus={() => setLastIntroField("subline")} onChange={e => setIntroSubline(e.target.value)} placeholder="Sub-line — e.g. Sangotedo . Ajah . Lekki" style={inputSt} />
+              {renderContactChips(insertIntoIntro)}
+            </div>
+            {/* Text decoration for this intro (overrides the Brand Kit) */}
+            <div style={{ display: "grid", gridTemplateColumns: "1.4fr auto auto 1.1fr", gap: 8, alignItems: "center", marginBottom: 8 }}>
+              <select value={introFont} onChange={e => setIntroFont(e.target.value)} style={{ ...inputSt, fontSize: 11 }} title="Font">
+                <option value="">Brand Kit font</option>
+                <option value="Poppins">Poppins</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Anton">Anton</option>
+                <option value="Arial">Arial</option>
+              </select>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: ds.color.mute }} title="Headline colour">Head
+                <input type="color" value={introHeadColor} onChange={e => setIntroHeadColor(e.target.value)} style={{ width: 26, height: 26, border: "none", background: "none", cursor: "pointer" }} />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: ds.color.mute }} title="Sub-line colour">Sub
+                <input type="color" value={introSubColor} onChange={e => setIntroSubColor(e.target.value)} style={{ width: 26, height: 26, border: "none", background: "none", cursor: "pointer" }} />
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: ds.color.mute }} title="Text size">Size
+                <input type="range" min={0.6} max={1.8} step={0.1} value={introScale} onChange={e => setIntroScale(Number(e.target.value))} style={{ flex: 1 }} />
+              </label>
+            </div>
+            <span style={{ display: "block", marginBottom: 8, fontSize: 13, fontFamily: introSampleFont, color: ds.color.ink2 }}>
+              {introFont ? "AaBbCc 123 — Your headline" : "(Brand Kit font)"}
+            </span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 80px auto", gap: 8, alignItems: "end" }}>
+              <span style={{ fontSize: 10, color: ds.color.mute }}>Uses the video's opening frame as the background.</span>
+              <div>
+                <span style={{ fontSize: 10, color: ds.color.mute, display: "block", marginBottom: 4 }}>Seconds</span>
+                <input type="number" min={1} max={15} value={introDuration} onChange={e => setIntroDuration(Number(e.target.value))} style={inputSt} />
+              </div>
+              <button onClick={handleAddFreezeIntro} disabled={addingIntro || !videoPath}
+                style={{ padding: "8px 14px", borderRadius: 8, border: "none", background: addingIntro ? ds.color.card : ds.color.gold, color: "#000", fontSize: 12, fontWeight: 700, cursor: addingIntro ? "not-allowed" : "pointer" }}>
+                {addingIntro ? "..." : "Freeze + Add"}
               </button>
             </div>
 
