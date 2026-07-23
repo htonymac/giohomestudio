@@ -108,9 +108,17 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
   const [editHistory, setEditHistory] = useState<Snapshot[]>([]);
   const [redoStack, setRedoStack] = useState<Snapshot[]>([]);
   const [editMsg, setEditMsg] = useState<string | null>(null);
-  const [working, setWorking] = useState<null | "keep" | "cut" | "insert">(null);
+  const [working, setWorking] = useState<null | "keep" | "cut" | "insert" | "dewatermark" | "replace">(null);
   const [uploadingClip, setUploadingClip] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+
+  // ── Remove-watermark controls (/api/editor/dewatermark) ──
+  const [dwCorner, setDwCorner] = useState<"br" | "bl" | "tr" | "tl">("br");
+  const [dwMode, setDwMode] = useState<"blur" | "cover">("blur");
+
+  // ── Replace-section uploads (/api/editor/replace) ──
+  const [uploadingReplaceClip, setUploadingReplaceClip] = useState(false);
+  const [uploadingReplaceImage, setUploadingReplaceImage] = useState(false);
 
   function pushHistory() {
     if (!videoPath || !videoUrl) return;
@@ -230,6 +238,66 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
     setUploadingImage(false);
   }
 
+  // ── Remove watermark at a corner/box (/api/editor/dewatermark) ──
+  async function handleDewatermark() {
+    if (!videoPath) return;
+    pushHistory();
+    setWorking("dewatermark"); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/dewatermark", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, corner: dwCorner, mode: dwMode }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) applyResult(data.outputUrl, "Watermark removed");
+      else setEditMsg(data.error || "Watermark removal failed");
+    } catch (err) { setEditMsg("Watermark removal failed: " + String(err)); }
+    setWorking(null);
+  }
+
+  // ── Replace the selected [trimStart,trimEnd] section with a clip/image (/api/editor/replace) ──
+  async function replaceSectionWithMedia(mediaUrl: string, isImage: boolean) {
+    if (!videoPath || trimEnd <= trimStart) { setEditMsg("Set valid start/end points first"); return; }
+    pushHistory();
+    setWorking("replace"); setEditMsg(null);
+    try {
+      const res = await fetch("/api/editor/replace", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoUrl: videoPath, startSec: trimStart, endSec: trimEnd, mediaUrl, isImage, duration: isImage ? 3 : undefined }),
+      });
+      const data = await res.json();
+      if (data.outputUrl) applyResult(data.outputUrl, isImage ? "Section replaced with image" : "Section replaced with clip");
+      else setEditMsg(data.error || "Replace failed");
+    } catch (err) { setEditMsg("Replace failed: " + String(err)); }
+    setWorking(null);
+  }
+
+  async function handleReplaceClipFile(file: File) {
+    setUploadingReplaceClip(true); setEditMsg(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/upload/video", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data.url) await replaceSectionWithMedia(data.url, false);
+      else setEditMsg(data.error || "Clip upload failed");
+    } catch (err) { setEditMsg("Clip upload failed: " + String(err)); }
+    setUploadingReplaceClip(false);
+  }
+
+  async function handleReplaceImageFile(file: File) {
+    setUploadingReplaceImage(true); setEditMsg(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok && data.filePath) {
+        const url = `/api/media/${String(data.filePath).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
+        await replaceSectionWithMedia(url, true);
+      } else setEditMsg(data.error || "Image upload failed");
+    } catch (err) { setEditMsg("Image upload failed: " + String(err)); }
+    setUploadingReplaceImage(false);
+  }
+
   // ── Draggable START/END handles on the filmstrip track ──
   function onHandlePointerDown(which: "start" | "end") {
     return (e: React.PointerEvent<HTMLDivElement>) => {
@@ -257,7 +325,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
     try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* already released */ }
   }
 
-  const busy = working !== null || uploadingClip || uploadingImage;
+  const busy = working !== null || uploadingClip || uploadingImage || uploadingReplaceClip || uploadingReplaceImage;
 
   const microLabel: React.CSSProperties = {
     fontSize: 10, fontWeight: 600, letterSpacing: 1.2, textTransform: "uppercase",
@@ -371,6 +439,22 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
         <button onClick={handleKeep} disabled={busy || !videoPath} style={solidBtn(ds.color.sky, busy || !videoPath)}>
           {working === "keep" ? "…" : "Keep only this section"}
         </button>
+        <label style={{
+          ...solidBtn(ds.color.lilac, busy || !videoPath || trimEnd <= trimStart),
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: (busy || !videoPath || trimEnd <= trimStart) ? "not-allowed" : "pointer",
+        }}>
+          {working === "replace" || uploadingReplaceClip || uploadingReplaceImage ? "…" : "🔁 Replace section"}
+          <input
+            type="file" accept="video/*,image/*" style={{ display: "none" }}
+            disabled={busy || !videoPath || trimEnd <= trimStart}
+            onChange={e => {
+              const f = e.target.files?.[0];
+              if (f) { if (f.type.startsWith("image/")) handleReplaceImageFile(f); else handleReplaceClipFile(f); }
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
       </div>
 
       <label style={microLabel}>Insert at Playhead ({currentTime.toFixed(1)}s)</label>
@@ -389,6 +473,29 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
             onChange={e => { const f = e.target.files?.[0]; if (f) handleInsertImageFile(f); e.currentTarget.value = ""; }} />
         </label>
       </div>
+
+      <label style={{ ...microLabel, marginTop: 16 }}>Remove Watermark</label>
+      <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Blurs or paints over a burned-in logo/watermark (e.g. an AI generator's) in one corner of the frame.</p>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+        {(["br", "bl", "tr", "tl"] as const).map(c => (
+          <button key={c} onClick={() => setDwCorner(c)} disabled={busy}
+            style={{
+              ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10,
+              borderColor: dwCorner === c ? ds.color.mint : ds.color.line2,
+              color: dwCorner === c ? ds.color.mint : ds.color.mute,
+              cursor: busy ? "not-allowed" : "pointer",
+            }}>
+            {c.toUpperCase()}
+          </button>
+        ))}
+        <button onClick={() => setDwMode(m => (m === "blur" ? "cover" : "blur"))} disabled={busy}
+          style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
+          Mode: {dwMode === "blur" ? "Blur" : "Cover"}
+        </button>
+      </div>
+      <button onClick={handleDewatermark} disabled={busy || !videoPath} style={solidBtn(ds.color.mint, busy || !videoPath)}>
+        {working === "dewatermark" ? "…" : "Apply watermark removal"}
+      </button>
     </Card>
   );
 }
