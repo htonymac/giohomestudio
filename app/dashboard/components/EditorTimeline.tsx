@@ -46,7 +46,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
       setTrimEnd(0);
       setFilmstrip([]);
       setEditMsg(null);
-      setDwMarkMode(false); setDwBox(null); setDwDrawPx(null);
+      setDwMethod("corner"); setDwBox(null); setDwDrawPx(null);
       lastEmitted.current = null;
     } else if (!initialVideoPath && videoPath) {
       setVideoPath(null);
@@ -116,10 +116,11 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
   // ── Remove-watermark controls (/api/editor/dewatermark) ──
   const [dwCorner, setDwCorner] = useState<"br" | "bl" | "tr" | "tl">("br");
   const [dwMode, setDwMode] = useState<"blur" | "cover">("blur");
-  // Drag-to-mark: user draws a box on the preview → exact fractional region.
+  // Watermark method is an explicit either/or so the two never collide:
+  //   "corner" → pick TL/TR/BL/BR preset · "draw" → drag an exact box.
   // dwBox (0..1 fractions of the REAL video frame) is the source of truth sent to
   // the API; dwDrawPx (pixels on the preview element) is only for on-screen draw.
-  const [dwMarkMode, setDwMarkMode] = useState(false);
+  const [dwMethod, setDwMethod] = useState<"corner" | "draw">("corner");
   const [dwBox, setDwBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const [dwDrawPx, setDwDrawPx] = useState<{ left: number; top: number; w: number; h: number } | null>(null);
   const [markDragging, setMarkDragging] = useState(false);
@@ -322,8 +323,8 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
     pushHistory();
     setWorking("dewatermark"); setEditMsg(null);
     try {
-      // A drag-marked box (exact) wins over the corner preset when present.
-      const region = dwBox
+      // Method is an explicit either/or: draw a box, or use a corner preset.
+      const region = (dwMethod === "draw" && dwBox)
         ? { x: dwBox.x, y: dwBox.y, w: dwBox.w, h: dwBox.h }
         : { corner: dwCorner };
       const res = await fetch("/api/editor/dewatermark", {
@@ -473,9 +474,9 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
             border: `2px solid ${ds.color.mint}`, background: `${ds.color.mint}22`, borderRadius: 2, pointerEvents: "none",
           }} />
         )}
-        {/* Drag-capture layer — only active in mark mode so the video controls
+        {/* Drag-capture layer — only active in DRAW method so the video controls
             still work normally the rest of the time. */}
-        {dwMarkMode && (
+        {dwMethod === "draw" && (
           <div
             onPointerDown={dwPointerDown}
             onPointerMove={dwPointerMove}
@@ -484,7 +485,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
           />
         )}
         {/* Hint on the video itself while marking (until a box is drawn). */}
-        {dwMarkMode && !markDragging && !dwBox && (
+        {dwMethod === "draw" && !markDragging && !dwBox && (
           <div style={{
             position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
             background: "rgba(0,0,0,0.72)", color: ds.color.mint, fontSize: 11, fontWeight: 600,
@@ -590,63 +591,84 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
       </div>
 
       <label style={{ ...microLabel, marginTop: 16 }}>Remove Watermark</label>
-      <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Blur or paint over a logo/watermark. <b style={{ color: ds.color.ink2 }}>Draw a box</b> right on the video for the exact spot — or pick a corner below.</p>
+      <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Blur or paint over a logo/watermark. Pick <b style={{ color: ds.color.ink2 }}>one</b> way to place the cover:</p>
 
-      {/* ── Draw-a-box (exact) ── */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6, alignItems: "center" }}>
-        <button onClick={() => setDwMarkMode(m => !m)} disabled={busy}
-          title="Turn on, then drag a rectangle over the watermark on the video preview"
-          style={{
-            ...ghostBtn, width: "auto", padding: "6px 12px", fontSize: 11,
-            borderColor: dwMarkMode ? ds.color.mint : ds.color.line2,
-            color: dwMarkMode ? ds.color.mint : ds.color.mute,
-            background: dwMarkMode ? `${ds.color.mint}14` : "none",
-            cursor: busy ? "not-allowed" : "pointer",
-          }}>
-          {dwMarkMode ? "✏️ Marking — drag on video" : "✏️ Mark area on video"}
-        </button>
-        {dwBox && (
-          <>
-            <span style={{ fontSize: 10, color: ds.color.mint, fontFamily: ds.font.mono }}>
-              box {(dwBox.x * 100).toFixed(0)},{(dwBox.y * 100).toFixed(0)} · {(dwBox.w * 100).toFixed(0)}×{(dwBox.h * 100).toFixed(0)}%
-            </span>
-            <button onClick={() => { setDwBox(null); setDwDrawPx(null); }} disabled={busy}
-              title="Clear the drawn box and go back to using a corner"
-              style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
-              Clear mark
-            </button>
-          </>
-        )}
-      </div>
-      {dwMarkMode && (
-        <p style={{ fontSize: 10, color: ds.color.mint, marginBottom: 8 }}>Drag a rectangle over the watermark in the preview above.</p>
-      )}
-
-      {/* ── Or a corner preset (ignored while a box is drawn) ── */}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, alignItems: "center", opacity: dwBox ? 0.4 : 1 }}>
-        {([["tl", "Top-Left"], ["tr", "Top-Right"], ["bl", "Bottom-Left"], ["br", "Bottom-Right"]] as const).map(([c, name]) => (
-          <button key={c} onClick={() => setDwCorner(c)} disabled={busy || !!dwBox} title={name}
+      {/* ── Method switch: corner OR draw, never both (they used to collide) ── */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+        {([["corner", "⊞ Pick a corner"], ["draw", "✏️ Draw a box"]] as const).map(([m, label]) => (
+          <button key={m} disabled={busy}
+            onClick={() => { setDwMethod(m); if (m === "corner") { setDwBox(null); setDwDrawPx(null); } }}
+            title={m === "corner" ? "Cover a whole corner — quick, no dragging" : "Drag an exact rectangle over just the logo"}
             style={{
-              ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10,
-              borderColor: !dwBox && dwCorner === c ? ds.color.mint : ds.color.line2,
-              color: !dwBox && dwCorner === c ? ds.color.mint : ds.color.mute,
-              cursor: (busy || dwBox) ? "not-allowed" : "pointer",
+              ...ghostBtn, width: "auto", flex: 1, textAlign: "center", padding: "9px 12px", fontSize: 11, fontWeight: 700,
+              borderColor: dwMethod === m ? ds.color.mint : ds.color.line2,
+              color: dwMethod === m ? ds.color.mint : ds.color.mute,
+              background: dwMethod === m ? `${ds.color.mint}14` : "none",
+              cursor: busy ? "not-allowed" : "pointer",
             }}>
-            {c.toUpperCase()}
+            {label}
           </button>
         ))}
+      </div>
+
+      {/* CORNER method */}
+      {dwMethod === "corner" && (
+        <>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, alignItems: "center" }}>
+            {([["tl", "Top-Left"], ["tr", "Top-Right"], ["bl", "Bottom-Left"], ["br", "Bottom-Right"]] as const).map(([c, name]) => (
+              <button key={c} onClick={() => setDwCorner(c)} disabled={busy} title={name}
+                style={{
+                  ...ghostBtn, width: "auto", padding: "6px 12px", fontSize: 11,
+                  borderColor: dwCorner === c ? ds.color.mint : ds.color.line2,
+                  color: dwCorner === c ? ds.color.mint : ds.color.mute,
+                  cursor: busy ? "not-allowed" : "pointer",
+                }}>
+                {c.toUpperCase()}
+              </button>
+            ))}
+          </div>
+          <p style={{ fontSize: 9, color: ds.color.mute, marginBottom: 10, fontFamily: ds.font.mono }}>
+            TL = Top-Left · TR = Top-Right · BL = Bottom-Left · BR = Bottom-Right
+          </p>
+        </>
+      )}
+
+      {/* DRAW method */}
+      {dwMethod === "draw" && (
+        <div style={{ marginBottom: 10 }}>
+          <p style={{ fontSize: 10, color: ds.color.mint, marginBottom: 6 }}>Drag a rectangle over the watermark in the preview above.</p>
+          {dwBox ? (
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, color: ds.color.mint, fontFamily: ds.font.mono }}>
+                box {(dwBox.x * 100).toFixed(0)},{(dwBox.y * 100).toFixed(0)} · {(dwBox.w * 100).toFixed(0)}×{(dwBox.h * 100).toFixed(0)}%
+              </span>
+              <button onClick={() => { setDwBox(null); setDwDrawPx(null); }} disabled={busy}
+                style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
+                Redraw
+              </button>
+            </div>
+          ) : (
+            <span style={{ fontSize: 10, color: ds.color.mute }}>No box yet — drag on the video above.</span>
+          )}
+        </div>
+      )}
+
+      {/* Style (common to both methods) */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10 }}>
+        <span style={{ fontSize: 10, color: ds.color.mute }}>Style:</span>
         <button onClick={() => setDwMode(m => (m === "blur" ? "cover" : "blur"))} disabled={busy}
           title={dwMode === "blur" ? "Blur: smear the area (keeps texture)" : "Cover: paint a solid box over it"}
-          style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, opacity: 1, cursor: busy ? "not-allowed" : "pointer" }}>
-          Mode: {dwMode === "blur" ? "Blur" : "Cover"}
+          style={{ ...ghostBtn, width: "auto", padding: "5px 12px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
+          {dwMode === "blur" ? "Blur (smear)" : "Cover (solid box)"}
         </button>
       </div>
-      <p style={{ fontSize: 9, color: ds.color.mute, marginBottom: 8, fontFamily: ds.font.mono }}>
-        TL = Top-Left · TR = Top-Right · BL = Bottom-Left · BR = Bottom-Right
-      </p>
 
-      <button onClick={handleDewatermark} disabled={busy || !videoPath} style={solidBtn(ds.color.mint, busy || !videoPath)}>
-        {working === "dewatermark" ? "…" : dwBox ? "Apply to marked box" : `Apply to ${dwCorner.toUpperCase()} corner`}
+      <button onClick={handleDewatermark} disabled={busy || !videoPath || (dwMethod === "draw" && !dwBox)}
+        style={solidBtn(ds.color.mint, busy || !videoPath || (dwMethod === "draw" && !dwBox))}>
+        {working === "dewatermark" ? "…"
+          : dwMethod === "draw"
+            ? (dwBox ? "Apply to marked box" : "Draw a box first")
+            : `Apply to ${dwCorner.toUpperCase()} corner`}
       </button>
     </Card>
   );
