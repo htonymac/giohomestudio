@@ -462,7 +462,9 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
             if (e.currentTarget.currentSrc) buildFilmstrip(e.currentTarget.currentSrc);
           }}
           onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-          style={{ width: "100%", maxHeight: 260, background: "black", borderRadius: 8, display: "block", objectFit: "contain" }}
+          // Tall enough that a PORTRAIT (9:16) clip is big enough to draw on —
+          // capped to the viewport so a landscape clip never overflows.
+          style={{ width: "100%", maxHeight: "min(70vh, 520px)", background: "black", borderRadius: 8, display: "block", objectFit: "contain" }}
         />
         {/* The marked region (stays visible after drag, and while dragging). */}
         {dwDrawPx && (dwBox || markDragging) && (
@@ -480,6 +482,17 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
             onPointerUp={dwPointerUp}
             style={{ position: "absolute", inset: 0, cursor: "crosshair", touchAction: "none", borderRadius: 8 }}
           />
+        )}
+        {/* Hint on the video itself while marking (until a box is drawn). */}
+        {dwMarkMode && !markDragging && !dwBox && (
+          <div style={{
+            position: "absolute", top: 8, left: "50%", transform: "translateX(-50%)",
+            background: "rgba(0,0,0,0.72)", color: ds.color.mint, fontSize: 11, fontWeight: 600,
+            padding: "5px 12px", borderRadius: 999, pointerEvents: "none", whiteSpace: "nowrap",
+            border: `1px solid ${ds.color.mint}55`,
+          }}>
+            👆 Drag across the watermark
+          </div>
         )}
       </div>
 
