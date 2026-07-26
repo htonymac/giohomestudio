@@ -94,20 +94,29 @@ export async function POST(req: NextRequest) {
 
 // Turns a fractional box (possibly overshooting the frame edge, possibly
 // odd-sized) into pixel coordinates that are guaranteed to sit strictly
-// inside [0,W)x[0,H) with even x/y/w/h — delogo/drawbox need w,h >= ~2 and a
-// box that never runs past the frame edge, and even coords keep chroma
-// (yuv420p) planes aligned.
+// inside the frame with an even MARGIN on EVERY side.
+//
+// Why the margin matters: `delogo` reconstructs the covered region by
+// interpolating from the pixels immediately AROUND the box, so it requires a
+// border of real pixels on all four sides. A box that touches any edge fails
+// hard — ffmpeg exits -22 "Invalid argument" and writes NO output (that was
+// the "watermark removal failed" bug: every corner preset ran to the frame
+// edge). `drawbox` doesn't need the margin, but a 2px inset on a cover box is
+// invisible, so we apply the same inset for both modes. Even coords/size also
+// keep the chroma (yuv420p) planes aligned.
+const EDGE_MARGIN = 2; // even, ≥1px so delogo always has a border to sample
 function clampBox(x: number, y: number, w: number, h: number, W: number, H: number) {
-  let bx = Math.max(0, Math.min(Math.round(x), W - 2));
-  let by = Math.max(0, Math.min(Math.round(y), H - 2));
-  let bw = Math.max(2, Math.min(Math.round(w), W - bx));
-  let bh = Math.max(2, Math.min(Math.round(h), H - by));
+  const M = EDGE_MARGIN;
+  let bx = Math.max(M, Math.min(Math.round(x), W - M - 2));
+  let by = Math.max(M, Math.min(Math.round(y), H - M - 2));
+  let bw = Math.max(2, Math.min(Math.round(w), W - M - bx));
+  let bh = Math.max(2, Math.min(Math.round(h), H - M - by));
   bx -= bx % 2;
   by -= by % 2;
   bw -= bw % 2;
   bh -= bh % 2;
-  bw = Math.max(2, Math.min(bw, W - bx));
-  bh = Math.max(2, Math.min(bh, H - by));
+  bw = Math.max(2, Math.min(bw, W - M - bx));
+  bh = Math.max(2, Math.min(bh, H - M - by));
   return { bx, by, bw, bh };
 }
 
