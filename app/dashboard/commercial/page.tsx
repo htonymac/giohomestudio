@@ -11,6 +11,7 @@ import LayerizePanel, { type LayerizeResult } from "../../components/LayerizePan
 import NarrationControls, { type NarrationSettings as NarrationControlsSettings } from "../../components/NarrationControls";
 import { DEFAULT_NARRATION_SETTINGS, type NarrationSettings } from "@/modules/voice-provider/accent-profiles";
 import OverlayPanel from "../../components/OverlayPanel";
+import LogoStampCard from "../components/LogoStampCard";
 import AssetPicker from "../../components/AssetPicker";
 import SFXPicker from "../../components/SFXPicker";
 import CharacterPicker from "../../components/CharacterPicker";
@@ -4160,6 +4161,11 @@ function AiVideoCommercial({ onBack }: { onBack: () => void }) {
                   style={{ flex: 1, padding: "10px 16px", borderRadius: 10, border: "1px solid #1e2a35", background: "transparent", color: "#5a7080", fontSize: 13, cursor: "pointer" }}>New Video</button>
               </div>
             </div>
+          )}
+
+          {/* Stamp your own logo onto the finished commercial (Kling-style corner badge). */}
+          {!generating && resultUrl && Object.values(sceneProgress).some(s => s === "done") && (
+            <LogoStampCard videoUrl={resultUrl} onStamped={(u) => setResultUrl(u)} />
           )}
 
           {!generating && (
