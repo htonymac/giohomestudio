@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { ds } from "../../../lib/designSystem";
 import Card from "../../components/ui/Card";
 import { Film } from "../../components/icons";
+import LogoStampCard from "./LogoStampCard";
 
 export interface EditorTimelineProps {
   initialVideoUrl: string | null;
@@ -428,6 +429,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
   if (!videoPath || !videoUrl) return null;
 
   return (
+    <>
     <Card style={{ marginTop: 10 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, color: ds.color.ink2 }}>Trim Timeline</h3>
@@ -671,5 +673,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
             : `Apply to ${dwCorner.toUpperCase()} corner`}
       </button>
     </Card>
+    <LogoStampCard videoUrl={videoUrl} onStamped={(u) => applyResult(u, "Logo added")} />
+    </>
   );
 }
