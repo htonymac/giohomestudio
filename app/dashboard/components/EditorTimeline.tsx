@@ -46,6 +46,7 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
       setTrimEnd(0);
       setFilmstrip([]);
       setEditMsg(null);
+      setDwMarkMode(false); setDwBox(null); setDwDrawPx(null);
       lastEmitted.current = null;
     } else if (!initialVideoPath && videoPath) {
       setVideoPath(null);
@@ -115,6 +116,14 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
   // ── Remove-watermark controls (/api/editor/dewatermark) ──
   const [dwCorner, setDwCorner] = useState<"br" | "bl" | "tr" | "tl">("br");
   const [dwMode, setDwMode] = useState<"blur" | "cover">("blur");
+  // Drag-to-mark: user draws a box on the preview → exact fractional region.
+  // dwBox (0..1 fractions of the REAL video frame) is the source of truth sent to
+  // the API; dwDrawPx (pixels on the preview element) is only for on-screen draw.
+  const [dwMarkMode, setDwMarkMode] = useState(false);
+  const [dwBox, setDwBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+  const [dwDrawPx, setDwDrawPx] = useState<{ left: number; top: number; w: number; h: number } | null>(null);
+  const [markDragging, setMarkDragging] = useState(false);
+  const markStart = useRef<{ px: number; py: number } | null>(null);
 
   // ── Replace-section uploads (/api/editor/replace) ──
   const [uploadingReplaceClip, setUploadingReplaceClip] = useState(false);
@@ -238,15 +247,88 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
     setUploadingImage(false);
   }
 
+  // ── Drag-to-mark the watermark on the preview ──
+  // The <video> is rendered object-fit:contain, so the real picture is
+  // letterboxed inside the element. This maps a pointer position to a fraction
+  // of the ACTUAL video frame (what the API multiplies by the true W×H), not of
+  // the letterboxed element — otherwise the marked box would be offset.
+  function dwContentRect() {
+    const v = videoRef.current;
+    if (!v) return null;
+    const rect = v.getBoundingClientRect();
+    const vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+    const scale = Math.min(rect.width / vw, rect.height / vh);
+    const dispW = vw * scale, dispH = vh * scale;
+    return { rect, dispW, dispH, offX: (rect.width - dispW) / 2, offY: (rect.height - dispH) / 2 };
+  }
+  // Recompute the on-screen pixel box from the stored fractions (after a resize
+  // or a fresh selection). Skipped mid-drag — the drag handler owns dwDrawPx then.
+  function dwSyncBoxPx() {
+    if (markDragging) return;
+    if (!dwBox) { setDwDrawPx(null); return; }
+    const c = dwContentRect();
+    if (!c) return;
+    setDwDrawPx({ left: c.offX + dwBox.x * c.dispW, top: c.offY + dwBox.y * c.dispH, w: dwBox.w * c.dispW, h: dwBox.h * c.dispH });
+  }
+  useEffect(() => {
+    dwSyncBoxPx();
+    const onResize = () => dwSyncBoxPx();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dwBox, videoUrl]);
+
+  function dwClampToContent(clientX: number, clientY: number, c: NonNullable<ReturnType<typeof dwContentRect>>) {
+    const px = Math.max(c.offX, Math.min(clientX - c.rect.left, c.offX + c.dispW));
+    const py = Math.max(c.offY, Math.min(clientY - c.rect.top, c.offY + c.dispH));
+    return { px, py };
+  }
+  function dwPointerDown(e: React.PointerEvent) {
+    const c = dwContentRect();
+    if (!c) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    const { px, py } = dwClampToContent(e.clientX, e.clientY, c);
+    markStart.current = { px, py };
+    setMarkDragging(true);
+    setDwDrawPx({ left: px, top: py, w: 0, h: 0 });
+  }
+  function dwPointerMove(e: React.PointerEvent) {
+    if (!markDragging || !markStart.current) return;
+    const c = dwContentRect();
+    if (!c) return;
+    const { px, py } = dwClampToContent(e.clientX, e.clientY, c);
+    const s = markStart.current;
+    setDwDrawPx({ left: Math.min(s.px, px), top: Math.min(s.py, py), w: Math.abs(px - s.px), h: Math.abs(py - s.py) });
+  }
+  function dwPointerUp() {
+    if (!markDragging) return;
+    setMarkDragging(false);
+    const c = dwContentRect();
+    const px = dwDrawPx;
+    markStart.current = null;
+    // Ignore a stray click / too-tiny box — keep whatever was marked before.
+    if (!c || !px || px.w < 6 || px.h < 6) return;
+    setDwBox({
+      x: Math.max(0, Math.min(1, (px.left - c.offX) / c.dispW)),
+      y: Math.max(0, Math.min(1, (px.top - c.offY) / c.dispH)),
+      w: Math.max(0.01, Math.min(1, px.w / c.dispW)),
+      h: Math.max(0.01, Math.min(1, px.h / c.dispH)),
+    });
+  }
+
   // ── Remove watermark at a corner/box (/api/editor/dewatermark) ──
   async function handleDewatermark() {
     if (!videoPath) return;
     pushHistory();
     setWorking("dewatermark"); setEditMsg(null);
     try {
+      // A drag-marked box (exact) wins over the corner preset when present.
+      const region = dwBox
+        ? { x: dwBox.x, y: dwBox.y, w: dwBox.w, h: dwBox.h }
+        : { corner: dwCorner };
       const res = await fetch("/api/editor/dewatermark", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ videoUrl: videoPath, corner: dwCorner, mode: dwMode }),
+        body: JSON.stringify({ videoUrl: videoPath, mode: dwMode, ...region }),
       });
       const data = await res.json();
       if (data.outputUrl) applyResult(data.outputUrl, "Watermark removed");
@@ -366,20 +448,40 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
         </div>
       )}
 
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        controls
-        onLoadedMetadata={e => {
-          const dur = e.currentTarget.duration || 0;
-          setVideoDuration(dur);
-          setTrimStart(0); setTrimEnd(Math.round(dur * 10) / 10);
-          setFilmstrip([]);
-          if (e.currentTarget.currentSrc) buildFilmstrip(e.currentTarget.currentSrc);
-        }}
-        onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
-        style={{ width: "100%", maxHeight: 260, background: "black", borderRadius: 8, display: "block", marginBottom: 10 }}
-      />
+      <div style={{ position: "relative", marginBottom: 10 }}>
+        <video
+          ref={videoRef}
+          src={videoUrl}
+          controls
+          onLoadedMetadata={e => {
+            const dur = e.currentTarget.duration || 0;
+            setVideoDuration(dur);
+            setTrimStart(0); setTrimEnd(Math.round(dur * 10) / 10);
+            setFilmstrip([]);
+            dwSyncBoxPx();
+            if (e.currentTarget.currentSrc) buildFilmstrip(e.currentTarget.currentSrc);
+          }}
+          onTimeUpdate={e => setCurrentTime(e.currentTarget.currentTime)}
+          style={{ width: "100%", maxHeight: 260, background: "black", borderRadius: 8, display: "block", objectFit: "contain" }}
+        />
+        {/* The marked region (stays visible after drag, and while dragging). */}
+        {dwDrawPx && (dwBox || markDragging) && (
+          <div style={{
+            position: "absolute", left: dwDrawPx.left, top: dwDrawPx.top, width: dwDrawPx.w, height: dwDrawPx.h,
+            border: `2px solid ${ds.color.mint}`, background: `${ds.color.mint}22`, borderRadius: 2, pointerEvents: "none",
+          }} />
+        )}
+        {/* Drag-capture layer — only active in mark mode so the video controls
+            still work normally the rest of the time. */}
+        {dwMarkMode && (
+          <div
+            onPointerDown={dwPointerDown}
+            onPointerMove={dwPointerMove}
+            onPointerUp={dwPointerUp}
+            style={{ position: "absolute", inset: 0, cursor: "crosshair", touchAction: "none", borderRadius: 8 }}
+          />
+        )}
+      </div>
 
       {videoDuration > 0 && (
         <div style={{ marginBottom: 12 }}>
@@ -475,26 +577,63 @@ export default function EditorTimeline({ initialVideoUrl, initialVideoPath, onCh
       </div>
 
       <label style={{ ...microLabel, marginTop: 16 }}>Remove Watermark</label>
-      <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Blurs or paints over a burned-in logo/watermark (e.g. an AI generator's) in one corner of the frame.</p>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-        {(["br", "bl", "tr", "tl"] as const).map(c => (
-          <button key={c} onClick={() => setDwCorner(c)} disabled={busy}
+      <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 8 }}>Blur or paint over a logo/watermark. <b style={{ color: ds.color.ink2 }}>Draw a box</b> right on the video for the exact spot — or pick a corner below.</p>
+
+      {/* ── Draw-a-box (exact) ── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6, alignItems: "center" }}>
+        <button onClick={() => setDwMarkMode(m => !m)} disabled={busy}
+          title="Turn on, then drag a rectangle over the watermark on the video preview"
+          style={{
+            ...ghostBtn, width: "auto", padding: "6px 12px", fontSize: 11,
+            borderColor: dwMarkMode ? ds.color.mint : ds.color.line2,
+            color: dwMarkMode ? ds.color.mint : ds.color.mute,
+            background: dwMarkMode ? `${ds.color.mint}14` : "none",
+            cursor: busy ? "not-allowed" : "pointer",
+          }}>
+          {dwMarkMode ? "✏️ Marking — drag on video" : "✏️ Mark area on video"}
+        </button>
+        {dwBox && (
+          <>
+            <span style={{ fontSize: 10, color: ds.color.mint, fontFamily: ds.font.mono }}>
+              box {(dwBox.x * 100).toFixed(0)},{(dwBox.y * 100).toFixed(0)} · {(dwBox.w * 100).toFixed(0)}×{(dwBox.h * 100).toFixed(0)}%
+            </span>
+            <button onClick={() => { setDwBox(null); setDwDrawPx(null); }} disabled={busy}
+              title="Clear the drawn box and go back to using a corner"
+              style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
+              Clear mark
+            </button>
+          </>
+        )}
+      </div>
+      {dwMarkMode && (
+        <p style={{ fontSize: 10, color: ds.color.mint, marginBottom: 8 }}>Drag a rectangle over the watermark in the preview above.</p>
+      )}
+
+      {/* ── Or a corner preset (ignored while a box is drawn) ── */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, alignItems: "center", opacity: dwBox ? 0.4 : 1 }}>
+        {([["tl", "Top-Left"], ["tr", "Top-Right"], ["bl", "Bottom-Left"], ["br", "Bottom-Right"]] as const).map(([c, name]) => (
+          <button key={c} onClick={() => setDwCorner(c)} disabled={busy || !!dwBox} title={name}
             style={{
               ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10,
-              borderColor: dwCorner === c ? ds.color.mint : ds.color.line2,
-              color: dwCorner === c ? ds.color.mint : ds.color.mute,
-              cursor: busy ? "not-allowed" : "pointer",
+              borderColor: !dwBox && dwCorner === c ? ds.color.mint : ds.color.line2,
+              color: !dwBox && dwCorner === c ? ds.color.mint : ds.color.mute,
+              cursor: (busy || dwBox) ? "not-allowed" : "pointer",
             }}>
             {c.toUpperCase()}
           </button>
         ))}
         <button onClick={() => setDwMode(m => (m === "blur" ? "cover" : "blur"))} disabled={busy}
-          style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, cursor: busy ? "not-allowed" : "pointer" }}>
+          title={dwMode === "blur" ? "Blur: smear the area (keeps texture)" : "Cover: paint a solid box over it"}
+          style={{ ...ghostBtn, width: "auto", padding: "5px 10px", fontSize: 10, opacity: 1, cursor: busy ? "not-allowed" : "pointer" }}>
           Mode: {dwMode === "blur" ? "Blur" : "Cover"}
         </button>
       </div>
+      <p style={{ fontSize: 9, color: ds.color.mute, marginBottom: 8, fontFamily: ds.font.mono }}>
+        TL = Top-Left · TR = Top-Right · BL = Bottom-Left · BR = Bottom-Right
+      </p>
+
       <button onClick={handleDewatermark} disabled={busy || !videoPath} style={solidBtn(ds.color.mint, busy || !videoPath)}>
-        {working === "dewatermark" ? "…" : "Apply watermark removal"}
+        {working === "dewatermark" ? "…" : dwBox ? "Apply to marked box" : `Apply to ${dwCorner.toUpperCase()} corner`}
       </button>
     </Card>
   );
