@@ -16,6 +16,7 @@ import * as path from "path";
 import { prisma } from "@/lib/prisma";
 import { env } from "@/config/env";
 import { createSlideshow, mergeMedia, type SlideshowFrame, type RenderQuality } from "@/modules/ffmpeg";
+import { stampWithSavedLogo } from "@/lib/brand-stamp";
 import { isActualFile } from "@/modules/ffmpeg/utils";
 import { createContentItem, updateContentItem } from "@/modules/content-registry";
 import { resolveAndGenerateMusic } from "@/modules/music-provider/resolver";
@@ -374,9 +375,13 @@ async function renderCommercial(project: ProjectWithSlides, contentItemId: strin
     fs.promises.unlink(captionedPath).catch(() => {}),
   ]);
 
+  // Auto-stamp the user's brand logo if they enabled it in Brand Kit. No-op
+  // (returns the merged path unchanged) when disabled / no logo / any error.
+  const finalMerged = await stampWithSavedLogo(mergeResult.outputPath);
+
   try {
     await Promise.all([
-      updateContentItem(contentItemId, { mergedOutputPath: mergeResult.outputPath, status: "IN_REVIEW" }),
+      updateContentItem(contentItemId, { mergedOutputPath: finalMerged, status: "IN_REVIEW" }),
       prisma.commercialProject.update({
         where: { id: project.id },
         data: { renderStatus: "ready", contentItemId },

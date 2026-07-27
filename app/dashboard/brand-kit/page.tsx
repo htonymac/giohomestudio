@@ -61,9 +61,42 @@ export default function BrandKitPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
 
+  // ── Logo watermark (the AnDio-style stamp burned onto videos) ──
+  interface WmSettings { logoPath: string | null; position: string; scale: number; opacity: number; enabled: boolean }
+  const [wm, setWm] = useState<WmSettings | null>(null);
+  const [wmUploading, setWmUploading] = useState(false);
+  const [wmSaving, setWmSaving] = useState(false);
+  const [wmMsg, setWmMsg] = useState("");
+  const wmLogoPreview = wm?.logoPath ? `/api/media/${wm.logoPath.replace(/\\/g, "/").replace(/^.*?storage\//, "")}` : null;
+
   useEffect(() => {
     fetch("/api/brand-kit").then(r => r.json()).then(d => setKit(d.brandKit)).catch(() => setMsg("Could not load brand kit"));
+    fetch("/api/watermark").then(r => r.json()).then(setWm).catch(() => { /* logo section optional */ });
   }, []);
+
+  async function uploadWmLogo(file: File) {
+    setWmUploading(true); setWmMsg("");
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const res = await fetch("/api/upload/logo", { method: "POST", body: fd });
+      const d = await res.json();
+      if (res.ok && d.filePath) setWm(p => ({ ...(p ?? { position: "bottom-right", scale: 0.12, opacity: 0.9, enabled: false }), logoPath: d.filePath }));
+      else setWmMsg(d.error || "Logo upload failed");
+    } catch { setWmMsg("Logo upload failed"); }
+    setWmUploading(false);
+  }
+
+  async function saveWm() {
+    if (!wm) return;
+    setWmSaving(true); setWmMsg("");
+    try {
+      const res = await fetch("/api/watermark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(wm) });
+      const d = await res.json();
+      if (res.ok) { setWm(d); setWmMsg(d.enabled ? "Saved — new commercials will be auto-stamped with your logo." : "Saved — auto-stamp is OFF (you can still add the logo manually per video)."); }
+      else setWmMsg(d.error || "Save failed");
+    } catch { setWmMsg("Network error"); }
+    setWmSaving(false);
+  }
 
   function set<K extends keyof BrandKit>(k: K, v: BrandKit[K]) {
     setKit(prev => (prev ? { ...prev, [k]: v } : prev));
@@ -230,6 +263,65 @@ export default function BrandKitPage() {
         <p style={{ fontSize: 10, color: ds.color.mute2, marginTop: 12, fontFamily: ds.font.mono }}>
           Saved here once — insertable in editors and outros wherever contact info is needed.
         </p>
+      </Card>
+
+      {/* Logo watermark — the stamp burned onto videos */}
+      <Card radius={12} padding={20} style={{ marginTop: 20 }}>
+        <label style={{ ...label, fontSize: 11, marginBottom: 6 }}>Logo Watermark (Stamp)</label>
+        <p style={{ fontSize: 11, color: ds.color.mute2, marginBottom: 14 }}>
+          Upload your logo once. Turn on auto-stamp and every new commercial comes out with your logo in the corner (like an AI generator&apos;s badge). You can also add it manually on any finished video.
+        </p>
+        {wm ? (
+          <>
+            <div style={{ display: "flex", gap: 14, alignItems: "center", marginBottom: 16, flexWrap: "wrap" }}>
+              <label style={{ ...inputSt, width: "auto", display: "inline-flex", alignItems: "center", gap: 8, cursor: wmUploading ? "not-allowed" : "pointer" }}>
+                {wmUploading ? "Uploading…" : wm.logoPath ? "Change logo" : "Upload logo (PNG)"}
+                <input type="file" accept="image/*" style={{ display: "none" }} disabled={wmUploading}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) uploadWmLogo(f); e.currentTarget.value = ""; }} />
+              </label>
+              {wmLogoPreview && (
+                <span style={{ padding: 6, borderRadius: 8, border: `1px solid ${ds.color.line2}`, background: "#222" }}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={wmLogoPreview} alt="logo" style={{ height: 40, display: "block", objectFit: "contain" }} />
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginBottom: 14 }}>
+              <div>
+                <label style={label}>Position</label>
+                <select value={wm.position} onChange={e => setWm({ ...wm, position: e.target.value })} style={inputSt}>
+                  <option value="bottom-right">Bottom-Right (recommended)</option>
+                  <option value="bottom-left">Bottom-Left</option>
+                  <option value="top-right">Top-Right</option>
+                  <option value="top-left">Top-Left</option>
+                  <option value="center">Center</option>
+                </select>
+              </div>
+              <div>
+                <label style={label}>Size ({Math.round(wm.scale * 100)}%)</label>
+                <input type="range" min={0.05} max={0.4} step={0.01} value={wm.scale} onChange={e => setWm({ ...wm, scale: Number(e.target.value) })} style={{ width: "100%", marginTop: 10 }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={label}>Opacity ({Math.round(wm.opacity * 100)}%)</label>
+              <input type="range" min={0.2} max={1} step={0.05} value={wm.opacity} onChange={e => setWm({ ...wm, opacity: Number(e.target.value) })} style={{ width: "100%", marginTop: 6 }} />
+            </div>
+
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, color: ds.color.ink2, cursor: "pointer", marginBottom: 16 }}>
+              <input type="checkbox" checked={wm.enabled} onChange={e => setWm({ ...wm, enabled: e.target.checked })} />
+              Auto-stamp every new commercial with this logo
+            </label>
+
+            {wmMsg && <p style={{ fontSize: 12, color: wmMsg.includes("Saved") ? ds.color.mint : ds.color.coral, marginBottom: 10 }}>{wmMsg}</p>}
+            <ButtonPrimary onClick={saveWm} disabled={wmSaving || !wm.logoPath} style={{ width: "100%" }}>
+              {wmSaving ? "Saving…" : "Save Logo Settings"}
+            </ButtonPrimary>
+          </>
+        ) : (
+          <p style={{ fontSize: 12, color: ds.color.mute }}>Loading…</p>
+        )}
       </Card>
     </div>
   );

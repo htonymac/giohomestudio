@@ -65,6 +65,53 @@ export async function stampLogoOnVideo(
   return outPath;
 }
 
+// ── Saved brand-stamp settings (shared with /api/watermark's watermark.json) ──
+// Used by auto-stamp paths (commercial render) that stamp with the user's saved
+// default logo rather than a per-call one.
+export interface BrandStampSettings {
+  logoPath: string | null;
+  enabled: boolean;
+  corner: StampCorner;
+  scale: number;
+  opacity: number;
+}
+
+const SETTINGS_FILE = () => path.resolve(env.storagePath, "config", "watermark.json");
+
+// watermark.json stores position as "bottom-right" etc.; map to our corner codes.
+const POSITION_TO_CORNER: Record<string, StampCorner> = {
+  "top-left": "tl", "top-right": "tr", "bottom-left": "bl", "bottom-right": "br", "center": "center",
+};
+
+export function getBrandStampSettings(): BrandStampSettings {
+  try {
+    const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE(), "utf-8")) as Record<string, unknown>;
+    return {
+      logoPath: typeof raw.logoPath === "string" ? raw.logoPath : null,
+      enabled: raw.enabled === true,
+      corner: POSITION_TO_CORNER[String(raw.position)] ?? "br",
+      scale: typeof raw.scale === "number" ? raw.scale : 0.12,
+      opacity: typeof raw.opacity === "number" ? raw.opacity : 0.9,
+    };
+  } catch {
+    return { logoPath: null, enabled: false, corner: "br", scale: 0.12, opacity: 0.9 };
+  }
+}
+
+// Stamp a finished video with the user's SAVED default logo — but only if they've
+// enabled it and the logo file exists. Returns the stamped path, or the ORIGINAL
+// path unchanged if disabled / no logo / any error. Safe to call on every render:
+// it must never break the render, so all failure modes fall back to the input.
+export async function stampWithSavedLogo(videoAbsPath: string): Promise<string> {
+  try {
+    const s = getBrandStampSettings();
+    if (!s.enabled || !s.logoPath || !fs.existsSync(s.logoPath)) return videoAbsPath;
+    return await stampLogoOnVideo(videoAbsPath, s.logoPath, { corner: s.corner, scale: s.scale, opacity: s.opacity });
+  } catch {
+    return videoAbsPath;
+  }
+}
+
 function runFFmpeg(args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn(env.ffmpegPath, args);
