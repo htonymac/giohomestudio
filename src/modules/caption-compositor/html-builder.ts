@@ -48,7 +48,15 @@ export function buildCaptionHtml(input: CaptionRenderInput): string {
 
   if (!headline) return buildEmptyHtml(w, h);
 
-  const fontStack  = fontOverride ? `"${fontOverride}", ${preset.fontStack}` : preset.fontStack;
+  const rawStack   = fontOverride ? `"${fontOverride}", ${preset.fontStack}` : preset.fontStack;
+  // Insert the colour-emoji font BEFORE the generic family. Anything after a
+  // generic (sans-serif/serif/monospace) is never reached, so without this the
+  // browser hits the generic — which has no colour emoji — and burns tofu (▢)
+  // boxes where the user typed 📞 / 🎬 etc. Requires Noto Color Emoji installed
+  // on the render host (it is, on the Linux server).
+  const fontStack  = /(?:sans-serif|serif|monospace)\s*$/i.test(rawStack)
+    ? rawStack.replace(/(sans-serif|serif|monospace)\s*$/i, '"Noto Color Emoji", $1')
+    : `${rawStack}, "Noto Color Emoji"`;
   const justify    = justifyContent(position);
   const gradient   = buildGradient(preset.gradient, position);
 
@@ -167,7 +175,7 @@ export function buildNarrationHtml(text: string, aspectRatio: AspectRatio): stri
     right: 0;
     padding: ${Math.round(h * 0.012)}px ${Math.round(w * 0.05)}px ${Math.round(h * 0.018)}px;
     background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
-    font-family: "Arial", "Helvetica", sans-serif;
+    font-family: "Arial", "Helvetica", "Noto Color Emoji", sans-serif;
     font-size: ${fontSize}px;
     font-weight: 500;
     color: #F0F0F0;

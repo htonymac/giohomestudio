@@ -41,7 +41,10 @@ const isHex = (v: unknown): v is string => typeof v === "string" && /^#[0-9a-fA-
 function titleCardHtml(o: { title: string; subtitle?: string; brand?: string; colors: CardColors; w: number; h: number; font?: string; bgImage?: string }): string {
   const { w, h, colors } = o;
   const a = colors.accent;
-  const ff = `${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Helvetica Neue',Arial,sans-serif`;
+  // 'Noto Color Emoji' BEFORE the generic so emoji (📞 🎬 etc.) render instead of
+  // tofu boxes — anything after sans-serif is never reached. Font is installed on
+  // the Linux render host.
+  const ff = `${o.font ? `'${o.font.replace(/[^a-zA-Z0-9 ]/g, "")}',` : ""}'Arial Black','Helvetica Neue',Arial,'Noto Color Emoji',sans-serif`;
   const m = Math.min(w, h);
   // Shrink the title for long text (e.g. phone numbers) so it never overflows the card (Henry 2026-06-21).
   const tl = (o.title || "").length;
