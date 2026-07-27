@@ -2,11 +2,17 @@
 
 // LogoStampCard — burn the user's OWN brand logo onto a video, small and in a
 // corner (default bottom-right, Kling-style — never blocks the shot). Reused on
-// /dashboard/video-editor (inside EditorTimeline) and /dashboard/commercial.
+// /dashboard/video-editor (inside EditorTimeline) and the content review page.
+//
+// LIVE PREVIEW: the logo is shown ON the video and updates instantly as you
+// change corner / size / opacity — nothing is burned until you hit Apply. The
+// preview geometry mirrors the server ffmpeg overlay (3% margin, size = fraction
+// of video width, per-corner anchor) so what you see is what you get.
+//
 // Self-contained: uploads the logo (/api/upload/logo), then POSTs the stamp
-// (/api/editor/stamp-logo) and hands the stamped video URL back via onStamped().
+// (/api/editor/stamp-logo, or /api/content/[id]/stamp-logo when persisting).
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { ds } from "../../../lib/designSystem";
 import Card from "../../components/ui/Card";
 
@@ -20,6 +26,7 @@ export interface LogoStampCardProps {
 }
 
 type Corner = "tl" | "tr" | "bl" | "br" | "center";
+type Rect = { left: number; top: number; width: number; height: number };
 
 export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: LogoStampCardProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -29,6 +36,27 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
   const [opacity, setOpacity] = useState(0.9);
   const [working, setWorking] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+
+  // Content rect = where the actual picture sits inside the letterboxed <video>
+  // element. The logo overlay is positioned within THIS, so the preview matches
+  // the burned result on portrait or landscape clips.
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [contentRect, setContentRect] = useState<Rect | null>(null);
+
+  function measureContent() {
+    const v = videoRef.current;
+    if (!v) return;
+    const rect = v.getBoundingClientRect();
+    const vw = v.videoWidth || 16, vh = v.videoHeight || 9;
+    const s = Math.min(rect.width / vw, rect.height / vh);
+    const dispW = vw * s, dispH = vh * s;
+    setContentRect({ left: (rect.width - dispW) / 2, top: (rect.height - dispH) / 2, width: dispW, height: dispH });
+  }
+  useEffect(() => {
+    const onResize = () => measureContent();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const busy = uploading || working;
 
@@ -41,7 +69,7 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
       if (res.ok && data.filePath) {
         const url = `/api/media/${String(data.filePath).replace(/\\/g, "/").replace(/^.*?storage\//, "")}`;
         setLogoUrl(url);
-        setMsg("Logo ready — pick a spot and apply.");
+        setMsg("Logo ready — drag the sliders and watch the preview, then apply.");
       } else setMsg(data.error || "Logo upload failed");
     } catch (err) { setMsg("Logo upload failed: " + String(err)); }
     setUploading(false);
@@ -51,7 +79,6 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
     if (!videoUrl || !logoUrl) return;
     setWorking(true); setMsg(null);
     try {
-      // Persist onto the content item when we have its id; else a one-off stamp.
       const endpoint = contentItemId ? `/api/content/${contentItemId}/stamp-logo` : "/api/editor/stamp-logo";
       const res = await fetch(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -62,6 +89,20 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
       else setMsg(data.error || "Could not add logo");
     } catch (err) { setMsg("Could not add logo: " + String(err)); }
     setWorking(false);
+  }
+
+  // Per-corner CSS inside the content-rect box. Margin 3% matches the ffmpeg
+  // overlay (W*0.03 / H*0.03); width % = fraction of video width (matches scale).
+  function logoPos(): React.CSSProperties {
+    const M = "3%";
+    const base: React.CSSProperties = { position: "absolute", width: `${scale * 100}%`, opacity, pointerEvents: "none", filter: "drop-shadow(0 1px 3px rgba(0,0,0,0.4))" };
+    switch (corner) {
+      case "tl": return { ...base, top: M, left: M };
+      case "tr": return { ...base, top: M, right: M };
+      case "bl": return { ...base, bottom: M, left: M };
+      case "br": return { ...base, bottom: M, right: M };
+      case "center": return { ...base, top: "50%", left: "50%", transform: "translate(-50%,-50%)" };
+    }
   }
 
   const microLabel: React.CSSProperties = {
@@ -82,28 +123,44 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
     <Card style={{ marginTop: 10 }}>
       <label style={microLabel}>Add My Logo (Stamp)</label>
       <p style={{ fontSize: 10, color: ds.color.mute, marginBottom: 10 }}>
-        Burn your own logo onto this video — small and in a corner, like an AI generator&apos;s badge. Doesn&apos;t block the shot.
+        Burn your own logo onto this video — small, in a corner, like an AI generator&apos;s badge. Adjust below and watch the live preview; nothing changes until you hit Apply.
       </p>
 
-      {/* Upload / preview */}
+      {/* Upload */}
       <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
         <label style={{ ...ghostBtn, display: "inline-flex", alignItems: "center", gap: 6, opacity: busy ? 0.5 : 1, cursor: busy ? "not-allowed" : "pointer" }}>
           {uploading ? "Uploading…" : logoUrl ? "Change logo" : "Upload logo (PNG)"}
           <input type="file" accept="image/*" style={{ display: "none" }} disabled={busy}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadLogo(f); e.currentTarget.value = ""; }} />
         </label>
-        {logoUrl && (
-          // Checkerboard so a transparent PNG is visible.
-          <span style={{
-            display: "inline-block", padding: 4, borderRadius: 6, border: `1px solid ${ds.color.line2}`,
-            backgroundImage: "linear-gradient(45deg,#666 25%,transparent 25%),linear-gradient(-45deg,#666 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#666 75%),linear-gradient(-45deg,transparent 75%,#666 75%)",
-            backgroundSize: "10px 10px", backgroundPosition: "0 0,0 5px,5px -5px,-5px 0px",
-          }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logoUrl} alt="logo" style={{ height: 34, display: "block", objectFit: "contain" }} />
-          </span>
-        )}
+        {logoUrl && <span style={{ fontSize: 10, color: ds.color.mint }}>logo loaded ✓</span>}
       </div>
+
+      {/* LIVE PREVIEW — logo shown on the video, updates as you adjust */}
+      {videoUrl && (
+        <div style={{ position: "relative", marginBottom: 12, borderRadius: 8, overflow: "hidden", background: "#000" }}>
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            muted
+            playsInline
+            controls
+            onLoadedMetadata={measureContent}
+            style={{ width: "100%", maxHeight: "min(55vh, 380px)", display: "block", objectFit: "contain" }}
+          />
+          {logoUrl && contentRect && (
+            <div style={{ position: "absolute", left: contentRect.left, top: contentRect.top, width: contentRect.width, height: contentRect.height, pointerEvents: "none" }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="logo preview" style={logoPos()} />
+            </div>
+          )}
+          {!logoUrl && (
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+              <span style={{ fontSize: 11, color: "#fff9", background: "rgba(0,0,0,0.5)", padding: "4px 10px", borderRadius: 999 }}>Upload a logo to preview it here</span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Position */}
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 6 }}>
@@ -123,7 +180,7 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
         BR = Bottom-Right (recommended) · BL · TR · TL · Center
       </p>
 
-      {/* Size + opacity */}
+      {/* Size + opacity — live */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
         <div>
           <label style={{ ...microLabel, marginBottom: 4 }}>Size ({Math.round(scale * 100)}%)</label>
@@ -145,7 +202,7 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
       )}
 
       <button onClick={handleApply} disabled={busy || !videoUrl || !logoUrl} style={solid(busy || !videoUrl || !logoUrl)}>
-        {working ? "Stamping…" : !logoUrl ? "Upload a logo first" : "Add my logo to this video"}
+        {working ? "Stamping…" : !logoUrl ? "Upload a logo first" : "Apply logo to this video"}
       </button>
     </Card>
   );
