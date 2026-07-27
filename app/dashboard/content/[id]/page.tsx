@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import type { ContentItem, ContentVersion, ContentStatus } from "@/types/content";
 import { buildOutputName } from "@/lib/projectNaming";
 import OverlayPanel from "../../../components/OverlayPanel";
+import LogoStampCard from "../../components/LogoStampCard";
 import type { OverlayLayer } from "@/modules/ffmpeg/overlay";
 import { ds } from "../../../../lib/designSystem";
 import ModelChip from "../../../components/ModelChip";
@@ -768,6 +769,11 @@ export default function ContentDetailPage() {
             }`}>
               {finishMsg.type === "ok" ? "✓ " : "✗ "}{finishMsg.text}
             </div>
+          )}
+
+          {/* ── Add my logo (stamp onto this finished video) ── */}
+          {item.mergedOutputPath && mergedUrl && (
+            <LogoStampCard videoUrl={mergedUrl} contentItemId={item.id} onStamped={() => fetchItem()} />
           )}
 
           {/* ── Share & Download ──────────────────────────── */}

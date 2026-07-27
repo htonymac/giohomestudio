@@ -13,11 +13,15 @@ import Card from "../../components/ui/Card";
 export interface LogoStampCardProps {
   videoUrl: string | null;
   onStamped?: (outputUrl: string) => void;
+  // When set, the stamp is PERSISTED onto this content item (its mergedOutputPath
+  // is replaced with the stamped video) via /api/content/[id]/stamp-logo, instead
+  // of just returning a one-off stamped file from /api/editor/stamp-logo.
+  contentItemId?: string;
 }
 
 type Corner = "tl" | "tr" | "bl" | "br" | "center";
 
-export default function LogoStampCard({ videoUrl, onStamped }: LogoStampCardProps) {
+export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: LogoStampCardProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [corner, setCorner] = useState<Corner>("br"); // Kling-style default
@@ -47,7 +51,9 @@ export default function LogoStampCard({ videoUrl, onStamped }: LogoStampCardProp
     if (!videoUrl || !logoUrl) return;
     setWorking(true); setMsg(null);
     try {
-      const res = await fetch("/api/editor/stamp-logo", {
+      // Persist onto the content item when we have its id; else a one-off stamp.
+      const endpoint = contentItemId ? `/api/content/${contentItemId}/stamp-logo` : "/api/editor/stamp-logo";
+      const res = await fetch(endpoint, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ videoUrl, logoUrl, corner, scale, opacity }),
       });

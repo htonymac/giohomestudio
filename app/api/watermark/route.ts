@@ -17,13 +17,15 @@ interface WatermarkSettings {
   opacity: number;     // 0-1
   scale: number;       // 0.05-0.5 (fraction of video width)
   margin: number;      // pixels from edge
+  enabled: boolean;    // auto-stamp finished commercials with this logo
 }
 
 function loadSettings(): WatermarkSettings {
   try {
-    return JSON.parse(fs.readFileSync(SETTINGS_FILE(), "utf-8"));
+    const s = JSON.parse(fs.readFileSync(SETTINGS_FILE(), "utf-8"));
+    return { enabled: false, ...s };  // default enabled:false for pre-existing files
   } catch {
-    return { logoPath: null, position: "bottom-right", opacity: 0.7, scale: 0.15, margin: 20 };
+    return { logoPath: null, position: "bottom-right", opacity: 0.7, scale: 0.15, margin: 20, enabled: false };
   }
 }
 
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
       opacity: body.opacity ?? current.opacity,
       scale: body.scale ?? current.scale,
       margin: body.margin ?? current.margin,
+      enabled: typeof body.enabled === "boolean" ? body.enabled : current.enabled,
     };
     saveSettings(updated);
     return NextResponse.json(updated);
