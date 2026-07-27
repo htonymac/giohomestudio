@@ -133,7 +133,16 @@ export default function LogoStampCard({ videoUrl, onStamped, contentItemId }: Lo
           <input type="file" accept="image/*" style={{ display: "none" }} disabled={busy}
             onChange={e => { const f = e.target.files?.[0]; if (f) handleUploadLogo(f); e.currentTarget.value = ""; }} />
         </label>
-        {logoUrl && <span style={{ fontSize: 10, color: ds.color.mint }}>logo loaded ✓</span>}
+        {logoUrl && (
+          <>
+            <span style={{ fontSize: 10, color: ds.color.mint }}>logo loaded ✓</span>
+            <button onClick={() => { setLogoUrl(null); setMsg(null); }} disabled={busy}
+              title="Clear the loaded logo (does not touch a logo already applied to the video)"
+              style={{ ...ghostBtn, padding: "5px 10px", fontSize: 10, color: ds.color.coral, borderColor: `${ds.color.coral}55`, cursor: busy ? "not-allowed" : "pointer" }}>
+              Remove
+            </button>
+          </>
+        )}
       </div>
 
       {/* LIVE PREVIEW — logo shown on the video, updates as you adjust */}
