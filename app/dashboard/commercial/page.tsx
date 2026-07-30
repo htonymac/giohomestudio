@@ -1771,6 +1771,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                               captionPosition={s.enhancementSettings?.captionPosition ?? "bottom"}
                               captionPreset={(s.enhancementSettings?.captionPreset ?? "realEstate") as PresetName}
                               fontOverride={s.enhancementSettings?.fontFamily ?? null}
+                              fontSizeScale={s.enhancementSettings?.fontSizeScale ?? 0.7}
                               aspectRatio={(project.aspectRatio ?? "9:16") as "9:16" | "16:9" | "1:1"}
                               previewWidth={previewStyle.width as number}
                               previewHeight={previewStyle.height as number}
@@ -2278,11 +2279,11 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 </div>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <label className={labelCls}>Size: {selectedSlide.enhancementSettings?.fontSize ?? 12}px</label>
+                    <label className={labelCls}>Caption size: {Math.round((selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7) * 100)}%</label>
                     <input
-                      type="range" min={8} max={48} step={1}
-                      value={selectedSlide.enhancementSettings?.fontSize ?? 12}
-                      onChange={e => patchSlideEnhancement(selectedSlide.id, { fontSize: Number(e.target.value) })}
+                      type="range" min={0.3} max={1.5} step={0.05}
+                      value={selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7}
+                      onChange={e => patchSlideEnhancement(selectedSlide.id, { fontSizeScale: Number(e.target.value) })}
                       className="w-full accent-[#7c5cfc]"
                     />
                   </div>
@@ -2534,19 +2535,6 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                   </div>
                 </div>
 
-                {/* Font size scale */}
-                <div>
-                  <label className={labelCls}>
-                    Caption size: {Math.round((selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7) * 100)}%
-                  </label>
-                  <input
-                    type="range" min={0.3} max={1.5} step={0.05}
-                    value={selectedSlide.enhancementSettings?.fontSizeScale ?? 0.7}
-                    onChange={e => patchSlideEnhancement(selectedSlide.id, { fontSizeScale: Number(e.target.value) })}
-                    className="w-full accent-[#7c5cfc]"
-                  />
-                  <div className="flex justify-between text-[10px] text-[#404060]"><span>30%</span><span>150%</span></div>
-                </div>
 
                 {/* Show narration as subtitle */}
                 <div className="flex items-center justify-between">

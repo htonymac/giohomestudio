@@ -15,6 +15,9 @@ interface CaptionPreviewProps {
   captionPreset?: PresetName;
   fontOverride?: string | null;
   aspectRatio: AspectRatio;
+  /** Caption size multiplier (the "Caption size" slider). Must match the render:
+   *  html-builder does preset.headlineSize * fontSizeScale. Default 0.7. */
+  fontSizeScale?: number;
   /** Preview container width in px */
   previewWidth: number;
   /** Preview container height in px */
@@ -32,6 +35,7 @@ export default function CaptionPreview({
   captionPreset = "realEstate",
   fontOverride,
   aspectRatio,
+  fontSizeScale = 0.7,
   previewWidth,
   previewHeight,
 }: CaptionPreviewProps) {
@@ -41,6 +45,9 @@ export default function CaptionPreview({
   const preset    = PRESETS[captionPreset] ?? PRESETS.realEstate;
   const { w, h }  = RENDER_DIMS[aspectRatio] ?? RENDER_DIMS["9:16"];
   const scale     = previewWidth / w;
+  // Caption font multiplier — mirrors html-builder (clamp 0.3–2.0) so the
+  // preview resizes with the "Caption size" slider, matching the render.
+  const captionScale = Math.max(0.3, Math.min(2.0, fontSizeScale));
   const { headline, sublines } = parseLines(text);
 
   if (!headline) return null;
@@ -112,7 +119,7 @@ export default function CaptionPreview({
             <p
               style={{
                 fontFamily: fontStack,
-                fontSize: preset.headlineSize,
+                fontSize: Math.round(preset.headlineSize * captionScale),
                 fontWeight: preset.headlineWeight,
                 color: preset.headlineColor,
                 textTransform: preset.headlineTransform,
@@ -135,7 +142,7 @@ export default function CaptionPreview({
                 key={i}
                 style={{
                   fontFamily: fontStack,
-                  fontSize: preset.sublineSize,
+                  fontSize: Math.round(preset.sublineSize * captionScale),
                   fontWeight: preset.sublineWeight,
                   color: preset.sublineColor,
                   letterSpacing: preset.sublineLetterSpacing,
