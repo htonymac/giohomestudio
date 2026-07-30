@@ -102,15 +102,17 @@ function deriveAge(cat?: string, quality?: string): "young" | "mid" | "old" | un
   if (cat || quality) return "mid";
   return undefined;
 }
-function enrichVoice(v: { id: string; name: string; gender?: string; age?: string; previewUrl?: string }) {
+function enrichVoice(v: { id: string; name: string; gender?: string; age?: string; accent?: string; previewUrl?: string }) {
   const meta = KNOWN_VOICE_META[v.id];
   const gender = v.gender ?? deriveGender(meta?.category);
   const age = v.age ?? deriveAge(meta?.category, meta?.quality);
+  const accent = meta?.accent ?? v.accent;  // curated wins; else ElevenLabs' own label
   return {
     ...v,
     gender,
     age,
-    ...(meta ? { category: meta.category, quality: meta.quality, accent: meta.accent, languages: meta.languages } : {}),
+    accent,
+    ...(meta ? { category: meta.category, quality: meta.quality, languages: meta.languages } : {}),
   };
 }
 

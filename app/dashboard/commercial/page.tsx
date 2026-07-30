@@ -1033,6 +1033,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
   const [elevenVoices, setElevenVoices] = useState<Array<{ id: string; name: string; accent?: string; category?: string; gender?: string; age?: string; previewUrl?: string }>>([]);
   const [voiceGender, setVoiceGender] = useState<"all" | "man" | "woman">("all");
   const [voiceAge, setVoiceAge] = useState<"all" | "young" | "mid" | "old">("all");
+  const [voiceAccent, setVoiceAccent] = useState<string>("all");
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   function playVoicePreview(url?: string) {
     if (!url) return;
@@ -3482,7 +3483,7 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
           {voiceEngine === "elevenlabs" && elevenVoices.length > 0 && (
             <div style={{ border: "1px solid #2a2a40", borderRadius: 8, padding: "10px 14px", background: "#0f0f0f" }}>
               <p className="text-xs font-semibold text-[#b090ff] mb-2">Premium Voice (ElevenLabs — pick a narrator)</p>
-              <p className="text-[10px] text-[#6060a0] mb-2">Filter by gender and age, then pick a narrator. Used at render when ElevenLabs is available (needs API quota); falls back to Piper otherwise.</p>
+              <p className="text-[10px] text-[#6060a0] mb-2">Filter by gender, age and country, then pick a narrator (▶ to hear a sample). Used at render when ElevenLabs is available (needs API quota); falls back to Piper otherwise.</p>
 
               {/* Gender + age filters */}
               <div className="flex flex-wrap gap-1.5 mb-1">
@@ -3500,12 +3501,28 @@ function CommercialEditor({ initialProject, onBack, initialCharacterId }: { init
                 ))}
               </div>
 
+              {/* Country / accent filter — built from the accents the voices carry */}
+              {(() => {
+                const accents = Array.from(new Set(elevenVoices.map(v => v.accent).filter(Boolean))) as string[];
+                if (accents.length === 0) return null;
+                return (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    <span className="text-[10px] text-[#6060a0] mr-1 self-center">Country:</span>
+                    {["all", ...accents.sort()].map(a => (
+                      <button key={a} type="button" onClick={() => setVoiceAccent(a)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] border capitalize transition-colors ${voiceAccent === a ? "border-[#7c5cfc] text-[#b090ff] bg-[#7c5cfc]/10" : "border-[#2a2a40] text-[#6060a0] hover:border-[#4a4a70]"}`}>{a === "all" ? "All" : a}</button>
+                    ))}
+                  </div>
+                );
+              })()}
+
               {(() => {
                 const filtered = elevenVoices.filter(v =>
                   (voiceGender === "all" || v.gender === voiceGender) &&
-                  (voiceAge === "all" || v.age === voiceAge)
+                  (voiceAge === "all" || v.age === voiceAge) &&
+                  (voiceAccent === "all" || v.accent === voiceAccent)
                 );
-                if (filtered.length === 0) return <p className="text-[10px] text-[#6060a0] mb-1">No voices match — try a different gender/age.</p>;
+                if (filtered.length === 0) return <p className="text-[10px] text-[#6060a0] mb-1">No voices match — try different filters.</p>;
                 return (
               <div className="grid grid-cols-2 gap-2 max-h-48 overflow-auto">
                 {filtered.map(v => (
